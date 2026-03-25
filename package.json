@@ -14,7 +14,10 @@
     "@iconify-json/lucide": "^1.2.98",
     "@iconify-json/simple-icons": "^1.2.74",
     "@nuxt/ui": "^4.5.1",
+    "@pinia/nuxt": "^0.11.3",
+    "flowbite": "^4.0.1",
     "nuxt": "^4.4.2",
+    "pinia": "^3.0.4",
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
