@@ -249,8 +249,10 @@
 
 <script setup>
 import {ref, computed, reactive, onMounted} from 'vue'
+import { useCommonStore } from '~/stores/common.js'
 
-const BASE = 'http://localhost:9100/holy/booking'
+const commonStore = useCommonStore()
+const BASE = commonStore.data.main_url + '/holy/booking'
 
 // ── 狀態 ──────────────────────────────────────────────────────────
 const apiOnline = ref(false)

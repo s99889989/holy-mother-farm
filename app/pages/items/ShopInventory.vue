@@ -609,10 +609,12 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
 
-const BASE_SHOP   = 'http://localhost:9100/holy/shop'
-const BASE_COMMON = 'http://localhost:9100/holy/common'
-const API_ORIGIN  = 'http://localhost:9100'
+const commonStore = useCommonStore()
+const BASE_SHOP   = commonStore.data.main_url + '/holy/shop'
+const BASE_COMMON = commonStore.data.main_url + '/holy/common'
+const API_ORIGIN  = commonStore.data.main_url
 
 const imgUrl = (path) => {
   if (!path) return ''
@@ -768,7 +770,7 @@ const uploadFiles = async (files) => {
     const formData = new FormData()
     files.forEach(f => formData.append('files', f))
     // 圖片上傳複用田園餐廳的 ImageController，路徑改用 shop 前綴
-    const res = await fetch(`http://localhost:9100/holy/shop/image/upload/${imageModal.item.key}`, { method: 'POST', body: formData })
+    const res = await fetch(`${API_ORIGIN}/holy/shop/image/upload/${imageModal.item.key}`, { method: 'POST', body: formData })
     const newPaths = await res.json()
     imageModal.images.push(...newPaths)
     const found = shopItems.value.find(i => i.key === imageModal.item.key)
@@ -782,7 +784,7 @@ const deleteImage = async (idx) => {
   const url = imageModal.images[idx]
   const fileName = url.split('/').pop()
   try {
-    await fetch(`http://localhost:9100/holy/shop/image/remove/${imageModal.item.key}?fileName=${fileName}`, { method: 'DELETE' })
+    await fetch(`${API_ORIGIN}/holy/shop/image/remove/${imageModal.item.key}?fileName=${fileName}`, { method: 'DELETE' })
     imageModal.images.splice(idx, 1)
     const found = shopItems.value.find(i => i.key === imageModal.item.key)
     if (found) found.images = [...imageModal.images]

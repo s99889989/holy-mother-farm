@@ -722,9 +722,11 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
 
-const BASE       = 'http://localhost:9100/holy'
-const API_ORIGIN = 'http://localhost:9100'
+const commonStore = useCommonStore()
+const BASE = commonStore.data.main_url + '/holy'
+const API_ORIGIN = commonStore.data.main_url
 
 const imgUrl = (path) => {
   if (!path) return ''
