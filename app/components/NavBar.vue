@@ -27,6 +27,10 @@ const dark_mode = useDarkModeStore()
               訂位</NuxtLink>
           </li>
           <li>
+            <NuxtLink to="/DailyMenu" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
+              燦照</NuxtLink>
+          </li>
+          <li>
             <button @click="dark_mode.change_dark_mode" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
               {{dark_mode.data.display_name}}
             </button>
