@@ -3,7 +3,7 @@
 
     <!-- ── 頂部導覽 ── -->
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
-      <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-orange-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">菜</div>
           <div>
@@ -11,10 +11,27 @@
             <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Holy Mother Farm</p>
           </div>
         </div>
-        <span :class="apiOnline ? 'text-green-600' : 'text-red-500'" class="text-xs flex items-center gap-1.5 font-medium">
-          <span :class="apiOnline ? 'bg-green-500' : 'bg-red-400'" class="w-2 h-2 rounded-full"></span>
-          <span class="hidden sm:inline">{{ apiOnline ? '連線中' : '離線' }}</span>
-        </span>
+        <div class="flex items-center gap-3">
+          <span :class="apiOnline ? 'text-green-600' : 'text-red-500'" class="text-xs flex items-center gap-1.5 font-medium">
+            <span :class="apiOnline ? 'bg-green-500' : 'bg-red-400'" class="w-2 h-2 rounded-full"></span>
+            <span class="hidden sm:inline">{{ apiOnline ? '連線中' : '離線' }}</span>
+          </span>
+          <!-- 編輯 / 查看切換 -->
+          <button @click="isEditMode = !isEditMode"
+                  :class="isEditMode
+              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700'
+              : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors">
+            <svg v-if="isEditMode" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            {{ isEditMode ? '編輯中' : '查看' }}
+          </button>
+        </div>
       </div>
     </header>
 
@@ -35,16 +52,14 @@
             </div>
             <div class="grid grid-cols-7 mb-1">
               <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
-                class="text-center text-sm text-stone-400 dark:text-stone-500 font-medium py-1">{{ w }}</div>
+                   class="text-center text-sm text-stone-400 dark:text-stone-500 font-medium py-1">{{ w }}</div>
             </div>
             <div class="grid grid-cols-7 gap-1">
               <div v-for="(day, idx) in calDays" :key="idx"
-                class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
-                :class="dayClass(day)"
-                @click="day.date && selectDate(day.date)">
+                   class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
+                   :class="dayClass(day)"
+                   @click="day.date && selectDate(day.date)">
                 <span>{{ day.label }}</span>
-                <span v-if="day.date && markedDates.includes(day.date)"
-                  class="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-orange-500"></span>
               </div>
             </div>
             <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100 dark:border-stone-700">
@@ -55,87 +70,107 @@
               <button @click="selectDate(todayStr)" class="text-sm text-orange-700 dark:text-orange-400 hover:text-orange-800 font-medium">今天</button>
             </div>
           </div>
-
-          <!-- 當日統計 -->
-          <div v-if="selectedDate && menuItems.length > 0"
-            class="mt-3 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-800 p-4">
-            <p class="text-sm text-orange-700 dark:text-orange-300 font-medium">
-              今日共 <span class="text-lg font-bold">{{ menuItems.length }}</span> 道菜
-            </p>
-          </div>
         </div>
 
-        <!-- ── 右欄：菜色列表 ── -->
+        <!-- ── 右欄：菜色分類 ── -->
         <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-base sm:text-lg">
-              {{ selectedDate ? selectedDate + ' 菜色' : '請選擇日期' }}
-            </h2>
-            <button v-if="selectedDate" @click="openModal(null)"
-              class="flex items-center gap-1 px-3 py-1.5 bg-orange-700 text-white text-sm rounded-lg hover:bg-orange-800 transition-colors">
-              <span class="text-base leading-none">+</span> 新增菜色
-            </button>
-          </div>
-
-          <!-- 菜色卡片 -->
           <div v-if="selectedDate">
-            <div v-if="menuItems.length === 0"
-              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-10 text-center text-stone-400 text-sm shadow-sm">
-              今天還沒有菜色紀錄
-            </div>
-
-            <div class="space-y-4">
-              <div v-for="item in menuItems" :key="item.id"
-                class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-
-                <!-- 圖片橫幅（有圖才顯示）-->
-                <div v-if="item.images && item.images.length > 0" class="relative">
-                  <div class="flex gap-1 p-2 overflow-x-auto scrollbar-none">
-                    <div v-for="(url, idx) in item.images" :key="idx"
-                      class="flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 cursor-pointer hover:opacity-90 transition-opacity"
-                      @click="previewUrl = imgUrl(url)">
-                      <img :src="imgUrl(url)" :alt="item.name" class="w-full h-full object-cover" />
-                    </div>
-                    <!-- 新增圖片按鈕 -->
-                    <button @click="openImageUpload(item)"
-                      class="flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center text-stone-300 hover:border-orange-500 hover:text-orange-400 transition-colors">
-                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    </button>
-                  </div>
+            <div class="space-y-5">
+              <div v-for="section in sections" :key="section.type">
+                <!-- 分類標題 -->
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="font-semibold text-stone-700 dark:text-stone-100 flex items-center gap-2">
+                    <span :class="section.badge">{{ section.label }}</span>
+                    <span class="text-sm font-normal text-stone-400">{{ itemsByType(section.type).length }} 道</span>
+                  </h3>
+                  <button v-if="isEditMode" @click="addItem(section.type)"
+                          class="text-sm text-stone-400 hover:text-orange-600 transition-colors flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    新增
+                  </button>
                 </div>
 
-                <!-- 菜色內容 -->
-                <div class="px-4 py-3">
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="flex-1">
-                      <h3 class="font-bold text-stone-800 dark:text-stone-100 text-lg">{{ item.name }}</h3>
+                <!-- 品項卡片 -->
+                <div class="space-y-2">
+                  <div v-for="item in itemsByType(section.type)" :key="item.id"
+                       class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
 
-                      <!-- 食材標籤 -->
-                      <div v-if="item.ingredients && item.ingredients.length > 0" class="flex flex-wrap gap-1.5 mt-2">
-                        <span v-for="ing in item.ingredients" :key="ing"
-                          class="px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm rounded-full">
-                          {{ ing }}
-                        </span>
+                    <!-- 圖片列 -->
+                    <div v-if="item.images && item.images.length > 0"
+                         class="flex gap-1 p-2 overflow-x-auto scrollbar-none">
+                      <div v-for="(url, imgIdx) in item.images" :key="imgIdx"
+                           :class="isEditMode ? 'w-20 h-20' : 'w-28 h-28 sm:w-36 sm:h-36'"
+                           class="flex-shrink-0 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 cursor-pointer hover:opacity-90 transition-all"
+                           @click="previewUrl = imgUrl(url)">
+                        <img :src="imgUrl(url)" :alt="item.name" class="w-full h-full object-cover" />
                       </div>
-
-                      <p v-if="item.note" class="text-sm text-stone-400 dark:text-stone-500 mt-2">{{ item.note }}</p>
-                    </div>
-
-                    <!-- 操作按鈕 -->
-                    <div class="flex flex-col gap-1.5 flex-shrink-0">
-                      <button @click="openModal(item)"
-                        class="px-2.5 py-1 text-sm border border-blue-300 dark:border-blue-700 text-blue-500 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                        編輯
-                      </button>
-                      <button v-if="!item.images || item.images.length === 0" @click="openImageUpload(item)"
-                        class="px-2.5 py-1 text-sm border border-orange-300 dark:border-orange-700 text-orange-500 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors">
-                        圖片
-                      </button>
-                      <button @click="confirmDelete(item)"
-                        class="px-2.5 py-1 text-sm border border-red-300 dark:border-red-700 text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        刪除
+                      <button v-if="isEditMode" @click="openImageUpload(item)"
+                              class="flex-shrink-0 w-20 h-20 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center text-stone-300 hover:border-orange-400 hover:text-orange-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                       </button>
                     </div>
+
+                    <div class="px-4 py-3">
+                      <div class="flex items-start gap-3">
+                        <div class="flex-1 min-w-0">
+                          <!-- 菜名 -->
+                          <input v-if="isEditMode" v-model="item.name"
+                                 :placeholder="section.placeholder"
+                                 @blur="autoSave(item)"
+                                 class="w-full font-semibold text-stone-800 dark:text-stone-100 text-base bg-transparent border-b border-transparent hover:border-stone-200 dark:hover:border-stone-600 focus:border-orange-400 focus:outline-none pb-0.5 transition-colors" />
+                          <p v-else class="font-bold text-stone-800 dark:text-stone-100 text-lg leading-snug">
+                            {{ item.name || '（未填）' }}
+                          </p>
+
+                          <!-- 食材標籤 -->
+                          <div class="flex flex-wrap gap-1 mt-2 items-center">
+                            <span v-for="(ing, ingIdx) in item.ingredients" :key="ingIdx"
+                                  class="flex items-center gap-0.5 px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-xs rounded-full">
+                              {{ ing }}
+                              <button v-if="isEditMode" @click="item.ingredients.splice(ingIdx, 1); autoSave(item)"
+                                      class="text-green-300 hover:text-red-400 leading-none ml-0.5">×</button>
+                            </span>
+                            <input v-if="isEditMode"
+                                   v-model="ingredientDraft[item.id]"
+                                   placeholder="+ 食材"
+                                   @keydown.enter.prevent="addIngredientToItem(item)"
+                                   @blur="addIngredientToItem(item)"
+                                   class="px-2 py-0.5 text-xs bg-stone-50 dark:bg-zinc-800 border border-dashed border-stone-300 dark:border-stone-600 rounded-full text-stone-400 focus:outline-none focus:border-orange-400 w-16 focus:w-28 transition-all" />
+                          </div>
+
+                          <!-- 備註 -->
+                          <input v-if="isEditMode && (item.note || showNote[item.id])"
+                                 v-model="item.note"
+                                 placeholder="備註…"
+                                 @blur="autoSave(item)"
+                                 class="w-full text-xs text-stone-400 dark:text-stone-500 bg-transparent border-none focus:outline-none mt-1.5 italic" />
+                          <p v-else-if="!isEditMode && item.note"
+                             class="text-sm text-stone-400 dark:text-stone-500 mt-1.5 italic">{{ item.note }}</p>
+                        </div>
+
+                        <!-- 操作（僅編輯模式）-->
+                        <div v-if="isEditMode" class="flex flex-col gap-0.5 flex-shrink-0 mt-0.5">
+                          <button v-if="!item.images || item.images.length === 0"
+                                  @click="openImageUpload(item)"
+                                  class="p-1.5 text-stone-300 hover:text-orange-500 transition-colors" title="新增圖片">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                          </button>
+                          <button @click="showNote[item.id] = !showNote[item.id]"
+                                  class="p-1.5 text-stone-300 hover:text-stone-500 transition-colors" title="備註">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                          </button>
+                          <button @click="confirmDelete(item)"
+                                  class="p-1.5 text-stone-200 hover:text-red-400 transition-colors" title="刪除">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="itemsByType(section.type).length === 0"
+                       class="text-center py-4 text-stone-300 dark:text-stone-600 text-sm border border-dashed border-stone-200 dark:border-stone-700 rounded-2xl">
+                    尚無{{ section.label }}
                   </div>
                 </div>
               </div>
@@ -149,126 +184,44 @@
       </div>
     </div>
 
-    <!-- ════════ 新增/編輯 Modal ════════ -->
-    <div v-if="modal.show" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
-        <h3 class="text-base font-bold text-stone-800 dark:text-stone-100 mb-4">{{ modal.isNew ? '新增菜色' : '編輯菜色' }}</h3>
-
-        <div class="space-y-4">
-          <!-- 菜名 -->
-          <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">菜名 *</label>
-            <input v-model="form.name" type="text" placeholder="例：農莊時蔬炒飯"
-              class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
-          </div>
-
-          <!-- 食材 -->
-          <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-2">食材清單</label>
-
-            <!-- 從品項選 -->
-            <div class="mb-2">
-              <p class="text-xs text-stone-400 mb-1.5">從現有品項選取</p>
-              <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-stone-50 dark:bg-zinc-800 rounded-lg border border-stone-200 dark:border-stone-700">
-                <button v-for="item in allItems" :key="item.key"
-                  @click="toggleIngredient(item.name)"
-                  :class="form.ingredients.includes(item.name)
-                    ? 'bg-orange-600 text-white border-orange-600'
-                    : 'bg-white dark:bg-zinc-700 text-stone-600 dark:text-stone-200 border-stone-200 dark:border-stone-600 hover:border-orange-400'"
-                  class="px-2 py-0.5 text-sm border rounded-full transition-colors">
-                  {{ item.name }}
-                </button>
-              </div>
-            </div>
-
-            <!-- 手動輸入 -->
-            <div class="flex gap-2">
-              <input v-model="ingredientInput" type="text" placeholder="手動輸入食材"
-                @keydown.enter.prevent="addIngredient"
-                class="flex-1 border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
-              <button @click="addIngredient"
-                class="px-3 py-2 bg-orange-700 text-white text-sm rounded-lg hover:bg-orange-800 transition-colors">新增</button>
-            </div>
-
-            <!-- 已選食材 -->
-            <div v-if="form.ingredients.length > 0" class="flex flex-wrap gap-1.5 mt-2">
-              <span v-for="(ing, idx) in form.ingredients" :key="idx"
-                class="flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm rounded-full">
-                {{ ing }}
-                <button @click="form.ingredients.splice(idx, 1)" class="text-green-400 hover:text-red-500 transition-colors leading-none">×</button>
-              </span>
-            </div>
-          </div>
-
-          <!-- 備註 -->
-          <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
-            <textarea v-model="form.note" placeholder="特殊說明、烹調方式等" rows="2"
-              class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none" />
-          </div>
-        </div>
-
-        <div class="flex gap-2 mt-5">
-          <button @click="modal.show = false"
-            class="flex-1 px-4 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors">取消</button>
-          <button @click="saveMenuItem" :disabled="!form.name"
-            class="flex-1 px-4 py-2.5 text-sm bg-orange-700 text-white rounded-xl hover:bg-orange-800 transition-colors disabled:opacity-50">
-            {{ modal.isNew ? '新增' : '儲存' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- ════════ 圖片上傳 Modal ════════ -->
     <div v-if="imageModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
       <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <div>
             <h3 class="text-base font-bold text-stone-800 dark:text-stone-100">圖片管理</h3>
-            <p class="text-xs text-stone-400 mt-0.5">{{ imageModal.item?.name }}</p>
+            <p class="text-xs text-stone-400 mt-0.5">{{ imageModal.item?.name || '未命名' }}</p>
           </div>
           <button @click="imageModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-
-        <!-- 現有圖片 -->
         <div class="mb-4">
-          <p class="text-sm font-medium text-stone-500 dark:text-stone-400 mb-2">現有圖片（{{ imageModal.images.length }} 張）</p>
           <div v-if="imageModal.images.length > 0" class="grid grid-cols-3 sm:grid-cols-4 gap-2">
             <div v-for="(url, idx) in imageModal.images" :key="idx"
-              class="relative group aspect-square rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700">
-              <img :src="imgUrl(url)" :alt="`圖片 ${idx+1}`" class="w-full h-full object-cover cursor-pointer" @click="previewUrl = imgUrl(url)" />
+                 class="relative group aspect-square rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700">
+              <img :src="imgUrl(url)" class="w-full h-full object-cover cursor-pointer" @click="previewUrl = imgUrl(url)" />
               <button @click="deleteMenuImage(idx)"
-                class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-100 transition-opacity hover:bg-red-600">
+                      class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-100 hover:bg-red-600">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
           </div>
           <p v-else class="text-sm text-stone-400 py-4 text-center border border-dashed border-stone-200 dark:border-stone-700 rounded-xl">尚無圖片</p>
         </div>
-
-        <!-- 上傳區 -->
         <div @dragover.prevent="dragOver = true" @dragleave="dragOver = false" @drop.prevent="handleDrop"
-          :class="dragOver ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-stone-300 dark:border-stone-600 hover:border-orange-400'"
-          class="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all" @click="fileInputRef?.click()">
+             :class="dragOver ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-stone-300 dark:border-stone-600 hover:border-orange-400'"
+             class="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all" @click="fileInputRef?.click()">
           <svg class="w-8 h-8 mx-auto mb-2 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
           </svg>
           <p class="text-sm text-stone-500 dark:text-stone-400">點擊或拖曳圖片上傳</p>
-          <p class="text-xs text-stone-400 mt-0.5">支援 JPG、PNG、WebP，可多張</p>
           <input ref="fileInputRef" type="file" multiple accept="image/*" class="hidden" @change="handleFileSelect" />
         </div>
-
         <div v-if="uploading" class="mt-3 flex items-center gap-2 text-sm text-stone-500">
-          <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
-          上傳中…
+          <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>上傳中…
         </div>
-
-        <button @click="imageModal.show = false"
-          class="mt-4 w-full px-4 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-stone-300 rounded-xl hover:bg-stone-200 dark:hover:bg-zinc-700 transition-colors">
-          關閉
-        </button>
+        <button @click="imageModal.show = false" class="mt-4 w-full px-4 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">關閉</button>
       </div>
     </div>
 
@@ -280,7 +233,7 @@
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {{ toast.message }}
       </div>
@@ -289,15 +242,12 @@
 </template>
 
 <script setup>
-
 import { ref, computed, reactive, onMounted } from 'vue'
-
 import { useCommonStore } from '~/stores/common.js'
 
 const commonStore = useCommonStore()
-
-const BASE = commonStore.data.main_url + '/holy/menu'
-const API_ORIGIN = commonStore.data.main_url
+const BASE        = commonStore.data.main_url + '/holy/menu'
+const API_ORIGIN  = commonStore.data.main_url
 
 const imgUrl = (path) => {
   if (!path) return ''
@@ -305,22 +255,32 @@ const imgUrl = (path) => {
   return API_ORIGIN + path
 }
 
+// ── 分類設定 ──────────────────────────────────────────────────────
+const sections = [
+  { type: 'dish', label: '菜',   badge: 'px-2 py-0.5 rounded-full text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-semibold',  placeholder: '菜名…' },
+  { type: 'soup', label: '湯',   badge: 'px-2 py-0.5 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-semibold',    placeholder: '湯名…' },
+  { type: 'tea',  label: '茶桶', badge: 'px-2 py-0.5 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold', placeholder: '茶名…' },
+]
+
 // ── 狀態 ──────────────────────────────────────────────────────────
-const apiOnline      = ref(false)
-const menuItems      = ref([])
-const markedDates    = ref([])
-const allItems       = ref([])   // 來自 restaurant + shop 的所有品項（供食材選取）
-const selectedDate   = ref('')
-const previewUrl     = ref('')
-const fileInputRef   = ref(null)
-const dragOver       = ref(false)
-const uploading      = ref(false)
-const ingredientInput = ref('')
+const apiOnline       = ref(false)
+const menuItems       = ref([])
+const dateStatus      = ref({})   // { "2026-03-26": "complete" | "partial" }
+const selectedDate    = ref('')
+const previewUrl      = ref('')
+const fileInputRef    = ref(null)
+const dragOver        = ref(false)
+const uploading       = ref(false)
+const isEditMode      = ref(true)   // true=編輯，false=查看
+const ingredientDraft = reactive({})
+const showNote        = reactive({})
 
 const today    = new Date()
 const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
 const calYear  = ref(today.getFullYear())
 const calMonth = ref(today.getMonth() + 1)
+
+const itemsByType = (type) => menuItems.value.filter(i => i.type === type)
 
 // ── 日曆 ──────────────────────────────────────────────────────────
 const calLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
@@ -330,7 +290,7 @@ const calDays  = computed(() => {
   const days = []
   for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
   for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+    const mm = String(calMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
     days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
   }
   return days
@@ -339,6 +299,8 @@ const dayClass = (day) => {
   if (!day.date) return 'cursor-default'
   if (day.date === selectedDate.value) return 'bg-orange-700 text-white font-bold shadow-sm'
   if (day.date === todayStr) return 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-semibold hover:bg-orange-200'
+  if (dateStatus.value[day.date] === 'complete') return 'text-green-600 dark:text-green-400 font-semibold hover:bg-stone-100 dark:hover:bg-zinc-700'
+  if (dateStatus.value[day.date] === 'partial')  return 'text-amber-500 dark:text-amber-400 font-semibold hover:bg-stone-100 dark:hover:bg-zinc-700'
   return 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'
 }
 const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`)
@@ -351,42 +313,27 @@ const nextMonth = () => {
   if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
   fetchMarkedDates()
 }
+
 const selectDate = async (date) => {
   selectedDate.value = date
+  await fetch(`${BASE}/init/${date}`, { method: 'POST' })
   await fetchMenuItems()
-}
-
-// ── Modal ─────────────────────────────────────────────────────────
-const modal = reactive({ show: false, isNew: true })
-const form  = reactive({ id: '', date: '', name: '', ingredients: [], note: '' })
-
-const openModal = (item) => {
-  modal.isNew = !item
-  if (item) { Object.assign(form, { ...item, ingredients: [...item.ingredients] }) }
-  else { Object.assign(form, { id: '', date: selectedDate.value, name: '', ingredients: [], note: '' }) }
-  modal.show = true
-}
-
-const imageModal = reactive({ show: false, item: null, images: [] })
-const openImageUpload = (item) => {
-  imageModal.item = item
-  imageModal.images = [...(item.images || [])]
-  imageModal.show = true
+  await fetchMarkedDates()   // 重新計算狀態（init 後可能從無到有）
 }
 
 // ── 食材 ──────────────────────────────────────────────────────────
-const toggleIngredient = (name) => {
-  const idx = form.ingredients.indexOf(name)
-  if (idx >= 0) form.ingredients.splice(idx, 1)
-  else form.ingredients.push(name)
-}
-const addIngredient = () => {
-  const val = ingredientInput.value.trim()
-  if (val && !form.ingredients.includes(val)) form.ingredients.push(val)
-  ingredientInput.value = ''
+const addIngredientToItem = (item) => {
+  const val = (ingredientDraft[item.id] || '').trim()
+  if (val && !item.ingredients.includes(val)) {
+    item.ingredients.push(val)
+    autoSave(item)
+  }
+  ingredientDraft[item.id] = ''
 }
 
 // ── 圖片 ──────────────────────────────────────────────────────────
+const imageModal = reactive({ show: false, item: null, images: [] })
+const openImageUpload = (item) => { imageModal.item = item; imageModal.images = [...(item.images || [])]; imageModal.show = true }
 const handleFileSelect = (e) => uploadImages(Array.from(e.target.files))
 const handleDrop = (e) => { dragOver.value = false; uploadImages(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))) }
 
@@ -399,14 +346,12 @@ const uploadImages = async (files) => {
     const res = await fetch(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, { method: 'POST', body: formData })
     const newPaths = await res.json()
     imageModal.images.push(...newPaths)
-    // 同步更新 menuItems
     const found = menuItems.value.find(i => i.id === imageModal.item.id)
     if (found) found.images = [...imageModal.images]
     showToast(`成功上傳 ${newPaths.length} 張圖片`)
   } catch { showToast('上傳失敗') }
   finally { uploading.value = false; if (fileInputRef.value) fileInputRef.value.value = '' }
 }
-
 const deleteMenuImage = async (idx) => {
   if (!confirm('確定刪除？')) return
   const url = imageModal.images[idx]
@@ -427,67 +372,60 @@ const showToast = (msg) => { toast.message = msg; toast.show = true; setTimeout(
 // ── API ───────────────────────────────────────────────────────────
 const fetchMarkedDates = async () => {
   try {
-    const res = await fetch(`${BASE}/dates/${yearMonth.value}`)
-    markedDates.value = await res.json()
+    dateStatus.value = await (await fetch(`${BASE}/dates/${yearMonth.value}`)).json()
     apiOnline.value = true
   } catch { apiOnline.value = false }
 }
 
 const fetchMenuItems = async () => {
   if (!selectedDate.value) return
-  try { menuItems.value = await (await fetch(`${BASE}/get/${selectedDate.value}`)).json() }
-  catch (e) { console.error(e) }
-}
-
-// 同時拉田園餐廳和休憩小舖的品項，合併供食材選取
-const fetchAllItems = async () => {
   try {
-    const [r, s] = await Promise.all([
-      fetch(API_ORIGIN + '/holy/restaurant/items/get').then(r => r.json()).catch(() => []),
-      fetch(API_ORIGIN + '/holy/shop/items/get').then(r => r.json()).catch(() => [])
-    ])
-    allItems.value = [...r, ...s]
+    menuItems.value = await (await fetch(`${BASE}/get/${selectedDate.value}`)).json()
+    menuItems.value.forEach(i => { if (!ingredientDraft[i.id]) ingredientDraft[i.id] = '' })
   } catch (e) { console.error(e) }
 }
 
-const saveMenuItem = async () => {
-  if (!form.name) return
+// blur 時自動儲存
+const autoSave = async (item) => {
+  if (!item.id) return
   try {
-    if (modal.isNew) {
-      const res = await fetch(`${BASE}/save`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, date: selectedDate.value })
-      })
-      const saved = await res.json()
-      menuItems.value.push(saved)
-      if (!markedDates.value.includes(selectedDate.value)) markedDates.value.push(selectedDate.value)
-      showToast('菜色已新增')
-    } else {
-      await fetch(`${BASE}/update`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      })
-      await fetchMenuItems()
-      showToast('菜色已更新')
-    }
-    modal.show = false
+    await fetch(`${BASE}/update`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item)
+    })
+    await fetchMarkedDates()   // 更新完成狀態
+  } catch (e) { console.error(e) }
+}
+
+const addItem = async (type) => {
+  try {
+    const res = await fetch(`${BASE}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: selectedDate.value, type, name: '', ingredients: [], images: [], note: '' })
+    })
+    const saved = await res.json()
+    menuItems.value.push(saved)
+    ingredientDraft[saved.id] = ''
   } catch (e) { console.error(e) }
 }
 
 const confirmDelete = async (item) => {
-  if (!confirm(`確定刪除「${item.name}」？`)) return
+  if (!confirm(`確定刪除${item.name ? `「${item.name}」` : '這個項目'}？`)) return
   try {
     await fetch(`${BASE}/remove/${item.date}/${item.id}`, { method: 'DELETE' })
     menuItems.value = menuItems.value.filter(i => i.id !== item.id)
-    if (menuItems.value.length === 0) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
-    showToast('菜色已刪除')
+    showToast('已刪除')
   } catch (e) { console.error(e) }
 }
 
 onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchAllItems()])
+  await fetchMarkedDates()
   selectedDate.value = todayStr
+  await fetch(`${BASE}/init/${todayStr}`, { method: 'POST' })
   await fetchMenuItems()
+  await fetchMarkedDates()   // init 後重新計算
 })
 </script>
 

@@ -18,9 +18,9 @@
       </div>
       <nav class="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
         <button v-for="tab in tabs" :key="tab.key"
-          @click="switchTab(tab.key)"
-          :class="activeTab === tab.key ? 'bg-teal-700 text-white' : 'text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-700'"
-          class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0">
+                @click="switchTab(tab.key)"
+                :class="activeTab === tab.key ? 'bg-teal-700 text-white' : 'text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0">
           {{ tab.label }}
         </button>
       </nav>
@@ -37,7 +37,7 @@
             品項管理 <span class="text-stone-400 font-normal text-xs hidden sm:inline">— shop.yml</span>
           </h2>
           <button @click="openItemModal(null)"
-            class="flex items-center gap-1 px-3 py-1.5 bg-teal-700 text-white text-sm rounded-lg hover:bg-teal-800 transition-colors">
+                  class="flex items-center gap-1 px-3 py-1.5 bg-teal-700 text-white text-sm rounded-lg hover:bg-teal-800 transition-colors">
             <span class="text-base leading-none">+</span> 新增品項
           </button>
         </div>
@@ -45,12 +45,12 @@
         <!-- 類別篩選 -->
         <div class="flex gap-2 mb-4 flex-wrap">
           <button @click="itemCategoryFilter = ''"
-            :class="itemCategoryFilter === '' ? 'bg-teal-700 text-white' : 'bg-white dark:bg-zinc-900 text-stone-600 dark:text-stone-100 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-zinc-700'"
-            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">全部</button>
+                  :class="itemCategoryFilter === '' ? 'bg-teal-700 text-white' : 'bg-white dark:bg-zinc-900 text-stone-600 dark:text-stone-100 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">全部</button>
           <button v-for="cat in commonConfig.categories" :key="cat.name"
-            @click="itemCategoryFilter = cat.name"
-            :class="itemCategoryFilter === cat.name ? 'bg-teal-700 text-white' : 'bg-white dark:bg-zinc-900 text-stone-600 dark:text-stone-100 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-zinc-700'"
-            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                  @click="itemCategoryFilter = cat.name"
+                  :class="itemCategoryFilter === cat.name ? 'bg-teal-700 text-white' : 'bg-white dark:bg-zinc-900 text-stone-600 dark:text-stone-100 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
             {{ cat.name }}
             <span class="ml-1 text-xs opacity-70">{{ shopItems.filter(i => i.category === cat.name).length }}</span>
           </button>
@@ -59,11 +59,11 @@
         <!-- 手機：卡片 -->
         <div class="sm:hidden space-y-3">
           <div v-for="item in filteredItems" :key="item.key"
-            class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 shadow-sm">
+               class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 shadow-sm">
             <div class="flex gap-3">
               <button @click="openImageModal(item)" class="flex-shrink-0">
                 <div v-if="item.images && item.images.length > 0"
-                  class="relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700">
+                     class="relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700">
                   <img :src="imgUrl(item.images[0])" :alt="item.name" class="w-full h-full object-cover" />
                   <span v-if="item.images.length > 1" class="absolute bottom-0 right-0 bg-stone-800/70 text-white text-[9px] px-1 rounded-tl leading-4">+{{ item.images.length - 1 }}</span>
                 </div>
@@ -78,7 +78,7 @@
                     <p class="font-mono text-sm text-stone-400 dark:text-stone-300 mt-0.5">{{ item.key }}</p>
                   </div>
                   <span :class="item.onSale ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'"
-                    class="px-2 py-0.5 rounded-full text-sm font-medium flex-shrink-0">{{ item.onSale ? '上架' : '下架' }}</span>
+                        class="px-2 py-0.5 rounded-full text-sm font-medium flex-shrink-0">{{ item.onSale ? '上架' : '下架' }}</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
                   <span class="px-1.5 py-0.5 rounded-md text-sm" :class="catClass(item.category)">{{ item.category }}</span>
@@ -105,59 +105,59 @@
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead class="bg-stone-50 dark:bg-zinc-800 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
-                <tr>
-                  <th class="px-4 py-4 text-left">圖片</th>
-                  <th class="px-4 py-4 text-left">Key</th>
-                  <th class="px-4 py-4 text-left">品名</th>
-                  <th class="px-4 py-4 text-left">類別</th>
-                  <th class="px-4 py-4 text-left">製造商</th>
-                  <th class="px-4 py-4 text-right">售價</th>
-                  <th class="px-4 py-4 text-center">單位</th>
-                  <th class="px-4 py-4 text-center">期初</th>
-                  <th class="px-4 py-4 text-center">現有庫存</th>
-                  <th class="px-4 py-4 text-center">上架</th>
-                  <th class="px-4 py-4 text-center">操作</th>
-                </tr>
+              <tr>
+                <th class="px-4 py-4 text-left">圖片</th>
+                <th class="px-4 py-4 text-left">Key</th>
+                <th class="px-4 py-4 text-left">品名</th>
+                <th class="px-4 py-4 text-left">類別</th>
+                <th class="px-4 py-4 text-left">製造商</th>
+                <th class="px-4 py-4 text-right">售價</th>
+                <th class="px-4 py-4 text-center">單位</th>
+                <th class="px-4 py-4 text-center">期初</th>
+                <th class="px-4 py-4 text-center">現有庫存</th>
+                <th class="px-4 py-4 text-center">上架</th>
+                <th class="px-4 py-4 text-center">操作</th>
+              </tr>
               </thead>
               <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-                <tr v-for="item in filteredItems" :key="item.key" class="hover:bg-stone-50 dark:hover:bg-zinc-700/50 transition-colors">
-                  <td class="px-4 py-2">
-                    <button @click="openImageModal(item)" class="block">
-                      <div v-if="item.images && item.images.length > 0"
-                        class="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 hover:ring-2 hover:ring-teal-500 transition-all">
-                        <img :src="imgUrl(item.images[0])" :alt="item.name" class="w-full h-full object-cover" />
-                        <span v-if="item.images.length > 1" class="absolute bottom-0 right-0 bg-stone-800/70 text-white text-[9px] px-1 rounded-tl leading-4">+{{ item.images.length - 1 }}</span>
-                      </div>
-                      <div v-else class="w-16 h-16 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center text-stone-300 hover:border-teal-500 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                      </div>
-                    </button>
-                  </td>
-                  <td class="px-4 py-4 font-mono text-sm text-stone-400">{{ item.key }}</td>
-                  <td class="px-4 py-4 font-medium text-stone-800 dark:text-stone-100 text-base">{{ item.name }}</td>
-                  <td class="px-4 py-4"><span class="px-2 py-0.5 rounded-full text-sm" :class="catClass(item.category)">{{ item.category }}</span></td>
-                  <td class="px-4 py-4 text-stone-600 dark:text-stone-100">{{ item.make }}</td>
-                  <td class="px-4 py-4 text-right text-stone-700 dark:text-stone-100">${{ item.price }}</td>
-                  <td class="px-4 py-4 text-center text-stone-500 dark:text-stone-100">{{ item.unit }}</td>
-                  <td class="px-4 py-4 text-center text-stone-600 dark:text-stone-100">{{ item.openingStock }}</td>
-                  <td class="px-4 py-4 text-center">
-                    <span :class="stockClass(item.key)" class="text-base tabular-nums">{{ stockOf(item.key) }}</span>
-                  </td>
-                  <td class="px-4 py-4 text-center">
-                    <span :class="item.onSale ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-stone-100 text-stone-400'"
-                      class="px-2 py-0.5 rounded-full text-sm font-medium">{{ item.onSale ? '上架' : '下架' }}</span>
-                  </td>
-                  <td class="px-4 py-4 text-center">
-                    <div class="flex items-center justify-center gap-1.5">
-                      <button @click="openItemModal(item)" class="px-2.5 py-1 text-sm border border-blue-300 dark:border-blue-700 text-blue-500 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">編輯</button>
-                      <button @click="openImageModal(item)" class="px-2.5 py-1 text-sm border border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">圖片</button>
-                      <button @click="removeItem(item.key)" class="px-2.5 py-1 text-sm border border-red-300 dark:border-red-700 text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">刪除</button>
+              <tr v-for="item in filteredItems" :key="item.key" class="hover:bg-stone-50 dark:hover:bg-zinc-700/50 transition-colors">
+                <td class="px-4 py-2">
+                  <button @click="openImageModal(item)" class="block">
+                    <div v-if="item.images && item.images.length > 0"
+                         class="relative w-16 h-16 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 hover:ring-2 hover:ring-teal-500 transition-all">
+                      <img :src="imgUrl(item.images[0])" :alt="item.name" class="w-full h-full object-cover" />
+                      <span v-if="item.images.length > 1" class="absolute bottom-0 right-0 bg-stone-800/70 text-white text-[9px] px-1 rounded-tl leading-4">+{{ item.images.length - 1 }}</span>
                     </div>
-                  </td>
-                </tr>
-                <tr v-if="filteredItems.length === 0">
-                  <td colspan="11" class="px-4 py-10 text-center text-stone-400 text-sm">{{ itemCategoryFilter ? `沒有「${itemCategoryFilter}」類別的品項` : '尚無品項' }}</td>
-                </tr>
+                    <div v-else class="w-16 h-16 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center text-stone-300 hover:border-teal-500 transition-colors">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    </div>
+                  </button>
+                </td>
+                <td class="px-4 py-4 font-mono text-sm text-stone-400">{{ item.key }}</td>
+                <td class="px-4 py-4 font-medium text-stone-800 dark:text-stone-100 text-base">{{ item.name }}</td>
+                <td class="px-4 py-4"><span class="px-2 py-0.5 rounded-full text-sm" :class="catClass(item.category)">{{ item.category }}</span></td>
+                <td class="px-4 py-4 text-stone-600 dark:text-stone-100">{{ item.make }}</td>
+                <td class="px-4 py-4 text-right text-stone-700 dark:text-stone-100">${{ item.price }}</td>
+                <td class="px-4 py-4 text-center text-stone-500 dark:text-stone-100">{{ item.unit }}</td>
+                <td class="px-4 py-4 text-center text-stone-600 dark:text-stone-100">{{ item.openingStock }}</td>
+                <td class="px-4 py-4 text-center">
+                  <span :class="stockClass(item.key)" class="text-base tabular-nums">{{ stockOf(item.key) }}</span>
+                </td>
+                <td class="px-4 py-4 text-center">
+                    <span :class="item.onSale ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-stone-100 text-stone-400'"
+                          class="px-2 py-0.5 rounded-full text-sm font-medium">{{ item.onSale ? '上架' : '下架' }}</span>
+                </td>
+                <td class="px-4 py-4 text-center">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <button @click="openItemModal(item)" class="px-2.5 py-1 text-sm border border-blue-300 dark:border-blue-700 text-blue-500 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">編輯</button>
+                    <button @click="openImageModal(item)" class="px-2.5 py-1 text-sm border border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors">圖片</button>
+                    <button @click="removeItem(item.key)" class="px-2.5 py-1 text-sm border border-red-300 dark:border-red-700 text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">刪除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="filteredItems.length === 0">
+                <td colspan="11" class="px-4 py-10 text-center text-stone-400 text-sm">{{ itemCategoryFilter ? `沒有「${itemCategoryFilter}」類別的品項` : '尚無品項' }}</td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -189,13 +189,13 @@
               </div>
               <div class="grid grid-cols-7 mb-1">
                 <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
-                  class="text-center text-sm text-stone-400 dark:text-stone-500 font-medium py-1">{{ w }}</div>
+                     class="text-center text-sm text-stone-400 dark:text-stone-500 font-medium py-1">{{ w }}</div>
               </div>
               <div class="grid grid-cols-7 gap-1">
                 <div v-for="(day, idx) in calendarDays" :key="idx"
-                  class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
-                  :class="calDayClass(day)"
-                  @click="day.date && selectCalDate(day.date)">
+                     class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
+                     :class="calDayClass(day)"
+                     @click="day.date && selectCalDate(day.date)">
                   <span>{{ day.label }}</span>
                   <span v-if="day.date && savedDates.includes(day.date)" class="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-red-500"></span>
                 </div>
@@ -217,7 +217,7 @@
                 <span class="text-sm font-semibold text-stone-700 dark:text-stone-100">{{ selectedDate }} 出入庫明細</span>
                 <div class="flex items-center gap-2">
                   <button @click="confirmDeleteDay"
-                    class="px-3 py-1.5 border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 text-sm rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5">
+                          class="px-3 py-1.5 border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 text-sm rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                     刪除當日
                   </button>
@@ -276,60 +276,60 @@
               <div class="hidden sm:block overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead class="bg-stone-50 dark:bg-zinc-800 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
-                    <tr>
-                      <th class="px-4 py-4 text-left">品項</th>
-                      <th class="px-4 py-4 text-left">進貨來源</th>
-                      <th class="px-4 py-4 text-center text-green-600 dark:text-green-400">進貨量</th>
-                      <th class="px-4 py-4 text-center text-purple-600 dark:text-purple-400">調撥入</th>
-                      <th class="px-4 py-4 text-center text-amber-600 dark:text-amber-400">銷售</th>
-                      <th class="px-4 py-4 text-center text-orange-500">內部用</th>
-                      <th class="px-4 py-4 text-center text-red-500">報廢</th>
-                    </tr>
+                  <tr>
+                    <th class="px-4 py-4 text-left">品項</th>
+                    <th class="px-4 py-4 text-left">進貨來源</th>
+                    <th class="px-4 py-4 text-center text-green-600 dark:text-green-400">進貨量</th>
+                    <th class="px-4 py-4 text-center text-purple-600 dark:text-purple-400">調撥入</th>
+                    <th class="px-4 py-4 text-center text-amber-600 dark:text-amber-400">銷售</th>
+                    <th class="px-4 py-4 text-center text-orange-500">內部用</th>
+                    <th class="px-4 py-4 text-center text-red-500">報廢</th>
+                  </tr>
                   </thead>
                   <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-                    <tr v-for="item in shopItems.filter(i => i.needInventory)" :key="item.key" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
-                      <td class="px-4 py-4">
-                        <div class="flex items-center gap-3">
-                          <div class="flex-shrink-0">
-                            <img v-if="item.images && item.images.length > 0" :src="imgUrl(item.images[0])" :alt="item.name" class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700" />
-                            <div v-else class="w-14 h-14 rounded-xl bg-stone-100 dark:bg-zinc-800 flex items-center justify-center text-stone-300">
-                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            </div>
-                          </div>
-                          <div>
-                            <div class="font-medium text-stone-800 dark:text-stone-100 text-base">{{ item.name }}</div>
-                            <div class="text-xs text-stone-400">{{ item.unit }}</div>
+                  <tr v-for="item in shopItems.filter(i => i.needInventory)" :key="item.key" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+                    <td class="px-4 py-4">
+                      <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0">
+                          <img v-if="item.images && item.images.length > 0" :src="imgUrl(item.images[0])" :alt="item.name" class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700" />
+                          <div v-else class="w-14 h-14 rounded-xl bg-stone-100 dark:bg-zinc-800 flex items-center justify-center text-stone-300">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                           </div>
                         </div>
-                      </td>
-                      <td class="px-4 py-2">
-                        <select v-model="getDayItem(selectedDate, item.key).in[0].from"
-                          class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-400 w-32 outline-none">
-                          <option value="">—</option>
-                          <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
-                        </select>
-                      </td>
-                      <td class="px-4 py-2 text-center">
-                        <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
-                          class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none" />
-                      </td>
-                      <td class="px-4 py-2 text-center">
-                        <input v-model.number="getDayItem(selectedDate, item.key).transferIn[0].qty" type="number"
-                          class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-purple-400 outline-none" />
-                      </td>
-                      <td class="px-4 py-2 text-center">
-                        <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number"
-                          class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-amber-400 outline-none" />
-                      </td>
-                      <td class="px-4 py-2 text-center">
-                        <input v-model.number="getDayItem(selectedDate, item.key).foodServing" type="number"
-                          class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-orange-400 outline-none" />
-                      </td>
-                      <td class="px-4 py-2 text-center">
-                        <input v-model.number="getDayItem(selectedDate, item.key).out" type="number"
-                          class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-red-400 outline-none" />
-                      </td>
-                    </tr>
+                        <div>
+                          <div class="font-medium text-stone-800 dark:text-stone-100 text-base">{{ item.name }}</div>
+                          <div class="text-xs text-stone-400">{{ item.unit }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-2">
+                      <select v-model="getDayItem(selectedDate, item.key).in[0].from"
+                              class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-400 w-32 outline-none">
+                        <option value="">—</option>
+                        <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
+                      </select>
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                      <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
+                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none" />
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                      <input v-model.number="getDayItem(selectedDate, item.key).transferIn[0].qty" type="number"
+                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-purple-400 outline-none" />
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                      <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number"
+                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-amber-400 outline-none" />
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                      <input v-model.number="getDayItem(selectedDate, item.key).foodServing" type="number"
+                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-orange-400 outline-none" />
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                      <input v-model.number="getDayItem(selectedDate, item.key).out" type="number"
+                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-red-400 outline-none" />
+                    </td>
+                  </tr>
                   </tbody>
                 </table>
               </div>
@@ -361,9 +361,9 @@
         <!-- 手機卡片 -->
         <div class="sm:hidden space-y-3">
           <div v-for="(t, idx) in transferList" :key="idx"
-            class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 shadow-sm flex gap-3 items-center">
+               class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 shadow-sm flex gap-3 items-center">
             <img v-if="itemImageByKey(t.itemKey)" :src="itemImageByKey(t.itemKey)" :alt="t.itemKey"
-              class="w-16 h-16 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
+                 class="w-16 h-16 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
             <div v-else class="w-16 h-16 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             </div>
@@ -384,34 +384,34 @@
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead class="bg-stone-50 dark:bg-zinc-800/50 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
-                <tr>
-                  <th class="px-4 py-4 text-left">日期</th>
-                  <th class="px-4 py-4 text-left">品項</th>
-                  <th class="px-4 py-4 text-left">來源</th>
-                  <th class="px-4 py-4 text-center">數量</th>
-                </tr>
+              <tr>
+                <th class="px-4 py-4 text-left">日期</th>
+                <th class="px-4 py-4 text-left">品項</th>
+                <th class="px-4 py-4 text-left">來源</th>
+                <th class="px-4 py-4 text-center">數量</th>
+              </tr>
               </thead>
               <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-                <tr v-for="(t, idx) in transferList" :key="idx" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
-                  <td class="px-4 py-4 text-stone-600 dark:text-stone-100 whitespace-nowrap">{{ t.date }}</td>
-                  <td class="px-4 py-4">
-                    <div class="flex items-center gap-3">
-                      <img v-if="itemImageByKey(t.itemKey)" :src="itemImageByKey(t.itemKey)" :alt="t.itemKey"
-                        class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
-                      <div v-else class="w-14 h-14 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                      </div>
-                      <span class="font-medium text-stone-800 dark:text-stone-100 text-base">{{ itemNameByKey(t.itemKey) }}</span>
+              <tr v-for="(t, idx) in transferList" :key="idx" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+                <td class="px-4 py-4 text-stone-600 dark:text-stone-100 whitespace-nowrap">{{ t.date }}</td>
+                <td class="px-4 py-4">
+                  <div class="flex items-center gap-3">
+                    <img v-if="itemImageByKey(t.itemKey)" :src="itemImageByKey(t.itemKey)" :alt="t.itemKey"
+                         class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
+                    <div v-else class="w-14 h-14 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     </div>
-                  </td>
-                  <td class="px-4 py-4">
-                    <span class="px-2 py-0.5 rounded-full text-sm bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">← {{ t.from }}</span>
-                  </td>
-                  <td class="px-4 py-4 text-center font-semibold text-stone-700 dark:text-stone-100">{{ t.qty }}</td>
-                </tr>
-                <tr v-if="transferList.length === 0">
-                  <td colspan="4" class="px-4 py-10 text-center text-stone-400 text-sm">本月尚無調撥紀錄</td>
-                </tr>
+                    <span class="font-medium text-stone-800 dark:text-stone-100 text-base">{{ itemNameByKey(t.itemKey) }}</span>
+                  </div>
+                </td>
+                <td class="px-4 py-4">
+                  <span class="px-2 py-0.5 rounded-full text-sm bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">← {{ t.from }}</span>
+                </td>
+                <td class="px-4 py-4 text-center font-semibold text-stone-700 dark:text-stone-100">{{ t.qty }}</td>
+              </tr>
+              <tr v-if="transferList.length === 0">
+                <td colspan="4" class="px-4 py-10 text-center text-stone-400 text-sm">本月尚無調撥紀錄</td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -429,55 +429,6 @@
         </div>
       </div>
 
-      <!-- ════════════════════════════════════════════════════
-           Tab 4：設定管理（共用 common.yml）
-      ════════════════════════════════════════════════════ -->
-      <div v-if="activeTab === 'config'">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-base sm:text-lg">
-            設定管理 <span class="text-stone-400 font-normal text-xs hidden sm:inline">— common.yml（共用）</span>
-          </h2>
-          <button @click="saveCommon" class="px-3 py-1.5 bg-teal-700 text-white text-sm rounded-lg hover:bg-teal-800 transition-colors">儲存設定</button>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
-            <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-100 mb-3">品項類別</h3>
-            <div class="space-y-2">
-              <div v-for="(cat, key) in commonConfig.categories" :key="key" class="flex items-center gap-2">
-                <span class="text-xs text-stone-400 w-5 flex-shrink-0">{{ key }}</span>
-                <input v-model="cat.name" type="text" placeholder="中文名稱" class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 min-w-0" />
-                <input v-model="cat.en" type="text" placeholder="英文 key" maxlength="20" class="w-24 bg-white dark:bg-zinc-800 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-400 flex-shrink-0" />
-              </div>
-            </div>
-            <button @click="addCategory" class="mt-3 text-sm text-teal-700 dark:text-teal-400 hover:text-teal-800">+ 新增類別</button>
-          </div>
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
-            <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-100 mb-3">單位</h3>
-            <div class="space-y-2">
-              <div v-for="(unit, key) in commonConfig.units" :key="key" class="flex items-center gap-2">
-                <span class="text-xs text-stone-400 w-5">{{ key }}</span>
-                <input v-model="unit.name" type="text" class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" />
-              </div>
-            </div>
-            <button @click="addUnit" class="mt-3 text-sm text-teal-700 dark:text-teal-400 hover:text-teal-800">+ 新增單位</button>
-          </div>
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
-            <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-100 mb-3">製造商 / 供應商</h3>
-            <div class="space-y-2">
-              <div v-for="(make, key) in commonConfig.makes" :key="key" class="flex items-center gap-2">
-                <span class="text-xs text-stone-400 w-5">{{ key }}</span>
-                <input v-model="make.name" type="text" class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" />
-                <select v-model="make.role" class="border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-1.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400">
-                  <option value="self">自己</option>
-                  <option value="supplier">供應商</option>
-                  <option value="partner">姊妹店</option>
-                </select>
-              </div>
-            </div>
-            <button @click="addMake" class="mt-3 text-sm text-teal-700 dark:text-teal-400 hover:text-teal-800">+ 新增</button>
-          </div>
-        </div>
-      </div>
 
     </div>
 
@@ -495,7 +446,7 @@
               {{ itemModal.data.key || '請先選擇類別' }}
             </div>
             <input v-else v-model="itemModal.data.key" type="text" disabled
-              class="w-full border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800/60 text-stone-500 dark:text-stone-300 rounded-lg px-3 py-2 text-sm font-mono cursor-not-allowed" />
+                   class="w-full border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800/60 text-stone-500 dark:text-stone-300 rounded-lg px-3 py-2 text-sm font-mono cursor-not-allowed" />
           </div>
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">品名 *</label>
@@ -504,7 +455,7 @@
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">類別</label>
             <select v-model="itemModal.data.category" @change="onCategoryChange(itemModal.data.category)"
-              class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400">
+                    class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400">
               <option value="" disabled>請選擇類別</option>
               <option v-for="cat in commonConfig.categories" :key="cat.name" :value="cat.name">{{ cat.name }}</option>
             </select>
@@ -576,8 +527,8 @@
           <p v-else class="text-sm text-stone-400 py-6 text-center border border-dashed border-stone-200 dark:border-stone-700 rounded-xl">尚無圖片</p>
         </div>
         <div @dragover.prevent="imageDragOver = true" @dragleave="imageDragOver = false" @drop.prevent="handleDrop"
-          :class="imageDragOver ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-stone-300 dark:border-stone-600 hover:border-teal-400'"
-          class="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all" @click="triggerFileInput">
+             :class="imageDragOver ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-stone-300 dark:border-stone-600 hover:border-teal-400'"
+             class="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all" @click="triggerFileInput">
           <svg class="w-8 h-8 mx-auto mb-2 text-stone-300 dark:text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
           <p class="text-sm text-stone-500 dark:text-stone-400">點擊或拖曳圖片上傳</p>
           <p class="text-xs text-stone-400 mt-0.5">支援 JPG、PNG、WebP，可多張</p>
@@ -599,7 +550,7 @@
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {{ toast.message }}
       </div>
@@ -610,9 +561,9 @@
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
-
 const commonStore = useCommonStore()
-const BASE_SHOP   = commonStore.data.main_url + '/holy/shop'
+const BASE_SHOP       = commonStore.data.main_url + '/holy/shop'
+const BASE_RESTAURANT = commonStore.data.main_url + '/holy/restaurant'  // 品項共用田園餐廳
 const BASE_COMMON = commonStore.data.main_url + '/holy/common'
 const API_ORIGIN  = commonStore.data.main_url
 
@@ -627,7 +578,6 @@ const tabs = [
   { key: 'items',    label: '品項管理' },
   { key: 'inout',    label: '出入庫紀錄' },
   { key: 'transfer', label: '調撥管理' },
-  { key: 'config',   label: '設定管理' },
 ]
 const activeTab = ref('items')
 
@@ -770,7 +720,7 @@ const uploadFiles = async (files) => {
     const formData = new FormData()
     files.forEach(f => formData.append('files', f))
     // 圖片上傳複用田園餐廳的 ImageController，路徑改用 shop 前綴
-    const res = await fetch(`${API_ORIGIN}/holy/shop/image/upload/${imageModal.item.key}`, { method: 'POST', body: formData })
+    const res = await fetch(`${BASE_RESTAURANT}/image/upload/${imageModal.item.key}`, { method: 'POST', body: formData })
     const newPaths = await res.json()
     imageModal.images.push(...newPaths)
     const found = shopItems.value.find(i => i.key === imageModal.item.key)
@@ -784,7 +734,7 @@ const deleteImage = async (idx) => {
   const url = imageModal.images[idx]
   const fileName = url.split('/').pop()
   try {
-    await fetch(`${API_ORIGIN}/holy/shop/image/remove/${imageModal.item.key}?fileName=${fileName}`, { method: 'DELETE' })
+    await fetch(`${BASE_RESTAURANT}/image/remove/${imageModal.item.key}?fileName=${fileName}`, { method: 'DELETE' })
     imageModal.images.splice(idx, 1)
     const found = shopItems.value.find(i => i.key === imageModal.item.key)
     if (found) found.images = [...imageModal.images]
@@ -796,7 +746,7 @@ const setMainImage = (idx) => {
   imageModal.images.unshift(img)
   const found = shopItems.value.find(i => i.key === imageModal.item.key)
   if (found) found.images = [...imageModal.images]
-  fetch(`${BASE_SHOP}/items/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...imageModal.item, images: imageModal.images }) }).catch(console.error)
+  fetch(`${BASE_RESTAURANT}/items/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...imageModal.item, images: imageModal.images }) }).catch(console.error)
   showToast('已設為主圖')
 }
 
@@ -805,9 +755,7 @@ const toast = reactive({ show: false, message: '' })
 const showToast = (msg) => { toast.message = msg; toast.show = true; setTimeout(() => toast.show = false, 2500) }
 
 // ── 設定 ──────────────────────────────────────────────────────────
-const addCategory = () => { commonConfig.categories[String(Object.keys(commonConfig.categories).length + 1)] = { name: '', en: '' } }
-const addUnit     = () => { commonConfig.units[String(Object.keys(commonConfig.units).length + 1)] = { name: '' } }
-const addMake     = () => { commonConfig.makes[String(Object.keys(commonConfig.makes).length + 1)] = { name: '', role: 'supplier' } }
+// addCategory / addUnit / addMake → 已移至 CommonConfig.vue
 
 // ── 儲存前整數化 ─────────────────────────────────────────────────
 const sanitizeDayItem = (di) => ({
@@ -824,7 +772,7 @@ const fetchCommon = async () => {
   catch { apiOnline.value = false }
 }
 const fetchItems = async () => {
-  try { shopItems.value = await (await fetch(`${BASE_SHOP}/items/get`)).json() }
+  try { shopItems.value = await (await fetch(`${BASE_RESTAURANT}/items/get`)).json() }
   catch (e) { console.error(e) }
 }
 const fetchStock = async () => {
@@ -834,13 +782,13 @@ const fetchStock = async () => {
 const saveItem = async () => {
   if (!itemModal.data.key || !itemModal.data.name) return
   try {
-    await fetch(`${BASE_SHOP}/items/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemModal.data) })
+    await fetch(`${BASE_RESTAURANT}/items/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemModal.data) })
     await fetchItems(); itemModal.show = false; showToast('品項儲存成功')
   } catch (e) { console.error(e) }
 }
 const removeItem = async (key) => {
   if (!confirm(`確定刪除品項「${key}」？`)) return
-  try { await fetch(`${BASE_SHOP}/items/remove/${key}`, { method: 'DELETE' }); await fetchItems(); showToast('品項已刪除') }
+  try { await fetch(`${BASE_RESTAURANT}/items/remove/${key}`, { method: 'DELETE' }); await fetchItems(); showToast('品項已刪除') }
   catch (e) { console.error(e) }
 }
 const fetchInout = async () => {
@@ -878,30 +826,48 @@ const confirmDeleteDay = async () => {
   if (!selectedDate.value) return
   if (!confirm(`確定刪除 ${selectedDate.value} 的所有出入庫紀錄？`)) return
   try {
-    await fetch(`${BASE_SHOP}/inout/remove/${selectedMonth.value}/${selectedDate.value}`, { method: 'DELETE' })
+    await fetch(`${BASE_SHOP}/inout/remove/${selectedMonth.value}/${selectedDate.value}`, {method: 'DELETE'})
     delete inoutData.value[selectedDate.value]
     savedDates.value = savedDates.value.filter(d => d !== selectedDate.value)
     selectedDate.value = savedDates.value.length > 0 ? savedDates.value[savedDates.value.length - 1] : ''
     showToast('已刪除')
-  } catch (e) { showToast('刪除失敗') }
+  } catch (e) {
+    showToast('刪除失敗')
+  }
 }
 const fetchTransfers = async () => {
-  try { transferList.value = await (await fetch(`${BASE_SHOP}/inout/transfers/${selectedMonth.value}`)).json() }
-  catch (e) { console.error(e) }
+  try {
+    transferList.value = await (await fetch(`${BASE_SHOP}/inout/transfers/${selectedMonth.value}`)).json()
+  } catch (e) {
+    console.error(e)
+  }
 }
-const saveCommon = async () => {
-  try { await fetch(`${BASE_COMMON}/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(commonConfig) }); showToast('設定已儲存') }
-  catch (e) { console.error(e) }
-}
+// saveCommon → 已移至 CommonConfig.vue
 
 onMounted(async () => {
-  await fetchCommon(); await fetchItems(); await fetchStock(); await fetchInout(); await fetchTransfers()
+  await fetchCommon();
+  await fetchItems();
+  await fetchStock();
+  await fetchInout();
+  await fetchTransfers()
 })
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
-.scrollbar-none { scrollbar-width: none; }
-.scrollbar-none::-webkit-scrollbar { display: none; }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
 </style>

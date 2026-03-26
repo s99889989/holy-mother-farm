@@ -83,8 +83,8 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-start justify-between gap-1">
                   <div>
-                    <p class="font-semibold text-stone-800 dark:text-stone-100 text-base">{{ item.name }}</p>
-                    <p class="font-mono text-sm text-stone-400 dark:text-stone-300 dark:text-stone-300 mt-0.5">{{ item.key }}</p>
+                    <p class="font-semibold text-stone-800 dark:text-stone-100 text-base">{{ item.name }} <span class="text-sm font-normal text-stone-400">({{ item.unit }})</span></p>
+                    <p class="font-mono text-sm text-stone-400 dark:text-stone-300 mt-0.5">{{ item.key }}</p>
                   </div>
                   <span :class="item.onSale ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'"
                         class="px-2 py-0.5 rounded-full text-sm font-medium flex-shrink-0">
@@ -118,12 +118,10 @@
               <thead class="bg-stone-50 dark:bg-zinc-800 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-4 text-left">圖片</th>
-                <th class="px-4 py-4 text-left">Key</th>
                 <th class="px-4 py-4 text-left">品名</th>
                 <th class="px-4 py-4 text-left">類別</th>
                 <th class="px-4 py-4 text-left">製造商</th>
                 <th class="px-4 py-4 text-right">售價</th>
-                <th class="px-4 py-4 text-center">單位</th>
                 <th class="px-4 py-4 text-center">期初</th>
                 <th class="px-4 py-4 text-center">現有庫存</th>
                 <th class="px-4 py-4 text-center">上架</th>
@@ -151,12 +149,13 @@
                     </div>
                   </button>
                 </td>
-                <td class="px-4 py-4 font-mono text-sm text-stone-400">{{ item.key }}</td>
-                <td class="px-4 py-4 font-medium text-stone-800 dark:text-stone-100">{{ item.name }}</td>
+                <td class="px-4 py-4">
+                  <p class="font-medium text-stone-800 dark:text-stone-100">{{ item.name }} <span class="text-sm font-normal text-stone-400">({{ item.unit }})</span></p>
+                  <p class="font-mono text-xs text-stone-400 mt-0.5">{{ item.key }}</p>
+                </td>
                 <td class="px-4 py-4"><span class="px-2 py-0.5 rounded-full text-sm" :class="catClass(item.category)">{{ item.category }}</span></td>
                 <td class="px-4 py-4 text-stone-600 dark:text-stone-100">{{ item.make }}</td>
                 <td class="px-4 py-4 text-right text-stone-700 dark:text-stone-100">${{ item.price }}</td>
-                <td class="px-4 py-4 text-center text-stone-500">{{ item.unit }}</td>
                 <td class="px-4 py-4 text-center text-stone-600 dark:text-stone-100">{{ item.openingStock }}</td>
                 <td class="px-4 py-4 text-center">
                     <span :class="stockClass(item.key)" class="text-base tabular-nums">
@@ -178,7 +177,7 @@
                 </td>
               </tr>
               <tr v-if="restaurantItems.length === 0">
-                <td colspan="11" class="px-4 py-10 text-center text-stone-400 text-sm">{{ itemCategoryFilter ? `沒有「${itemCategoryFilter}」類別的品項` : '尚無品項' }}</td>
+                <td colspan="9" class="px-4 py-10 text-center text-stone-400 text-sm">{{ itemCategoryFilter ? `沒有「${itemCategoryFilter}」類別的品項` : '尚無品項' }}</td>
               </tr>
               </tbody>
             </table>
@@ -291,28 +290,34 @@
                     </div>
                   </div>
                   <div class="grid grid-cols-2 gap-2">
-                    <div>
-                      <label class="text-xs text-stone-400 block mb-1">進貨來源</label>
-                      <select v-model="getDayItem(selectedDate, item.key).in[0].from"
-                              class="w-full bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none">
-                        <option value="">—</option>
-                        <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label class="text-xs text-green-600 block mb-1">進貨量</label>
-                      <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
-                             class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none" />
+                    <div class="col-span-2">
+                      <label class="text-xs text-green-600 block mb-1">入庫（來源 + 數量）</label>
+                      <div class="flex gap-1.5">
+                        <select v-model="getDayItem(selectedDate, item.key).in[0].from"
+                                class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none">
+                          <option value="">—</option>
+                          <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
+                        </select>
+                        <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
+                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-sm outline-none" />
+                      </div>
                     </div>
                     <div>
                       <label class="text-xs text-amber-600 block mb-1">銷售</label>
                       <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number"
                              class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-2 text-sm outline-none text-stone-800 dark:text-stone-100" />
                     </div>
-                    <div>
-                      <label class="text-xs text-blue-600 block mb-1">調撥出</label>
-                      <input v-model.number="getDayItem(selectedDate, item.key).transferOut[0].qty" type="number"
-                             class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-2 text-sm outline-none text-stone-800 dark:text-stone-100" />
+                    <div class="col-span-2">
+                      <label class="text-xs text-blue-600 block mb-1">轉出（目標 + 數量）</label>
+                      <div class="flex gap-1.5">
+                        <select v-model="getDayItem(selectedDate, item.key).transferOut[0].to"
+                                class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none">
+                          <option value="">—</option>
+                          <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
+                        </select>
+                        <input v-model.number="getDayItem(selectedDate, item.key).transferOut[0].qty" type="number"
+                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-sm outline-none" />
+                      </div>
                     </div>
                     <div>
                       <label class="text-xs text-orange-500 block mb-1">內部用</label>
@@ -335,10 +340,9 @@
                   <thead class="bg-stone-50 dark:bg-zinc-800 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
                   <tr>
                     <th class="px-4 py-4 text-left">品項</th>
-                    <th class="px-4 py-4 text-left">進貨來源</th>
-                    <th class="px-4 py-4 text-center text-green-600 dark:text-green-400">進貨量</th>
+                    <th class="px-4 py-4 text-left text-green-600 dark:text-green-400">入庫</th>
                     <th class="px-4 py-4 text-center text-amber-600 dark:text-amber-400">銷售</th>
-                    <th class="px-4 py-4 text-center text-blue-600 dark:text-blue-400">調撥出</th>
+                    <th class="px-4 py-4 text-left text-blue-600 dark:text-blue-400">轉出</th>
                     <th class="px-4 py-4 text-center text-orange-500">內部用</th>
                     <th class="px-4 py-4 text-center text-red-500">報廢</th>
                   </tr>
@@ -366,23 +370,30 @@
                       </div>
                     </td>
                     <td class="px-4 py-2">
-                      <select v-model="getDayItem(selectedDate, item.key).in[0].from"
-                              class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 w-28 outline-none">
-                        <option value="">—</option>
-                        <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
-                      </select>
-                    </td>
-                    <td class="px-4 py-2 text-center">
-                      <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
-                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none" />
+                      <div class="flex items-center gap-1.5">
+                        <select v-model="getDayItem(selectedDate, item.key).in[0].from"
+                                class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-400 w-24 outline-none">
+                          <option value="">—</option>
+                          <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
+                        </select>
+                        <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
+                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none" />
+                      </div>
                     </td>
                     <td class="px-4 py-2 text-center">
                       <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number"
                              class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-amber-400 outline-none" />
                     </td>
-                    <td class="px-4 py-2 text-center">
-                      <input v-model.number="getDayItem(selectedDate, item.key).transferOut[0].qty" type="number"
-                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-blue-400 outline-none" />
+                    <td class="px-4 py-2">
+                      <div class="flex items-center gap-1.5">
+                        <select v-model="getDayItem(selectedDate, item.key).transferOut[0].to"
+                                class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-blue-400 w-24 outline-none">
+                          <option value="">—</option>
+                          <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
+                        </select>
+                        <input v-model.number="getDayItem(selectedDate, item.key).transferOut[0].qty" type="number"
+                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-base focus:ring-2 focus:ring-blue-400 outline-none" />
+                      </div>
                     </td>
 
                     <td class="px-4 py-2 text-center">
@@ -505,57 +516,6 @@
         </div>
       </div>
 
-      <!-- ════════════════════════════════════════════════════
-           Tab 4：設定管理 (common.yml)
-      ════════════════════════════════════════════════════ -->
-      <div v-if="activeTab === 'config'">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-base sm:text-lg">
-            設定管理 <span class="text-stone-400 font-normal text-sm hidden sm:inline">— common.yml</span>
-          </h2>
-          <button @click="saveCommon" class="px-3 py-1.5 bg-green-800 text-white text-sm sm:text-sm rounded-lg hover:bg-green-900 transition-colors">儲存設定</button>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
-            <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-100 mb-3">品項類別</h3>
-            <div class="space-y-2">
-              <div v-for="(cat, key) in commonConfig.categories" :key="key" class="flex items-center gap-2">
-                <span class="text-xs text-stone-400 w-5 flex-shrink-0">{{ key }}</span>
-                <input v-model="cat.name" type="text" placeholder="中文名稱"
-                       class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 min-w-0" />
-                <input v-model="cat.en" type="text" placeholder="英文 key" maxlength="20"
-                       class="w-24 bg-white dark:bg-zinc-800 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400 flex-shrink-0" />
-              </div>
-            </div>
-            <button @click="addCategory" class="mt-3 text-sm text-green-700 dark:text-green-400 hover:text-green-800">+ 新增類別</button>
-          </div>
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
-            <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-100 mb-3">單位</h3>
-            <div class="space-y-2">
-              <div v-for="(unit, key) in commonConfig.units" :key="key" class="flex items-center gap-2">
-                <span class="text-xs text-stone-400 w-5">{{ key }}</span>
-                <input v-model="unit.name" type="text" class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-              </div>
-            </div>
-            <button @click="addUnit" class="mt-3 text-sm text-green-700 dark:text-green-400 hover:text-green-800">+ 新增單位</button>
-          </div>
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
-            <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-100 mb-3">製造商 / 供應商</h3>
-            <div class="space-y-2">
-              <div v-for="(make, key) in commonConfig.makes" :key="key" class="flex items-center gap-2">
-                <span class="text-xs text-stone-400 w-5">{{ key }}</span>
-                <input v-model="make.name" type="text" class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-                <select v-model="make.role" class="border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-1.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
-                  <option value="self">自己</option>
-                  <option value="supplier">供應商</option>
-                  <option value="partner">姊妹店</option>
-                </select>
-              </div>
-            </div>
-            <button @click="addMake" class="mt-3 text-sm text-green-700 dark:text-green-400 hover:text-green-800">+ 新增</button>
-          </div>
-        </div>
-      </div>
 
     </div>
 
@@ -723,9 +683,8 @@
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
-
 const commonStore = useCommonStore()
-const BASE = commonStore.data.main_url + '/holy'
+const BASE       = commonStore.data.main_url + '/holy'
 const API_ORIGIN = commonStore.data.main_url
 
 const imgUrl = (path) => {
@@ -738,7 +697,6 @@ const tabs = [
   { key: 'items',    label: '品項管理' },
   { key: 'inout',    label: '出入庫紀錄' },
   { key: 'transfer', label: '調撥管理' },
-  { key: 'config',   label: '設定管理' },
 ]
 const activeTab = ref('items')
 
@@ -802,6 +760,9 @@ const selectCalDate = (date) => {
 }
 const supplierMakes = computed(() =>
   Object.values(commonConfig.makes).filter(m => m.role === 'supplier' || m.role === 'partner')
+)
+const partnerMakes = computed(() =>
+  Object.values(commonConfig.makes).filter(m => m.role === 'partner')
 )
 
 // ── 品項類別篩選 ──────────────────────────────────────────────────
@@ -945,9 +906,7 @@ const itemImageByKey = (key) => {
   return found?.images?.[0] ? imgUrl(found.images[0]) : null
 }
 
-const addCategory = () => { commonConfig.categories[String(Object.keys(commonConfig.categories).length + 1)] = { name: '', en: '' } }
-const addUnit     = () => { commonConfig.units[String(Object.keys(commonConfig.units).length + 1)] = { name: '' } }
-const addMake     = () => { commonConfig.makes[String(Object.keys(commonConfig.makes).length + 1)] = { name: '', role: 'supplier' } }
+// addCategory / addUnit / addMake → 已移至 CommonConfig.vue
 
 // ── API ───────────────────────────────────────────────────────────
 const fetchCommon = async () => {
@@ -1075,19 +1034,32 @@ const fetchTransfers = async () => {
   try { transferList.value = await (await fetch(`${BASE}/restaurant/inout/transfers/${selectedMonth.value}`)).json() }
   catch (e) { console.error(e) }
 }
-const saveCommon = async () => {
-  try { await fetch(`${BASE}/common/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(commonConfig) }); showToast('設定已儲存') }
-  catch (e) { console.error(e) }
-}
+// saveCommon → 已移至 CommonConfig.vue
 
 onMounted(async () => {
-  await fetchCommon(); await fetchItems(); await fetchStock(); await fetchInout(); await fetchTransfers()
+  await fetchCommon();
+  await fetchItems();
+  await fetchStock();
+  await fetchInout();
+  await fetchTransfers()
 })
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
-.scrollbar-none { scrollbar-width: none; }
-.scrollbar-none::-webkit-scrollbar { display: none; }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
 </style>

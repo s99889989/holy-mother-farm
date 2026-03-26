@@ -249,7 +249,7 @@
 
 <script setup>
 import {ref, computed, reactive, onMounted} from 'vue'
-import { useCommonStore } from '~/stores/common.js'
+import {useCommonStore} from '~/stores/common.js'
 
 const commonStore = useCommonStore()
 const BASE = commonStore.data.main_url + '/holy/booking'
