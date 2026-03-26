@@ -7,7 +7,7 @@
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-green-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">田</div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-base sm:text-lg">田園餐廳 · 庫存管理</h1>
+            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-base sm:text-lg">餐廳小舖 · 庫存管理</h1>
             <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Holy Mother Farm</p>
           </div>
         </div>
@@ -168,6 +168,7 @@
                       {{ item.onSale ? '上架' : '下架' }}
                     </span>
                 </td>
+
                 <td class="px-4 py-4 text-center">
                   <div class="flex items-center justify-center gap-1.5">
                     <button @click="openItemModal(item)" class="px-2.5 py-1 text-sm border border-blue-300 dark:border-blue-700 text-blue-500 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">編輯</button>
@@ -514,6 +515,73 @@
             <p class="text-xs text-stone-400 mt-0.5">調撥總數量</p>
           </div>
         </div>
+
+        <!-- ── 調撥入 ── -->
+        <div class="mt-6">
+          <h3 class="font-semibold text-stone-700 dark:text-stone-100 text-sm mb-3 flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">← 調撥入</span>
+            從其他地方收到的調撥
+          </h3>
+
+          <!-- 手機 -->
+          <div class="sm:hidden space-y-3">
+            <div v-for="(t, idx) in transferInList" :key="idx"
+                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 shadow-sm flex gap-3 items-center">
+              <img v-if="itemImageByKey(t.itemKey)" :src="itemImageByKey(t.itemKey)"
+                   class="w-16 h-16 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
+              <div v-else class="w-16 h-16 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-stone-800 dark:text-stone-100 text-base">{{ itemNameByKey(t.itemKey) }}</p>
+                <p class="text-xs text-stone-400 mt-0.5">{{ t.date }}</p>
+                <div class="flex items-center gap-2 mt-1.5">
+                  <span class="px-2 py-0.5 rounded-full text-sm bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">← {{ t.from }}</span>
+                  <span class="font-bold text-stone-700 dark:text-stone-100">× {{ t.qty }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="transferInList.length === 0" class="text-center py-6 text-stone-400 text-sm">本月尚無調撥入紀錄</div>
+          </div>
+
+          <!-- 桌機 -->
+          <div class="hidden sm:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-stone-50 dark:bg-zinc-800/50 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-4 text-left">日期</th>
+                  <th class="px-4 py-4 text-left">品項</th>
+                  <th class="px-4 py-4 text-left">來源</th>
+                  <th class="px-4 py-4 text-center">數量</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+                <tr v-for="(t, idx) in transferInList" :key="idx" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+                  <td class="px-4 py-4 text-stone-600 dark:text-stone-100 whitespace-nowrap">{{ t.date }}</td>
+                  <td class="px-4 py-4">
+                    <div class="flex items-center gap-3">
+                      <img v-if="itemImageByKey(t.itemKey)" :src="itemImageByKey(t.itemKey)"
+                           class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
+                      <div v-else class="w-14 h-14 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                      </div>
+                      <span class="font-medium text-stone-800 dark:text-stone-100 text-base">{{ itemNameByKey(t.itemKey) }}</span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-4">
+                    <span class="px-2 py-0.5 rounded-full text-sm bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">← {{ t.from }}</span>
+                  </td>
+                  <td class="px-4 py-4 text-center font-semibold text-stone-700 dark:text-stone-100">{{ t.qty }}</td>
+                </tr>
+                <tr v-if="transferInList.length === 0">
+                  <td colspan="4" class="px-4 py-6 text-center text-stone-400 text-sm">本月尚無調撥入紀錄</td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
 
@@ -706,6 +774,7 @@ const commonConfig    = reactive({ units: {}, categories: {}, makes: {} })
 const inoutData       = ref({})
 const savedDates      = ref([])   // 後端已儲存資料的日期，用於紅點標記
 const transferList    = ref([])
+const transferInList  = ref([])   // 從其他地方調入的紀錄
 const selectedDate    = ref('')
 const previewUrl      = ref('')
 const stockMap        = ref({})   // { itemKey: currentStock }
@@ -789,13 +858,13 @@ const prevMonth = () => {
   const [y, m] = selectedMonth.value.split('-').map(Number)
   const d = new Date(y, m - 2, 1)
   selectedMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  fetchInout(); fetchTransfers()
+  fetchInout(); fetchTransfers(); fetchTransferIns()
 }
 const nextMonth = () => {
   const [y, m] = selectedMonth.value.split('-').map(Number)
   const d = new Date(y, m, 1)
   selectedMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  fetchInout(); fetchTransfers()
+  fetchInout(); fetchTransfers(); fetchTransferIns()
 }
 
 // addNewDate 已由日曆元件的 selectCalDate 取代
@@ -817,14 +886,14 @@ const generateKey = (categoryName) => {
 // ── 品項 Modal ────────────────────────────────────────────────────
 const itemModal = reactive({
   show: false, isNew: true,
-  data: { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, openingStock: 0 }
+  data: { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, shopNeedInventory: false, openingStock: 0 }
 })
 
 const openItemModal = (item) => {
   itemModal.isNew = !item
   itemModal.data = item
     ? { ...item }
-    : { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, openingStock: 0 }
+    : { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, shopNeedInventory: false, openingStock: 0 }
   itemModal.show = true
 }
 
@@ -1034,6 +1103,10 @@ const fetchTransfers = async () => {
   try { transferList.value = await (await fetch(`${BASE}/restaurant/inout/transfers/${selectedMonth.value}`)).json() }
   catch (e) { console.error(e) }
 }
+const fetchTransferIns = async () => {
+  try { transferInList.value = await (await fetch(`${BASE}/restaurant/inout/transfer-ins/${selectedMonth.value}`)).json() }
+  catch (e) { console.error(e) }
+}
 // saveCommon → 已移至 CommonConfig.vue
 
 onMounted(async () => {
@@ -1041,7 +1114,8 @@ onMounted(async () => {
   await fetchItems();
   await fetchStock();
   await fetchInout();
-  await fetchTransfers()
+  await fetchTransfers();
+  await fetchTransferIns()
 })
 </script>
 

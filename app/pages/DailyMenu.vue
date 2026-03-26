@@ -3,7 +3,7 @@
 
     <!-- ── 頂部導覽 ── -->
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-orange-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">菜</div>
           <div>
@@ -11,35 +11,45 @@
             <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Holy Mother Farm</p>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <span :class="apiOnline ? 'text-green-600' : 'text-red-500'" class="text-xs flex items-center gap-1.5 font-medium">
-            <span :class="apiOnline ? 'bg-green-500' : 'bg-red-400'" class="w-2 h-2 rounded-full"></span>
-            <span class="hidden sm:inline">{{ apiOnline ? '連線中' : '離線' }}</span>
-          </span>
-          <!-- 編輯 / 查看切換 -->
-          <button @click="isEditMode = !isEditMode"
-                  :class="isEditMode
-              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700'
-              : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'"
-                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors">
-            <svg v-if="isEditMode" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-            </svg>
-            <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-            </svg>
-            {{ isEditMode ? '編輯中' : '查看' }}
-          </button>
-        </div>
+        <span :class="apiOnline ? 'text-green-600' : 'text-red-500'" class="text-xs flex items-center gap-1.5 font-medium">
+          <span :class="apiOnline ? 'bg-green-500' : 'bg-red-400'" class="w-2 h-2 rounded-full"></span>
+          <span class="hidden sm:inline">{{ apiOnline ? '連線中' : '離線' }}</span>
+        </span>
       </div>
+      <!-- 頁籤：查看 / 編輯 + 週/月切換 -->
+      <nav class="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+        <button @click="isEditMode = false"
+                :class="!isEditMode ? 'bg-orange-700 text-white' : 'text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0">
+          查看
+        </button>
+        <button @click="isEditMode = true"
+                :class="isEditMode ? 'bg-orange-700 text-white' : 'text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0">
+          編輯
+        </button>
+        <!-- 週/月切換（僅查看模式顯示）-->
+        <template v-if="!isEditMode">
+          <span class="w-px h-5 bg-stone-200 dark:bg-stone-700 mx-1 flex-shrink-0"></span>
+          <button @click="viewRange = 'week'"
+                  :class="viewRange === 'week' ? 'bg-stone-200 dark:bg-zinc-600 text-stone-700 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0">
+            週
+          </button>
+          <button @click="viewRange = 'month'"
+                  :class="viewRange === 'month' ? 'bg-stone-200 dark:bg-zinc-600 text-stone-700 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                  class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0">
+            月
+          </button>
+        </template>
+      </nav>
     </header>
 
     <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       <div class="flex flex-col lg:flex-row gap-4 items-start">
 
-        <!-- ── 左欄：日曆 ── -->
-        <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
+        <!-- ── 左欄：日曆（月視圖時隱藏）── -->
+        <div v-if="isEditMode || viewRange === 'week'" class="w-full lg:w-72 xl:w-80 flex-shrink-0">
           <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 lg:sticky lg:top-20">
             <div class="flex items-center justify-between mb-3">
               <button @click="prevMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
@@ -72,9 +82,142 @@
           </div>
         </div>
 
-        <!-- ── 右欄：菜色分類 ── -->
+        <!-- ── 右欄 ── -->
         <div class="flex-1 min-w-0">
-          <div v-if="selectedDate">
+
+          <!-- ══ 查看模式 ══ -->
+          <div v-if="!isEditMode">
+
+            <!-- 週視圖 -->
+            <div v-if="viewRange === 'week'" class="flex flex-wrap gap-3">
+              <template v-for="day in weekDates" :key="day.date">
+                <div v-if="dateStatus[day.date]" class="flex-1 min-w-44 max-w-64">
+
+                  <!-- 日期卡片頭 -->
+                  <div :class="day.date === todayStr
+                  ? 'bg-orange-700 text-white'
+                  : dateStatus[day.date] === 'complete'
+                    ? 'bg-green-700 text-white'
+                    : dateStatus[day.date] === 'partial'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700'"
+                       class="rounded-t-2xl px-3 py-2 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-bold text-sm">{{ day.weekLabel }}</span>
+                      <span class="text-xs opacity-80">{{ day.date.slice(5) }}</span>
+                    </div>
+                    <span v-if="dateStatus[day.date] === 'complete'" class="text-xs opacity-80">✓</span>
+                  </div>
+
+                  <!-- 卡片內容 -->
+                  <div class="bg-white dark:bg-zinc-900 rounded-b-2xl border-x border-b border-stone-200 dark:border-stone-700 shadow-sm min-h-24">
+                    <div class="p-2 space-y-2">
+                      <div v-for="section in sections" :key="section.type">
+                        <div v-if="weekItemsByType(day.date, section.type).length > 0">
+                          <span :class="section.badge" class="text-xs mb-1 inline-block">{{ section.label }}</span>
+                          <div class="space-y-1.5">
+                            <div v-for="item in weekItemsByType(day.date, section.type)" :key="item.id"
+                                 class="rounded-xl overflow-hidden border border-stone-100 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800">
+                              <img v-if="item.images && item.images.length > 0"
+                                   :src="imgUrl(item.images[0])" :alt="item.name"
+                                   class="w-full h-24 object-cover cursor-pointer"
+                                   @click="previewUrl = imgUrl(item.images[0])" />
+                              <div class="px-2 py-1.5">
+                                <p class="font-semibold text-stone-800 dark:text-stone-100 text-sm leading-snug">
+                                  {{ item.name || '（未填）' }}
+                                </p>
+                                <p v-if="item.ingredients && item.ingredients.length"
+                                   class="text-xs text-stone-400 dark:text-stone-500 mt-0.5 leading-relaxed">
+                                  {{ item.ingredients.join('・') }}
+                                </p>
+                                <p v-if="item.note" class="text-xs text-stone-400 italic mt-0.5">{{ item.note }}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </template>
+            </div>
+            <div v-if="weekDates.every(d => !dateStatus[d.date])"
+                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-10 text-center text-stone-400 text-sm shadow-sm">
+              本週尚無任何菜色紀錄
+            </div>
+
+            <!-- 月視圖：卡片排列 -->
+            <div v-if="viewRange === 'month'">
+              <!-- 月份導覽 -->
+              <div class="flex items-center justify-between mb-4">
+                <button @click="prevCalMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+                  <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <span class="font-semibold text-stone-700 dark:text-stone-100">{{ calLabel }}</span>
+                <button @click="nextCalMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+                  <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+              </div>
+
+              <!-- 卡片（和週視圖完全相同樣式，顯示整月有資料的天）-->
+              <div class="flex flex-wrap gap-3">
+                <template v-for="day in monthDates" :key="day.date">
+                  <div v-if="dateStatus[day.date]" class="flex-1 min-w-44 max-w-64">
+                    <!-- 卡片頭 -->
+                    <div :class="day.date === todayStr
+                      ? 'bg-orange-700 text-white'
+                      : dateStatus[day.date] === 'complete'
+                        ? 'bg-green-700 text-white'
+                        : dateStatus[day.date] === 'partial'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700'"
+                         class="rounded-t-2xl px-3 py-2 flex items-center justify-between">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-sm">{{ day.weekLabel }}</span>
+                        <span class="text-xs opacity-80">{{ day.date.slice(5) }}</span>
+                      </div>
+                      <span v-if="dateStatus[day.date] === 'complete'" class="text-xs opacity-80">✓</span>
+                    </div>
+                    <!-- 卡片內容 -->
+                    <div class="bg-white dark:bg-zinc-900 rounded-b-2xl border-x border-b border-stone-200 dark:border-stone-700 shadow-sm">
+                      <div class="p-2 space-y-2">
+                        <div v-for="section in sections" :key="section.type">
+                          <div v-if="weekItemsByType(day.date, section.type).length > 0">
+                            <span :class="section.badge" class="text-xs mb-1 inline-block">{{ section.label }}</span>
+                            <div class="space-y-1.5">
+                              <div v-for="item in weekItemsByType(day.date, section.type)" :key="item.id"
+                                   class="rounded-xl overflow-hidden border border-stone-100 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800">
+                                <img v-if="item.images && item.images.length > 0"
+                                     :src="imgUrl(item.images[0])" :alt="item.name"
+                                     class="w-full h-24 object-cover cursor-pointer"
+                                     @click="previewUrl = imgUrl(item.images[0])" />
+                                <div class="px-2 py-1.5">
+                                  <p class="font-semibold text-stone-800 dark:text-stone-100 text-sm leading-snug">{{ item.name || '（未填）' }}</p>
+                                  <p v-if="item.ingredients && item.ingredients.length"
+                                     class="text-xs text-stone-400 dark:text-stone-500 mt-0.5 leading-relaxed">{{ item.ingredients.join('・') }}</p>
+                                  <p v-if="item.note" class="text-xs text-stone-400 italic mt-0.5">{{ item.note }}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <div v-if="monthDates.every(d => !dateStatus[d.date])"
+                   class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-10 text-center text-stone-400 text-sm shadow-sm">
+                本月尚無任何菜色紀錄
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══ 編輯模式：單天 ══ -->
+          <div v-if="isEditMode && selectedDate">
             <div class="space-y-5">
               <div v-for="section in sections" :key="section.type">
                 <!-- 分類標題 -->
@@ -177,7 +320,7 @@
             </div>
           </div>
 
-          <div v-else class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-12 text-center text-stone-400 text-sm shadow-sm">
+          <div v-if="isEditMode && !selectedDate" class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-12 text-center text-stone-400 text-sm shadow-sm">
             請從左側日曆選擇日期
           </div>
         </div>
@@ -242,7 +385,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
 
 const commonStore = useCommonStore()
@@ -271,7 +414,9 @@ const previewUrl      = ref('')
 const fileInputRef    = ref(null)
 const dragOver        = ref(false)
 const uploading       = ref(false)
-const isEditMode      = ref(true)   // true=編輯，false=查看
+const isEditMode      = ref(false)  // false=查看，true=編輯
+const viewRange       = ref('week') // 'week' | 'month'
+const expandedCalDate = ref(null)   // 月視圖點擊展開的日期
 const ingredientDraft = reactive({})
 const showNote        = reactive({})
 
@@ -281,6 +426,75 @@ const calYear  = ref(today.getFullYear())
 const calMonth = ref(today.getMonth() + 1)
 
 const itemsByType = (type) => menuItems.value.filter(i => i.type === type)
+
+// ── 當週日期 computed ─────────────────────────────────────────────
+const WEEK_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+
+const weekDates = computed(() => {
+  const base = selectedDate.value ? new Date(selectedDate.value) : new Date()
+  const dow = base.getDay()  // 0=日
+  const monday = new Date(base)
+  monday.setDate(base.getDate() - dow)  // 從週日開始
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    const yyyy = d.getFullYear()
+    const mm   = String(d.getMonth() + 1).padStart(2, '0')
+    const dd   = String(d.getDate()).padStart(2, '0')
+    return { date: `${yyyy}-${mm}-${dd}`, weekLabel: WEEK_LABELS[d.getDay()] }
+  })
+})
+
+// 週視圖的品項快取（以日期為 key）
+const weekItemsMap = ref({})
+
+const weekItemsByType = (date, type) =>
+  (weekItemsMap.value[date] || []).filter(i => i.type === type)
+
+// 查看模式切換或日期選擇時，拉當週資料
+const fetchWeekItems = async () => {
+  const promises = weekDates.value.map(async (day) => {
+    if (weekItemsMap.value[day.date]) return  // 已有快取就跳過
+    try {
+      const items = await (await fetch(`${BASE}/get/${day.date}`)).json()
+      weekItemsMap.value[day.date] = items
+    } catch { weekItemsMap.value[day.date] = [] }
+  })
+  await Promise.all(promises)
+}
+
+// 月視圖：整月所有日期（含星期標籤）
+const monthDates = computed(() => {
+  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1
+    const mm = String(calMonth.value).padStart(2, '0')
+    const dd = String(d).padStart(2, '0')
+    const date = `${calYear.value}-${mm}-${dd}`
+    return { date, weekLabel: WEEK_LABELS[new Date(date).getDay()] }
+  })
+})
+const prevCalMonth = () => {
+  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
+  fetchMarkedDates(); fetchMonthItems()
+}
+const nextCalMonth = () => {
+  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
+  fetchMarkedDates(); fetchMonthItems()
+}
+const fetchMonthItems = async () => {
+  const datesWithData = Object.keys(dateStatus.value).filter(d => d.startsWith(yearMonth.value))
+  await Promise.all(datesWithData.map(async (date) => {
+    if (weekItemsMap.value[date]) return
+    try { weekItemsMap.value[date] = await (await fetch(`${BASE}/get/${date}`)).json() }
+    catch { weekItemsMap.value[date] = [] }
+  }))
+}
+
+// 切換到月視圖時自動拉資料
+watch(viewRange, async (range) => {
+  if (range === 'month') await fetchMonthItems()
+})
 
 // ── 日曆 ──────────────────────────────────────────────────────────
 const calLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
@@ -316,10 +530,20 @@ const nextMonth = () => {
 
 const selectDate = async (date) => {
   selectedDate.value = date
+  weekItemsMap.value = {}  // 清除週快取，強制重新拉
   await fetch(`${BASE}/init/${date}`, { method: 'POST' })
   await fetchMenuItems()
-  await fetchMarkedDates()   // 重新計算狀態（init 後可能從無到有）
+  await fetchMarkedDates()
+  if (!isEditMode.value) await fetchWeekItems()
 }
+
+// 切到查看模式時自動拉當週資料
+watch(isEditMode, async (editing) => {
+  if (!editing) {
+    weekItemsMap.value = {}
+    await fetchWeekItems()
+  }
+})
 
 // ── 食材 ──────────────────────────────────────────────────────────
 const addIngredientToItem = (item) => {
@@ -423,15 +647,27 @@ const confirmDelete = async (item) => {
 onMounted(async () => {
   await fetchMarkedDates()
   selectedDate.value = todayStr
-  await fetch(`${BASE}/init/${todayStr}`, { method: 'POST' })
+  await fetch(`${BASE}/init/${todayStr}`, {method: 'POST'})
   await fetchMenuItems()
   await fetchMarkedDates()   // init 後重新計算
 })
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
-.scrollbar-none { scrollbar-width: none; }
-.scrollbar-none::-webkit-scrollbar { display: none; }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
 </style>

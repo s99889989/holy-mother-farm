@@ -107,12 +107,10 @@
               <thead class="bg-stone-50 dark:bg-zinc-800 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-4 text-left">圖片</th>
-                <th class="px-4 py-4 text-left">Key</th>
                 <th class="px-4 py-4 text-left">品名</th>
                 <th class="px-4 py-4 text-left">類別</th>
                 <th class="px-4 py-4 text-left">製造商</th>
                 <th class="px-4 py-4 text-right">售價</th>
-                <th class="px-4 py-4 text-center">單位</th>
                 <th class="px-4 py-4 text-center">期初</th>
                 <th class="px-4 py-4 text-center">現有庫存</th>
                 <th class="px-4 py-4 text-center">上架</th>
@@ -133,12 +131,13 @@
                     </div>
                   </button>
                 </td>
-                <td class="px-4 py-4 font-mono text-sm text-stone-400">{{ item.key }}</td>
-                <td class="px-4 py-4 font-medium text-stone-800 dark:text-stone-100 text-base">{{ item.name }}</td>
+                <td class="px-4 py-4">
+                  <p class="font-medium text-stone-800 dark:text-stone-100">{{ item.name }} <span class="text-sm font-normal text-stone-400">({{ item.unit }})</span></p>
+                  <p class="font-mono text-xs text-stone-400 mt-0.5">{{ item.key }}</p>
+                </td>
                 <td class="px-4 py-4"><span class="px-2 py-0.5 rounded-full text-sm" :class="catClass(item.category)">{{ item.category }}</span></td>
                 <td class="px-4 py-4 text-stone-600 dark:text-stone-100">{{ item.make }}</td>
                 <td class="px-4 py-4 text-right text-stone-700 dark:text-stone-100">${{ item.price }}</td>
-                <td class="px-4 py-4 text-center text-stone-500 dark:text-stone-100">{{ item.unit }}</td>
                 <td class="px-4 py-4 text-center text-stone-600 dark:text-stone-100">{{ item.openingStock }}</td>
                 <td class="px-4 py-4 text-center">
                   <span :class="stockClass(item.key)" class="text-base tabular-nums">{{ stockOf(item.key) }}</span>
@@ -156,7 +155,7 @@
                 </td>
               </tr>
               <tr v-if="filteredItems.length === 0">
-                <td colspan="11" class="px-4 py-10 text-center text-stone-400 text-sm">{{ itemCategoryFilter ? `沒有「${itemCategoryFilter}」類別的品項` : '尚無品項' }}</td>
+                <td colspan="9" class="px-4 py-10 text-center text-stone-400 text-sm">{{ itemCategoryFilter ? `沒有「${itemCategoryFilter}」類別的品項` : '尚無品項' }}</td>
               </tr>
               </tbody>
             </table>
@@ -227,7 +226,7 @@
 
               <!-- 手機 -->
               <div class="sm:hidden divide-y divide-stone-100 dark:divide-stone-700">
-                <div v-for="item in shopItems.filter(i => i.needInventory)" :key="item.key" class="p-3">
+                <div v-for="item in shopItems.filter(i => i.shopNeedInventory)" :key="item.key" class="p-3">
                   <div class="flex items-center gap-3 mb-3">
                     <div class="flex-shrink-0">
                       <img v-if="item.images && item.images.length > 0" :src="imgUrl(item.images[0])" :alt="item.name" class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700" />
@@ -241,24 +240,23 @@
                     </div>
                   </div>
                   <div class="grid grid-cols-2 gap-2">
-                    <div>
-                      <label class="text-xs text-stone-400 block mb-1">進貨來源</label>
-                      <select v-model="getDayItem(selectedDate, item.key).in[0].from" class="w-full bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none">
-                        <option value="">—</option>
-                        <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label class="text-xs text-green-600 block mb-1">進貨量</label>
-                      <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number" class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none" />
-                    </div>
-                    <div>
-                      <label class="text-xs text-purple-600 block mb-1">調撥入（田園）</label>
-                      <input v-model.number="getDayItem(selectedDate, item.key).transferIn[0].qty" type="number" class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none" />
+                    <div class="col-span-2">
+                      <label class="text-xs text-green-600 block mb-1">入庫（來源 + 數量）</label>
+                      <div class="flex gap-1.5">
+                        <select v-model="getDayItem(selectedDate, item.key).in[0].from" class="flex-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none">
+                          <option value="">—</option>
+                          <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
+                        </select>
+                        <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number" class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-sm outline-none" />
+                      </div>
                     </div>
                     <div>
                       <label class="text-xs text-amber-600 block mb-1">銷售</label>
                       <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number" class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none" />
+                    </div>
+                    <div>
+                      <label class="text-xs text-purple-600 block mb-1">調撥入</label>
+                      <input v-model.number="getDayItem(selectedDate, item.key).transferIn[0].qty" type="number" class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm outline-none" />
                     </div>
                     <div>
                       <label class="text-xs text-orange-500 block mb-1">內部用</label>
@@ -278,16 +276,15 @@
                   <thead class="bg-stone-50 dark:bg-zinc-800 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
                   <tr>
                     <th class="px-4 py-4 text-left">品項</th>
-                    <th class="px-4 py-4 text-left">進貨來源</th>
-                    <th class="px-4 py-4 text-center text-green-600 dark:text-green-400">進貨量</th>
-                    <th class="px-4 py-4 text-center text-purple-600 dark:text-purple-400">調撥入</th>
+                    <th class="px-4 py-4 text-left text-green-600 dark:text-green-400">入庫</th>
                     <th class="px-4 py-4 text-center text-amber-600 dark:text-amber-400">銷售</th>
+                    <th class="px-4 py-4 text-left text-purple-600 dark:text-purple-400">調撥入</th>
                     <th class="px-4 py-4 text-center text-orange-500">內部用</th>
                     <th class="px-4 py-4 text-center text-red-500">報廢</th>
                   </tr>
                   </thead>
                   <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-                  <tr v-for="item in shopItems.filter(i => i.needInventory)" :key="item.key" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+                  <tr v-for="item in shopItems.filter(i => i.shopNeedInventory)" :key="item.key" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
                     <td class="px-4 py-4">
                       <div class="flex items-center gap-3">
                         <div class="flex-shrink-0">
@@ -303,15 +300,19 @@
                       </div>
                     </td>
                     <td class="px-4 py-2">
-                      <select v-model="getDayItem(selectedDate, item.key).in[0].from"
-                              class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-400 w-32 outline-none">
-                        <option value="">—</option>
-                        <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
-                      </select>
+                      <div class="flex items-center gap-1.5">
+                        <select v-model="getDayItem(selectedDate, item.key).in[0].from"
+                                class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-400 w-24 outline-none">
+                          <option value="">—</option>
+                          <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
+                        </select>
+                        <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
+                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none" />
+                      </div>
                     </td>
                     <td class="px-4 py-2 text-center">
-                      <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
-                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none" />
+                      <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number"
+                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-amber-400 outline-none" />
                     </td>
                     <td class="px-4 py-2 text-center">
                       <input v-model.number="getDayItem(selectedDate, item.key).transferIn[0].qty" type="number"
@@ -427,6 +428,73 @@
             <p class="text-xs text-stone-400 mt-0.5">調撥總數量</p>
           </div>
         </div>
+
+        <!-- ── 調撥出 ── -->
+        <div class="mt-6">
+          <h3 class="font-semibold text-stone-700 dark:text-stone-100 text-sm mb-3 flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">→ 調撥出</span>
+            送出去的調撥
+          </h3>
+
+          <!-- 手機 -->
+          <div class="sm:hidden space-y-3">
+            <div v-for="(t, idx) in transferOutList" :key="idx"
+                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 shadow-sm flex gap-3 items-center">
+              <img v-if="itemImageByKey(t.itemKey)" :src="itemImageByKey(t.itemKey)"
+                   class="w-16 h-16 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
+              <div v-else class="w-16 h-16 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-stone-800 dark:text-stone-100 text-base">{{ itemNameByKey(t.itemKey) }}</p>
+                <p class="text-xs text-stone-400 mt-0.5">{{ t.date }}</p>
+                <div class="flex items-center gap-2 mt-1.5">
+                  <span class="px-2 py-0.5 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">→ {{ t.to }}</span>
+                  <span class="font-bold text-stone-700 dark:text-stone-100">× {{ t.qty }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="transferOutList.length === 0" class="text-center py-6 text-stone-400 text-sm">本月尚無調撥出紀錄</div>
+          </div>
+
+          <!-- 桌機 -->
+          <div class="hidden sm:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-stone-50 dark:bg-zinc-800/50 text-sm text-stone-500 dark:text-stone-100 uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-4 text-left">日期</th>
+                  <th class="px-4 py-4 text-left">品項</th>
+                  <th class="px-4 py-4 text-left">目標</th>
+                  <th class="px-4 py-4 text-center">數量</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+                <tr v-for="(t, idx) in transferOutList" :key="idx" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+                  <td class="px-4 py-4 text-stone-600 dark:text-stone-100 whitespace-nowrap">{{ t.date }}</td>
+                  <td class="px-4 py-4">
+                    <div class="flex items-center gap-3">
+                      <img v-if="itemImageByKey(t.itemKey)" :src="itemImageByKey(t.itemKey)"
+                           class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0" />
+                      <div v-else class="w-14 h-14 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                      </div>
+                      <span class="font-medium text-stone-800 dark:text-stone-100 text-base">{{ itemNameByKey(t.itemKey) }}</span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-4">
+                    <span class="px-2 py-0.5 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">→ {{ t.to }}</span>
+                  </td>
+                  <td class="px-4 py-4 text-center font-semibold text-stone-700 dark:text-stone-100">{{ t.qty }}</td>
+                </tr>
+                <tr v-if="transferOutList.length === 0">
+                  <td colspan="4" class="px-4 py-6 text-center text-stone-400 text-sm">本月尚無調撥出紀錄</td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
 
@@ -485,7 +553,7 @@
               <input v-model="itemModal.data.onSale" type="checkbox" class="rounded" /> 上架
             </label>
             <label class="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300 cursor-pointer">
-              <input v-model="itemModal.data.needInventory" type="checkbox" class="rounded" /> 盤點
+              <input v-model="itemModal.data.shopNeedInventory" type="checkbox" class="rounded" /> 小舖盤點
             </label>
           </div>
           <div class="col-span-2">
@@ -587,6 +655,7 @@ const shopItems       = ref([])
 const commonConfig    = reactive({ units: {}, categories: {}, makes: {} })
 const inoutData       = ref({})
 const transferList    = ref([])
+const transferOutList = ref([])   // 送出去的調撥
 const savedDates      = ref([])
 const selectedDate    = ref('')
 const previewUrl      = ref('')
@@ -635,13 +704,13 @@ const prevMonth = () => {
   const [y, m] = selectedMonth.value.split('-').map(Number)
   const d = new Date(y, m - 2, 1)
   selectedMonth.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-  fetchInout(); fetchTransfers()
+  fetchInout(); fetchTransfers(); fetchTransferOuts()
 }
 const nextMonth = () => {
   const [y, m] = selectedMonth.value.split('-').map(Number)
   const d = new Date(y, m, 1)
   selectedMonth.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-  fetchInout(); fetchTransfers()
+  fetchInout(); fetchTransfers(); fetchTransferOuts()
 }
 const selectCalDate = (date) => {
   selectedDate.value = date
@@ -699,11 +768,11 @@ const switchTab = async (key) => {
 // ── 品項 Modal ────────────────────────────────────────────────────
 const itemModal = reactive({
   show: false, isNew: true,
-  data: { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, openingStock: 0 }
+  data: { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, shopNeedInventory: false, openingStock: 0 }
 })
 const openItemModal = (item) => {
   itemModal.isNew = !item
-  itemModal.data = item ? { ...item } : { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, openingStock: 0 }
+  itemModal.data = item ? { ...item } : { key: '', name: '', category: '', make: '', price: 0, unit: '份', onSale: true, description: '', tags: [], needInventory: true, shopNeedInventory: false, openingStock: 0 }
   itemModal.show = true
 }
 
@@ -826,48 +895,31 @@ const confirmDeleteDay = async () => {
   if (!selectedDate.value) return
   if (!confirm(`確定刪除 ${selectedDate.value} 的所有出入庫紀錄？`)) return
   try {
-    await fetch(`${BASE_SHOP}/inout/remove/${selectedMonth.value}/${selectedDate.value}`, {method: 'DELETE'})
+    await fetch(`${BASE_SHOP}/inout/remove/${selectedMonth.value}/${selectedDate.value}`, { method: 'DELETE' })
     delete inoutData.value[selectedDate.value]
     savedDates.value = savedDates.value.filter(d => d !== selectedDate.value)
     selectedDate.value = savedDates.value.length > 0 ? savedDates.value[savedDates.value.length - 1] : ''
     showToast('已刪除')
-  } catch (e) {
-    showToast('刪除失敗')
-  }
+  } catch (e) { showToast('刪除失敗') }
 }
 const fetchTransfers = async () => {
-  try {
-    transferList.value = await (await fetch(`${BASE_SHOP}/inout/transfers/${selectedMonth.value}`)).json()
-  } catch (e) {
-    console.error(e)
-  }
+  try { transferList.value = await (await fetch(`${BASE_SHOP}/inout/transfers/${selectedMonth.value}`)).json() }
+  catch (e) { console.error(e) }
+}
+const fetchTransferOuts = async () => {
+  try { transferOutList.value = await (await fetch(`${BASE_SHOP}/inout/transfer-outs/${selectedMonth.value}`)).json() }
+  catch (e) { console.error(e) }
 }
 // saveCommon → 已移至 CommonConfig.vue
 
 onMounted(async () => {
-  await fetchCommon();
-  await fetchItems();
-  await fetchStock();
-  await fetchInout();
-  await fetchTransfers()
+  await fetchCommon(); await fetchItems(); await fetchStock(); await fetchInout(); await fetchTransfers(); await fetchTransferOuts(); await fetchTransferOuts()
 })
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.scrollbar-none {
-  scrollbar-width: none;
-}
-
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
 </style>
