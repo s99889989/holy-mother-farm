@@ -300,13 +300,13 @@
                           <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
                         </select>
                         <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
-                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-sm outline-none" />
+                               :class="['w-16 text-center rounded-lg px-1 py-2 text-sm outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).in[0].qty, 'green')]" />
                       </div>
                     </div>
                     <div>
                       <label class="text-xs text-amber-600 block mb-1">銷售</label>
                       <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number"
-                             class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-2 text-sm outline-none text-stone-800 dark:text-stone-100" />
+                             :class="['w-full text-center rounded-lg px-2 py-2 text-sm outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).sell, 'amber')]" />
                     </div>
                     <div class="col-span-2">
                       <label class="text-xs text-blue-600 block mb-1">轉出（目標 + 數量）</label>
@@ -317,18 +317,18 @@
                           <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
                         </select>
                         <input v-model.number="getDayItem(selectedDate, item.key).transferOut[0].qty" type="number"
-                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-sm outline-none" />
+                               :class="['w-16 text-center rounded-lg px-1 py-2 text-sm outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).transferOut[0].qty, 'blue')]" />
                       </div>
                     </div>
                     <div>
                       <label class="text-xs text-orange-500 block mb-1">內部用</label>
                       <input v-model.number="getDayItem(selectedDate, item.key).foodServing" type="number"
-                             class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-2 text-sm outline-none text-stone-800 dark:text-stone-100" />
+                             :class="['w-full text-center rounded-lg px-2 py-2 text-sm outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).foodServing, 'orange')]" />
                     </div>
                     <div>
                       <label class="text-xs text-red-500 block mb-1">報廢</label>
                       <input v-model.number="getDayItem(selectedDate, item.key).out" type="number"
-                             class="w-full text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-2 text-sm outline-none text-stone-800 dark:text-stone-100" />
+                             :class="['w-full text-center rounded-lg px-2 py-2 text-sm outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).out, 'red')]" />
                     </div>
 
                   </div>
@@ -378,12 +378,12 @@
                           <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
                         </select>
                         <input v-model.number="getDayItem(selectedDate, item.key).in[0].qty" type="number"
-                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none" />
+                               :class="['w-16 text-center rounded-lg px-1 py-2 text-base focus:ring-2 focus:ring-green-400 outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).in[0].qty, 'green')]" />
                       </div>
                     </td>
                     <td class="px-4 py-2 text-center">
                       <input v-model.number="getDayItem(selectedDate, item.key).sell" type="number"
-                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-amber-400 outline-none" />
+                             :class="['w-20 text-center rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-amber-400 outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).sell, 'amber')]" />
                     </td>
                     <td class="px-4 py-2">
                       <div class="flex items-center gap-1.5">
@@ -393,17 +393,17 @@
                           <option v-for="m in supplierMakes" :key="m.name" :value="m.name">{{ m.name }}</option>
                         </select>
                         <input v-model.number="getDayItem(selectedDate, item.key).transferOut[0].qty" type="number"
-                               class="w-16 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-1 py-2 text-base focus:ring-2 focus:ring-blue-400 outline-none" />
+                               :class="['w-16 text-center rounded-lg px-1 py-2 text-base focus:ring-2 focus:ring-blue-400 outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).transferOut[0].qty, 'blue')]" />
                       </div>
                     </td>
 
                     <td class="px-4 py-2 text-center">
                       <input v-model.number="getDayItem(selectedDate, item.key).foodServing" type="number"
-                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-orange-400 outline-none" />
+                             :class="['w-20 text-center rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-orange-400 outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).foodServing, 'orange')]" />
                     </td>
                     <td class="px-4 py-2 text-center">
                       <input v-model.number="getDayItem(selectedDate, item.key).out" type="number"
-                             class="w-20 text-center bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-red-400 outline-none" />
+                             :class="['w-20 text-center rounded-lg px-2 py-2 text-base focus:ring-2 focus:ring-red-400 outline-none border transition-colors', inputHl(getDayItem(selectedDate, item.key).out, 'red')]" />
                     </td>
                   </tr>
                   </tbody>
@@ -579,6 +579,127 @@
                 </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- ════════════════════════════════════════════════════
+           Tab 5：今日盤點
+      ════════════════════════════════════════════════════ -->
+      <div v-if="activeTab === 'daily'">
+        <div class="flex flex-col lg:flex-row gap-4 items-start">
+
+          <!-- 左欄：日曆 -->
+          <div class="w-full lg:w-64 flex-shrink-0">
+            <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 lg:sticky lg:top-20">
+              <div class="flex items-center justify-between mb-3">
+                <button @click="dailyPrevMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+                  <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <span class="text-sm font-semibold text-stone-700 dark:text-stone-100">{{ dailyCalLabel }}</span>
+                <button @click="dailyNextMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+                  <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+              </div>
+              <div class="grid grid-cols-7 mb-1">
+                <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
+                     class="text-center text-xs text-stone-400 font-medium py-1">{{ w }}</div>
+              </div>
+              <div class="grid grid-cols-7 gap-0.5">
+                <div v-for="(day, idx) in dailyCalDays" :key="idx"
+                     class="flex items-center justify-center aspect-square rounded-lg text-xs cursor-pointer transition-all select-none"
+                     :class="!day.date ? 'cursor-default' :
+                    day.date === dailySelectedDate ? 'bg-teal-700 text-white font-bold' :
+                    day.date === todayDateStr ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-semibold hover:bg-teal-200' :
+                    'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'"
+                     @click="day.date && selectDailyDate(day.date)">
+                  {{ day.label }}
+                </div>
+              </div>
+              <div class="mt-3 pt-3 border-t border-stone-100 dark:border-stone-700 flex items-center justify-between">
+                <span class="text-xs text-stone-500 dark:text-stone-400 font-medium">{{ dailySelectedDate || '請選擇日期' }}</span>
+                <button @click="selectDailyDate(todayDateStr)" class="text-xs text-teal-700 dark:text-teal-400 hover:text-teal-800 font-medium">今天</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右欄：當日庫存 -->
+          <div class="flex-1 min-w-0">
+            <div v-if="!dailySelectedDate" class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-10 text-center text-stone-400 text-sm shadow-sm">
+              請選擇日期
+            </div>
+            <div v-else>
+              <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-base mb-3">
+                {{ dailySelectedDate }} 庫存量
+                <span class="text-stone-400 font-normal text-sm ml-2">僅顯示盤點品項</span>
+              </h2>
+
+              <div v-if="dailyStockLoading" class="flex items-center justify-center py-12 text-stone-400 gap-2">
+                <div class="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                計算中…
+              </div>
+
+              <div v-else>
+                <!-- 手機：卡片 -->
+                <div class="sm:hidden space-y-2">
+                  <div v-for="item in restaurantItems.filter(i => i.needInventory)" :key="item.key"
+                       class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-3 flex items-center gap-3">
+                    <img v-if="item.images && item.images.length > 0"
+                         :src="imgUrl(item.images[0])" :alt="item.name"
+                         class="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-stone-200 dark:border-stone-700" />
+                    <div v-else class="w-12 h-12 rounded-xl bg-stone-100 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center text-stone-300">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="font-medium text-stone-800 dark:text-stone-100 text-sm">{{ item.name }}</p>
+                      <p class="text-xs text-stone-400">{{ item.unit }}</p>
+                    </div>
+                    <span :class="stockColorClass(dailyStockMap[item.key] ?? stockMap[item.key])" class="text-lg font-bold flex-shrink-0">
+                      {{ dailyStockMap[item.key] ?? stockMap[item.key] ?? '—' }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 桌機：表格 -->
+                <div class="hidden sm:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 overflow-hidden shadow-sm">
+                  <table class="w-full text-sm">
+                    <thead class="bg-stone-50 dark:bg-zinc-800/50 text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wide">
+                    <tr>
+                      <th class="px-4 py-3 text-left">圖片</th>
+                      <th class="px-4 py-3 text-left">品項</th>
+                      <th class="px-4 py-3 text-center">單位</th>
+                      <th class="px-4 py-3 text-center">庫存量</th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+                    <tr v-for="item in restaurantItems.filter(i => i.needInventory)" :key="item.key"
+                        class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+                      <td class="px-4 py-3">
+                        <img v-if="item.images && item.images.length > 0"
+                             :src="imgUrl(item.images[0])" :alt="item.name"
+                             class="w-12 h-12 rounded-xl object-cover border border-stone-200 dark:border-stone-700" />
+                        <div v-else class="w-12 h-12 rounded-xl bg-stone-100 dark:bg-zinc-800 flex items-center justify-center text-stone-300">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3">
+                        <p class="font-medium text-stone-800 dark:text-stone-100">{{ item.name }}</p>
+                        <p class="text-xs text-stone-400 font-mono">{{ item.key }}</p>
+                      </td>
+                      <td class="px-4 py-3 text-center text-stone-500 dark:text-stone-400">{{ item.unit }}</td>
+                      <td class="px-4 py-3 text-center">
+                          <span :class="stockColorClass(dailyStockMap[item.key] ?? stockMap[item.key])" class="text-lg font-bold">
+                            {{ dailyStockMap[item.key] ?? stockMap[item.key] ?? '—' }}
+                          </span>
+                      </td>
+                    </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -765,6 +886,7 @@ const tabs = [
   { key: 'items',    label: '品項管理' },
   { key: 'inout',    label: '出入庫紀錄' },
   { key: 'transfer', label: '調撥管理' },
+  { key: 'daily',    label: '今日盤點' },
 ]
 const activeTab = ref('items')
 
@@ -775,6 +897,49 @@ const inoutData       = ref({})
 const savedDates      = ref([])   // 後端已儲存資料的日期，用於紅點標記
 const transferList    = ref([])
 const transferInList  = ref([])   // 從其他地方調入的紀錄
+
+// ── 今日盤點 ──────────────────────────────────────────────────────
+const dailySelectedDate = ref('')
+const dailyStockMap     = ref({})   // { itemKey: qty }
+const dailyStockLoading = ref(false)
+const dailyCalYear      = ref(new Date().getFullYear())
+const dailyCalMonth     = ref(new Date().getMonth() + 1)
+const todayDateStr      = (() => {
+  const t = new Date()
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`
+})()
+
+const dailyCalLabel = computed(() => `${dailyCalYear.value}年 ${dailyCalMonth.value}月`)
+const dailyCalDays  = computed(() => {
+  const firstDay    = new Date(dailyCalYear.value, dailyCalMonth.value - 1, 1).getDay()
+  const daysInMonth = new Date(dailyCalYear.value, dailyCalMonth.value, 0).getDate()
+  const days = []
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(dailyCalMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
+    days.push({ label: d, date: `${dailyCalYear.value}-${mm}-${dd}` })
+  }
+  return days
+})
+
+const dailyPrevMonth = () => {
+  if (dailyCalMonth.value === 1) { dailyCalYear.value--; dailyCalMonth.value = 12 }
+  else dailyCalMonth.value--
+}
+const dailyNextMonth = () => {
+  if (dailyCalMonth.value === 12) { dailyCalYear.value++; dailyCalMonth.value = 1 }
+  else dailyCalMonth.value++
+}
+
+const selectDailyDate = async (date) => {
+  dailySelectedDate.value = date
+  dailyStockLoading.value = true
+  try {
+    dailyStockMap.value = await (await fetch(`${BASE}/restaurant/stock/asof/${date}`)).json()
+  } catch (e) { console.error(e) }
+  finally { dailyStockLoading.value = false }
+}
+
 const selectedDate    = ref('')
 const previewUrl      = ref('')
 const stockMap        = ref({})   // { itemKey: currentStock }
@@ -1003,10 +1168,33 @@ const stockOf = (key) => {
 const stockClass = (key) => {
   const v = stockMap.value[key]
   if (v === undefined) return 'text-stone-400 dark:text-stone-500'
-  if (v < 0)  return 'text-red-600 dark:text-red-400 font-bold'   // 負數：超賣
-  if (v === 0) return 'text-red-500 dark:text-red-400 font-bold'  // 零庫存
-  if (v <= 3)  return 'text-amber-600 dark:text-amber-400 font-semibold'  // 低庫存
+  if (v < 0)  return 'text-red-600 dark:text-red-400 font-bold'
+  if (v === 0) return 'text-red-500 dark:text-red-400 font-bold'
+  if (v <= 3)  return 'text-amber-600 dark:text-amber-400 font-semibold'
   return 'text-green-700 dark:text-green-400 font-semibold'
+}
+
+const stockColorClass = (v) => {
+  if (v === undefined || v === null) return 'text-stone-400 dark:text-stone-500'
+  if (v < 0)  return 'text-red-600 dark:text-red-400 font-bold'
+  if (v === 0) return 'text-red-500 dark:text-red-400 font-bold'
+  if (v <= 3)  return 'text-amber-600 dark:text-amber-400 font-semibold'
+  return 'text-green-700 dark:text-green-400 font-semibold'
+}
+
+// 有值時輸入框高亮邊框
+const inputHl = (val, color) => {
+  const n = Number(val)
+  if (!n || n === 0) return 'border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800'
+  const map = {
+    green:  'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200',
+    amber:  'border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200',
+    blue:   'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200',
+    orange: 'border-orange-400 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200',
+    red:    'border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200',
+    purple: 'border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200',
+  }
+  return map[color] || map.green
 }
 
 // ── Tab 切換（切到出入庫或調撥時重新拉品項，確保圖片最新）────────
@@ -1018,6 +1206,10 @@ const switchTab = async (key) => {
   }
   if (key === 'items') {
     await fetchStock()
+  }
+  if (key === 'daily') {
+    await fetchItems()
+    if (!dailySelectedDate.value) await selectDailyDate(todayDateStr)
   }
 }
 
@@ -1099,6 +1291,7 @@ const confirmDeleteDay = async () => {
     showToast('刪除失敗，請確認伺服器連線')
   }
 }
+
 const fetchTransfers = async () => {
   try { transferList.value = await (await fetch(`${BASE}/restaurant/inout/transfers/${selectedMonth.value}`)).json() }
   catch (e) { console.error(e) }
@@ -1110,30 +1303,13 @@ const fetchTransferIns = async () => {
 // saveCommon → 已移至 CommonConfig.vue
 
 onMounted(async () => {
-  await fetchCommon();
-  await fetchItems();
-  await fetchStock();
-  await fetchInout();
-  await fetchTransfers();
-  await fetchTransferIns()
+  await fetchCommon(); await fetchItems(); await fetchStock(); await fetchInout(); await fetchTransfers(); await fetchTransferIns()
 })
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.scrollbar-none {
-  scrollbar-width: none;
-}
-
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
 </style>
