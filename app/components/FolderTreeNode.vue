@@ -10,8 +10,8 @@
       <!-- 展開/收合 -->
       <button class="p-0.5 mr-0.5 text-stone-400 flex-shrink-0 w-4" @click.stop="expanded = !expanded">
         <svg v-if="node.children && node.children.length"
-          :class="['w-3 h-3 transition-transform', expanded ? 'rotate-90' : '']"
-          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             :class="['w-3 h-3 transition-transform', expanded ? 'rotate-90' : '']"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
       </button>
@@ -38,19 +38,19 @@
           </svg>
         </button>
         <div v-if="menuOpen"
-          class="absolute right-0 top-7 z-50 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-600 rounded-xl shadow-lg py-1 min-w-32">
+             class="absolute right-0 top-7 z-50 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-600 rounded-xl shadow-lg py-1 min-w-32">
           <button class="w-full text-left px-3 py-1.5 text-xs text-teal-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-            @click.stop="$emit('moveup', node.path); menuOpen=false">↑ 上移</button>
+                  @click.stop="$emit('moveup', node.path); menuOpen=false">↑ 上移</button>
           <button class="w-full text-left px-3 py-1.5 text-xs text-teal-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-            @click.stop="$emit('movedown', node.path); menuOpen=false">↓ 下移</button>
+                  @click.stop="$emit('movedown', node.path); menuOpen=false">↓ 下移</button>
           <div class="border-t border-stone-100 dark:border-stone-700 my-1"></div>
           <button class="w-full text-left px-3 py-1.5 text-xs text-indigo-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-            @click.stop="$emit('add', node.path); menuOpen=false">＋ 新增子資料夾</button>
+                  @click.stop="$emit('add', node.path); menuOpen=false">＋ 新增子資料夾</button>
           <button class="w-full text-left px-3 py-1.5 text-xs text-amber-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-            @click.stop="$emit('rename', node.path, node.name); menuOpen=false">✏ 重新命名</button>
+                  @click.stop="$emit('rename', node.path, node.name); menuOpen=false">✏ 重新命名</button>
           <div class="border-t border-stone-100 dark:border-stone-700 my-1"></div>
           <button class="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-            @click.stop="$emit('delete', node.path); menuOpen=false">🗑 刪除</button>
+                  @click.stop="$emit('delete', node.path); menuOpen=false">🗑 刪除</button>
         </div>
       </div>
     </div>
@@ -58,19 +58,19 @@
     <!-- 子資料夾（遞迴） -->
     <template v-if="expanded && node.children && node.children.length">
       <FolderTreeNode v-for="child in node.children" :key="child.path"
-        :node="child" :selectedPath="selectedPath" :depth="depth + 1"
-        @select="$emit('select', ...arguments)"
-        @add="$emit('add', ...arguments)"
-        @rename="$emit('rename', ...arguments)"
-        @moveup="$emit('moveup', ...arguments)"
-        @movedown="$emit('movedown', ...arguments)"
-        @delete="$emit('delete', ...arguments)" />
+                      :node="child" :selectedPath="selectedPath" :depth="depth + 1"
+                      @select="(p, n) => $emit('select', p, n)"
+                      @add="(p) => $emit('add', p)"
+                      @rename="(p, n) => $emit('rename', p, n)"
+                      @moveup="(p) => $emit('moveup', p)"
+                      @movedown="(p) => $emit('movedown', p)"
+                      @delete="(p) => $emit('delete', p)" />
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import {ref, onMounted, onBeforeUnmount} from 'vue'
 
 const props = defineProps(['node', 'selectedPath', 'depth'])
 defineEmits(['select', 'add', 'rename', 'moveup', 'movedown', 'delete'])
