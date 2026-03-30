@@ -14,7 +14,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <nav class="bg-neutral-primary w-full sticky top-0 z-50 start-0 border-default">
+  <nav class="bg-neutral-primary w-full start-0 border-default">
     <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
       <button data-collapse-toggle="navbar-dropdown"
               type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-body rounded-base md:hidden hover:bg-neutral-secondary-soft hover:text-heading focus:outline-none focus:ring-2 focus:ring-neutral-tertiary" aria-controls="navbar-dropdown" aria-expanded="false">

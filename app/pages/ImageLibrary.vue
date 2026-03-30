@@ -2,8 +2,13 @@
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3">
       <div class="flex items-center gap-3">
+        <!-- 手機：資料夾開關按鈕 -->
+        <button @click="sidebarOpen = !sidebarOpen"
+                class="sm:hidden p-1.5 text-stone-500 hover:text-indigo-600 transition-colors flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        </button>
         <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">圖</div>
         <div class="flex-1 min-w-0">
           <h1 class="font-bold text-stone-800 dark:text-stone-100 text-sm sm:text-base leading-none">資源管理庫</h1>
@@ -16,10 +21,17 @@
       </div>
     </header>
 
-    <div class="flex h-[calc(100vh-57px)]">
+    <div class="flex h-[calc(100vh-57px)] relative">
+
+      <!-- 手機遮罩 -->
+      <div v-if="sidebarOpen" class="fixed inset-0 bg-black/40 z-20 sm:hidden" @click="sidebarOpen = false"></div>
 
       <!-- 左側欄：資料夾樹 -->
-      <aside class="w-52 sm:w-60 flex-shrink-0 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 flex flex-col">
+      <aside :class="[
+        'flex-shrink-0 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 flex flex-col z-30 transition-transform duration-300',
+        'fixed top-0 bottom-0 left-0 w-64 sm:static sm:w-52 sm:translate-x-0',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'
+      ]">
         <div class="px-3 pt-3 pb-2 flex items-center justify-between">
           <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">資料夾</span>
           <button @click="openAddFolder(null)" class="p-1 text-stone-400 hover:text-indigo-600 transition-colors" title="新增頂層資料夾">
@@ -40,7 +52,8 @@
                           @rename="openRenameFolder"
                           @moveup="moveFolderUp"
                           @movedown="moveFolderDown"
-                          @delete="confirmDeleteFolder" />
+                          @delete="confirmDeleteFolder"
+                          @drop-file="onDropToFolder" />
         </div>
       </aside>
 
@@ -79,7 +92,17 @@
         </div>
 
         <!-- 檔案區域 -->
-        <div class="flex-1 overflow-y-auto p-4">
+        <div class="flex-1 overflow-y-auto p-4 relative"
+             @dragover.prevent="isDragOverUpload = true"
+             @dragleave.self="isDragOverUpload = false"
+             @drop.prevent="onDropUpload">
+
+          <!-- 拖放上傳提示遮罩 -->
+          <div v-if="isDragOverUpload"
+               class="absolute inset-0 z-20 bg-indigo-600/10 border-4 border-dashed border-indigo-400 rounded-2xl flex flex-col items-center justify-center gap-3 pointer-events-none m-2">
+            <svg class="w-12 h-12 text-indigo-500 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            <p class="text-indigo-600 dark:text-indigo-400 font-semibold text-base">放開以上傳到「{{ selectedPath === '全部' ? '未分類' : selectedPath }}」</p>
+          </div>
           <div v-if="loading" class="flex items-center justify-center py-16 text-stone-400 gap-2">
             <div class="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             載入中…
@@ -93,6 +116,9 @@
           <div v-else-if="viewMode === 'grid'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             <div v-for="img in filteredImages" :key="img.url"
                  class="group relative bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-700 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer"
+                 draggable="true"
+                 @dragstart="onDragStart(img)"
+                 @dragend="dragging = null"
                  @click="previewImg = img">
               <div class="aspect-square overflow-hidden bg-stone-100 dark:bg-zinc-700 flex items-center justify-center">
                 <img v-if="isImage(img.fileName)" :src="imgUrl(img.url)" :alt="img.originalName" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
@@ -107,7 +133,7 @@
                 <p v-if="img.displayName" class="text-xs text-stone-400 truncate">{{ img.originalName }}</p>
                 <p class="text-xs text-stone-400 mt-0.5">{{ formatSize(img.size) }}</p>
               </div>
-              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all rounded-2xl flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all rounded-2xl items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 hidden sm:flex">
                 <button @click.stop="copyUrl(img)" title="複製連結" class="p-2 bg-white/90 hover:bg-white rounded-xl text-stone-700 transition-colors shadow-sm">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 </button>
@@ -141,7 +167,11 @@
               </tr>
               </thead>
               <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-              <tr v-for="img in filteredImages" :key="img.url" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+              <tr v-for="img in filteredImages" :key="img.url"
+                  class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors cursor-grab"
+                  draggable="true"
+                  @dragstart="onDragStart(img)"
+                  @dragend="dragging = null">
                 <td class="px-4 py-2">
                   <div class="w-12 h-12 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden flex items-center justify-center bg-stone-100 dark:bg-zinc-800 cursor-pointer" @click="previewImg = img">
                     <img v-if="isImage(img.fileName)" :src="imgUrl(img.url)" :alt="img.originalName" class="w-full h-full object-cover" loading="lazy" />
@@ -218,6 +248,24 @@
         <div class="px-4 py-3 border-t border-stone-200 dark:border-stone-700 flex items-center gap-2">
           <input :value="fullUrl(previewImg.url)" readonly class="flex-1 text-xs font-mono bg-stone-100 dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-2 text-stone-600 dark:text-stone-300 outline-none" />
           <button @click="copyUrl(previewImg)" class="px-3 py-2 text-xs bg-stone-200 dark:bg-zinc-700 text-stone-700 dark:text-stone-200 rounded-lg hover:bg-stone-300 transition-colors flex-shrink-0">{{ copied ? '✓ 已複製' : '複製' }}</button>
+        </div>
+        <!-- 手機操作列 -->
+        <div class="sm:hidden px-4 py-3 border-t border-stone-200 dark:border-stone-700 flex items-center justify-around gap-2">
+          <button @click="openMoveModal(previewImg); previewImg = null"
+                  class="flex flex-col items-center gap-1 text-xs text-stone-500 dark:text-stone-400 hover:text-indigo-600 transition-colors px-3 py-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+            移動
+          </button>
+          <button @click="openEditModal(previewImg); previewImg = null"
+                  class="flex flex-col items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors px-3 py-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            編輯
+          </button>
+          <button @click="confirmDelete(previewImg); previewImg = null"
+                  class="flex flex-col items-center gap-1 text-xs text-red-400 hover:text-red-500 transition-colors px-3 py-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            刪除
+          </button>
         </div>
       </div>
     </div>
@@ -326,29 +374,37 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
+import {ref, computed, reactive, onMounted} from 'vue'
+import {useCommonStore} from '~/stores/common.js'
 import FolderTreeNode from '~/components/FolderTreeNode.vue'
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/images')
 
-const apiOnline  = ref(false)
-const loading    = ref(false)
-const uploading  = ref(false)
+const apiOnline = ref(false)
+const loading = ref(false)
+const uploading = ref(false)
+const sidebarOpen = ref(false)
 const folderTree = ref([])
 const selectedPath = ref('全部')
-const images     = ref([])
+const images = ref([])
 const searchText = ref('')
-const viewMode   = ref('grid')
+const viewMode = ref('grid')
 const previewImg = ref(null)
-const copied     = ref(false)
-const toast      = reactive({ show: false, message: '' })
+const copied = ref(false)
+const toast = reactive({show: false, message: ''})
 
-const addFolderModal    = reactive({ show: false, parent: null, name: '' })
-const renameFolderModal = reactive({ show: false, oldPath: '', oldName: '', newName: '' })
-const moveModal         = reactive({ show: false, img: null, target: '' })
-const editModal         = reactive({ show: false, img: null, displayName: '', coverFile: null, coverPreview: '', removeCover: false })
+const addFolderModal = reactive({show: false, parent: null, name: ''})
+const renameFolderModal = reactive({show: false, oldPath: '', oldName: '', newName: ''})
+const moveModal = reactive({show: false, img: null, target: ''})
+const editModal = reactive({
+  show: false,
+  img: null,
+  displayName: '',
+  coverFile: null,
+  coverPreview: '',
+  removeCover: false
+})
 
 const filteredImages = computed(() => {
   const q = searchText.value.trim().toLowerCase()
@@ -357,7 +413,12 @@ const filteredImages = computed(() => {
 
 const allFolderPaths = computed(() => {
   const paths = []
-  const collect = (nodes) => { for (const n of nodes) { paths.push(n.path); if (n.children?.length) collect(n.children) } }
+  const collect = (nodes) => {
+    for (const n of nodes) {
+      paths.push(n.path);
+      if (n.children?.length) collect(n.children)
+    }
+  }
   collect(folderTree.value)
   return paths
 })
@@ -375,7 +436,9 @@ const fetchFolders = async () => {
     if (!res.ok) throw new Error()
     folderTree.value = await res.json()
     apiOnline.value = true
-  } catch { apiOnline.value = false }
+  } catch {
+    apiOnline.value = false
+  }
 }
 
 const fetchImages = async () => {
@@ -385,46 +448,88 @@ const fetchImages = async () => {
     const res = await fetch(`${BASE.value}/list?folder=${encodeURIComponent(folder)}`)
     if (!res.ok) throw new Error()
     images.value = await res.json()
-  } catch { images.value = [] }
-  finally { loading.value = false }
+  } catch {
+    images.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
-const selectFolder = async (path) => { selectedPath.value = path; await fetchImages() }
+const selectFolder = async (path) => {
+  selectedPath.value = path
+  sidebarOpen.value = false  // 手機選完資料夾自動收起
+  await fetchImages()
+}
 
-const openAddFolder = (parent) => { addFolderModal.parent = parent; addFolderModal.name = ''; addFolderModal.show = true }
+const openAddFolder = (parent) => {
+  addFolderModal.parent = parent;
+  addFolderModal.name = '';
+  addFolderModal.show = true
+}
 const addFolder = async () => {
   if (!addFolderModal.name.trim()) return
-  const fullPath = addFolderModal.parent ? `${addFolderModal.parent}/${addFolderModal.name.trim()}` : addFolderModal.name.trim()
+  const parent = addFolderModal.parent || ''
+  const name = addFolderModal.name.trim()
+  const fullPath = parent ? `${parent}/${name}` : name
   try {
-    await fetch(`${BASE.value}/folders/add`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullPath) })
-    await fetchFolders(); addFolderModal.show = false; showToast('資料夾已建立')
-  } catch { showToast('建立失敗') }
+    // 同時支援 @RequestBody 和 @RequestParam 兩種後端寫法
+    const res = await fetch(
+      `${BASE.value}/folders/add?parentPath=${encodeURIComponent(parent)}&name=${encodeURIComponent(name)}`,
+      {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(fullPath)}
+    )
+    if (!res.ok) throw new Error()
+    await fetchFolders();
+    addFolderModal.show = false;
+    showToast('資料夾已建立')
+  } catch {
+    showToast('建立失敗')
+  }
 }
 
 const confirmDeleteFolder = async (path) => {
   if (!confirm(`確定刪除「${path}」及其所有內容？`)) return
   try {
-    await fetch(`${BASE.value}/folders/remove`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(path) })
+    await fetch(`${BASE.value}/folders/remove`, {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(path)
+    })
     await fetchFolders()
     if (selectedPath.value === path || selectedPath.value.startsWith(path + '/')) selectedPath.value = '全部'
-    await fetchImages(); showToast('資料夾已刪除')
-  } catch { showToast('刪除失敗') }
+    await fetchImages();
+    showToast('資料夾已刪除')
+  } catch {
+    showToast('刪除失敗')
+  }
 }
 
-const openRenameFolder = (path, name) => { renameFolderModal.oldPath = path; renameFolderModal.oldName = name; renameFolderModal.newName = name; renameFolderModal.show = true }
+const openRenameFolder = (path, name) => {
+  renameFolderModal.oldPath = path;
+  renameFolderModal.oldName = name;
+  renameFolderModal.newName = name;
+  renameFolderModal.show = true
+}
 const doRenameFolder = async () => {
-  const { oldPath, newName } = renameFolderModal
-  if (!newName.trim() || newName.trim() === renameFolderModal.oldName) { renameFolderModal.show = false; return }
+  const {oldPath, newName} = renameFolderModal
+  if (!newName.trim() || newName.trim() === renameFolderModal.oldName) {
+    renameFolderModal.show = false;
+    return
+  }
   try {
-    const res = await fetch(`${BASE.value}/folders/rename?oldPath=${encodeURIComponent(oldPath)}&newName=${encodeURIComponent(newName.trim())}`, { method: 'POST' })
+    const res = await fetch(`${BASE.value}/folders/rename?oldPath=${encodeURIComponent(oldPath)}&newName=${encodeURIComponent(newName.trim())}`, {method: 'POST'})
     if (!res.ok) throw new Error()
     const newPath = await res.json()
     if (selectedPath.value === oldPath || selectedPath.value.startsWith(oldPath + '/')) selectedPath.value = selectedPath.value.replace(oldPath, newPath)
-    await fetchFolders(); await fetchImages(); renameFolderModal.show = false; showToast('已重新命名')
-  } catch { showToast('重新命名失敗') }
+    await fetchFolders();
+    await fetchImages();
+    renameFolderModal.show = false;
+    showToast('已重新命名')
+  } catch {
+    showToast('重新命名失敗')
+  }
 }
 
-const moveFolderUp   = (path) => moveFolder(path, -1)
+const moveFolderUp = (path) => moveFolder(path, -1)
 const moveFolderDown = (path) => moveFolder(path, 1)
 const moveFolder = async (path, dir) => {
   const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : ''
@@ -435,96 +540,223 @@ const moveFolder = async (path, dir) => {
   const newOrder = siblings.map(n => n.path);
   [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]]
   try {
-    await fetch(`${BASE.value}/folders/sort`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newOrder) })
+    await fetch(`${BASE.value}/folders/sort`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(newOrder)
+    })
     await fetchFolders()
-  } catch { showToast('排序失敗') }
+  } catch {
+    showToast('排序失敗')
+  }
 }
 const getSiblings = (nodes, parentPath) => {
   if (!parentPath) return nodes
   for (const n of nodes) {
     if (n.path === parentPath) return n.children || []
-    if (parentPath.startsWith(n.path + '/')) { const r = getSiblings(n.children || [], parentPath); if (r.length) return r }
+    if (parentPath.startsWith(n.path + '/')) {
+      const r = getSiblings(n.children || [], parentPath);
+      if (r.length) return r
+    }
   }
   return []
 }
 
 const handleUpload = async (e) => {
-  const files = Array.from(e.target.files); if (!files.length) return
+  const files = Array.from(e.target.files);
+  if (!files.length) return
   uploading.value = true
   const formData = new FormData()
   files.forEach(f => formData.append('files', f))
   const folder = selectedPath.value === '全部' ? '未分類' : selectedPath.value
   try {
-    const res = await fetch(`${BASE.value}/upload?folder=${encodeURIComponent(folder)}`, { method: 'POST', body: formData })
+    const res = await fetch(`${BASE.value}/upload?folder=${encodeURIComponent(folder)}`, {
+      method: 'POST',
+      body: formData
+    })
     if (!res.ok) throw new Error()
-    await fetchImages(); showToast(`已上傳 ${files.length} 個檔案`)
-  } catch { showToast('上傳失敗') }
-  finally { uploading.value = false; e.target.value = '' }
+    await fetchImages();
+    showToast(`已上傳 ${files.length} 個檔案`)
+  } catch {
+    showToast('上傳失敗')
+  } finally {
+    uploading.value = false;
+    e.target.value = ''
+  }
 }
 
 const confirmDelete = async (img) => {
   if (!confirm(`確定刪除「${img.originalName}」？`)) return
   try {
-    await fetch(`${BASE.value}/remove?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'DELETE' })
+    await fetch(`${BASE.value}/remove?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'DELETE'})
     images.value = images.value.filter(i => !(i.fileName === img.fileName && i.folder === img.folder))
     if (previewImg.value?.fileName === img.fileName) previewImg.value = null
     showToast('已刪除')
-  } catch { showToast('刪除失敗') }
+  } catch {
+    showToast('刪除失敗')
+  }
 }
 
-const openMoveModal = (img) => { moveModal.img = img; moveModal.target = ''; moveModal.show = true }
+const openMoveModal = (img) => {
+  moveModal.img = img;
+  moveModal.target = '';
+  moveModal.show = true
+}
 const doMove = async () => {
   if (!moveModal.target || !moveModal.img) return
   try {
-    await fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(moveModal.img.folder)}&toFolder=${encodeURIComponent(moveModal.target)}&fileName=${encodeURIComponent(moveModal.img.fileName)}`, { method: 'POST' })
+    const res = await fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(moveModal.img.folder)}&toFolder=${encodeURIComponent(moveModal.target)}&fileName=${encodeURIComponent(moveModal.img.fileName)}`, {method: 'POST'})
+    if (!res.ok) throw new Error()
     images.value = images.value.filter(i => !(i.fileName === moveModal.img.fileName && i.folder === moveModal.img.folder))
-    if (previewImg.value?.fileName === moveModal.img.fileName) previewImg.value = null
-    moveModal.show = false; await fetchImages(); showToast(`已移動到「${moveModal.target}」`)
-  } catch { showToast('移動失敗') }
+    if (previewImg.value?.fileName === moveModal.img.fileName && previewImg.value?.folder === moveModal.img.folder) previewImg.value = null
+    moveModal.show = false
+    showToast(`已移動到「${moveModal.target}」`)
+  } catch {
+    showToast('移動失敗')
+  }
 }
 
-const openEditModal = (img) => { editModal.img = img; editModal.displayName = img.displayName || ''; editModal.coverFile = null; editModal.coverPreview = ''; editModal.removeCover = false; editModal.show = true }
+const openEditModal = (img) => {
+  editModal.img = img;
+  editModal.displayName = img.displayName || '';
+  editModal.coverFile = null;
+  editModal.coverPreview = '';
+  editModal.removeCover = false;
+  editModal.show = true
+}
 const onCoverSelect = (e) => {
-  const file = e.target.files[0]; if (!file) return
-  editModal.coverFile = file; editModal.removeCover = false; editModal.coverPreview = URL.createObjectURL(file); e.target.value = ''
+  const file = e.target.files[0];
+  if (!file) return
+  editModal.coverFile = file;
+  editModal.removeCover = false;
+  editModal.coverPreview = URL.createObjectURL(file);
+  e.target.value = ''
 }
 const saveEdit = async () => {
   const img = editModal.img
   try {
-    await fetch(`${BASE.value}/rename?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editModal.displayName) })
+    await fetch(`${BASE.value}/rename?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(editModal.displayName)
+    })
     img.displayName = editModal.displayName
     if (editModal.coverFile) {
-      const fd = new FormData(); fd.append('cover', editModal.coverFile)
-      const res = await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'POST', body: fd })
+      const fd = new FormData();
+      fd.append('cover', editModal.coverFile)
+      const res = await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {
+        method: 'POST',
+        body: fd
+      })
       img.coverUrl = (await res.json()) + '?t=' + Date.now()
     } else if (editModal.removeCover && img.coverUrl) {
-      await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'DELETE' })
+      await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'DELETE'})
       img.coverUrl = ''
     }
-    editModal.show = false; showToast('已更新')
-  } catch { showToast('更新失敗') }
+    editModal.show = false;
+    showToast('已更新')
+  } catch {
+    showToast('更新失敗')
+  }
 }
 
 const copyUrl = async (img) => {
-  try { await navigator.clipboard.writeText(fullUrl(img.url)); copied.value = true; setTimeout(() => copied.value = false, 2000); showToast('連結已複製') }
-  catch { showToast('複製失敗') }
+  try {
+    await navigator.clipboard.writeText(fullUrl(img.url));
+    copied.value = true;
+    setTimeout(() => copied.value = false, 2000);
+    showToast('連結已複製')
+  } catch {
+    showToast('複製失敗')
+  }
 }
 
-const isImage   = (fn) => fn && ['jpg','jpeg','png','gif','webp','svg'].includes(fn.split('.').pop().toLowerCase())
-const fileExt   = (fn) => fn ? fn.split('.').pop().toUpperCase() : ''
+const dragging = ref(null)
+const dropTarget = ref(null)
+const isDragOverUpload = ref(false)
+
+const onDropUpload = async (e) => {
+  isDragOverUpload.value = false
+  // 如果是從卡片拖曳（移動檔案），不當作上傳
+  if (dragging.value) return
+  const files = Array.from(e.dataTransfer.files)
+  if (!files.length) return
+  uploading.value = true
+  const formData = new FormData()
+  files.forEach(f => formData.append('files', f))
+  const folder = selectedPath.value === '全部' ? '未分類' : selectedPath.value
+  try {
+    const res = await fetch(`${BASE.value}/upload?folder=${encodeURIComponent(folder)}`, {
+      method: 'POST',
+      body: formData
+    })
+    if (!res.ok) throw new Error()
+    await fetchImages()
+    showToast(`已上傳 ${files.length} 個檔案到「${folder}」`)
+  } catch {
+    showToast('上傳失敗')
+  } finally {
+    uploading.value = false
+  }
+}
+
+const onDragStart = (img) => {
+  dragging.value = img
+}
+
+const onDropToFolder = async (folderPath) => {
+  const img = dragging.value
+  dragging.value = null
+  if (!img || img.folder === folderPath) return
+  try {
+    const res = await fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(img.folder)}&toFolder=${encodeURIComponent(folderPath)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'POST'})
+    if (!res.ok) throw new Error()
+    // 直接更新前端，不 refetch（避免 race condition）
+    images.value = images.value.filter(i => !(i.fileName === img.fileName && i.folder === img.folder))
+    if (previewImg.value?.fileName === img.fileName && previewImg.value?.folder === img.folder) previewImg.value = null
+    showToast(`已移動到「${folderPath}」`)
+  } catch {
+    showToast('移動失敗')
+  }
+}
+
+const isImage = (fn) => fn && ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fn.split('.').pop().toLowerCase())
+const fileExt = (fn) => fn ? fn.split('.').pop().toUpperCase() : ''
 const fileEmoji = (fn) => {
-  if (!fn) return '📄'; const e = fn.split('.').pop().toLowerCase()
-  if (['xlsx','xls'].includes(e)) return '📊'; if (['docx','doc'].includes(e)) return '📝'
-  if (['pptx','ppt'].includes(e)) return '📋'; if (e === 'pdf') return '📕'; if (e === 'txt') return '📃'; return '📄'
+  if (!fn) return '📄';
+  const e = fn.split('.').pop().toLowerCase()
+  if (['xlsx', 'xls'].includes(e)) return '📊';
+  if (['docx', 'doc'].includes(e)) return '📝'
+  if (['pptx', 'ppt'].includes(e)) return '📋';
+  if (e === 'pdf') return '📕';
+  if (e === 'txt') return '📃';
+  return '📄'
 }
-const formatSize = (b) => !b ? '—' : b < 1024 ? `${b} B` : b < 1048576 ? `${(b/1024).toFixed(1)} KB` : `${(b/1048576).toFixed(1)} MB`
-const formatDate = (ts) => { if (!ts) return '—'; const d = new Date(ts); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}` }
-const showToast = (msg) => { toast.message = msg; toast.show = true; setTimeout(() => toast.show = false, 2500) }
+const formatSize = (b) => !b ? '—' : b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1048576).toFixed(1)} MB`
+const formatDate = (ts) => {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+const showToast = (msg) => {
+  toast.message = msg;
+  toast.show = true;
+  setTimeout(() => toast.show = false, 2500)
+}
 
-onMounted(async () => { await fetchFolders(); await fetchImages() })
+onMounted(async () => {
+  await fetchFolders();
+  await fetchImages()
+})
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>

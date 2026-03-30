@@ -2,10 +2,12 @@
   <div>
     <div
       :class="['flex items-center group rounded-xl transition-colors pr-1 relative',
-        selectedPath === node.path
-          ? 'bg-indigo-50 dark:bg-indigo-900/30'
-          : 'hover:bg-stone-100 dark:hover:bg-zinc-800']"
-      :style="{ paddingLeft: (8 + depth * 14) + 'px' }">
+        isDragOver ? 'bg-indigo-100 dark:bg-indigo-900/50 ring-2 ring-indigo-400' :
+        selectedPath === node.path ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-stone-100 dark:hover:bg-zinc-800']"
+      :style="{ paddingLeft: (8 + depth * 14) + 'px' }"
+      @dragover.prevent="isDragOver = true"
+      @dragleave="isDragOver = false"
+      @drop.prevent="onDrop">
 
       <!-- 展開/收合 -->
       <button class="p-0.5 mr-0.5 text-stone-400 flex-shrink-0 w-4" @click.stop="expanded = !expanded">
@@ -39,18 +41,13 @@
         </button>
         <div v-if="menuOpen"
              class="absolute right-0 top-7 z-50 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-600 rounded-xl shadow-lg py-1 min-w-32">
-          <button class="w-full text-left px-3 py-1.5 text-xs text-teal-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-                  @click.stop="$emit('moveup', node.path); menuOpen=false">↑ 上移</button>
-          <button class="w-full text-left px-3 py-1.5 text-xs text-teal-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-                  @click.stop="$emit('movedown', node.path); menuOpen=false">↓ 下移</button>
+          <button class="w-full text-left px-3 py-1.5 text-xs text-teal-600 hover:bg-stone-50 dark:hover:bg-zinc-700" @click.stop="$emit('moveup', node.path); menuOpen=false">↑ 上移</button>
+          <button class="w-full text-left px-3 py-1.5 text-xs text-teal-600 hover:bg-stone-50 dark:hover:bg-zinc-700" @click.stop="$emit('movedown', node.path); menuOpen=false">↓ 下移</button>
           <div class="border-t border-stone-100 dark:border-stone-700 my-1"></div>
-          <button class="w-full text-left px-3 py-1.5 text-xs text-indigo-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-                  @click.stop="$emit('add', node.path); menuOpen=false">＋ 新增子資料夾</button>
-          <button class="w-full text-left px-3 py-1.5 text-xs text-amber-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-                  @click.stop="$emit('rename', node.path, node.name); menuOpen=false">✏ 重新命名</button>
+          <button class="w-full text-left px-3 py-1.5 text-xs text-indigo-600 hover:bg-stone-50 dark:hover:bg-zinc-700" @click.stop="$emit('add', node.path); menuOpen=false">＋ 新增子資料夾</button>
+          <button class="w-full text-left px-3 py-1.5 text-xs text-amber-600 hover:bg-stone-50 dark:hover:bg-zinc-700" @click.stop="$emit('rename', node.path, node.name); menuOpen=false">✏ 重新命名</button>
           <div class="border-t border-stone-100 dark:border-stone-700 my-1"></div>
-          <button class="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors"
-                  @click.stop="$emit('delete', node.path); menuOpen=false">🗑 刪除</button>
+          <button class="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-stone-50 dark:hover:bg-zinc-700" @click.stop="$emit('delete', node.path); menuOpen=false">🗑 刪除</button>
         </div>
       </div>
     </div>
@@ -64,7 +61,8 @@
                       @rename="(p, n) => $emit('rename', p, n)"
                       @moveup="(p) => $emit('moveup', p)"
                       @movedown="(p) => $emit('movedown', p)"
-                      @delete="(p) => $emit('delete', p)" />
+                      @delete="(p) => $emit('delete', p)"
+                      @drop-file="(folder) => $emit('drop-file', folder)" />
     </template>
   </div>
 </template>
@@ -73,15 +71,19 @@
 import {ref, onMounted, onBeforeUnmount} from 'vue'
 
 const props = defineProps(['node', 'selectedPath', 'depth'])
-defineEmits(['select', 'add', 'rename', 'moveup', 'movedown', 'delete'])
+const emit = defineEmits(['select', 'add', 'rename', 'moveup', 'movedown', 'delete', 'drop-file'])
 
 const expanded = ref(true)
 const menuOpen = ref(false)
+const isDragOver = ref(false)
+
+const onDrop = () => {
+  isDragOver.value = false
+  emit('drop-file', props.node.path)
+}
 
 const closeMenu = (e) => {
-  // 點選單外面就關閉
-  const el = document.querySelector(`[data-folder-path="${props.node.path}"]`)
-  if (!el?.contains(e.target)) menuOpen.value = false
+  if (!e.target.closest('.relative')) menuOpen.value = false
 }
 onMounted(() => document.addEventListener('click', closeMenu))
 onBeforeUnmount(() => document.removeEventListener('click', closeMenu))

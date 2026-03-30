@@ -26,9 +26,9 @@ useSeoMeta({
 </script>
 
 <template>
-  <NavBar />
   <bg id="main" class="flex w-full container-top flex-col items-center justify-center">
     <div class="w-full 2xl:w-3/4">
+      <NavBar />
       <NuxtLayout>
         <NuxtPage />
       </NuxtLayout>
