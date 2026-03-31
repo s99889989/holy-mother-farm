@@ -329,7 +329,7 @@
                      class="border-b border-r border-stone-100 dark:border-stone-800 min-h-16 sm:min-h-20"></div>
                 <div v-for="day in schedDays" :key="day.date"
                      :class="['border-b border-r border-stone-100 dark:border-stone-800 min-h-20 sm:min-h-24 p-1 transition-colors',
-                    schedSelectedDate === day.date ? 'bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-inset ring-indigo-400' :
+                    schedSelectedDate.value === day.date ? 'bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-inset ring-indigo-400' :
                     day.isToday ? 'bg-teal-50 dark:bg-teal-900/20' : 'hover:bg-stone-50 dark:hover:bg-zinc-800/50 cursor-pointer',
                     (day.dow===0||day.dow===6) ? 'bg-stone-50/50 dark:bg-zinc-800/20' : '']"
                      @click="selectSchedDate(day.date)">
@@ -743,11 +743,13 @@ const dayClass = (day) => {
 
 const prevMonth = () => {
   if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
-  fetchMarkedDates()
+  if (activeTab.value === 'schedule') fetchSchedule()
+  else fetchMarkedDates()
 }
 const nextMonth = () => {
   if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
-  fetchMarkedDates()
+  if (activeTab.value === 'schedule') fetchSchedule()
+  else fetchMarkedDates()
 }
 
 const selectDate = async (date) => {
@@ -1014,62 +1016,89 @@ const fetchSchedule = async () => {
       const data = await schedRes.json()
       const d = data.default || {}
       schedDefault.activity = d.activity ?? '康樂'
-      schedDefault.count    = d.count    ?? ''
-      schedDefault.time     = d.time     ?? ''
-      schedDefault.enabled  = d.enabled  !== false
-      schedNotes.value      = data.notes || ''
-      schedDayData.value    = data.days  || {}
+      schedDefault.count = d.count ?? ''
+      schedDefault.time = d.time ?? ''
+      schedDefault.enabled = d.enabled !== false
+      schedNotes.value = data.notes || ''
+      schedDayData.value = data.days || {}
     }
     if (bookDates.ok) markedDates.value = await bookDates.json()
     if (lunchDates.ok) lunchMarkedDates.value = await lunchDates.json()
     if (recurRes.ok) recurExpand.value = await recurRes.json()
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const saveSchedDefault = async () => {
   try {
     await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...schedDefault, notes: schedNotes.value })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...schedDefault, notes: schedNotes.value})
     })
     await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(schedNotes.value)
     })
     showToast('預設值已儲存')
     schedSettingsOpen.value = false
-  } catch { showToast('儲存失敗') }
+  } catch {
+    showToast('儲存失敗')
+  }
 }
 
 const openSchedModal = (day) => {
   const custom = schedDayData.value[day.date] || {}
   schedModal.date = day.date
-  schedModal.data = { activity: custom.activity||'', count: custom.count||'', time: custom.time||'', note: custom.note||'', holiday: custom.holiday||'', enabled: custom.enabled !== undefined ? custom.enabled : null }
+  schedModal.data = {
+    activity: custom.activity || '',
+    count: custom.count || '',
+    time: custom.time || '',
+    note: custom.note || '',
+    holiday: custom.holiday || '',
+    enabled: custom.enabled !== undefined ? custom.enabled : null
+  }
   schedModal.show = true
 }
 
 const saveSchedDay = async () => {
   try {
     await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...schedModal.data })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...schedModal.data})
     })
-    const d = Object.fromEntries(Object.entries({ ...schedModal.data }).filter(([,v]) => v !== '' && v !== null))
-    if (Object.keys(d).length > 0) schedDayData.value = { ...schedDayData.value, [schedModal.date]: d }
-    else { const nd = { ...schedDayData.value }; delete nd[schedModal.date]; schedDayData.value = nd }
-    schedModal.show = false; showToast('已儲存')
-  } catch { showToast('儲存失敗') }
+    const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
+    if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
+    else {
+      const nd = {...schedDayData.value};
+      delete nd[schedModal.date];
+      schedDayData.value = nd
+    }
+    schedModal.show = false;
+    showToast('已儲存')
+  } catch {
+    showToast('儲存失敗')
+  }
 }
 
 const clearSchedDay = async () => {
   try {
-    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, { method: 'DELETE' })
-    const nd = { ...schedDayData.value }; delete nd[schedModal.date]; schedDayData.value = nd
-    schedModal.show = false; showToast('已重設為預設')
-  } catch { showToast('操作失敗') }
+    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
+    const nd = {...schedDayData.value};
+    delete nd[schedModal.date];
+    schedDayData.value = nd
+    schedModal.show = false;
+    showToast('已重設為預設')
+  } catch {
+    showToast('操作失敗')
+  }
 }
-const toast = reactive({ show: false, message: '' })
-const showToast = (msg) => { toast.message = msg; toast.show = true; setTimeout(() => toast.show = false, 2500) }
+const toast = reactive({show: false, message: ''})
+const showToast = (msg) => {
+  toast.message = msg;
+  toast.show = true;
+  setTimeout(() => toast.show = false, 2500)
+}
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
