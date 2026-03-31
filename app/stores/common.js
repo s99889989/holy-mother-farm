@@ -6,7 +6,7 @@ export const useCommonStore = defineStore('useFamilyStore', () => {
   // https://madustrialtd.asuscomm.com:8080
   // http://localhost:8080
   const data = reactive({
-    main_url: 'https://madustrialtd.asuscomm.com:8080'
+    main_url: 'http://localhost:8080'
   })
   return { data }
 })
