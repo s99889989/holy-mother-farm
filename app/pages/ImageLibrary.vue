@@ -487,13 +487,28 @@ onBeforeUnmount(() => { window.removeEventListener('mouseup', endLasso) })
 // ── 批次操作 ──────────────────────────────────────────────────────
 const batchDownload = async () => {
   const targets = filteredImages.value.filter(img => selected.has(imgKey(img)))
-  for (const img of targets) {
+  if (targets.length === 0) return
+
+  // 組成 ["folder/fileName", ...] 陣列傳給後端打包成 ZIP
+  const paths = targets.map(img => img.folder === '根目錄' ? img.fileName : `${img.folder}/${img.fileName}`)
+  showToast(`準備下載 ${targets.length} 個檔案...`)
+  try {
+    const res = await fetch(`${BASE.value}/download-zip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(paths)
+    })
+    if (!res.ok) throw new Error('下載失敗')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = imgUrl(img.url); a.download = img.originalName
-    a.style.display = 'none'; document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    await new Promise(r => setTimeout(r, 300))  // 每個間隔 300ms，避免瀏覽器封鎖
+    a.href = url; a.download = 'images.zip'
+    a.style.display = 'none'; document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+    showToast(`已下載 ${targets.length} 個檔案`)
+  } catch {
+    showToast('下載失敗，請再試一次')
   }
-  showToast(`下載 ${targets.length} 個檔案`)
 }
 const batchMove = () => {
   if (selected.size === 0) return
