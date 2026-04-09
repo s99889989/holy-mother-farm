@@ -83,10 +83,17 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--paper);color:var(--i
   font-family:'Noto Serif TC',serif;
   font-size:32px;font-weight:900;margin-bottom:4px;
 }
+.cc .cc-kanji2{
+  font-family:'Noto Serif TC',serif;
+  font-size:12px;font-weight:900;margin-bottom:4px;
+}
 .cc .cc-lbl{font-size:11px;letter-spacing:1px;opacity:.5;}
 .cc-g .cc-kanji{color:#86efac;}
 .cc-r .cc-kanji{color:#fca5a5;}
 .cc-p .cc-kanji{color:#c4b5fd;}
+.cc-g .cc-kanji2{color:#86efac;}
+.cc-r .cc-kanji2{color:#fca5a5;}
+.cc-p .cc-kanji2{color:#c4b5fd;}
 
 .herb-overview{max-width:860px;margin:0 auto;padding:44px 24px;}
 .ov-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:32px;}
@@ -422,17 +429,20 @@ hr{border:none;border-top:1px solid var(--border);margin:28px 0;}
     <div class="course-cards">
       <div class="cc cc-g" onclick="go('g')">
         <div class="cc-icon">🛡</div>
-        <div class="cc-kanji">殺菌</div>
+        <div class="cc-kanji">淨</div>
+		<div class="cc-kanji2">(淨化身體)</div>
         <div class="cc-lbl">魚腥草 主角</div>
       </div>
       <div class="cc cc-r" onclick="go('r')">
         <div class="cc-icon">⚡</div>
-        <div class="cc-kanji">提神</div>
+        <div class="cc-kanji">力</div>
+		<div class="cc-kanji2">(恢復能量)</div>
         <div class="cc-lbl">三葉五加 主角</div>
       </div>
       <div class="cc cc-p" onclick="go('p')">
         <div class="cc-icon">🌙</div>
-        <div class="cc-kanji">舒緩</div>
+        <div class="cc-kanji">安</div>
+		<div class="cc-kanji2">(回到平衡))</div>
         <div class="cc-lbl">檸檬香茅 主角</div>
       </div>
     </div>
