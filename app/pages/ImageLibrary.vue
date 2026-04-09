@@ -394,39 +394,49 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
+import {ref, computed, reactive, onMounted, onBeforeUnmount} from 'vue'
+import {useCommonStore} from '~/stores/common.js'
 import FolderTreeNode from '~/components/FolderTreeNode.vue'
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/images')
 
-const apiOnline   = ref(false)
-const loading     = ref(false)
-const uploading   = ref(false)
+const apiOnline = ref(false)
+const loading = ref(false)
+const uploading = ref(false)
 const sidebarOpen = ref(false)
-const folderTree  = ref([])
-const selectedPath = ref('全部')
-const images      = ref([])
-const searchText  = ref('')
-const viewMode    = ref('grid')
-const previewImg  = ref(null)
-const copied      = ref(false)
-const toast       = reactive({ show: false, message: '' })
-const gridRef     = ref(null)
+const folderTree = ref([])
+const selectedPath = ref(localStorage.getItem('imageLibrary_lastFolder') || '全部')
+const images = ref([])
+const searchText = ref('')
+const viewMode = ref('grid')
+const previewImg = ref(null)
+const copied = ref(false)
+const toast = reactive({show: false, message: ''})
+const gridRef = ref(null)
 
-const addFolderModal    = reactive({ show: false, parent: null, name: '' })
-const renameFolderModal = reactive({ show: false, oldPath: '', oldName: '', newName: '' })
-const moveModal         = reactive({ show: false, img: null, target: '', isBatch: false })
-const editModal         = reactive({ show: false, img: null, displayName: '', coverFile: null, coverPreview: '', removeCover: false })
+const addFolderModal = reactive({show: false, parent: null, name: ''})
+const renameFolderModal = reactive({show: false, oldPath: '', oldName: '', newName: ''})
+const moveModal = reactive({show: false, img: null, target: '', isBatch: false})
+const editModal = reactive({
+  show: false,
+  img: null,
+  displayName: '',
+  coverFile: null,
+  coverPreview: '',
+  removeCover: false
+})
 
 // ── 多選 ──────────────────────────────────────────────────────────
 const selectMode = ref(false)
-let selected     = reactive(new Set())   // 使用 reactive 讓 Vue 追蹤
-const selTick    = ref(0)                // 強制 template 重新渲染
+let selected = reactive(new Set())   // 使用 reactive 讓 Vue 追蹤
+const selTick = ref(0)                // 強制 template 重新渲染
 
-const imgKey     = (img) => `${img.folder}::${img.fileName}`
-const isSelected = (img) => { void selTick.value; return selected.has(imgKey(img)) }
+const imgKey = (img) => `${img.folder}::${img.fileName}`
+const isSelected = (img) => {
+  void selTick.value;
+  return selected.has(imgKey(img))
+}
 
 const toggleSelect = (img) => {
   const k = imgKey(img)
@@ -443,21 +453,33 @@ const toggleSelectAll = () => {
 }
 const toggleSelectMode = () => {
   selectMode.value = !selectMode.value
-  if (!selectMode.value) { selected.clear(); selTick.value++ }
+  if (!selectMode.value) {
+    selected.clear();
+    selTick.value++
+  }
 }
-const exitSelectMode = () => { selectMode.value = false; selected.clear(); selTick.value++ }
+const exitSelectMode = () => {
+  selectMode.value = false;
+  selected.clear();
+  selTick.value++
+}
 
 const onCardClick = (img) => {
-  if (selectMode.value) { toggleSelect(img); return }
+  if (selectMode.value) {
+    toggleSelect(img);
+    return
+  }
   previewImg.value = img
 }
 
 // ── 框選 (lasso) ──────────────────────────────────────────────────
-const lasso = reactive({ on: false, x0: 0, y0: 0, x1: 0, y1: 0 })
+const lasso = reactive({on: false, x0: 0, y0: 0, x1: 0, y1: 0})
 
 const startLasso = (e) => {
   if (e.button !== 0) return
-  if (!selectMode.value) { selectMode.value = true }
+  if (!selectMode.value) {
+    selectMode.value = true
+  }
   lasso.on = true
   lasso.x0 = lasso.x1 = e.clientX
   lasso.y0 = lasso.y1 = e.clientY
@@ -468,7 +490,12 @@ const moveLasso = (e) => {
   lasso.y1 = e.clientY
   // 檢查哪些卡片在框選範圍內
   if (!gridRef.value) return
-  const r = { left: Math.min(lasso.x0, lasso.x1), right: Math.max(lasso.x0, lasso.x1), top: Math.min(lasso.y0, lasso.y1), bottom: Math.max(lasso.y0, lasso.y1) }
+  const r = {
+    left: Math.min(lasso.x0, lasso.x1),
+    right: Math.max(lasso.x0, lasso.x1),
+    top: Math.min(lasso.y0, lasso.y1),
+    bottom: Math.max(lasso.y0, lasso.y1)
+  }
   gridRef.value.querySelectorAll('[data-key]').forEach(el => {
     const rect = el.getBoundingClientRect()
     const overlap = rect.left < r.right && rect.right > r.left && rect.top < r.bottom && rect.bottom > r.top
@@ -478,41 +505,39 @@ const moveLasso = (e) => {
   })
   selTick.value++
 }
-const endLasso = () => { lasso.on = false }
+const endLasso = () => {
+  lasso.on = false
+}
 
 // 全域 mouseup 確保放開滑鼠一定結束框選
-onMounted(() => { window.addEventListener('mouseup', endLasso) })
-onBeforeUnmount(() => { window.removeEventListener('mouseup', endLasso) })
+onMounted(() => {
+  window.addEventListener('mouseup', endLasso)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('mouseup', endLasso)
+})
 
 // ── 批次操作 ──────────────────────────────────────────────────────
 const batchDownload = async () => {
   const targets = filteredImages.value.filter(img => selected.has(imgKey(img)))
-  if (targets.length === 0) return
-
-  // 組成 ["folder/fileName", ...] 陣列傳給後端打包成 ZIP
-  const paths = targets.map(img => img.folder === '根目錄' ? img.fileName : `${img.folder}/${img.fileName}`)
-  showToast(`準備下載 ${targets.length} 個檔案...`)
-  try {
-    const res = await fetch(`${BASE.value}/download-zip`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(paths)
-    })
-    if (!res.ok) throw new Error('下載失敗')
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
+  for (const img of targets) {
     const a = document.createElement('a')
-    a.href = url; a.download = 'images.zip'
-    a.style.display = 'none'; document.body.appendChild(a); a.click()
-    document.body.removeChild(a); URL.revokeObjectURL(url)
-    showToast(`已下載 ${targets.length} 個檔案`)
-  } catch {
-    showToast('下載失敗，請再試一次')
+    a.href = imgUrl(img.url);
+    a.download = img.originalName
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a)
+    await new Promise(r => setTimeout(r, 300))  // 每個間隔 300ms，避免瀏覽器封鎖
   }
+  showToast(`下載 ${targets.length} 個檔案`)
 }
 const batchMove = () => {
   if (selected.size === 0) return
-  moveModal.isBatch = true; moveModal.img = null; moveModal.target = ''; moveModal.show = true
+  moveModal.isBatch = true;
+  moveModal.img = null;
+  moveModal.target = '';
+  moveModal.show = true
 }
 const batchDelete = async () => {
   if (selected.size === 0) return
@@ -520,12 +545,14 @@ const batchDelete = async () => {
   const targets = filteredImages.value.filter(img => selected.has(imgKey(img)))
   try {
     await Promise.all(targets.map(img =>
-      fetch(`${BASE.value}/remove?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'DELETE' })
+      fetch(`${BASE.value}/remove?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'DELETE'})
     ))
     images.value = images.value.filter(img => !selected.has(imgKey(img)))
     showToast(`已刪除 ${targets.length} 個檔案`)
     exitSelectMode()
-  } catch { showToast('刪除失敗') }
+  } catch {
+    showToast('刪除失敗')
+  }
 }
 
 // ── Computed ──────────────────────────────────────────────────────
@@ -535,7 +562,12 @@ const filteredImages = computed(() => {
 })
 const allFolderPaths = computed(() => {
   const paths = []
-  const collect = (nodes) => { for (const n of nodes) { paths.push(n.path); if (n.children?.length) collect(n.children) } }
+  const collect = (nodes) => {
+    for (const n of nodes) {
+      paths.push(n.path);
+      if (n.children?.length) collect(n.children)
+    }
+  }
   collect(folderTree.value)
   return paths
 })
@@ -549,34 +581,47 @@ const imgUrl = (path) => {
 const fullUrl = (path) => imgUrl(path)
 
 // ── 拖曳 ──────────────────────────────────────────────────────────
-const dragging       = ref(null)
+const dragging = ref(null)
 const isDragOverUpload = ref(false)
 
-const onDragStart = (img) => { dragging.value = img }
+const onDragStart = (img) => {
+  dragging.value = img
+}
 const onDropToFolder = async (folderPath) => {
-  const img = dragging.value; dragging.value = null
+  const img = dragging.value;
+  dragging.value = null
   if (!img || img.folder === folderPath) return
   try {
-    const res = await fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(img.folder)}&toFolder=${encodeURIComponent(folderPath)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'POST' })
+    const res = await fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(img.folder)}&toFolder=${encodeURIComponent(folderPath)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'POST'})
     if (!res.ok) throw new Error()
     images.value = images.value.filter(i => !(i.fileName === img.fileName && i.folder === img.folder))
     showToast(`已移動到「${folderPath}」`)
-  } catch { showToast('移動失敗') }
+  } catch {
+    showToast('移動失敗')
+  }
 }
 const onDropUpload = async (e) => {
   isDragOverUpload.value = false
   if (dragging.value) return
-  const files = Array.from(e.dataTransfer.files); if (!files.length) return
+  const files = Array.from(e.dataTransfer.files);
+  if (!files.length) return
   uploading.value = true
   const formData = new FormData()
   files.forEach(f => formData.append('files', f))
   const folder = selectedPath.value === '全部' ? '未分類' : selectedPath.value
   try {
-    const res = await fetch(`${BASE.value}/upload?folder=${encodeURIComponent(folder)}`, { method: 'POST', body: formData })
+    const res = await fetch(`${BASE.value}/upload?folder=${encodeURIComponent(folder)}`, {
+      method: 'POST',
+      body: formData
+    })
     if (!res.ok) throw new Error()
-    await fetchImages(); showToast(`已上傳 ${files.length} 個檔案`)
-  } catch { showToast('上傳失敗') }
-  finally { uploading.value = false }
+    await fetchImages();
+    showToast(`已上傳 ${files.length} 個檔案`)
+  } catch {
+    showToast('上傳失敗')
+  } finally {
+    uploading.value = false
+  }
 }
 
 // ── API ───────────────────────────────────────────────────────────
@@ -584,8 +629,11 @@ const fetchFolders = async () => {
   try {
     const res = await fetch(`${BASE.value}/folders`)
     if (!res.ok) throw new Error()
-    folderTree.value = await res.json(); apiOnline.value = true
-  } catch { apiOnline.value = false }
+    folderTree.value = await res.json();
+    apiOnline.value = true
+  } catch {
+    apiOnline.value = false
+  }
 }
 const fetchImages = async () => {
   loading.value = true
@@ -594,45 +642,87 @@ const fetchImages = async () => {
     const res = await fetch(`${BASE.value}/list?folder=${encodeURIComponent(folder)}`)
     if (!res.ok) throw new Error()
     images.value = await res.json()
-  } catch { images.value = [] }
-  finally { loading.value = false }
+  } catch {
+    images.value = []
+  } finally {
+    loading.value = false
+  }
 }
-const selectFolder = async (path) => { selectedPath.value = path; sidebarOpen.value = false; await fetchImages() }
+const selectFolder = async (path) => {
+  selectedPath.value = path;
+  localStorage.setItem('imageLibrary_lastFolder', path);
+  sidebarOpen.value = false;
+  await fetchImages()
+}
 
-const openAddFolder = (parent) => { addFolderModal.parent = parent; addFolderModal.name = ''; addFolderModal.show = true }
+const openAddFolder = (parent) => {
+  addFolderModal.parent = parent;
+  addFolderModal.name = '';
+  addFolderModal.show = true
+}
 const addFolder = async () => {
   if (!addFolderModal.name.trim()) return
   const parent = addFolderModal.parent || '', name = addFolderModal.name.trim()
   const fullPath = parent ? `${parent}/${name}` : name
   try {
     const res = await fetch(`${BASE.value}/folders/add?parentPath=${encodeURIComponent(parent)}&name=${encodeURIComponent(name)}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullPath) })
+      {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(fullPath)})
     if (!res.ok) throw new Error()
-    await fetchFolders(); addFolderModal.show = false; showToast('資料夾已建立')
-  } catch { showToast('建立失敗') }
+    await fetchFolders();
+    addFolderModal.show = false;
+    showToast('資料夾已建立')
+  } catch {
+    showToast('建立失敗')
+  }
 }
 const confirmDeleteFolder = async (path) => {
   if (!confirm(`確定刪除「${path}」及其所有內容？`)) return
   try {
-    await fetch(`${BASE.value}/folders/remove`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(path) })
+    await fetch(`${BASE.value}/folders/remove`, {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(path)
+    })
     await fetchFolders()
-    if (selectedPath.value === path || selectedPath.value.startsWith(path + '/')) selectedPath.value = '全部'
-    await fetchImages(); showToast('資料夾已刪除')
-  } catch { showToast('刪除失敗') }
+    if (selectedPath.value === path || selectedPath.value.startsWith(path + '/')) {
+      selectedPath.value = '全部';
+      localStorage.setItem('imageLibrary_lastFolder', '全部')
+    }
+    await fetchImages();
+    showToast('資料夾已刪除')
+  } catch {
+    showToast('刪除失敗')
+  }
 }
-const openRenameFolder = (path, name) => { renameFolderModal.oldPath = path; renameFolderModal.oldName = name; renameFolderModal.newName = name; renameFolderModal.show = true }
+const openRenameFolder = (path, name) => {
+  renameFolderModal.oldPath = path;
+  renameFolderModal.oldName = name;
+  renameFolderModal.newName = name;
+  renameFolderModal.show = true
+}
 const doRenameFolder = async () => {
-  const { oldPath, newName } = renameFolderModal
-  if (!newName.trim() || newName.trim() === renameFolderModal.oldName) { renameFolderModal.show = false; return }
+  const {oldPath, newName} = renameFolderModal
+  if (!newName.trim() || newName.trim() === renameFolderModal.oldName) {
+    renameFolderModal.show = false;
+    return
+  }
   try {
-    const res = await fetch(`${BASE.value}/folders/rename?oldPath=${encodeURIComponent(oldPath)}&newName=${encodeURIComponent(newName.trim())}`, { method: 'POST' })
+    const res = await fetch(`${BASE.value}/folders/rename?oldPath=${encodeURIComponent(oldPath)}&newName=${encodeURIComponent(newName.trim())}`, {method: 'POST'})
     if (!res.ok) throw new Error()
     const newPath = await res.json()
-    if (selectedPath.value === oldPath || selectedPath.value.startsWith(oldPath + '/')) selectedPath.value = selectedPath.value.replace(oldPath, newPath)
-    await fetchFolders(); await fetchImages(); renameFolderModal.show = false; showToast('已重新命名')
-  } catch { showToast('重新命名失敗') }
+    if (selectedPath.value === oldPath || selectedPath.value.startsWith(oldPath + '/')) {
+      selectedPath.value = selectedPath.value.replace(oldPath, newPath);
+      localStorage.setItem('imageLibrary_lastFolder', selectedPath.value)
+    }
+    await fetchFolders();
+    await fetchImages();
+    renameFolderModal.show = false;
+    showToast('已重新命名')
+  } catch {
+    showToast('重新命名失敗')
+  }
 }
-const moveFolderUp   = (path) => moveFolder(path, -1)
+const moveFolderUp = (path) => moveFolder(path, -1)
 const moveFolderDown = (path) => moveFolder(path, 1)
 const moveFolder = async (path, dir) => {
   const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : ''
@@ -643,89 +733,149 @@ const moveFolder = async (path, dir) => {
   const newOrder = siblings.map(n => n.path);
   [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]]
   try {
-    await fetch(`${BASE.value}/folders/sort`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newOrder) })
+    await fetch(`${BASE.value}/folders/sort`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(newOrder)
+    })
     await fetchFolders()
-  } catch { showToast('排序失敗') }
+  } catch {
+    showToast('排序失敗')
+  }
 }
 const getSiblings = (nodes, parentPath) => {
   if (!parentPath) return nodes
   for (const n of nodes) {
     if (n.path === parentPath) return n.children || []
-    if (parentPath.startsWith(n.path + '/')) { const r = getSiblings(n.children || [], parentPath); if (r.length) return r }
+    if (parentPath.startsWith(n.path + '/')) {
+      const r = getSiblings(n.children || [], parentPath);
+      if (r.length) return r
+    }
   }
   return []
 }
 const handleUpload = async (e) => {
-  const files = Array.from(e.target.files); if (!files.length) return
+  const files = Array.from(e.target.files);
+  if (!files.length) return
   uploading.value = true
   const formData = new FormData()
   files.forEach(f => formData.append('files', f))
   const folder = selectedPath.value === '全部' ? '未分類' : selectedPath.value
   try {
-    const res = await fetch(`${BASE.value}/upload?folder=${encodeURIComponent(folder)}`, { method: 'POST', body: formData })
+    const res = await fetch(`${BASE.value}/upload?folder=${encodeURIComponent(folder)}`, {
+      method: 'POST',
+      body: formData
+    })
     if (!res.ok) throw new Error()
-    await fetchImages(); showToast(`已上傳 ${files.length} 個檔案`)
-  } catch { showToast('上傳失敗') }
-  finally { uploading.value = false; e.target.value = '' }
+    await fetchImages();
+    showToast(`已上傳 ${files.length} 個檔案`)
+  } catch {
+    showToast('上傳失敗')
+  } finally {
+    uploading.value = false;
+    e.target.value = ''
+  }
 }
 const confirmDelete = async (img) => {
   if (!confirm(`確定刪除「${img.originalName}」？`)) return
   try {
-    await fetch(`${BASE.value}/remove?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'DELETE' })
+    await fetch(`${BASE.value}/remove?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'DELETE'})
     images.value = images.value.filter(i => !(i.fileName === img.fileName && i.folder === img.folder))
     if (previewImg.value?.fileName === img.fileName) previewImg.value = null
     showToast('已刪除')
-  } catch { showToast('刪除失敗') }
+  } catch {
+    showToast('刪除失敗')
+  }
 }
-const openMoveModal = (img) => { moveModal.img = img; moveModal.target = ''; moveModal.isBatch = false; moveModal.show = true }
+const openMoveModal = (img) => {
+  moveModal.img = img;
+  moveModal.target = '';
+  moveModal.isBatch = false;
+  moveModal.show = true
+}
 const doMove = async () => {
   if (!moveModal.target) return
   if (moveModal.isBatch) {
     const targets = filteredImages.value.filter(img => selected.has(imgKey(img)))
     try {
       await Promise.all(targets.map(img =>
-        fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(img.folder)}&toFolder=${encodeURIComponent(moveModal.target)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'POST' })
+        fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(img.folder)}&toFolder=${encodeURIComponent(moveModal.target)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'POST'})
       ))
       images.value = images.value.filter(img => !selected.has(imgKey(img)))
-      moveModal.show = false; showToast(`已移動 ${targets.length} 個檔案`); exitSelectMode()
-    } catch { showToast('移動失敗') }
+      moveModal.show = false;
+      showToast(`已移動 ${targets.length} 個檔案`);
+      exitSelectMode()
+    } catch {
+      showToast('移動失敗')
+    }
   } else {
     try {
-      const res = await fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(moveModal.img.folder)}&toFolder=${encodeURIComponent(moveModal.target)}&fileName=${encodeURIComponent(moveModal.img.fileName)}`, { method: 'POST' })
+      const res = await fetch(`${BASE.value}/move?fromFolder=${encodeURIComponent(moveModal.img.folder)}&toFolder=${encodeURIComponent(moveModal.target)}&fileName=${encodeURIComponent(moveModal.img.fileName)}`, {method: 'POST'})
       if (!res.ok) throw new Error()
       images.value = images.value.filter(i => !(i.fileName === moveModal.img.fileName && i.folder === moveModal.img.folder))
       if (previewImg.value?.fileName === moveModal.img.fileName && previewImg.value?.folder === moveModal.img.folder) previewImg.value = null
-      moveModal.show = false; showToast(`已移動到「${moveModal.target}」`)
-    } catch { showToast('移動失敗') }
+      moveModal.show = false;
+      showToast(`已移動到「${moveModal.target}」`)
+    } catch {
+      showToast('移動失敗')
+    }
   }
 }
-const openEditModal = (img) => { editModal.img = img; editModal.displayName = img.displayName || ''; editModal.coverFile = null; editModal.coverPreview = ''; editModal.removeCover = false; editModal.show = true }
+const openEditModal = (img) => {
+  editModal.img = img;
+  editModal.displayName = img.displayName || '';
+  editModal.coverFile = null;
+  editModal.coverPreview = '';
+  editModal.removeCover = false;
+  editModal.show = true
+}
 const onCoverSelect = (e) => {
-  const file = e.target.files[0]; if (!file) return
-  editModal.coverFile = file; editModal.removeCover = false; editModal.coverPreview = URL.createObjectURL(file); e.target.value = ''
+  const file = e.target.files[0];
+  if (!file) return
+  editModal.coverFile = file;
+  editModal.removeCover = false;
+  editModal.coverPreview = URL.createObjectURL(file);
+  e.target.value = ''
 }
 const saveEdit = async () => {
   const img = editModal.img
   try {
-    await fetch(`${BASE.value}/rename?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editModal.displayName) })
+    await fetch(`${BASE.value}/rename?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(editModal.displayName)
+    })
     img.displayName = editModal.displayName
     if (editModal.coverFile) {
-      const fd = new FormData(); fd.append('cover', editModal.coverFile)
-      const res = await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'POST', body: fd })
+      const fd = new FormData();
+      fd.append('cover', editModal.coverFile)
+      const res = await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {
+        method: 'POST',
+        body: fd
+      })
       img.coverUrl = (await res.json()) + '?t=' + Date.now()
     } else if (editModal.removeCover && img.coverUrl) {
-      await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, { method: 'DELETE' })
+      await fetch(`${BASE.value}/cover?folder=${encodeURIComponent(img.folder)}&fileName=${encodeURIComponent(img.fileName)}`, {method: 'DELETE'})
       img.coverUrl = ''
     }
-    editModal.show = false; showToast('已更新')
-  } catch { showToast('更新失敗') }
+    editModal.show = false;
+    showToast('已更新')
+  } catch {
+    showToast('更新失敗')
+  }
 }
 const copyUrl = async (img) => {
-  try { await navigator.clipboard.writeText(fullUrl(img.url)); copied.value = true; setTimeout(() => copied.value = false, 2000); showToast('連結已複製') }
-  catch { showToast('複製失敗') }
+  try {
+    await navigator.clipboard.writeText(fullUrl(img.url));
+    copied.value = true;
+    setTimeout(() => copied.value = false, 2000);
+    showToast('連結已複製')
+  } catch {
+    showToast('複製失敗')
+  }
 }
-const isImage   = (fn) => fn && ['jpg','jpeg','png','gif','webp','svg'].includes(fn.split('.').pop().toLowerCase())
-const fileExt   = (fn) => fn ? fn.split('.').pop().toUpperCase() : ''
+const isImage = (fn) => fn && ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fn.split('.').pop().toLowerCase())
+const fileExt = (fn) => fn ? fn.split('.').pop().toUpperCase() : ''
 const fileEmoji = (fn) => {
   if (!fn) return '📄';
   const e = fn.split('.').pop().toLowerCase()

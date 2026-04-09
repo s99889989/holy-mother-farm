@@ -24,13 +24,13 @@ onMounted(() => {
       <div class="hidden w-full md:block md:w-auto" id="navbar-dropdown">
         <ul class="flex flex-col font-medium p-4 md:p-0 mt-4 border border-default rounded-base bg-neutral-secondary-soft md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-neutral-primary">
           <li>
-            <button id="dropdownNvbarButton" data-dropdown-toggle="dropdownNavbar" class="flex items-center justify-between w-full py-2 px-3 rounded font-medium text-heading text-2xl md:w-auto hover:bg-neutral-tertiary md:hover:bg-transparent md:border-0 md:hover:text-fg-brand md:p-0">
+            <button id="dropdownNvbarButton1" data-dropdown-toggle="dropdownNavbar1" class="flex items-center justify-between w-full py-2 px-3 rounded font-medium text-heading text-2xl md:w-auto hover:bg-neutral-tertiary md:hover:bg-transparent md:border-0 md:hover:text-fg-brand md:p-0">
               庫存
               <svg class="w-4 h-4 ms-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
             </button>
             <!-- Dropdown menu -->
-            <div id="dropdownNavbar" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
-              <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton">
+            <div id="dropdownNavbar1" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
+              <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton1">
                 <li>
                   <NuxtLink to="/items/InventoryQuantity" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
                     餐廳小舖</NuxtLink>
@@ -48,20 +48,35 @@ onMounted(() => {
           </li>
 
           <li>
-            <NuxtLink to="/check-in/BookIndex" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              行事曆</NuxtLink>
+            <button id="dropdownNvbarButton2" data-dropdown-toggle="dropdownNavbar2" class="flex items-center justify-between w-full py-2 px-3 rounded font-medium text-heading text-2xl md:w-auto hover:bg-neutral-tertiary md:hover:bg-transparent md:border-0 md:hover:text-fg-brand md:p-0">
+              管理
+              <svg class="w-4 h-4 ms-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+            </button>
+            <!-- Dropdown menu -->
+            <div id="dropdownNavbar2" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
+              <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton2">
+                <li>
+                  <NuxtLink to="/check-in/BookIndex" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
+                    行事曆</NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/AssetRegistry" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
+                    財產清點</NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
+                    菜色紀錄</NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/ImageLibrary" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
+                    資源管理</NuxtLink>
+                </li>
+              </ul>
+            </div>
           </li>
           <li>
-            <NuxtLink to="/DailyMenu" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              餐廳菜色紀錄</NuxtLink>
-          </li>
-          <li>
-            <NuxtLink to="/AssetRegistry" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              財產清點</NuxtLink>
-          </li>
-          <li>
-            <NuxtLink to="/ImageLibrary" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              資源管理</NuxtLink>
+            <NuxtLink to="/Todo" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
+              待辦</NuxtLink>
           </li>
           <li>
             <NuxtLink to="/QuickLinks" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">

@@ -68,14 +68,34 @@
 </template>
 
 <script setup>
-import {ref, onMounted, onBeforeUnmount} from 'vue'
+import {ref, watch, onMounted, onBeforeUnmount} from 'vue'
 
 const props = defineProps(['node', 'selectedPath', 'depth'])
 const emit = defineEmits(['select', 'add', 'rename', 'moveup', 'movedown', 'delete', 'drop-file'])
 
-const expanded = ref(true)
-const menuOpen = ref(false)
+const STORAGE_KEY = 'imageLibrary_folderExpanded'
+
+// 讀取 localStorage，預設收縮
+const loadExpanded = () => {
+  try {
+    const map = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+    return map[props.node.path] === true
+  } catch { return false }
+}
+
+const saveExpanded = (val) => {
+  try {
+    const map = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+    map[props.node.path] = val
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+  } catch {}
+}
+
+const expanded   = ref(loadExpanded())
+const menuOpen   = ref(false)
 const isDragOver = ref(false)
+
+watch(expanded, saveExpanded)
 
 const onDrop = () => {
   isDragOver.value = false
