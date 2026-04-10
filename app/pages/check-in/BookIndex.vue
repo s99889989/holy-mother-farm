@@ -66,10 +66,8 @@
               <p class="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">🪑 訂位</p>
               <p class="text-sm text-green-700 dark:text-green-300">
                 <span class="text-xl font-black">{{ bookings.length }}</span> 筆 ·
-                <span class="font-semibold">{{ bookings.reduce((s, b) => s + b.guests, 0) + recurBookingGuests }}</span> 人
-                <span v-if="recurBookingGuests > 0" class="text-xs text-green-500 dark:text-green-500 font-normal ml-1">
-    （含包月 {{ recurBookingGuests }} 人）
-  </span>
+                <span class="font-semibold">{{ bookings.reduce((s, b) => s + (b.guests || 0), 0) + recurBookingGuests }}</span> 人
+                <span v-if="recurBookingGuests > 0" class="text-xs font-normal opacity-70 ml-1">（含包月 {{ recurBookingGuests }} 人）</span>
               </p>
             </div>
             <div class="bg-orange-50 dark:bg-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-800 px-4 py-3">
@@ -232,6 +230,14 @@
                       </div>
                       <div class="flex flex-wrap gap-2 text-xs text-stone-500 dark:text-stone-400">
                         <span>👥 {{ rule.guests }} 人</span>
+                        <span v-if="rule.weekdays && rule.weekdays.length > 0" class="flex items-center gap-0.5">
+                          <span v-for="dow in [0,1,2,3,4,5,6]" :key="dow"
+                                :class="rule.weekdays.includes(dow)
+                                  ? (dow === 0 || dow === 6 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400')
+                                  : 'text-stone-200 dark:text-stone-700'"
+                                class="w-5 h-5 rounded text-center leading-5 font-medium">{{ ['日','一','二','三','四','五','六'][dow] }}</span>
+                        </span>
+                        <span v-else class="text-stone-300 dark:text-stone-600 italic">每天</span>
                         <span v-if="rule.note" class="italic">{{ rule.note }}</span>
                       </div>
                     </div>
@@ -474,6 +480,24 @@
             <input v-model="recurForm.note" placeholder="特殊需求、注意事項…"
                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400" />
           </div>
+          <!-- 適用星期 -->
+          <div>
+            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">
+              適用星期
+              <span class="text-xs text-stone-400 font-normal ml-1">（不選代表每天）</span>
+            </label>
+            <div class="flex gap-1.5">
+              <button v-for="(label, dow) in ['日','一','二','三','四','五','六']" :key="dow"
+                      type="button"
+                      @click="recurForm.weekdays.includes(dow) ? recurForm.weekdays.splice(recurForm.weekdays.indexOf(dow), 1) : recurForm.weekdays.push(dow)"
+                      :class="recurForm.weekdays.includes(dow)
+                        ? (dow === 0 || dow === 6 ? 'bg-red-500 text-white border-red-500' : 'bg-green-700 text-white border-green-700')
+                        : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700'"
+                      class="flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors">
+                {{ label }}
+              </button>
+            </div>
+          </div>
         </div>
         <div class="flex gap-2 mt-5">
           <button @click="recurModal.show = false"
@@ -566,11 +590,12 @@ const openBookingModal = (booking) => {
 
 const fetchMarkedDates = async () => {
   try {
-    if (activeTab.value === 'booking') {
-      markedDates.value = await (await fetch(`${BASE.value}/dates/${yearMonth.value}`)).json()
-    } else {
-      lunchMarkedDates.value = await (await fetch(`${LUNCH_BASE.value}/dates/${yearMonth.value}`)).json()
-    }
+    const [bRes, lRes] = await Promise.all([
+      fetch(`${BASE.value}/dates/${yearMonth.value}`),
+      fetch(`${LUNCH_BASE.value}/dates/${yearMonth.value}`)
+    ])
+    if (bRes.ok) markedDates.value = await bRes.json()
+    if (lRes.ok) lunchMarkedDates.value = await lRes.json()
     apiOnline.value = true
   } catch { apiOnline.value = false }
 }
@@ -621,9 +646,16 @@ const lForm = reactive({ id:'', date:'', name:'', phone:'', meatQty:0, vegQty:0,
 
 const totalMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
 const totalVeg  = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.vegQty)  || 0), 0))
-const recurBookingGuests = computed(() =>
-  recurringRules.value.filter(r => r.type !== 'lunch').reduce((s, r) => s + (Number(r.guests) || 0), 0)
-)
+
+const recurBookingGuests = computed(() => {
+  if (!selectedDate.value) return 0
+  const dow = new Date(selectedDate.value).getDay()
+  return recurringRules.value
+    .filter(r => r.type !== 'lunch' &&
+      (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
+    .reduce((s, r) => s + (r.guests || 0), 0)
+})
+
 const openLunchModal = (order) => {
   lunchModal.isNew = !order
   Object.assign(lForm, order ?? { id:'', date: selectedDate.value, name:'', phone:'', meatQty:0, vegQty:0, time:'12:00', status:'待確認', note:'' })
@@ -670,7 +702,7 @@ const toggleLunchStatus = async (o) => {
 const RECUR_BASE     = computed(() => commonStore.data.main_url + '/holy/recurring')
 const recurringRules = ref([])
 const recurModal     = reactive({ show: false, isNew: true })
-const recurForm      = reactive({ id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '' })
+const recurForm      = reactive({ id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: [] })
 
 // 依目前月份載入當月預定
 const fetchRecurring = async () => {
@@ -683,9 +715,9 @@ const fetchRecurring = async () => {
 const openRecurModal = (rule) => {
   recurModal.isNew = !rule
   if (rule) {
-    Object.assign(recurForm, { id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00', guests: rule.guests || 2, note: rule.note || '' })
+    Object.assign(recurForm, { id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00', guests: rule.guests || 2, note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : [] })
   } else {
-    Object.assign(recurForm, { id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '' })
+    Object.assign(recurForm, { id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: [] })
   }
   recurModal.show = true
 }
