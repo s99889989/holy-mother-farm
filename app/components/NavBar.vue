@@ -57,7 +57,7 @@ onMounted(() => {
               <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton2">
                 <li>
                   <NuxtLink to="/check-in/BookIndex" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    行事曆</NuxtLink>
+                    訂位訂餐管理</NuxtLink>
                 </li>
                 <li>
                   <NuxtLink to="/AssetRegistry" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
@@ -70,6 +70,10 @@ onMounted(() => {
                 <li>
                   <NuxtLink to="/ImageLibrary" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
                     資源管理</NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/common/CashCount" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
+                    點鈔作業</NuxtLink>
                 </li>
               </ul>
             </div>
