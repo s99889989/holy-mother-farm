@@ -403,7 +403,6 @@ const showToast = (msg) => {
   toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
-
 onMounted(fetchRecords)
 </script>
 
