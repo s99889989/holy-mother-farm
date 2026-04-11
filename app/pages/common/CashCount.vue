@@ -121,7 +121,6 @@
       <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 max-h-[90vh] overflow-y-auto">
         <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-4">{{ isEdit ? '編輯點鈔記錄' : '新增點鈔記錄' }}</h3>
 
-        <div class="space-y-3 mb-4">
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">日期</label>
             <input type="date" v-model="form.date"
@@ -417,26 +416,6 @@ onMounted(fetchRecords)
   opacity: 0;
   transform: translateY(8px);
 }
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type=number] {
-  -moz-appearance: textfield;
-}
-input[type=number],
-input[type=text],
-input[type=date] {
-  font-size: 16px;
-}
-
-input[type=number],
-input[type=text],
-input[type=date] {
-  font-size: 16px !important;
-}
-
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
