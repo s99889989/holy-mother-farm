@@ -430,6 +430,7 @@ input[type=text],
 input[type=date] {
   font-size: 16px;
 }
+
 input[type=number],
 input[type=text],
 input[type=date] {
