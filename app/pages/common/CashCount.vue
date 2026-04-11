@@ -397,7 +397,6 @@ async function deleteRecord(id) {
     showToast('刪除失敗')
   }
 }
-
 const showToast = (msg) => {
   toast.message = msg
   toast.show = true
