@@ -126,7 +126,7 @@
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">日期</label>
             <input type="date" v-model="form.date"
-                   class="w-full border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400" />
+                   class="w-fit border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400" />
           </div>
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
