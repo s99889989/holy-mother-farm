@@ -64,7 +64,7 @@ onMounted(() => {
                     財產清點</NuxtLink>
                 </li>
                 <li>
-                  <NuxtLink to="/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
+                  <NuxtLink to="/management/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
                     菜色紀錄</NuxtLink>
                 </li>
                 <li>

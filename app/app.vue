@@ -1,10 +1,10 @@
 <script setup>
 useHead({
   meta: [
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' }
+    {name: 'viewport', content: 'width=device-width, initial-scale=1'}
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' }
+    {rel: 'icon', href: '/favicon.ico'}
   ],
   htmlAttrs: {
     lang: 'en'
@@ -26,12 +26,12 @@ useSeoMeta({
 </script>
 
 <template>
-  <bg id="main" class="flex w-full container-top flex-col items-center justify-center">
+  <div id="main" class="flex w-full container-top flex-col items-center justify-center">
     <div class="w-full 2xl:w-3/4">
-      <NavBar />
+      <NavBar/>
       <NuxtLayout>
-        <NuxtPage />
+        <NuxtPage/>
       </NuxtLayout>
     </div>
-  </bg>
+  </div>
 </template>
