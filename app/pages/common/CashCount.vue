@@ -121,19 +121,21 @@
       <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 max-h-[90vh] overflow-y-auto">
         <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-4">{{ isEdit ? '編輯點鈔記錄' : '新增點鈔記錄' }}</h3>
 
-        <div class="grid grid-cols-2 gap-3 mb-4">
+        <!-- 日期 + 備註（上下排列） -->
+        <div class="space-y-3 mb-4">
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">日期</label>
             <input type="date" v-model="form.date"
-                   class="w-full text-sm border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400" />
+                   class="w-full border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400" />
           </div>
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
             <input type="text" v-model="form.note" placeholder="班別等"
-                   class="w-full text-sm border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 placeholder-stone-300 outline-none focus:ring-2 focus:ring-green-400" />
+                   class="w-full border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 placeholder-stone-300 outline-none focus:ring-2 focus:ring-green-400" />
           </div>
         </div>
 
+        <!-- 面額輸入 -->
         <div class="rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden mb-4">
           <table class="w-full text-sm">
             <thead>
@@ -156,7 +158,7 @@
                             @click="form.items[d.value] = Math.max(0, (Number(form.items[d.value]) || 0) - 1)"
                             class="w-7 h-7 flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-600 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 transition-colors text-base leading-none select-none">−</button>
                     <input type="number" min="0" v-model.number="form.items[d.value]"
-                           class="w-14 text-center text-sm border border-stone-200 dark:border-stone-600 rounded-lg px-1 py-1 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"
+                           class="w-14 text-center border border-stone-200 dark:border-stone-600 rounded-lg px-1 py-1 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"
                            placeholder="0" />
                     <button type="button"
                             @click="form.items[d.value] = (Number(form.items[d.value]) || 0) + 1"
@@ -193,6 +195,7 @@
           </ClientOnly>
         </div>
 
+        <!-- 按鈕 -->
         <div class="flex gap-2">
           <button @click="showForm = false"
                   class="flex-1 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">取消</button>
@@ -216,29 +219,29 @@
 </template>
 
 <script setup>
-import {ref, computed, reactive, onMounted} from 'vue'
-import {useCommonStore} from '~/stores/common.js'
+import { ref, computed, reactive, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
 
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/cashCount'
+const commonStore   = useCommonStore()
+const BASE          = () => commonStore.data.main_url + '/holy/cashCount'
 const photoInputRef = ref(null)
 
 // ── 日曆 ──────────────────────────────────────────────────────────
-const today = new Date()
-const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-const calYear = ref(today.getFullYear())
+const today    = new Date()
+const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+const calYear  = ref(today.getFullYear())
 const calMonth = ref(today.getMonth() + 1)
 const selectedDate = ref(todayStr)
 
 const calendarDays = computed(() => {
-  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+  const firstDay    = new Date(calYear.value, calMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
   for (let d = 1; d <= daysInMonth; d++) {
     const mm = String(calMonth.value).padStart(2, '0')
     const dd = String(d).padStart(2, '0')
-    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
   }
   return days
 })
@@ -251,50 +254,42 @@ const dayClass = (day) => {
 }
 
 function prevMonth() {
-  if (calMonth.value === 1) {
-    calYear.value--;
-    calMonth.value = 12
-  } else calMonth.value--
+  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
 }
-
 function nextMonth() {
-  if (calMonth.value === 12) {
-    calYear.value++;
-    calMonth.value = 1
-  } else calMonth.value++
+  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
 }
-
 function selectDate(date) {
   selectedDate.value = date
 }
 
 // ── 資料 ──────────────────────────────────────────────────────────
-const loading = ref(false)
-const records = ref([])
-const saving = ref(false)
-const showForm = ref(false)
-const isEdit = ref(false)
-const editId = ref('')
+const loading           = ref(false)
+const records           = ref([])
+const saving            = ref(false)
+const showForm          = ref(false)
+const isEdit            = ref(false)
+const editId            = ref('')
 const originalPhotoPath = ref('')
-const photoFile = ref(null)
-const photoPreview = ref('')
-const toast = reactive({show: false, message: ''})
+const photoFile         = ref(null)
+const photoPreview      = ref('')
+const toast             = reactive({ show: false, message: '' })
 
-const recordDates = computed(() => new Set(records.value.map(r => r.date)))
+const recordDates     = computed(() => new Set(records.value.map(r => r.date)))
 const selectedRecords = computed(() => records.value.filter(r => r.date === selectedDate.value))
 
 // ── 面額 ──────────────────────────────────────────────────────────
 const denomGroups = [
-  [{label: '1000元', value: 1000}, {label: '500元', value: 500}, {label: '100元', value: 100}],
-  [{label: '50元', value: 50}, {label: '10元', value: 10}, {label: '5元', value: 5}, {label: '1元', value: 1}],
+  [{ label: '1000元', value: 1000 }, { label: '500元', value: 500 }, { label: '100元', value: 100 }],
+  [{ label: '50元', value: 50 }, { label: '10元', value: 10 }, { label: '5元', value: 5 }, { label: '1元', value: 1 }],
 ]
 const allDenoms = denomGroups.flat()
 const initItems = () => Object.fromEntries(allDenoms.map(d => [d.value, 0]))
 
-const form = ref({date: todayStr, note: '', items: initItems()})
+const form = ref({ date: todayStr, note: '', items: initItems() })
 
 const subtotal = (val) => (Number(form.value.items[val]) || 0) * val
-const total = computed(() => allDenoms.reduce((sum, d) => sum + subtotal(d.value), 0))
+const total    = computed(() => allDenoms.reduce((sum, d) => sum + subtotal(d.value), 0))
 
 // ── 照片 ──────────────────────────────────────────────────────────
 function triggerPhotoInput() {
@@ -304,40 +299,40 @@ function triggerPhotoInput() {
 function handlePhotoSelect(e) {
   const file = e.target.files[0]
   if (!file) return
-  photoFile.value = file
+  photoFile.value    = file
   photoPreview.value = URL.createObjectURL(file)
 }
 
 function clearPhoto() {
-  photoFile.value = null
-  photoPreview.value = ''
+  photoFile.value         = null
+  photoPreview.value      = ''
   originalPhotoPath.value = ''
   if (photoInputRef.value) photoInputRef.value.value = ''
 }
 
-// ── 表單開關 ──────────────────────────────────────────────────────
+// ── 表單 ──────────────────────────────────────────────────────────
 function openForm() {
-  isEdit.value = false
-  editId.value = ''
+  isEdit.value            = false
+  editId.value            = ''
   originalPhotoPath.value = ''
-  form.value = {date: selectedDate.value, note: '', items: initItems()}
-  photoFile.value = null
-  photoPreview.value = ''
-  showForm.value = true
+  form.value              = { date: selectedDate.value, note: '', items: initItems() }
+  photoFile.value         = null
+  photoPreview.value      = ''
+  showForm.value          = true
 }
 
 function openEditForm(r) {
-  isEdit.value = true
-  editId.value = r.id
+  isEdit.value            = true
+  editId.value            = r.id
   originalPhotoPath.value = r.photoPath || ''
   form.value = {
-    date: r.date,
-    note: r.note || '',
+    date:  r.date,
+    note:  r.note || '',
     items: Object.fromEntries(allDenoms.map(d => [d.value, Number(r.items?.[d.value]) || 0])),
   }
-  photoFile.value = null
+  photoFile.value    = null
   photoPreview.value = r.photoPath ? `${BASE()}/photo/${r.photoPath}` : ''
-  showForm.value = true
+  showForm.value     = true
 }
 
 // ── API ───────────────────────────────────────────────────────────
@@ -348,60 +343,52 @@ async function save() {
     if (photoFile.value) {
       const fd = new FormData()
       fd.append('file', photoFile.value)
-      const res = await fetch(`${BASE()}/uploadPhoto`, {method: 'POST', body: fd})
+      const res  = await fetch(`${BASE()}/uploadPhoto`, { method: 'POST', body: fd })
       const data = await res.json()
       if (data.success) photoPath = data.path
     } else {
       photoPath = originalPhotoPath.value
     }
     const payload = {
-      ...(isEdit.value ? {id: editId.value} : {}),
-      date: form.value.date,
-      note: form.value.note,
-      items: form.value.items,
-      total: total.value,
+      ...(isEdit.value ? { id: editId.value } : {}),
+      date:      form.value.date,
+      note:      form.value.note,
+      items:     form.value.items,
+      total:     total.value,
       photoPath,
     }
-    const url = isEdit.value ? `${BASE()}/update` : `${BASE()}/save`
+    const url    = isEdit.value ? `${BASE()}/update` : `${BASE()}/save`
     const method = isEdit.value ? 'PUT' : 'POST'
-    await fetch(url, {method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)})
-    showForm.value = false
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    showForm.value     = false
     selectedDate.value = form.value.date
     showToast(isEdit.value ? '已更新' : '點鈔記錄已儲存')
     await fetchRecords()
-  } catch {
-    showToast('儲存失敗')
-  } finally {
-    saving.value = false
-  }
+  } catch { showToast('儲存失敗') }
+  finally { saving.value = false }
 }
 
 async function fetchRecords() {
   loading.value = true
   try {
-    const res = await fetch(`${BASE()}/list`)
+    const res     = await fetch(`${BASE()}/list`)
     records.value = await res.json()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { console.error(e) }
+  finally { loading.value = false }
 }
 
 async function deleteRecord(id) {
   if (!confirm('確定刪除這筆記錄？')) return
   try {
-    await fetch(`${BASE()}/delete/${id}`, {method: 'DELETE'})
+    await fetch(`${BASE()}/delete/${id}`, { method: 'DELETE' })
     records.value = records.value.filter(r => r.id !== id)
     showToast('已刪除')
-  } catch {
-    showToast('刪除失敗')
-  }
+  } catch { showToast('刪除失敗') }
 }
 
 const showToast = (msg) => {
   toast.message = msg
-  toast.show = true
+  toast.show    = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -409,20 +396,22 @@ onMounted(fetchRecords)
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
+input[type=number],
+input[type=text],
+input[type=date] {
+  font-size: 16px !important;
 }
 
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>
