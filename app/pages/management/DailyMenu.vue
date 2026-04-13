@@ -72,29 +72,44 @@
           </div>
 
           <!-- ── 右欄 ── -->
-          <div class="w-full min-w-0">
+          <div class="w-full min-w-0" ref="mainCol">
 
-            <!-- ══ 查看模式：無限滾動 ══ -->
+            <!-- ══ 查看模式 ══ -->
             <div v-if="!isEditMode">
 
-              <!-- 頂部工具列 -->
-              <div class="flex items-center justify-end mb-3">
-                <button @click="jumpToToday"
-                        class="text-xs px-2.5 py-1 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 transition-colors font-medium">
-                  今天
+              <!-- 導覽列 -->
+              <div class="flex items-center justify-between mb-3">
+                <button v-if="hasPrev" @click="slidePrev"
+                        class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors shadow-sm font-medium select-none">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                  <span class="text-sm">前</span>
                 </button>
-              </div>
+                <div v-else class="w-20"></div>
 
-              <!-- 頂部 sentinel：進入視窗時往前載入 -->
-              <div ref="topSentinel" class="h-1"></div>
+                <div class="flex items-center gap-2">
+                <span class="text-sm text-stone-500 dark:text-stone-400">
+                  {{ displayDates[0]?.date.slice(5).replace('-', '/') }}
+                  <span v-if="displayDates.length > 1"> — {{ displayDates[displayDates.length-1]?.date.slice(5).replace('-', '/') }}</span>
+                </span>
+                  <button @click="jumpToToday"
+                          class="text-xs px-2.5 py-1 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 transition-colors font-medium">
+                    今天
+                  </button>
+                </div>
 
-              <!-- 載入中提示（頂部）-->
-              <div v-if="loadingMore" class="flex justify-center py-4">
-                <div class="w-5 h-5 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                <button v-if="hasNext" @click="slideNext"
+                        class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors shadow-sm font-medium select-none">
+                  <span class="text-sm">後</span>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <div v-else class="w-20"></div>
               </div>
 
               <!-- 卡片網格 -->
-              <div class="grid gap-3" :style="{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }">
+              <div class="grid gap-3"
+                   :style="{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }"
+                   @touchstart="onTouchStart"
+                   @touchend="onTouchEnd">
                 <div v-for="day in displayDates" :key="day.date">
 
                   <!-- 卡片頭 -->
@@ -121,14 +136,14 @@
                     </div>
                     <div v-else class="p-2 space-y-2">
                       <div v-for="section in sections" :key="section.type">
-                        <div v-if="weekItemsByType(day.date, section.type).length > 0">
+                        <div v-if="itemsByTypeForDate(day.date, section.type).length > 0">
                           <span :class="section.badge" class="text-xs mb-1 inline-block">{{ section.label }}</span>
                           <div class="space-y-1.5">
-                            <div v-for="item in weekItemsByType(day.date, section.type)" :key="item.id"
+                            <div v-for="item in itemsByTypeForDate(day.date, section.type)" :key="item.id"
                                  class="rounded-xl overflow-hidden border border-stone-100 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800">
                               <img v-if="item.images && item.images.length > 0"
                                    :src="thumbUrl(item.images[0])" :alt="item.name"
-                                   class="w-full h-24 object-cover cursor-pointer"
+                                   class="w-full aspect-[4/3] object-cover cursor-pointer"
                                    loading="lazy"
                                    @click="previewUrl = imgUrl(item.images[0])" />
                               <div class="px-2 py-1.5">
@@ -204,11 +219,11 @@
                                      class="flex-1 min-w-0 text-sm font-semibold bg-transparent border-none focus:outline-none text-stone-800 dark:text-stone-100 placeholder-stone-300 dark:placeholder-stone-600" />
                               <div class="flex items-center gap-1 flex-shrink-0">
                                 <button @click="showNote[item.id] = !showNote[item.id]"
-                                        class="p-1 text-stone-300 dark:text-stone-600 hover:text-stone-500 transition-colors" title="備註">
+                                        class="p-1 text-stone-300 dark:text-stone-600 hover:text-stone-500 transition-colors">
                                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
                                 </button>
                                 <button @click="confirmDelete(item)"
-                                        class="p-1 text-stone-200 hover:text-red-400 transition-colors" title="刪除">
+                                        class="p-1 text-stone-200 hover:text-red-400 transition-colors">
                                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                 </button>
                               </div>
@@ -324,7 +339,6 @@ const imgUrl = (path) => {
   return API_ORIGIN + path
 }
 
-// 縮圖 URL：把 /image/ 換成 /image/thumb/
 const thumbUrl = (path) => {
   if (!path) return ''
   const full = path.startsWith('http') ? path : API_ORIGIN + path
@@ -340,7 +354,6 @@ const DIET_BADGE = {
   '蛋奶素':     'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
   '五辛蛋奶素': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 }
-
 const sections = [
   { type: 'dish',      label: '菜',     badge: 'px-2 py-0.5 rounded-full text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-semibold',  placeholder: '菜名…',       hasDiet: true },
   { type: 'soup',      label: '湯',     badge: 'px-2 py-0.5 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-semibold',      placeholder: '湯名…',       hasDiet: true },
@@ -358,6 +371,7 @@ const fileInputRef    = ref(null)
 const dragOver        = ref(false)
 const uploading       = ref(false)
 const isEditMode      = ref(false)
+const isClient        = ref(false)
 const ingredientDraft = reactive({})
 const showNote        = reactive({})
 
@@ -366,33 +380,23 @@ const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2
 const calYear  = ref(today.getFullYear())
 const calMonth = ref(today.getMonth() + 1)
 
-// ── 無限滾動視圖 ─────────────────────────────────────────────────
+// ── 視圖設定 ─────────────────────────────────────────────────────
+const mainCol        = ref(null)
 const containerWidth = ref(800)
-const isClient = ref(false)
-const CARD_GAP       = 12   // gap-3
-const BATCH_SIZE     = 10   // 每次載入筆數
-const COL_MIN_WIDTH  = 160  // 每欄最小寬度 px
+const CARD_GAP           = 12
+const COL_MIN_WIDTH      = 160   // 手機用
+const COL_MIN_WIDTH_MD   = 320   // 平板以上用（顯示較少欄但較大）
 
-// 由容器寬度算出欄數
 const colCount = computed(() => {
-  if (containerWidth.value <= 0) return 1
-  return Math.max(1, Math.floor((containerWidth.value + CARD_GAP) / (COL_MIN_WIDTH + CARD_GAP)))
+  const minW = containerWidth.value >= 640 ? COL_MIN_WIDTH_MD : COL_MIN_WIDTH
+  return Math.max(1, Math.floor((containerWidth.value + CARD_GAP) / (minW + CARD_GAP)))
 })
 
-// 已載入的有資料日期列表（由新到舊，顯示時反轉）
-const loadedDates = ref([])
-const loadingMore  = ref(false)
-const noMorePrev   = ref(false)  // 已無更舊的資料
+// ── 日期搜尋 ─────────────────────────────────────────────────────
+const WEEK_LABELS  = ['日', '一', '二', '三', '四', '五', '六']
+const weekItemsMap = ref({})
 
-// displayDates：由舊到新顯示
-const displayDates = computed(() =>
-  [...loadedDates.value].reverse().map(date => ({
-    date,
-    weekLabel: WEEK_LABELS[new Date(date).getDay()]
-  }))
-)
-
-// 取得某方向起始的有資料日期列表（最多掃 365 天）
+// 往某方向找有資料的日期（最多掃 365 天）
 const findDatesWithData = async (startDate, direction, count) => {
   const result = []
   const d = new Date(startDate)
@@ -429,73 +433,132 @@ const fetchItemsForDates = async (dates) => {
   }))
 }
 
-// 初始載入：最近 BATCH_SIZE 筆
-const initialLoad = async () => {
-  loadingMore.value = true
-  const recent = await findDatesWithData(todayStr, -1, BATCH_SIZE)
-  loadedDates.value = recent  // 由新到舊
-  await fetchItemsForDates(recent)
-  noMorePrev.value = recent.length < BATCH_SIZE
-  loadingMore.value = false
+// ── 顯示日期列表 ──────────────────────────────────────────────────
+const anchorDate = ref(todayStr)   // 目前這頁的起始日期
+const hasPrev    = ref(false)
+const hasNext    = ref(false)
+
+const displayDates = computed(() =>
+  (visibleDates.value).map(date => ({
+    date,
+    weekLabel: WEEK_LABELS[new Date(date).getDay()]
+  }))
+)
+const visibleDates = ref([])
+
+const refresh = async () => {
+  // 從 anchor 往後找 colCount 筆
+  let dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
+
+  // 找不到：往前找並重設 anchor
+  if (dates.length === 0) {
+    const prev = await findDatesWithData(anchorDate.value, -1, colCount.value)
+    if (prev.length > 0) {
+      anchorDate.value = prev[prev.length - 1]
+      dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
+    }
+  }
+
+  // 不足一頁：往前補齊
+  if (dates.length > 0 && dates.length < colCount.value) {
+    const need = colCount.value - dates.length
+    const firstD = new Date(dates[0])
+    firstD.setDate(firstD.getDate() - 1)
+    const fs = `${firstD.getFullYear()}-${String(firstD.getMonth()+1).padStart(2,'0')}-${String(firstD.getDate()).padStart(2,'0')}`
+    const fill = await findDatesWithData(fs, -1, need)
+    dates = [...fill.reverse(), ...dates]
+    if (dates.length > 0) anchorDate.value = dates[0]
+  }
+
+  visibleDates.value = dates
+  await fetchItemsForDates(dates)
+
+  // 判斷前後是否還有資料
+  if (dates.length > 0) {
+    const f = new Date(dates[0]); f.setDate(f.getDate() - 1)
+    const fp = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`
+    hasPrev.value = (await findDatesWithData(fp, -1, 1)).length > 0
+
+    const l = new Date(dates[dates.length-1]); l.setDate(l.getDate() + 1)
+    const ln = `${l.getFullYear()}-${String(l.getMonth()+1).padStart(2,'0')}-${String(l.getDate()).padStart(2,'0')}`
+    hasNext.value = (await findDatesWithData(ln, 1, 1)).length > 0
+  } else {
+    hasPrev.value = false
+    hasNext.value = false
+  }
 }
 
-// 往前載入更多（更舊的）
-const loadMorePrev = async () => {
-  if (loadingMore.value || noMorePrev.value) return
-  const oldest = loadedDates.value[loadedDates.value.length - 1]
-  if (!oldest) return
-  loadingMore.value = true
-  const prevD = new Date(oldest)
-  prevD.setDate(prevD.getDate() - 1)
-  const prevStart = `${prevD.getFullYear()}-${String(prevD.getMonth()+1).padStart(2,'0')}-${String(prevD.getDate()).padStart(2,'0')}`
-  const more = await findDatesWithData(prevStart, -1, BATCH_SIZE)
-  if (more.length === 0) {
-    noMorePrev.value = true
-  } else {
-    loadedDates.value = [...loadedDates.value, ...more]
-    await fetchItemsForDates(more)
-    if (more.length < BATCH_SIZE) noMorePrev.value = true
-  }
-  loadingMore.value = false
+const slidePrev = async () => {
+  const first = visibleDates.value[0]
+  if (!first) return
+  const d = new Date(first); d.setDate(d.getDate() - 1)
+  const s = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  const prev = await findDatesWithData(s, -1, colCount.value)
+  if (prev.length === 0) return
+  anchorDate.value = prev[prev.length - 1]
+  await refresh()
+}
+
+const slideNext = async () => {
+  const last = visibleDates.value[visibleDates.value.length - 1]
+  if (!last) return
+  const d = new Date(last); d.setDate(d.getDate() + 1)
+  anchorDate.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  await refresh()
 }
 
 const jumpToToday = async () => {
-  loadedDates.value = []
-  noMorePrev.value = false
-  await initialLoad()
+  const recent = await findDatesWithData(todayStr, -1, 1)
+  anchorDate.value = recent.length > 0 ? recent[0] : todayStr
+  await refresh()
 }
 
-// fetchSlideItems alias
-const fetchSlideItems = () => initialLoad()
+// colCount 改變時重拉
+watch(colCount, () => refresh())
 
-// IntersectionObserver 偵測頂部 sentinel
-const topSentinel = ref(null)
-let sentinelObserver = null
-const initSentinelObserver = () => {
-  if (!topSentinel.value) return
-  sentinelObserver = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) loadMorePrev()
-  }, { rootMargin: '200px' })
-  sentinelObserver.observe(topSentinel.value)
+// ── 觸控 / 滑鼠 / 滾輪 切換 ──────────────────────────────────────
+let touchStartX = 0
+const onTouchStart = (e) => { touchStartX = e.touches[0].clientX }
+const onTouchEnd   = (e) => {
+  const diff = touchStartX - e.changedTouches[0].clientX
+  if (Math.abs(diff) > 50) diff > 0 ? slideNext() : slidePrev()
 }
 
-// ResizeObserver 偵測容器寬度
-let resizeObserver = null
-const initResizeObserver = () => {
-  const el = document.querySelector('.w-full.min-w-0')
-  if (!el) return
-  containerWidth.value = el.offsetWidth
-  resizeObserver = new ResizeObserver(entries => {
-    containerWidth.value = entries[0].contentRect.width
-  })
-  resizeObserver.observe(el)
+// 滑鼠橫向滾輪（trackpad 兩指左右滑）
+let wheelTimer = null
+let wheelAccum = 0
+const onWheel = (e) => {
+  if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) return  // 縱向滾動不觸發
+  wheelAccum += e.deltaX
+  clearTimeout(wheelTimer)
+  wheelTimer = setTimeout(() => {
+    if (wheelAccum > 60) slideNext()
+    else if (wheelAccum < -60) slidePrev()
+    wheelAccum = 0
+  }, 80)
 }
 
-// ── 品項快取 & 顯示 ───────────────────────────────────────────────
-const WEEK_LABELS  = ['日', '一', '二', '三', '四', '五', '六']
-const weekItemsMap = ref({})
+// 滑鼠拖曳
+let isDragging = false
+let dragStartX = 0
+let dragMoved  = false
+const onMouseDown = (e) => {
+  isDragging = true; dragStartX = e.clientX; dragMoved = false
+}
+const onMouseMove = (e) => {
+  if (!isDragging) return
+  if (Math.abs(e.clientX - dragStartX) > 5) dragMoved = true
+}
+const onMouseUp = (e) => {
+  if (!isDragging) return
+  isDragging = false
+  if (!dragMoved) return
+  const diff = dragStartX - e.clientX
+  if (Math.abs(diff) > 60) diff > 0 ? slideNext() : slidePrev()
+}
 
-const weekItemsByType = (date, type) => {
+// ── 查看模式品項取得 ──────────────────────────────────────────────
+const itemsByTypeForDate = (date, type) => {
   const items = (weekItemsMap.value[date] || [])
     .filter(i => i.type === type && ((i.name && i.name.trim() !== '') || (i.images && i.images.length > 0)))
   const slotMap = {}
@@ -506,20 +569,17 @@ const weekItemsByType = (date, type) => {
   }
   const result = []
   for (const slot of Object.keys(slotMap).map(Number).sort()) {
-    const slotItems = slotMap[slot].sort((a, b) => a.id.localeCompare(b.id))
-    slotItems.forEach((item, idx) => result.push({ ...item, isFirst: idx === 0 }))
+    slotMap[slot].sort((a, b) => a.id.localeCompare(b.id))
+      .forEach((item, idx) => result.push({ ...item, isFirst: idx === 0 }))
   }
   return result
 }
 
 // ── 編輯模式輔助 ───────────────────────────────────────────────────
-const itemsByType = (type) => menuItems.value.filter(i => i.type === type)
-
 const slotsByType = (type) => {
   const slots = [...new Set(menuItems.value.filter(i => i.type === type).map(i => i.slot || 1))]
   return slots.sort((a, b) => a - b)
 }
-
 const itemsByTypeAndSlot = (type, slot) =>
   menuItems.value.filter(i => i.type === type && (i.slot || 1) === slot)
     .sort((a, b) => a.id.localeCompare(b.id))
@@ -567,31 +627,24 @@ const selectDate = async (date) => {
 // ── 食材 ──────────────────────────────────────────────────────────
 const addIngredientToItem = (item) => {
   const val = (ingredientDraft[item.id] || '').trim()
-  if (val && !item.ingredients.includes(val)) {
-    item.ingredients.push(val)
-    autoSave(item)
-  }
+  if (val && !item.ingredients.includes(val)) { item.ingredients.push(val); autoSave(item) }
   ingredientDraft[item.id] = ''
 }
 
 // ── 圖片 ──────────────────────────────────────────────────────────
 const openSingleImageUpload = (item) => {
   const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/*'
+  input.type = 'file'; input.accept = 'image/*'
   input.onchange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const formData = new FormData()
-    formData.append('files', file)
+    const file = e.target.files[0]; if (!file) return
+    const formData = new FormData(); formData.append('files', file)
     try {
       if (item.images && item.images.length > 0) {
         const oldFile = item.images[0].split('/').pop()
         await fetch(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${oldFile}`, { method: 'DELETE' })
       }
       const res = await fetch(`${BASE}/image/upload/${item.date}/${item.id}`, { method: 'POST', body: formData })
-      const newPaths = await res.json()
-      item.images = newPaths.slice(0, 1)
+      item.images = (await res.json()).slice(0, 1)
       showToast('圖片已更新')
     } catch { showToast('上傳失敗') }
   }
@@ -603,8 +656,7 @@ const deleteItemImage = async (item) => {
   const fileName = item.images[0].split('/').pop()
   try {
     await fetch(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${fileName}`, { method: 'DELETE' })
-    item.images = []
-    showToast('圖片已刪除')
+    item.images = []; showToast('圖片已刪除')
   } catch (e) { console.error(e) }
 }
 
@@ -617,8 +669,7 @@ const uploadImages = async (files) => {
   if (!imageModal.item || files.length === 0) return
   uploading.value = true
   try {
-    const formData = new FormData()
-    files.forEach(f => formData.append('files', f))
+    const formData = new FormData(); files.forEach(f => formData.append('files', f))
     const res = await fetch(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, { method: 'POST', body: formData })
     const newPaths = await res.json()
     imageModal.images.push(...newPaths)
@@ -631,8 +682,7 @@ const uploadImages = async (files) => {
 
 const deleteMenuImage = async (idx) => {
   if (!confirm('確定刪除？')) return
-  const url = imageModal.images[idx]
-  const fileName = url.split('/').pop()
+  const fileName = imageModal.images[idx].split('/').pop()
   try {
     await fetch(`${BASE}/image/remove/${imageModal.item.date}/${imageModal.item.id}?fileName=${fileName}`, { method: 'DELETE' })
     imageModal.images.splice(idx, 1)
@@ -665,11 +715,7 @@ const fetchMenuItems = async () => {
 const autoSave = async (item) => {
   if (!item.id) return
   try {
-    await fetch(`${BASE}/update`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item)
-    })
+    await fetch(`${BASE}/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
     await fetchMarkedDates()
   } catch (e) { console.error(e) }
 }
@@ -677,13 +723,10 @@ const autoSave = async (item) => {
 const addItemToSlot = async (type, slot) => {
   try {
     const res = await fetch(`${BASE}/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: selectedDate.value, type, slot, name: '', ingredients: [], images: [], note: '' })
     })
-    const saved = await res.json()
-    menuItems.value.push(saved)
-    ingredientDraft[saved.id] = ''
+    const saved = await res.json(); menuItems.value.push(saved); ingredientDraft[saved.id] = ''
   } catch (e) { console.error(e) }
 }
 
@@ -691,9 +734,7 @@ const confirmDeleteDay = async () => {
   if (!confirm(`確定刪除 ${selectedDate.value} 的所有菜色？此操作無法復原。`)) return
   try {
     await fetch(`${BASE}/remove/${selectedDate.value}`, { method: 'DELETE' })
-    menuItems.value = []
-    delete dateStatus.value[selectedDate.value]
-    delete weekItemsMap.value[selectedDate.value]
+    menuItems.value = []; delete dateStatus.value[selectedDate.value]; delete weekItemsMap.value[selectedDate.value]
     showToast(`${selectedDate.value} 菜色已刪除`)
   } catch (e) { console.error(e) }
 }
@@ -702,20 +743,36 @@ const confirmDelete = async (item) => {
   if (!confirm(`確定刪除${item.name ? `「${item.name}」` : '這個項目'}？`)) return
   try {
     await fetch(`${BASE}/remove/${item.date}/${item.id}`, { method: 'DELETE' })
-    menuItems.value = menuItems.value.filter(i => i.id !== item.id)
-    showToast('已刪除')
+    menuItems.value = menuItems.value.filter(i => i.id !== item.id); showToast('已刪除')
   } catch (e) { console.error(e) }
+}
+
+// ── ResizeObserver ────────────────────────────────────────────────
+let resizeObserver = null
+const initResizeObserver = () => {
+  if (!mainCol.value) return
+  containerWidth.value = mainCol.value.offsetWidth
+  resizeObserver = new ResizeObserver(entries => {
+    containerWidth.value = entries[0].contentRect.width
+  })
+  resizeObserver.observe(mainCol.value)
 }
 
 watch(isEditMode, async (editing) => {
   if (!editing) {
     await nextTick()
     initResizeObserver()
-    initSentinelObserver()
+    await refresh()
   }
 })
 
+const onKeyDown = (e) => {
+  if (e.key === 'ArrowLeft') slidePrev()
+  if (e.key === 'ArrowRight') slideNext()
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeyDown)
   await fetchMarkedDates()
   selectedDate.value = todayStr
   await fetch(`${BASE}/init/${todayStr}`, { method: 'POST' })
@@ -724,14 +781,12 @@ onMounted(async () => {
   await nextTick()
   isClient.value = true
   initResizeObserver()
-  await initialLoad()
-  await nextTick()
-  initSentinelObserver()
+  await refresh()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown)
   if (resizeObserver) resizeObserver.disconnect()
-  if (sentinelObserver) sentinelObserver.disconnect()
 })
 </script>
 

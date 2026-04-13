@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>馬蘭榮家員工活動</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-dark: #2d5a27;
+      --green-mid: #4a7c3f;
+      --green-light: #7dab6e;
+      --green-pale: #c8e6b8;
+      --cream: #f7f3ec;
+      --brown: #6b4c2a;
+      --gold: #c9a84c;
+      --text: #2a2a2a;
+    }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 15% 20%, rgba(125,171,110,0.12) 0%, transparent 50%),
+        radial-gradient(circle at 85% 75%, rgba(45,90,39,0.10) 0%, transparent 50%),
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234a7c3f' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 52px;
+      animation: fadeDown 0.8s ease both;
+    }
+
+    .header-badge {
+      display: inline-block;
+      background: var(--green-dark);
+      color: #fff;
+      font-family: 'Noto Serif TC', serif;
+      font-size: 11px;
+      letter-spacing: 4px;
+      padding: 6px 20px;
+      border-radius: 2px;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 900;
+      font-size: clamp(28px, 7vw, 44px);
+      line-height: 1.2;
+      color: var(--green-dark);
+      margin-bottom: 10px;
+    }
+
+    .header .subtitle {
+      font-size: 14px;
+      color: var(--green-mid);
+      letter-spacing: 2px;
+      font-weight: 300;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px auto;
+      width: 200px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--green-light);
+    }
+    .divider-leaf {
+      font-size: 16px;
+    }
+
+    /* Section cards */
+    .section {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px 36px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 20px rgba(45,90,39,0.08), 0 0 0 1px rgba(45,90,39,0.06);
+      animation: fadeUp 0.7s ease both;
+    }
+
+    .section:nth-child(1) { animation-delay: 0.1s; }
+    .section:nth-child(2) { animation-delay: 0.2s; }
+    .section:nth-child(3) { animation-delay: 0.3s; }
+
+    .section-title {
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 600;
+      font-size: 18px;
+      color: var(--green-dark);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, var(--green-pale), transparent);
+    }
+
+    /* Fee items */
+    .fee-list {
+      list-style: none;
+    }
+
+    .fee-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px dashed var(--green-pale);
+      font-size: 15px;
+    }
+
+    .fee-item:last-child { border-bottom: none; }
+
+    .fee-name {
+      color: #444;
+      font-weight: 400;
+    }
+
+    .fee-price {
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 600;
+      color: var(--green-mid);
+      font-size: 16px;
+    }
+
+    /* Total box */
+    .total-box {
+      background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+      border-radius: 12px;
+      padding: 20px 28px;
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #fff;
+    }
+
+    .total-label {
+      font-size: 14px;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    .total-prices {
+      text-align: right;
+    }
+
+    .total-original {
+      font-size: 13px;
+      text-decoration: line-through;
+      opacity: 0.65;
+      margin-bottom: 2px;
+    }
+
+    .total-discount {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 28px;
+      font-weight: 900;
+      color: #f5e88a;
+      line-height: 1;
+    }
+
+    .total-unit {
+      font-size: 14px;
+      opacity: 0.85;
+    }
+
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--green-light), var(--green-pale));
+      border-radius: 2px;
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 24px;
+      animation: fadeLeft 0.5s ease both;
+    }
+
+    .timeline-item:last-child { margin-bottom: 0; }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -26px;
+      top: 6px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--green-mid);
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 2px var(--green-light);
+    }
+
+    .timeline-item:nth-child(1) { animation-delay: 0.3s; }
+    .timeline-item:nth-child(2) { animation-delay: 0.4s; }
+    .timeline-item:nth-child(3) { animation-delay: 0.5s; }
+    .timeline-item:nth-child(4) { animation-delay: 0.6s; }
+    .timeline-item:nth-child(5) { animation-delay: 0.7s; }
+
+    .timeline-time {
+      display: inline-block;
+      background: var(--green-pale);
+      color: var(--green-dark);
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 3px 12px;
+      border-radius: 20px;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .timeline-title {
+      font-size: 15px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      color: var(--green-mid);
+      font-size: 12px;
+      letter-spacing: 2px;
+      opacity: 0.7;
+      animation: fadeUp 1s ease 0.5s both;
+    }
+
+    /* Leaf decoration */
+    .leaf-deco {
+      text-align: center;
+      font-size: 32px;
+      margin-bottom: 8px;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeLeft {
+      from { opacity: 0; transform: translateX(-12px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @media (max-width: 480px) {
+      .section { padding: 24px 20px; }
+      .total-box { flex-direction: column; gap: 12px; text-align: center; }
+      .total-prices { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="header">
+      <div class="leaf-deco">🌿</div>
+      <div class="header-badge">員工活動</div>
+      <h1>馬蘭榮家員工<br>活動規劃表單</h1>
+      <p class="subtitle">聖母健康農莊 · 一日體驗行程</p>
+      <div class="divider"><span class="divider-leaf">✦</span></div>
+    </header>
+
+    <!-- 費用 -->
+    <div class="section">
+      <h2 class="section-title">🌾 費用明細</h2>
+      <ul class="fee-list">
+        <li class="fee-item">
+          <span class="fee-name">自助式午餐</span>
+          <span class="fee-price">$250</span>
+        </li>
+        <li class="fee-item">
+          <span class="fee-name">園區走讀</span>
+          <span class="fee-price">$100</span>
+        </li>
+        <li class="fee-item">
+          <span class="fee-name">手工香草麵包製作</span>
+          <span class="fee-price">$200</span>
+        </li>
+        <li class="fee-item">
+          <span class="fee-name">認識植物及扦插</span>
+          <span class="fee-price">$300</span>
+        </li>
+      </ul>
+
+      <div class="total-box">
+        <div class="total-label">每人費用</div>
+        <div class="total-prices">
+          <div class="total-original">原價 $850</div>
+          <div>
+            <span class="total-discount">$800</span>
+            <span class="total-unit"> 元／人</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 行程 -->
+    <div class="section">
+      <h2 class="section-title">🕐 活動流程</h2>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-time">12:30</div>
+          <div class="timeline-title">自助式午餐</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">13:30</div>
+          <div class="timeline-title">手工香草麵包製作</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">14:20</div>
+          <div class="timeline-title">園區走讀</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">15:20</div>
+          <div class="timeline-title">認識植物及扦插</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">16:10</div>
+          <div class="timeline-title">小舖、取餐、離園</div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p>聖母健康農莊 · 台東</p>
+    </footer>
+
+  </div>
+</body>
+</html>
