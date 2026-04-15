@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
 export default defineNuxtConfig({
+  ssr: false,
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
@@ -11,10 +12,6 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/css/main.css'],
-
-  routeRules: {
-    '/': { prerender: true }
-  },
 
   compatibilityDate: '2025-01-15',
 
@@ -28,12 +25,10 @@ export default defineNuxtConfig({
   },
   // API 位址統一在這裡管理
   // 本地開發讀 .env，正式環境讀 Netlify 環境變數
+
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080'
+      apiBase: 'https://madustrialtd.asuscomm.com:8080'
     }
-  },
-  router: {
-    middleware: ['holy-auth']
   }
 })

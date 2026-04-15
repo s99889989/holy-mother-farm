@@ -50,9 +50,13 @@ app/assets/css/main.css
 app/components/AppLogo.vue
 app/components/FolderTreeNode.vue
 app/components/NavBar.vue
+app/components/SitePageHero.vue
 app/components/TemplateMenu.vue
 app/components/useFlowbite.js
 app/composables/useApi.ts
+app/layouts/default.vue
+app/layouts/site.vue
+app/middleware/holy-auth.global.ts
 app/pages/AssetRegistry.vue
 app/pages/check-in/BookIndex.vue
 app/pages/check-in/booking.vue
@@ -66,8 +70,21 @@ app/pages/index.vue
 app/pages/items/CommonConfig.vue
 app/pages/items/InventoryQuantity.vue
 app/pages/items/ShopInventory.vue
+app/pages/login.vue
 app/pages/management/DailyMenu.vue
+app/pages/management/News.vue
 app/pages/QuickLinks.vue
+app/pages/site/about.vue
+app/pages/site/booking-confirm.vue
+app/pages/site/booking.vue
+app/pages/site/cafe.vue
+app/pages/site/contact.vue
+app/pages/site/gallery.vue
+app/pages/site/index.vue
+app/pages/site/lunch.vue
+app/pages/site/news.vue
+app/pages/site/product.vue
+app/pages/site/restaurant.vue
 app/pages/Todo.vue
 app/stores/common.js
 app/stores/dark_mode.js
@@ -275,6 +292,22 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
+<file path="app/middleware/holy-auth.global.ts">
+// middleware/holy-auth.global.ts
+export default defineNuxtRouteMiddleware((to) => {
+  if (import.meta.server) return
+
+  if (to.path.startsWith('/site')) return
+  if (to.path === '/login') return
+  if (to.path === '/') return
+
+  const auth = localStorage.getItem('holy_auth')
+  if (!auth) {
+    return navigateTo('/login')
+  }
+})
+</file>
+
 <file path=".editorconfig">
 # editorconfig.org
 root = true
@@ -430,6 +463,51 @@ export default defineAppConfig({
 </template>
 </file>
 
+<file path="app/components/SitePageHero.vue">
+<!-- 共用 Hero 元件：全寬照片 + 右側漢字標題卡 + 麵包屑 -->
+<template>
+  <div>
+    <!-- Hero -->
+    <section class="relative h-56 sm:h-72 overflow-hidden">
+      <img :src="cover" :alt="title" class="absolute inset-0 w-full h-full object-cover" />
+      <!-- 右側標題卡 -->
+      <div class="absolute inset-0 flex items-center justify-end pr-10 sm:pr-20">
+        <div class="flex items-center justify-center px-6 py-6 shadow-lg"
+             style="
+               background-color: rgba(255,252,245,0.82);
+               writing-mode: vertical-rl;
+               letter-spacing: 0.25em;
+               min-height: 140px;
+               min-width: 80px;
+             ">
+          <span class="font-bold" style="color: #3a3228; font-size: 2.4rem; line-height: 1.2;">{{ title }}</span>
+        </div>
+      </div>
+      <!-- 波浪底部 -->
+      <div class="absolute bottom-0 inset-x-0">
+        <svg viewBox="0 0 1440 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full">
+          <path d="M0 36 C240 8 480 0 720 12 C960 24 1200 8 1440 0 L1440 36 Z" fill="#f5f0e8"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 麵包屑 -->
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-2 text-xs text-gray-400 flex items-center gap-1">
+      <NuxtLink to="/site" class="hover:text-teal-600 transition-colors">首頁</NuxtLink>
+      <span>›</span>
+      <span class="text-gray-600">{{ title }}</span>
+    </div>
+  </div>
+</template>
+
+<script setup>
+defineProps({
+  cover: { type: String, required: true },
+  title: { type: String, required: true },
+})
+</script>
+</file>
+
 <file path="app/components/TemplateMenu.vue">
 <template>
   <UDropdownMenu
@@ -506,6 +584,15 @@ export const useApi = () => {
     apiBase: config.public.apiBase as string
   }
 }
+</file>
+
+<file path="app/layouts/default.vue">
+<template>
+  <div>
+    <NavBar />
+    <slot />
+  </div>
+</template>
 </file>
 
 <file path="app/pages/AssetRegistry.vue">
@@ -3505,6 +3592,467 @@ onMounted(fetchCommon)
 </style>
 </file>
 
+<file path="app/pages/login.vue">
+<template>
+  <div class="min-h-screen flex items-center justify-center px-4"
+       style="background-color: #f5f0e8;">
+
+    <div class="w-full max-w-sm">
+
+      <div class="text-center mb-8">
+        <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-20 mx-auto mb-3" />
+        <p class="text-sm text-gray-500">後台管理系統</p>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border-2 border-dashed p-8" style="border-color: #b8d8d0;">
+        <h1 class="text-lg font-bold text-gray-800 text-center mb-6">管理員登入</h1>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">帳號</label>
+            <input v-model="username" type="text" placeholder="請輸入帳號" @keydown.enter="login"
+                   class="w-full px-4 py-3 rounded-xl border text-sm text-gray-800 outline-none transition-all"
+                   :class="error ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100'" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">密碼</label>
+            <input v-model="password" type="password" placeholder="請輸入密碼" @keydown.enter="login"
+                   class="w-full px-4 py-3 rounded-xl border text-sm text-gray-800 outline-none transition-all"
+                   :class="error ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100'" />
+          </div>
+          <p v-if="error" class="text-sm text-red-500 text-center">{{ error }}</p>
+          <button @click="login" :disabled="loading"
+                  class="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all mt-2 disabled:opacity-60"
+                  style="background-color: #5bbfbf;">
+            <span v-if="loading" class="flex items-center justify-center gap-2">
+              <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              登入中…
+            </span>
+            <span v-else>登入</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="text-center mt-5">
+        <NuxtLink to="/" class="text-sm text-gray-400 hover:text-teal-600 transition-colors">
+          ← 回到農莊網站
+        </NuxtLink>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import {useCommonStore} from '~/stores/common.js'
+const commonStore = useCommonStore()
+definePageMeta({ layout: false })
+
+const username = ref('')
+const password = ref('')
+const loading  = ref(false)
+const error    = ref('')
+
+const login = async () => {
+  if (!username.value || !password.value) {
+    error.value = '請輸入帳號和密碼'
+    return
+  }
+  if (loading.value) return
+
+  loading.value = true
+  error.value   = ''
+
+  try {
+    console.log(`${commonStore.data.main_url}/holy/auth/login`)
+    const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
+      method: 'POST',
+      body: { username: username.value, password: password.value },
+    })
+    console.log('登入: ' + res.success)
+    if (res.success) {
+      console.log('登入成功 ')
+      localStorage.setItem('holy_auth', 'ok')
+      // router.push('/management/DailyMenu')
+      navigateTo('/QuickLinks')
+      return
+    } else {
+      error.value = '帳號或密碼錯誤，請再試一次'
+      password.value = ''
+    }
+  } catch {
+    error.value = '帳號或密碼錯誤，請再試一次!!'
+    password.value = ''
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+</file>
+
+<file path="app/pages/management/News.vue">
+<template>
+  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+
+    <!-- ── Header ── -->
+    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-sky-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">消</div>
+          <div>
+            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">活動消息管理</h1>
+            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">News & Events</p>
+          </div>
+        </div>
+        <button @click="openModal(null)"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-sky-700 text-white rounded-lg hover:bg-sky-800 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          新增消息
+        </button>
+      </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto px-3 sm:px-4 py-4">
+
+      <!-- 載入中 -->
+      <div v-if="loading" class="flex items-center justify-center py-16 text-stone-400 gap-2">
+        <div class="w-5 h-5 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+        載入中…
+      </div>
+
+      <!-- 無資料 -->
+      <div v-else-if="newsList.length === 0"
+        class="text-center py-16 text-stone-400 text-sm">
+        尚無活動消息，點擊「新增消息」開始新增
+      </div>
+
+      <!-- 消息列表 -->
+      <div v-else class="space-y-3">
+        <div v-for="item in newsList" :key="item.id"
+          class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 flex gap-4 items-start">
+
+          <!-- 封面圖 -->
+          <div class="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-stone-100 dark:bg-zinc-800">
+            <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" :alt="item.title"
+              class="w-full h-full object-cover cursor-pointer" @click="previewUrl = apiUrl(item.coverUrl)" />
+            <div v-else class="w-full h-full flex items-center justify-center text-stone-300">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- 內容 -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="font-bold text-stone-800 dark:text-stone-100 truncate">{{ item.title }}</p>
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span class="text-xs text-stone-400">{{ item.date }}</span>
+                  <span v-for="tag in item.tags" :key="tag"
+                    class="px-2 py-0.5 rounded-full text-xs bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                    {{ tag }}
+                  </span>
+                </div>
+                <p class="text-xs text-stone-400 mt-1.5 line-clamp-2">{{ item.content }}</p>
+                <p v-if="item.attachments?.length" class="text-xs text-stone-400 mt-1">
+                  📎 {{ item.attachments.length }} 個附件
+                </p>
+              </div>
+              <div class="flex gap-1.5 flex-shrink-0">
+                <button @click="openModal(item)"
+                  class="px-2.5 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                  編輯
+                </button>
+                <button @click="confirmDelete(item)"
+                  class="px-2.5 py-1 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  刪除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ 新增/編輯 Modal ════════ -->
+    <div v-if="modal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
+      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+
+        <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
+          <h3 class="font-bold text-stone-800 dark:text-stone-100">
+            {{ modal.isNew ? '新增活動消息' : '編輯活動消息' }}
+          </h3>
+          <button @click="modal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="px-5 py-4 space-y-4">
+
+          <!-- 標題 -->
+          <div>
+            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">標題 *</label>
+            <input v-model="form.title" placeholder="活動消息標題"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-400" />
+          </div>
+
+          <!-- 日期 + 分類標籤 -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">日期</label>
+              <input v-model="form.date" type="date"
+                class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-400" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">分類標籤</label>
+              <div class="flex gap-1.5">
+                <input v-model="tagInput" placeholder="輸入後按 Enter"
+                  @keydown.enter.prevent="addTag"
+                  class="flex-1 px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-400" />
+                <button @click="addTag"
+                  class="px-3 py-2 text-sm bg-sky-700 text-white rounded-xl hover:bg-sky-800 transition-colors">+</button>
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <span v-for="(tag, idx) in form.tags" :key="tag"
+                  class="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                  {{ tag }}
+                  <button @click="form.tags.splice(idx, 1)" class="hover:text-red-400 leading-none">×</button>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 內文 -->
+          <div>
+            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">內文</label>
+            <textarea v-model="form.content" rows="6" placeholder="活動詳細內容…"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-400 resize-none" />
+          </div>
+
+          <!-- 封面圖 -->
+          <div>
+            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">封面圖</label>
+            <div v-if="form.coverPreview || form.coverUrl"
+              class="relative w-full h-40 rounded-xl overflow-hidden mb-2 border border-stone-200 dark:border-stone-700 bg-stone-50">
+              <img :src="form.coverPreview || apiUrl(form.coverUrl)" class="w-full h-full object-cover" />
+              <button @click="removeCover"
+                class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">×</button>
+            </div>
+            <div @click="coverInputRef?.click()"
+              class="border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-xl p-4 text-center cursor-pointer hover:border-sky-400 transition-colors">
+              <p class="text-sm text-stone-400">點擊上傳封面圖</p>
+              <input ref="coverInputRef" type="file" accept="image/*" class="hidden" @change="handleCoverSelect" />
+            </div>
+          </div>
+
+          <!-- 附件 -->
+          <div>
+            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">附件</label>
+            <div v-if="form.attachments?.length" class="space-y-1.5 mb-2">
+              <div v-for="(att, idx) in form.attachments" :key="idx"
+                class="flex items-center justify-between px-3 py-2 bg-stone-50 dark:bg-zinc-800 rounded-xl text-sm">
+                <span class="text-stone-600 dark:text-stone-300 truncate flex-1 mr-2">📎 {{ att.name }}</span>
+                <button @click="removeAttachment(idx)"
+                  class="text-stone-300 hover:text-red-400 transition-colors flex-shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div @click="attachInputRef?.click()"
+              class="border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-xl p-4 text-center cursor-pointer hover:border-sky-400 transition-colors">
+              <p class="text-sm text-stone-400">點擊上傳附件（可多選）</p>
+              <input ref="attachInputRef" type="file" multiple class="hidden" @change="handleAttachSelect" />
+            </div>
+          </div>
+
+        </div>
+
+        <div class="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-zinc-900">
+          <button @click="modal.show = false"
+            class="px-4 py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+            取消
+          </button>
+          <button @click="save" :disabled="saving"
+            class="px-4 py-2 text-sm bg-sky-700 text-white rounded-xl hover:bg-sky-800 disabled:bg-sky-300 transition-colors flex items-center gap-1.5">
+            <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            {{ modal.isNew ? '新增' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 大圖預覽 -->
+    <div v-if="previewUrl" class="fixed inset-0 bg-black/85 flex items-center justify-center z-[60] cursor-pointer p-4"
+      @click="previewUrl = ''">
+      <img :src="previewUrl" class="max-w-full max-h-full rounded-xl shadow-2xl object-contain" />
+    </div>
+
+    <!-- Toast -->
+    <Transition name="fade">
+      <div v-if="toast.show"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        {{ toast.message }}
+      </div>
+    </Transition>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+
+const commonStore = useCommonStore()
+const BASE        = computed(() => commonStore.data.main_url + '/holy/news')
+const API_ORIGIN  = computed(() => commonStore.data.main_url)
+
+const apiUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return API_ORIGIN.value + path
+}
+
+// ── 狀態 ──────────────────────────────────────────────────────────
+const newsList     = ref([])
+const loading      = ref(false)
+const saving       = ref(false)
+const previewUrl   = ref('')
+const coverInputRef  = ref(null)
+const attachInputRef = ref(null)
+const tagInput       = ref('')
+const toast          = reactive({ show: false, message: '' })
+
+const modal = reactive({ show: false, isNew: true })
+const form  = reactive({
+  id: '', title: '', date: '', content: '', tags: [],
+  coverUrl: '', coverFile: null, coverPreview: '',
+  attachments: [],   // [{ name, url }] 已儲存的
+  newAttachFiles: [] // File[] 待上傳的
+})
+
+const showToast = (msg) => {
+  toast.message = msg; toast.show = true
+  setTimeout(() => toast.show = false, 2500)
+}
+
+// ── 標籤 ──────────────────────────────────────────────────────────
+const addTag = () => {
+  const t = tagInput.value.trim()
+  if (t && !form.tags.includes(t)) form.tags.push(t)
+  tagInput.value = ''
+}
+
+// ── 封面圖 ────────────────────────────────────────────────────────
+const handleCoverSelect = (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+  form.coverFile    = file
+  form.coverPreview = URL.createObjectURL(file)
+}
+const removeCover = () => {
+  form.coverFile = null; form.coverPreview = ''; form.coverUrl = ''
+  if (coverInputRef.value) coverInputRef.value.value = ''
+}
+
+// ── 附件 ──────────────────────────────────────────────────────────
+const handleAttachSelect = (e) => {
+  const files = Array.from(e.target.files)
+  for (const f of files) {
+    form.newAttachFiles.push(f)
+    form.attachments.push({ name: f.name, url: '', isNew: true })
+  }
+  if (attachInputRef.value) attachInputRef.value.value = ''
+}
+const removeAttachment = (idx) => {
+  form.attachments.splice(idx, 1)
+  // 如果是新附件也從 newAttachFiles 移除（按新附件順序對應）
+  const newIdx = form.attachments.slice(0, idx).filter(a => a.isNew).length
+  const newOnes = form.attachments.filter(a => a.isNew)
+  if (form.attachments[idx]?.isNew) form.newAttachFiles.splice(newIdx, 1)
+}
+
+// ── 開啟 Modal ────────────────────────────────────────────────────
+const openModal = (item) => {
+  modal.isNew = !item
+  Object.assign(form, {
+    id: item?.id || '',
+    title: item?.title || '',
+    date: item?.date || '',
+    content: item?.content || '',
+    tags: item?.tags ? [...item.tags] : [],
+    coverUrl: item?.coverUrl || '',
+    coverFile: null, coverPreview: '',
+    attachments: item?.attachments ? item.attachments.map(a => ({ ...a })) : [],
+    newAttachFiles: [],
+  })
+  tagInput.value = ''
+  modal.show = true
+}
+
+// ── API ──────────────────────────────────────────────────────────
+const fetchNews = async () => {
+  loading.value = true
+  try {
+    newsList.value = await (await fetch(`${BASE.value}/list`)).json()
+  } catch { newsList.value = [] }
+  finally { loading.value = false }
+}
+
+const save = async () => {
+  if (!form.title.trim()) { showToast('請填寫標題'); return }
+  saving.value = true
+  try {
+    const fd = new FormData()
+    fd.append('id',      form.id)
+    fd.append('title',   form.title)
+    fd.append('date',    form.date)
+    fd.append('content', form.content)
+    fd.append('tags',    JSON.stringify(form.tags))
+    // 已儲存的附件（非新增的）
+    const existingAtts = form.attachments.filter(a => !a.isNew)
+    fd.append('attachments', JSON.stringify(existingAtts))
+    if (form.coverFile)          fd.append('cover', form.coverFile)
+    else if (!form.coverUrl)     fd.append('removeCover', 'true')
+    for (const f of form.newAttachFiles) fd.append('newAttachments', f)
+
+    const url    = modal.isNew ? `${BASE.value}/save` : `${BASE.value}/update`
+    const method = modal.isNew ? 'POST' : 'PUT'
+    const res    = await fetch(url, { method, body: fd })
+    if (!res.ok) throw new Error()
+    await fetchNews()
+    modal.show = false
+    showToast(modal.isNew ? '已新增' : '已儲存')
+  } catch { showToast('儲存失敗') }
+  finally { saving.value = false }
+}
+
+const confirmDelete = async (item) => {
+  if (!confirm(`確定刪除「${item.title}」？`)) return
+  try {
+    await fetch(`${BASE.value}/remove/${item.id}`, { method: 'DELETE' })
+    newsList.value = newsList.value.filter(n => n.id !== item.id)
+    showToast('已刪除')
+  } catch { showToast('刪除失敗') }
+}
+
+onMounted(fetchNews)
+</script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+</style>
+</file>
+
 <file path="app/pages/QuickLinks.vue">
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900">
@@ -3810,6 +4358,1125 @@ onMounted(fetchLinks)
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>
+</file>
+
+<file path="app/pages/site/booking-confirm.vue">
+<template>
+  <div class="pt-20 min-h-screen bg-gradient-to-b from-stone-50 to-white">
+    <div class="max-w-lg mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+
+      <!-- 成功圖示 -->
+      <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
+        :class="isLunch ? 'bg-amber-100' : 'bg-green-100'">
+        <svg class="w-10 h-10" :class="isLunch ? 'text-amber-600' : 'text-green-600'"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+
+      <h1 class="text-2xl sm:text-3xl font-bold text-stone-800 mb-2">
+        {{ isLunch ? '便當已預訂！' : '預約已送出！' }}
+      </h1>
+      <p class="text-stone-400 text-base mb-10">感謝您，我們將盡快以電話確認。</p>
+
+      <!-- 摘要卡 -->
+      <div class="bg-white rounded-3xl shadow-sm border border-stone-100 text-left overflow-hidden mb-8">
+        <div class="px-6 py-4" :class="isLunch ? 'bg-amber-600' : 'bg-green-700'">
+          <p class="text-xs font-semibold uppercase tracking-widest opacity-70 text-white">
+            {{ isLunch ? '便當預訂摘要' : '訂位摘要' }}
+          </p>
+          <p class="text-white font-bold text-lg mt-0.5">{{ route.query.name }} 的{{ isLunch ? '便當' : '預約' }}</p>
+        </div>
+        <div class="divide-y divide-stone-50">
+          <div v-for="row in summaryRows" :key="row.label"
+            class="flex justify-between items-center px-6 py-3.5">
+            <span class="text-sm text-stone-400">{{ row.label }}</span>
+            <span class="text-sm font-semibold text-stone-800">{{ row.value }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 流程說明 -->
+      <div class="rounded-2xl px-5 py-4 text-sm text-left mb-10 space-y-1"
+        :class="isLunch ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'">
+        <p class="font-semibold mb-1.5">📞 接下來的流程</p>
+        <p>· 目前狀態為「待確認」</p>
+        <p>· 農莊將於一個工作日內來電確認</p>
+        <p>· 如有臨時更動，請提前來電告知</p>
+      </div>
+
+      <!-- 按鈕 -->
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <NuxtLink to="/site"
+          class="px-6 py-3 rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors text-sm font-medium">
+          回到首頁
+        </NuxtLink>
+        <NuxtLink v-if="isLunch" to="/site/booking"
+          class="px-6 py-3 rounded-full bg-green-700 hover:bg-green-800 text-white transition-colors text-sm font-semibold">
+          同時訂位
+        </NuxtLink>
+        <NuxtLink v-else to="/site/restaurant"
+          class="px-6 py-3 rounded-full bg-green-700 hover:bg-green-800 text-white transition-colors text-sm font-semibold">
+          查看今日菜色
+        </NuxtLink>
+      </div>
+
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+definePageMeta({ layout: 'site' })
+
+const route   = useRoute()
+const isLunch = computed(() => route.query.type === 'lunch')
+
+const weekdays = ['週日','週一','週二','週三','週四','週五','週六']
+const dateDisplay = computed(() => {
+  if (!route.query.date) return ''
+  const d = new Date(route.query.date)
+  return `${route.query.date}　${weekdays[d.getDay()]}`
+})
+
+const dietLabel = { '葷食': '葷食', '素食': '全素', '蛋奶素': '蛋奶素', '五辛素': '五辛素' }
+
+const summaryRows = computed(() => {
+  const q = route.query
+  if (isLunch.value) {
+    return [
+      { label: '日期',   value: dateDisplay.value },
+      { label: '取餐',   value: q.time },
+      { label: '葷食',   value: `${q.meatQty} 盒` },
+      { label: '素食',   value: `${q.vegQty} 盒` },
+      { label: '合計',   value: `${Number(q.meatQty) + Number(q.vegQty)} 盒` },
+    ]
+  }
+  return [
+    { label: '日期', value: dateDisplay.value },
+    { label: '時間', value: q.time },
+    { label: '人數', value: `${q.guests} 人` },
+    { label: '葷素', value: dietLabel[q.diet] || q.diet || '未指定' },
+  ]
+})
+</script>
+</file>
+
+<file path="app/pages/site/booking.vue">
+<template>
+  <div class="pt-20">
+
+    <!-- ══ Page Hero ══ -->
+    <section class="py-14 sm:py-20 bg-gradient-to-b from-green-50 to-white">
+      <div class="max-w-2xl mx-auto px-4 sm:px-6 text-center">
+        <p class="text-green-600 text-sm font-semibold tracking-widest uppercase mb-3">Reservation</p>
+        <h1 class="text-3xl sm:text-4xl font-bold text-stone-800 mb-3">線上訂位</h1>
+        <p class="text-stone-400 text-base leading-relaxed">請填寫以下資料完成預約，我們將盡快與您確認。</p>
+      </div>
+    </section>
+
+    <section class="pb-20">
+      <div class="max-w-2xl mx-auto px-4 sm:px-6">
+        <div class="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden">
+
+          <!-- 步驟列 -->
+          <div class="flex border-b border-stone-100">
+            <div
+              v-for="(step, idx) in steps" :key="step"
+              class="flex-1 py-3.5 text-center text-sm font-medium relative"
+              :class="currentStep === idx ? 'text-green-700 bg-green-50' : currentStep > idx ? 'text-green-600' : 'text-stone-300'"
+            >
+              <span class="inline-flex items-center gap-1.5">
+                <svg v-if="currentStep > idx" class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span v-else class="w-5 h-5 rounded-full text-xs flex items-center justify-center border font-bold"
+                  :class="currentStep === idx ? 'bg-green-700 text-white border-green-700' : 'border-stone-200 text-stone-300'">
+                  {{ idx + 1 }}
+                </span>
+                {{ step }}
+              </span>
+              <div v-if="currentStep === idx" class="absolute bottom-0 inset-x-0 h-0.5 bg-green-600" />
+            </div>
+          </div>
+
+          <div class="p-6 sm:p-8">
+
+            <!-- ══ Step 1：日期選擇（日曆）══ -->
+            <div v-if="currentStep === 0">
+              <h2 class="text-lg font-bold text-stone-800 mb-5">選擇用餐日期</h2>
+
+              <!-- 日曆 -->
+              <div class="bg-stone-50 rounded-2xl p-4 mb-5">
+                <!-- 月份切換 -->
+                <div class="flex items-center justify-between mb-4">
+                  <button @click="prevMonth"
+                    :disabled="!canGoPrevMonth"
+                    class="p-2 rounded-xl transition-colors"
+                    :class="canGoPrevMonth ? 'hover:bg-stone-200 text-stone-600' : 'text-stone-300 cursor-not-allowed'">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                  </button>
+                  <span class="font-bold text-stone-800">{{ calYear }} 年 {{ calMonth }} 月</span>
+                  <button @click="nextMonth" class="p-2 rounded-xl hover:bg-stone-200 text-stone-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- 星期標頭 -->
+                <div class="grid grid-cols-7 mb-2">
+                  <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
+                    class="text-center text-xs font-semibold text-stone-400 py-1">{{ w }}</div>
+                </div>
+
+                <!-- 日期格子 -->
+                <div class="grid grid-cols-7 gap-1">
+                  <div v-for="(day, idx) in calDays" :key="idx"
+                    class="aspect-square flex items-center justify-center rounded-xl text-sm select-none transition-all"
+                    :class="dayClass(day)"
+                    @click="day.date && !day.disabled && selectCalDate(day.date)">
+                    {{ day.label }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- 已選日期顯示 -->
+              <div v-if="form.date" class="bg-green-50 border border-green-100 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+                <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <div>
+                  <p class="text-xs text-green-600 font-semibold">已選擇日期</p>
+                  <p class="text-stone-800 font-bold">{{ selectedDateDisplay }}</p>
+                </div>
+              </div>
+              <p v-if="errors.date" class="text-xs text-red-400 mt-2">{{ errors.date }}</p>
+            </div>
+
+            <!-- ══ Step 2：基本資料 ══ -->
+            <div v-if="currentStep === 1">
+              <h2 class="text-lg font-bold text-stone-800 mb-6">填寫資料</h2>
+              <div class="space-y-5">
+
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">姓名 <span class="text-red-400">*</span></label>
+                  <input v-model="form.name" type="text" placeholder="請輸入姓名"
+                    class="w-full px-4 py-3 rounded-xl border text-stone-800 outline-none transition-all text-sm"
+                    :class="errors.name ? 'border-red-300 bg-red-50 focus:ring-2 focus:ring-red-200' : 'border-stone-200 focus:ring-2 focus:ring-green-200 focus:border-green-400'" />
+                  <p v-if="errors.name" class="text-xs text-red-400 mt-1.5">{{ errors.name }}</p>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">聯絡電話 <span class="text-red-400">*</span></label>
+                  <input v-model="form.phone" type="tel" placeholder="請輸入電話"
+                    class="w-full px-4 py-3 rounded-xl border text-stone-800 outline-none transition-all text-sm"
+                    :class="errors.phone ? 'border-red-300 bg-red-50 focus:ring-2 focus:ring-red-200' : 'border-stone-200 focus:ring-2 focus:ring-green-200 focus:border-green-400'" />
+                  <p v-if="errors.phone" class="text-xs text-red-400 mt-1.5">{{ errors.phone }}</p>
+                </div>
+
+                <!-- 時間 + 人數 -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-semibold text-stone-700 mb-1.5">用餐時間 <span class="text-red-400">*</span></label>
+                    <select v-model="form.time"
+                      class="w-full px-4 py-3 rounded-xl border border-stone-200 text-stone-800 outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400 text-sm bg-white">
+                      <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-stone-700 mb-1.5">用餐人數 <span class="text-red-400">*</span></label>
+                    <div class="flex items-center gap-2">
+                      <button @click="form.guests = Math.max(1, form.guests - 1)"
+                        class="w-10 h-10 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center justify-center text-lg transition-colors flex-shrink-0">−</button>
+                      <input v-model.number="form.guests" type="number" min="1" max="50"
+                        class="flex-1 text-center px-2 py-2.5 rounded-xl border border-stone-200 text-stone-800 outline-none focus:ring-2 focus:ring-green-200 text-sm font-bold" />
+                      <button @click="form.guests = Math.min(50, form.guests + 1)"
+                        class="w-10 h-10 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center justify-center text-lg transition-colors flex-shrink-0">＋</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">備註</label>
+                  <textarea v-model="form.note" rows="3" placeholder="過敏食材、特殊需求…"
+                    class="w-full px-4 py-3 rounded-xl border border-stone-200 text-stone-800 outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400 text-sm resize-none" />
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ Step 3：葷素選擇 ══ -->
+            <div v-if="currentStep === 2">
+              <h2 class="text-lg font-bold text-stone-800 mb-2">葷素選擇</h2>
+              <p class="text-sm text-stone-400 mb-6">請選擇您的飲食偏好，方便我們備料。</p>
+              <div class="grid grid-cols-2 gap-3 mb-4">
+                <button v-for="opt in dietOptions" :key="opt.value"
+                  @click="form.diet = opt.value"
+                  class="p-4 rounded-2xl border-2 text-left transition-all"
+                  :class="form.diet === opt.value ? 'border-green-500 bg-green-50' : 'border-stone-100 hover:border-stone-200'">
+                  <div class="text-2xl mb-2">{{ opt.icon }}</div>
+                  <div class="font-semibold text-stone-800 text-sm">{{ opt.label }}</div>
+                  <div class="text-xs text-stone-400 mt-0.5">{{ opt.desc }}</div>
+                </button>
+              </div>
+              <p v-if="errors.diet" class="text-xs text-red-400 mb-2">{{ errors.diet }}</p>
+              <div v-if="form.diet" class="bg-stone-50 rounded-2xl p-4 text-sm text-stone-600 flex items-center gap-3">
+                <span class="text-xl">{{ dietOptions.find(o => o.value === form.diet)?.icon }}</span>
+                <span>已選擇 <strong class="text-stone-800">{{ dietOptions.find(o => o.value === form.diet)?.label }}</strong></span>
+              </div>
+            </div>
+
+            <!-- ══ Step 4：確認送出 ══ -->
+            <div v-if="currentStep === 3">
+              <h2 class="text-lg font-bold text-stone-800 mb-6">確認預約內容</h2>
+              <div class="divide-y divide-stone-50 mb-6">
+                <div v-for="row in summaryRows" :key="row.label"
+                  class="flex justify-between items-center py-3.5">
+                  <span class="text-sm text-stone-400 w-20 flex-shrink-0">{{ row.label }}</span>
+                  <span class="text-sm font-semibold text-stone-800 text-right">{{ row.value }}</span>
+                </div>
+              </div>
+              <p v-if="submitError" class="text-sm text-red-400 bg-red-50 rounded-xl px-4 py-3">{{ submitError }}</p>
+            </div>
+
+          </div>
+
+          <!-- 底部按鈕 -->
+          <div class="px-6 sm:px-8 pb-6 sm:pb-8 flex items-center justify-between gap-3">
+            <button v-if="currentStep > 0" @click="currentStep--"
+              class="flex items-center gap-1.5 px-5 py-3 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors text-sm font-medium">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
+              上一步
+            </button>
+            <div v-else />
+
+            <button v-if="currentStep < steps.length - 1" @click="nextStep"
+              class="flex items-center gap-1.5 px-6 py-3 rounded-xl bg-green-700 hover:bg-green-800 text-white transition-colors text-sm font-semibold ml-auto">
+              下一步
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <button v-else @click="submit" :disabled="submitting"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-700 hover:bg-green-800 disabled:bg-green-300 text-white transition-colors text-sm font-semibold ml-auto">
+              <div v-if="submitting" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {{ submitting ? '送出中…' : '確認預約' }}
+            </button>
+          </div>
+
+        </div>
+
+        <!-- 注意事項 -->
+        <div class="mt-6 bg-amber-50 rounded-2xl p-5 text-sm text-amber-700 space-y-1.5">
+          <p class="font-semibold mb-2">📋 預約注意事項</p>
+          <p>· 請提前一日完成預約，以便我們備料。</p>
+          <p>· 預約送出後為「待確認」狀態，我們將盡快電話確認。</p>
+          <p>· 如需取消，請提前來電告知，謝謝。</p>
+        </div>
+
+        <!-- 前往便當預訂 -->
+        <div class="mt-4 bg-green-50 rounded-2xl p-5 flex items-center justify-between gap-4">
+          <div>
+            <p class="font-semibold text-green-800 text-sm">需要外帶便當？</p>
+            <p class="text-xs text-green-600 mt-0.5">前往便當預訂頁面</p>
+          </div>
+          <NuxtLink to="/site/lunch"
+            class="flex-shrink-0 px-4 py-2 rounded-xl bg-green-700 hover:bg-green-800 text-white text-sm font-semibold transition-colors">
+            便當預訂 →
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, reactive } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+import { useRouter } from 'vue-router'
+
+definePageMeta({ layout: 'site' })
+
+const commonStore = useCommonStore()
+const router = useRouter()
+const BOOKING_BASE = computed(() => commonStore.data.main_url + '/holy/booking')
+
+// ── 步驟 ──────────────────────────────────────────────────────────
+const steps = ['選擇日期', '填寫資料', '葷素選擇', '確認送出']
+const currentStep = ref(0)
+
+// ── 表單 ──────────────────────────────────────────────────────────
+const form = reactive({ name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: '' })
+const errors = reactive({})
+const submitting = ref(false)
+const submitError = ref('')
+
+const timeSlots = ['11:00','11:10','11:20','11:30','11:40','11:50','12:00','12:10','12:20','12:30','12:40','12:50','13:00']
+const dietOptions = [
+  { value: '葷食',   icon: '🍖', label: '葷食',   desc: '含肉類料理' },
+  { value: '素食',   icon: '🌿', label: '全素',   desc: '不含蛋奶五辛' },
+  { value: '蛋奶素', icon: '🥚', label: '蛋奶素', desc: '可食蛋奶製品' },
+  { value: '五辛素', icon: '🧄', label: '五辛素', desc: '可食蔥薑蒜' },
+]
+
+// ── 日曆 ──────────────────────────────────────────────────────────
+const today = new Date()
+today.setHours(0, 0, 0, 0)
+const toStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const todayStr = toStr(today)
+
+const calYear  = ref(today.getFullYear())
+const calMonth = ref(today.getMonth() + 1)
+
+const canGoPrevMonth = computed(() =>
+  calYear.value > today.getFullYear() ||
+  (calYear.value === today.getFullYear() && calMonth.value > today.getMonth() + 1)
+)
+
+const prevMonth = () => {
+  if (!canGoPrevMonth.value) return
+  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
+}
+const nextMonth = () => {
+  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
+}
+
+const calDays = computed(() => {
+  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+  const days = []
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null, disabled: true })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(calMonth.value).padStart(2, '0')
+    const dd = String(d).padStart(2, '0')
+    const dateStr = `${calYear.value}-${mm}-${dd}`
+    const isPast = dateStr <= todayStr  // 今天也不能選（需提前一日）
+    days.push({ label: d, date: dateStr, disabled: isPast })
+  }
+  return days
+})
+
+const dayClass = (day) => {
+  if (!day.date) return 'cursor-default'
+  if (day.disabled) return 'text-stone-200 cursor-not-allowed'
+  if (day.date === form.date) return 'bg-green-700 text-white font-bold cursor-pointer shadow-sm'
+  return 'text-stone-700 hover:bg-green-100 hover:text-green-800 cursor-pointer font-medium'
+}
+
+const selectCalDate = (dateStr) => { form.date = dateStr }
+
+const selectedDateDisplay = computed(() => {
+  if (!form.date) return ''
+  const d = new Date(form.date)
+  const days = ['週日','週一','週二','週三','週四','週五','週六']
+  return `${form.date}　${days[d.getDay()]}`
+})
+
+// ── 確認摘要 ──────────────────────────────────────────────────────
+const summaryRows = computed(() => [
+  { label: '日期', value: selectedDateDisplay.value },
+  { label: '時間', value: form.time },
+  { label: '人數', value: `${form.guests} 人` },
+  { label: '葷素', value: dietOptions.find(o => o.value === form.diet)?.label || '未指定' },
+  ...(form.note ? [{ label: '備註', value: form.note }] : []),
+])
+
+// ── 驗證 ──────────────────────────────────────────────────────────
+const validateStep = () => {
+  Object.keys(errors).forEach(k => delete errors[k])
+  if (currentStep.value === 0 && !form.date)         { errors.date  = '請選擇用餐日期'; return false }
+  if (currentStep.value === 1) {
+    if (!form.name.trim())  errors.name  = '請輸入姓名'
+    if (!form.phone.trim()) errors.phone = '請輸入聯絡電話'
+    return Object.keys(errors).length === 0
+  }
+  if (currentStep.value === 2 && !form.diet) { errors.diet = '請選擇葷素偏好'; return false }
+  return true
+}
+
+const nextStep = () => { if (validateStep()) currentStep.value++ }
+
+// ── 送出 ──────────────────────────────────────────────────────────
+const submit = async () => {
+  submitError.value = ''
+  submitting.value = true
+  try {
+    const res = await fetch(`${BOOKING_BASE.value}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.name, phone: form.phone, date: form.date, time: form.time, guests: form.guests, diet: form.diet, note: form.note, status: '待確認' }),
+    })
+    if (!res.ok) throw new Error()
+    router.push({ path: '/site/booking-confirm', query: { type: 'booking', name: form.name, date: form.date, time: form.time, guests: form.guests, diet: form.diet } })
+  } catch {
+    submitError.value = '預約送出失敗，請稍後再試或直接來電。'
+  } finally {
+    submitting.value = false
+  }
+}
+</script>
+</file>
+
+<file path="app/pages/site/cafe.vue">
+<template>
+  <div>
+    <SitePageHero cover="/images/cafe/cafe-cover.png" title="休憩小舖" />
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="text-center mb-4">
+        <h2 class="text-lg font-bold" style="color: #5bbfbf;">休憩小舖</h2>
+      </div>
+      <div class="rounded-2xl border-2 border-dashed p-6 sm:p-8 bg-white" style="border-color: #b8d8d0;">
+
+        <div class="flex flex-col sm:flex-row gap-6 mb-8">
+          <p class="text-sm text-gray-600 leading-relaxed flex-1">
+            聖母健康農莊設立的「休憩小舖」，即是因應「中華民國家庭照顧者關懷總會」（簡稱「家總」）而產生的，家主要是以提供給照顧者成員，一個能分享彼此生命故事以及給予情緒、靈性支持與喘息場所，也就是「家庭照顧者咖啡館」。
+          </p>
+          <img src="/images/cafe/cafe-photo1.png" alt="休憩小舖" class="w-full sm:w-48 rounded-2xl object-cover" />
+        </div>
+
+        <p class="text-sm text-gray-600 leading-relaxed mb-8">
+          期待由一杯咖啡開始，能喚起大眾對於「家庭照顧者」這個角色的關注，協助家庭照顧者減輕照顧身者、心以及來自社會等層面的負荷，藉以得到平衡點。
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <img src="/images/cafe/cafe-photo2.jpg" alt="休憩小舖" class="rounded-2xl w-full object-cover aspect-video" />
+          <img src="/images/cafe/cafe-photo3.jpg" alt="休憩小舖" class="rounded-2xl w-full object-cover aspect-video" />
+        </div>
+
+        <p class="text-sm text-gray-600 leading-relaxed mb-8">
+          家庭照顧者所面臨能力及個人資源上的缺乏，不只是讓照顧者單獨面對被照顧者，往往在生活上亦呈以被照顧者為生活的重心，長其自長期的照顧過程中，容易被照顧者的角色所消蝕，甚至於步步入孤立與孤獨、封閉自我的困境中；沒有人應訴因為照顧而筋疲，我們努力推動這種的認知，幫助家庭照顧者重新看見自己。
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <img src="/images/cafe/cafe-photo4.jpg" alt="休憩小舖" class="rounded-2xl w-full object-cover aspect-video" />
+          <img src="/images/cafe/cafe-photo5.jpg" alt="休憩小舖" class="rounded-2xl w-full object-cover aspect-video" />
+        </div>
+
+        <p class="text-sm text-gray-600 leading-relaxed mb-8">
+          基於此，聖母健康農莊「休憩小舖」除了提供照顧者一個能暫時抽離照顧壓力的休憩場所，更希望打造成社區性的「長照資訊站」，除了讓照顧者能到咖啡館放鬆喝杯咖啡的喘息外，家庭照顧者留下的聯絡方式，社工、醫護人員就能持續追蹤這個長照家庭的狀況，藉由彼此的資訊分享及心情交流，讓照顧者知道，在家庭照顧這條路上，我们並不孤單。
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-6 items-center">
+          <img src="/images/cafe/cafe-photo6.jpg" alt="休憩小舖" class="w-full sm:w-48 rounded-2xl object-cover" />
+          <p class="text-sm text-gray-600 leading-relaxed flex-1">
+            另外，未來我們也將提供給於任或的家庭照顧者在「照顧者咖啡館」實習的機會，除了學習的引導、點餐、客人互動到學習內場餐點、飲品製作，逐漸後練人群，期間未來，順利接、融入社會。<br><br>
+            當你愛著自己，宇宙也深深擁抱著你，就從一杯咖啡開始，勇敢走出，就有希望，迎接更好的明天、更好的自己。
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="text-center pb-12">
+      <NuxtLink to="/site" class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white" style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
+  </div>
+</template>
+
+<script setup>
+definePageMeta({ layout: 'site' })
+</script>
+</file>
+
+<file path="app/pages/site/lunch.vue">
+<template>
+  <div class="pt-20">
+
+    <!-- ══ Page Hero ══ -->
+    <section class="py-14 sm:py-20 bg-gradient-to-b from-amber-50 to-white">
+      <div class="max-w-2xl mx-auto px-4 sm:px-6 text-center">
+        <p class="text-amber-600 text-sm font-semibold tracking-widest uppercase mb-3">Lunch Order</p>
+        <h1 class="text-3xl sm:text-4xl font-bold text-stone-800 mb-3">便當預訂</h1>
+        <p class="text-stone-400 text-base leading-relaxed">外帶便當請提前一日下午三點前完成預訂。</p>
+      </div>
+    </section>
+
+    <section class="pb-20">
+      <div class="max-w-2xl mx-auto px-4 sm:px-6">
+        <div class="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden">
+
+          <!-- 步驟列 -->
+          <div class="flex border-b border-stone-100">
+            <div v-for="(step, idx) in steps" :key="step"
+              class="flex-1 py-3.5 text-center text-sm font-medium relative"
+              :class="currentStep === idx ? 'text-amber-700 bg-amber-50' : currentStep > idx ? 'text-amber-600' : 'text-stone-300'">
+              <span class="inline-flex items-center gap-1.5">
+                <svg v-if="currentStep > idx" class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span v-else class="w-5 h-5 rounded-full text-xs flex items-center justify-center border font-bold"
+                  :class="currentStep === idx ? 'bg-amber-600 text-white border-amber-600' : 'border-stone-200 text-stone-300'">
+                  {{ idx + 1 }}
+                </span>
+                {{ step }}
+              </span>
+              <div v-if="currentStep === idx" class="absolute bottom-0 inset-x-0 h-0.5 bg-amber-600" />
+            </div>
+          </div>
+
+          <div class="p-6 sm:p-8">
+
+            <!-- ══ Step 1：日期選擇 ══ -->
+            <div v-if="currentStep === 0">
+              <h2 class="text-lg font-bold text-stone-800 mb-5">選擇取餐日期</h2>
+
+              <!-- 日曆 -->
+              <div class="bg-stone-50 rounded-2xl p-4 mb-5">
+                <div class="flex items-center justify-between mb-4">
+                  <button @click="prevMonth" :disabled="!canGoPrevMonth"
+                    class="p-2 rounded-xl transition-colors"
+                    :class="canGoPrevMonth ? 'hover:bg-stone-200 text-stone-600' : 'text-stone-300 cursor-not-allowed'">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                  </button>
+                  <span class="font-bold text-stone-800">{{ calYear }} 年 {{ calMonth }} 月</span>
+                  <button @click="nextMonth" class="p-2 rounded-xl hover:bg-stone-200 text-stone-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="grid grid-cols-7 mb-2">
+                  <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
+                    class="text-center text-xs font-semibold text-stone-400 py-1">{{ w }}</div>
+                </div>
+                <div class="grid grid-cols-7 gap-1">
+                  <div v-for="(day, idx) in calDays" :key="idx"
+                    class="aspect-square flex items-center justify-center rounded-xl text-sm select-none transition-all"
+                    :class="dayClass(day)"
+                    @click="day.date && !day.disabled && selectCalDate(day.date)">
+                    {{ day.label }}
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="form.date" class="bg-amber-50 border border-amber-100 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+                <svg class="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <div>
+                  <p class="text-xs text-amber-600 font-semibold">已選擇日期</p>
+                  <p class="text-stone-800 font-bold">{{ selectedDateDisplay }}</p>
+                </div>
+              </div>
+              <p v-if="errors.date" class="text-xs text-red-400 mt-2">{{ errors.date }}</p>
+            </div>
+
+            <!-- ══ Step 2：基本資料 + 便當數量 ══ -->
+            <div v-if="currentStep === 1">
+              <h2 class="text-lg font-bold text-stone-800 mb-6">填寫資料</h2>
+              <div class="space-y-5">
+
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">姓名 <span class="text-red-400">*</span></label>
+                  <input v-model="form.name" type="text" placeholder="請輸入姓名"
+                    class="w-full px-4 py-3 rounded-xl border text-stone-800 outline-none transition-all text-sm"
+                    :class="errors.name ? 'border-red-300 bg-red-50 focus:ring-2 focus:ring-red-200' : 'border-stone-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400'" />
+                  <p v-if="errors.name" class="text-xs text-red-400 mt-1.5">{{ errors.name }}</p>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">聯絡電話 <span class="text-red-400">*</span></label>
+                  <input v-model="form.phone" type="tel" placeholder="請輸入電話"
+                    class="w-full px-4 py-3 rounded-xl border text-stone-800 outline-none transition-all text-sm"
+                    :class="errors.phone ? 'border-red-300 bg-red-50 focus:ring-2 focus:ring-red-200' : 'border-stone-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400'" />
+                  <p v-if="errors.phone" class="text-xs text-red-400 mt-1.5">{{ errors.phone }}</p>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">取餐時間</label>
+                  <select v-model="form.time"
+                    class="w-full px-4 py-3 rounded-xl border border-stone-200 text-stone-800 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 text-sm bg-white">
+                    <option v-for="t in lunchTimeSlots" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                </div>
+
+                <!-- 葷食便當 -->
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">
+                    葷食便當 <span class="text-xs font-normal text-stone-400 ml-1">（盒）</span>
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <button @click="form.meatQty = Math.max(0, form.meatQty - 1)"
+                      class="w-10 h-10 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center justify-center text-lg transition-colors flex-shrink-0">−</button>
+                    <input v-model.number="form.meatQty" type="number" min="0"
+                      class="flex-1 text-center px-2 py-2.5 rounded-xl border border-stone-200 text-stone-800 outline-none focus:ring-2 focus:ring-amber-200 text-sm font-bold" />
+                    <button @click="form.meatQty++"
+                      class="w-10 h-10 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center justify-center text-lg transition-colors flex-shrink-0">＋</button>
+                  </div>
+                </div>
+
+                <!-- 素食便當 -->
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">
+                    素食便當 <span class="text-xs font-normal text-stone-400 ml-1">（盒）</span>
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <button @click="form.vegQty = Math.max(0, form.vegQty - 1)"
+                      class="w-10 h-10 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center justify-center text-lg transition-colors flex-shrink-0">−</button>
+                    <input v-model.number="form.vegQty" type="number" min="0"
+                      class="flex-1 text-center px-2 py-2.5 rounded-xl border border-stone-200 text-stone-800 outline-none focus:ring-2 focus:ring-amber-200 text-sm font-bold" />
+                    <button @click="form.vegQty++"
+                      class="w-10 h-10 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center justify-center text-lg transition-colors flex-shrink-0">＋</button>
+                  </div>
+                </div>
+
+                <p v-if="errors.qty" class="text-xs text-red-400">{{ errors.qty }}</p>
+
+                <div v-if="form.meatQty > 0 || form.vegQty > 0"
+                  class="bg-amber-50 rounded-2xl p-4 text-sm text-stone-600">
+                  共 <strong class="text-stone-800">{{ form.meatQty + form.vegQty }}</strong> 盒
+                  （葷 {{ form.meatQty }}、素 {{ form.vegQty }}）
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-stone-700 mb-1.5">備註</label>
+                  <textarea v-model="form.note" rows="2" placeholder="特殊需求…"
+                    class="w-full px-4 py-3 rounded-xl border border-stone-200 text-stone-800 outline-none focus:ring-2 focus:ring-amber-200 text-sm resize-none" />
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ Step 3：確認送出 ══ -->
+            <div v-if="currentStep === 2">
+              <h2 class="text-lg font-bold text-stone-800 mb-6">確認預訂內容</h2>
+              <div class="divide-y divide-stone-50 mb-6">
+                <div v-for="row in summaryRows" :key="row.label"
+                  class="flex justify-between items-center py-3.5">
+                  <span class="text-sm text-stone-400 w-20 flex-shrink-0">{{ row.label }}</span>
+                  <span class="text-sm font-semibold text-stone-800 text-right">{{ row.value }}</span>
+                </div>
+              </div>
+              <p v-if="submitError" class="text-sm text-red-400 bg-red-50 rounded-xl px-4 py-3">{{ submitError }}</p>
+            </div>
+
+          </div>
+
+          <!-- 底部按鈕 -->
+          <div class="px-6 sm:px-8 pb-6 sm:pb-8 flex items-center justify-between gap-3">
+            <button v-if="currentStep > 0" @click="currentStep--"
+              class="flex items-center gap-1.5 px-5 py-3 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors text-sm font-medium">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
+              上一步
+            </button>
+            <div v-else />
+
+            <button v-if="currentStep < steps.length - 1" @click="nextStep"
+              class="flex items-center gap-1.5 px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white transition-colors text-sm font-semibold ml-auto">
+              下一步
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <button v-else @click="submit" :disabled="submitting"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white transition-colors text-sm font-semibold ml-auto">
+              <div v-if="submitting" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {{ submitting ? '送出中…' : '確認預訂' }}
+            </button>
+          </div>
+
+        </div>
+
+        <!-- 注意事項 -->
+        <div class="mt-6 bg-amber-50 rounded-2xl p-5 text-sm text-amber-700 space-y-1.5">
+          <p class="font-semibold mb-2">📋 便當預訂須知</p>
+          <p>· 請於前一日下午三點前完成預訂。</p>
+          <p>· 預訂送出後為「待確認」狀態，我們將盡快電話確認。</p>
+          <p>· 如需取消，請提前來電告知，謝謝。</p>
+        </div>
+
+        <!-- 前往訂位 -->
+        <div class="mt-4 bg-green-50 rounded-2xl p-5 flex items-center justify-between gap-4">
+          <div>
+            <p class="font-semibold text-green-800 text-sm">需要內用訂位？</p>
+            <p class="text-xs text-green-600 mt-0.5">前往線上訂位頁面</p>
+          </div>
+          <NuxtLink to="/site/booking"
+            class="flex-shrink-0 px-4 py-2 rounded-xl bg-green-700 hover:bg-green-800 text-white text-sm font-semibold transition-colors">
+            立即訂位 →
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, reactive } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+import { useRouter } from 'vue-router'
+
+definePageMeta({ layout: 'site' })
+
+const commonStore = useCommonStore()
+const router = useRouter()
+const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
+
+// ── 步驟 ──────────────────────────────────────────────────────────
+const steps = ['選擇日期', '填寫資料', '確認送出']
+const currentStep = ref(0)
+
+// ── 表單 ──────────────────────────────────────────────────────────
+const form = reactive({ name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: '' })
+const errors = reactive({})
+const submitting = ref(false)
+const submitError = ref('')
+
+const lunchTimeSlots = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00']
+
+// ── 日曆（與 booking 相同邏輯，主題色換成 amber） ────────────────
+const today = new Date()
+today.setHours(0, 0, 0, 0)
+const toStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const todayStr = toStr(today)
+
+const calYear  = ref(today.getFullYear())
+const calMonth = ref(today.getMonth() + 1)
+
+const canGoPrevMonth = computed(() =>
+  calYear.value > today.getFullYear() ||
+  (calYear.value === today.getFullYear() && calMonth.value > today.getMonth() + 1)
+)
+const prevMonth = () => {
+  if (!canGoPrevMonth.value) return
+  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
+}
+const nextMonth = () => {
+  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
+}
+
+const calDays = computed(() => {
+  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+  const days = []
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null, disabled: true })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(calMonth.value).padStart(2, '0')
+    const dd = String(d).padStart(2, '0')
+    const dateStr = `${calYear.value}-${mm}-${dd}`
+    days.push({ label: d, date: dateStr, disabled: dateStr <= todayStr })
+  }
+  return days
+})
+
+const dayClass = (day) => {
+  if (!day.date) return 'cursor-default'
+  if (day.disabled) return 'text-stone-200 cursor-not-allowed'
+  if (day.date === form.date) return 'bg-amber-600 text-white font-bold cursor-pointer shadow-sm'
+  return 'text-stone-700 hover:bg-amber-100 hover:text-amber-800 cursor-pointer font-medium'
+}
+
+const selectCalDate = (dateStr) => { form.date = dateStr }
+
+const selectedDateDisplay = computed(() => {
+  if (!form.date) return ''
+  const d = new Date(form.date)
+  const days = ['週日','週一','週二','週三','週四','週五','週六']
+  return `${form.date}　${days[d.getDay()]}`
+})
+
+// ── 確認摘要 ──────────────────────────────────────────────────────
+const summaryRows = computed(() => [
+  { label: '日期', value: selectedDateDisplay.value },
+  { label: '取餐', value: form.time },
+  { label: '葷食', value: `${form.meatQty} 盒` },
+  { label: '素食', value: `${form.vegQty} 盒` },
+  { label: '合計', value: `${form.meatQty + form.vegQty} 盒` },
+  ...(form.note ? [{ label: '備註', value: form.note }] : []),
+])
+
+// ── 驗證 ──────────────────────────────────────────────────────────
+const validateStep = () => {
+  Object.keys(errors).forEach(k => delete errors[k])
+  if (currentStep.value === 0 && !form.date) { errors.date = '請選擇取餐日期'; return false }
+  if (currentStep.value === 1) {
+    if (!form.name.trim())  errors.name  = '請輸入姓名'
+    if (!form.phone.trim()) errors.phone = '請輸入聯絡電話'
+    if (form.meatQty === 0 && form.vegQty === 0) errors.qty = '請至少預訂一盒便當'
+    return Object.keys(errors).length === 0
+  }
+  return true
+}
+
+const nextStep = () => { if (validateStep()) currentStep.value++ }
+
+// ── 送出 ──────────────────────────────────────────────────────────
+const submit = async () => {
+  submitError.value = ''
+  submitting.value = true
+  try {
+    const res = await fetch(`${LUNCH_BASE.value}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.name, phone: form.phone, date: form.date, time: form.time, meatQty: form.meatQty, vegQty: form.vegQty, note: form.note, status: '待確認' }),
+    })
+    if (!res.ok) throw new Error()
+    router.push({ path: '/site/booking-confirm', query: { type: 'lunch', name: form.name, date: form.date, time: form.time, meatQty: form.meatQty, vegQty: form.vegQty } })
+  } catch {
+    submitError.value = '預訂送出失敗，請稍後再試或直接來電。'
+  } finally {
+    submitting.value = false
+  }
+}
+</script>
+</file>
+
+<file path="app/pages/site/news.vue">
+<template>
+  <div>
+    <SitePageHero cover="/images/news/news-cover.png" title="最新消息" />
+
+    <section class="py-8" style="background-color: #f5f0e8;">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6">
+
+        <!-- 年份 Tab -->
+        <div v-if="years.length > 1" class="flex gap-2 mb-6">
+          <button
+            v-for="year in years" :key="year"
+            @click="selectedYear = year"
+            class="px-5 py-1.5 text-sm font-semibold transition-all border-b-2"
+            :style="selectedYear === year
+              ? 'color: #e8a020; border-color: #e8a020;'
+              : 'color: #aaa; border-color: transparent;'"
+          >{{ year }}</button>
+        </div>
+
+        <!-- 消息列表 -->
+        <div class="rounded-2xl border-2 border-dashed overflow-hidden" style="border-color: #b8d8d0; background-color: #fff;">
+
+          <div v-if="loading">
+            <div v-for="n in 4" :key="n"
+              class="flex gap-4 p-5 border-b last:border-0 animate-pulse" style="border-color: #f0ebe3;">
+              <div class="w-36 sm:w-44 rounded-xl bg-gray-100 flex-shrink-0" style="aspect-ratio:4/3;" />
+              <div class="flex-1 space-y-2 py-1">
+                <div class="h-3 bg-gray-100 rounded w-1/4" />
+                <div class="h-4 bg-gray-100 rounded w-3/4" />
+                <div class="h-3 bg-gray-100 rounded w-full" />
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="filteredNews.length === 0" class="text-center py-16 text-gray-300">
+            <p>{{ selectedYear }} 年尚無消息</p>
+          </div>
+
+          <div v-else>
+            <div v-for="item in filteredNews" :key="item.id"
+              class="border-b last:border-0" style="border-color: #f0ebe3;">
+
+              <div class="flex gap-4 sm:gap-5 p-4 sm:p-5 cursor-pointer transition-colors hover:bg-teal-50/40"
+                @click="toggle(item.id)">
+
+                <div class="flex-shrink-0 w-32 sm:w-44 rounded-xl overflow-hidden bg-gray-100 self-start">
+                  <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" :alt="item.title"
+                    class="w-full object-cover" style="aspect-ratio:4/3;" />
+                  <div v-else class="w-full flex items-center justify-center text-gray-200" style="aspect-ratio:4/3;">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+                    </svg>
+                  </div>
+                </div>
+
+                <div class="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                  <div>
+                    <p class="text-xs text-gray-400 mb-1.5">{{ item.date }}</p>
+                    <h2 class="font-bold text-base sm:text-lg leading-snug mb-2 transition-colors"
+                      :style="expandedId === item.id ? 'color: #5bbfbf;' : 'color: #333;'">
+                      {{ item.title }}
+                    </h2>
+                    <div v-if="item.tags?.length" class="flex flex-wrap gap-1.5 mb-2">
+                      <span v-for="tag in item.tags" :key="tag"
+                        class="px-2 py-0.5 rounded-full text-xs font-medium"
+                        style="background-color: #eef7f5; color: #3a9a8a; border: 1px solid #b8d8d0;">
+                        {{ tag }}
+                      </span>
+                    </div>
+                    <p v-if="expandedId !== item.id"
+                      class="text-sm text-gray-400 line-clamp-2 leading-relaxed hidden sm:block">
+                      {{ item.content }}
+                    </p>
+                  </div>
+                  <div class="flex items-center justify-end mt-2">
+                    <span class="text-xs px-3 py-1 rounded-full border transition-all"
+                      :style="expandedId === item.id
+                        ? 'background-color:#5bbfbf; color:#fff; border-color:#5bbfbf;'
+                        : 'color:#999; border-color:#ccc;'">
+                      {{ expandedId === item.id ? '收起' : '更多' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Transition
+                enter-active-class="transition-all duration-300 ease-out"
+                enter-from-class="opacity-0 max-h-0"
+                enter-to-class="opacity-100 max-h-[2000px]"
+                leave-active-class="transition-all duration-200 ease-in"
+                leave-from-class="opacity-100 max-h-[2000px]"
+                leave-to-class="opacity-0 max-h-0"
+              >
+                <div v-if="expandedId === item.id" class="overflow-hidden border-t" style="background-color: #faf8f4; border-color: #f0ebe3;">
+                  <div class="px-4 sm:px-5 py-5">
+                    <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" :alt="item.title"
+                      class="w-full sm:max-w-sm rounded-xl mb-5 shadow-sm mx-auto block" />
+                    <div class="text-sm text-gray-600 leading-relaxed whitespace-pre-line max-w-2xl">
+                      {{ item.content }}
+                    </div>
+                    <div v-if="item.attachments?.length" class="mt-5 space-y-2">
+                      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">附件下載</p>
+                      <a v-for="att in item.attachments" :key="att.url"
+                        :href="apiUrl(att.url)" target="_blank"
+                        class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm border"
+                        style="background-color:#fff; border-color:#e8e3db; color:#555;">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                        </svg>
+                        {{ att.name }}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-10 text-center">
+          <NuxtLink to="/site"
+            class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white"
+            style="background-color: #5bbfbf;">
+            回聖母健康農莊首頁
+          </NuxtLink>
+        </div>
+
+      </div>
+    </section>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+
+definePageMeta({ layout: 'site' })
+
+const commonStore = useCommonStore()
+const BASE        = computed(() => commonStore.data.main_url + '/holy/news')
+const API_ORIGIN  = computed(() => commonStore.data.main_url)
+
+const apiUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return API_ORIGIN.value + path
+}
+
+const newsList     = ref([])
+const loading      = ref(true)
+const expandedId   = ref(null)
+const selectedYear = ref('')
+
+const years = computed(() => {
+  const set = new Set()
+  newsList.value.forEach(n => { if (n.date) set.add(n.date.substring(0, 4)) })
+  return [...set].sort((a, b) => b - a)
+})
+
+const filteredNews = computed(() => {
+  if (!selectedYear.value) return newsList.value
+  return newsList.value.filter(n => n.date?.startsWith(selectedYear.value))
+})
+
+const toggle = (id) => { expandedId.value = expandedId.value === id ? null : id }
+
+onMounted(async () => {
+  try {
+    newsList.value = await (await fetch(`${BASE.value}/list`)).json()
+    if (years.value.length > 0) selectedYear.value = years.value[0]
+  } catch { newsList.value = [] }
+  finally { loading.value = false }
+})
+</script>
+</file>
+
+<file path="app/pages/site/product.vue">
+<template>
+  <div>
+    <SitePageHero cover="/images/product/product-cover.png" title="產品訂購" />
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="text-center mb-4">
+        <h2 class="text-lg font-bold" style="color: #5bbfbf;">產品訂購</h2>
+      </div>
+      <div class="rounded-2xl border-2 border-dashed p-6 sm:p-8 bg-white" style="border-color: #b8d8d0;">
+
+        <p class="text-sm text-gray-600 leading-relaxed mb-2">親愛的朋友：</p>
+        <p class="text-sm text-gray-600 leading-relaxed mb-4">
+          平安！很高興與您分享我們向大自然學習，從泥土、植物、和愛的生活中製作的產品。<br>
+          我們的自然農法香藥草及農產品無化肥、無農藥，從種植、採摘、烘乾包裝全程由農夫完成。<br>
+          全食物烘焙坊則使用真食材，全粒粟麵粉、在地蔬果、頂級紐西蘭奶油、不使用氫化油脂、酥油、合成香精、防腐劑及添加物。
+        </p>
+
+        <div class="flex flex-wrap items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+          <span class="text-sm text-gray-600">線上訂購</span>
+          <span class="text-sm text-gray-400">傳真訂購：</span>
+          <a href="#" class="text-sm text-teal-600 hover:underline">商品訂購單下載</a>
+          <span class="text-sm text-gray-400 ml-auto">來電訂購專線：089-381382分機888 週一至週六 上午8:00至下午5:30</span>
+        </div>
+
+        <!-- 產品格 -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <NuxtLink v-for="prod in products" :key="prod.name" to="#"
+            class="group rounded-2xl overflow-hidden border border-gray-100 hover:border-teal-200 hover:shadow-md transition-all">
+            <div class="aspect-square overflow-hidden bg-gray-50">
+              <img :src="prod.img" :alt="prod.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+            <div class="px-3 py-2.5 flex items-center justify-between">
+              <span class="text-sm text-gray-700">{{ prod.name }}</span>
+              <svg class="w-4 h-4 flex-shrink-0" style="color: #5bbfbf;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </NuxtLink>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="text-center pb-12">
+      <NuxtLink to="/site" class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white" style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
+  </div>
+</template>
+
+<script setup>
+definePageMeta({ layout: 'site' })
+
+const products = [
+  { name: '修女祈福蛋糕', img: '/images/product/1/healthfarm_product1_photo4.jpg' },
+  { name: '芳心好美系列精油', img: '/images/homepage/prod/healthfarm_hp_prod_photo2.png' },
+  { name: '草本足浴包', img: '/images/homepage/prod/healthfarm_hp_prod_photo3.png' },
+  { name: '手工麵包', img: '/images/homepage/prod/healthfarm_hp_prod_photo4.png' },
+  { name: '香藥草', img: '/images/homepage/prod/healthfarm_hp_prod_photo5.png' },
+  { name: '禮盒', img: '/images/homepage/prod/healthfarm_hp_prod_photo9.png' },
+]
+</script>
 </file>
 
 <file path="app/pages/Todo.vue">
@@ -5486,6 +7153,139 @@ Check out the [deployment documentation](https://nuxt.com/docs/getting-started/d
 }
 </file>
 
+<file path="app/layouts/site.vue">
+<template>
+  <div class="min-h-screen flex flex-col" style="background-color: #f5f0e8; font-family: 'Noto Sans TC', sans-serif;">
+
+    <!-- ══ 導覽列 ══ -->
+    <header
+      class="fixed top-0 inset-x-0 z-50 transition-all duration-300"
+      :class="isTransparent ? 'bg-transparent' : 'bg-white shadow-sm'"
+    >
+      <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-20">
+
+        <!-- Logo -->
+        <NuxtLink to="/site" class="flex items-center">
+          <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-12 w-auto" />
+        </NuxtLink>
+
+        <!-- 桌機選單 -->
+        <nav class="hidden md:flex items-center gap-1">
+          <NuxtLink
+            v-for="item in navItems" :key="item.to" :to="item.to"
+            class="px-4 py-2 text-base font-medium transition-colors rounded"
+            :class="isTransparent
+              ? 'text-white hover:text-yellow-300'
+              : 'text-gray-700 hover:text-teal-600'"
+          >{{ item.label }}</NuxtLink>
+        </nav>
+
+        <!-- 手機漢堡 -->
+        <button
+          class="md:hidden p-2 rounded"
+          :class="isTransparent ? 'text-white' : 'text-gray-700'"
+          @click="mobileOpen = !mobileOpen"
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path v-if="!mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 手機選單 -->
+      <Transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="opacity-0 -translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-150"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="mobileOpen" class="md:hidden bg-white border-b border-gray-100 shadow-lg">
+          <nav class="px-4 py-3 flex flex-col">
+            <NuxtLink
+              v-for="item in navItems" :key="item.to" :to="item.to"
+              class="px-3 py-3 text-sm font-medium text-gray-700 hover:text-teal-600 border-b border-gray-50 last:border-0 transition-colors"
+              @click="mobileOpen = false"
+            >{{ item.label }}</NuxtLink>
+          </nav>
+        </div>
+      </Transition>
+    </header>
+
+    <!-- ══ 主內容 ══ -->
+    <main class="flex-1 pt-20">
+      <slot />
+    </main>
+
+    <!-- ══ Footer ══ -->
+    <footer>
+      <!-- 草地裝飾 -->
+      <div style="background-color: #f5f0e8;">
+        <img src="/images/global/grass.png" alt="" class="w-full h-auto object-cover" style="max-height: 60px;" />
+      </div>
+
+      <!-- 資訊區 -->
+      <div style="background-color: #f5f0e8;" class="py-8">
+        <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-start gap-6">
+          <!-- Logo -->
+          <div class="flex-shrink-0">
+            <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-16 w-auto" />
+            <div class="text-xs text-gray-500 mt-1 text-center">TAITUNG ST. MARY'S HEALTH FARM</div>
+          </div>
+          <!-- 聯絡資訊 -->
+          <div class="text-sm text-gray-600 space-y-1">
+            <p class="font-medium">財團法人天主教會花蓮教區附設聖母健康農莊</p>
+            <p>統編：36726891</p>
+            <p>台東市博物館路110號　　089-381382</p>
+            <p>營業時間：08:00–17:30（週一—週六）</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 點點裝飾線 -->
+      <div style="background-color: #f5f0e8;">
+        <img src="/images/global/bar-green1.png" alt="" class="w-full h-auto" style="max-height: 16px;" />
+      </div>
+
+      <!-- 版權區 -->
+      <div class="py-4 text-center text-xs text-white" style="background-color: #3a9a8a;">
+        Copyright © 2019 台東聖母健康農莊 All Rights Reserved
+        版權所有，非經授權，不得轉載本網站內容
+      </div>
+    </footer>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route      = useRoute()
+const scrolled   = ref(false)
+const mobileOpen = ref(false)
+
+const isHome        = computed(() => route.path === '/site' || route.path === '/site/')
+const isTransparent = computed(() => isHome.value && !scrolled.value)
+
+const navItems = [
+  { to: '/site/news',       label: '最新消息' },
+  { to: '/site/about',      label: '關於我們' },
+  { to: '/site/product',    label: '產品訂購' },
+  { to: '/site/news',       label: '活動報名' },
+  { to: '/site/restaurant', label: '田園餐廳' },
+  { to: '/site/cafe',       label: '休憩小舖' },
+  { to: '/site/contact',    label: '交通方式' },
+]
+
+const handleScroll = () => { scrolled.value = window.scrollY > 40 }
+onMounted(() => window.addEventListener('scroll', handleScroll, { passive: true }))
+onUnmounted(() => window.removeEventListener('scroll', handleScroll))
+</script>
+</file>
+
 <file path="app/pages/common/Holy.vue">
 <template>
   <div class="catalog-page">
@@ -5771,551 +7571,643 @@ const sections = ref([
 </style>
 </file>
 
-<file path="app/pages/index.vue">
+<file path="app/pages/site/about.vue">
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div>
+    <SitePageHero cover="/images/about/about-cover.png" title="關於我們" />
 
-    <!-- ── 頂部導覽 ── -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-orange-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">菜</div>
-          <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">田園餐廳 · 每日菜色</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Holy Mother Farm</p>
-          </div>
-        </div>
-        <span :class="apiOnline ? 'text-green-600' : 'text-red-500'" class="text-xs flex items-center gap-1.5 font-medium">
-          <span :class="apiOnline ? 'bg-green-500' : 'bg-red-400'" class="w-2 h-2 rounded-full"></span>
-          <span class="hidden sm:inline">{{ apiOnline ? '連線中' : '離線' }}</span>
-        </span>
-      </div>
-    </header>
-
-    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-      <div class="flex flex-col lg:flex-row gap-4 items-start">
-
-        <!-- ── 左欄：日曆 ── -->
-        <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 lg:sticky lg:top-20">
-            <div class="flex items-center justify-between mb-3">
-              <button @click="prevMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-              </button>
-              <span class="text-base font-semibold text-stone-700 dark:text-stone-100">{{ calLabel }}</span>
-              <button @click="nextMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-              </button>
-            </div>
-            <div class="grid grid-cols-7 mb-1">
-              <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
-                   class="text-center text-sm text-stone-400 dark:text-stone-500 font-medium py-1">{{ w }}</div>
-            </div>
-            <div class="grid grid-cols-7 gap-1">
-              <div v-for="(day, idx) in calDays" :key="idx"
-                   class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
-                   :class="dayClass(day)"
-                   @click="day.date && selectDate(day.date)">
-                <span>{{ day.label }}</span>
-                <span v-if="day.date && markedDates.includes(day.date)"
-                      class="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-              </div>
-            </div>
-            <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100 dark:border-stone-700">
-              <span class="text-sm text-stone-500 dark:text-stone-400">
-                <span v-if="selectedDate" class="text-stone-700 dark:text-stone-200 font-medium">{{ selectedDate }}</span>
-                <span v-else>請選擇日期</span>
-              </span>
-              <button @click="selectDate(todayStr)" class="text-sm text-orange-700 dark:text-orange-400 hover:text-orange-800 font-medium">今天</button>
-            </div>
-          </div>
-
-          <!-- 當日統計 -->
-          <div v-if="selectedDate && menuItems.length > 0"
-               class="mt-3 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-800 p-4">
-            <p class="text-sm text-orange-700 dark:text-orange-300 font-medium">
-              今日共 <span class="text-lg font-bold">{{ menuItems.length }}</span> 道菜
-            </p>
-          </div>
-        </div>
-
-        <!-- ── 右欄：菜色列表 ── -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-base sm:text-lg">
-              {{ selectedDate ? selectedDate + ' 菜色' : '請選擇日期' }}
-            </h2>
-            <button v-if="selectedDate" @click="openModal(null)"
-                    class="flex items-center gap-1 px-3 py-1.5 bg-orange-700 text-white text-sm rounded-lg hover:bg-orange-800 transition-colors">
-              <span class="text-base leading-none">+</span> 新增菜色
-            </button>
-          </div>
-
-          <!-- 菜色卡片 -->
-          <div v-if="selectedDate">
-            <div v-if="menuItems.length === 0"
-                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-10 text-center text-stone-400 text-sm shadow-sm">
-              今天還沒有菜色紀錄
-            </div>
-
-            <div class="space-y-4">
-              <div v-for="item in menuItems" :key="item.id"
-                   class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-
-                <!-- 圖片橫幅（有圖才顯示）-->
-                <div v-if="item.images && item.images.length > 0" class="relative">
-                  <div class="flex gap-1 p-2 overflow-x-auto scrollbar-none">
-                    <div v-for="(url, idx) in item.images" :key="idx"
-                         class="flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 cursor-pointer hover:opacity-90 transition-opacity"
-                         @click="previewUrl = imgUrl(url)">
-                      <img :src="imgUrl(url)" :alt="item.name" class="w-full h-full object-cover" />
-                    </div>
-                    <!-- 新增圖片按鈕 -->
-                    <button @click="openImageUpload(item)"
-                            class="flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center text-stone-300 hover:border-orange-500 hover:text-orange-400 transition-colors">
-                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 菜色內容 -->
-                <div class="px-4 py-3">
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="flex-1">
-                      <h3 class="font-bold text-stone-800 dark:text-stone-100 text-lg">{{ item.name }}</h3>
-
-                      <!-- 食材標籤 -->
-                      <div v-if="item.ingredients && item.ingredients.length > 0" class="flex flex-wrap gap-1.5 mt-2">
-                        <span v-for="ing in item.ingredients" :key="ing"
-                              class="px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm rounded-full">
-                          {{ ing }}
-                        </span>
-                      </div>
-
-                      <p v-if="item.note" class="text-sm text-stone-400 dark:text-stone-500 mt-2">{{ item.note }}</p>
-                    </div>
-
-                    <!-- 操作按鈕 -->
-                    <div class="flex flex-col gap-1.5 flex-shrink-0">
-                      <button @click="openModal(item)"
-                              class="px-2.5 py-1 text-sm border border-blue-300 dark:border-blue-700 text-blue-500 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                        編輯
-                      </button>
-                      <button v-if="!item.images || item.images.length === 0" @click="openImageUpload(item)"
-                              class="px-2.5 py-1 text-sm border border-orange-300 dark:border-orange-700 text-orange-500 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors">
-                        圖片
-                      </button>
-                      <button @click="confirmDelete(item)"
-                              class="px-2.5 py-1 text-sm border border-red-300 dark:border-red-700 text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        刪除
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-12 text-center text-stone-400 text-sm shadow-sm">
-            請從左側日曆選擇日期
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════════ 新增/編輯 Modal ════════ -->
-    <div v-if="modal.show" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
-        <h3 class="text-base font-bold text-stone-800 dark:text-stone-100 mb-4">{{ modal.isNew ? '新增菜色' : '編輯菜色' }}</h3>
-
-        <div class="space-y-4">
-          <!-- 菜名 -->
-          <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">菜名 *</label>
-            <input v-model="form.name" type="text" placeholder="例：農莊時蔬炒飯"
-                   class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
-          </div>
-
-          <!-- 食材 -->
-          <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-2">食材清單</label>
-
-            <!-- 從品項選 -->
-            <div class="mb-2">
-              <p class="text-xs text-stone-400 mb-1.5">從現有品項選取</p>
-              <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-stone-50 dark:bg-zinc-800 rounded-lg border border-stone-200 dark:border-stone-700">
-                <button v-for="item in allItems" :key="item.key"
-                        @click="toggleIngredient(item.name)"
-                        :class="form.ingredients.includes(item.name)
-                    ? 'bg-orange-600 text-white border-orange-600'
-                    : 'bg-white dark:bg-zinc-700 text-stone-600 dark:text-stone-200 border-stone-200 dark:border-stone-600 hover:border-orange-400'"
-                        class="px-2 py-0.5 text-sm border rounded-full transition-colors">
-                  {{ item.name }}
-                </button>
-              </div>
-            </div>
-
-            <!-- 手動輸入 -->
-            <div class="flex gap-2">
-              <input v-model="ingredientInput" type="text" placeholder="手動輸入食材"
-                     @keydown.enter.prevent="addIngredient"
-                     class="flex-1 border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
-              <button @click="addIngredient"
-                      class="px-3 py-2 bg-orange-700 text-white text-sm rounded-lg hover:bg-orange-800 transition-colors">新增</button>
-            </div>
-
-            <!-- 已選食材 -->
-            <div v-if="form.ingredients.length > 0" class="flex flex-wrap gap-1.5 mt-2">
-              <span v-for="(ing, idx) in form.ingredients" :key="idx"
-                    class="flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm rounded-full">
-                {{ ing }}
-                <button @click="form.ingredients.splice(idx, 1)" class="text-green-400 hover:text-red-500 transition-colors leading-none">×</button>
-              </span>
-            </div>
-          </div>
-
-          <!-- 備註 -->
-          <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
-            <textarea v-model="form.note" placeholder="特殊說明、烹調方式等" rows="2"
-                      class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none" />
-          </div>
-        </div>
-
-        <div class="flex gap-2 mt-5">
-          <button @click="modal.show = false"
-                  class="flex-1 px-4 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors">取消</button>
-          <button @click="saveMenuItem" :disabled="!form.name"
-                  class="flex-1 px-4 py-2.5 text-sm bg-orange-700 text-white rounded-xl hover:bg-orange-800 transition-colors disabled:opacity-50">
-            {{ modal.isNew ? '新增' : '儲存' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════════ 圖片上傳 Modal ════════ -->
-    <div v-if="imageModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h3 class="text-base font-bold text-stone-800 dark:text-stone-100">圖片管理</h3>
-            <p class="text-xs text-stone-400 mt-0.5">{{ imageModal.item?.name }}</p>
-          </div>
-          <button @click="imageModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-
-        <!-- 現有圖片 -->
-        <div class="mb-4">
-          <p class="text-sm font-medium text-stone-500 dark:text-stone-400 mb-2">現有圖片（{{ imageModal.images.length }} 張）</p>
-          <div v-if="imageModal.images.length > 0" class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            <div v-for="(url, idx) in imageModal.images" :key="idx"
-                 class="relative group aspect-square rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700">
-              <img :src="imgUrl(url)" :alt="`圖片 ${idx+1}`" class="w-full h-full object-cover cursor-pointer" @click="previewUrl = imgUrl(url)" />
-              <button @click="deleteMenuImage(idx)"
-                      class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-100 transition-opacity hover:bg-red-600">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-          </div>
-          <p v-else class="text-sm text-stone-400 py-4 text-center border border-dashed border-stone-200 dark:border-stone-700 rounded-xl">尚無圖片</p>
-        </div>
-
-        <!-- 上傳區 -->
-        <div @dragover.prevent="dragOver = true" @dragleave="dragOver = false" @drop.prevent="handleDrop"
-             :class="dragOver ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-stone-300 dark:border-stone-600 hover:border-orange-400'"
-             class="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all" @click="fileInputRef?.click()">
-          <svg class="w-8 h-8 mx-auto mb-2 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-          </svg>
-          <p class="text-sm text-stone-500 dark:text-stone-400">點擊或拖曳圖片上傳</p>
-          <p class="text-xs text-stone-400 mt-0.5">支援 JPG、PNG、WebP，可多張</p>
-          <input ref="fileInputRef" type="file" multiple accept="image/*" class="hidden" @change="handleFileSelect" />
-        </div>
-
-        <div v-if="uploading" class="mt-3 flex items-center gap-2 text-sm text-stone-500">
-          <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
-          上傳中…
-        </div>
-
-        <button @click="imageModal.show = false"
-                class="mt-4 w-full px-4 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-stone-300 rounded-xl hover:bg-stone-200 dark:hover:bg-zinc-700 transition-colors">
-          關閉
+    <!-- ══ 分頁 Tab ══ -->
+    <div class="max-w-4xl mx-auto px-4 mt-4 mb-0">
+      <div class="flex gap-0 border-b-2" style="border-color: #e0d8cc;">
+        <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+          class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-0.5"
+          :style="activeTab === tab.key
+            ? 'color: #5bbfbf; border-color: #5bbfbf;'
+            : 'color: #888; border-color: transparent;'">
+          {{ tab.label }}
         </button>
       </div>
     </div>
 
-    <!-- 大圖預覽 -->
-    <div v-if="previewUrl" class="fixed inset-0 bg-black/85 flex items-center justify-center z-[60] cursor-pointer p-4" @click="previewUrl = ''">
-      <img :src="previewUrl" class="max-w-full max-h-full rounded-xl shadow-2xl object-contain" />
+    <!-- ══ 內容卡 ══ -->
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="rounded-2xl border-2 border-dashed p-6 sm:p-8" style="border-color: #b8d8d0; background-color: #fff;">
+
+        <!-- Tab 1：農莊歷史與理念實踐 -->
+        <div v-if="activeTab === 'history'">
+          <h2 class="text-lg font-bold mb-3" style="color: #5bbfbf;">農莊歷史</h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            「2009年，八八風災重創台灣，台東災情嚴重，天主教花蓮教區黃兆明主教在第一時間緊急指示，台東各天主教團體聯合組成「天主教花蓮教區88水災救災及重建行動小組」，由台東聖母醫院陳良娟院長擔任總幹事，推行整體救災知識事宜及相關重建工作。」
+          </p>
+          <div class="grid grid-cols-2 gap-3 mb-6">
+            <img src="/images/about/about-history-photo1.jpg" alt="農莊歷史" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/about/about-history-photo2.jpg" alt="農莊歷史" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            在台東聖母醫院健康促進推廣輔導下，聖母健康農莊完成有機認證、種植健康蔬果，營造優美景觀、打造心靈花園、邀請社區民眾及失業家庭居民共同參與、創造鄰里工作機會，強調從土壤到餐桌都是健康的理念，提供一般民眾及銀子們可以觀察力親為的田園活動中，找回與大自然相處的美好；開啟了聖母健康農莊在台灣較下從無到有的獨屬序曲。
+          </p>
+          <div class="grid grid-cols-2 gap-3 mb-6">
+            <img src="/images/about/healthfarm_about_history_photo10.jpg" alt="農莊歷史" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/about/healthfarm_about_history_photo11.jpg" alt="農莊歷史" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            2018年4月聖母健康農莊遷移至位於台東區職訓中心的現址，轉型農齡友善的綠色照護農場，發揮聖母醫院長照專業，更以多年來的綠色農場經驗，涵新家打造成台東服健農新樂園。
+          </p>
+          <div class="grid grid-cols-2 gap-3 mb-8">
+            <img src="/images/about/healthfarm_about_history_photo13.jpg" alt="農莊歷史" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/about/healthfarm_about_history_photo14.jpg" alt="農莊歷史" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+
+          <h2 class="text-lg font-bold mb-3 mt-8" style="color: #5bbfbf;">理念實踐</h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-4">
+            聖母健康農莊主張導重自然，體驗從「土壤到餐桌的愛」，各項飲食及產品，優先使用農莊自產有機蔬菜及在地安全食材，提供安全美味的健康飲食。
+          </p>
+          <div class="bg-teal-50 border-l-4 border-teal-400 px-4 py-3 rounded-r-xl mb-4">
+            <p class="text-sm text-teal-700 font-medium">我們的餐食以「多蔬少肉、多種好油、不油炸、不添加品」的健康飲食；</p>
+          </div>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            遵用當地食材，也積極與部落及有機小農合作，輔導提供安全的食材（如放山雞蛋及自產有機蔬果），透過共同合作，幫助能夠動部落與小農朝向安全有機發展，而帶動地方健康農業發展。
+          </p>
+        </div>
+
+        <!-- Tab 2：服務宗旨 -->
+        <div v-if="activeTab === 'mission'">
+          <h2 class="text-lg font-bold mb-4" style="color: #5bbfbf;">服務宗旨</h2>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            在綠色之愛的理念下，發展樂智農藝的原力環境、充滿愛與能量的天使花園、透過五感體驗找回在迷愛的療癒森林、充滿自然療癒的聖草德香藥草花園、以及靜嘉自我的中密花園。園區內還設有田園餐廳提供健康餐飲、休憩小舖提供咖啡飲及體適能促進中心浴健服務助力老化。
+          </p>
+        </div>
+
+        <!-- Tab 3：健康務件 -->
+        <div v-if="activeTab === 'health'">
+          <h2 class="text-lg font-bold mb-4" style="color: #5bbfbf;">健康務件</h2>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            聖母健康農莊提供多元健康服務，包括農事體驗、草藥認識課程、健康飲食指導等，歡迎個人、家庭及團體預約參觀。
+          </p>
+        </div>
+
+      </div>
     </div>
 
-    <!-- Toast -->
-    <transition name="fade">
-      <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
-        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        {{ toast.message }}
-      </div>
-    </transition>
+    <!-- 回首頁 -->
+    <div class="text-center pb-12">
+      <NuxtLink to="/site"
+        class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white"
+        style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
   </div>
 </template>
 
 <script setup>
-import {ref, computed, reactive, onMounted} from 'vue'
-import {useCommonStore} from '~/stores/common.js'
+import { ref } from 'vue'
+definePageMeta({ layout: 'site' })
+
+const activeTab = ref('history')
+const tabs = [
+  { key: 'history', label: '農莊歷史與理念實踐' },
+  { key: 'mission', label: '服務宗旨' },
+  { key: 'health',  label: '健康務件' },
+]
+</script>
+</file>
+
+<file path="app/pages/site/gallery.vue">
+<template>
+  <div>
+    <SitePageHero cover="/images/event/event-cover.png" title="相片館" />
+
+    <div class="max-w-5xl mx-auto px-4 py-8">
+
+      <!-- 資料夾分類 -->
+      <div v-if="folders.length > 0" class="flex flex-wrap gap-2 mb-6">
+        <button @click="selectFolder('全部')"
+          class="px-4 py-1.5 rounded-full text-sm font-medium transition-all border"
+          :style="selectedFolder === '全部' ? 'background-color:#5bbfbf;color:#fff;border-color:#5bbfbf;' : 'background:#fff;color:#666;border-color:#ccc;'">
+          全部
+        </button>
+        <button v-for="folder in folders" :key="folder.path" @click="selectFolder(folder.path)"
+          class="px-4 py-1.5 rounded-full text-sm font-medium transition-all border"
+          :style="selectedFolder === folder.path ? 'background-color:#5bbfbf;color:#fff;border-color:#5bbfbf;' : 'background:#fff;color:#666;border-color:#ccc;'">
+          {{ folder.name }}
+        </button>
+      </div>
+
+      <!-- 載入 -->
+      <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div v-for="n in 12" :key="n" class="aspect-square rounded-2xl bg-gray-100 animate-pulse" />
+      </div>
+
+      <!-- 無圖片 -->
+      <div v-else-if="images.length === 0" class="text-center py-20 text-gray-400">
+        <p>此分類尚無照片</p>
+      </div>
+
+      <!-- 圖片格 -->
+      <div v-else class="rounded-2xl border-2 border-dashed p-4 bg-white" style="border-color: #b8d8d0;">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div v-for="(img, idx) in images" :key="imgKey(img)"
+            class="group relative aspect-square rounded-xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all"
+            @click="openLightbox(idx)">
+            <img :src="imgUrl(img.thumbUrl || img.url)" :alt="img.displayName || img.originalName"
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center pb-12">
+      <NuxtLink to="/site" class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white" style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
+
+    <!-- 燈箱 -->
+    <Teleport to="body">
+      <Transition name="lightbox-fade">
+        <div v-if="lightbox.show" class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+          @click.self="closeLightbox" @keydown.esc="closeLightbox" @keydown.left="lightboxPrev" @keydown.right="lightboxNext"
+          tabindex="0" ref="lightboxEl">
+          <button @click="closeLightbox" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+          <button v-if="lightbox.index > 0" @click="lightboxPrev" class="absolute left-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <Transition name="img-slide" mode="out-in">
+            <img :key="lightbox.index" :src="imgUrl(currentLightboxImg?.url)" class="max-w-[90vw] max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+          </Transition>
+          <button v-if="lightbox.index < images.length - 1" @click="lightboxNext" class="absolute right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+          <div class="absolute bottom-5 inset-x-0 text-center text-white/60 text-sm">{{ lightbox.index + 1 }} / {{ images.length }}</div>
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, reactive, onMounted, nextTick } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+definePageMeta({ layout: 'site' })
 
 const commonStore = useCommonStore()
-const BASE = commonStore.data.main_url + '/holy/menu'
-const API_ORIGIN = commonStore.data.main_url
+const BASE       = computed(() => commonStore.data.main_url + '/holy/images')
+const API_ORIGIN = computed(() => commonStore.data.main_url)
 
 const imgUrl = (path) => {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return API_ORIGIN + path
+  if (!path || path.startsWith('http')) return path
+  const encoded = path.split('/').map(seg => encodeURIComponent(seg)).join('/')
+  return API_ORIGIN.value + encoded
 }
+const imgKey = (img) => `${img.folder}::${img.fileName}`
 
-// ── 狀態 ──────────────────────────────────────────────────────────
-const apiOnline = ref(false)
-const menuItems = ref([])
-const markedDates = ref([])
-const allItems = ref([])   // 來自 restaurant + shop 的所有品項（供食材選取）
-const selectedDate = ref('')
-const previewUrl = ref('')
-const fileInputRef = ref(null)
-const dragOver = ref(false)
-const uploading = ref(false)
-const ingredientInput = ref('')
+const folders = ref([])
+const selectedFolder = ref('全部')
+const images  = ref([])
+const loading = ref(false)
 
-const today = new Date()
-const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-const calYear = ref(today.getFullYear())
-const calMonth = ref(today.getMonth() + 1)
-
-// ── 日曆 ──────────────────────────────────────────────────────────
-const calLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
-const calDays = computed(() => {
-  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
-  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
-  const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+const flattenFolders = (nodes, result = []) => {
+  for (const n of nodes) {
+    result.push({ name: n.name, path: n.path })
+    if (n.children?.length) flattenFolders(n.children, result)
   }
-  return days
-})
-const dayClass = (day) => {
-  if (!day.date) return 'cursor-default'
-  if (day.date === selectedDate.value) return 'bg-orange-700 text-white font-bold shadow-sm'
-  if (day.date === todayStr) return 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-semibold hover:bg-orange-200'
-  return 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'
-}
-const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
-
-const prevMonth = () => {
-  if (calMonth.value === 1) {
-    calYear.value--;
-    calMonth.value = 12
-  } else calMonth.value--
-  fetchMarkedDates()
-}
-const nextMonth = () => {
-  if (calMonth.value === 12) {
-    calYear.value++;
-    calMonth.value = 1
-  } else calMonth.value++
-  fetchMarkedDates()
-}
-const selectDate = async (date) => {
-  selectedDate.value = date
-  await fetchMenuItems()
+  return result
 }
 
-// ── Modal ─────────────────────────────────────────────────────────
-const modal = reactive({show: false, isNew: true})
-const form = reactive({id: '', date: '', name: '', ingredients: [], note: ''})
-
-const openModal = (item) => {
-  modal.isNew = !item
-  if (item) {
-    Object.assign(form, {...item, ingredients: [...item.ingredients]})
-  } else {
-    Object.assign(form, {id: '', date: selectedDate.value, name: '', ingredients: [], note: ''})
-  }
-  modal.show = true
-}
-
-const imageModal = reactive({show: false, item: null, images: []})
-const openImageUpload = (item) => {
-  imageModal.item = item
-  imageModal.images = [...(item.images || [])]
-  imageModal.show = true
-}
-
-// ── 食材 ──────────────────────────────────────────────────────────
-const toggleIngredient = (name) => {
-  const idx = form.ingredients.indexOf(name)
-  if (idx >= 0) form.ingredients.splice(idx, 1)
-  else form.ingredients.push(name)
-}
-const addIngredient = () => {
-  const val = ingredientInput.value.trim()
-  if (val && !form.ingredients.includes(val)) form.ingredients.push(val)
-  ingredientInput.value = ''
-}
-
-// ── 圖片 ──────────────────────────────────────────────────────────
-const handleFileSelect = (e) => uploadImages(Array.from(e.target.files))
-const handleDrop = (e) => {
-  dragOver.value = false;
-  uploadImages(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')))
-}
-
-const uploadImages = async (files) => {
-  if (!imageModal.item || files.length === 0) return
-  uploading.value = true
+const fetchImages = async (folderPath) => {
+  loading.value = true
   try {
-    const formData = new FormData()
-    files.forEach(f => formData.append('files', f))
-    const res = await fetch(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, {
-      method: 'POST',
-      body: formData
-    })
-    const newPaths = await res.json()
-    imageModal.images.push(...newPaths)
-    // 同步更新 menuItems
-    const found = menuItems.value.find(i => i.id === imageModal.item.id)
-    if (found) found.images = [...imageModal.images]
-    showToast(`成功上傳 ${newPaths.length} 張圖片`)
-  } catch {
-    showToast('上傳失敗')
-  } finally {
-    uploading.value = false;
-    if (fileInputRef.value) fileInputRef.value.value = ''
-  }
+    const folder = folderPath === '全部' ? '' : folderPath
+    images.value = await (await fetch(`${BASE.value}/list?folder=${encodeURIComponent(folder)}`)).json()
+  } catch { images.value = [] }
+  finally { loading.value = false }
 }
 
-const deleteMenuImage = async (idx) => {
-  if (!confirm('確定刪除？')) return
-  const url = imageModal.images[idx]
-  const fileName = url.split('/').pop()
-  try {
-    await fetch(`${BASE}/image/remove/${imageModal.item.date}/${imageModal.item.id}?fileName=${fileName}`, {method: 'DELETE'})
-    imageModal.images.splice(idx, 1)
-    const found = menuItems.value.find(i => i.id === imageModal.item.id)
-    if (found) found.images = [...imageModal.images]
-    showToast('圖片已刪除')
-  } catch (e) {
-    console.error(e)
-  }
-}
+const selectFolder = async (path) => { selectedFolder.value = path; await fetchImages(path) }
 
-// ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({show: false, message: ''})
-const showToast = (msg) => {
-  toast.message = msg;
-  toast.show = true;
-  setTimeout(() => toast.show = false, 2500)
-}
-
-// ── API ───────────────────────────────────────────────────────────
-const fetchMarkedDates = async () => {
-  try {
-    const res = await fetch(`${BASE}/dates/${yearMonth.value}`)
-    markedDates.value = await res.json()
-    apiOnline.value = true
-  } catch {
-    apiOnline.value = false
-  }
-}
-
-const fetchMenuItems = async () => {
-  if (!selectedDate.value) return
-  try {
-    menuItems.value = await (await fetch(`${BASE}/get/${selectedDate.value}`)).json()
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// 同時拉田園餐廳和休憩小舖的品項，合併供食材選取
-const fetchAllItems = async () => {
-  try {
-    const [r, s] = await Promise.all([
-      fetch(commonStore.data.main_url + '/holy/restaurant/items/get').then(r => r.json()).catch(() => []),
-      fetch(commonStore.data.main_url + '/holy/shop/items/get').then(r => r.json()).catch(() => [])
-    ])
-    allItems.value = [...r, ...s]
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const saveMenuItem = async () => {
-  if (!form.name) return
-  try {
-    if (modal.isNew) {
-      const res = await fetch(`${BASE}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...form, date: selectedDate.value})
-      })
-      const saved = await res.json()
-      menuItems.value.push(saved)
-      if (!markedDates.value.includes(selectedDate.value)) markedDates.value.push(selectedDate.value)
-      showToast('菜色已新增')
-    } else {
-      await fetch(`${BASE}/update`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(form)
-      })
-      await fetchMenuItems()
-      showToast('菜色已更新')
-    }
-    modal.show = false
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const confirmDelete = async (item) => {
-  if (!confirm(`確定刪除「${item.name}」？`)) return
-  try {
-    await fetch(`${BASE}/remove/${item.date}/${item.id}`, {method: 'DELETE'})
-    menuItems.value = menuItems.value.filter(i => i.id !== item.id)
-    if (menuItems.value.length === 0) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
-    showToast('菜色已刪除')
-  } catch (e) {
-    console.error(e)
-  }
-}
+const lightbox   = reactive({ show: false, index: 0 })
+const lightboxEl = ref(null)
+const currentLightboxImg = computed(() => images.value[lightbox.index] ?? null)
+const openLightbox = async (idx) => { lightbox.index = idx; lightbox.show = true; await nextTick(); lightboxEl.value?.focus() }
+const closeLightbox = () => { lightbox.show = false }
+const lightboxPrev  = () => { if (lightbox.index > 0) lightbox.index-- }
+const lightboxNext  = () => { if (lightbox.index < images.value.length - 1) lightbox.index++ }
 
 onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchAllItems()])
-  selectedDate.value = todayStr
-  await fetchMenuItems()
+  try {
+    const tree = await (await fetch(`${BASE.value}/folders`)).json()
+    folders.value = flattenFolders(tree)
+  } catch { folders.value = [] }
+  await fetchImages('全部')
 })
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.scrollbar-none {
-  scrollbar-width: none;
-}
-
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
+.lightbox-fade-enter-active, .lightbox-fade-leave-active { transition: opacity 0.2s ease; }
+.lightbox-fade-enter-from, .lightbox-fade-leave-to { opacity: 0; }
+.img-slide-enter-active, .img-slide-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.img-slide-enter-from { opacity: 0; transform: scale(0.97); }
+.img-slide-leave-to { opacity: 0; transform: scale(1.02); }
 </style>
+</file>
+
+<file path="app/pages/site/index.vue">
+<template>
+  <div>
+    <!-- ══ Hero 輪播 ══ -->
+    <section class="relative h-[85vh] min-h-[480px] overflow-hidden">
+      <TransitionGroup name="hero-fade">
+        <img v-for="(img, idx) in heroImages" :key="img" v-show="currentSlide === idx"
+          :src="img" alt="台東聖母健康農莊" class="absolute inset-0 w-full h-full object-cover" />
+      </TransitionGroup>
+      <!-- 遮罩 -->
+      <div class="absolute inset-0" style="background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.35) 100%);" />
+
+      <!-- 標語 -->
+      <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+        <img src="/images/homepage/healthfarm_sun.png" alt="" class="w-16 h-16 mb-4 drop-shadow-lg" />
+        <h1 class="text-3xl sm:text-5xl font-bold text-white drop-shadow-lg mb-3" style="text-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+          吃出原味．嚐會從<br>
+          <span style="color: #ffd700;">土壤到餐桌的愛</span>
+        </h1>
+        <p class="text-white/90 text-base sm:text-lg max-w-xl leading-relaxed drop-shadow">
+          遵從自身不飲食出發品，追求讓農莊成為民眾健康的促進家，除提供安全的飲食外，也積極與部落及有機小農合作。
+        </p>
+      </div>
+
+      <!-- 輪播點 -->
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+        <button v-for="(_, idx) in heroImages" :key="idx" @click="goToSlide(idx)"
+          class="rounded-full transition-all duration-300"
+          :class="currentSlide === idx ? 'w-6 h-2.5 bg-white' : 'w-2.5 h-2.5 bg-white/50 hover:bg-white/75'" />
+      </div>
+
+      <!-- 波浪底部 -->
+      <div class="absolute bottom-0 inset-x-0">
+        <svg viewBox="0 0 1440 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full">
+          <path d="M0 40 C240 10 480 0 720 15 C960 30 1200 10 1440 0 L1440 40 Z" fill="#f5f0e8"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ══ 四大連結 ══ -->
+    <section class="py-12" style="background-color: #f5f0e8;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_four_title.png" alt="聖母農莊樂趣" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <NuxtLink v-for="link in fourLinks" :key="link.to" :to="link.to"
+            class="group relative rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
+            <img :src="link.photo" :alt="link.label" class="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+            <img :src="link.title" :alt="link.label" class="absolute bottom-3 left-1/2 -translate-x-1/2 h-8 drop-shadow-lg" />
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 最新消息 ══ -->
+    <section class="py-12" style="background-color: #eef7f5;">
+      <div class="max-w-4xl mx-auto px-4">
+        <div class="text-center mb-6">
+          <img src="/images/homepage/healthfarm_hp_news_title.png" alt="最新消息" class="h-10 mx-auto" />
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div v-if="newsLoading" class="p-8 text-center text-gray-400 text-sm">載入中…</div>
+          <div v-else-if="latestNews.length === 0" class="p-8 text-center text-gray-400 text-sm">目前無消息</div>
+          <div v-else>
+            <NuxtLink v-for="item in latestNews" :key="item.id" :to="'/site/news'"
+              class="flex items-center gap-4 px-5 py-3.5 border-b border-gray-50 last:border-0 hover:bg-teal-50/50 transition-colors group">
+              <span class="text-sm text-gray-400 flex-shrink-0 w-24">{{ item.date }}</span>
+              <span class="text-sm text-gray-700 group-hover:text-teal-700 transition-colors truncate">{{ item.title }}</span>
+            </NuxtLink>
+          </div>
+          <div class="p-4 text-center border-t border-gray-50">
+            <NuxtLink to="/site/news"
+              class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white transition-colors"
+              style="background-color: #5bbfbf;" onmouseover="this.style.backgroundColor='#3a9a8a'" onmouseout="this.style.backgroundColor='#5bbfbf'">
+              更多最新消息
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 推薦農產品 ══ -->
+    <section class="py-12" style="background-color: #f5f0e8;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_prod_title.png" alt="推薦農產品" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <NuxtLink v-for="prod in products" :key="prod.name" to="/site/product"
+            class="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
+            <div class="aspect-square overflow-hidden">
+              <img :src="prod.img" :alt="prod.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+            <div class="px-3 py-2.5 flex items-center justify-between">
+              <span class="text-sm text-gray-700 font-medium">{{ prod.name }}</span>
+              <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </NuxtLink>
+        </div>
+        <div class="text-center mt-6">
+          <NuxtLink to="/site/product"
+            class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white"
+            style="background-color: #5bbfbf;">
+            更多農產品
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 田園餐廳 ══ -->
+    <section class="py-12" style="background-color: #eef7f5;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
+          <div>
+            <img src="/images/homepage/healthfarm_hp_restaurant_title.png" alt="田園餐廳餐點" class="h-10 mb-4" />
+            <p class="text-sm text-gray-600 leading-relaxed mb-4">
+              「田園餐廳」以健康飲食為宗旨，嚴選全食材，優先使用農莊自產之有機蔬菜，提供安舒適的用餐環境，並首選「食物衛生優良商店」。
+            </p>
+            <NuxtLink to="/site/restaurant"
+              class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white"
+              style="background-color: #5bbfbf;">
+              更多田園餐廳
+            </NuxtLink>
+          </div>
+          <div class="relative">
+            <img src="/images/homepage/healthfarm_hp_restaurant_photo.png" alt="田園餐廳" class="rounded-2xl w-full shadow-md" />
+            <img src="/images/homepage/healthfarm_restaurant_bg_wave.png" alt="" class="absolute -bottom-4 -left-4 w-24 opacity-50" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 農莊活動集錦 ══ -->
+    <section class="py-12" style="background-color: #f5f0e8;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_event_title.png" alt="農莊活動集錦" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div v-for="n in 6" :key="n" class="rounded-2xl overflow-hidden aspect-square shadow-sm hover:shadow-md transition-shadow">
+            <img :src="`/images/homepage/event/healthfarm_hp_event_photo${n}.png`" :alt="`活動照片${n}`" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+          </div>
+        </div>
+        <div class="text-center mt-6">
+          <NuxtLink to="/site/news"
+            class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white"
+            style="background-color: #5bbfbf;">
+            報名活動
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 相關連結 ══ -->
+    <section class="py-12" style="background-color: #eef7f5;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_link_title.png" alt="相關連結朋局" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
+          <a v-for="link in relatedLinks" :key="link.label" :href="link.url" target="_blank"
+            class="flex flex-col items-center gap-2 group">
+            <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-teal-200 group-hover:border-teal-500 transition-colors shadow">
+              <img :src="link.img" :alt="link.label" class="w-full h-full object-cover" />
+            </div>
+            <span class="text-xs text-gray-600 text-center group-hover:text-teal-700 transition-colors">{{ link.label }}</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+
+definePageMeta({ layout: 'site' })
+
+const commonStore = useCommonStore()
+
+// ── Hero 輪播 ──────────────────────────────────────────────────────
+const heroImages = [
+  '/images/homepage/healthfarm_hp_topphoto1.jpg',
+  '/images/homepage/healthfarm_hp_topphoto2.jpg',
+  '/images/homepage/healthfarm_hp_topphoto3.jpg',
+  '/images/homepage/healthfarm_hp_topphoto4.jpg',
+]
+const currentSlide = ref(0)
+let timer = null
+const goToSlide = (idx) => { currentSlide.value = idx; resetTimer() }
+const nextSlide = () => { currentSlide.value = (currentSlide.value + 1) % heroImages.length }
+const resetTimer = () => { clearInterval(timer); timer = setInterval(nextSlide, 5000) }
+onMounted(() => resetTimer())
+onUnmounted(() => clearInterval(timer))
+
+// ── 四大連結 ──────────────────────────────────────────────────────
+const fourLinks = [
+  { to: '/site/about',      photo: '/images/homepage/healthfarm_hp_four_about_photo.png',      title: '/images/homepage/healthfarm_hp_four_about.png',      label: '關於我們' },
+  { to: '/site/product',    photo: '/images/homepage/healthfarm_hp_four_prod_photo.png',        title: '/images/homepage/healthfarm_hp_four_prod.png',        label: '產品訂購' },
+  { to: '/site/restaurant', photo: '/images/homepage/healthfarm_hp_four_restaurant_photo.png',  title: '/images/homepage/healthfarm_hp_four_restaurant.png',  label: '田園餐廳' },
+  { to: '/site/cafe',       photo: '/images/homepage/healthfarm_hp_four_cafe_photo.png',        title: '/images/homepage/healthfarm_hp_four_cafe.png',        label: '休憩小舖' },
+]
+
+// ── 最新消息 ──────────────────────────────────────────────────────
+const newsLoading = ref(true)
+const latestNews  = ref([])
+onMounted(async () => {
+  try {
+    const all = await (await fetch(`${commonStore.data.main_url}/holy/news/list`)).json()
+    latestNews.value = Array.isArray(all) ? all.slice(0, 4) : []
+  } catch { latestNews.value = [] }
+  finally { newsLoading.value = false }
+})
+
+// ── 推薦農產品 ──────────────────────────────────────────────────────
+const products = [
+  { name: '修女祈福蛋糕', img: '/images/product/1/healthfarm_product1_photo4.jpg' },
+  { name: '手工麵包',     img: '/images/homepage/prod/healthfarm_hp_prod_photo1.png' },
+  { name: '香藥草',       img: '/images/homepage/prod/healthfarm_hp_prod_photo5.png' },
+  { name: '禮盒',         img: '/images/homepage/prod/healthfarm_hp_prod_photo9.png' },
+]
+
+// ── 相關連結 ──────────────────────────────────────────────────────
+const relatedLinks = [
+  { label: '台東聖母醫院暨附設護理之家', url: '#', img: '/images/about/healthfarm_about_partner_photo1.png' },
+  { label: '台東市教育處',               url: '#', img: '/images/about/healthfarm_about_partner_photo2.png' },
+  { label: '知心麗廉衛生食材',           url: '#', img: '/images/about/healthfarm_about_partner_photo3.png' },
+  { label: '志心根緣',                   url: '#', img: '/images/about/healthfarm_about_partner_photo4.png' },
+]
+</script>
+
+<style scoped>
+.hero-fade-enter-active, .hero-fade-leave-active {
+  transition: opacity 1.2s ease;
+  position: absolute; inset: 0;
+}
+.hero-fade-enter-from, .hero-fade-leave-to { opacity: 0; }
+</style>
+</file>
+
+<file path="app/pages/site/restaurant.vue">
+<template>
+  <div>
+    <SitePageHero cover="/images/restaurant/restaurant-cover.png" title="田園餐廳" />
+
+    <!-- Tab -->
+    <div class="max-w-4xl mx-auto px-4 mt-4">
+      <div class="flex gap-0 border-b-2" style="border-color: #e0d8cc;">
+        <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+          class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-0.5"
+          :style="activeTab === tab.key ? 'color: #5bbfbf; border-color: #5bbfbf;' : 'color: #888; border-color: transparent;'">
+          {{ tab.label }}
+        </button>
+      </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="rounded-2xl border-2 border-dashed p-6 sm:p-8 bg-white" style="border-color: #b8d8d0;">
+
+        <!-- 餐廳簡介 -->
+        <div v-if="activeTab === 'intro'">
+          <h2 class="text-lg font-bold mb-3" style="color: #5bbfbf;">
+            <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: #5bbfbf;"></span>
+            無國界創意料理
+          </h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-5">
+            台東聖母健康農莊於2018年4月份搬遷完成並正式營業，重新打造升級成為「高齡友善綠色照護農場」，以高齡友善融合綠色療癒的環境設計，提供長者需要的支持與照里。
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <img src="/images/restaurant/restaurant-introduce-photo1.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/restaurant/restaurant-introduce-photo2.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+          <p class="text-sm text-gray-600 leading-relaxed mb-5">
+            位於高齡友善綠色照護農場環境中的「田園餐廳」，秉持「土壤到餐桌」的健康促進原則，堅持採用自產或當地小農，有機成安全食品的創意餐點符合低油、低糖、低鹽、高纖維的料理原則，並媒合來自農莊香藥草園裡種植的香藥草入菜，並提供天然無糖香藥草茶飲以及「全食物烘焙坊」每日新鮮出爐天然無化學添加的鬆包、手工酥糕。
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <img src="/images/restaurant/restaurant-introduce-photo3.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/restaurant/restaurant-introduce-photo4.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            希望用餐用餐既能除了吃得健康無負擔外，更能達到食有目的，學習健康的生活，享受美好的人生。
+          </p>
+        </div>
+
+        <!-- 營業時間 -->
+        <div v-if="activeTab === 'hours'">
+          <h2 class="text-lg font-bold mb-4" style="color: #5bbfbf;">
+            <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: #5bbfbf;"></span>
+            營業時間
+          </h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-4">
+            營業時間：11:30-13:30供餐 每周日公休（團體40人以上可以提前預約安排用餐）<br>
+            訂位電話：(089)381382#889<br>
+            這訂資訊：即時營業資訊可加入田園餐廳LINE官方社群「田園餐廳之友」，也可在此傳送訊息，提供稍呼時，人數可以線上快速訂位。
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <img src="/images/restaurant/restaurant-info-photo1.jpg" alt="餐廳環境" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/restaurant/restaurant-info-photo2.jpg" alt="餐廳環境" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+        </div>
+
+        <!-- 用餐方式 + 今日菜色 -->
+        <div v-if="activeTab === 'menu'">
+          <h2 class="text-lg font-bold mb-4" style="color: #5bbfbf;">
+            <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: #5bbfbf;"></span>
+            用餐方式
+          </h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            聖母健康農莊「田園餐廳」以健康飲食為宗求，嚴選全食材，優先使用農莊自產之有機蔬菜，提供安舒適的用餐環境，並首選「食品衛生優良商店」。<br><br>
+            本餐廳提供每客250元的自助餐，用餐即可免費農莊自製手工麵包、天然藥草茶飲。<br>
+            滿40人以上的團體，可預約不同時段及自助餐（每人300-500元）。<br><br>
+            田園餐廳採自助式取餐，餐盤、餐具請自行取用，用完餐，請請您的餐具按照分類放置於回收處。
+          </p>
+
+          <!-- 今日菜色 -->
+          <div class="border-t border-gray-100 pt-6">
+            <div class="flex items-end justify-between mb-4">
+              <h3 class="font-bold text-gray-800">今日菜色</h3>
+              <span class="text-xs text-gray-400">{{ todayLabel }}</span>
+            </div>
+            <div v-if="menuLoading" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div v-for="n in 6" :key="n" class="rounded-xl bg-gray-100 animate-pulse h-32" />
+            </div>
+            <div v-else-if="menuItems.length === 0" class="text-center py-8 text-gray-400 text-sm">今日菜色尚未更新</div>
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div v-for="item in menuItems" :key="item.id"
+                class="rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
+                <div v-if="item.images?.length" class="h-32 overflow-hidden">
+                  <img :src="menuImgUrl(item.images[0])" :alt="item.name" class="w-full h-full object-cover" />
+                </div>
+                <div class="p-2.5">
+                  <p class="text-sm font-medium text-gray-800">{{ item.name }}</p>
+                  <span v-if="item.diet" class="text-xs px-1.5 py-0.5 rounded-full mt-1 inline-block"
+                    :class="item.diet === '葷食' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'">
+                    {{ item.diet }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="text-center pb-12">
+      <NuxtLink to="/site" class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white" style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+definePageMeta({ layout: 'site' })
+
+const commonStore = useCommonStore()
+const activeTab = ref('intro')
+const tabs = [
+  { key: 'intro', label: '餐廳簡介' },
+  { key: 'hours', label: '營業時間' },
+  { key: 'menu',  label: '用餐方式' },
+]
+
+const today = new Date()
+const todayStr   = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+const todayLabel = today.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' })
+
+const menuLoading = ref(false)
+const menuItems   = ref([])
+
+const menuImgUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return commonStore.data.main_url + path
+}
+
+onMounted(async () => {
+  menuLoading.value = true
+  try {
+    const data = await (await fetch(`${commonStore.data.main_url}/holy/menu/get/${todayStr}`)).json()
+    menuItems.value = Array.isArray(data) ? data.filter(i => i.name?.trim() || i.images?.length > 0) : []
+  } catch { menuItems.value = [] }
+  finally { menuLoading.value = false }
+})
+</script>
 </file>
 
 <file path="package.json">
@@ -6349,6 +8241,252 @@ onMounted(async () => {
   },
   "packageManager": "pnpm@10.32.1"
 }
+</file>
+
+<file path="app/pages/index.vue">
+<template>
+  <div>
+    <!-- ══ Hero 輪播 ══ -->
+    <section class="relative h-[85vh] min-h-[480px] overflow-hidden">
+      <TransitionGroup name="hero-fade">
+        <img v-for="(img, idx) in heroImages" :key="img" v-show="currentSlide === idx"
+             :src="img" alt="台東聖母健康農莊" class="absolute inset-0 w-full h-full object-cover" />
+      </TransitionGroup>
+      <!-- 遮罩 -->
+      <div class="absolute inset-0" style="background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.35) 100%);" />
+
+      <!-- 標語 -->
+      <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+        <img src="/images/homepage/healthfarm_sun.png" alt="" class="w-16 h-16 mb-4 drop-shadow-lg" />
+        <h1 class="text-3xl sm:text-5xl font-bold text-white drop-shadow-lg mb-3" style="text-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+          吃出原味．嚐會從<br>
+          <span style="color: #ffd700;">土壤到餐桌的愛</span>
+        </h1>
+        <p class="text-white/90 text-base sm:text-lg max-w-xl leading-relaxed drop-shadow">
+          遵從自身不飲食出發品，追求讓農莊成為民眾健康的促進家，除提供安全的飲食外，也積極與部落及有機小農合作。
+        </p>
+      </div>
+
+      <!-- 輪播點 -->
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+        <button v-for="(_, idx) in heroImages" :key="idx" @click="goToSlide(idx)"
+                class="rounded-full transition-all duration-300"
+                :class="currentSlide === idx ? 'w-6 h-2.5 bg-white' : 'w-2.5 h-2.5 bg-white/50 hover:bg-white/75'" />
+      </div>
+
+      <!-- 波浪底部 -->
+      <div class="absolute bottom-0 inset-x-0">
+        <svg viewBox="0 0 1440 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full">
+          <path d="M0 40 C240 10 480 0 720 15 C960 30 1200 10 1440 0 L1440 40 Z" fill="#f5f0e8"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ══ 四大連結 ══ -->
+    <section class="py-12" style="background-color: #f5f0e8;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_four_title.png" alt="聖母農莊樂趣" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <NuxtLink v-for="link in fourLinks" :key="link.to" :to="link.to"
+                    class="group relative rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
+            <img :src="link.photo" :alt="link.label" class="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+            <img :src="link.title" :alt="link.label" class="absolute bottom-3 left-1/2 -translate-x-1/2 h-8 drop-shadow-lg" />
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 最新消息 ══ -->
+    <section class="py-12" style="background-color: #eef7f5;">
+      <div class="max-w-4xl mx-auto px-4">
+        <div class="text-center mb-6">
+          <img src="/images/homepage/healthfarm_hp_news_title.png" alt="最新消息" class="h-10 mx-auto" />
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div v-if="newsLoading" class="p-8 text-center text-gray-400 text-sm">載入中…</div>
+          <div v-else-if="latestNews.length === 0" class="p-8 text-center text-gray-400 text-sm">目前無消息</div>
+          <div v-else>
+            <NuxtLink v-for="item in latestNews" :key="item.id" :to="'/site/news'"
+                      class="flex items-center gap-4 px-5 py-3.5 border-b border-gray-50 last:border-0 hover:bg-teal-50/50 transition-colors group">
+              <span class="text-sm text-gray-400 flex-shrink-0 w-24">{{ item.date }}</span>
+              <span class="text-sm text-gray-700 group-hover:text-teal-700 transition-colors truncate">{{ item.title }}</span>
+            </NuxtLink>
+          </div>
+          <div class="p-4 text-center border-t border-gray-50">
+            <NuxtLink to="/site/news"
+                      class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white transition-colors"
+                      style="background-color: #5bbfbf;" onmouseover="this.style.backgroundColor='#3a9a8a'" onmouseout="this.style.backgroundColor='#5bbfbf'">
+              更多最新消息
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 推薦農產品 ══ -->
+    <section class="py-12" style="background-color: #f5f0e8;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_prod_title.png" alt="推薦農產品" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <NuxtLink v-for="prod in products" :key="prod.name" to="/site/product"
+                    class="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
+            <div class="aspect-square overflow-hidden">
+              <img :src="prod.img" :alt="prod.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+            <div class="px-3 py-2.5 flex items-center justify-between">
+              <span class="text-sm text-gray-700 font-medium">{{ prod.name }}</span>
+              <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </NuxtLink>
+        </div>
+        <div class="text-center mt-6">
+          <NuxtLink to="/site/product"
+                    class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white"
+                    style="background-color: #5bbfbf;">
+            更多農產品
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 田園餐廳 ══ -->
+    <section class="py-12" style="background-color: #eef7f5;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
+          <div>
+            <img src="/images/homepage/healthfarm_hp_restaurant_title.png" alt="田園餐廳餐點" class="h-10 mb-4" />
+            <p class="text-sm text-gray-600 leading-relaxed mb-4">
+              「田園餐廳」以健康飲食為宗旨，嚴選全食材，優先使用農莊自產之有機蔬菜，提供安舒適的用餐環境，並首選「食物衛生優良商店」。
+            </p>
+            <NuxtLink to="/site/restaurant"
+                      class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white"
+                      style="background-color: #5bbfbf;">
+              更多田園餐廳
+            </NuxtLink>
+          </div>
+          <div class="relative">
+            <img src="/images/homepage/healthfarm_hp_restaurant_photo.png" alt="田園餐廳" class="rounded-2xl w-full shadow-md" />
+            <img src="/images/homepage/healthfarm_restaurant_bg_wave.png" alt="" class="absolute -bottom-4 -left-4 w-24 opacity-50" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 農莊活動集錦 ══ -->
+    <section class="py-12" style="background-color: #f5f0e8;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_event_title.png" alt="農莊活動集錦" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div v-for="n in 6" :key="n" class="rounded-2xl overflow-hidden aspect-square shadow-sm hover:shadow-md transition-shadow">
+            <img :src="`/images/homepage/event/healthfarm_hp_event_photo${n}.png`" :alt="`活動照片${n}`" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+          </div>
+        </div>
+        <div class="text-center mt-6">
+          <NuxtLink to="/site/news"
+                    class="inline-block px-6 py-2 rounded-full text-sm font-medium text-white"
+                    style="background-color: #5bbfbf;">
+            報名活動
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 相關連結 ══ -->
+    <section class="py-12" style="background-color: #eef7f5;">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="text-center mb-8">
+          <img src="/images/homepage/healthfarm_hp_link_title.png" alt="相關連結朋局" class="h-10 mx-auto" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
+          <a v-for="link in relatedLinks" :key="link.label" :href="link.url" target="_blank"
+             class="flex flex-col items-center gap-2 group">
+            <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-teal-200 group-hover:border-teal-500 transition-colors shadow">
+              <img :src="link.img" :alt="link.label" class="w-full h-full object-cover" />
+            </div>
+            <span class="text-xs text-gray-600 text-center group-hover:text-teal-700 transition-colors">{{ link.label }}</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+
+definePageMeta({ layout: 'site' })
+
+const commonStore = useCommonStore()
+
+// ── Hero 輪播 ──────────────────────────────────────────────────────
+const heroImages = [
+  '/images/homepage/healthfarm_hp_topphoto1.jpg',
+  '/images/homepage/healthfarm_hp_topphoto2.jpg',
+  '/images/homepage/healthfarm_hp_topphoto3.jpg',
+  '/images/homepage/healthfarm_hp_topphoto4.jpg',
+]
+const currentSlide = ref(0)
+let timer = null
+const goToSlide = (idx) => { currentSlide.value = idx; resetTimer() }
+const nextSlide = () => { currentSlide.value = (currentSlide.value + 1) % heroImages.length }
+const resetTimer = () => { clearInterval(timer); timer = setInterval(nextSlide, 5000) }
+onMounted(() => resetTimer())
+onUnmounted(() => clearInterval(timer))
+
+// ── 四大連結 ──────────────────────────────────────────────────────
+const fourLinks = [
+  { to: '/site/about',      photo: '/images/homepage/healthfarm_hp_four_about_photo.png',      title: '/images/homepage/healthfarm_hp_four_about.png',      label: '關於我們' },
+  { to: '/site/product',    photo: '/images/homepage/healthfarm_hp_four_prod_photo.png',        title: '/images/homepage/healthfarm_hp_four_prod.png',        label: '產品訂購' },
+  { to: '/site/restaurant', photo: '/images/homepage/healthfarm_hp_four_restaurant_photo.png',  title: '/images/homepage/healthfarm_hp_four_restaurant.png',  label: '田園餐廳' },
+  { to: '/site/cafe',       photo: '/images/homepage/healthfarm_hp_four_cafe_photo.png',        title: '/images/homepage/healthfarm_hp_four_cafe.png',        label: '休憩小舖' },
+]
+
+// ── 最新消息 ──────────────────────────────────────────────────────
+const newsLoading = ref(true)
+const latestNews  = ref([])
+onMounted(async () => {
+  try {
+    const all = await (await fetch(`${commonStore.data.main_url}/holy/news/list`)).json()
+    latestNews.value = Array.isArray(all) ? all.slice(0, 4) : []
+  } catch { latestNews.value = [] }
+  finally { newsLoading.value = false }
+})
+
+// ── 推薦農產品 ──────────────────────────────────────────────────────
+const products = [
+  { name: '修女祈福蛋糕', img: '/images/product/1/healthfarm_product1_photo4.jpg' },
+  { name: '手工麵包',     img: '/images/homepage/prod/healthfarm_hp_prod_photo1.png' },
+  { name: '香藥草',       img: '/images/homepage/prod/healthfarm_hp_prod_photo5.png' },
+  { name: '禮盒',         img: '/images/homepage/prod/healthfarm_hp_prod_photo9.png' },
+]
+
+// ── 相關連結 ──────────────────────────────────────────────────────
+const relatedLinks = [
+  { label: '台東聖母醫院暨附設護理之家', url: '#', img: '/images/about/healthfarm_about_partner_photo1.png' },
+  { label: '台東市教育處',               url: '#', img: '/images/about/healthfarm_about_partner_photo2.png' },
+  { label: '知心麗廉衛生食材',           url: '#', img: '/images/about/healthfarm_about_partner_photo3.png' },
+  { label: '志心根緣',                   url: '#', img: '/images/about/healthfarm_about_partner_photo4.png' },
+]
+</script>
+
+<style scoped>
+.hero-fade-enter-active, .hero-fade-leave-active {
+  transition: opacity 1.2s ease;
+  position: absolute; inset: 0;
+}
+.hero-fade-enter-from, .hero-fade-leave-to { opacity: 0; }
+</style>
 </file>
 
 <file path="app/pages/management/DailyMenu.vue">
@@ -7148,6 +9286,145 @@ onUnmounted(() => {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>
+</file>
+
+<file path="app/pages/site/contact.vue">
+<template>
+  <div>
+    <SitePageHero cover="/images/access/access-cover.png" title="交通方式" />
+
+    <!-- Tab -->
+    <div class="max-w-4xl mx-auto px-4 mt-4">
+      <div class="flex gap-6 border-b-2" style="border-color: #e0d8cc;">
+        <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+          class="pb-2.5 text-sm font-medium transition-colors border-b-2 -mb-0.5"
+          :style="activeTab === tab.key ? 'color: #5bbfbf; border-color: #5bbfbf;' : 'color: #888; border-color: transparent;'">
+          {{ tab.label }}
+        </button>
+      </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="rounded-2xl border-2 border-dashed p-6 sm:p-8 bg-white" style="border-color: #b8d8d0;">
+
+        <!-- 地址卡（所有 Tab 都顯示） -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-8 bg-amber-50 rounded-2xl p-4 border border-amber-100">
+          <img src="/images/access/photo.jpg" alt="聖母健康農莊" class="w-full sm:w-48 rounded-xl object-cover aspect-video sm:aspect-auto" />
+          <div class="flex items-start gap-3">
+            <svg class="w-6 h-6 mt-1 flex-shrink-0" style="color: #e8a020;" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            <div>
+              <p class="font-bold text-gray-800 mb-1">聖母健康農莊</p>
+              <p class="text-sm text-gray-600">950 台東縣台東市博物館路110號</p>
+              <p class="text-sm text-gray-600">營業時間：08:00–17:30（週一—週六）</p>
+              <p class="text-sm text-gray-600">服務電話：089-381382</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 開車 -->
+        <div v-if="activeTab === 'drive'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>開車
+          </h2>
+          <div v-for="route in driveRoutes" :key="route.name" class="mb-5">
+            <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">
+              {{ route.tag }}
+            </div>
+            <p class="text-xs text-gray-400 mb-1">{{ route.name }}</p>
+            <p class="text-sm text-gray-600 leading-relaxed">{{ route.desc }}</p>
+          </div>
+        </div>
+
+        <!-- 火車 -->
+        <div v-if="activeTab === 'train'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>火車
+          </h2>
+          <div class="space-y-4">
+            <div>
+              <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">台東火車站</div>
+              <p class="text-sm text-gray-600">
+                <span class="inline-block w-2 h-2 rounded-sm mr-2" style="background: #5bbfbf;"></span>
+                預計車程：車程約20分鐘，車資約250元。
+              </p>
+            </div>
+            <div>
+              <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">康樂火車站</div>
+              <p class="text-sm text-gray-600">
+                <span class="inline-block w-2 h-2 rounded-sm mr-2" style="background: #5bbfbf;"></span>
+                步行：10分鐘內可抵達。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 飛機 -->
+        <div v-if="activeTab === 'fly'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>飛機
+          </h2>
+          <div>
+            <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">台東機場</div>
+            <p class="text-sm text-gray-600">
+              <span class="inline-block w-2 h-2 rounded-sm mr-2" style="background: #5bbfbf;"></span>
+              預計車程：車程約20分鐘，車資約250元。
+            </p>
+          </div>
+        </div>
+
+        <!-- Google Map -->
+        <div v-if="activeTab === 'map'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>Google Map
+          </h2>
+          <div class="rounded-2xl overflow-hidden border border-gray-200 h-72 sm:h-96">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3679.1123161180503!2d121.09173577534693!3d22.761212726031047!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x346fb7fdd7894785%3A0x3fe49cdb9bca43c1!2z5Y-w5p2x6IGW5q-N5YGl5bq36L6y6I6K!5e0!3m2!1szh-TW!2stw!4v1776229473561!5m2!1szh-TW!2stw"
+              class="w-full h-full" style="border:0" allowfullscreen loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade" title="聖母健康農莊地圖" />
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="text-center pb-12">
+      <NuxtLink to="/site" class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white" style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+definePageMeta({ layout: 'site' })
+
+const activeTab = ref('drive')
+const tabs = [
+  { key: 'drive', label: '開車' },
+  { key: 'train', label: '火車' },
+  { key: 'fly',   label: '飛機' },
+  { key: 'map',   label: 'Google' },
+]
+
+const driveRoutes = [
+  {
+    tag: '山線', name: '台9線・自花蓮南下',
+    desc: '沿花東縱谷台9線 ⇒ 經過阿美釋迦後，右轉進入和平路 ⇒ 朝太平前進，左轉進入太平路 ⇒ 遇中興路四段後右轉 ⇒ 進博物館路後右轉 ⇒ 朝史前博物館前進，靠左行駛即可達位在左邊的目的地。'
+  },
+  {
+    tag: '海線', name: '台11線・自花蓮南下',
+    desc: '沿台11線（花東海岸公路）⇒ 往台東市區方向前進 ⇒ 過富罔，進入台東大橋後 ⇒ 繼續沿著運建航路前進 ⇒ 朝台東火車站前進，右轉中興路二段 ⇒ 朝史前博物館前進，靠左行駛 ⇒ 左轉進入博物館路，目的地即在左邊。'
+  },
+  {
+    tag: '海線', name: '台9線・自屏東北上',
+    desc: '沿台9線東南繞公路 ⇒ 沿著環境道朝台東前進，左轉進入花東縱谷台9線 ⇒ 朝卑南前進，右轉進入中興路五段269巷，左轉進入博物館路 ⇒ 目的地即抵達於右邊。'
+  },
+]
+</script>
 </file>
 
 <file path="public/herbal-course-v5.html">
@@ -9733,6 +12010,7 @@ onMounted(async () => {
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
 export default defineNuxtConfig({
+  ssr: false,
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
@@ -9743,10 +12021,6 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/css/main.css'],
-
-  routeRules: {
-    '/': { prerender: true }
-  },
 
   compatibilityDate: '2025-01-15',
 
@@ -9760,9 +12034,10 @@ export default defineNuxtConfig({
   },
   // API 位址統一在這裡管理
   // 本地開發讀 .env，正式環境讀 Netlify 環境變數
+
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:9100'
+      apiBase: 'https://madustrialtd.asuscomm.com:8080'
     }
   }
 })
@@ -9795,16 +12070,10 @@ useSeoMeta({
   twitterCard: 'summary_large_image'
 })
 </script>
-
 <template>
-  <div id="main" class="flex w-full container-top flex-col items-center justify-center">
-    <div class="w-full 2xl:w-3/4">
-      <NavBar/>
-      <NuxtLayout>
-        <NuxtPage/>
-      </NuxtLayout>
-    </div>
-  </div>
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>
 </file>
 
@@ -13491,110 +15760,255 @@ onMounted(async () => {
 
 <file path="app/components/NavBar.vue">
 <script setup lang="ts">
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useDarkModeStore } from '~/stores/dark_mode'
-import { onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
 import { useFlowbite } from '~/components/useFlowbite'
 import { initFlowbite } from 'flowbite'
 
-const dark_mode = useDarkModeStore()
+const dark_mode   = useDarkModeStore()
+const commonStore = useCommonStore()
+
+// ── 頭像下拉 ──────────────────────────────────────────────────────
+const menuOpen  = ref(false)
+const closeMenu = () => { menuOpen.value = false }
+const toggleMenu = (e: Event) => {
+  e.stopPropagation()
+  menuOpen.value = !menuOpen.value
+}
 
 onMounted(() => {
-  useFlowbite(() => {
-    initFlowbite()
-  })
+  document.addEventListener('click', closeMenu)
+  useFlowbite(() => { initFlowbite() })
 })
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
+})
+
+// ── 登出 ──────────────────────────────────────────────────────────
+const logout = () => {
+  localStorage.removeItem('holy_auth')
+  window.location.href = '/login'
+}
+
+// ── 修改密碼 Modal ────────────────────────────────────────────────
+const pwModal   = ref(false)
+const pwForm    = reactive({ oldPassword: '', newPassword: '', confirm: '' })
+const pwError   = ref('')
+const pwOk      = ref(false)
+const pwLoading = ref(false)
+
+const openPwModal = () => {
+  closeMenu()
+  pwForm.oldPassword = ''
+  pwForm.newPassword = ''
+  pwForm.confirm     = ''
+  pwError.value      = ''
+  pwOk.value         = false
+  pwModal.value      = true
+}
+
+const changePassword = async () => {
+  pwError.value = ''
+  if (!pwForm.oldPassword || !pwForm.newPassword || !pwForm.confirm) {
+    pwError.value = '請填寫所有欄位'; return
+  }
+  if (pwForm.newPassword !== pwForm.confirm) {
+    pwError.value = '新密碼與確認密碼不一致'; return
+  }
+  if (pwForm.newPassword.length < 4) {
+    pwError.value = '新密碼至少 4 個字元'; return
+  }
+  pwLoading.value = true
+  try {
+    const res = await $fetch(`${commonStore.data.main_url}/holy/auth/password`, {
+      method: 'PUT',
+      body: { oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword },
+    })
+    if (res.success) {
+      pwOk.value = true
+      setTimeout(() => { pwModal.value = false }, 1500)
+    } else {
+      pwError.value = res.message || '舊密碼錯誤'
+    }
+  } catch {
+    pwError.value = '修改失敗，請再試一次'
+  } finally {
+    pwLoading.value = false
+  }
+}
 </script>
 
 <template>
   <nav class="bg-neutral-primary w-full start-0 border-default">
     <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-      <button data-collapse-toggle="navbar-dropdown"
-              type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-body rounded-base md:hidden hover:bg-neutral-secondary-soft hover:text-heading focus:outline-none focus:ring-2 focus:ring-neutral-tertiary" aria-controls="navbar-dropdown" aria-expanded="false">
+      <button data-collapse-toggle="navbar-dropdown" type="button"
+              class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-body rounded-base md:hidden hover:bg-neutral-secondary-soft hover:text-heading focus:outline-none focus:ring-2 focus:ring-neutral-tertiary"
+              aria-controls="navbar-dropdown" aria-expanded="false">
         <span class="sr-only">Open main menu</span>
-        <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5 7h14M5 12h14M5 17h14"/></svg>
+        <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+          <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5 7h14M5 12h14M5 17h14"/>
+        </svg>
       </button>
+
       <div class="hidden w-full md:block md:w-auto" id="navbar-dropdown">
-        <ul class="flex flex-col font-medium p-4 md:p-0 mt-4 border border-default rounded-base bg-neutral-secondary-soft md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-neutral-primary">
+        <ul class="flex flex-col font-medium p-4 md:p-0 mt-4 border border-default rounded-base bg-neutral-secondary-soft md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-neutral-primary items-center">
+
+          <!-- 庫存 -->
           <li>
-            <button id="dropdownNvbarButton1" data-dropdown-toggle="dropdownNavbar1" class="flex items-center justify-between w-full py-2 px-3 rounded font-medium text-heading text-2xl md:w-auto hover:bg-neutral-tertiary md:hover:bg-transparent md:border-0 md:hover:text-fg-brand md:p-0">
+            <button id="dropdownNvbarButton1" data-dropdown-toggle="dropdownNavbar1"
+                    class="flex items-center justify-between w-full py-2 px-3 rounded font-medium text-heading text-2xl md:w-auto hover:bg-neutral-tertiary md:hover:bg-transparent md:border-0 md:hover:text-fg-brand md:p-0">
               庫存
-              <svg class="w-4 h-4 ms-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+              <svg class="w-4 h-4 ms-1.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+              </svg>
             </button>
-            <!-- Dropdown menu -->
             <div id="dropdownNavbar1" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
               <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton1">
-                <li>
-                  <NuxtLink to="/items/InventoryQuantity" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    餐廳小舖</NuxtLink>
-                </li>
-                <li>
-                  <NuxtLink to="/items/ShopInventory" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    休憩小舖</NuxtLink>
-                </li>
-                <li>
-                  <NuxtLink to="/items/CommonConfig" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    庫存設定</NuxtLink>
-                </li>
+                <li><NuxtLink to="/items/InventoryQuantity" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">餐廳小舖</NuxtLink></li>
+                <li><NuxtLink to="/items/ShopInventory" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">休憩小舖</NuxtLink></li>
+                <li><NuxtLink to="/items/CommonConfig" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">庫存設定</NuxtLink></li>
               </ul>
             </div>
           </li>
 
+          <!-- 管理 -->
           <li>
-            <button id="dropdownNvbarButton2" data-dropdown-toggle="dropdownNavbar2" class="flex items-center justify-between w-full py-2 px-3 rounded font-medium text-heading text-2xl md:w-auto hover:bg-neutral-tertiary md:hover:bg-transparent md:border-0 md:hover:text-fg-brand md:p-0">
+            <button id="dropdownNvbarButton2" data-dropdown-toggle="dropdownNavbar2"
+                    class="flex items-center justify-between w-full py-2 px-3 rounded font-medium text-heading text-2xl md:w-auto hover:bg-neutral-tertiary md:hover:bg-transparent md:border-0 md:hover:text-fg-brand md:p-0">
               管理
-              <svg class="w-4 h-4 ms-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+              <svg class="w-4 h-4 ms-1.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+              </svg>
             </button>
-            <!-- Dropdown menu -->
             <div id="dropdownNavbar2" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
               <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton2">
-                <li>
-                  <NuxtLink to="/check-in/BookIndex" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    訂位訂餐管理</NuxtLink>
-                </li>
-                <li>
-                  <NuxtLink to="/AssetRegistry" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    財產清點</NuxtLink>
-                </li>
-                <li>
-                  <NuxtLink to="/management/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    菜色紀錄</NuxtLink>
-                </li>
-                <li>
-                  <NuxtLink to="/ImageLibrary" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    資源管理</NuxtLink>
-                </li>
-                <li>
-                  <NuxtLink to="/common/CashCount" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
-                    點鈔作業</NuxtLink>
-                </li>
+                <li><NuxtLink to="/check-in/BookIndex" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">訂位訂餐管理</NuxtLink></li>
+                <li><NuxtLink to="/AssetRegistry" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">財產清點</NuxtLink></li>
+                <li><NuxtLink to="/management/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">菜色紀錄</NuxtLink></li>
+                <li><NuxtLink to="/management/News" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">活動消息</NuxtLink></li>
+                <li><NuxtLink to="/ImageLibrary" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">資源管理</NuxtLink></li>
+                <li><NuxtLink to="/common/CashCount" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">點鈔作業</NuxtLink></li>
               </ul>
             </div>
           </li>
-          <li>
-            <NuxtLink to="/Todo" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              待辦</NuxtLink>
-          </li>
-          <li>
-            <NuxtLink to="/common/Holy" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              測試</NuxtLink>
-          </li>
-          <li>
-            <NuxtLink to="/QuickLinks" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              常用連結</NuxtLink>
-          </li>
-          <li>
-            <button @click="dark_mode.change_dark_mode" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">
-              {{dark_mode.data.display_name}}
+
+          <li><NuxtLink to="/Todo" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">待辦</NuxtLink></li>
+          <li><NuxtLink to="/QuickLinks" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">常用連結</NuxtLink></li>
+          <li><button @click="dark_mode.change_dark_mode" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">{{ dark_mode.data.display_name }}</button></li>
+
+          <!-- 頭像下拉 -->
+          <li class="relative">
+            <button @click="toggleMenu"
+                    class="w-9 h-9 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center transition-colors shadow-sm">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
             </button>
+
+            <Transition
+              enter-active-class="transition-all duration-150 ease-out"
+              enter-from-class="opacity-0 scale-95 -translate-y-1"
+              enter-to-class="opacity-100 scale-100 translate-y-0"
+              leave-active-class="transition-all duration-100 ease-in"
+              leave-from-class="opacity-100 scale-100 translate-y-0"
+              leave-to-class="opacity-0 scale-95 -translate-y-1"
+            >
+              <div v-if="menuOpen" @click.stop
+                   class="absolute right-0 top-11 w-44 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-700 z-50 overflow-hidden">
+                <div class="px-4 py-2.5 border-b border-gray-50 dark:border-zinc-700">
+                  <p class="text-xs text-gray-400">管理員</p>
+                </div>
+                <ul class="py-1">
+                  <li>
+                    <NuxtLink to="/" @click="closeMenu"
+                              class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-teal-50 dark:hover:bg-zinc-700 transition-colors">
+                      <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                      </svg>
+                      回前台
+                    </NuxtLink>
+                  </li>
+                  <li>
+                    <button @click="openPwModal"
+                            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors">
+                      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                      </svg>
+                      修改密碼
+                    </button>
+                  </li>
+                  <li class="border-t border-gray-50 dark:border-zinc-700 mt-1 pt-1">
+                    <button @click="logout"
+                            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                      </svg>
+                      登出
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </Transition>
           </li>
+
         </ul>
       </div>
     </div>
   </nav>
+
+  <!-- ══ 修改密碼 Modal ══ -->
+  <div v-if="pwModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-bold text-stone-800 dark:text-stone-100">修改密碼</h3>
+        <button @click="pwModal = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div v-if="pwOk" class="text-center py-4">
+        <div class="text-4xl mb-2">✅</div>
+        <p class="text-green-600 font-medium">密碼已更新</p>
+      </div>
+
+      <div v-else class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">舊密碼</label>
+          <input v-model="pwForm.oldPassword" type="password" placeholder="請輸入舊密碼"
+                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">新密碼</label>
+          <input v-model="pwForm.newPassword" type="password" placeholder="請輸入新密碼"
+                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">確認新密碼</label>
+          <input v-model="pwForm.confirm" type="password" placeholder="再次輸入新密碼"
+                 @keydown.enter="changePassword"
+                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400" />
+        </div>
+        <p v-if="pwError" class="text-xs text-red-500">{{ pwError }}</p>
+        <div class="flex gap-2 pt-1">
+          <button @click="pwModal = false"
+                  class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+            取消
+          </button>
+          <button @click="changePassword" :disabled="pwLoading"
+                  class="flex-1 py-2.5 text-sm bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:bg-teal-300 transition-colors flex items-center justify-center gap-1.5">
+            <div v-if="pwLoading" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            {{ pwLoading ? '更新中…' : '確認修改' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-
 </style>
 </file>
 
