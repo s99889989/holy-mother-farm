@@ -104,16 +104,19 @@ import { ref, onMounted, onUnmounted } from 'vue'
 const mobileOpen = ref(false)
 
 const navItems = [
-  { to: '/site/news',       label: '最新消息' },
-  { to: '/site/about',      label: '關於我們' },
-  { to: '/site/product',    label: '產品訂購' },
-  { to: '/site/activity',   label: '活動報名' },
-  { to: '/site/restaurant', label: '田園餐廳' },
-  { to: '/site/cafe',       label: '休憩小舖' },
-  { to: '/site/contact',    label: '交通方式' },
+  {to: '/site/news', label: '最新消息'},
+  {to: '/site/about', label: '關於我們'},
+  {to: '/site/product', label: '產品訂購'},
+  {to: '/site/activity', label: '活動報名'},
+  {to: '/site/restaurant', label: '田園餐廳'},
+  {to: '/site/cafe', label: '休憩小舖'},
+  {to: '/site/contact', label: '交通方式'},
 ]
 
-const handleScroll = () => {}
-onMounted(() => {})
-onUnmounted(() => {})
+const handleScroll = () => {
+}
+onMounted(() => {
+})
+onUnmounted(() => {
+})
 </script>
