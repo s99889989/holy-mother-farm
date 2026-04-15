@@ -24,14 +24,8 @@ useSeoMeta({
   twitterCard: 'summary_large_image'
 })
 </script>
-
 <template>
-  <div id="main" class="flex w-full container-top flex-col items-center justify-center">
-    <div class="w-full 2xl:w-3/4">
-      <NavBar/>
-      <NuxtLayout>
-        <NuxtPage/>
-      </NuxtLayout>
-    </div>
-  </div>
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>
