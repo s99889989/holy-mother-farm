@@ -1,100 +1,136 @@
 <template>
-  <div class="pt-20">
+  <div>
+    <SitePageHero cover="/images/access/access-cover.png" title="交通方式" />
 
-    <!-- ══ Page Hero ══ -->
-    <section class="relative h-56 sm:h-72 overflow-hidden flex items-end">
-      <img src="/images/access/access-cover.png" alt="交通資訊" class="absolute inset-0 w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-      <div class="relative max-w-6xl mx-auto px-4 sm:px-6 pb-10 w-full">
-        <p class="text-green-300 text-xs font-semibold tracking-widest uppercase mb-1">Access & Contact</p>
-        <h1 class="text-3xl sm:text-4xl font-bold text-white">交通與聯絡</h1>
+    <!-- Tab -->
+    <div class="max-w-4xl mx-auto px-4 mt-4">
+      <div class="flex gap-6 border-b-2" style="border-color: #e0d8cc;">
+        <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+          class="pb-2.5 text-sm font-medium transition-colors border-b-2 -mb-0.5"
+          :style="activeTab === tab.key ? 'color: #5bbfbf; border-color: #5bbfbf;' : 'color: #888; border-color: transparent;'">
+          {{ tab.label }}
+        </button>
       </div>
-    </section>
+    </div>
 
-    <!-- ══ 聯絡資訊 ══ -->
-    <section class="py-16 sm:py-20">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-12">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="rounded-2xl border-2 border-dashed p-6 sm:p-8 bg-white" style="border-color: #b8d8d0;">
 
-        <!-- 左：資訊 -->
-        <div>
-          <p class="text-green-600 text-sm font-semibold tracking-widest uppercase mb-3">聯絡我們</p>
-          <h2 class="text-2xl sm:text-3xl font-bold text-stone-800 mb-8">隨時歡迎您到訪</h2>
-
-          <div class="space-y-6">
-            <div
-              v-for="item in contactItems"
-              :key="item.label"
-              class="flex items-start gap-4"
-            >
-              <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
-                <span class="text-xl">{{ item.icon }}</span>
-              </div>
-              <div>
-                <p class="text-xs text-stone-400 font-semibold uppercase tracking-wide mb-0.5">{{ item.label }}</p>
-                <p class="text-stone-700 font-medium">{{ item.value }}</p>
-                <p v-if="item.sub" class="text-sm text-stone-400 mt-0.5">{{ item.sub }}</p>
-              </div>
+        <!-- 地址卡（所有 Tab 都顯示） -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-8 bg-amber-50 rounded-2xl p-4 border border-amber-100">
+          <img src="/images/access/photo.jpg" alt="聖母健康農莊" class="w-full sm:w-48 rounded-xl object-cover aspect-video sm:aspect-auto" />
+          <div class="flex items-start gap-3">
+            <svg class="w-6 h-6 mt-1 flex-shrink-0" style="color: #e8a020;" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            <div>
+              <p class="font-bold text-gray-800 mb-1">聖母健康農莊</p>
+              <p class="text-sm text-gray-600">950 台東縣台東市博物館路110號</p>
+              <p class="text-sm text-gray-600">營業時間：08:00–17:30（週一—週六）</p>
+              <p class="text-sm text-gray-600">服務電話：089-381382</p>
             </div>
           </div>
         </div>
 
-        <!-- 右：地圖（嵌入 Google Maps） -->
-        <div class="rounded-3xl overflow-hidden shadow-lg h-80 lg:h-auto bg-stone-100 flex items-center justify-center">
-          <!-- 替換成你們農莊的實際座標 -->
-          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3679.1123161180503!2d121.09173577534693!3d22.761212726031047!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x346fb7fdd7894785%3A0x3fe49cdb9bca43c1!2z5Y-w5p2x6IGW5q-N5YGl5bq36L6y6I6K!5e0!3m2!1szh-TW!2stw!4v1776220721026!5m2!1szh-TW!2stw" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══ 交通方式 ══ -->
-    <section class="py-16 bg-stone-50">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6">
-        <div class="text-center mb-10">
-          <p class="text-green-600 text-sm font-semibold tracking-widest uppercase mb-2">如何抵達</p>
-          <h2 class="text-2xl font-bold text-stone-800">交通資訊</h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <div
-            v-for="transport in transportMethods"
-            :key="transport.type"
-            class="bg-white rounded-2xl p-6 shadow-sm"
-          >
-            <div class="text-3xl mb-3">{{ transport.icon }}</div>
-            <h3 class="font-bold text-stone-800 mb-2">{{ transport.type }}</h3>
-            <p class="text-sm text-stone-500 leading-relaxed">{{ transport.desc }}</p>
+        <!-- 開車 -->
+        <div v-if="activeTab === 'drive'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>開車
+          </h2>
+          <div v-for="route in driveRoutes" :key="route.name" class="mb-5">
+            <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">
+              {{ route.tag }}
+            </div>
+            <p class="text-xs text-gray-400 mb-1">{{ route.name }}</p>
+            <p class="text-sm text-gray-600 leading-relaxed">{{ route.desc }}</p>
           </div>
         </div>
-      </div>
-    </section>
 
+        <!-- 火車 -->
+        <div v-if="activeTab === 'train'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>火車
+          </h2>
+          <div class="space-y-4">
+            <div>
+              <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">台東火車站</div>
+              <p class="text-sm text-gray-600">
+                <span class="inline-block w-2 h-2 rounded-sm mr-2" style="background: #5bbfbf;"></span>
+                預計車程：車程約20分鐘，車資約250元。
+              </p>
+            </div>
+            <div>
+              <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">康樂火車站</div>
+              <p class="text-sm text-gray-600">
+                <span class="inline-block w-2 h-2 rounded-sm mr-2" style="background: #5bbfbf;"></span>
+                步行：10分鐘內可抵達。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 飛機 -->
+        <div v-if="activeTab === 'fly'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>飛機
+          </h2>
+          <div>
+            <div class="inline-block px-3 py-1 rounded text-xs font-medium text-white mb-2" style="background-color: #5bbfbf;">台東機場</div>
+            <p class="text-sm text-gray-600">
+              <span class="inline-block w-2 h-2 rounded-sm mr-2" style="background: #5bbfbf;"></span>
+              預計車程：車程約20分鐘，車資約250元。
+            </p>
+          </div>
+        </div>
+
+        <!-- Google Map -->
+        <div v-if="activeTab === 'map'">
+          <h2 class="text-base font-bold mb-4 flex items-center gap-2" style="color: #5bbfbf;">
+            <span class="w-3 h-3 rounded-full inline-block" style="background: #5bbfbf;"></span>Google Map
+          </h2>
+          <div class="rounded-2xl overflow-hidden border border-gray-200 h-72 sm:h-96">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3664.7!2d121.1497!3d22.7547!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x346f6a2a7b8c0001%3A0x1!2z5Y-w5p2x5bqX5q2M5YKu5Lig6bq85bqA!5e0!3m2!1szh-TW!2stw!4v1"
+              class="w-full h-full" style="border:0" allowfullscreen loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade" title="聖母健康農莊地圖" />
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="text-center pb-12">
+      <NuxtLink to="/site" class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white" style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 definePageMeta({ layout: 'site' })
 
-const contactItems = [
-  { icon: '📍', label: '地址', value: '台東縣鹿野鄉永安村', sub: '（詳細地址請補充）' },
-  { icon: '📞', label: '電話', value: '(089) 000-000' },
-  { icon: '⏰', label: '開放時間', value: '每日 08:00 – 18:00', sub: '用餐需提前預約' },
-  { icon: '✉️', label: 'Email', value: 'info@holymotherfarm.org' },
+const activeTab = ref('drive')
+const tabs = [
+  { key: 'drive', label: '開車' },
+  { key: 'train', label: '火車' },
+  { key: 'fly',   label: '飛機' },
+  { key: 'map',   label: 'Google' },
 ]
 
-const transportMethods = [
+const driveRoutes = [
   {
-    icon: '🚗',
-    type: '自行開車',
-    desc: '國道三號下關山交流道，往鹿野方向，沿指標行駛約 XX 分鐘可達。',
+    tag: '山線', name: '台9線・自花蓮南下',
+    desc: '沿花東縱谷台9線 ⇒ 經過阿美釋迦後，右轉進入和平路 ⇒ 朝太平前進，左轉進入太平路 ⇒ 遇中興路四段後右轉 ⇒ 進博物館路後右轉 ⇒ 朝史前博物館前進，靠左行駛即可達位在左邊的目的地。'
   },
   {
-    icon: '🚂',
-    type: '火車',
-    desc: '搭乘台鐵至鹿野站下車，可預約農莊接駁，或搭乘計程車約 XX 分鐘。',
+    tag: '海線', name: '台11線・自花蓮南下',
+    desc: '沿台11線（花東海岸公路）⇒ 往台東市區方向前進 ⇒ 過富罔，進入台東大橋後 ⇒ 繼續沿著運建航路前進 ⇒ 朝台東火車站前進，右轉中興路二段 ⇒ 朝史前博物館前進，靠左行駛 ⇒ 左轉進入博物館路，目的地即在左邊。'
   },
   {
-    icon: '🚌',
-    type: '客運',
-    desc: '台東市區搭乘往鹿野方向客運，在 XX 站下車後步行 XX 分鐘。',
+    tag: '海線', name: '台9線・自屏東北上',
+    desc: '沿台9線東南繞公路 ⇒ 沿著環境道朝台東前進，左轉進入花東縱谷台9線 ⇒ 朝卑南前進，右轉進入中興路五段269巷，左轉進入博物館路 ⇒ 目的地即抵達於右邊。'
   },
 ]
 </script>

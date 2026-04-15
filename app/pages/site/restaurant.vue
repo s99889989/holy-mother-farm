@@ -1,110 +1,146 @@
 <template>
-  <div class="pt-20">
+  <div>
+    <SitePageHero cover="/images/restaurant/restaurant-cover.png" title="田園餐廳" />
 
-    <!-- ══ Page Hero ══ -->
-    <section class="relative h-56 sm:h-72 overflow-hidden flex items-end">
-      <img src="/images/restaurant/restaurant-cover.png" alt="健康料理" class="absolute inset-0 w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-      <div class="relative max-w-6xl mx-auto px-4 sm:px-6 pb-10 w-full">
-        <p class="text-green-300 text-xs font-semibold tracking-widest uppercase mb-1">Restaurant</p>
-        <h1 class="text-3xl sm:text-4xl font-bold text-white">健康料理</h1>
+    <!-- Tab -->
+    <div class="max-w-4xl mx-auto px-4 mt-4">
+      <div class="flex gap-0 border-b-2" style="border-color: #e0d8cc;">
+        <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+          class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-0.5"
+          :style="activeTab === tab.key ? 'color: #5bbfbf; border-color: #5bbfbf;' : 'color: #888; border-color: transparent;'">
+          {{ tab.label }}
+        </button>
       </div>
-    </section>
+    </div>
 
-    <!-- ══ 介紹 ══ -->
-    <section class="py-16 sm:py-20">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
-          <div>
-            <p class="text-green-600 text-sm font-semibold tracking-widest uppercase mb-3">用心料理</p>
-            <h2 class="text-2xl sm:text-3xl font-bold text-stone-800 mb-5">從田園到餐桌</h2>
-            <p class="text-stone-500 leading-relaxed mb-4">
-              農莊料理以自產有機蔬菜為主，搭配在地食材，每日新鮮烹調。
-              提供葷素套餐，歡迎提前訂位與預約便當。
-            </p>
-            <div class="flex flex-wrap gap-3 mt-6">
-              <span class="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium">有機蔬菜</span>
-              <span class="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium">在地食材</span>
-              <span class="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium">葷素皆備</span>
-              <span class="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium">預約制</span>
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="rounded-2xl border-2 border-dashed p-6 sm:p-8 bg-white" style="border-color: #b8d8d0;">
+
+        <!-- 餐廳簡介 -->
+        <div v-if="activeTab === 'intro'">
+          <h2 class="text-lg font-bold mb-3" style="color: #5bbfbf;">
+            <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: #5bbfbf;"></span>
+            無國界創意料理
+          </h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-5">
+            台東聖母健康農莊於2018年4月份搬遷完成並正式營業，重新打造升級成為「高齡友善綠色照護農場」，以高齡友善融合綠色療癒的環境設計，提供長者需要的支持與照里。
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <img src="/images/restaurant/restaurant-introduce-photo1.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/restaurant/restaurant-introduce-photo2.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+          <p class="text-sm text-gray-600 leading-relaxed mb-5">
+            位於高齡友善綠色照護農場環境中的「田園餐廳」，秉持「土壤到餐桌」的健康促進原則，堅持採用自產或當地小農，有機成安全食品的創意餐點符合低油、低糖、低鹽、高纖維的料理原則，並媒合來自農莊香藥草園裡種植的香藥草入菜，並提供天然無糖香藥草茶飲以及「全食物烘焙坊」每日新鮮出爐天然無化學添加的鬆包、手工酥糕。
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <img src="/images/restaurant/restaurant-introduce-photo3.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/restaurant/restaurant-introduce-photo4.jpg" alt="餐廳" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            希望用餐用餐既能除了吃得健康無負擔外，更能達到食有目的，學習健康的生活，享受美好的人生。
+          </p>
+        </div>
+
+        <!-- 營業時間 -->
+        <div v-if="activeTab === 'hours'">
+          <h2 class="text-lg font-bold mb-4" style="color: #5bbfbf;">
+            <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: #5bbfbf;"></span>
+            營業時間
+          </h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-4">
+            營業時間：11:30-13:30供餐 每周日公休（團體40人以上可以提前預約安排用餐）<br>
+            訂位電話：(089)381382#889<br>
+            這訂資訊：即時營業資訊可加入田園餐廳LINE官方社群「田園餐廳之友」，也可在此傳送訊息，提供稍呼時，人數可以線上快速訂位。
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <img src="/images/restaurant/restaurant-info-photo1.jpg" alt="餐廳環境" class="rounded-xl w-full object-cover aspect-video" />
+            <img src="/images/restaurant/restaurant-info-photo2.jpg" alt="餐廳環境" class="rounded-xl w-full object-cover aspect-video" />
+          </div>
+        </div>
+
+        <!-- 用餐方式 + 今日菜色 -->
+        <div v-if="activeTab === 'menu'">
+          <h2 class="text-lg font-bold mb-4" style="color: #5bbfbf;">
+            <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: #5bbfbf;"></span>
+            用餐方式
+          </h2>
+          <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            聖母健康農莊「田園餐廳」以健康飲食為宗求，嚴選全食材，優先使用農莊自產之有機蔬菜，提供安舒適的用餐環境，並首選「食品衛生優良商店」。<br><br>
+            本餐廳提供每客250元的自助餐，用餐即可免費農莊自製手工麵包、天然藥草茶飲。<br>
+            滿40人以上的團體，可預約不同時段及自助餐（每人300-500元）。<br><br>
+            田園餐廳採自助式取餐，餐盤、餐具請自行取用，用完餐，請請您的餐具按照分類放置於回收處。
+          </p>
+
+          <!-- 今日菜色 -->
+          <div class="border-t border-gray-100 pt-6">
+            <div class="flex items-end justify-between mb-4">
+              <h3 class="font-bold text-gray-800">今日菜色</h3>
+              <span class="text-xs text-gray-400">{{ todayLabel }}</span>
+            </div>
+            <div v-if="menuLoading" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div v-for="n in 6" :key="n" class="rounded-xl bg-gray-100 animate-pulse h-32" />
+            </div>
+            <div v-else-if="menuItems.length === 0" class="text-center py-8 text-gray-400 text-sm">今日菜色尚未更新</div>
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div v-for="item in menuItems" :key="item.id"
+                class="rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
+                <div v-if="item.images?.length" class="h-32 overflow-hidden">
+                  <img :src="menuImgUrl(item.images[0])" :alt="item.name" class="w-full h-full object-cover" />
+                </div>
+                <div class="p-2.5">
+                  <p class="text-sm font-medium text-gray-800">{{ item.name }}</p>
+                  <span v-if="item.diet" class="text-xs px-1.5 py-0.5 rounded-full mt-1 inline-block"
+                    :class="item.diet === '葷食' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'">
+                    {{ item.diet }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <img src="/images/restaurant/restaurant-introduce-photo1.jpg" alt="料理" class="rounded-2xl w-full h-44 object-cover" />
-            <img src="/images/restaurant/restaurant-introduce-photo2.jpg" alt="料理" class="rounded-2xl w-full h-44 object-cover mt-5" />
-            <img src="/images/restaurant/restaurant-introduce-photo3.jpg" alt="料理" class="rounded-2xl w-full h-44 object-cover" />
-            <img src="/images/restaurant/restaurant-introduce-photo4.jpg" alt="料理" class="rounded-2xl w-full h-44 object-cover mt-5" />
-          </div>
         </div>
 
-        <!-- ══ 菜單圖片 ══ -->
-        <div class="text-center mb-10">
-          <p class="text-green-600 text-sm font-semibold tracking-widest uppercase mb-2">本月菜色</p>
-          <h2 class="text-2xl font-bold text-stone-800">精選料理</h2>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div
-            v-for="n in 4"
-            :key="n"
-            class="group relative rounded-2xl overflow-hidden aspect-square"
-          >
-            <img
-              :src="`/images/restaurant/restaurant-menu-photo${n}_n.jpg`"
-              :alt="`菜色 ${n}`"
-              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
-          </div>
-        </div>
       </div>
-    </section>
+    </div>
 
-    <!-- ══ 用餐資訊 ══ -->
-    <section class="py-16 bg-stone-50">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6">
-        <div class="text-center mb-10">
-          <p class="text-green-600 text-sm font-semibold tracking-widest uppercase mb-2">用餐須知</p>
-          <h2 class="text-2xl font-bold text-stone-800">訂餐資訊</h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div
-            v-for="info in diningInfo"
-            :key="info.title"
-            class="bg-white rounded-2xl p-6 shadow-sm"
-          >
-            <div class="flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-xl flex-shrink-0">
-                {{ info.icon }}
-              </div>
-              <div>
-                <h3 class="font-bold text-stone-800 mb-1">{{ info.title }}</h3>
-                <p class="text-sm text-stone-500 leading-relaxed">{{ info.desc }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-10 text-center">
-          <NuxtLink
-            to="/site/booking"
-            class="inline-block px-8 py-4 bg-green-700 hover:bg-green-800 text-white font-bold rounded-full transition-colors shadow-md"
-          >
-            預約訂位
-          </NuxtLink>
-        </div>
-      </div>
-    </section>
-
+    <div class="text-center pb-12">
+      <NuxtLink to="/site" class="inline-block px-8 py-3 rounded-full text-sm font-medium text-white" style="background-color: #5bbfbf;">
+        回聖母健康農莊首頁
+      </NuxtLink>
+    </div>
   </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
 definePageMeta({ layout: 'site' })
 
-const diningInfo = [
-  { icon: '🕐', title: '用餐時間', desc: '午餐 11:30 – 13:30 / 晚餐 17:30 – 19:30（需提前預約）' },
-  { icon: '📋', title: '預約方式', desc: '請提前一日電話或線上訂位，以便備料。' },
-  { icon: '🥗', title: '葷素選擇', desc: '提供葷食套餐與全素套餐，請於訂位時告知。' },
-  { icon: '🍱', title: '便當預訂', desc: '提供便當外帶，需前一日下午三點前預訂。' },
+const commonStore = useCommonStore()
+const activeTab = ref('intro')
+const tabs = [
+  { key: 'intro', label: '餐廳簡介' },
+  { key: 'hours', label: '營業時間' },
+  { key: 'menu',  label: '用餐方式' },
 ]
+
+const today = new Date()
+const todayStr   = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+const todayLabel = today.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' })
+
+const menuLoading = ref(false)
+const menuItems   = ref([])
+
+const menuImgUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return commonStore.data.main_url + path
+}
+
+onMounted(async () => {
+  menuLoading.value = true
+  try {
+    const data = await (await fetch(`${commonStore.data.main_url}/holy/menu/get/${todayStr}`)).json()
+    menuItems.value = Array.isArray(data) ? data.filter(i => i.name?.trim() || i.images?.length > 0) : []
+  } catch { menuItems.value = [] }
+  finally { menuLoading.value = false }
+})
 </script>

@@ -28,7 +28,6 @@ onMounted(() => {
               庫存
               <svg class="w-4 h-4 ms-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
             </button>
-            <!-- Dropdown menu -->
             <div id="dropdownNavbar1" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
               <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton1">
                 <li>
@@ -52,7 +51,6 @@ onMounted(() => {
               管理
               <svg class="w-4 h-4 ms-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
             </button>
-            <!-- Dropdown menu -->
             <div id="dropdownNavbar2" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
               <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton2">
                 <li>
@@ -66,6 +64,10 @@ onMounted(() => {
                 <li>
                   <NuxtLink to="/management/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
                     菜色紀錄</NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/management/News" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
+                    活動消息</NuxtLink>
                 </li>
                 <li>
                   <NuxtLink to="/ImageLibrary" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">
@@ -102,5 +104,4 @@ onMounted(() => {
 </template>
 
 <style scoped>
-
 </style>
