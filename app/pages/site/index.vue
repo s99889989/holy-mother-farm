@@ -7,7 +7,7 @@
           :src="img" alt="台東聖母健康農莊" class="absolute inset-0 w-full h-full object-cover" />
       </TransitionGroup>
       <!-- 遮罩 -->
-      <div class="absolute inset-0" style="background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.35) 100%);" />
+      <div class="absolute inset-0" style="background: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.35) 100%);" />
 
       <!-- 標語 -->
       <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-4">

@@ -1,33 +1,28 @@
 <template>
-  <div class="min-h-screen flex flex-col" style="background-color: #f5f0e8; font-family: 'Noto Sans TC', sans-serif;">
+  <div class="min-h-screen flex flex-col" style="background-color: #f5f0e8; font-family: 'Noto Sans TC', sans-serif; font-size: 150%;">
 
     <!-- ══ 導覽列 ══ -->
-    <header
-      class="fixed top-0 inset-x-0 z-50 transition-all duration-300"
-      :class="isTransparent ? 'bg-transparent' : 'bg-white shadow-sm'"
-    >
-      <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-20">
+    <header class="fixed top-0 inset-x-0 z-50 bg-white shadow-sm" style="font-size: 1.25rem;">
+      <!-- 頂部綠色細線 -->
+      <div style="height: 5px; background-color: #1FC29C;"></div>
+      <div class="max-w-7xl mx-auto px-6 flex items-center h-24 gap-8">
 
         <!-- Logo -->
-        <NuxtLink to="/site" class="flex items-center">
-          <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-12 w-auto" />
+        <NuxtLink to="/site" class="flex items-center flex-shrink-0">
+          <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-16 w-auto" />
         </NuxtLink>
 
         <!-- 桌機選單 -->
-        <nav class="hidden md:flex items-center gap-1">
+        <nav class="hidden md:flex items-center">
           <NuxtLink
             v-for="item in navItems" :key="item.to" :to="item.to"
-            class="px-4 py-2 text-base font-medium transition-colors rounded"
-            :class="isTransparent
-              ? 'text-white hover:text-yellow-300'
-              : 'text-gray-700 hover:text-teal-600'"
+            class="px-3 py-2 font-medium transition-colors text-gray-700 hover:text-teal-600 whitespace-nowrap"
           >{{ item.label }}</NuxtLink>
         </nav>
 
         <!-- 手機漢堡 -->
         <button
-          class="md:hidden p-2 rounded"
-          :class="isTransparent ? 'text-white' : 'text-gray-700'"
+          class="md:hidden ml-auto p-2 rounded text-gray-700"
           @click="mobileOpen = !mobileOpen"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,7 +45,7 @@
           <nav class="px-4 py-3 flex flex-col">
             <NuxtLink
               v-for="item in navItems" :key="item.to" :to="item.to"
-              class="px-3 py-3 text-sm font-medium text-gray-700 hover:text-teal-600 border-b border-gray-50 last:border-0 transition-colors"
+              class="px-3 py-3 font-medium text-gray-700 hover:text-teal-600 border-b border-gray-50 last:border-0 transition-colors"
               @click="mobileOpen = false"
             >{{ item.label }}</NuxtLink>
           </nav>
@@ -59,7 +54,7 @@
     </header>
 
     <!-- ══ 主內容 ══ -->
-    <main class="flex-1 pt-20">
+    <main class="flex-1 pt-24">
       <slot />
     </main>
 
@@ -104,27 +99,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, onUnmounted } from 'vue'
 
-const route      = useRoute()
-const scrolled   = ref(false)
 const mobileOpen = ref(false)
-
-const isHome        = computed(() => route.path === '/site' || route.path === '/site/')
-const isTransparent = computed(() => isHome.value && !scrolled.value)
 
 const navItems = [
   { to: '/site/news',       label: '最新消息' },
   { to: '/site/about',      label: '關於我們' },
   { to: '/site/product',    label: '產品訂購' },
-  { to: '/site/news',       label: '活動報名' },
+  { to: '/site/activity',   label: '活動報名' },
   { to: '/site/restaurant', label: '田園餐廳' },
   { to: '/site/cafe',       label: '休憩小舖' },
   { to: '/site/contact',    label: '交通方式' },
 ]
 
-const handleScroll = () => { scrolled.value = window.scrollY > 40 }
-onMounted(() => window.addEventListener('scroll', handleScroll, { passive: true }))
-onUnmounted(() => window.removeEventListener('scroll', handleScroll))
+const handleScroll = () => {}
+onMounted(() => {})
+onUnmounted(() => {})
 </script>
