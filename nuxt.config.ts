@@ -30,7 +30,10 @@ export default defineNuxtConfig({
   // 本地開發讀 .env，正式環境讀 Netlify 環境變數
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:9100'
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080'
     }
+  },
+  router: {
+    middleware: ['holy-auth']
   }
 })
