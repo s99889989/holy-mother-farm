@@ -30,5 +30,12 @@ export default defineNuxtConfig({
     public: {
       apiBase: 'https://madustrialtd.asuscomm.com:8080'
     }
+  },
+  routeRules: {
+    '/**': {
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
+      }
+    }
   }
 })
