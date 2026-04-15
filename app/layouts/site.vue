@@ -99,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import {ref, onMounted, onUnmounted} from 'vue'
 
 const mobileOpen = ref(false)
 
@@ -111,6 +111,7 @@ const navItems = [
   {to: '/site/restaurant', label: '田園餐廳'},
   {to: '/site/cafe', label: '休憩小舖'},
   {to: '/site/contact', label: '交通方式'},
+  {to: '/site/profile', label: '我的紀錄'},
 ]
 
 const handleScroll = () => {

@@ -165,6 +165,10 @@
               </div>
             </div>
             <div v-if="bStep === 0">
+              <!-- Google 登入 -->
+              <div class="mb-5">
+                <GoogleLoginButton @login="onCustomerLogin" @logout="onCustomerLogout" ref="googleBtnRef" />
+              </div>
               <h2 class="text-base font-bold text-stone-800 mb-4">選擇用餐日期</h2>
               <div class="bg-stone-50 rounded-2xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
@@ -304,6 +308,10 @@
               </div>
             </div>
             <div v-if="lStep === 0">
+              <!-- Google 登入 -->
+              <div class="mb-5">
+                <GoogleLoginButton @login="onCustomerLogin" @logout="onCustomerLogout" />
+              </div>
               <h2 class="text-base font-bold text-stone-800 mb-4">選擇取餐日期</h2>
               <div class="bg-stone-50 rounded-2xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
@@ -425,35 +433,48 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
-import { useRoute } from 'vue-router'
-definePageMeta({ layout: 'site' })
+import {ref, computed, onMounted} from 'vue'
+import {useCommonStore} from '~/stores/common.js'
+import {useRoute} from 'vue-router'
+import GoogleLoginButton from '~/components/GoogleLoginButton.vue'
 
-const route       = useRoute()
+definePageMeta({layout: 'site'})
+
+const route = useRoute()
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/menu')
 
+// ── Google 登入狀態 ───────────────────────────────────────────────
+const googleBtnRef = ref(null)
+const onCustomerLogin = (customer) => {
+  // 自動填入訂位表單
+  if (!bForm.name && customer.name) bForm.name = customer.name
+  if (!lForm.name && customer.name) lForm.name = customer.name
+}
+const onCustomerLogout = () => {
+  // 登出後清空表單姓名（電話不清，可能已手動輸入）
+}
+
 const activeTab = ref(route.query.tab || 'intro')
 const tabs = [
-  { key: 'intro',   label: '餐廳簡介' },
-  { key: 'hours',   label: '營業時間' },
-  { key: 'menu',    label: '用餐方式' },
-  { key: 'booking', label: '線上訂位' },
-  { key: 'lunch',   label: '便當預訂' },
+  {key: 'intro', label: '餐廳簡介'},
+  {key: 'hours', label: '營業時間'},
+  {key: 'menu', label: '用餐方式'},
+  {key: 'booking', label: '線上訂位'},
+  {key: 'lunch', label: '便當預訂'},
 ]
 
 // ── 日期工具 ──────────────────────────────────────────────────────
 const toDateStr = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-const today        = new Date()
-const todayStr     = toDateStr(today)
+const today = new Date()
+const todayStr = toDateStr(today)
 const selectedDate = ref(todayStr)
 
 const selectedDateLabel = computed(() => {
   const d = new Date(selectedDate.value + 'T00:00:00')
-  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
+  return d.toLocaleDateString('zh-TW', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'})
 })
 
 const prevDay = async () => {
@@ -508,8 +529,9 @@ const dateStatus = ref({})
 const fetchDateStatusByYm = async (ym) => {
   try {
     const status = await (await fetch(`${BASE.value}/dates/${ym}`)).json()
-    dateStatus.value = { ...dateStatus.value, ...status }
-  } catch {}
+    dateStatus.value = {...dateStatus.value, ...status}
+  } catch {
+  }
 }
 
 const fetchDateStatus = async () => {
@@ -519,7 +541,7 @@ const fetchDateStatus = async () => {
 
 // ── 菜色 ──────────────────────────────────────────────────────────
 const menuLoading = ref(false)
-const menuItems   = ref([])
+const menuItems = ref([])
 
 const menuImgUrl = (path) => {
   if (!path || path.startsWith('http')) return path
@@ -534,8 +556,11 @@ const fetchMenu = async () => {
   try {
     const data = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
     menuItems.value = Array.isArray(data) ? data.filter(i => i.name?.trim() || i.images?.length > 0) : []
-  } catch { menuItems.value = [] }
-  finally { menuLoading.value = false }
+  } catch {
+    menuItems.value = []
+  } finally {
+    menuLoading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -547,35 +572,47 @@ onMounted(async () => {
 const BOOKING_BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const bStep = ref(0)
 const bSteps = ['選擇日期', '填寫資料', '葷素選擇', '確認送出']
-const bForm = reactive({ name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: '' })
+const bForm = reactive({name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: ''})
 const bErrors = reactive({})
 const bSubmitting = ref(false)
 const bSubmitError = ref('')
-const bTimeSlots = ['11:00','11:10','11:20','11:30','11:40','11:50','12:00','12:10','12:20','12:30','12:40','12:50','13:00']
+const bTimeSlots = ['11:00', '11:10', '11:20', '11:30', '11:40', '11:50', '12:00', '12:10', '12:20', '12:30', '12:40', '12:50', '13:00']
 const bDietOptions = [
-  { value: '葷食',   icon: '🍖', label: '葷食',   desc: '含肉類料理' },
-  { value: '素食',   icon: '🌿', label: '全素',   desc: '不含蛋奶五辛' },
-  { value: '蛋奶素', icon: '🥚', label: '蛋奶素', desc: '可食蛋奶製品' },
-  { value: '五辛素', icon: '🧄', label: '五辛素', desc: '可食蔥薑蒜' },
+  {value: '葷食', icon: '🍖', label: '葷食', desc: '含肉類料理'},
+  {value: '素食', icon: '🌿', label: '全素', desc: '不含蛋奶五辛'},
+  {value: '蛋奶素', icon: '🥚', label: '蛋奶素', desc: '可食蛋奶製品'},
+  {value: '五辛素', icon: '🧄', label: '五辛素', desc: '可食蔥薑蒜'},
 ]
 
-const bCal = new Date(); bCal.setHours(0,0,0,0)
+const bCal = new Date();
+bCal.setHours(0, 0, 0, 0)
 const bTodayStr = toDateStr(bCal)
-const bCalYear  = ref(bCal.getFullYear())
+const bCalYear = ref(bCal.getFullYear())
 const bCalMonth = ref(bCal.getMonth() + 1)
 const bCanPrevMonth = computed(() =>
   bCalYear.value > bCal.getFullYear() || (bCalYear.value === bCal.getFullYear() && bCalMonth.value > bCal.getMonth() + 1))
-const bPrevMonth = () => { if (!bCanPrevMonth.value) return; if (bCalMonth.value === 1) { bCalYear.value--; bCalMonth.value = 12 } else bCalMonth.value-- }
-const bNextMonth = () => { if (bCalMonth.value === 12) { bCalYear.value++; bCalMonth.value = 1 } else bCalMonth.value++ }
+const bPrevMonth = () => {
+  if (!bCanPrevMonth.value) return;
+  if (bCalMonth.value === 1) {
+    bCalYear.value--;
+    bCalMonth.value = 12
+  } else bCalMonth.value--
+}
+const bNextMonth = () => {
+  if (bCalMonth.value === 12) {
+    bCalYear.value++;
+    bCalMonth.value = 1
+  } else bCalMonth.value++
+}
 const bCalDays = computed(() => {
   const firstDay = new Date(bCalYear.value, bCalMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(bCalYear.value, bCalMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null, disabled: true })
+  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null, disabled: true})
   for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(bCalMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
+    const mm = String(bCalMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
     const str = `${bCalYear.value}-${mm}-${dd}`
-    days.push({ label: d, date: str, disabled: str <= bTodayStr })
+    days.push({label: d, date: str, disabled: str <= bTodayStr})
   }
   return days
 })
@@ -596,70 +633,95 @@ const bSelectDate = async (date) => {
     const data = await (await fetch(`${BOOKING_BASE.value}/get/${date}`)).json()
     const bookings = Array.isArray(data) ? data : []
     bDateGuests.value = bookings.reduce((sum, b) => sum + (b.guests || 0), 0)
-  } catch { bDateGuests.value = 0 }
-  finally { bDateGuestsLoading.value = false }
+  } catch {
+    bDateGuests.value = 0
+  } finally {
+    bDateGuestsLoading.value = false
+  }
 }
 const bSummary = computed(() => [
-  { label: '日期', value: bForm.date },
-  { label: '時間', value: bForm.time },
-  { label: '人數', value: `${bForm.guests} 人` },
-  { label: '葷素', value: bDietOptions.find(o => o.value === bForm.diet)?.label || '未指定' },
-  ...(bForm.note ? [{ label: '備註', value: bForm.note }] : []),
+  {label: '日期', value: bForm.date},
+  {label: '時間', value: bForm.time},
+  {label: '人數', value: `${bForm.guests} 人`},
+  {label: '葷素', value: bDietOptions.find(o => o.value === bForm.diet)?.label || '未指定'},
+  ...(bForm.note ? [{label: '備註', value: bForm.note}] : []),
 ])
 const bNextStep = () => {
   Object.keys(bErrors).forEach(k => delete bErrors[k])
-  if (bStep.value === 0 && !bForm.date) { bErrors.date = '請選擇用餐日期'; return }
+  if (bStep.value === 0 && !bForm.date) {
+    bErrors.date = '請選擇用餐日期';
+    return
+  }
   if (bStep.value === 1) {
     if (!bForm.name.trim()) bErrors.name = '請輸入姓名'
     if (!bForm.phone.trim()) bErrors.phone = '請輸入聯絡電話'
     if (Object.keys(bErrors).length > 0) return
   }
-  if (bStep.value === 2 && !bForm.diet) { bErrors.diet = '請選擇葷素偏好'; return }
+  if (bStep.value === 2 && !bForm.diet) {
+    bErrors.diet = '請選擇葷素偏好';
+    return
+  }
   bStep.value++
 }
 const bSubmit = async () => {
-  bSubmitError.value = ''; bSubmitting.value = true
+  bSubmitError.value = '';
+  bSubmitting.value = true
   try {
     const res = await fetch(`${BOOKING_BASE.value}/save`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...bForm, status: '待確認' })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...bForm, status: '待確認'})
     })
     if (!res.ok) throw new Error()
     // 重置表單
-    Object.assign(bForm, { name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: '' })
+    Object.assign(bForm, {name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: ''})
     bStep.value = 0
     alert('訂位已送出！我們將盡快電話確認，謝謝。')
-  } catch { bSubmitError.value = '預約送出失敗，請稍後再試或直接來電。' }
-  finally { bSubmitting.value = false }
+  } catch {
+    bSubmitError.value = '預約送出失敗，請稍後再試或直接來電。'
+  } finally {
+    bSubmitting.value = false
+  }
 }
 
 // ══ 便當預訂 ══════════════════════════════════════════════════════
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 const lStep = ref(0)
 const lSteps = ['選擇日期', '填寫資料', '確認送出']
-const lForm = reactive({ name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: '' })
+const lForm = reactive({name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: ''})
 const lErrors = reactive({})
 const lSubmitting = ref(false)
 const lSubmitError = ref('')
-const lTimeSlots = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00']
+const lTimeSlots = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00']
 
-const lCal = new Date(); lCal.setHours(0,0,0,0)
+const lCal = new Date();
+lCal.setHours(0, 0, 0, 0)
 const lTodayStr = toDateStr(lCal)
-const lCalYear  = ref(lCal.getFullYear())
+const lCalYear = ref(lCal.getFullYear())
 const lCalMonth = ref(lCal.getMonth() + 1)
 const lCanPrevMonth = computed(() =>
   lCalYear.value > lCal.getFullYear() || (lCalYear.value === lCal.getFullYear() && lCalMonth.value > lCal.getMonth() + 1))
-const lPrevMonth = () => { if (!lCanPrevMonth.value) return; if (lCalMonth.value === 1) { lCalYear.value--; lCalMonth.value = 12 } else lCalMonth.value-- }
-const lNextMonth = () => { if (lCalMonth.value === 12) { lCalYear.value++; lCalMonth.value = 1 } else lCalMonth.value++ }
+const lPrevMonth = () => {
+  if (!lCanPrevMonth.value) return;
+  if (lCalMonth.value === 1) {
+    lCalYear.value--;
+    lCalMonth.value = 12
+  } else lCalMonth.value--
+}
+const lNextMonth = () => {
+  if (lCalMonth.value === 12) {
+    lCalYear.value++;
+    lCalMonth.value = 1
+  } else lCalMonth.value++
+}
 const lCalDays = computed(() => {
   const firstDay = new Date(lCalYear.value, lCalMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(lCalYear.value, lCalMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null, disabled: true })
+  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null, disabled: true})
   for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(lCalMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
+    const mm = String(lCalMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
     const str = `${lCalYear.value}-${mm}-${dd}`
-    days.push({ label: d, date: str, disabled: str <= lTodayStr })
+    days.push({label: d, date: str, disabled: str <= lTodayStr})
   }
   return days
 })
@@ -670,16 +732,19 @@ const lDayClass = (day) => {
   return 'text-stone-700 hover:bg-amber-100 hover:text-amber-800 cursor-pointer'
 }
 const lSummary = computed(() => [
-  { label: '日期', value: lForm.date },
-  { label: '取餐', value: lForm.time },
-  { label: '葷食', value: `${lForm.meatQty} 盒` },
-  { label: '素食', value: `${lForm.vegQty} 盒` },
-  { label: '合計', value: `${lForm.meatQty + lForm.vegQty} 盒` },
-  ...(lForm.note ? [{ label: '備註', value: lForm.note }] : []),
+  {label: '日期', value: lForm.date},
+  {label: '取餐', value: lForm.time},
+  {label: '葷食', value: `${lForm.meatQty} 盒`},
+  {label: '素食', value: `${lForm.vegQty} 盒`},
+  {label: '合計', value: `${lForm.meatQty + lForm.vegQty} 盒`},
+  ...(lForm.note ? [{label: '備註', value: lForm.note}] : []),
 ])
 const lNextStep = () => {
   Object.keys(lErrors).forEach(k => delete lErrors[k])
-  if (lStep.value === 0 && !lForm.date) { lErrors.date = '請選擇取餐日期'; return }
+  if (lStep.value === 0 && !lForm.date) {
+    lErrors.date = '請選擇取餐日期';
+    return
+  }
   if (lStep.value === 1) {
     if (!lForm.name.trim()) lErrors.name = '請輸入姓名'
     if (!lForm.phone.trim()) lErrors.phone = '請輸入聯絡電話'
@@ -689,24 +754,34 @@ const lNextStep = () => {
   lStep.value++
 }
 const lSubmit = async () => {
-  lSubmitError.value = ''; lSubmitting.value = true
+  lSubmitError.value = '';
+  lSubmitting.value = true
   try {
     const res = await fetch(`${LUNCH_BASE.value}/save`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...lForm, status: '待確認' })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...lForm, status: '待確認'})
     })
     if (!res.ok) throw new Error()
-    Object.assign(lForm, { name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: '' })
+    Object.assign(lForm, {name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: ''})
     lStep.value = 0
     alert('便當預訂已送出！我們將盡快電話確認，謝謝。')
-  } catch { lSubmitError.value = '預訂送出失敗，請稍後再試或直接來電。' }
-  finally { lSubmitting.value = false }
+  } catch {
+    lSubmitError.value = '預訂送出失敗，請稍後再試或直接來電。'
+  } finally {
+    lSubmitting.value = false
+  }
 }
 </script>
 
 <style scoped>
 /* 隱藏 number input 的上下箭頭 */
 input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-input[type=number] { -moz-appearance: textfield; }
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
 </style>
