@@ -9,4 +9,6 @@ export const useCustomerStore = defineStore('customer', () => {
   const clearCustomer = () => { customer.value = null }
 
   return { customer, setCustomer, clearCustomer }
+}, {
+  persist: true  // 自動存到 localStorage，重整後恢復
 })
