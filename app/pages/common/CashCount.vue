@@ -119,7 +119,15 @@
     <!-- 新增/編輯 Modal -->
     <div v-if="showForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
       <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 max-h-[90vh] overflow-y-auto">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-4">{{ isEdit ? '編輯點鈔記錄' : '新增點鈔記錄' }}</h3>
+
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ isEdit ? '編輯點鈔記錄' : '新增點鈔記錄' }}</h3>
+          <!-- 草稿提示 -->
+          <div v-if="hasDraft && !isEdit" class="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            已還原草稿
+          </div>
+        </div>
 
         <!-- 日期 + 備註（上下排列） -->
         <div class="space-y-3 mb-4">
@@ -197,7 +205,7 @@
 
         <!-- 按鈕 -->
         <div class="flex gap-2">
-          <button @click="showForm = false"
+          <button @click="cancelForm"
                   class="flex-1 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">取消</button>
           <button @click="save" :disabled="saving"
                   class="flex-1 py-2.5 text-sm bg-green-700 hover:bg-green-800 disabled:bg-green-300 text-white rounded-xl font-medium transition-colors">
@@ -219,12 +227,14 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
 
 const commonStore   = useCommonStore()
 const BASE          = () => commonStore.data.main_url + '/holy/cashCount'
 const photoInputRef = ref(null)
+
+const DRAFT_KEY = 'cashCount_draft'
 
 // ── 日曆 ──────────────────────────────────────────────────────────
 const today    = new Date()
@@ -274,6 +284,7 @@ const originalPhotoPath = ref('')
 const photoFile         = ref(null)
 const photoPreview      = ref('')
 const toast             = reactive({ show: false, message: '' })
+const hasDraft          = ref(false)
 
 const recordDates     = computed(() => new Set(records.value.map(r => r.date)))
 const selectedRecords = computed(() => records.value.filter(r => r.date === selectedDate.value))
@@ -290,6 +301,43 @@ const form = ref({ date: todayStr, note: '', items: initItems() })
 
 const subtotal = (val) => (Number(form.value.items[val]) || 0) * val
 const total    = computed(() => allDenoms.reduce((sum, d) => sum + subtotal(d.value), 0))
+
+// ── 草稿儲存 ──────────────────────────────────────────────────────
+// 監聽 form 變動，自動存草稿（只在新增模式）
+watch(form, (val) => {
+  if (!isEdit.value && showForm.value) {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(val))
+  }
+}, { deep: true })
+
+function saveDraft() {
+  if (!isEdit.value) {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(form.value))
+  }
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY)
+  hasDraft.value = false
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return false
+    const draft = JSON.parse(raw)
+    // 檢查是否有實際輸入的內容（總金額 > 0 或有備註）
+    const draftTotal = allDenoms.reduce((sum, d) => sum + (Number(draft.items?.[d.value]) || 0) * d.value, 0)
+    if (draftTotal === 0 && !draft.note?.trim()) return false
+    form.value = {
+      date:  draft.date  || selectedDate.value,
+      note:  draft.note  || '',
+      items: { ...initItems(), ...draft.items },
+    }
+    hasDraft.value = true
+    return true
+  } catch { return false }
+}
 
 // ── 照片 ──────────────────────────────────────────────────────────
 function triggerPhotoInput() {
@@ -315,10 +363,17 @@ function openForm() {
   isEdit.value            = false
   editId.value            = ''
   originalPhotoPath.value = ''
-  form.value              = { date: selectedDate.value, note: '', items: initItems() }
   photoFile.value         = null
   photoPreview.value      = ''
-  showForm.value          = true
+
+  // 嘗試還原草稿，沒有草稿才用預設空表單
+  const restored = loadDraft()
+  if (!restored) {
+    form.value = { date: selectedDate.value, note: '', items: initItems() }
+    hasDraft.value = false
+  }
+
+  showForm.value = true
 }
 
 function openEditForm(r) {
@@ -332,7 +387,13 @@ function openEditForm(r) {
   }
   photoFile.value    = null
   photoPreview.value = r.photoPath ? `${BASE()}/photo/${r.photoPath}` : ''
+  hasDraft.value     = false
   showForm.value     = true
+}
+
+function cancelForm() {
+  // 取消時保留草稿（讓使用者下次還能還原）
+  showForm.value = false
 }
 
 // ── API ───────────────────────────────────────────────────────────
@@ -360,6 +421,9 @@ async function save() {
     const url    = isEdit.value ? `${BASE()}/update` : `${BASE()}/save`
     const method = isEdit.value ? 'PUT' : 'POST'
     await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+
+    // 儲存成功後清除草稿
+    clearDraft()
     showForm.value     = false
     selectedDate.value = form.value.date
     showToast(isEdit.value ? '已更新' : '點鈔記錄已儲存')
@@ -392,7 +456,22 @@ const showToast = (msg) => {
   setTimeout(() => toast.show = false, 2500)
 }
 
-onMounted(fetchRecords)
+// 頁面回到前景時，如果 Modal 是開啟的就補存一次草稿
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'hidden' && showForm.value && !isEdit.value) {
+    saveDraft()
+  }
+}
+
+onMounted(() => {
+  fetchRecords()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+import { onUnmounted } from 'vue'
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
 </script>
 
 <style scoped>
