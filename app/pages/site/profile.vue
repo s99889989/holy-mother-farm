@@ -120,18 +120,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
+import { useCustomerStore } from '~/stores/customer.js'
 import GoogleLoginButton from '~/components/GoogleLoginButton.vue'
 
 definePageMeta({ layout: 'site' })
 
-const commonStore = useCommonStore()
+const commonStore   = useCommonStore()
+const customerStore = useCustomerStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 
-import { computed } from 'vue'
-
-const customer = ref(null)
+const customer  = computed(() => customerStore.customer)
 const activeTab = ref('bookings')
 const tabs = [
   { key: 'bookings', label: '訂位紀錄' },
@@ -142,15 +142,6 @@ const bookings        = ref([])
 const lunches         = ref([])
 const bookingsLoading = ref(false)
 const lunchesLoading  = ref(false)
-
-const fetchMe = async () => {
-  try {
-    const data = await (await fetch(`${BASE.value}/me`, { credentials: 'include' })).json()
-    if (data.error) { customer.value = null; return }
-    customer.value = data
-    await fetchAll()
-  } catch { customer.value = null }
-}
 
 const fetchAll = async () => {
   bookingsLoading.value = true
@@ -166,14 +157,11 @@ const fetchAll = async () => {
   finally { bookingsLoading.value = false; lunchesLoading.value = false }
 }
 
-const onLogin = async (data) => {
-  customer.value = data
-  await fetchAll()
-}
+const onLogin = async () => { await fetchAll() }
 
 const logout = async () => {
   await fetch(`${BASE.value}/logout`, { method: 'POST', credentials: 'include' })
-  customer.value = null
+  customerStore.clearCustomer()
   bookings.value = []
   lunches.value  = []
 }
@@ -188,5 +176,12 @@ const statusClass = (status) => {
   return map[status] || 'bg-gray-100 text-gray-500'
 }
 
-onMounted(fetchMe)
+onMounted(async () => {
+  if (customer.value) await fetchAll()
+})
+
+watch(customer, async (c) => {
+  if (c) await fetchAll()
+  else { bookings.value = []; lunches.value = [] }
+})
 </script>

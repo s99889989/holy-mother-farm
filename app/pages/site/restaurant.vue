@@ -6,8 +6,8 @@
     <div class="max-w-4xl mx-auto px-4 mt-4">
       <div class="flex gap-0 border-b-2" style="border-color: #e0d8cc;">
         <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
-                class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-0.5 whitespace-nowrap"
-                :style="activeTab === tab.key ? 'color: #5bbfbf; border-color: #5bbfbf;' : 'color: #888; border-color: transparent;'">
+          class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-0.5 whitespace-nowrap"
+          :style="activeTab === tab.key ? 'color: #5bbfbf; border-color: #5bbfbf;' : 'color: #888; border-color: transparent;'">
           {{ tab.label }}
         </button>
       </div>
@@ -54,13 +54,13 @@
           </p>
           <div class="flex flex-wrap gap-3 mt-6">
             <button @click="activeTab = 'booking'"
-                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-white text-sm font-medium"
-                    style="background-color: #5bbfbf;">
+              class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-white text-sm font-medium"
+              style="background-color: #5bbfbf;">
               線上訂位 →
             </button>
             <button @click="activeTab = 'lunch'"
-                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-white text-sm font-medium"
-                    style="background-color: #e8a020;">
+              class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-white text-sm font-medium"
+              style="background-color: #e8a020;">
               便當預訂 →
             </button>
           </div>
@@ -91,21 +91,21 @@
               <h3 class="font-bold text-gray-800 flex-shrink-0">菜色查詢</h3>
               <div class="flex items-center gap-2">
                 <button @click="prevDay"
-                        class="p-2 rounded-lg border border-gray-200 hover:border-teal-400 hover:text-teal-600 transition-colors text-gray-500">
+                  class="p-2 rounded-lg border border-gray-200 hover:border-teal-400 hover:text-teal-600 transition-colors text-gray-500">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                   </svg>
                 </button>
                 <span class="text-sm text-gray-600 font-medium min-w-32 text-center">{{ selectedDate }}</span>
                 <button @click="nextDay" :disabled="selectedDate >= todayStr"
-                        class="p-2 rounded-lg border border-gray-200 hover:border-teal-400 hover:text-teal-600 transition-colors text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
+                  class="p-2 rounded-lg border border-gray-200 hover:border-teal-400 hover:text-teal-600 transition-colors text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
                 </button>
                 <button v-if="selectedDate !== todayStr" @click="goToday"
-                        class="px-3 py-2 text-xs rounded-xl text-white transition-colors"
-                        style="background-color: #5bbfbf;">
+                  class="px-3 py-2 text-xs rounded-xl text-white transition-colors"
+                  style="background-color: #5bbfbf;">
                   選擇今日
                 </button>
               </div>
@@ -115,7 +115,7 @@
             <div class="flex items-center gap-2 mb-4">
               <span class="text-xs text-gray-400">{{ selectedDateLabel }}</span>
               <span v-if="selectedDate === todayStr" class="px-2 py-0.5 rounded-full text-white text-xs"
-                    style="background-color: #5bbfbf;">今日</span>
+                style="background-color: #5bbfbf;">今日</span>
             </div>
 
             <!-- 菜色內容 -->
@@ -123,19 +123,19 @@
               <div v-for="n in 6" :key="n" class="rounded-xl bg-gray-100 animate-pulse h-32" />
             </div>
             <div v-else-if="menuItems.length === 0"
-                 class="text-center py-10 text-gray-400 text-sm rounded-xl border-2 border-dashed border-gray-100">
+              class="text-center py-10 text-gray-400 text-sm rounded-xl border-2 border-dashed border-gray-100">
               {{ selectedDate === todayStr ? '今日菜色尚未更新' : '此日期無菜色紀錄' }}
             </div>
             <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div v-for="item in menuItems" :key="item.id"
-                   class="rounded-xl overflow-hidden bg-gray-50 border border-gray-100 hover:shadow-sm transition-shadow">
+                class="rounded-xl overflow-hidden bg-gray-50 border border-gray-100 hover:shadow-sm transition-shadow">
                 <div v-if="item.images?.length" class="h-32 overflow-hidden">
                   <img :src="menuImgUrl(item.images[0])" :alt="item.name" class="w-full h-full object-cover" loading="eager" />
                 </div>
                 <div class="p-2.5">
                   <p class="text-sm font-medium text-gray-800">{{ item.name }}</p>
                   <span v-if="item.diet" class="text-xs px-1.5 py-0.5 rounded-full mt-1 inline-block"
-                        :class="item.diet === '葷食' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'">
+                    :class="item.diet === '葷食' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'">
                     {{ item.diet }}
                   </span>
                 </div>
@@ -149,14 +149,14 @@
           <div class="bg-white rounded-2xl overflow-hidden">
             <div class="flex border-b border-stone-100 mb-6">
               <div v-for="(step, idx) in bSteps" :key="step"
-                   class="flex-1 py-3 text-center text-sm font-medium relative"
-                   :class="bStep === idx ? 'text-teal-700 bg-teal-50' : bStep > idx ? 'text-teal-600' : 'text-stone-300'">
+                class="flex-1 py-3 text-center text-sm font-medium relative"
+                :class="bStep === idx ? 'text-teal-700 bg-teal-50' : bStep > idx ? 'text-teal-600' : 'text-stone-300'">
                 <span class="inline-flex items-center gap-1.5">
                   <svg v-if="bStep > idx" class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                   </svg>
                   <span v-else class="w-5 h-5 rounded-full text-xs flex items-center justify-center border font-bold"
-                        :class="bStep === idx ? 'bg-teal-600 text-white border-teal-600' : 'border-stone-200 text-stone-300'">
+                    :class="bStep === idx ? 'bg-teal-600 text-white border-teal-600' : 'border-stone-200 text-stone-300'">
                     {{ idx + 1 }}
                   </span>
                   {{ step }}
@@ -173,7 +173,7 @@
               <div class="bg-stone-50 rounded-2xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
                   <button @click="bPrevMonth" :disabled="!bCanPrevMonth" class="p-2 rounded-xl transition-colors"
-                          :class="bCanPrevMonth ? 'hover:bg-stone-200 text-stone-600' : 'text-stone-300 cursor-not-allowed'">
+                    :class="bCanPrevMonth ? 'hover:bg-stone-200 text-stone-600' : 'text-stone-300 cursor-not-allowed'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                   </button>
                   <span class="font-bold text-stone-800 text-sm">{{ bCalYear }} 年 {{ bCalMonth }} 月</span>
@@ -186,9 +186,9 @@
                 </div>
                 <div class="grid grid-cols-7 gap-1">
                   <div v-for="(day, idx) in bCalDays" :key="idx"
-                       class="aspect-square flex items-center justify-center rounded-xl text-sm select-none transition-all"
-                       :class="bDayClass(day)"
-                       @click="day.date && !day.disabled && bSelectDate(day.date)">
+                    class="aspect-square flex items-center justify-center rounded-xl text-sm select-none transition-all"
+                    :class="bDayClass(day)"
+                    @click="day.date && !day.disabled && bSelectDate(day.date)">
                     {{ day.label }}
                   </div>
                 </div>
@@ -209,13 +209,13 @@
               <div>
                 <label class="block text-sm font-semibold text-stone-700 mb-1">姓名 <span class="text-red-400">*</span></label>
                 <input v-model="bForm.name" placeholder="請輸入姓名" class="w-full px-4 py-2.5 rounded-xl border text-stone-800 outline-none text-sm focus:ring-2"
-                       :class="bErrors.name ? 'border-red-300 bg-red-50' : 'border-stone-200 focus:ring-teal-200'" />
+                  :class="bErrors.name ? 'border-red-300 bg-red-50' : 'border-stone-200 focus:ring-teal-200'" />
                 <p v-if="bErrors.name" class="text-xs text-red-400 mt-1">{{ bErrors.name }}</p>
               </div>
               <div>
                 <label class="block text-sm font-semibold text-stone-700 mb-1">聯絡電話 <span class="text-red-400">*</span></label>
                 <input v-model="bForm.phone" type="tel" placeholder="請輸入電話" class="w-full px-4 py-2.5 rounded-xl border text-stone-800 outline-none text-sm focus:ring-2"
-                       :class="bErrors.phone ? 'border-red-300 bg-red-50' : 'border-stone-200 focus:ring-teal-200'" />
+                  :class="bErrors.phone ? 'border-red-300 bg-red-50' : 'border-stone-200 focus:ring-teal-200'" />
                 <p v-if="bErrors.phone" class="text-xs text-red-400 mt-1">{{ bErrors.phone }}</p>
               </div>
               <div class="grid grid-cols-2 gap-3">
@@ -243,8 +243,8 @@
               <h2 class="text-base font-bold text-stone-800 mb-4">葷素選擇</h2>
               <div class="grid grid-cols-2 gap-3 mb-3">
                 <button v-for="opt in bDietOptions" :key="opt.value" @click="bForm.diet = opt.value"
-                        class="p-4 rounded-2xl border-2 text-left transition-all"
-                        :class="bForm.diet === opt.value ? 'border-teal-500 bg-teal-50' : 'border-stone-100 hover:border-stone-200'">
+                  class="p-4 rounded-2xl border-2 text-left transition-all"
+                  :class="bForm.diet === opt.value ? 'border-teal-500 bg-teal-50' : 'border-stone-100 hover:border-stone-200'">
                   <div class="text-2xl mb-1">{{ opt.icon }}</div>
                   <div class="font-semibold text-stone-800 text-sm">{{ opt.label }}</div>
                   <div class="text-xs text-stone-400">{{ opt.desc }}</div>
@@ -269,11 +269,11 @@
               </button>
               <div v-else />
               <button v-if="bStep < bSteps.length - 1" @click="bNextStep"
-                      class="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white text-sm font-semibold ml-auto" style="background-color:#5bbfbf;">
+                class="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white text-sm font-semibold ml-auto" style="background-color:#5bbfbf;">
                 下一步 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </button>
               <button v-else @click="bSubmit" :disabled="bSubmitting"
-                      class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold ml-auto disabled:opacity-50" style="background-color:#5bbfbf;">
+                class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold ml-auto disabled:opacity-50" style="background-color:#5bbfbf;">
                 <div v-if="bSubmitting" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 {{ bSubmitting ? '送出中…' : '確認預約' }}
               </button>
@@ -292,14 +292,14 @@
           <div class="bg-white rounded-2xl overflow-hidden">
             <div class="flex border-b border-stone-100 mb-6">
               <div v-for="(step, idx) in lSteps" :key="step"
-                   class="flex-1 py-3 text-center text-sm font-medium relative"
-                   :class="lStep === idx ? 'text-amber-700 bg-amber-50' : lStep > idx ? 'text-amber-600' : 'text-stone-300'">
+                class="flex-1 py-3 text-center text-sm font-medium relative"
+                :class="lStep === idx ? 'text-amber-700 bg-amber-50' : lStep > idx ? 'text-amber-600' : 'text-stone-300'">
                 <span class="inline-flex items-center gap-1.5">
                   <svg v-if="lStep > idx" class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                   </svg>
                   <span v-else class="w-5 h-5 rounded-full text-xs flex items-center justify-center border font-bold"
-                        :class="lStep === idx ? 'bg-amber-600 text-white border-amber-600' : 'border-stone-200 text-stone-300'">
+                    :class="lStep === idx ? 'bg-amber-600 text-white border-amber-600' : 'border-stone-200 text-stone-300'">
                     {{ idx + 1 }}
                   </span>
                   {{ step }}
@@ -316,7 +316,7 @@
               <div class="bg-stone-50 rounded-2xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
                   <button @click="lPrevMonth" :disabled="!lCanPrevMonth" class="p-2 rounded-xl transition-colors"
-                          :class="lCanPrevMonth ? 'hover:bg-stone-200 text-stone-600' : 'text-stone-300 cursor-not-allowed'">
+                    :class="lCanPrevMonth ? 'hover:bg-stone-200 text-stone-600' : 'text-stone-300 cursor-not-allowed'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                   </button>
                   <span class="font-bold text-stone-800 text-sm">{{ lCalYear }} 年 {{ lCalMonth }} 月</span>
@@ -329,9 +329,9 @@
                 </div>
                 <div class="grid grid-cols-7 gap-1">
                   <div v-for="(day, idx) in lCalDays" :key="idx"
-                       class="aspect-square flex items-center justify-center rounded-xl text-sm select-none transition-all"
-                       :class="lDayClass(day)"
-                       @click="day.date && !day.disabled && (lForm.date = day.date)">
+                    class="aspect-square flex items-center justify-center rounded-xl text-sm select-none transition-all"
+                    :class="lDayClass(day)"
+                    @click="day.date && !day.disabled && (lForm.date = day.date)">
                     {{ day.label }}
                   </div>
                 </div>
@@ -346,13 +346,13 @@
               <div>
                 <label class="block text-sm font-semibold text-stone-700 mb-1">姓名 <span class="text-red-400">*</span></label>
                 <input v-model="lForm.name" placeholder="請輸入姓名" class="w-full px-4 py-2.5 rounded-xl border text-stone-800 outline-none text-sm"
-                       :class="lErrors.name ? 'border-red-300 bg-red-50' : 'border-stone-200'" />
+                  :class="lErrors.name ? 'border-red-300 bg-red-50' : 'border-stone-200'" />
                 <p v-if="lErrors.name" class="text-xs text-red-400 mt-1">{{ lErrors.name }}</p>
               </div>
               <div>
                 <label class="block text-sm font-semibold text-stone-700 mb-1">聯絡電話 <span class="text-red-400">*</span></label>
                 <input v-model="lForm.phone" type="tel" placeholder="請輸入電話" class="w-full px-4 py-2.5 rounded-xl border text-stone-800 outline-none text-sm"
-                       :class="lErrors.phone ? 'border-red-300 bg-red-50' : 'border-stone-200'" />
+                  :class="lErrors.phone ? 'border-red-300 bg-red-50' : 'border-stone-200'" />
                 <p v-if="lErrors.phone" class="text-xs text-red-400 mt-1">{{ lErrors.phone }}</p>
               </div>
               <div>
@@ -403,11 +403,11 @@
               </button>
               <div v-else />
               <button v-if="lStep < lSteps.length - 1" @click="lNextStep"
-                      class="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold ml-auto">
+                class="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold ml-auto">
                 下一步 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </button>
               <button v-else @click="lSubmit" :disabled="lSubmitting"
-                      class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold ml-auto disabled:opacity-50">
+                class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold ml-auto disabled:opacity-50">
                 <div v-if="lSubmitting" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 {{ lSubmitting ? '送出中…' : '確認預訂' }}
               </button>
@@ -433,48 +433,54 @@
 </template>
 
 <script setup>
-import {ref, computed, onMounted} from 'vue'
-import {useCommonStore} from '~/stores/common.js'
-import {useRoute} from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+import { useCustomerStore } from '~/stores/customer.js'
+import { useRoute } from 'vue-router'
 import GoogleLoginButton from '~/components/GoogleLoginButton.vue'
+definePageMeta({ layout: 'site' })
 
-definePageMeta({layout: 'site'})
-
-const route = useRoute()
-const commonStore = useCommonStore()
+const route         = useRoute()
+const commonStore   = useCommonStore()
+const customerStore = useCustomerStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/menu')
 
-// ── Google 登入狀態 ───────────────────────────────────────────────
+// ── Google 登入狀態（從 store 讀，自動填入表單）────────────────────
 const googleBtnRef = ref(null)
 const onCustomerLogin = (customer) => {
-  // 自動填入訂位表單
   if (!bForm.name && customer.name) bForm.name = customer.name
   if (!lForm.name && customer.name) lForm.name = customer.name
 }
-const onCustomerLogout = () => {
-  // 登出後清空表單姓名（電話不清，可能已手動輸入）
-}
+const onCustomerLogout = () => {}
+
+// 監聽 store 變化自動填入
+watch(() => customerStore.customer, (c) => {
+  if (c) {
+    if (!bForm.name) bForm.name = c.name
+    if (!lForm.name) lForm.name = c.name
+  }
+})
 
 const activeTab = ref(route.query.tab || 'intro')
 const tabs = [
-  {key: 'intro', label: '餐廳簡介'},
-  {key: 'hours', label: '營業時間'},
-  {key: 'menu', label: '用餐方式'},
-  {key: 'booking', label: '線上訂位'},
-  {key: 'lunch', label: '便當預訂'},
+  { key: 'intro',   label: '餐廳簡介' },
+  { key: 'hours',   label: '營業時間' },
+  { key: 'menu',    label: '用餐方式' },
+  { key: 'booking', label: '線上訂位' },
+  { key: 'lunch',   label: '便當預訂' },
 ]
 
 // ── 日期工具 ──────────────────────────────────────────────────────
 const toDateStr = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
-const today = new Date()
-const todayStr = toDateStr(today)
+const today        = new Date()
+const todayStr     = toDateStr(today)
 const selectedDate = ref(todayStr)
 
 const selectedDateLabel = computed(() => {
   const d = new Date(selectedDate.value + 'T00:00:00')
-  return d.toLocaleDateString('zh-TW', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'})
+  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
 })
 
 const prevDay = async () => {
@@ -529,9 +535,8 @@ const dateStatus = ref({})
 const fetchDateStatusByYm = async (ym) => {
   try {
     const status = await (await fetch(`${BASE.value}/dates/${ym}`)).json()
-    dateStatus.value = {...dateStatus.value, ...status}
-  } catch {
-  }
+    dateStatus.value = { ...dateStatus.value, ...status }
+  } catch {}
 }
 
 const fetchDateStatus = async () => {
@@ -541,7 +546,7 @@ const fetchDateStatus = async () => {
 
 // ── 菜色 ──────────────────────────────────────────────────────────
 const menuLoading = ref(false)
-const menuItems = ref([])
+const menuItems   = ref([])
 
 const menuImgUrl = (path) => {
   if (!path || path.startsWith('http')) return path
@@ -556,11 +561,8 @@ const fetchMenu = async () => {
   try {
     const data = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
     menuItems.value = Array.isArray(data) ? data.filter(i => i.name?.trim() || i.images?.length > 0) : []
-  } catch {
-    menuItems.value = []
-  } finally {
-    menuLoading.value = false
-  }
+  } catch { menuItems.value = [] }
+  finally { menuLoading.value = false }
 }
 
 onMounted(async () => {
@@ -572,47 +574,35 @@ onMounted(async () => {
 const BOOKING_BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const bStep = ref(0)
 const bSteps = ['選擇日期', '填寫資料', '葷素選擇', '確認送出']
-const bForm = reactive({name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: ''})
+const bForm = reactive({ name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: '' })
 const bErrors = reactive({})
 const bSubmitting = ref(false)
 const bSubmitError = ref('')
-const bTimeSlots = ['11:00', '11:10', '11:20', '11:30', '11:40', '11:50', '12:00', '12:10', '12:20', '12:30', '12:40', '12:50', '13:00']
+const bTimeSlots = ['11:00','11:10','11:20','11:30','11:40','11:50','12:00','12:10','12:20','12:30','12:40','12:50','13:00']
 const bDietOptions = [
-  {value: '葷食', icon: '🍖', label: '葷食', desc: '含肉類料理'},
-  {value: '素食', icon: '🌿', label: '全素', desc: '不含蛋奶五辛'},
-  {value: '蛋奶素', icon: '🥚', label: '蛋奶素', desc: '可食蛋奶製品'},
-  {value: '五辛素', icon: '🧄', label: '五辛素', desc: '可食蔥薑蒜'},
+  { value: '葷食',   icon: '🍖', label: '葷食',   desc: '含肉類料理' },
+  { value: '素食',   icon: '🌿', label: '全素',   desc: '不含蛋奶五辛' },
+  { value: '蛋奶素', icon: '🥚', label: '蛋奶素', desc: '可食蛋奶製品' },
+  { value: '五辛素', icon: '🧄', label: '五辛素', desc: '可食蔥薑蒜' },
 ]
 
-const bCal = new Date();
-bCal.setHours(0, 0, 0, 0)
+const bCal = new Date(); bCal.setHours(0,0,0,0)
 const bTodayStr = toDateStr(bCal)
-const bCalYear = ref(bCal.getFullYear())
+const bCalYear  = ref(bCal.getFullYear())
 const bCalMonth = ref(bCal.getMonth() + 1)
 const bCanPrevMonth = computed(() =>
   bCalYear.value > bCal.getFullYear() || (bCalYear.value === bCal.getFullYear() && bCalMonth.value > bCal.getMonth() + 1))
-const bPrevMonth = () => {
-  if (!bCanPrevMonth.value) return;
-  if (bCalMonth.value === 1) {
-    bCalYear.value--;
-    bCalMonth.value = 12
-  } else bCalMonth.value--
-}
-const bNextMonth = () => {
-  if (bCalMonth.value === 12) {
-    bCalYear.value++;
-    bCalMonth.value = 1
-  } else bCalMonth.value++
-}
+const bPrevMonth = () => { if (!bCanPrevMonth.value) return; if (bCalMonth.value === 1) { bCalYear.value--; bCalMonth.value = 12 } else bCalMonth.value-- }
+const bNextMonth = () => { if (bCalMonth.value === 12) { bCalYear.value++; bCalMonth.value = 1 } else bCalMonth.value++ }
 const bCalDays = computed(() => {
   const firstDay = new Date(bCalYear.value, bCalMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(bCalYear.value, bCalMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null, disabled: true})
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null, disabled: true })
   for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(bCalMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+    const mm = String(bCalMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
     const str = `${bCalYear.value}-${mm}-${dd}`
-    days.push({label: d, date: str, disabled: str <= bTodayStr})
+    days.push({ label: d, date: str, disabled: str <= bTodayStr })
   }
   return days
 })
@@ -633,95 +623,70 @@ const bSelectDate = async (date) => {
     const data = await (await fetch(`${BOOKING_BASE.value}/get/${date}`)).json()
     const bookings = Array.isArray(data) ? data : []
     bDateGuests.value = bookings.reduce((sum, b) => sum + (b.guests || 0), 0)
-  } catch {
-    bDateGuests.value = 0
-  } finally {
-    bDateGuestsLoading.value = false
-  }
+  } catch { bDateGuests.value = 0 }
+  finally { bDateGuestsLoading.value = false }
 }
 const bSummary = computed(() => [
-  {label: '日期', value: bForm.date},
-  {label: '時間', value: bForm.time},
-  {label: '人數', value: `${bForm.guests} 人`},
-  {label: '葷素', value: bDietOptions.find(o => o.value === bForm.diet)?.label || '未指定'},
-  ...(bForm.note ? [{label: '備註', value: bForm.note}] : []),
+  { label: '日期', value: bForm.date },
+  { label: '時間', value: bForm.time },
+  { label: '人數', value: `${bForm.guests} 人` },
+  { label: '葷素', value: bDietOptions.find(o => o.value === bForm.diet)?.label || '未指定' },
+  ...(bForm.note ? [{ label: '備註', value: bForm.note }] : []),
 ])
 const bNextStep = () => {
   Object.keys(bErrors).forEach(k => delete bErrors[k])
-  if (bStep.value === 0 && !bForm.date) {
-    bErrors.date = '請選擇用餐日期';
-    return
-  }
+  if (bStep.value === 0 && !bForm.date) { bErrors.date = '請選擇用餐日期'; return }
   if (bStep.value === 1) {
     if (!bForm.name.trim()) bErrors.name = '請輸入姓名'
     if (!bForm.phone.trim()) bErrors.phone = '請輸入聯絡電話'
     if (Object.keys(bErrors).length > 0) return
   }
-  if (bStep.value === 2 && !bForm.diet) {
-    bErrors.diet = '請選擇葷素偏好';
-    return
-  }
+  if (bStep.value === 2 && !bForm.diet) { bErrors.diet = '請選擇葷素偏好'; return }
   bStep.value++
 }
 const bSubmit = async () => {
-  bSubmitError.value = '';
-  bSubmitting.value = true
+  bSubmitError.value = ''; bSubmitting.value = true
   try {
     const res = await fetch(`${BOOKING_BASE.value}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...bForm, status: '待確認'})
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...bForm, status: '待確認' })
     })
     if (!res.ok) throw new Error()
     // 重置表單
-    Object.assign(bForm, {name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: ''})
+    Object.assign(bForm, { name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: '' })
     bStep.value = 0
     alert('訂位已送出！我們將盡快電話確認，謝謝。')
-  } catch {
-    bSubmitError.value = '預約送出失敗，請稍後再試或直接來電。'
-  } finally {
-    bSubmitting.value = false
-  }
+  } catch { bSubmitError.value = '預約送出失敗，請稍後再試或直接來電。' }
+  finally { bSubmitting.value = false }
 }
 
 // ══ 便當預訂 ══════════════════════════════════════════════════════
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 const lStep = ref(0)
 const lSteps = ['選擇日期', '填寫資料', '確認送出']
-const lForm = reactive({name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: ''})
+const lForm = reactive({ name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: '' })
 const lErrors = reactive({})
 const lSubmitting = ref(false)
 const lSubmitError = ref('')
-const lTimeSlots = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00']
+const lTimeSlots = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00']
 
-const lCal = new Date();
-lCal.setHours(0, 0, 0, 0)
+const lCal = new Date(); lCal.setHours(0,0,0,0)
 const lTodayStr = toDateStr(lCal)
-const lCalYear = ref(lCal.getFullYear())
+const lCalYear  = ref(lCal.getFullYear())
 const lCalMonth = ref(lCal.getMonth() + 1)
 const lCanPrevMonth = computed(() =>
   lCalYear.value > lCal.getFullYear() || (lCalYear.value === lCal.getFullYear() && lCalMonth.value > lCal.getMonth() + 1))
-const lPrevMonth = () => {
-  if (!lCanPrevMonth.value) return;
-  if (lCalMonth.value === 1) {
-    lCalYear.value--;
-    lCalMonth.value = 12
-  } else lCalMonth.value--
-}
-const lNextMonth = () => {
-  if (lCalMonth.value === 12) {
-    lCalYear.value++;
-    lCalMonth.value = 1
-  } else lCalMonth.value++
-}
+const lPrevMonth = () => { if (!lCanPrevMonth.value) return; if (lCalMonth.value === 1) { lCalYear.value--; lCalMonth.value = 12 } else lCalMonth.value-- }
+const lNextMonth = () => { if (lCalMonth.value === 12) { lCalYear.value++; lCalMonth.value = 1 } else lCalMonth.value++ }
 const lCalDays = computed(() => {
   const firstDay = new Date(lCalYear.value, lCalMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(lCalYear.value, lCalMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null, disabled: true})
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null, disabled: true })
   for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(lCalMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+    const mm = String(lCalMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
     const str = `${lCalYear.value}-${mm}-${dd}`
-    days.push({label: d, date: str, disabled: str <= lTodayStr})
+    days.push({ label: d, date: str, disabled: str <= lTodayStr })
   }
   return days
 })
@@ -732,19 +697,16 @@ const lDayClass = (day) => {
   return 'text-stone-700 hover:bg-amber-100 hover:text-amber-800 cursor-pointer'
 }
 const lSummary = computed(() => [
-  {label: '日期', value: lForm.date},
-  {label: '取餐', value: lForm.time},
-  {label: '葷食', value: `${lForm.meatQty} 盒`},
-  {label: '素食', value: `${lForm.vegQty} 盒`},
-  {label: '合計', value: `${lForm.meatQty + lForm.vegQty} 盒`},
-  ...(lForm.note ? [{label: '備註', value: lForm.note}] : []),
+  { label: '日期', value: lForm.date },
+  { label: '取餐', value: lForm.time },
+  { label: '葷食', value: `${lForm.meatQty} 盒` },
+  { label: '素食', value: `${lForm.vegQty} 盒` },
+  { label: '合計', value: `${lForm.meatQty + lForm.vegQty} 盒` },
+  ...(lForm.note ? [{ label: '備註', value: lForm.note }] : []),
 ])
 const lNextStep = () => {
   Object.keys(lErrors).forEach(k => delete lErrors[k])
-  if (lStep.value === 0 && !lForm.date) {
-    lErrors.date = '請選擇取餐日期';
-    return
-  }
+  if (lStep.value === 0 && !lForm.date) { lErrors.date = '請選擇取餐日期'; return }
   if (lStep.value === 1) {
     if (!lForm.name.trim()) lErrors.name = '請輸入姓名'
     if (!lForm.phone.trim()) lErrors.phone = '請輸入聯絡電話'
@@ -754,34 +716,25 @@ const lNextStep = () => {
   lStep.value++
 }
 const lSubmit = async () => {
-  lSubmitError.value = '';
-  lSubmitting.value = true
+  lSubmitError.value = ''; lSubmitting.value = true
   try {
     const res = await fetch(`${LUNCH_BASE.value}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...lForm, status: '待確認'})
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...lForm, status: '待確認' })
     })
     if (!res.ok) throw new Error()
-    Object.assign(lForm, {name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: ''})
+    Object.assign(lForm, { name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: '' })
     lStep.value = 0
     alert('便當預訂已送出！我們將盡快電話確認，謝謝。')
-  } catch {
-    lSubmitError.value = '預訂送出失敗，請稍後再試或直接來電。'
-  } finally {
-    lSubmitting.value = false
-  }
+  } catch { lSubmitError.value = '預訂送出失敗，請稍後再試或直接來電。' }
+  finally { lSubmitting.value = false }
 }
 </script>
 
 <style scoped>
 /* 隱藏 number input 的上下箭頭 */
 input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type=number] {
-  -moz-appearance: textfield;
-}
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
 </style>
+
