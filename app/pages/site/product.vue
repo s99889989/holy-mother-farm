@@ -16,9 +16,9 @@
         </p>
 
         <div class="flex flex-wrap items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-          <span class="text-sm text-gray-600">線上訂購</span>
+          <a target="_blank" href="https://shopping.st-mary.org.tw/index.php" class="text-sm text-gray-600">線上訂購</a>
           <span class="text-sm text-gray-400">傳真訂購：</span>
-          <a href="#" class="text-sm text-teal-600 hover:underline">商品訂購單下載</a>
+          <a target="_blank" href="https://www.healthfarm.com.tw/file/order.pdf?20240927001" class="text-sm text-teal-600 hover:underline">商品訂購單下載</a>
           <span class="text-sm text-gray-400 ml-auto">來電訂購專線：089-381382分機888 週一至週六 上午8:00至下午5:30</span>
         </div>
 
