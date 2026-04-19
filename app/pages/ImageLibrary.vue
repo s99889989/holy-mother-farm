@@ -900,6 +900,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+import '~/assets/css/main.css'
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s, transform 0.3s;
 }

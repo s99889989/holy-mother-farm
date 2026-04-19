@@ -6,9 +6,9 @@ onMounted(() => {
     const btn = document.getElementById('myBtn')
     if (btn) {
       btn.style.display =
-        document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
-          ? 'block'
-          : 'none'
+          document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
+              ? 'block'
+              : 'none'
     }
   }
 
@@ -92,7 +92,7 @@ const allNews = ref([
         <div class="col-12">
           <p class="text-center intro-text">
             健康由安全飲食出發，<br class="d-md-none">我們希望能成為民眾健康的促進者，<br class="d-md-none">除提供安全的飲食外，<br
-            class="d-none d-md-inline-block">
+              class="d-none d-md-inline-block">
             也積極與部落及小農合作，<br class="d-md-none">輔導提供安全或有機的食材，<br>
             期盼能帶動部落朝向安全有機發展，<br class="d-md-none">進而改善促進部落與小農經濟。
           </p>

@@ -47,6 +47,7 @@
 </template>
 
 <script setup>
+import '~/assets/css/main.css'
 import { ref } from 'vue'
 import {useCommonStore} from '~/stores/common.js'
 const commonStore = useCommonStore()

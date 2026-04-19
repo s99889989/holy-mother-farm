@@ -1,0 +1,68 @@
+export function useSiteHead(title: string = '台東聖母健康農莊') {
+  useHead({
+    title,
+    meta: [
+      { charset: 'UTF-8' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+      { 'http-equiv': 'X-UA-Compatible', content: 'ie=edge' },
+      { name: 'format-detection', content: 'telephone=no' },
+    ],
+    link: [
+      {
+        rel: 'stylesheet',
+        href: 'https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css',
+        integrity: 'sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh',
+        crossorigin: 'anonymous',
+      },
+      {
+        rel: 'stylesheet',
+        href: 'https://unpkg.com/aos@next/dist/aos.css',
+      },
+      {
+        rel: 'stylesheet',
+        href: 'https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css',
+        integrity: 'sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN',
+        crossorigin: 'anonymous',
+      },
+      {
+        rel: 'stylesheet',
+        href: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.8.2/css/all.min.css',
+      },
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css?family=Noto+Sans+TC:300,400,500,700,900|Noto+Serif+TC:300,400,500,700,900&display=swap&subset=chinese-traditional',
+      },
+      {
+        rel: 'shortcut icon',
+        type: 'image/x-icon',
+        href: '/images/favicon.ico',
+      },
+    ],
+    script: [
+      {
+        src: 'https://code.jquery.com/jquery-3.4.1.slim.min.js',
+        integrity: 'sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n',
+        crossorigin: 'anonymous',
+      },
+      {
+        src: 'https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js',
+        integrity: 'sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo',
+        crossorigin: 'anonymous',
+      },
+      {
+        src: 'https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js',
+        integrity: 'sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6',
+        crossorigin: 'anonymous',
+      },
+      {
+        src: 'https://unpkg.com/aos@next/dist/aos.js',
+      },
+      {
+        src: 'https://connect.facebook.net/zh_TW/sdk.js#xfbml=1&version=v3.3',
+        async: true,
+        defer: true,
+        crossorigin: 'anonymous',
+      },
+    ],
+  })
+}
