@@ -19,7 +19,7 @@ export default defineNuxtConfig({
     css: {
       preprocessorOptions: {
         scss: {
-          silenceDeprecations: ['import'],
+
           loadPaths: ['app/assets/scss']
         }
       }
