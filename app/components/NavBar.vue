@@ -125,9 +125,9 @@ const changePassword = async () => {
             </button>
             <div id="dropdownNavbar1" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
               <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton1">
-                <li><NuxtLink to="/items/InventoryQuantity" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">餐廳小舖</NuxtLink></li>
-                <li><NuxtLink to="/items/ShopInventory" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">休憩小舖</NuxtLink></li>
-                <li><NuxtLink to="/items/CommonConfig" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">庫存設定</NuxtLink></li>
+                <li><NuxtLink to="/rear/items/InventoryQuantity" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">餐廳小舖</NuxtLink></li>
+                <li><NuxtLink to="/rear/items/ShopInventory" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">休憩小舖</NuxtLink></li>
+                <li><NuxtLink to="/rear/items/CommonConfig" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">庫存設定</NuxtLink></li>
               </ul>
             </div>
           </li>
@@ -143,18 +143,18 @@ const changePassword = async () => {
             </button>
             <div id="dropdownNavbar2" class="z-50 hidden bg-white dark:bg-zinc-800 border border-default-medium rounded-base shadow-lg w-52">
               <ul class="py-1 text-body font-medium" aria-labelledby="dropdownNvbarButton2">
-                <li><NuxtLink to="/check-in/BookIndex" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">訂位訂餐管理</NuxtLink></li>
-                <li><NuxtLink to="/AssetRegistry" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">財產清點</NuxtLink></li>
-                <li><NuxtLink to="/management/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">菜色紀錄</NuxtLink></li>
-                <li><NuxtLink to="/management/News" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">活動消息</NuxtLink></li>
-                <li><NuxtLink to="/ImageLibrary" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">資源管理</NuxtLink></li>
-                <li><NuxtLink to="/common/CashCount" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">點鈔作業</NuxtLink></li>
+                <li><NuxtLink to="/rear/check-in/BookIndex" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">訂位訂餐管理</NuxtLink></li>
+                <li><NuxtLink to="/rear/management/AssetRegistry" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">財產清點</NuxtLink></li>
+                <li><NuxtLink to="/rear/management/DailyMenu" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">菜色紀錄</NuxtLink></li>
+                <li><NuxtLink to="/rear/management/News" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">活動消息</NuxtLink></li>
+                <li><NuxtLink to="/rear/management/ImageLibrary" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">資源管理</NuxtLink></li>
+                <li><NuxtLink to="/rear/common/CashCount" class="block px-4 py-2.5 text-base hover:bg-neutral-tertiary rounded-lg transition-colors">點鈔作業</NuxtLink></li>
               </ul>
             </div>
           </li>
 
-          <li><NuxtLink to="/Todo" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">待辦</NuxtLink></li>
-          <li><NuxtLink to="/QuickLinks" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">常用連結</NuxtLink></li>
+          <li><NuxtLink to="/rear/Todo" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">待辦</NuxtLink></li>
+          <li><NuxtLink to="/rear/QuickLinks" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">常用連結</NuxtLink></li>
           <li><button @click="dark_mode.change_dark_mode" class="text-2xl block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">{{ dark_mode.data.display_name }}</button></li>
 
           <!-- 頭像下拉 -->

@@ -38,7 +38,7 @@
       </div>
 
       <div class="text-center mt-5">
-        <NuxtLink to="/" class="text-sm text-gray-400 hover:text-teal-600 transition-colors">
+        <NuxtLink to="/public" class="text-sm text-gray-400 hover:text-teal-600 transition-colors">
           ← 回到農莊網站
         </NuxtLink>
       </div>
