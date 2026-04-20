@@ -1,3 +1,394 @@
+<script setup>
+import '~/assets/css/main.css'
+import { ref, computed, reactive, onMounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
+const commonStore = useCommonStore()
+const BASE       = computed(() => commonStore.data.main_url + '/holy/booking')
+const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
+
+// ── 固定預訂規則面板開關
+const showRecurPanel = ref(false)
+
+// ── 共用日曆 ──────────────────────────────────────────────────────
+const apiOnline    = ref(false)
+const selectedDate = ref('')
+const today        = new Date()
+const todayStr     = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+const calYear      = ref(today.getFullYear())
+const calMonth     = ref(today.getMonth() + 1)
+
+const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
+const yearMonth     = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`)
+
+const calendarDays = computed(() => {
+  const firstDay    = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+  const days = []
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(calMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
+    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
+  }
+  return days
+})
+
+const dayClass = (day) => {
+  if (!day.date) return 'cursor-default'
+  if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
+  if (day.date === todayStr)           return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
+  return 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'
+}
+
+const prevMonth = () => {
+  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
+  fetchMarkedDates(); fetchSchedule(); fetchRecurring()
+}
+const nextMonth = () => {
+  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
+  fetchMarkedDates(); fetchSchedule(); fetchRecurring()
+}
+
+const selectDate = async (date) => {
+  selectedDate.value = date
+  await Promise.all([fetchBookings(), fetchLunchOrders()])
+}
+
+
+// ── 訂位 ──────────────────────────────────────────────────────────
+const bookings    = ref([])
+const markedDates = ref([])
+const timeSlots   = ['11:00', '11:10', '11:20', '11:30', '11:40', '11:50', '12:00', '12:10', '12:20', '12:30', '12:40', '12:50', '13:00']
+
+const bookingModal = reactive({ show: false, isNew: true })
+const bForm = reactive({ id:'', date:'', name:'', phone:'', guests:2, time:'12:00', status:'待確認', note:'' })
+
+const openBookingModal = (booking) => {
+  bookingModal.isNew = !booking
+  Object.assign(bForm, booking ?? { id:'', date: selectedDate.value, name:'', phone:'', guests:2, time:'12:00', status:'待確認', note:'' })
+  bookingModal.show = true
+}
+
+const fetchMarkedDates = async () => {
+  try {
+    const [bRes, lRes] = await Promise.all([
+      fetch(`${BASE.value}/dates/${yearMonth.value}`),
+      fetch(`${LUNCH_BASE.value}/dates/${yearMonth.value}`)
+    ])
+    if (bRes.ok) markedDates.value = await bRes.json()
+    if (lRes.ok) lunchMarkedDates.value = await lRes.json()
+    apiOnline.value = true
+  } catch { apiOnline.value = false }
+}
+
+const fetchBookings = async () => {
+  if (!selectedDate.value) return
+  bookings.value = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
+}
+
+const saveBooking = async () => {
+  if (!bForm.name) return
+  if (bookingModal.isNew) {
+    const saved = await (await fetch(`${BASE.value}/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...bForm, date: selectedDate.value }) })).json()
+    bookings.value.push(saved)
+    bookings.value.sort((a,b) => a.time.localeCompare(b.time))
+    if (!markedDates.value.includes(selectedDate.value)) markedDates.value.push(selectedDate.value)
+    showToast('訂位已新增')
+  } else {
+    await fetch(`${BASE.value}/update`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(bForm) })
+    await fetchBookings()
+    showToast('訂位已更新')
+  }
+  bookingModal.show = false
+}
+
+const confirmDeleteBooking = async (b) => {
+  if (!confirm(`確定刪除「${b.name}」的訂位？`)) return
+  await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, { method:'DELETE' })
+  bookings.value = bookings.value.filter(x => x.id !== b.id)
+  if (!bookings.value.length) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
+  showToast('訂位已刪除')
+}
+
+const toggleBookingStatus = async (b) => {
+  const next = b.status === '已確認' ? '待確認' : '已確認'
+  await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, { method:'PATCH' })
+  b.status = next
+  showToast(`狀態已更新為「${next}」`)
+}
+
+// ── 便當 ──────────────────────────────────────────────────────────
+const lunchOrders      = ref([])
+const lunchMarkedDates = ref([])
+const lunchTimeSlots   = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00']
+
+const lunchModal = reactive({ show: false, isNew: true })
+const lForm = reactive({ id:'', date:'', name:'', phone:'', meatQty:0, vegQty:0, time:'12:00', status:'待確認', note:'' })
+
+const totalMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
+const totalVeg  = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.vegQty)  || 0), 0))
+
+const recurBookingGuests = computed(() => {
+  if (!selectedDate.value) return 0
+  const dow = new Date(selectedDate.value).getDay()
+  return recurringRules.value
+    .filter(r => r.type !== 'lunch' &&
+      (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
+    .reduce((s, r) => s + (r.guests || 0), 0)
+})
+
+const openLunchModal = (order) => {
+  lunchModal.isNew = !order
+  Object.assign(lForm, order ?? { id:'', date: selectedDate.value, name:'', phone:'', meatQty:0, vegQty:0, time:'12:00', status:'待確認', note:'' })
+  lunchModal.show = true
+}
+
+const fetchLunchOrders = async () => {
+  if (!selectedDate.value) return
+  lunchOrders.value = await (await fetch(`${LUNCH_BASE.value}/get/${selectedDate.value}`)).json()
+}
+
+const saveLunch = async () => {
+  if (!lForm.name) return
+  if (lunchModal.isNew) {
+    const saved = await (await fetch(`${LUNCH_BASE.value}/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...lForm, date: selectedDate.value }) })).json()
+    lunchOrders.value.push(saved)
+    lunchOrders.value.sort((a,b) => a.time.localeCompare(b.time))
+    if (!lunchMarkedDates.value.includes(selectedDate.value)) lunchMarkedDates.value.push(selectedDate.value)
+    showToast('便當訂單已新增')
+  } else {
+    await fetch(`${LUNCH_BASE.value}/update`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(lForm) })
+    await fetchLunchOrders()
+    showToast('便當訂單已更新')
+  }
+  lunchModal.show = false
+}
+
+const confirmDeleteLunch = async (o) => {
+  if (!confirm(`確定刪除「${o.name}」的便當訂單？`)) return
+  await fetch(`${LUNCH_BASE.value}/remove/${o.date}/${o.id}`, { method:'DELETE' })
+  lunchOrders.value = lunchOrders.value.filter(x => x.id !== o.id)
+  if (!lunchOrders.value.length) lunchMarkedDates.value = lunchMarkedDates.value.filter(d => d !== selectedDate.value)
+  showToast('便當訂單已刪除')
+}
+
+const toggleLunchStatus = async (o) => {
+  const next = o.status === '已確認' ? '待確認' : '已確認'
+  await fetch(`${LUNCH_BASE.value}/status/${o.date}/${o.id}?status=${encodeURIComponent(next)}`, { method:'PATCH' })
+  o.status = next
+  showToast(`狀態已更新為「${next}」`)
+}
+
+// ── 當月預定 ──────────────────────────────────────────────────────
+const RECUR_BASE     = computed(() => commonStore.data.main_url + '/holy/recurring')
+const recurringRules = ref([])
+const recurModal     = reactive({ show: false, isNew: true })
+const recurForm      = reactive({ id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: [] })
+
+// 依目前月份載入當月預定
+const fetchRecurring = async () => {
+  try {
+    const ym = `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`
+    recurringRules.value = await (await fetch(`${RECUR_BASE.value}/list/${ym}`)).json()
+  } catch (e) { console.error(e) }
+}
+
+const openRecurModal = (rule) => {
+  recurModal.isNew = !rule
+  if (rule) {
+    Object.assign(recurForm, { id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00', guests: rule.guests || 2, note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : [] })
+  } else {
+    Object.assign(recurForm, { id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: [] })
+  }
+  recurModal.show = true
+}
+
+const saveRecurring = async () => {
+  if (!recurForm.name) return
+  const ym = `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`
+  try {
+    const saved = await (await fetch(`${RECUR_BASE.value}/save/${ym}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...recurForm })
+    })).json()
+    if (recurModal.isNew) recurringRules.value.push(saved)
+    else { const idx = recurringRules.value.findIndex(r => r.id === saved.id); if (idx >= 0) recurringRules.value[idx] = saved }
+    recurModal.show = false
+    showToast(recurModal.isNew ? '已新增' : '已更新')
+  } catch { showToast('儲存失敗') }
+}
+
+const deleteRecurring = async (id) => {
+  if (!confirm('確定刪除此預定？')) return
+  const ym = `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`
+  try {
+    await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, { method: 'DELETE' })
+    recurringRules.value = recurringRules.value.filter(r => r.id !== id)
+    showToast('已刪除')
+  } catch { showToast('刪除失敗') }
+}
+const SCHED_BASE       = computed(() => commonStore.data.main_url + '/holy/schedule')
+const schedSettingsOpen = ref(false)
+const schedDefault     = reactive({ activity: '康樂', count: '', time: '', enabled: true })
+const schedNotes       = ref('')
+const schedDayData     = ref({})
+const schedModal       = reactive({ show: false, date: '', data: { activity: '', count: '', time: '', note: '', holiday: '', enabled: null } })
+
+const schedYearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`)
+const schedFirstDay  = computed(() => new Date(calYear.value, calMonth.value - 1, 1).getDay())
+const schedTotalDays = computed(() => new Date(calYear.value, calMonth.value, 0).getDate())
+
+const schedDays = computed(() => {
+  const days = []
+  for (let d = 1; d <= schedTotalDays.value; d++) {
+    const mm = String(calMonth.value).padStart(2,'0')
+    const dd = String(d).padStart(2,'0')
+    const date = `${calYear.value}-${mm}-${dd}`
+    const dow  = new Date(calYear.value, calMonth.value - 1, d).getDay()
+    const custom = schedDayData.value[date] || {}
+    const enabled = custom.enabled !== undefined && custom.enabled !== null ? custom.enabled : schedDefault.enabled
+    days.push({
+      d, date, dow,
+      isToday:      date === todayStr,
+      hasCustom:    Object.keys(custom).length > 0,
+      showActivity: enabled,
+      activity:     custom.activity || schedDefault.activity,
+      count:        custom.count    || schedDefault.count,
+      time:         custom.time     || schedDefault.time,
+      note:         custom.note     || '',
+      holiday:      custom.holiday  || '',
+      // 訂位數量
+      bookingCount: markedDates.value.includes(date) ? 1 : 0,
+      lunchCount:   lunchMarkedDates.value.includes(date) ? 1 : 0,
+      // 固定預訂
+      recurItems:   recurExpand.value[date] || [],
+      // 人數加總：訂位 + 固定預訂
+      get totalGuests() {
+        const bookingGuests = 0  // markedDates 只知道有沒有，實際人數需點擊後才知道
+        const recurGuests = (recurExpand.value[date] || []).reduce((s, r) => s + (r.guests || 0), 0)
+        return recurGuests
+      }
+    })
+  }
+  return days
+})
+
+const schedSelectedDate = ref('')
+const schedDayBookings  = ref([])
+const schedDayLunch     = ref([])
+const schedDayRecur     = computed(() => recurExpand.value[schedSelectedDate.value] || [])
+
+const schedDayTotalGuests = computed(() => {
+  const bookingGuests = schedDayBookings.value.reduce((s, b) => s + (Number(b.guests) || 0), 0)
+  const recurGuests   = schedDayRecur.value.reduce((s, r) => s + (Number(r.guests) || 0), 0)
+  return bookingGuests + recurGuests
+})
+
+const selectSchedDate = async (date) => {
+  schedSelectedDate.value = date
+  try {
+    const [bRes, lRes] = await Promise.all([
+      fetch(`${BASE.value}/get/${date}`),
+      fetch(`${LUNCH_BASE.value}/get/${date}`)
+    ])
+    schedDayBookings.value = bRes.ok ? await bRes.json() : []
+    schedDayLunch.value    = lRes.ok ? await lRes.json() : []
+  } catch (e) { console.error(e) }
+}
+const fetchSchedule = async () => {
+  try {
+    const ym = schedYearMonth.value
+    // 同時載入行事曆設定、訂位標記、便當標記、固定預訂
+    const [schedRes, bookDates, lunchDates, recurRes] = await Promise.all([
+      fetch(`${SCHED_BASE.value}/get/${ym}`),
+      fetch(`${BASE.value}/dates/${ym}`),
+      fetch(`${LUNCH_BASE.value}/dates/${ym}`),
+      fetch(`${RECUR_BASE.value}/expand/${ym}`)
+    ])
+    if (schedRes.ok) {
+      const data = await schedRes.json()
+      const d = data.default || {}
+      schedDefault.activity = d.activity ?? '康樂'
+      schedDefault.count    = d.count    ?? ''
+      schedDefault.time     = d.time     ?? ''
+      schedDefault.enabled  = d.enabled  !== false
+      schedNotes.value      = data.notes || ''
+      schedDayData.value    = data.days  || {}
+    }
+    if (bookDates.ok) markedDates.value = await bookDates.json()
+    if (lunchDates.ok) lunchMarkedDates.value = await lunchDates.json()
+    if (recurRes.ok) recurExpand.value = await recurRes.json()
+  } catch (e) { console.error(e) }
+}
+
+const saveSchedDefault = async () => {
+  try {
+    await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...schedDefault, notes: schedNotes.value })
+    })
+    await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(schedNotes.value)
+    })
+    showToast('預設值已儲存')
+    schedSettingsOpen.value = false
+  } catch { showToast('儲存失敗') }
+}
+
+const openSchedModal = (day) => {
+  const custom = schedDayData.value[day.date] || {}
+  schedModal.date = day.date
+  schedModal.data = { activity: custom.activity||'', count: custom.count||'', time: custom.time||'', note: custom.note||'', holiday: custom.holiday||'', enabled: custom.enabled !== undefined ? custom.enabled : null }
+  schedModal.show = true
+}
+
+const saveSchedDay = async () => {
+  try {
+    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...schedModal.data})
+    })
+    const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
+    if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
+    else {
+      const nd = {...schedDayData.value};
+      delete nd[schedModal.date];
+      schedDayData.value = nd
+    }
+    schedModal.show = false;
+    showToast('已儲存')
+  } catch {
+    showToast('儲存失敗')
+  }
+}
+
+const clearSchedDay = async () => {
+  try {
+    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
+    const nd = {...schedDayData.value};
+    delete nd[schedModal.date];
+    schedDayData.value = nd
+    schedModal.show = false;
+    showToast('已重設為預設')
+  } catch {
+    showToast('操作失敗')
+  }
+}
+const toast = reactive({show: false, message: ''})
+const showToast = (msg) => {
+  toast.message = msg;
+  toast.show = true;
+  setTimeout(() => toast.show = false, 2500)
+}
+
+// ── 初始化 ────────────────────────────────────────────────────────
+onMounted(async () => {
+  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring()])
+  selectedDate.value = todayStr
+  await Promise.all([fetchBookings(), fetchLunchOrders()])
+})
+</script>
+
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
 
@@ -518,396 +909,6 @@
     </transition>
   </div>
 </template>
-
-<script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
-const commonStore = useCommonStore()
-const BASE       = computed(() => commonStore.data.main_url + '/holy/booking')
-const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
-
-// ── 固定預訂規則面板開關
-const showRecurPanel = ref(false)
-
-// ── 共用日曆 ──────────────────────────────────────────────────────
-const apiOnline    = ref(false)
-const selectedDate = ref('')
-const today        = new Date()
-const todayStr     = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
-const calYear      = ref(today.getFullYear())
-const calMonth     = ref(today.getMonth() + 1)
-
-const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
-const yearMonth     = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`)
-
-const calendarDays = computed(() => {
-  const firstDay    = new Date(calYear.value, calMonth.value - 1, 1).getDay()
-  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
-  const days = []
-  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(calMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
-    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
-  }
-  return days
-})
-
-const dayClass = (day) => {
-  if (!day.date) return 'cursor-default'
-  if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
-  if (day.date === todayStr)           return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
-  return 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'
-}
-
-const prevMonth = () => {
-  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
-  fetchMarkedDates(); fetchSchedule(); fetchRecurring()
-}
-const nextMonth = () => {
-  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
-  fetchMarkedDates(); fetchSchedule(); fetchRecurring()
-}
-
-const selectDate = async (date) => {
-  selectedDate.value = date
-  await Promise.all([fetchBookings(), fetchLunchOrders()])
-}
-
-
-// ── 訂位 ──────────────────────────────────────────────────────────
-const bookings    = ref([])
-const markedDates = ref([])
-const timeSlots   = ['11:00', '11:10', '11:20', '11:30', '11:40', '11:50', '12:00', '12:10', '12:20', '12:30', '12:40', '12:50', '13:00']
-
-const bookingModal = reactive({ show: false, isNew: true })
-const bForm = reactive({ id:'', date:'', name:'', phone:'', guests:2, time:'12:00', status:'待確認', note:'' })
-
-const openBookingModal = (booking) => {
-  bookingModal.isNew = !booking
-  Object.assign(bForm, booking ?? { id:'', date: selectedDate.value, name:'', phone:'', guests:2, time:'12:00', status:'待確認', note:'' })
-  bookingModal.show = true
-}
-
-const fetchMarkedDates = async () => {
-  try {
-    const [bRes, lRes] = await Promise.all([
-      fetch(`${BASE.value}/dates/${yearMonth.value}`),
-      fetch(`${LUNCH_BASE.value}/dates/${yearMonth.value}`)
-    ])
-    if (bRes.ok) markedDates.value = await bRes.json()
-    if (lRes.ok) lunchMarkedDates.value = await lRes.json()
-    apiOnline.value = true
-  } catch { apiOnline.value = false }
-}
-
-const fetchBookings = async () => {
-  if (!selectedDate.value) return
-  bookings.value = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
-}
-
-const saveBooking = async () => {
-  if (!bForm.name) return
-  if (bookingModal.isNew) {
-    const saved = await (await fetch(`${BASE.value}/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...bForm, date: selectedDate.value }) })).json()
-    bookings.value.push(saved)
-    bookings.value.sort((a,b) => a.time.localeCompare(b.time))
-    if (!markedDates.value.includes(selectedDate.value)) markedDates.value.push(selectedDate.value)
-    showToast('訂位已新增')
-  } else {
-    await fetch(`${BASE.value}/update`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(bForm) })
-    await fetchBookings()
-    showToast('訂位已更新')
-  }
-  bookingModal.show = false
-}
-
-const confirmDeleteBooking = async (b) => {
-  if (!confirm(`確定刪除「${b.name}」的訂位？`)) return
-  await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, { method:'DELETE' })
-  bookings.value = bookings.value.filter(x => x.id !== b.id)
-  if (!bookings.value.length) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
-  showToast('訂位已刪除')
-}
-
-const toggleBookingStatus = async (b) => {
-  const next = b.status === '已確認' ? '待確認' : '已確認'
-  await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, { method:'PATCH' })
-  b.status = next
-  showToast(`狀態已更新為「${next}」`)
-}
-
-// ── 便當 ──────────────────────────────────────────────────────────
-const lunchOrders      = ref([])
-const lunchMarkedDates = ref([])
-const lunchTimeSlots   = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00']
-
-const lunchModal = reactive({ show: false, isNew: true })
-const lForm = reactive({ id:'', date:'', name:'', phone:'', meatQty:0, vegQty:0, time:'12:00', status:'待確認', note:'' })
-
-const totalMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
-const totalVeg  = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.vegQty)  || 0), 0))
-
-const recurBookingGuests = computed(() => {
-  if (!selectedDate.value) return 0
-  const dow = new Date(selectedDate.value).getDay()
-  return recurringRules.value
-    .filter(r => r.type !== 'lunch' &&
-      (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
-    .reduce((s, r) => s + (r.guests || 0), 0)
-})
-
-const openLunchModal = (order) => {
-  lunchModal.isNew = !order
-  Object.assign(lForm, order ?? { id:'', date: selectedDate.value, name:'', phone:'', meatQty:0, vegQty:0, time:'12:00', status:'待確認', note:'' })
-  lunchModal.show = true
-}
-
-const fetchLunchOrders = async () => {
-  if (!selectedDate.value) return
-  lunchOrders.value = await (await fetch(`${LUNCH_BASE.value}/get/${selectedDate.value}`)).json()
-}
-
-const saveLunch = async () => {
-  if (!lForm.name) return
-  if (lunchModal.isNew) {
-    const saved = await (await fetch(`${LUNCH_BASE.value}/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...lForm, date: selectedDate.value }) })).json()
-    lunchOrders.value.push(saved)
-    lunchOrders.value.sort((a,b) => a.time.localeCompare(b.time))
-    if (!lunchMarkedDates.value.includes(selectedDate.value)) lunchMarkedDates.value.push(selectedDate.value)
-    showToast('便當訂單已新增')
-  } else {
-    await fetch(`${LUNCH_BASE.value}/update`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(lForm) })
-    await fetchLunchOrders()
-    showToast('便當訂單已更新')
-  }
-  lunchModal.show = false
-}
-
-const confirmDeleteLunch = async (o) => {
-  if (!confirm(`確定刪除「${o.name}」的便當訂單？`)) return
-  await fetch(`${LUNCH_BASE.value}/remove/${o.date}/${o.id}`, { method:'DELETE' })
-  lunchOrders.value = lunchOrders.value.filter(x => x.id !== o.id)
-  if (!lunchOrders.value.length) lunchMarkedDates.value = lunchMarkedDates.value.filter(d => d !== selectedDate.value)
-  showToast('便當訂單已刪除')
-}
-
-const toggleLunchStatus = async (o) => {
-  const next = o.status === '已確認' ? '待確認' : '已確認'
-  await fetch(`${LUNCH_BASE.value}/status/${o.date}/${o.id}?status=${encodeURIComponent(next)}`, { method:'PATCH' })
-  o.status = next
-  showToast(`狀態已更新為「${next}」`)
-}
-
-// ── 當月預定 ──────────────────────────────────────────────────────
-const RECUR_BASE     = computed(() => commonStore.data.main_url + '/holy/recurring')
-const recurringRules = ref([])
-const recurModal     = reactive({ show: false, isNew: true })
-const recurForm      = reactive({ id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: [] })
-
-// 依目前月份載入當月預定
-const fetchRecurring = async () => {
-  try {
-    const ym = `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`
-    recurringRules.value = await (await fetch(`${RECUR_BASE.value}/list/${ym}`)).json()
-  } catch (e) { console.error(e) }
-}
-
-const openRecurModal = (rule) => {
-  recurModal.isNew = !rule
-  if (rule) {
-    Object.assign(recurForm, { id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00', guests: rule.guests || 2, note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : [] })
-  } else {
-    Object.assign(recurForm, { id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: [] })
-  }
-  recurModal.show = true
-}
-
-const saveRecurring = async () => {
-  if (!recurForm.name) return
-  const ym = `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`
-  try {
-    const saved = await (await fetch(`${RECUR_BASE.value}/save/${ym}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...recurForm })
-    })).json()
-    if (recurModal.isNew) recurringRules.value.push(saved)
-    else { const idx = recurringRules.value.findIndex(r => r.id === saved.id); if (idx >= 0) recurringRules.value[idx] = saved }
-    recurModal.show = false
-    showToast(recurModal.isNew ? '已新增' : '已更新')
-  } catch { showToast('儲存失敗') }
-}
-
-const deleteRecurring = async (id) => {
-  if (!confirm('確定刪除此預定？')) return
-  const ym = `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`
-  try {
-    await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, { method: 'DELETE' })
-    recurringRules.value = recurringRules.value.filter(r => r.id !== id)
-    showToast('已刪除')
-  } catch { showToast('刪除失敗') }
-}
-const SCHED_BASE       = computed(() => commonStore.data.main_url + '/holy/schedule')
-const schedSettingsOpen = ref(false)
-const schedDefault     = reactive({ activity: '康樂', count: '', time: '', enabled: true })
-const schedNotes       = ref('')
-const schedDayData     = ref({})
-const schedModal       = reactive({ show: false, date: '', data: { activity: '', count: '', time: '', note: '', holiday: '', enabled: null } })
-
-const schedYearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`)
-const schedFirstDay  = computed(() => new Date(calYear.value, calMonth.value - 1, 1).getDay())
-const schedTotalDays = computed(() => new Date(calYear.value, calMonth.value, 0).getDate())
-
-const schedDays = computed(() => {
-  const days = []
-  for (let d = 1; d <= schedTotalDays.value; d++) {
-    const mm = String(calMonth.value).padStart(2,'0')
-    const dd = String(d).padStart(2,'0')
-    const date = `${calYear.value}-${mm}-${dd}`
-    const dow  = new Date(calYear.value, calMonth.value - 1, d).getDay()
-    const custom = schedDayData.value[date] || {}
-    const enabled = custom.enabled !== undefined && custom.enabled !== null ? custom.enabled : schedDefault.enabled
-    days.push({
-      d, date, dow,
-      isToday:      date === todayStr,
-      hasCustom:    Object.keys(custom).length > 0,
-      showActivity: enabled,
-      activity:     custom.activity || schedDefault.activity,
-      count:        custom.count    || schedDefault.count,
-      time:         custom.time     || schedDefault.time,
-      note:         custom.note     || '',
-      holiday:      custom.holiday  || '',
-      // 訂位數量
-      bookingCount: markedDates.value.includes(date) ? 1 : 0,
-      lunchCount:   lunchMarkedDates.value.includes(date) ? 1 : 0,
-      // 固定預訂
-      recurItems:   recurExpand.value[date] || [],
-      // 人數加總：訂位 + 固定預訂
-      get totalGuests() {
-        const bookingGuests = 0  // markedDates 只知道有沒有，實際人數需點擊後才知道
-        const recurGuests = (recurExpand.value[date] || []).reduce((s, r) => s + (r.guests || 0), 0)
-        return recurGuests
-      }
-    })
-  }
-  return days
-})
-
-const schedSelectedDate = ref('')
-const schedDayBookings  = ref([])
-const schedDayLunch     = ref([])
-const schedDayRecur     = computed(() => recurExpand.value[schedSelectedDate.value] || [])
-
-const schedDayTotalGuests = computed(() => {
-  const bookingGuests = schedDayBookings.value.reduce((s, b) => s + (Number(b.guests) || 0), 0)
-  const recurGuests   = schedDayRecur.value.reduce((s, r) => s + (Number(r.guests) || 0), 0)
-  return bookingGuests + recurGuests
-})
-
-const selectSchedDate = async (date) => {
-  schedSelectedDate.value = date
-  try {
-    const [bRes, lRes] = await Promise.all([
-      fetch(`${BASE.value}/get/${date}`),
-      fetch(`${LUNCH_BASE.value}/get/${date}`)
-    ])
-    schedDayBookings.value = bRes.ok ? await bRes.json() : []
-    schedDayLunch.value    = lRes.ok ? await lRes.json() : []
-  } catch (e) { console.error(e) }
-}
-const fetchSchedule = async () => {
-  try {
-    const ym = schedYearMonth.value
-    // 同時載入行事曆設定、訂位標記、便當標記、固定預訂
-    const [schedRes, bookDates, lunchDates, recurRes] = await Promise.all([
-      fetch(`${SCHED_BASE.value}/get/${ym}`),
-      fetch(`${BASE.value}/dates/${ym}`),
-      fetch(`${LUNCH_BASE.value}/dates/${ym}`),
-      fetch(`${RECUR_BASE.value}/expand/${ym}`)
-    ])
-    if (schedRes.ok) {
-      const data = await schedRes.json()
-      const d = data.default || {}
-      schedDefault.activity = d.activity ?? '康樂'
-      schedDefault.count    = d.count    ?? ''
-      schedDefault.time     = d.time     ?? ''
-      schedDefault.enabled  = d.enabled  !== false
-      schedNotes.value      = data.notes || ''
-      schedDayData.value    = data.days  || {}
-    }
-    if (bookDates.ok) markedDates.value = await bookDates.json()
-    if (lunchDates.ok) lunchMarkedDates.value = await lunchDates.json()
-    if (recurRes.ok) recurExpand.value = await recurRes.json()
-  } catch (e) { console.error(e) }
-}
-
-const saveSchedDefault = async () => {
-  try {
-    await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...schedDefault, notes: schedNotes.value })
-    })
-    await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(schedNotes.value)
-    })
-    showToast('預設值已儲存')
-    schedSettingsOpen.value = false
-  } catch { showToast('儲存失敗') }
-}
-
-const openSchedModal = (day) => {
-  const custom = schedDayData.value[day.date] || {}
-  schedModal.date = day.date
-  schedModal.data = { activity: custom.activity||'', count: custom.count||'', time: custom.time||'', note: custom.note||'', holiday: custom.holiday||'', enabled: custom.enabled !== undefined ? custom.enabled : null }
-  schedModal.show = true
-}
-
-const saveSchedDay = async () => {
-  try {
-    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...schedModal.data})
-    })
-    const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
-    if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
-    else {
-      const nd = {...schedDayData.value};
-      delete nd[schedModal.date];
-      schedDayData.value = nd
-    }
-    schedModal.show = false;
-    showToast('已儲存')
-  } catch {
-    showToast('儲存失敗')
-  }
-}
-
-const clearSchedDay = async () => {
-  try {
-    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
-    const nd = {...schedDayData.value};
-    delete nd[schedModal.date];
-    schedDayData.value = nd
-    schedModal.show = false;
-    showToast('已重設為預設')
-  } catch {
-    showToast('操作失敗')
-  }
-}
-const toast = reactive({show: false, message: ''})
-const showToast = (msg) => {
-  toast.message = msg;
-  toast.show = true;
-  setTimeout(() => toast.show = false, 2500)
-}
-
-// ── 初始化 ────────────────────────────────────────────────────────
-onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring()])
-  selectedDate.value = todayStr
-  await Promise.all([fetchBookings(), fetchLunchOrders()])
-})
-</script>
 
 <style scoped>
 .fade-enter-active, .fade-leave-active {

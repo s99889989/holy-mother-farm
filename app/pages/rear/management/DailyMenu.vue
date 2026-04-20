@@ -326,6 +326,7 @@
 </template>
 
 <script setup>
+import '~/assets/css/main.css'
 import { ref, computed, reactive, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
 

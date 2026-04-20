@@ -394,6 +394,7 @@
 </template>
 
 <script setup>
+import '~/assets/css/main.css'
 import {ref, computed, reactive, onMounted, onBeforeUnmount} from 'vue'
 import {useCommonStore} from '~/stores/common.js'
 import FolderTreeNode from '~/components/FolderTreeNode.vue'
