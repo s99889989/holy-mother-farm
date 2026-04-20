@@ -79,7 +79,7 @@ const login = async () => {
       console.log('登入成功 ')
       localStorage.setItem('holy_auth', 'ok')
       // router.push('/management/DailyMenu')
-      navigateTo('/QuickLinks')
+      navigateTo('/rear/QuickLinks')
       return
     } else {
       error.value = '帳號或密碼錯誤，請再試一次'
