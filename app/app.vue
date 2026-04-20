@@ -7,12 +7,12 @@ useHead({
     {rel: 'icon', href: '/favicon.ico'}
   ],
   htmlAttrs: {
-    lang: 'en'
+    lang: 'tw'
   }
 })
 
-const title = 'Nuxt Starter Template'
-const description = 'A production-ready starter template powered by Nuxt UI. Build beautiful, accessible, and performant applications in minutes, not hours.'
+const title = '台東聖母健康農莊'
+const description = ''
 
 useSeoMeta({
   title,

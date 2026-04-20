@@ -13,11 +13,19 @@ export default defineNuxtConfig({
   },
 
   css: [
-    // '~/assets/css/main.css'
+    '~/assets/scss/all.scss'
   ],
+  vite: {
+    css: {
+      preprocessorOptions: {
+        scss: {
+          silenceDeprecations: ['import']
+        }
+      }
+    }
+  },
 
   compatibilityDate: '2025-01-15',
-
   eslint: {
     config: {
       stylistic: {

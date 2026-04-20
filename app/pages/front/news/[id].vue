@@ -191,5 +191,5 @@ watch(() => route.params.id, () => {
 </template>
 
 <style lang="scss">
-@import '~/assets/scss/all';
+@use '~/assets/scss/all' as *;
 </style>

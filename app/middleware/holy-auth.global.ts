@@ -3,7 +3,7 @@ export default defineNuxtRouteMiddleware((to) => {
   if (import.meta.server) return
 
   if (to.path.startsWith('/site')) return
-  if (to.path.startsWith('/font')) return
+  if (to.path.startsWith('/front')) return
   if (to.path === '/login') return
   if (to.path === '/') return
 
