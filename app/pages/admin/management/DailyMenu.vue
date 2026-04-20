@@ -1,6 +1,7 @@
 <template>
   <ClientOnly>
     <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+      <AdminNavbar />
 
       <!-- ── 頂部導覽 ── -->
       <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">

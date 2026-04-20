@@ -1,5 +1,8 @@
 <script setup>
 useHead({
+  script: [
+    { children: `(function(){if(localStorage.getItem('adminDark')==='1'){document.documentElement.classList.add('dark')}})()` }
+  ],
   meta: [
     {name: 'viewport', content: 'width=device-width, initial-scale=1'}
   ],

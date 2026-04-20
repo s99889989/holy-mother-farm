@@ -1,7 +1,4 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
-
 export default defineNuxtConfig({
-  ssr: false,
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
@@ -14,26 +11,6 @@ export default defineNuxtConfig({
 
   css: [
   ],
-  vite: {
-    css: {
-      preprocessorOptions: {
-        scss: {
-          silenceDeprecations: ['import'],
-          loadPaths: ['app/assets/scss']
-        }
-      }
-    }
-  },
-
-  compatibilityDate: '2025-01-15',
-  eslint: {
-    config: {
-      stylistic: {
-        commaDangle: 'never',
-        braceStyle: '1tbs'
-      }
-    }
-  },
   // API 位址統一在這裡管理
   // 本地開發讀 .env，正式環境讀 Netlify 環境變數
 
@@ -46,6 +23,26 @@ export default defineNuxtConfig({
     '/**': {
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
+      }
+    }
+  },
+
+  compatibilityDate: '2025-01-15',
+  vite: {
+    css: {
+      preprocessorOptions: {
+        scss: {
+          silenceDeprecations: ['import'],
+          loadPaths: ['app/assets/scss']
+        }
+      }
+    }
+  },
+  eslint: {
+    config: {
+      stylistic: {
+        commaDangle: 'never',
+        braceStyle: '1tbs'
       }
     }
   }
