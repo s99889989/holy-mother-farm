@@ -677,5 +677,5 @@ const allNews = ref([
 </template>
 
 <style lang="scss">
-
+@use '~/assets/scss/all' as *;
 </style>

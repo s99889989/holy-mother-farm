@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   },
 
   css: [
-    '~/assets/scss/all.scss'
+
   ],
   vite: {
     css: {
