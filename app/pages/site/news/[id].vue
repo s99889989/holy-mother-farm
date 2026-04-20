@@ -126,7 +126,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCommonStore } from '~/stores/common.js'
-
+import '~/assets/css/main.css'
 definePageMeta({ layout: 'site' })
 
 const route       = useRoute()
