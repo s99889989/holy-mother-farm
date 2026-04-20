@@ -26,7 +26,17 @@ export default defineNuxtConfig({
       }
     }
   },
-
+  app: {
+    head: {
+      script: [
+        {
+          // 必須加 tagPosition: 'head' 且放在最前面
+          innerHTML: `(function(){try{if(localStorage.getItem('adminDark')==='1'){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+          tagPosition: 'head',
+        }
+      ]
+    }
+  },
   compatibilityDate: '2025-01-15',
   vite: {
     css: {
