@@ -2,12 +2,6 @@
 useSiteHead()
 
 onMounted(() => {
-  console.log('進入')
-  if (!sessionStorage.getItem('visited')) {
-    sessionStorage.setItem('visited', '1')
-    navigateTo(`/`)
-    console.log('跳頁')
-  }
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
     if (btn) {

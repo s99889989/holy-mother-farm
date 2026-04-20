@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDarkModeStore } from '~/stores/dark_mode'
 import { useCommonStore } from '~/stores/common.js'
 import { useFlowbite } from '~/components/useFlowbite'
@@ -7,6 +8,26 @@ import { initFlowbite } from 'flowbite'
 
 const dark_mode   = useDarkModeStore()
 const commonStore = useCommonStore()
+const router      = useRouter()
+
+// 路由切換時關閉所有 Flowbite dropdown / navbar
+watch(() => router.currentRoute.value.path, () => {
+  setTimeout(() => {
+    // 關閉 dropdown 選單
+    document.querySelectorAll('[data-dropdown-toggle]').forEach(btn => {
+      const targetId = btn.getAttribute('data-dropdown-toggle')
+      const dropdown = targetId ? document.getElementById(targetId) : null
+      dropdown?.classList.add('hidden')
+    })
+    // 關閉手機版漢堡選單
+    const navbarToggle = document.querySelector('[data-collapse-toggle="navbar-dropdown"]')
+    const navbar = document.getElementById('navbar-dropdown')
+    if (navbarToggle && navbar && !navbar.classList.contains('hidden')) {
+      navbar.classList.add('hidden')
+      navbarToggle.setAttribute('aria-expanded', 'false')
+    }
+  }, 100)
+})
 
 // ── 頭像下拉 ──────────────────────────────────────────────────────
 const menuOpen  = ref(false)
