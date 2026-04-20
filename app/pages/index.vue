@@ -1,6 +1,5 @@
 <script setup>
 useSiteHead()
-
 onMounted(() => {
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
