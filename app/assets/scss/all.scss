@@ -1,14 +1,13 @@
-
-@import "mixin";
-@import "ebootstrap";
-@import "bar";
-@import "navbar";
-@import "cover";
-@import "homepage";
-@import "about";
-@import "swiper";
-@import "cusslide";
-@import "news";
+@use "mixin" as *;
+@use "ebootstrap" as *;
+@use "bar" as *;
+@use "navbar" as *;
+@use "cover" as *;
+@use "homepage" as *;
+@use "about" as *;
+@use "swiper" as *;
+@use "cusslide" as *;
+@use "news" as *;
 
 $font-size: 22px;
 $line-height: 40px;
@@ -118,26 +117,17 @@ body {
   margin: 0 !important;
 }
 
-
-
-
 html {
     @include desktop() {
         scroll-behavior: smooth;
     }
 }
 
-
 // content
 .sub-nav {
     font-size: $font-size * 1.2;
     color: #2ab381;
     font-weight: 500;
-    // @include pad {
-    //   font-size: $font-size * 1;
-    //   letter-spacing: $letter-spacing * 2;
-    //   color: #2ab381;
-    // }
     @include mobile {
         font-size: 14pt;
         color: #2ab381;
@@ -153,9 +143,6 @@ html {
             color: #f5a21b;
             text-decoration: none;
         }
-        // @include pad {
-        //   font-size: $font-size * 1;
-        // }
         @include mobile {
             font-size: 14pt;
             color: #2ab381;
@@ -166,7 +153,6 @@ html {
         }
     }
   }
-
 
 .header {
 display: inline-block;
@@ -234,90 +220,54 @@ display: inline-block;
   }
 }
 
-// #grass {
-//     position: relative;
-// }
+// product
+.cus-card {
+  border: 1px solid #57D2B5;
+  border-top: 5px solid #57D2B5;
+}
 
-// #grass>img {
-//     position: absolute;
-//     right: -80px;
-//     top: -140px;
-//     @include pad {
-//       position: absolute;
-//       right: -60px;
-//       top: -130px;
-//     }
-//     @include mobile {
-//         position: absolute;
-//         transform: scale(0.1);
-//         right: -50px;
-//         top: -90px;
-//     }
-// }
+.card-text {
+  font-size: 24px;
+}
 
+.arrow-right {
+  position: absolute;
+  right: 10px;
+  transform: translateY(50%)
+}
 
+// Prod
+.prod-color {
+  color: #A56371;
+}
 
+.prod-dotted-line {
+  border-bottom: 3px dotted #ccc;
+  padding-top: 8px;
+  margin-bottom: 8px;
+}
 
-  // product
-  .cus-card {
-    border: 1px solid #57D2B5;
-    border-top: 5px solid #57D2B5;
+.price-color {
+  color: #cb4800;
+}
+
+.card-text {
+  @include pad {
+    font-size: 18px;
   }
-
-  .card-text {
-    font-size: 24px;
+  @include mobile {
+    font-size: 18px;
   }
+}
 
-  .arrow-right {
-    position: absolute;
-    right: 10px;
-    transform: translateY(50%)
+// access
+.target {
+  display: inline-block;
+  transform: scale(0.6) translateY(-10px);
+  @include mobile {
+    transform: scale(0.4) translateY(-6px);
   }
-
-
-  // Prod
-  .prod-color {
-    color: #A56371;
-    @include pad {
-    }
-    @include mobile {
-    }
-  }
-
-  .prod-dotted-line {
-    border-bottom: 3px dotted #ccc;
-    padding-top: 8px;
-    margin-bottom: 8px;
-  }
-
-  .price-color {
-    color: #cb4800;
-    @include pad {
-    }
-    @include mobile {
-    }
-  }
-
-  .card-text {
-    @include pad {
-      font-size: 18px;
-    }
-    @include mobile {
-      font-size: 18px;
-    }
-  }
-
-
-
-
-  // access
-  .target {
-    display: inline-block;
-    transform: scale(0.6) translateY(-10px);
-    @include mobile {
-      transform: scale(0.4) translateY(-6px);
-    }
-  }
+}
 
 .cus-button>a {
   text-align: center;
@@ -347,9 +297,6 @@ display: inline-block;
   padding: 10px 40px;
   border-radius: 30px;
   transition-duration: 0.2s;
-  // @include pad {
-  //   font-size: $font-size * 0.8;
-  // }
   @include mobile {
     font-size: $font-size * 0.7;
   }
@@ -361,65 +308,52 @@ display: inline-block;
 }
 
 #myBtn {
-  // display: none; /* Hidden by default */
-  // position: fixed; /* Fixed/sticky position */
-  // bottom: 20px; /* Place the button at the bottom of the page */
-  // right: 30px; /* Place the button 30px from the right */
-  // z-index: 900; /* Make sure it does not overlap */
-  // border: none; /* Remove borders */
-  // outline: none; /* Remove outline */
-  // background-color:#333; /* Set a background color */
-  // opacity: 0.7;
-  // cursor: pointer; /* Add a mouse pointer on hover */
-  // padding: 10px; /* Some padding */
-  // border-radius: 10px; /* Rounded corners */
-  // transition: 0.5s;
   @include pad {
-    display: none; /* Hidden by default */
-    position: fixed; /* Fixed/sticky position */
-    bottom: 10px; /* Place the button at the bottom of the page */
-    right: 15px; /* Place the button 30px from the right */
-    z-index: 900; /* Make sure it does not overlap */
-    border: none; /* Remove borders */
-    outline: none; /* Remove outline */
-    background-color:#333; /* Set a background color */
+    display: none;
+    position: fixed;
+    bottom: 10px;
+    right: 15px;
+    z-index: 900;
+    border: none;
+    outline: none;
+    background-color:#333;
     opacity: 0.25;
-    cursor: pointer; /* Add a mouse pointer on hover */
-    padding: 10px; /* Some padding */
-    border-radius: 100%; /* Rounded corners */
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 100%;
     transition: 0.5s;
   }
   i {
-    font-size: 50px; /* Increase font size */
-    color: white; /* Text color */
+    font-size: 50px;
+    color: white;
     @include mobile {
-        font-size: 30px; /* Increase font size */
-        color: white; /* Text color */
+        font-size: 30px;
+        color: white;
       }
   }
   @include mobile {
-    display: none; /* Hidden by default */
-    position: fixed; /* Fixed/sticky position */
-    bottom: 10px; /* Place the button at the bottom of the page */
-    right: 15px; /* Place the button 30px from the right */
-    z-index: 900; /* Make sure it does not overlap */
-    border: none; /* Remove borders */
-    outline: none; /* Remove outline */
-    background-color:#333; /* Set a background color */
+    display: none;
+    position: fixed;
+    bottom: 10px;
+    right: 15px;
+    z-index: 900;
+    border: none;
+    outline: none;
+    background-color:#333;
     opacity: 0.25;
-    cursor: pointer; /* Add a mouse pointer on hover */
-    padding: 6px; /* Some padding */
-    border-radius: 100%; /* Rounded corners */
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 100%;
     transition: 0.5s;
   }
   i {
-    font-size: 40px; /* Increase font size */
-    color: white; /* Text color */
+    font-size: 40px;
+    color: white;
     @include mobile {
-        font-size: 20px; /* Increase font size */
-        color: white; /* Text color */
+        font-size: 20px;
+        color: white;
         border: 10px solid transparent;
-          background-clip: padding-box;
+        background-clip: padding-box;
       }
   }
 }
@@ -429,8 +363,6 @@ display: inline-block;
 }
 
 // carousel
-
-
 .carousel-indicators li {
   width: 20px;
   height: 20px;
@@ -534,7 +466,6 @@ display: inline-block;
   transform: translateX(-50%);
   bottom: 10px;
 }
-
 
 .access-info-text {
   @include mobile {

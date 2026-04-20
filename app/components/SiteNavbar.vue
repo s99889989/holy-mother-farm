@@ -21,7 +21,7 @@ function toggleMenu() {
   >
     <div class="nav-header">
       <div class="navLogo">
-        <NuxtLink class="navbar-brand mob-logo" to="/front/public">
+        <NuxtLink class="navbar-brand mob-logo" to="/">
           <img src="/images/global/healthfarm_logo.png" alt="聖母健康農莊">
         </NuxtLink>
       </div>
@@ -36,7 +36,7 @@ function toggleMenu() {
         aria-multiselectable="true"
     >
       <li>
-        <NuxtLink to="/front/public">首頁</NuxtLink>
+        <NuxtLink to="/">首頁</NuxtLink>
         <span>
           <a href="https://www.facebook.com/st.maryhealthfarm/" target="_blank">
             <i class="fab fa-facebook-square" style="transform: scale(1.3) translateX(200%); color:#fff"></i>
@@ -85,7 +85,7 @@ function toggleMenu() {
     <nav class="navbar navbar-expand-xl navbar-light bg-light nav-shadow d-nav" id="navbar">
       <div class="container">
         <div class="col-xl-3 align-middle pl-5">
-          <NuxtLink class="navbar-brand d-logo" to="/front/public">
+          <NuxtLink class="navbar-brand d-logo" to="/">
             <img src="/images/global/healthfarm_logo.png" alt="聖母健康農莊">
           </NuxtLink>
         </div>
@@ -156,3 +156,4 @@ function toggleMenu() {
     </nav>
   </div>
 </template>
+

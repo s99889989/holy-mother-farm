@@ -1,6 +1,5 @@
 <script setup>
 useSiteHead()
-
 onMounted(() => {
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
@@ -671,5 +670,5 @@ const allNews = ref([
 </template>
 
 <style lang="scss">
-@import '~/assets/scss/all';
+@use '~/assets/scss/all' as *;
 </style>

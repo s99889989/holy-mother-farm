@@ -38,7 +38,7 @@
       </div>
 
       <div class="text-center mt-5">
-        <NuxtLink to="/" class="text-sm text-gray-400 hover:text-teal-600 transition-colors">
+        <NuxtLink to="/public" class="text-sm text-gray-400 hover:text-teal-600 transition-colors">
           ← 回到農莊網站
         </NuxtLink>
       </div>
@@ -79,7 +79,7 @@ const login = async () => {
       console.log('登入成功 ')
       localStorage.setItem('holy_auth', 'ok')
       // router.push('/management/DailyMenu')
-      navigateTo('/QuickLinks')
+      navigateTo('/rear/QuickLinks')
       return
     } else {
       error.value = '帳號或密碼錯誤，請再試一次'

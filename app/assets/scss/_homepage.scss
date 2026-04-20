@@ -1,3 +1,4 @@
+@use "mixin" as *;
 // cover slide
 .desktop-cover-mask {
   mask-image: url(../images/homepage/healthfarm_hp_topphoto_mask.png);
@@ -891,4 +892,4 @@
     top: -80px;
     transform: scale(0.7);
   }
-}
+}

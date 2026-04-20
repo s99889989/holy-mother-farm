@@ -561,6 +561,7 @@
 </template>
 
 <script setup>
+import '~/assets/css/main.css'
 import {ref, reactive, computed, onMounted, nextTick} from 'vue'
 import {useCommonStore} from '~/stores/common.js'
 
@@ -1084,6 +1085,7 @@ const deleteCategory = async (cat) => {
 </script>
 
 <style scoped>
+
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap');
 
 .fade-enter-active, .fade-leave-active {

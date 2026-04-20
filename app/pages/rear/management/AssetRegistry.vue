@@ -381,6 +381,7 @@
 </template>
 
 <script setup>
+import '~/assets/css/main.css'
 import {ref, computed, reactive, onMounted} from 'vue'
 import {useCommonStore} from '~/stores/common.js'
 

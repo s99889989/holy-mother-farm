@@ -326,6 +326,7 @@
 </template>
 
 <script setup>
+import '~/assets/css/main.css'
 import { ref, computed, reactive, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
 
@@ -791,6 +792,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+@use '~/assets/scs/main' as *;
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>

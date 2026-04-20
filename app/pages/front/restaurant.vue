@@ -227,5 +227,5 @@ function topFunction() {
 </template>
 
 <style lang="scss">
-@import '~/assets/scss/all';
+@use '~/assets/scss/all' as *;
 </style>

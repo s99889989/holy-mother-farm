@@ -1,3 +1,4 @@
+@use "mixin" as *;
 // cover
 .hp-cover-photo {
     background-size: cover;
@@ -68,4 +69,4 @@
   //     opacity: 1;
   //     transform: translate(-50%, -54%)
   //   }
-  // }
+  // }
