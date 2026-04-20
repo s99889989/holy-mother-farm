@@ -12,7 +12,9 @@ export default defineNuxtConfig({
     enabled: true
   },
 
-  css: [],
+  css: [
+    '~/assets/scss/all.scss'
+  ],
   vite: {
     css: {
       preprocessorOptions: {
