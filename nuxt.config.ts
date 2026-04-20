@@ -12,14 +12,13 @@ export default defineNuxtConfig({
     enabled: true
   },
 
-  css: [
-    '~/assets/scss/all.scss'
-  ],
+  css: [],
   vite: {
     css: {
       preprocessorOptions: {
         scss: {
-          silenceDeprecations: ['import']
+          silenceDeprecations: ['import'],
+          loadPaths: ['app/assets/scss']
         }
       }
     }
