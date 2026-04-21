@@ -154,7 +154,7 @@ const changePassword = async () => {
       <div v-for="group in navGroups" :key="group.label" class="relative nav-dropdown-wrap">
         <button
           @click.stop="toggleDrop(group.label)"
-          class="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap"
+          class="flex items-center gap-1 px-2.5 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
           :class="activeGroup?.label === group.label
             ? 'text-blue-700 dark:text-blue-500'
             : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -179,7 +179,7 @@ const changePassword = async () => {
               <li v-for="item in group.items" :key="item.to">
                 <NuxtLink
                   :to="item.to"
-                  class="block px-3 py-1.5 rounded text-base font-medium transition-colors whitespace-nowrap"
+                  class="block px-3 py-1.5 rounded text-lg font-medium transition-colors whitespace-nowrap"
                   :class="route.path.startsWith(item.to)
                     ? 'text-white bg-blue-700 dark:bg-transparent dark:text-blue-500'
                     : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -194,7 +194,7 @@ const changePassword = async () => {
       <NuxtLink
         v-for="item in standaloneItems" :key="item.to"
         :to="item.to"
-        class="px-2.5 py-1 rounded text-base font-medium transition-colors whitespace-nowrap"
+        class="px-2.5 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
         :class="route.path.startsWith(item.to)
           ? 'text-white bg-blue-700 md:bg-transparent md:text-blue-700 dark:md:text-blue-500'
           : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -275,7 +275,7 @@ const changePassword = async () => {
 
     <!-- 手機 -->
     <div class="sm:hidden flex items-center justify-between">
-      <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">後台導覽</span>
+      <span class="text-lg text-gray-500 dark:text-gray-400 font-medium">後台導覽</span>
       <div class="flex items-center gap-1">
         <!-- 開燈 / 關燈 -->
         <button @click="toggleDark"
@@ -313,12 +313,12 @@ const changePassword = async () => {
       <div v-if="mobileOpen"
            class="sm:hidden mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-2">
         <div v-for="group in navGroups" :key="group.label">
-          <p class="text-xs text-gray-400 dark:text-gray-500 font-semibold px-1 mb-1">{{ group.label }}</p>
+          <p class="text-lg text-gray-400 dark:text-gray-500 font-semibold px-1 mb-1">{{ group.label }}</p>
           <div class="grid grid-cols-3 gap-1">
             <NuxtLink
               v-for="item in group.items" :key="item.to"
               :to="item.to"
-              class="px-2 py-1.5 rounded text-xs font-medium text-center transition-colors"
+              class="px-2 py-1.5 rounded text-lg font-medium text-center transition-colors"
               :class="route.path.startsWith(item.to)
                 ? 'text-white bg-blue-700 dark:bg-transparent dark:text-blue-500'
                 : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -330,7 +330,7 @@ const changePassword = async () => {
           <NuxtLink
             v-for="item in standaloneItems" :key="item.to"
             :to="item.to"
-            class="px-2 py-1.5 rounded text-xs font-medium text-center transition-colors"
+            class="px-2 py-1.5 rounded text-lg font-medium text-center transition-colors"
             :class="route.path.startsWith(item.to)
                 ? 'text-white bg-blue-700 dark:bg-transparent dark:text-blue-500'
                 : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -358,22 +358,22 @@ const changePassword = async () => {
       </div>
       <div v-else class="space-y-4">
         <div>
-          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">舊密碼</label>
+          <label class="text-lg font-semibold text-stone-600 dark:text-stone-300 block mb-1">舊密碼</label>
           <input v-model="pwForm.oldPassword" type="password" placeholder="請輸入舊密碼"
                  class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400"/>
         </div>
         <div>
-          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">新密碼</label>
+          <label class="text-lg font-semibold text-stone-600 dark:text-stone-300 block mb-1">新密碼</label>
           <input v-model="pwForm.newPassword" type="password" placeholder="請輸入新密碼"
                  class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400"/>
         </div>
         <div>
-          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">確認新密碼</label>
+          <label class="text-lg font-semibold text-stone-600 dark:text-stone-300 block mb-1">確認新密碼</label>
           <input v-model="pwForm.confirm" type="password" placeholder="再次輸入新密碼"
                  @keydown.enter="changePassword"
                  class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400"/>
         </div>
-        <p v-if="pwError" class="text-xs text-red-500">{{ pwError }}</p>
+        <p v-if="pwError" class="text-lg text-red-500">{{ pwError }}</p>
         <div class="flex gap-2 pt-1">
           <button @click="pwModal = false"
                   class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
