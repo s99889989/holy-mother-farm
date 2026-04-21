@@ -1,5 +1,9 @@
 <script setup>
+import {useCommonStore} from "~/stores/common.js";
+
 useSiteHead()
+
+
 onMounted(() => {
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
@@ -11,12 +15,21 @@ onMounted(() => {
     }
   }
 
-  // 初始化 Bootstrap carousel（nextTick 確保 DOM ready）
   nextTick(() => {
+    // Bootstrap carousel
     if (typeof window !== 'undefined' && window.$) {
-      window.$('#carousel-with-lb').carousel({interval: 5000, ride: 'carousel'})
+      window.$('#carousel-with-lb').carousel({ interval: 5000, ride: 'carousel' })
+    }
+
+    // ✅ 初始化 AOS
+    if (typeof window !== 'undefined' && window.AOS) {
+      window.AOS.init({
+        duration: 800,
+        once: true   // 因為所有元素都用了 data-aos-once="true"
+      })
     }
   })
+  fetchNews()
 })
 
 function topFunction() {
@@ -36,23 +49,22 @@ function carouselNext() {
   }
 }
 
-// ---- 模擬資料（之後替換成 API 呼叫） ----
-const allNews = ref([
-  {
-    id: '7756471d-2e3a-4d88-8744-35baff74ec46',
-    image: '/images/news/example/7756471d-2e3a-4d88-8744-35baff74ec46.jpeg',
-    createdAt: '2026-04-16',
-    title: '親手製作一個「修女祈福蛋糕」~獻給媽媽~',
-    parseHtml: ''
-  },
-  {
-    id: '44d46a8b-554e-43ea-a292-113b02dd7bbd',
-    image: '/images/news/example/44d46a8b-554e-43ea-a292-113b02dd7bbd.png',
-    createdAt: '2026-03-30',
-    title: '大地的孩子:聖母健康農莊探索體驗營',
-    parseHtml: '🌿 2026 聖母健康農莊「探索體驗營」報名開跑！\n讓孩子回到土地，成為大地的孩子，寫下難忘的生命印記！\n【活動亮點】\n五大任務： 認識土地、料理達人、自然偵探、合作隊長、健康生活家。'
+const commonStore = useCommonStore()
+const BASE = computed(() => commonStore.data.main_url + '/holy/news')
+
+const allNews = ref([])
+const newsLoading = ref(false)
+const fetchNews = async () => {
+  console.log('讀取資料')
+  newsLoading.value = true
+  try {
+    allNews.value = await (await fetch(`${BASE.value}/list`)).json()
+  } catch {
+    allNews.value = []
+  } finally {
+    newsLoading.value = false
   }
-])
+}
 </script>
 
 <template>
@@ -192,7 +204,7 @@ const allNews = ref([
             <template v-for="item in allNews.slice(0, 3)" :key="item.id">
               <div class="col-10 my-3">
                 <NuxtLink :to="`/front/news/${item.id}`" style="color: #44271a; text-decoration: none;">
-                  <span class="news-date">{{ item.createdAt }} {{ item.title }}</span>
+                  <span class="news-date">{{ item.date }} {{ item.title }}</span>
                 </NuxtLink>
               </div>
               <div class="col-10 bar-black-dashed my-2"></div>

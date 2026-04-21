@@ -11,65 +11,40 @@ const latestYear = new Date().getFullYear()   // 今年，上限
 const selectedYear = computed(() => Number(route.query.year) || latestYear)
 const prevYear = computed(() => selectedYear.value - 1)
 
-// ---- 模擬資料（之後替換成 API 呼叫） ----
-const allNews = ref([
-  {
-    id: '7756471d-2e3a-4d88-8744-35baff74ec46',
-    image: '/images/news/example/7756471d-2e3a-4d88-8744-35baff74ec46.jpeg',
-    createdAt: '2026-04-16',
-    title: '親手製作一個「修女祈福蛋糕」~獻給媽媽~',
-    parseHtml: ''
-  },
-  {
-    id: '44d46a8b-554e-43ea-a292-113b02dd7bbd',
-    image: '/images/news/example/44d46a8b-554e-43ea-a292-113b02dd7bbd.png',
-    createdAt: '2026-03-30',
-    title: '大地的孩子:聖母健康農莊探索體驗營',
-    parseHtml: `
-      <p>🌿 2026 聖母健康農莊「探索體驗營」報名開跑！</p>
-      <p>讓孩子回到土地，成為大地的孩子，寫下難忘的生命印記！</p>
-      <h5>【活動亮點】</h5>
-      <p>五大任務： 認識土地、料理達人、自然偵探、合作隊長、健康生活家。<br>
-      豐富行程： 走讀農莊、烘焙手作、樹冠層體驗、原民風味餐、夜間觀察。</p>
-      <h5>【活動資訊】</h5>
-      <p>
-        日期： 2026/7/9 (四) ～ 7/12 (日)<br>
-        對象： 新學期升四至升七年級學生（限額 20 位）<br>
-        地點： 台東聖母健康農莊（台東市博物館路110號）<br>
-        費用： 6,800元
-      </p>
-      <p>
-        💰 早鳥優惠： 6/1 前報名享 5,500元。<br>
-        👭 兩人同行： 一起報名不須早鳥亦享 5,500元/人。
-      </p>
-      <h5>【家長重要提醒】</h5>
-      <p>
-        成果發表： 7/12 (日) 12:00 歡迎家長參與午宴及發表會。<br>
-        交通接駁： 提供 7/9 報到及 7/12 賦歸之台東火車站/機場接駁。
-      </p>
-      <p>🔗 立即線上報名：<br>
-        👉 <a href="https://www.beclass.com/rid=30525d169a92635ec349" target="_blank">https://www.beclass.com/rid=30525d169a92635ec349</a>
-      </p>
-      <p>📞 活動諮詢： 0937-652654 王主任</p>
-      <p>✨ 邀請孩子走進自然，體驗從農田到餐桌的真實感動！ ✨</p>
-    `
+const commonStore = useCommonStore()
+const BASE = computed(() => commonStore.data.main_url + '/holy/news')
+const API_ORIGIN = computed(() => commonStore.data.main_url)
+
+const apiUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return API_ORIGIN.value + path
+}
+
+const allNews = ref([])
+
+const fetchNews = async () => {
+  try {
+    allNews.value = await (await fetch(`${BASE.value}/list`)).json()
+  } catch {
+    allNews.value = []
   }
-])
+}
 
 // 依年份篩選
 const newsList = computed(() =>
-    allNews.value.filter(n => n.createdAt.startsWith(String(selectedYear.value)))
+  allNews.value.filter(n => n.date?.startsWith(String(selectedYear.value)))
 )
 
 // ---- scroll-to-top ----
-onMounted(() => {
+onMounted(async () => {
+  await fetchNews()
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
     if (btn) {
       btn.style.display =
-          document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
-              ? 'block'
-              : 'none'
+        document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
+          ? 'block'
+          : 'none'
     }
   }
 })
@@ -107,8 +82,8 @@ function topFunction() {
               <!-- 往後一年（未到今年才顯示） -->
               <template v-if="selectedYear < latestYear">
                 <NuxtLink
-                    class="nav-item nav-link tab-link"
-                    :to="`/front/news?year=${selectedYear + 1}`"
+                  class="nav-item nav-link tab-link"
+                  :to="`/front/news?year=${selectedYear + 1}`"
                 >{{ selectedYear + 1 }}</NuxtLink>
                 |
               </template>
@@ -117,8 +92,8 @@ function topFunction() {
               |
               <!-- 往前一年（永遠顯示） -->
               <NuxtLink
-                  class="nav-item nav-link tab-link"
-                  :to="`/front/news?year=${prevYear}`"
+                class="nav-item nav-link tab-link"
+                :to="`/front/news?year=${prevYear}`"
               >{{ prevYear }}</NuxtLink>
             </div>
           </div>
@@ -141,13 +116,13 @@ function topFunction() {
                     <!-- 圖片 -->
                     <div class="col-5 col-lg-4 text-center mt-2 mt-sm-0">
                       <div class="img-frame mr-3">
-                        <img :src="record.image" alt="" class="img-fluid">
+                        <img :src="apiUrl(record.coverUrl)" alt="" class="img-fluid">
                       </div>
                     </div>
                     <!-- 文字 -->
                     <div class="col-7 col-lg-8 pl-sm-3">
                       <div class="row">
-                        <div class="col-12 news-date">{{ record.createdAt }}</div>
+                        <div class="col-12 news-date">{{ record.date }}</div>
                         <div class="col-12 news-title">
                           <div class="news-title-ellipsis">{{ record.title }}</div>
                         </div>
@@ -155,7 +130,7 @@ function topFunction() {
                           <div class="col-12 news-divider my-2"></div>
                         </div>
                         <div class="col-12 news-summary-ellipsis">
-                          <p style="margin-bottom: 0;">{{ stripHtml(record.parseHtml) }}</p>
+                          <p style="margin-bottom: 0;">{{ stripHtml(record.content) }}</p>
                         </div>
                         <div class="col-12">
                           <div class="more-button text-right">

@@ -7,72 +7,47 @@ useSiteHead()
 
 const route = useRoute()
 
-// ---- 模擬資料（之後替換成 API 呼叫） ----
-const allNews = [
-  {
-    id: '7756471d-2e3a-4d88-8744-35baff74ec46',
-    image: '/images/news/example/7756471d-2e3a-4d88-8744-35baff74ec46.jpeg',
-    createdAt: '2026-04-16',
-    title: '親手製作一個「修女祈福蛋糕」~獻給媽媽~',
-    outputHTML: ''
-  },
-  {
-    id: '44d46a8b-554e-43ea-a292-113b02dd7bbd',
-    image: '/images/news/example/44d46a8b-554e-43ea-a292-113b02dd7bbd.png',
-    createdAt: '2026-03-30',
-    title: '大地的孩子:聖母健康農莊探索體驗營',
-    outputHTML: `
-      <p>🌿 2026 聖母健康農莊「探索體驗營」報名開跑！</p>
-      <p>讓孩子回到土地，成為大地的孩子，寫下難忘的生命印記！</p>
-      <h5>【活動亮點】</h5>
-      <p>五大任務： 認識土地、料理達人、自然偵探、合作隊長、健康生活家。<br>
-      豐富行程： 走讀農莊、烘焙手作、樹冠層體驗、原民風味餐、夜間觀察。</p>
-      <h5>【活動資訊】</h5>
-      <p>
-        日期： 2026/7/9 (四) ～ 7/12 (日)<br>
-        對象： 新學期升四至升七年級學生（限額 20 位）<br>
-        地點： 台東聖母健康農莊（台東市博物館路110號）<br>
-        費用： 6,800元
-      </p>
-      <p>
-        💰 早鳥優惠： 6/1 前報名享 5,500元。<br>
-        👭 兩人同行： 一起報名不須早鳥亦享 5,500元/人。
-      </p>
-      <h5>【家長重要提醒】</h5>
-      <p>
-        成果發表： 7/12 (日) 12:00 歡迎家長參與午宴及發表會。<br>
-        交通接駁： 提供 7/9 報到及 7/12 賦歸之台東火車站/機場接駁。
-      </p>
-      <p>🔗 立即線上報名：<br>
-        👉 <a href="https://www.beclass.com/rid=30525d169a92635ec349" target="_blank">https://www.beclass.com/rid=30525d169a92635ec349</a>
-      </p>
-      <p>📞 活動諮詢： 0937-652654 王主任</p>
-      <p>✨ 邀請孩子走進自然，體驗從農田到餐桌的真實感動！ ✨</p>
-    `
+const commonStore = useCommonStore()
+const BASE = computed(() => commonStore.data.main_url + '/holy/news')
+const API_ORIGIN = computed(() => commonStore.data.main_url)
+
+const apiUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return API_ORIGIN.value + path
+}
+
+const allNews = ref([])
+
+const fetchNews = async () => {
+  try {
+    allNews.value = await (await fetch(`${BASE.value}/list`)).json()
+  } catch {
+    allNews.value = []
   }
-]
+}
 
 // 當前文章
-const currentIndex = computed(() => allNews.findIndex(n => n.id === route.params.id))
-const record = computed(() => allNews[currentIndex.value])
+const currentIndex = computed(() => allNews.value.findIndex(n => n.id === route.params.id))
+const record = computed(() => allNews.value[currentIndex.value])
 
 // 上一則 / 下一則
-const prevId = computed(() => allNews[currentIndex.value - 1]?.id ?? null)
-const nextId = computed(() => allNews[currentIndex.value + 1]?.id ?? null)
+const prevId = computed(() => allNews.value[currentIndex.value - 1]?.id ?? null)
+const nextId = computed(() => allNews.value[currentIndex.value + 1]?.id ?? null)
 
 // 年份（供 tab 顯示）
-const articleYear = computed(() => record.value?.createdAt?.slice(0, 4) ?? String(new Date().getFullYear()))
+const articleYear = computed(() => record.value?.date?.slice(0, 4) ?? String(new Date().getFullYear()))
 const lastYear = computed(() => Number(articleYear.value) - 1)
 
 // ---- scroll-to-top ----
-onMounted(() => {
+onMounted(async () => {
+  await fetchNews()
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
     if (btn) {
       btn.style.display =
-          document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
-              ? 'block'
-              : 'none'
+        document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
+          ? 'block'
+          : 'none'
     }
   }
 })
@@ -91,7 +66,10 @@ function scrollToAnchor() {
     }, 50)
   })
 }
-
+const formatContent = (text) => {
+  if (!text) return ''
+  return text.replace(/\n/g, '<br>')
+}
 watch(() => route.params.id, () => {
   scrollToAnchor()
 }, { immediate: true })
@@ -135,18 +113,18 @@ watch(() => route.params.id, () => {
                 <template v-if="record">
                   <!-- 文章 header -->
                   <div class="row p-4 no-gutters justify-content-center">
-                    <div class="col-10 news-date">{{ record.createdAt }}</div>
+                    <div class="col-10 news-date">{{ record.date }}</div>
                     <div class="col-10">
                       <p class="news-title">{{ record.title }}</p>
                     </div>
                     <div class="col-10 news-divider mb-4"></div>
                     <div class="col-10 col-sm-8 text-center">
-                      <img :src="record.image" alt="" class="img-fluid">
+                      <img :src="apiUrl(record.coverUrl)" alt="" class="img-fluid">
                     </div>
                   </div>
                   <!-- 文章內容 -->
                   <div class="row">
-                    <div class="col-10 col-md-8 mx-auto artical-content" v-html="record.outputHTML"></div>
+                    <div class="col-10 col-md-8 mx-auto artical-content" v-html="formatContent(record.content)"></div>
                   </div>
                 </template>
 

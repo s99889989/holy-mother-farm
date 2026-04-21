@@ -17,6 +17,15 @@ onMounted(() => {
     if (typeof window !== 'undefined' && window.$) {
       window.$('#carousel-with-lb').carousel({interval: 5000, ride: 'carousel'})
     }
+
+    // ✅ 初始化 AOS
+    if (typeof window !== 'undefined' && window.AOS) {
+      window.AOS.init({
+        duration: 800,
+        once: true   // 因為所有元素都用了 data-aos-once="true"
+      })
+    }
+
   })
 })
 
@@ -193,7 +202,7 @@ const allNews = ref([
             <template v-for="item in allNews.slice(0, 3)" :key="item.id">
               <div class="col-10 my-3">
                 <NuxtLink :to="`/front/news/${item.id}`" style="color: #44271a; text-decoration: none;">
-                  <span class="news-date">{{ item.createdAt }} {{ item.title }}</span>
+                  <span class="news-date">{{ item.createdAt }}  {{ item.title }}</span>
                 </NuxtLink>
               </div>
               <div class="col-10 bar-black-dashed my-2"></div>
