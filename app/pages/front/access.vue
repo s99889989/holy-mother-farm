@@ -41,7 +41,7 @@ function topFunction() {
         <div class="col-12 text-center my-3">
           <div class="row justify-content-center no-gutters">
             <div class="sub-nav nav text-center align-items-center row justify-content-center" id="nav-tab" role="tablist">
-              <a class="nav-item nav-link tab-link active" href="#car">開車</a> |
+              <a class="nav-item nav-link tab-link" href="#car">開車</a> |
               <a class="nav-item nav-link tab-link" href="#train" role="tab">火車</a> |
               <a class="nav-item nav-link tab-link" href="#plane" role="tab">飛機</a> |
               <a class="nav-item nav-link tab-link" href="#google" role="tab">Google</a>

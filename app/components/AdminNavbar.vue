@@ -179,7 +179,7 @@ const changePassword = async () => {
               <li v-for="item in group.items" :key="item.to">
                 <NuxtLink
                   :to="item.to"
-                  class="block px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap"
+                  class="block px-3 py-1.5 rounded text-base font-medium transition-colors whitespace-nowrap"
                   :class="route.path.startsWith(item.to)
                     ? 'text-white bg-blue-700 dark:bg-transparent dark:text-blue-500'
                     : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -194,7 +194,7 @@ const changePassword = async () => {
       <NuxtLink
         v-for="item in standaloneItems" :key="item.to"
         :to="item.to"
-        class="px-2.5 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap"
+        class="px-2.5 py-1 rounded text-base font-medium transition-colors whitespace-nowrap"
         :class="route.path.startsWith(item.to)
           ? 'text-white bg-blue-700 md:bg-transparent md:text-blue-700 dark:md:text-blue-500'
           : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
