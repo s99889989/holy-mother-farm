@@ -484,6 +484,17 @@ onMounted(() => {
 .lunch-diet-row__label { font-size: 13px; font-weight: 600; color: #333; }
 .lunch-diet-row__desc  { font-size: 11px; color: #aaa; margin-top: 2px; }
 
+/* ── 手機版計數列調整 ── */
+@media (max-width: 480px) {
+  .lunch-diet-row { padding: 12px 14px; gap: 8px; }
+  .lunch-diet-row__info { gap: 10px; }
+  .lunch-diet-row__icon { font-size: 20px; }
+  .lunch-diet-row__label { white-space: nowrap; }
+  .lunch-counter { gap: 4px; flex-shrink: 0; }
+  .lunch-counter__btn { width: 32px; height: 32px; border-radius: 8px; }
+  .lunch-counter__input { flex: none; width: 48px; padding: 6px 2px; border-radius: 8px; }
+}
+
 /* ── 計數器 ── */
 .lunch-counter { display: flex; align-items: center; gap: 6px; }
 .lunch-counter__btn {
