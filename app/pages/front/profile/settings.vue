@@ -156,18 +156,7 @@ const saveProfile = async () => {
                 <template v-else>
                   <h2 class="settings-title">帳號設定</h2>
 
-                  <!-- Google 帳號資訊（唯讀） -->
-                  <div class="settings-google-info">
-                    <img v-if="customer.picture" :src="customer.picture" :alt="customer.name"
-                         class="settings-google-info__avatar"/>
-                    <span v-else class="settings-google-info__avatar settings-google-info__avatar--placeholder">
-                      {{ customer.name?.charAt(0)?.toUpperCase() || '?' }}
-                    </span>
-                    <div>
-                      <p class="settings-google-info__name">{{ customer.name }}</p>
-                      <p class="settings-google-info__email">{{ customer.email }}</p>
-                    </div>
-                  </div>
+
 
                   <!-- 載入中 -->
                   <div v-if="loading" class="settings-loading">載入中…</div>
@@ -252,7 +241,7 @@ const saveProfile = async () => {
 <style scoped>
 /* ── 標題 ── */
 .settings-title {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 700;
   color: #333;
   margin-bottom: 16px;
