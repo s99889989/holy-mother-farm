@@ -68,9 +68,8 @@ const fetchNews = async () => {
 </script>
 
 <template>
+  <SiteNavbar/>
   <div class="overflow">
-    <SiteNavbar/>
-
     <!-- Cover -->
     <section></section>
     <div class="por d-xl-none"></div>

@@ -154,7 +154,7 @@ const changePassword = async () => {
       <div v-for="group in navGroups" :key="group.label" class="relative nav-dropdown-wrap">
         <button
           @click.stop="toggleDrop(group.label)"
-          class="flex items-center gap-1 px-2.5 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
+          class="flex items-center gap-1 px-2.5 py-1 rounded text-2xl font-medium transition-colors whitespace-nowrap"
           :class="activeGroup?.label === group.label
             ? 'text-blue-700 dark:text-blue-500'
             : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -174,12 +174,12 @@ const changePassword = async () => {
           leave-to-class="opacity-0"
         >
           <div v-if="dropOpen[group.label]"
-               class="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg w-36">
+               class="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg w-45">
             <ul class="p-1.5">
               <li v-for="item in group.items" :key="item.to">
                 <NuxtLink
                   :to="item.to"
-                  class="block px-3 py-1.5 rounded text-lg font-medium transition-colors whitespace-nowrap"
+                  class="block px-3 py-1.5 rounded text-2xl font-medium transition-colors whitespace-nowrap"
                   :class="route.path.startsWith(item.to)
                     ? 'text-white bg-blue-700 dark:bg-transparent dark:text-blue-500'
                     : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -194,7 +194,7 @@ const changePassword = async () => {
       <NuxtLink
         v-for="item in standaloneItems" :key="item.to"
         :to="item.to"
-        class="px-2.5 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
+        class="px-2.5 py-1 rounded text-2xl font-medium transition-colors whitespace-nowrap"
         :class="route.path.startsWith(item.to)
           ? 'text-white bg-blue-700 md:bg-transparent md:text-blue-700 dark:md:text-blue-500'
           : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -204,11 +204,11 @@ const changePassword = async () => {
       <button @click="toggleDark"
               class="ml-auto p-1.5 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
               :title="isDark ? '開燈' : '關燈'">
-        <svg v-if="isDark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg v-if="isDark" class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"/>
         </svg>
-        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg v-else class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
@@ -234,11 +234,11 @@ const changePassword = async () => {
           <div v-if="menuOpen" @click.stop
                class="absolute right-0 top-10 w-44 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-700 z-50 overflow-hidden">
             <div class="px-4 py-2.5 border-b border-gray-100 dark:border-zinc-700">
-              <p class="text-xs text-gray-400">管理員</p>
+              <p class="text-xl text-gray-400">管理員</p>
             </div>
             <ul class="py-1">
               <li>
-                <NuxtLink to="/front" @click="closeMenu"
+                <NuxtLink target="_blank" to="/front" @click="closeMenu"
                           class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-teal-50 dark:hover:bg-zinc-700 transition-colors">
                   <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -275,16 +275,16 @@ const changePassword = async () => {
 
     <!-- 手機 -->
     <div class="sm:hidden flex items-center justify-between">
-      <span class="text-lg text-gray-500 dark:text-gray-400 font-medium">後台導覽</span>
+      <span class="text-xl text-gray-500 dark:text-gray-400 font-medium">後台導覽</span>
       <div class="flex items-center gap-1">
         <!-- 開燈 / 關燈 -->
         <button @click="toggleDark"
                 class="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white transition-colors">
-          <svg v-if="isDark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg v-if="isDark" class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"/>
           </svg>
-          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg v-else class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
           </svg>
@@ -292,7 +292,7 @@ const changePassword = async () => {
         <button
           class="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white transition-colors"
           @click="mobileOpen = !mobileOpen">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path v-if="!mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M4 6h16M4 12h16M4 18h16"/>
             <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -313,12 +313,12 @@ const changePassword = async () => {
       <div v-if="mobileOpen"
            class="sm:hidden mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-2">
         <div v-for="group in navGroups" :key="group.label">
-          <p class="text-lg text-gray-400 dark:text-gray-500 font-semibold px-1 mb-1">{{ group.label }}</p>
+          <p class="text-xl text-gray-400 dark:text-gray-500 font-semibold px-1 mb-1">{{ group.label }}</p>
           <div class="grid grid-cols-3 gap-1">
             <NuxtLink
               v-for="item in group.items" :key="item.to"
               :to="item.to"
-              class="px-2 py-1.5 rounded text-lg font-medium text-center transition-colors"
+              class="px-2 py-1.5 rounded text-xl font-medium text-center transition-colors"
               :class="route.path.startsWith(item.to)
                 ? 'text-white bg-blue-700 dark:bg-transparent dark:text-blue-500'
                 : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -330,7 +330,7 @@ const changePassword = async () => {
           <NuxtLink
             v-for="item in standaloneItems" :key="item.to"
             :to="item.to"
-            class="px-2 py-1.5 rounded text-lg font-medium text-center transition-colors"
+            class="px-2 py-1.5 rounded text-xl font-medium text-center transition-colors"
             :class="route.path.startsWith(item.to)
                 ? 'text-white bg-blue-700 dark:bg-transparent dark:text-blue-500'
                 : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
@@ -358,22 +358,22 @@ const changePassword = async () => {
       </div>
       <div v-else class="space-y-4">
         <div>
-          <label class="text-lg font-semibold text-stone-600 dark:text-stone-300 block mb-1">舊密碼</label>
+          <label class="text-xl font-semibold text-stone-600 dark:text-stone-300 block mb-1">舊密碼</label>
           <input v-model="pwForm.oldPassword" type="password" placeholder="請輸入舊密碼"
                  class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400"/>
         </div>
         <div>
-          <label class="text-lg font-semibold text-stone-600 dark:text-stone-300 block mb-1">新密碼</label>
+          <label class="text-xl font-semibold text-stone-600 dark:text-stone-300 block mb-1">新密碼</label>
           <input v-model="pwForm.newPassword" type="password" placeholder="請輸入新密碼"
                  class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400"/>
         </div>
         <div>
-          <label class="text-lg font-semibold text-stone-600 dark:text-stone-300 block mb-1">確認新密碼</label>
+          <label class="text-xl font-semibold text-stone-600 dark:text-stone-300 block mb-1">確認新密碼</label>
           <input v-model="pwForm.confirm" type="password" placeholder="再次輸入新密碼"
                  @keydown.enter="changePassword"
                  class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400"/>
         </div>
-        <p v-if="pwError" class="text-lg text-red-500">{{ pwError }}</p>
+        <p v-if="pwError" class="text-xl text-red-500">{{ pwError }}</p>
         <div class="flex gap-2 pt-1">
           <button @click="pwModal = false"
                   class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">

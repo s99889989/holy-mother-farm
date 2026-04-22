@@ -22,7 +22,7 @@
       </div>
     </header>
 
-    <div class="max-w-4xl mx-auto px-3 sm:px-4 py-4">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-4">
 
       <!-- 載入中 -->
       <div v-if="loading" class="flex items-center justify-center py-16 text-stone-400 gap-2">
@@ -37,12 +37,12 @@
       </div>
 
       <!-- 消息列表 -->
-      <div v-else class="space-y-3">
+      <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div v-for="item in newsList" :key="item.id"
              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 flex gap-4 items-start">
 
           <!-- 封面圖 -->
-          <div class="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-stone-100 dark:bg-zinc-800">
+          <div class="flex-shrink-0 w-28 h-28 lg:w-36 lg:h-36 rounded-xl overflow-hidden bg-stone-100 dark:bg-zinc-800">
             <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" :alt="item.title"
                  class="w-full h-full object-cover cursor-pointer" @click="previewUrl = apiUrl(item.coverUrl)" />
             <div v-else class="w-full h-full flex items-center justify-center text-stone-300">
@@ -57,16 +57,16 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
-                <p class="font-bold text-stone-800 dark:text-stone-100 truncate">{{ item.title }}</p>
+                <p class="font-bold text-base text-stone-800 dark:text-stone-100 truncate">{{ item.title }}</p>
                 <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                  <span class="text-xs text-stone-400">{{ item.date }}</span>
+                  <span class="text-sm text-stone-400">{{ item.date }}</span>
                   <span v-for="tag in item.tags" :key="tag"
                         class="px-2 py-0.5 rounded-full text-xs bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
                     {{ tag }}
                   </span>
                 </div>
-                <p class="text-xs text-stone-400 mt-1.5 line-clamp-2">{{ stripHtml(item.content) }}</p>
-                <p v-if="item.attachments?.length" class="text-xs text-stone-400 mt-1">
+                <p class="text-sm text-stone-400 mt-1.5 line-clamp-2">{{ stripHtml(item.content) }}</p>
+                <p v-if="item.attachments?.length" class="text-sm text-stone-400 mt-1">
                   📎 {{ item.attachments.length }} 個附件
                 </p>
               </div>
@@ -88,8 +88,8 @@
 
     <!-- ════════ 新增/編輯 Modal ════════ -->
     <div v-if="modal.show"
-         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50">
+      <div class="bg-white dark:bg-zinc-900 rounded-b-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-screen sm:max-h-[92vh] overflow-y-auto">
 
         <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
           <h3 class="font-bold text-stone-800 dark:text-stone-100">
@@ -134,6 +134,22 @@
                   <button @click="form.tags.splice(idx, 1)" class="hover:text-red-400 leading-none">×</button>
                 </span>
               </div>
+            </div>
+          </div>
+
+          <!-- 封面圖 -->
+          <div>
+            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">封面圖</label>
+            <div v-if="form.coverPreview || form.coverUrl"
+                 class="relative w-full h-40 rounded-xl overflow-hidden mb-2 border border-stone-200 dark:border-stone-700 bg-stone-50">
+              <img :src="form.coverPreview || apiUrl(form.coverUrl)" class="w-full h-full object-cover" />
+              <button @click="removeCover"
+                      class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">×</button>
+            </div>
+            <div @click="coverInputRef?.click()"
+                 class="border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-xl p-4 text-center cursor-pointer hover:border-sky-400 transition-colors">
+              <p class="text-sm text-stone-400">點擊上傳封面圖</p>
+              <input ref="coverInputRef" type="file" accept="image/*" class="hidden" @change="handleCoverSelect" />
             </div>
           </div>
 
@@ -209,22 +225,6 @@
             <editor-content :editor="editor" class="tiptap-editor" />
           </div>
 
-          <!-- 封面圖 -->
-          <div>
-            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">封面圖</label>
-            <div v-if="form.coverPreview || form.coverUrl"
-                 class="relative w-full h-40 rounded-xl overflow-hidden mb-2 border border-stone-200 dark:border-stone-700 bg-stone-50">
-              <img :src="form.coverPreview || apiUrl(form.coverUrl)" class="w-full h-full object-cover" />
-              <button @click="removeCover"
-                      class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">×</button>
-            </div>
-            <div @click="coverInputRef?.click()"
-                 class="border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-xl p-4 text-center cursor-pointer hover:border-sky-400 transition-colors">
-              <p class="text-sm text-stone-400">點擊上傳封面圖</p>
-              <input ref="coverInputRef" type="file" accept="image/*" class="hidden" @change="handleCoverSelect" />
-            </div>
-          </div>
-
           <!-- 附件 -->
           <div>
             <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">附件</label>
@@ -283,13 +283,13 @@
 </template>
 
 <script setup>
-import '~/assets/css/main.css'
-import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
+definePageMeta({ layout: 'admin' })
+
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
-import { useCommonStore } from '~/stores/common.js'
+
 
 const commonStore = useCommonStore()
 const BASE        = computed(() => commonStore.data.main_url + '/holy/news')
@@ -394,7 +394,7 @@ const openModal = (item) => {
   Object.assign(form, {
     id: item?.id || '',
     title: item?.title || '',
-    date: item?.date || '',
+    date: item?.date || (modal.isNew ? new Date().toISOString().slice(0, 10) : ''),
     content: item?.content || '',
     tags: item?.tags ? [...item.tags] : [],
     coverUrl: item?.coverUrl || '',

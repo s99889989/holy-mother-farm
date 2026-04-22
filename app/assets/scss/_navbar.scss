@@ -180,11 +180,16 @@
       z-index: 500;
       // TODO: duration 縮短
       transition-duration: 0.2s;
-      overflow: hidden;
+
+      &.d-xl-none {
+        overflow: hidden;
+      }
+
       &.open{
         height: 100vh;
         opacity: 1;
         background: url(../images/global/nav-bg.png);
+        overflow: hidden;
       }
 
       ul{
@@ -304,4 +309,4 @@
           }
         }
       }
-    }
+    }

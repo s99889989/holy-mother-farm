@@ -74,12 +74,8 @@
 </template>
 
 <script setup>
-import '~/assets/css/main.css'
-import { ref, onMounted } from 'vue'
-import {useCommonStore} from '~/stores/common.js'
+definePageMeta({ layout: 'admin' })
 const commonStore = useCommonStore()
-definePageMeta({ layout: false })
-
 onMounted(() => {
   if (localStorage.getItem('adminDark') === '1') {
     document.documentElement.classList.add('dark')

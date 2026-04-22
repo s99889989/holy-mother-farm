@@ -628,9 +628,7 @@
 </template>
 
 <script setup>
-import '~/assets/css/main.css'
-import { ref, computed, reactive, onMounted } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
+definePageMeta({ layout: 'admin' })
 const commonStore = useCommonStore()
 const BASE_SHOP       = commonStore.data.main_url + '/holy/shop'
 const BASE_RESTAURANT = commonStore.data.main_url + '/holy/restaurant'  // 品項共用田園餐廳

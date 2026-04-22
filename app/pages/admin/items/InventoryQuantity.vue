@@ -843,9 +843,7 @@
 </template>
 
 <script setup>
-import '~/assets/css/main.css'
-import { ref, computed, reactive, onMounted } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
+definePageMeta({ layout: 'admin' })
 const commonStore = useCommonStore()
 const BASE       = commonStore.data.main_url + '/holy'
 const API_ORIGIN = commonStore.data.main_url

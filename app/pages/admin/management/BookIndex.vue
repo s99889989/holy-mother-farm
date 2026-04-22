@@ -1,7 +1,5 @@
 <script setup>
-import '~/assets/css/main.css'
-import { ref, computed, reactive, onMounted } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
+definePageMeta({ layout: 'admin' })
 const commonStore = useCommonStore()
 const BASE       = computed(() => commonStore.data.main_url + '/holy/booking')
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')

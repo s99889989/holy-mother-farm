@@ -395,10 +395,7 @@
 </template>
 
 <script setup>
-import '~/assets/css/main.css'
-import {ref, computed, reactive, onMounted, onBeforeUnmount} from 'vue'
-import {useCommonStore} from '~/stores/common.js'
-import FolderTreeNode from '~/components/FolderTreeNode.vue'
+definePageMeta({ layout: 'admin' })
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/images')
