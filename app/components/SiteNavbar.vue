@@ -6,16 +6,19 @@ import {useCustomerStore} from '~/stores/customer.js'
 const isOpen = ref(false)
 const route = useRoute()
 
-// 換頁時自動關閉選單
+// 換頁時自動關閉所有選單
 watch(() => route.path, () => {
   isOpen.value = false
+  mobAvatarOpen.value = false
 })
 
 function toggleMenu() {
   isOpen.value = !isOpen.value
+  // 打開導覽時關閉頭像面板
+  if (isOpen.value) mobAvatarOpen.value = false
 }
 
-// ── 頭像下拉 ──────────────────────────────────────────────────────
+// ── 桌機頭像下拉 ──────────────────────────────────────────────────────
 const commonStore = useCommonStore()
 const customerStore = useCustomerStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
@@ -35,9 +38,25 @@ const closeAvatar = () => {
   avatarOpen.value = false
 }
 
+// ── 手機版頭像下拉 ────────────────────────────────────────────────────
+const mobAvatarOpen = ref(false)
+const mobAvatarRef = ref(null)
+
+const toggleMobAvatar = () => {
+  mobAvatarOpen.value = !mobAvatarOpen.value
+  // 打開頭像面板時關閉導覽
+  if (mobAvatarOpen.value) isOpen.value = false
+  if (mobAvatarOpen.value && !customer.value) {
+    nextTick(() => renderGoogleBtn('nav-google-btn-mobile'))
+  }
+}
+
 const onClickOutside = (e) => {
   if (avatarRef.value && !avatarRef.value.contains(e.target)) {
     avatarOpen.value = false
+  }
+  if (mobAvatarRef.value && !mobAvatarRef.value.contains(e.target)) {
+    mobAvatarOpen.value = false
   }
 }
 
@@ -72,6 +91,7 @@ const handleCredential = async (response) => {
     if (!data.error) {
       customerStore.setCustomer(data)
       avatarOpen.value = false
+      mobAvatarOpen.value = false
     }
   } catch {
   }
@@ -81,6 +101,7 @@ const logout = async () => {
   await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
   customerStore.clearCustomer()
   avatarOpen.value = false
+  mobAvatarOpen.value = false
 }
 
 const fetchMe = async () => {
@@ -126,10 +147,56 @@ onUnmounted(() => {
           <img src="/images/global/healthfarm_logo.png" alt="聖母健康農莊">
         </NuxtLink>
       </div>
+
+      <!-- ★ 手機版頭像 icon -->
+      <div class="mob-avatar-wrapper" ref="mobAvatarRef">
+        <!-- 未登入：白色人形 icon -->
+        <button v-if="!customer" @click="toggleMobAvatar" class="mob-avatar-btn mob-avatar-btn--guest">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+        </button>
+        <!-- 已登入：頭像或首字母 -->
+        <button v-else @click="toggleMobAvatar" class="mob-avatar-btn mob-avatar-btn--user">
+          <img v-if="customer.picture" :src="customer.picture" :alt="customer.name" class="mob-avatar-btn__img">
+          <span v-else>{{ customer.name?.charAt(0)?.toUpperCase() }}</span>
+        </button>
+
+        <!-- 手機版下拉面板：綠色導覽風格 -->
+        <Transition name="mob-avatar-drop">
+          <div v-if="mobAvatarOpen" class="mob-avatar-dropdown">
+            <!-- 已登入 -->
+            <div v-if="customer">
+              <div class="mob-avatar-dropdown__info">
+                <div class="mob-avatar-dropdown__circle">
+                  <img v-if="customer.picture" :src="customer.picture" :alt="customer.name" class="mob-avatar-btn__img">
+                  <span v-else>{{ customer.name?.charAt(0)?.toUpperCase() }}</span>
+                </div>
+                <div class="mob-avatar-dropdown__text">
+                  <p class="mob-avatar-dropdown__name">{{ customer.name }}</p>
+                  <p class="mob-avatar-dropdown__email">{{ customer.email }}</p>
+                </div>
+              </div>
+              <NuxtLink to="/front/profile/log" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">我的訂位紀錄</NuxtLink>
+              <NuxtLink to="/front/profile/booking" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">線上訂位</NuxtLink>
+              <NuxtLink to="/front/profile/lunch" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">便當預訂</NuxtLink>
+              <button @click="logout()" class="mob-avatar-dropdown__logout">登出</button>
+            </div>
+            <!-- 未登入 -->
+            <div v-else class="mob-avatar-dropdown__login">
+              <p class="mob-avatar-dropdown__hint">登入後可查看訂位與便當紀錄</p>
+              <div id="nav-google-btn-mobile"></div>
+            </div>
+          </div>
+        </Transition>
+      </div>
+
       <div class="navToggle" :class="{ open: isOpen }" @click="toggleMenu">
         <div class="icon"></div>
       </div>
     </div>
+
     <ul
       id="menu-menu-principale-1"
       class="vertical menu por"
@@ -169,33 +236,6 @@ onUnmounted(() => {
       </li>
       <li role="menuitem">
         <NuxtLink to="/front/access">交通方式</NuxtLink>
-      </li>
-
-      <!-- 手機版帳號區 -->
-      <li class="mob-account-section">
-        <div v-if="customer" class="mob-account-info">
-          <div class="mob-avatar-circle">
-            <img
-              v-if="customer.picture"
-              :src="customer.picture"
-              :alt="customer.name"
-              class="mob-avatar-img"
-            >
-            <span v-else>{{ customer.name?.charAt(0)?.toUpperCase() }}</span>
-          </div>
-          <div class="mob-account-text">
-            <p class="mob-account-name">{{ customer.name }}</p>
-            <p class="mob-account-email">{{ customer.email }}</p>
-          </div>
-        </div>
-        <div v-if="customer" class="mob-account-links">
-          <NuxtLink to="/front/profile/log" @click="isOpen = false" class="mob-account-link">我的訂位紀錄</NuxtLink>
-          <button @click="logout(); isOpen = false" class="mob-account-logout">登出</button>
-        </div>
-        <div v-else class="mob-account-login">
-          <p class="mob-login-hint">登入後可查看訂位與便當紀錄</p>
-          <div id="nav-google-btn-mobile"></div>
-        </div>
       </li>
 
       <div class="por">
@@ -286,8 +326,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- ★ 頭像區：navbar 的直接子元素，position:absolute 定位右側
-              脫離 navbar-collapse，下拉選單不會被 overflow 裁切 -->
+      <!-- ★ 桌機頭像區 -->
       <div class="avatar-wrapper" ref="avatarRef">
 
         <!-- 未登入：人形 icon -->
@@ -340,7 +379,7 @@ onUnmounted(() => {
             <ul v-if="customer" class="avatar-dropdown__menu">
               <li>
                 <NuxtLink to="/front/profile/log" @click="closeAvatar" class="avatar-dropdown__item">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                   </svg>
@@ -349,7 +388,7 @@ onUnmounted(() => {
               </li>
               <li>
                 <NuxtLink to="/front/profile/booking" @click="closeAvatar" class="avatar-dropdown__item">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                   </svg>
@@ -358,7 +397,7 @@ onUnmounted(() => {
               </li>
               <li>
                 <NuxtLink to="/front/profile/lunch" @click="closeAvatar" class="avatar-dropdown__item">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                   </svg>
@@ -367,7 +406,7 @@ onUnmounted(() => {
               </li>
               <li class="avatar-dropdown__divider">
                 <button @click="logout" class="avatar-dropdown__logout">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                   </svg>
@@ -390,7 +429,7 @@ onUnmounted(() => {
   right: 24px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 1060; /* 高於 Bootstrap navbar 的 z-index: 1030 */
+  z-index: 1060;
 }
 
 .avatar-btn {
@@ -431,7 +470,6 @@ onUnmounted(() => {
   opacity: 0.88;
 }
 
-/* 頭像按鈕內的圖片 */
 .avatar-btn__img {
   width: 100%;
   height: 100%;
@@ -440,12 +478,12 @@ onUnmounted(() => {
   display: block;
 }
 
-/* ── 下拉選單 ──────────────────────────────────────────────────── */
+/* ── 桌機下拉選單 ──────────────────────────────────────────────────── */
 .avatar-dropdown {
   position: absolute;
   right: 0;
   top: calc(100% + 10px);
-  width: 256px;
+  width: 305px;
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
@@ -455,7 +493,7 @@ onUnmounted(() => {
 }
 
 .avatar-dropdown__header {
-  padding: 14px 16px;
+  padding: 16px 16px;
   border-bottom: 1px solid #f5f5f5;
   display: flex;
   align-items: center;
@@ -482,7 +520,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* 下拉選單內的頭像圖片 */
 .avatar-dropdown__img {
   width: 100%;
   height: 100%;
@@ -496,7 +533,7 @@ onUnmounted(() => {
 }
 
 .avatar-dropdown__name {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 600;
   color: #333;
   margin: 0;
@@ -515,9 +552,8 @@ onUnmounted(() => {
 }
 
 .avatar-dropdown__hint {
-  font-size: 12px;
+  font-size: 18px;
   color: #888;
-  margin: 0 0 10px;
 }
 
 .avatar-dropdown__menu {
@@ -531,7 +567,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 9px 16px;
-  font-size: 14px;
+  font-size: 18px;
   color: #444;
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
@@ -554,7 +590,7 @@ onUnmounted(() => {
   gap: 10px;
   width: 100%;
   padding: 9px 16px;
-  font-size: 14px;
+  font-size: 18px;
   color: #e74c3c;
   background: none;
   border: none;
@@ -567,7 +603,7 @@ onUnmounted(() => {
   background-color: #fff5f5;
 }
 
-/* ── Transition ────────────────────────────────────────────────── */
+/* ── 桌機 Transition ────────────────────────────────────────────────── */
 .avatar-drop-enter-active {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
@@ -586,23 +622,76 @@ onUnmounted(() => {
   transform: scale(0.95);
 }
 
-/* ── 手機版帳號區 ────────────────────────────────────────────── */
-.mob-account-section {
-  padding: 16px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  margin-top: 8px;
+/* ── 手機版頭像 icon ─────────────────────────────────────────────── */
+.mob-avatar-wrapper {
+  position: fixed;
+  right: 68px;
+  top: 23px;
+  z-index: 3000;
 }
 
-.mob-account-info {
+/* 未登入：白色半透明，跟原本風格一致 */
+.mob-avatar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  color: #fff;
+  transition: background 0.2s;
+}
+
+.mob-avatar-btn--user {
+  background-color: #1FC29C;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border-color: #fff;
+}
+
+.mob-avatar-btn--user:hover {
+  opacity: 0.88;
+}
+
+.mob-avatar-btn__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+/* ── 手機版下拉面板：比照桌機白色卡片風格 ──────────────────────── */
+.mob-avatar-dropdown {
+  position: fixed;
+  right: 12px;
+  top: 68px;
+  width: min(260px, calc(100vw - 24px));
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+  border: 1px solid #f0f0f0;
+  overflow: hidden;
+  z-index: 3000;
+}
+
+.mob-avatar-dropdown__info {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f5f5f5;
 }
 
-.mob-avatar-circle {
-  width: 34px;
-  height: 34px;
+.mob-avatar-dropdown__circle {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background-color: #1FC29C;
   color: #fff;
@@ -615,78 +704,89 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* 手機版頭像圖片 */
-.mob-avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-  display: block;
-}
-
-.mob-account-text {
+.mob-avatar-dropdown__text {
   min-width: 0;
 }
 
-.mob-account-name {
+.mob-avatar-dropdown__name {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: #333;
   margin: 0;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.mob-account-email {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
+.mob-avatar-dropdown__email {
+  font-size: 11px;
+  color: #999;
   margin: 0;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.mob-account-links {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.mob-account-link {
+.mob-avatar-dropdown__link {
   display: block;
-  padding: 7px 4px;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
+  color: #444;
+  padding: 9px 16px;
   text-decoration: none;
-  transition: color 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
-.mob-account-link:hover {
-  color: #fff;
+.mob-avatar-dropdown__link:hover {
+  background-color: #f0fdf9;
+  color: #1FC29C;
   text-decoration: none;
 }
 
-.mob-account-logout {
+.mob-avatar-dropdown__logout {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 7px 4px;
   font-size: 14px;
-  color: #ffb3a7;
+  color: #e74c3c;
   background: none;
   border: none;
+  border-top: 1px solid #f5f5f5;
+  padding: 9px 16px;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: background 0.15s;
 }
 
-.mob-account-logout:hover {
-  color: #ff8a7a;
+.mob-avatar-dropdown__logout:hover {
+  background-color: #fff5f5;
 }
 
-.mob-login-hint {
+.mob-avatar-dropdown__login {
+  text-align: center;
+  padding: 14px 16px;
+}
+
+.mob-avatar-dropdown__hint {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
-  margin: 0 0 10px;
+  color: #888;
+  margin: 0 0 12px;
+}
+
+/* ── 手機版 Transition ───────────────────────────────────────────── */
+.mob-avatar-drop-enter-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.mob-avatar-drop-leave-active {
+  transition: opacity 0.1s ease, transform 0.1s ease;
+}
+
+.mob-avatar-drop-enter-from {
+  opacity: 0;
+  transform: scale(0.95) translateY(4px);
+}
+
+.mob-avatar-drop-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 </style>

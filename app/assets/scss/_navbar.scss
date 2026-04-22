@@ -1,6 +1,7 @@
 @use "mixin" as *;
 
 .nav-people {
+
     position: absolute;
     z-index: 900;
     // @include pad() {
