@@ -2,21 +2,8 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
 import { useCustomerStore } from '~/stores/customer.js'
-import GoogleLoginButton from '~/components/GoogleLoginButton.vue'
 
 useSiteHead()
-
-onMounted(() => {
-  window.onscroll = () => {
-    const btn = document.getElementById('myBtn')
-    if (btn) {
-      btn.style.display =
-        document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
-          ? 'block'
-          : 'none'
-    }
-  }
-})
 
 function topFunction() {
   document.body.scrollTop = 0
@@ -26,35 +13,70 @@ function topFunction() {
 const commonStore   = useCommonStore()
 const customerStore = useCustomerStore()
 const LUNCH_BASE    = computed(() => commonStore.data.main_url + '/holy/lunch')
+const CUSTOMER_BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 
-// ── Google 登入 ──────────────────────────────────────────────────
-const onCustomerLogin = (customer) => {
-  if (!lForm.name && customer.name) lForm.name = customer.name
-}
-const onCustomerLogout = () => {}
-
+// ── Google 登入帶入資料 ───────────────────────────────────────────
 watch(() => customerStore.customer, (c) => {
-  if (c && !lForm.name) lForm.name = c.name
+  if (c?.name && !lForm.name) lForm.name = c.name
+  if (c?.id && !lForm.phone) {
+    fetch(`${CUSTOMER_BASE.value}/profile?customerId=${c.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.mobile && !lForm.phone) lForm.phone = data.mobile
+        else if (data.landline && !lForm.phone) lForm.phone = data.landline
+      })
+      .catch(() => {})
+  }
 })
 
 // ── 日期工具 ─────────────────────────────────────────────────────
 const toDateStr = (d) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
-// ── 步驟 ─────────────────────────────────────────────────────────
-const lStep      = ref(0)
-const lSteps     = ['選擇日期', '填寫資料', '確認送出']
-const lForm      = reactive({ name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: '' })
-const lErrors    = reactive({})
-const lSubmitting    = ref(false)
-const lSubmitError   = ref('')
-const lTimeSlots     = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00']
-
-// ── 月曆 ─────────────────────────────────────────────────────────
+// ── 月曆基礎（需在 lForm 之前宣告）────────────────────────────────
 const lCal = new Date(); lCal.setHours(0,0,0,0)
 const lTodayStr  = toDateStr(lCal)
 const lCalYear   = ref(lCal.getFullYear())
 const lCalMonth  = ref(lCal.getMonth() + 1)
+
+// ── 電話驗證 ─────────────────────────────────────────────────────
+const validateMobile   = (c) => /^09\d{8}$/.test(c)
+const validateLandline = (c) => {
+  if (/^02\d{8}$/.test(c)) return true
+  if (/^0[3-8]\d{7,8}$/.test(c)) return true
+  if (/^037\d{6}$/.test(c)) return true
+  if (/^049\d{6}$/.test(c)) return true
+  if (/^089\d{6}$/.test(c)) return true
+  if (/^082[36]\d{6}$/.test(c)) return true
+  if (/^0836\d{6}$/.test(c)) return true
+  return false
+}
+const validateTWPhone = (val) => {
+  if (!val) return false
+  const clean = val.replace(/[-\s]/g, '')
+  return validateMobile(clean) || validateLandline(clean)
+}
+
+// ── 步驟 ─────────────────────────────────────────────────────────
+const lStep      = ref(0)
+const lSteps     = ['選擇日期', '填寫資料', '確認送出']
+const lForm      = reactive({ name: '', phone: '', date: lTodayStr, time: '12:00',
+  meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '' })
+const lErrors    = reactive({})
+const lSubmitting    = ref(false)
+const lSubmitError   = ref('')
+const lTimeSlots     = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00']
+const lDietOptions   = [
+  { key: 'meatQty',     icon: '🍖', label: '葷食便當',   desc: '含肉類料理' },
+  { key: 'fullVegQty',  icon: '🌿', label: '全素便當',   desc: '不含蛋奶五辛' },
+  { key: 'eggVegQty',   icon: '🥚', label: '蛋奶素便當', desc: '可食蛋奶製品' },
+  { key: 'spiceVegQty', icon: '🧄', label: '五辛素便當', desc: '可食蔥薑蒜' },
+]
+const lTotalQty = computed(() =>
+  lForm.meatQty + lForm.fullVegQty + lForm.eggVegQty + lForm.spiceVegQty
+)
+
+// ── 月曆（續）────────────────────────────────────────────────────
 const lCanPrevMonth = computed(() =>
   lCalYear.value > lCal.getFullYear() ||
   (lCalYear.value === lCal.getFullYear() && lCalMonth.value > lCal.getMonth() + 1))
@@ -73,33 +95,39 @@ const lCalDays = computed(() => {
   for (let d = 1; d <= daysInMonth; d++) {
     const mm = String(lCalMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
     const str = `${lCalYear.value}-${mm}-${dd}`
-    days.push({ label: d, date: str, disabled: str <= lTodayStr })
+    days.push({ label: d, date: str, disabled: str < lTodayStr })
   }
   return days
 })
 const lDayClass = (day) => {
-  if (!day.date)    return 'cursor-default'
-  if (day.disabled) return 'text-stone-200 cursor-not-allowed'
-  if (day.date === lForm.date) return 'bg-amber-600 text-white font-bold cursor-pointer shadow-sm'
-  return 'text-stone-700 hover:bg-amber-100 hover:text-amber-800 cursor-pointer'
+  if (!day.date)    return 'lunch-cal__day--empty'
+  if (day.disabled) return 'lunch-cal__day--disabled'
+  if (day.date === lForm.date) return 'lunch-cal__day--selected'
+  return 'lunch-cal__day--available'
 }
 
-const lSummary = computed(() => [
-  { label: '日期', value: lForm.date },
-  { label: '取餐', value: lForm.time },
-  { label: '葷食', value: `${lForm.meatQty} 盒` },
-  { label: '素食', value: `${lForm.vegQty} 盒` },
-  { label: '合計', value: `${lForm.meatQty + lForm.vegQty} 盒` },
-  ...(lForm.note ? [{ label: '備註', value: lForm.note }] : []),
-])
+const lSummary = computed(() => {
+  const rows = [
+    { label: '日期', value: lForm.date },
+    { label: '取餐', value: lForm.time },
+  ]
+  const dietMap = { meatQty: '葷食', fullVegQty: '全素', eggVegQty: '蛋奶素', spiceVegQty: '五辛素' }
+  for (const [key, label] of Object.entries(dietMap)) {
+    if (lForm[key] > 0) rows.push({ label, value: `${lForm[key]} 盒` })
+  }
+  rows.push({ label: '合計', value: `${lTotalQty.value} 盒` })
+  if (lForm.note) rows.push({ label: '備註', value: lForm.note })
+  return rows
+})
 
 const lNextStep = () => {
   Object.keys(lErrors).forEach(k => delete lErrors[k])
   if (lStep.value === 0 && !lForm.date) { lErrors.date = '請選擇取餐日期'; return }
   if (lStep.value === 1) {
     if (!lForm.name.trim())  lErrors.name  = '請輸入姓名'
-    if (!lForm.phone.trim()) lErrors.phone = '請輸入聯絡電話'
-    if (lForm.meatQty === 0 && lForm.vegQty === 0) lErrors.qty = '請至少預訂一盒便當'
+    if (!lForm.phone.trim())             lErrors.phone = '請輸入聯絡電話'
+    else if (!validateTWPhone(lForm.phone)) lErrors.phone = '請輸入正確的手機（09xxxxxxxx）或市話（如 02-12345678、07-1234567）'
+    if (lForm.meatQty === 0 && lForm.fullVegQty === 0 && lForm.eggVegQty === 0 && lForm.spiceVegQty === 0) lErrors.qty = '請至少預訂一盒便當'
     if (Object.keys(lErrors).length > 0) return
   }
   lStep.value++
@@ -110,15 +138,44 @@ const lSubmit = async () => {
   try {
     const res = await fetch(`${LUNCH_BASE.value}/save`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...lForm, status: '待確認' }),
+      credentials: 'include',
+      body: JSON.stringify({ ...lForm, status: '待確認', customerId: customerStore.customer?.id ?? '' }),
     })
     if (!res.ok) throw new Error()
-    Object.assign(lForm, { name: '', phone: '', date: '', time: '12:00', meatQty: 0, vegQty: 0, note: '' })
+    Object.assign(lForm, { name: '', phone: '', date: '', time: '12:00',
+      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '' })
     lStep.value = 0
     alert('便當預訂已送出！我們將盡快電話確認，謝謝。')
   } catch { lSubmitError.value = '預訂送出失敗，請稍後再試或直接來電。' }
   finally { lSubmitting.value = false }
 }
+
+onMounted(() => {
+  // 已登入時預先帶入名稱
+  const c = customerStore.customer
+  if (c?.name && !lForm.name) lForm.name = c.name
+
+  // 若有設定電話，自動帶入
+  if (c?.id) {
+    fetch(`${CUSTOMER_BASE.value}/profile?customerId=${c.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.mobile && !lForm.phone) lForm.phone = data.mobile
+        else if (data.landline && !lForm.phone) lForm.phone = data.landline
+      })
+      .catch(() => {})
+  }
+
+  window.onscroll = () => {
+    const btn = document.getElementById('myBtn')
+    if (btn) {
+      btn.style.display =
+        document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
+          ? 'block'
+          : 'none'
+    }
+  }
+})
 </script>
 
 <template>
@@ -171,9 +228,6 @@ const lSubmit = async () => {
 
                 <!-- Step 0：選擇日期 -->
                 <div v-if="lStep === 0">
-                  <div class="mb-4">
-                    <GoogleLoginButton @login="onCustomerLogin" @logout="onCustomerLogout" />
-                  </div>
                   <h2 class="lunch-title">選擇取餐日期</h2>
                   <div class="lunch-cal">
                     <div class="lunch-cal__header">
@@ -213,7 +267,7 @@ const lSubmit = async () => {
                   </div>
                   <div class="lunch-field">
                     <label class="lunch-label">聯絡電話 <span class="lunch-required">*</span></label>
-                    <input v-model="lForm.phone" type="tel" placeholder="請輸入電話" class="lunch-input" :class="lErrors.phone && 'lunch-input--error'" />
+                    <input v-model="lForm.phone" type="tel" placeholder="09xx-xxx-xxx 或 02-xxxxxxxx" class="lunch-input" :class="lErrors.phone && 'lunch-input--error'" />
                     <p v-if="lErrors.phone" class="lunch-error">{{ lErrors.phone }}</p>
                   </div>
                   <div class="lunch-field">
@@ -222,25 +276,23 @@ const lSubmit = async () => {
                       <option v-for="t in lTimeSlots" :key="t" :value="t">{{ t }}</option>
                     </select>
                   </div>
-                  <div class="lunch-field">
-                    <label class="lunch-label">葷食便當（盒）</label>
-                    <div class="lunch-counter">
-                      <button @click="lForm.meatQty = Math.max(0, lForm.meatQty - 1)" class="lunch-counter__btn">−</button>
-                      <input v-model.number="lForm.meatQty" type="number" min="0" class="lunch-counter__input" />
-                      <button @click="lForm.meatQty++" class="lunch-counter__btn">＋</button>
+                  <div v-for="opt in lDietOptions" :key="opt.key" class="lunch-diet-row">
+                    <div class="lunch-diet-row__info">
+                      <span class="lunch-diet-row__icon">{{ opt.icon }}</span>
+                      <div>
+                        <div class="lunch-diet-row__label">{{ opt.label }}</div>
+                        <div class="lunch-diet-row__desc">{{ opt.desc }}</div>
+                      </div>
                     </div>
-                  </div>
-                  <div class="lunch-field">
-                    <label class="lunch-label">素食便當（盒）</label>
                     <div class="lunch-counter">
-                      <button @click="lForm.vegQty = Math.max(0, lForm.vegQty - 1)" class="lunch-counter__btn">−</button>
-                      <input v-model.number="lForm.vegQty" type="number" min="0" class="lunch-counter__input" />
-                      <button @click="lForm.vegQty++" class="lunch-counter__btn">＋</button>
+                      <button @click="lForm[opt.key] = Math.max(0, lForm[opt.key] - 1)" class="lunch-counter__btn">−</button>
+                      <input v-model.number="lForm[opt.key]" type="number" min="0" class="lunch-counter__input" />
+                      <button @click="lForm[opt.key]++" class="lunch-counter__btn">＋</button>
                     </div>
                   </div>
                   <p v-if="lErrors.qty" class="lunch-error">{{ lErrors.qty }}</p>
-                  <div v-if="lForm.meatQty > 0 || lForm.vegQty > 0" class="lunch-qty-summary">
-                    共 <strong>{{ lForm.meatQty + lForm.vegQty }}</strong> 盒（葷 {{ lForm.meatQty }}、素 {{ lForm.vegQty }}）
+                  <div v-if="lTotalQty > 0" class="lunch-qty-summary">
+                    共 <strong>{{ lTotalQty }}</strong> 盒
                   </div>
                   <div class="lunch-field">
                     <label class="lunch-label">備註</label>
@@ -410,6 +462,28 @@ const lSubmit = async () => {
   margin-bottom: 6px;
 }
 
+/* ── 便當計數列 ── */
+.lunch-diet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 14px 16px;
+  gap: 12px;
+}
+.lunch-diet-row__info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.lunch-diet-row__icon  { font-size: 22px; flex-shrink: 0; }
+.lunch-diet-row__label { font-size: 13px; font-weight: 600; color: #333; }
+.lunch-diet-row__desc  { font-size: 11px; color: #aaa; margin-top: 2px; }
+
 /* ── 計數器 ── */
 .lunch-counter { display: flex; align-items: center; gap: 6px; }
 .lunch-counter__btn {
@@ -514,6 +588,13 @@ const lSubmit = async () => {
   color: #b45309;
 }
 .lunch-notice__title { font-weight: 600; margin-bottom: 4px; }
+
+/* ── 日期狀態 ── */
+.lunch-cal__day--empty    { cursor: default; }
+.lunch-cal__day--disabled { color: #d1cdc8; cursor: not-allowed; background: none; }
+.lunch-cal__day--selected { background-color: #d97706; color: #fff; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(217,119,6,0.35); }
+.lunch-cal__day--available { color: #444; cursor: pointer; }
+.lunch-cal__day--available:hover { background-color: #fde9c0; color: #92400e; }
 
 /* ── number input arrow 隱藏 ── */
 input[type=number]::-webkit-inner-spin-button,

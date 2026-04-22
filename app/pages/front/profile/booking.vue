@@ -2,21 +2,8 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
 import { useCustomerStore } from '~/stores/customer.js'
-import GoogleLoginButton from '~/components/GoogleLoginButton.vue'
 
 useSiteHead()
-
-onMounted(() => {
-  window.onscroll = () => {
-    const btn = document.getElementById('myBtn')
-    if (btn) {
-      btn.style.display =
-        document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
-          ? 'block'
-          : 'none'
-    }
-  }
-})
 
 function topFunction() {
   document.body.scrollTop = 0
@@ -26,42 +13,71 @@ function topFunction() {
 const commonStore   = useCommonStore()
 const customerStore = useCustomerStore()
 const BOOKING_BASE  = computed(() => commonStore.data.main_url + '/holy/booking')
+const CUSTOMER_BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 
-// ── Google 登入 ──────────────────────────────────────────────────
-const googleBtnRef = ref(null)
-const onCustomerLogin = (customer) => {
-  if (!bForm.name && customer.name) bForm.name = customer.name
-}
-const onCustomerLogout = () => {}
-
+// ── Google 登入帶入資料 ───────────────────────────────────────────
 watch(() => customerStore.customer, (c) => {
-  if (c && !bForm.name) bForm.name = c.name
+  if (c?.name && !bForm.name) bForm.name = c.name
+  if (c?.id && !bForm.phone) {
+    fetch(`${CUSTOMER_BASE.value}/profile?customerId=${c.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.mobile && !bForm.phone) bForm.phone = data.mobile
+        else if (data.landline && !bForm.phone) bForm.phone = data.landline
+      })
+      .catch(() => {})
+  }
 })
 
 // ── 日期工具 ─────────────────────────────────────────────────────
 const toDateStr = (d) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
+// ── 月曆基礎（需在 bForm 之前宣告）────────────────────────────────
+const bCal = new Date(); bCal.setHours(0,0,0,0)
+const bTodayStr  = toDateStr(bCal)
+const bCalYear   = ref(bCal.getFullYear())
+const bCalMonth  = ref(bCal.getMonth() + 1)
+
+// ── 電話驗證 ─────────────────────────────────────────────────────
+const validateMobile   = (c) => /^09\d{8}$/.test(c)
+const validateLandline = (c) => {
+  if (/^02\d{8}$/.test(c)) return true
+  if (/^0[3-8]\d{7,8}$/.test(c)) return true
+  if (/^037\d{6}$/.test(c)) return true
+  if (/^049\d{6}$/.test(c)) return true
+  if (/^089\d{6}$/.test(c)) return true
+  if (/^082[36]\d{6}$/.test(c)) return true
+  if (/^0836\d{6}$/.test(c)) return true
+  return false
+}
+const validateTWPhone = (val) => {
+  if (!val) return false
+  const clean = val.replace(/[-\s]/g, '')
+  return validateMobile(clean) || validateLandline(clean)
+}
+
 // ── 步驟 ─────────────────────────────────────────────────────────
 const bStep      = ref(0)
-const bSteps     = ['選擇日期', '填寫資料', '葷素選擇', '確認送出']
-const bForm      = reactive({ name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: '' })
+const bSteps     = ['選擇日期', '填寫資料', '確認送出']
+const bForm      = reactive({ name: '', phone: '', date: bTodayStr, time: '12:00', note: '',
+  meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0 })
 const bErrors    = reactive({})
 const bSubmitting   = ref(false)
 const bSubmitError  = ref('')
 const bTimeSlots    = ['11:00','11:10','11:20','11:30','11:40','11:50','12:00','12:10','12:20','12:30','12:40','12:50','13:00']
 const bDietOptions  = [
-  { value: '葷食',   icon: '🍖', label: '葷食',   desc: '含肉類料理' },
-  { value: '素食',   icon: '🌿', label: '全素',   desc: '不含蛋奶五辛' },
-  { value: '蛋奶素', icon: '🥚', label: '蛋奶素', desc: '可食蛋奶製品' },
-  { value: '五辛素', icon: '🧄', label: '五辛素', desc: '可食蔥薑蒜' },
+  { key: 'meatQty',     icon: '🍖', label: '葷食',   desc: '含肉類料理' },
+  { key: 'fullVegQty',  icon: '🌿', label: '全素',   desc: '不含蛋奶五辛' },
+  { key: 'eggVegQty',   icon: '🥚', label: '蛋奶素', desc: '可食蛋奶製品' },
+  { key: 'spiceVegQty', icon: '🧄', label: '五辛素', desc: '可食蔥薑蒜' },
 ]
+const bTotalGuests = computed(() =>
+  bForm.meatQty + bForm.fullVegQty + bForm.eggVegQty + bForm.spiceVegQty
+)
 
-// ── 月曆 ─────────────────────────────────────────────────────────
-const bCal = new Date(); bCal.setHours(0,0,0,0)
-const bTodayStr  = toDateStr(bCal)
-const bCalYear   = ref(bCal.getFullYear())
-const bCalMonth  = ref(bCal.getMonth() + 1)
+// ── 月曆（續）────────────────────────────────────────────────────
+
 const bCanPrevMonth = computed(() =>
   bCalYear.value > bCal.getFullYear() ||
   (bCalYear.value === bCal.getFullYear() && bCalMonth.value > bCal.getMonth() + 1))
@@ -80,15 +96,15 @@ const bCalDays = computed(() => {
   for (let d = 1; d <= daysInMonth; d++) {
     const mm = String(bCalMonth.value).padStart(2,'0'), dd = String(d).padStart(2,'0')
     const str = `${bCalYear.value}-${mm}-${dd}`
-    days.push({ label: d, date: str, disabled: str <= bTodayStr })
+    days.push({ label: d, date: str, disabled: str < bTodayStr })
   }
   return days
 })
 const bDayClass = (day) => {
-  if (!day.date)    return 'cursor-default'
-  if (day.disabled) return 'text-stone-200 cursor-not-allowed'
-  if (day.date === bForm.date) return 'font-bold text-white cursor-pointer shadow-sm bg-teal-600'
-  return 'text-stone-700 hover:bg-teal-100 hover:text-teal-800 cursor-pointer'
+  if (!day.date)    return 'booking-cal__day--empty'
+  if (day.disabled) return 'booking-cal__day--disabled'
+  if (day.date === bForm.date) return 'booking-cal__day--selected'
+  return 'booking-cal__day--available'
 }
 
 const bDateGuests        = ref(0)
@@ -100,28 +116,36 @@ const bSelectDate = async (date) => {
   try {
     const data     = await (await fetch(`${BOOKING_BASE.value}/get/${date}`)).json()
     const bookings = Array.isArray(data) ? data : []
-    bDateGuests.value = bookings.reduce((sum, b) => sum + (b.guests || 0), 0)
+    bDateGuests.value = bookings.reduce((sum, b) =>
+      sum + (b.meatQty || 0) + (b.fullVegQty || 0) + (b.eggVegQty || 0) + (b.spiceVegQty || 0), 0)
   } catch { bDateGuests.value = 0 }
   finally { bDateGuestsLoading.value = false }
 }
 
-const bSummary = computed(() => [
-  { label: '日期', value: bForm.date },
-  { label: '時間', value: bForm.time },
-  { label: '人數', value: `${bForm.guests} 人` },
-  { label: '葷素', value: bDietOptions.find(o => o.value === bForm.diet)?.label || '未指定' },
-  ...(bForm.note ? [{ label: '備註', value: bForm.note }] : []),
-])
+const bSummary = computed(() => {
+  const rows = [
+    { label: '日期', value: bForm.date },
+    { label: '時間', value: bForm.time },
+  ]
+  const dietMap = { meatQty: '葷食', fullVegQty: '全素', eggVegQty: '蛋奶素', spiceVegQty: '五辛素' }
+  for (const [key, label] of Object.entries(dietMap)) {
+    if (bForm[key] > 0) rows.push({ label, value: `${bForm[key]} 份` })
+  }
+  rows.push({ label: '合計', value: `${bTotalGuests.value} 人` })
+  if (bForm.note) rows.push({ label: '備註', value: bForm.note })
+  return rows
+})
 
 const bNextStep = () => {
   Object.keys(bErrors).forEach(k => delete bErrors[k])
-  if (bStep.value === 0 && !bForm.date)  { bErrors.date = '請選擇用餐日期'; return }
+  if (bStep.value === 0 && !bForm.date) { bErrors.date = '請選擇用餐日期'; return }
   if (bStep.value === 1) {
-    if (!bForm.name.trim())  bErrors.name  = '請輸入姓名'
-    if (!bForm.phone.trim()) bErrors.phone = '請輸入聯絡電話'
+    if (!bForm.name.trim())              bErrors.name  = '請輸入姓名'
+    if (!bForm.phone.trim())             bErrors.phone = '請輸入聯絡電話'
+    else if (!validateTWPhone(bForm.phone)) bErrors.phone = '請輸入正確的手機（09xxxxxxxx）或市話（如 02-12345678、07-1234567）'
+    if (bTotalGuests.value === 0) bErrors.diet = '請至少選擇一份餐點'
     if (Object.keys(bErrors).length > 0) return
   }
-  if (bStep.value === 2 && !bForm.diet) { bErrors.diet = '請選擇葷素偏好'; return }
   bStep.value++
 }
 
@@ -130,15 +154,44 @@ const bSubmit = async () => {
   try {
     const res = await fetch(`${BOOKING_BASE.value}/save`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...bForm, status: '待確認' }),
+      credentials: 'include',
+      body: JSON.stringify({ ...bForm, status: '待確認', customerId: customerStore.customer?.id ?? '' }),
     })
     if (!res.ok) throw new Error()
-    Object.assign(bForm, { name: '', phone: '', date: '', time: '12:00', guests: 2, diet: '', note: '' })
+    Object.assign(bForm, { name: '', phone: '', date: '', time: '12:00', note: '',
+      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0 })
     bStep.value = 0
     alert('訂位已送出！我們將盡快電話確認，謝謝。')
   } catch { bSubmitError.value = '預約送出失敗，請稍後再試或直接來電。' }
   finally { bSubmitting.value = false }
 }
+
+onMounted(() => {
+  const c = customerStore.customer
+  if (c?.name && !bForm.name) bForm.name = c.name
+
+  // 若有設定電話，自動帶入
+  if (c?.id) {
+    fetch(`${CUSTOMER_BASE.value}/profile?customerId=${c.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.mobile && !bForm.phone) bForm.phone = data.mobile
+        else if (data.landline && !bForm.phone) bForm.phone = data.landline
+      })
+      .catch(() => {})
+  }
+
+  window.onscroll = () => {
+    const btn = document.getElementById('myBtn')
+    if (btn) {
+      btn.style.display =
+        document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
+          ? 'block'
+          : 'none'
+    }
+  }
+  bSelectDate(bTodayStr)
+})
 </script>
 
 <template>
@@ -191,9 +244,6 @@ const bSubmit = async () => {
 
                 <!-- Step 0：選擇日期 -->
                 <div v-if="bStep === 0">
-                  <div class="mb-4">
-                    <GoogleLoginButton @login="onCustomerLogin" @logout="onCustomerLogout" ref="googleBtnRef" />
-                  </div>
                   <h2 class="booking-title">選擇用餐日期</h2>
                   <div class="booking-cal">
                     <div class="booking-cal__header">
@@ -225,7 +275,7 @@ const bSubmit = async () => {
                   <p v-if="bErrors.date" class="booking-error">{{ bErrors.date }}</p>
                 </div>
 
-                <!-- Step 1：填寫資料 -->
+                <!-- Step 1：填寫資料 + 葷素數量 -->
                 <div v-if="bStep === 1" class="booking-form">
                   <h2 class="booking-title">填寫資料</h2>
                   <div class="booking-field">
@@ -235,51 +285,43 @@ const bSubmit = async () => {
                   </div>
                   <div class="booking-field">
                     <label class="booking-label">聯絡電話 <span class="booking-required">*</span></label>
-                    <input v-model="bForm.phone" type="tel" placeholder="請輸入電話" class="booking-input" :class="bErrors.phone && 'booking-input--error'" />
+                    <input v-model="bForm.phone" type="tel" placeholder="09xx-xxx-xxx 或 02-xxxxxxxx" class="booking-input" :class="bErrors.phone && 'booking-input--error'" />
                     <p v-if="bErrors.phone" class="booking-error">{{ bErrors.phone }}</p>
                   </div>
-                  <div class="booking-grid-2">
-                    <div class="booking-field">
-                      <label class="booking-label">用餐時間</label>
-                      <select v-model="bForm.time" class="booking-input">
-                        <option v-for="t in bTimeSlots" :key="t" :value="t">{{ t }}</option>
-                      </select>
-                    </div>
-                    <div class="booking-field">
-                      <label class="booking-label">人數</label>
-                      <div class="booking-counter">
-                        <button @click="bForm.guests = Math.max(1, bForm.guests - 1)" class="booking-counter__btn">−</button>
-                        <input v-model.number="bForm.guests" type="number" min="1" max="50" class="booking-counter__input" />
-                        <button @click="bForm.guests = Math.min(50, bForm.guests + 1)" class="booking-counter__btn">＋</button>
-                      </div>
-                    </div>
+                  <div class="booking-field">
+                    <label class="booking-label">用餐時間</label>
+                    <select v-model="bForm.time" class="booking-input">
+                      <option v-for="t in bTimeSlots" :key="t" :value="t">{{ t }}</option>
+                    </select>
                   </div>
                   <div class="booking-field">
                     <label class="booking-label">備註</label>
                     <textarea v-model="bForm.note" rows="2" placeholder="過敏食材、特殊需求…" class="booking-input booking-textarea" />
                   </div>
-                </div>
 
-                <!-- Step 2：葷素選擇 -->
-                <div v-if="bStep === 2">
-                  <h2 class="booking-title">葷素選擇</h2>
-                  <div class="booking-diet-grid">
-                    <button
-                      v-for="opt in bDietOptions" :key="opt.value"
-                      @click="bForm.diet = opt.value"
-                      class="booking-diet-card"
-                      :class="bForm.diet === opt.value ? 'booking-diet-card--active' : ''"
-                    >
-                      <div class="booking-diet-card__icon">{{ opt.icon }}</div>
-                      <div class="booking-diet-card__label">{{ opt.label }}</div>
-                      <div class="booking-diet-card__desc">{{ opt.desc }}</div>
-                    </button>
+                  <div class="booking-divider">葷素數量 <span class="booking-required">*</span></div>
+                  <div v-for="opt in bDietOptions" :key="opt.key" class="booking-diet-row">
+                    <div class="booking-diet-row__info">
+                      <span class="booking-diet-row__icon">{{ opt.icon }}</span>
+                      <div>
+                        <div class="booking-diet-row__label">{{ opt.label }}</div>
+                        <div class="booking-diet-row__desc">{{ opt.desc }}</div>
+                      </div>
+                    </div>
+                    <div class="booking-counter">
+                      <button @click="bForm[opt.key] = Math.max(0, bForm[opt.key] - 1)" class="booking-counter__btn">−</button>
+                      <input v-model.number="bForm[opt.key]" type="number" min="0" class="booking-counter__input" />
+                      <button @click="bForm[opt.key]++" class="booking-counter__btn">＋</button>
+                    </div>
+                  </div>
+                  <div v-if="bTotalGuests > 0" class="booking-qty-summary">
+                    合計 <strong>{{ bTotalGuests }}</strong> 人
                   </div>
                   <p v-if="bErrors.diet" class="booking-error">{{ bErrors.diet }}</p>
                 </div>
 
-                <!-- Step 3：確認送出 -->
-                <div v-if="bStep === 3">
+                <!-- Step 2：確認送出 -->
+                <div v-if="bStep === 2">
                   <h2 class="booking-title">確認預約內容</h2>
                   <div class="booking-summary">
                     <div v-for="row in bSummary" :key="row.label" class="booking-summary__row">
@@ -356,16 +398,16 @@ const bSubmit = async () => {
 }
 .booking-step {
   flex: 1;
-  padding: 12px 4px;
+  padding: 10px 2px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   position: relative;
 }
 .booking-step--active  { color: #3a9a8a; background-color: #eef7f5; }
 .booking-step--done    { color: #3a9a8a; }
 .booking-step--pending { color: #ccc; }
-.booking-step__inner   { display: inline-flex; align-items: center; gap: 6px; }
+.booking-step__inner   { display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
 .booking-step__check   { width: 16px; height: 16px; color: #3a9a8a; }
 .booking-step__num {
   width: 20px; height: 20px;
@@ -481,22 +523,47 @@ const bSubmit = async () => {
   color: #333; outline: none;
 }
 
-/* ── 葷素選擇 ── */
-.booking-diet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
-.booking-diet-card {
-  padding: 16px;
-  border-radius: 16px;
-  border: 2px solid #eee;
-  text-align: left;
-  cursor: pointer;
-  background: #fff;
-  transition: border-color 0.15s, background 0.15s;
+/* ── 區塊分隔標題 ── */
+.booking-divider {
+  font-size: 13px;
+  font-weight: 700;
+  color: #555;
+  padding: 8px 0 4px;
+  border-top: 1px solid #eee;
+  margin-top: 4px;
 }
-.booking-diet-card:hover          { border-color: #b8d8d0; }
-.booking-diet-card--active        { border-color: #5bbfbf; background-color: #eef7f5; }
-.booking-diet-card__icon          { font-size: 24px; margin-bottom: 4px; }
-.booking-diet-card__label         { font-size: 13px; font-weight: 600; color: #333; }
-.booking-diet-card__desc          { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+/* ── 葷素計數列 ── */
+.booking-diet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 14px 16px;
+  gap: 12px;
+}
+.booking-diet-row__info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.booking-diet-row__icon  { font-size: 22px; flex-shrink: 0; }
+.booking-diet-row__label { font-size: 13px; font-weight: 600; color: #333; }
+.booking-diet-row__desc  { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+/* ── 數量小計 ── */
+.booking-qty-summary {
+  background: #eef7f5;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #3a9a8a;
+  text-align: right;
+}
 
 /* ── 確認摘要 ── */
 .booking-summary {
@@ -568,6 +635,13 @@ const bSubmit = async () => {
 }
 .booking-notice--teal { background-color: #eef7f5; color: #3a9a8a; }
 .booking-notice__title { font-weight: 600; margin-bottom: 4px; }
+
+/* ── 日期狀態 ── */
+.booking-cal__day--empty    { cursor: default; }
+.booking-cal__day--disabled { color: #d1cdc8; cursor: not-allowed; background: none; }
+.booking-cal__day--selected { background-color: #3a9a8a; color: #fff; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(58,154,138,0.35); }
+.booking-cal__day--available { color: #444; cursor: pointer; }
+.booking-cal__day--available:hover { background-color: #d0eeea; color: #2a7a6a; }
 
 /* ── number input arrow 隱藏 ── */
 input[type=number]::-webkit-inner-spin-button,

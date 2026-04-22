@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
-import { useCustomerStore } from '~/stores/customer.js'
+import {ref, computed, onMounted, watch} from 'vue'
+import {useCommonStore} from '~/stores/common.js'
+import {useCustomerStore} from '~/stores/customer.js'
 import GoogleLoginButton from '~/components/GoogleLoginButton.vue'
 
 useSiteHead()
@@ -30,8 +30,8 @@ const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 const customer = computed(() => customerStore.customer)
 const activeTab = ref('bookings')
 const tabs = [
-  { key: 'bookings', label: '訂位紀錄' },
-  { key: 'lunches', label: '便當紀錄' },
+  {key: 'bookings', label: '訂位紀錄'},
+  {key: 'lunches', label: '便當紀錄'},
 ]
 
 const bookings = ref([])
@@ -43,9 +43,10 @@ const fetchAll = async () => {
   bookingsLoading.value = true
   lunchesLoading.value = true
   try {
+    const cid = customerStore.customer?.id ?? ''
     const [b, l] = await Promise.all([
-      fetch(`${BASE.value}/bookings`, { credentials: 'include' }).then(r => r.json()),
-      fetch(`${BASE.value}/lunches`, { credentials: 'include' }).then(r => r.json()),
+      fetch(`${BASE.value}/bookings?customerId=${cid}`).then(r => r.json()),
+      fetch(`${BASE.value}/lunches?customerId=${cid}`).then(r => r.json()),
     ])
     bookings.value = Array.isArray(b) ? b : []
     lunches.value = Array.isArray(l) ? l : []
@@ -61,7 +62,7 @@ const onLogin = async () => {
 }
 
 const logout = async () => {
-  await fetch(`${BASE.value}/logout`, { method: 'POST', credentials: 'include' })
+  await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
   customerStore.clearCustomer()
   bookings.value = []
   lunches.value = []
@@ -126,26 +127,6 @@ watch(customer, async (c) => {
                 <!-- 已登入 -->
                 <template v-else>
 
-                  <!-- 帳號資訊 -->
-                  <div class="profile-account">
-                    <div class="profile-account__left">
-                      <div class="profile-account__avatar">
-                        <img
-                          v-if="customer.picture"
-                          :src="customer.picture"
-                          :alt="customer.name"
-                          class="profile-account__avatar-img"
-                        >
-                        <span v-else>{{ customer.name?.charAt(0)?.toUpperCase() || '?' }}</span>
-                      </div>
-                      <div class="profile-account__info">
-                        <p class="profile-account__name">{{ customer.name }}</p>
-                        <p class="profile-account__email">{{ customer.email }}</p>
-                      </div>
-                    </div>
-                    <button @click="logout" class="profile-account__logout-btn">登出</button>
-                  </div>
-
                   <!-- Tab 切換 -->
                   <div class="profile-tabs">
                     <button
@@ -169,7 +150,9 @@ watch(customer, async (c) => {
                       <div v-for="b in bookings" :key="b.id" class="profile-card">
                         <div class="profile-card__date profile-card__date--teal">
                           <p class="profile-card__date-month">{{ b.date?.substring(0, 7) }}</p>
-                          <p class="profile-card__date-day profile-card__date-day--teal">{{ b.date?.substring(8, 10) }}</p>
+                          <p class="profile-card__date-day profile-card__date-day--teal">{{
+                              b.date?.substring(8, 10)
+                            }}</p>
                         </div>
                         <div class="profile-card__body">
                           <div class="profile-card__row">
@@ -178,8 +161,10 @@ watch(customer, async (c) => {
                           </div>
                           <div class="profile-card__meta">
                             <span>🕐 {{ b.time }}</span>
-                            <span>👥 {{ b.guests }} 人</span>
-                            <span v-if="b.diet">🍽 {{ b.diet }}</span>
+                            <span v-if="b.meatQty > 0">🍖 葷 {{ b.meatQty }}</span>
+                            <span v-if="b.fullVegQty > 0">🌿 全素 {{ b.fullVegQty }}</span>
+                            <span v-if="b.eggVegQty > 0">🥚 蛋奶素 {{ b.eggVegQty }}</span>
+                            <span v-if="b.spiceVegQty > 0">🧄 五辛素 {{ b.spiceVegQty }}</span>
                             <span v-if="b.phone">📞 {{ b.phone }}</span>
                           </div>
                           <p v-if="b.note" class="profile-card__note">{{ b.note }}</p>
@@ -198,7 +183,9 @@ watch(customer, async (c) => {
                       <div v-for="l in lunches" :key="l.id" class="profile-card">
                         <div class="profile-card__date profile-card__date--amber">
                           <p class="profile-card__date-month">{{ l.date?.substring(0, 7) }}</p>
-                          <p class="profile-card__date-day profile-card__date-day--amber">{{ l.date?.substring(8, 10) }}</p>
+                          <p class="profile-card__date-day profile-card__date-day--amber">{{
+                              l.date?.substring(8, 10)
+                            }}</p>
                         </div>
                         <div class="profile-card__body">
                           <div class="profile-card__row">
@@ -207,9 +194,13 @@ watch(customer, async (c) => {
                           </div>
                           <div class="profile-card__meta">
                             <span>🕐 取餐 {{ l.time }}</span>
-                            <span>🥩 葷 {{ l.meatQty }} 盒</span>
-                            <span>🥦 素 {{ l.vegQty }} 盒</span>
-                            <span>共 {{ l.meatQty + l.vegQty }} 盒</span>
+                            <span v-if="l.meatQty > 0">🍖 葷 {{ l.meatQty }}</span>
+                            <span v-if="l.fullVegQty > 0">🌿 全素 {{ l.fullVegQty }}</span>
+                            <span v-if="l.eggVegQty > 0">🥚 蛋奶素 {{ l.eggVegQty }}</span>
+                            <span v-if="l.spiceVegQty > 0">🧄 五辛素 {{ l.spiceVegQty }}</span>
+                            <span>共 {{
+                                (l.meatQty || 0) + (l.fullVegQty || 0) + (l.eggVegQty || 0) + (l.spiceVegQty || 0)
+                              }} 盒</span>
                           </div>
                           <p v-if="l.note" class="profile-card__note">{{ l.note }}</p>
                         </div>
@@ -267,88 +258,6 @@ watch(customer, async (c) => {
   margin-bottom: 20px;
 }
 
-/* ── 帳號資訊卡 ── */
-.profile-account {
-  background: #fff;
-  border: 1px solid #eee;
-  border-radius: 16px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.profile-account__left {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.profile-account__avatar {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  border-radius: 50%;
-  background-color: #1FC29C;
-  color: #fff;
-  font-weight: 700;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.profile-account__avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-  display: block;
-}
-
-.profile-account__info {
-  display: flex;
-  flex-direction: column;
-}
-
-.profile-account__name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.profile-account__email {
-  font-size: 12px;
-  color: #aaa;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.profile-account__logout-btn {
-  font-size: 12px;
-  color: #aaa;
-  background: none;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 5px 12px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.profile-account__logout-btn:hover {
-  color: #e74c3c;
-  border-color: #e74c3c;
-}
-
 /* ── Tab ── */
 .profile-tabs {
   display: flex;
@@ -398,8 +307,13 @@ watch(customer, async (c) => {
   padding: 8px 4px;
 }
 
-.profile-card__date--teal { background-color: #eef7f5; }
-.profile-card__date--amber { background-color: #fff8ee; }
+.profile-card__date--teal {
+  background-color: #eef7f5;
+}
+
+.profile-card__date--amber {
+  background-color: #fff8ee;
+}
 
 .profile-card__date-month {
   font-size: 11px;
@@ -414,8 +328,13 @@ watch(customer, async (c) => {
   line-height: 1.2;
 }
 
-.profile-card__date-day--teal { color: #1FC29C; }
-.profile-card__date-day--amber { color: #f59e0b; }
+.profile-card__date-day--teal {
+  color: #1FC29C;
+}
+
+.profile-card__date-day--amber {
+  color: #f59e0b;
+}
 
 .profile-card__body {
   flex: 1;
@@ -463,10 +382,25 @@ watch(customer, async (c) => {
   white-space: nowrap;
 }
 
-.profile-badge--warning { background-color: #fff3cd; color: #856404; }
-.profile-badge--success { background-color: #d1f0e8; color: #0d6e4f; }
-.profile-badge--muted   { background-color: #f0f0f0; color: #888; }
-.profile-badge--danger  { background-color: #fde8e8; color: #c0392b; }
+.profile-badge--warning {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.profile-badge--success {
+  background-color: #d1f0e8;
+  color: #0d6e4f;
+}
+
+.profile-badge--muted {
+  background-color: #f0f0f0;
+  color: #888;
+}
+
+.profile-badge--danger {
+  background-color: #fde8e8;
+  color: #c0392b;
+}
 
 /* ── Loading / Empty ── */
 .profile-loading {
