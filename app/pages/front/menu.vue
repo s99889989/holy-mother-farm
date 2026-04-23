@@ -270,7 +270,7 @@ onUnmounted(() => {
                     <!-- 導覽列 -->
                     <div class="menu-nav-bar mb-3">
                       <button v-if="hasPrev" @click="slidePrev" class="menu-nav-btn">
-                        <i class="fas fa-chevron-left me-1"></i> 上一天
+                        <i class="fas fa-chevron-left me-1"></i>
                       </button>
                       <div v-else class="menu-nav-placeholder"></div>
 
@@ -287,7 +287,7 @@ onUnmounted(() => {
                       </div>
 
                       <button v-if="hasNext" @click="slideNext" class="menu-nav-btn">
-                        下一天 <i class="fas fa-chevron-right ms-1"></i>
+                        <i class="fas fa-chevron-right ms-1"></i>
                       </button>
                       <div v-else class="menu-nav-placeholder"></div>
                     </div>
@@ -421,7 +421,7 @@ onUnmounted(() => {
 .menu-nav-placeholder { width: 90px; flex-shrink: 0; }
 .menu-nav-btn {
   flex-shrink: 0;
-  width: 90px;
+  width: 40px;
   padding: 6px 10px;
   font-size: 0.82rem;
   border: 1.5px solid #8bb868;
@@ -551,7 +551,7 @@ onUnmounted(() => {
   position: relative;
   cursor: pointer;
   overflow: hidden;
-  height: 140px;
+  aspect-ratio: 4 / 3;
 }
 
 /* ── 多圖橫排（沙拉吧） ── */
