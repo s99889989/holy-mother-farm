@@ -71,9 +71,12 @@ const itemsByTypeForDate = (date, type) => {
     if (!slotMap[slot]) slotMap[slot] = []
     slotMap[slot].push(item)
   }
-  return Object.keys(slotMap).map(Number).sort()
-    .map(slot => pickSlotItem(slotMap[slot]))
-    .filter(Boolean)
+  const result = []
+  for (const slot of Object.keys(slotMap).map(Number).sort()) {
+    slotMap[slot].sort((a, b) => a.id.localeCompare(b.id))
+      .forEach((item, idx) => result.push({ ...item, isFirst: idx === 0 }))
+  }
+  return result
 }
 
 // 沙拉霸：每個 slot 取代表圖，展開所有圖片
