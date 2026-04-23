@@ -71,12 +71,9 @@ const itemsByTypeForDate = (date, type) => {
     if (!slotMap[slot]) slotMap[slot] = []
     slotMap[slot].push(item)
   }
-  const result = []
-  for (const slot of Object.keys(slotMap).map(Number).sort()) {
-    slotMap[slot].sort((a, b) => a.id.localeCompare(b.id))
-      .forEach((item, idx) => result.push({ ...item, isFirst: idx === 0 }))
-  }
-  return result
+  return Object.keys(slotMap).map(Number).sort()
+    .map(slot => pickSlotItem(slotMap[slot]))
+    .filter(Boolean)
 }
 
 // 沙拉霸：每個 slot 取代表圖，展開所有圖片
@@ -270,7 +267,7 @@ onUnmounted(() => {
                     <!-- 導覽列 -->
                     <div class="menu-nav-bar mb-3">
                       <button v-if="hasPrev" @click="slidePrev" class="menu-nav-btn">
-                        <i class="fas fa-chevron-left me-1"></i>
+                        <i class="fas fa-chevron-left me-1"></i> 上一天
                       </button>
                       <div v-else class="menu-nav-placeholder"></div>
 
@@ -279,7 +276,6 @@ onUnmounted(() => {
                              :class="currentDay.date === todayStr ? 'menu-date-display--today' : ''">
                           <span class="menu-date-weekday">{{ currentDay.weekLabel }}</span>
                           <span class="menu-date-text">{{ currentDay.date.slice(5).replace('-', '/') }}</span>
-                          <span v-if="currentDay.date === todayStr" class="menu-today-chip">今天</span>
                         </div>
                         <button @click="jumpToToday" class="menu-today-btn">
                           <i class="fas fa-calendar-day me-1"></i> 回今日
@@ -287,7 +283,7 @@ onUnmounted(() => {
                       </div>
 
                       <button v-if="hasNext" @click="slideNext" class="menu-nav-btn">
-                        <i class="fas fa-chevron-right ms-1"></i>
+                        下一天 <i class="fas fa-chevron-right ms-1"></i>
                       </button>
                       <div v-else class="menu-nav-placeholder"></div>
                     </div>
@@ -421,7 +417,7 @@ onUnmounted(() => {
 .menu-nav-placeholder { width: 90px; flex-shrink: 0; }
 .menu-nav-btn {
   flex-shrink: 0;
-  width: 40px;
+  width: 90px;
   padding: 6px 10px;
   font-size: 0.82rem;
   border: 1.5px solid #8bb868;
@@ -657,9 +653,9 @@ onUnmounted(() => {
   }
 
   &-close {
-    position: fixed;
+    position: absolute;
     top: 16px;
-    right: 20px;
+    right: 16px;
     background: rgba(255,255,255,0.2);
     border: none;
     color: #fff;
