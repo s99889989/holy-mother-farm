@@ -4,6 +4,7 @@ interface SiteHeadOptions {
   ogTitle?: string
   ogDescription?: string
   ogImage?: string
+  twitterImage?: string
   ogUrl?: string
 }
 
@@ -13,6 +14,7 @@ export function useSiteHead({
                               ogTitle,
                               ogDescription = '健康由安全飲食出發，我們希望能成為民眾健康的促進者，除提供安全的飲食外， 也積極與部落及小農合作，輔導提供安全或有機的食材， 期盼能帶動部落朝向安全有機發展，進而改善促進部落與小農經濟。',
                               ogImage     = 'https://holymotherfarm.netlify.app/images/homepage/healthfarm_hp_news_people.png',
+                              twitterImage = 'https://holymotherfarm.netlify.app/images/homepage/healthfarm_hp_news_people.png',
                               ogUrl,
                             }: SiteHeadOptions = {}) {
   const resolvedOgTitle       = ogTitle       ?? title
@@ -33,6 +35,7 @@ export function useSiteHead({
       { property: 'og:title',       content: resolvedOgTitle },
       { property: 'og:description', content: resolvedOgDescription },
       { property: 'og:image',       content: ogImage },
+      { property: 'twitter:image',       content: twitterImage },
       ...(ogUrl ? [{ property: 'og:url', content: ogUrl }] : []),
     ],
     link: [
