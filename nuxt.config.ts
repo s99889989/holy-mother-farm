@@ -1,4 +1,5 @@
 export default defineNuxtConfig({
+  ssr: true,
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
