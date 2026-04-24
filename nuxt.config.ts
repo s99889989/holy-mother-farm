@@ -25,7 +25,10 @@ export default defineNuxtConfig({
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
       }
-    }
+    },
+    '/front/menu': { prerender: true },       // 預先渲染成靜態 HTML
+    '/front/restaurant': { prerender: true },
+    // 其他需要 OG 的頁面也加進來
   },
   app: {
     head: {
