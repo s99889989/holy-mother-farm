@@ -12,7 +12,7 @@ export function useSiteHead({
                               description = '台東聖母健康農莊，提供田園餐廳、休憩小舖、有機農產品及活動報名等服務。',
                               ogTitle,
                               ogDescription = '健康由安全飲食出發，我們希望能成為民眾健康的促進者，除提供安全的飲食外， 也積極與部落及小農合作，輔導提供安全或有機的食材， 期盼能帶動部落朝向安全有機發展，進而改善促進部落與小農經濟。',
-                              ogImage     = 'https://holymotherfarm.netlify.app/images/og-cover.png',
+                              ogImage     = 'https://holymotherfarm.netlify.app/images/homepage/healthfarm_hp_news_people.png',
                               ogUrl,
                             }: SiteHeadOptions = {}) {
   const resolvedOgTitle       = ogTitle       ?? title
