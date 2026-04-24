@@ -1,11 +1,39 @@
-export function useSiteHead(title: string = '台東聖母健康農莊') {
+interface SiteHeadOptions {
+  title?: string
+  description?: string
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  ogUrl?: string
+}
+
+export function useSiteHead({
+                              title       = '台東聖母健康農莊',
+                              description = '台東聖母健康農莊，提供田園餐廳、休憩小舖、有機農產品及活動報名等服務。',
+                              ogTitle,
+                              ogDescription,
+                              ogImage     = 'https://holymotherfarm.netlify.app/images/og-cover.png',
+                              ogUrl,
+                            }: SiteHeadOptions = {}) {
+  const resolvedOgTitle       = ogTitle       ?? title
+  const resolvedOgDescription = ogDescription ?? description
+
   useHead({
     title,
     meta: [
       { charset: 'UTF-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+      { name: 'viewport',          content: 'width=device-width, initial-scale=1.0' },
       { 'http-equiv': 'X-UA-Compatible', content: 'ie=edge' },
       { name: 'format-detection', content: 'telephone=no' },
+      { name: 'description',       content: description },
+
+      // Open Graph
+      { property: 'og:type',        content: 'website' },
+      { property: 'og:site_name',   content: '台東聖母健康農莊' },
+      { property: 'og:title',       content: resolvedOgTitle },
+      { property: 'og:description', content: resolvedOgDescription },
+      { property: 'og:image',       content: ogImage },
+      ...(ogUrl ? [{ property: 'og:url', content: ogUrl }] : []),
     ],
     link: [
       {
