@@ -1,3 +1,59 @@
+<script setup>
+definePageMeta({ layout: 'admin' })
+const commonStore = useCommonStore()
+onMounted(() => {
+  if (localStorage.getItem('adminDark') === '1') {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+  // 已登入則直接跳轉
+  if (localStorage.getItem('holy_auth')) {
+    navigateTo('/admin/QuickLinks')
+  }
+})
+
+const username = ref('')
+const password = ref('')
+const loading  = ref(false)
+const error    = ref('')
+
+const login = async () => {
+  if (!username.value || !password.value) {
+    error.value = '請輸入帳號和密碼'
+    return
+  }
+  if (loading.value) return
+
+  loading.value = true
+  error.value   = ''
+
+  try {
+    console.log(`${commonStore.data.main_url}/holy/auth/login`)
+    const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
+      method: 'POST',
+      body: { username: username.value, password: password.value },
+    })
+    console.log('登入: ' + res.success)
+    if (res.success) {
+      console.log('登入成功 ')
+      localStorage.setItem('holy_auth', 'ok')
+      // router.push('/management/DailyMenu')
+      navigateTo('/admin/QuickLinks')
+      return
+    } else {
+      error.value = '帳號或密碼錯誤，請再試一次'
+      password.value = ''
+    }
+  } catch {
+    error.value = '帳號或密碼錯誤，請再試一次!!'
+    password.value = ''
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
 
@@ -73,54 +129,4 @@
   </div>
 </template>
 
-<script setup>
-definePageMeta({ layout: 'admin' })
-const commonStore = useCommonStore()
-onMounted(() => {
-  if (localStorage.getItem('adminDark') === '1') {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
-})
 
-const username = ref('')
-const password = ref('')
-const loading  = ref(false)
-const error    = ref('')
-
-const login = async () => {
-  if (!username.value || !password.value) {
-    error.value = '請輸入帳號和密碼'
-    return
-  }
-  if (loading.value) return
-
-  loading.value = true
-  error.value   = ''
-
-  try {
-    console.log(`${commonStore.data.main_url}/holy/auth/login`)
-    const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
-      method: 'POST',
-      body: { username: username.value, password: password.value },
-    })
-    console.log('登入: ' + res.success)
-    if (res.success) {
-      console.log('登入成功 ')
-      localStorage.setItem('holy_auth', 'ok')
-      // router.push('/management/DailyMenu')
-      navigateTo('/admin/QuickLinks')
-      return
-    } else {
-      error.value = '帳號或密碼錯誤，請再試一次'
-      password.value = ''
-    }
-  } catch {
-    error.value = '帳號或密碼錯誤，請再試一次!!'
-    password.value = ''
-  } finally {
-    loading.value = false
-  }
-}
-</script>
