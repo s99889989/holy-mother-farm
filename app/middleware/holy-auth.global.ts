@@ -4,6 +4,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (to.path.startsWith('/front')) return
   if (to.path.startsWith('/book')) return
+  if (to.path.startsWith('/book')) return
   if (to.path === '/login') return
   if (to.path === '/') return
 
