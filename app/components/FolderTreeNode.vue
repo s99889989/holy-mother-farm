@@ -77,6 +77,7 @@ const STORAGE_KEY = 'imageLibrary_folderExpanded'
 
 // 讀取 localStorage，預設收縮
 const loadExpanded = () => {
+  if (!import.meta.client) return false
   try {
     const map = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
     return map[props.node.path] === true
