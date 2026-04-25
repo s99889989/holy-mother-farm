@@ -4,9 +4,6 @@ const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 
-// ── 固定預訂規則面板開關
-const showRecurPanel = ref(false)
-
 // ── 共用日曆 ──────────────────────────────────────────────────────
 const apiOnline = ref(false)
 const selectedDate = ref('')
@@ -60,7 +57,6 @@ const selectDate = async (date) => {
   selectedDate.value = date
   await Promise.all([fetchBookings(), fetchLunchOrders()])
 }
-
 
 // ── 訂位 ──────────────────────────────────────────────────────────
 const bookings = ref([])
@@ -1051,7 +1047,7 @@ onMounted(async () => {
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">取餐時間</label>
             <select v-model="lForm.time"
                     class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
-              <option v-for="t in lunchTimeSlots" :key="t" :value="t">{{ t }}</option>
+              <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
             </select>
           </div>
           <div>
