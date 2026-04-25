@@ -23,7 +23,7 @@
 
       <!-- 分類區塊 -->
       <div v-for="cat in categories" :key="cat.id"
-        class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+           class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
 
         <!-- 分類標題列 -->
         <div class="flex items-center px-4 py-3 bg-stone-50 border-b border-stone-200">
@@ -37,17 +37,17 @@
         </div>
         <div v-else class="divide-y divide-stone-100">
           <div v-for="link in cat.links" :key="link.id"
-            class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 transition-colors group">
+               class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 transition-colors group">
             <!-- 網址圖示 -->
             <div class="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
               <img :src="`https://www.google.com/s2/favicons?domain=${getDomain(link.url)}&sz=32`"
-                class="w-5 h-5 rounded"
-                @error="$event.target.style.display='none'" />
+                   class="w-5 h-5 rounded"
+                   @error="$event.target.style.display='none'" />
             </div>
             <!-- 內容 -->
             <div class="flex-1 min-w-0">
               <a :href="link.url" target="_blank" rel="noopener"
-                class="font-medium text-blue-600 hover:underline text-sm truncate block">
+                 class="font-medium text-blue-600 hover:underline text-sm truncate block">
                 {{ link.name }}
               </a>
               <p class="text-xs text-stone-400 truncate">{{ link.url }}</p>
@@ -56,7 +56,7 @@
             <!-- 開啟按鈕 -->
             <div class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
               <a :href="link.url" target="_blank" rel="noopener"
-                class="p-1.5 text-stone-400 hover:text-blue-600 transition-colors" title="開啟">
+                 class="p-1.5 text-stone-400 hover:text-blue-600 transition-colors" title="開啟">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                 </svg>
@@ -71,6 +71,7 @@
 
 <script setup>
 definePageMeta({ layout: 'staff' })
+useSiteHead()
 
 const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/links'
@@ -91,4 +92,8 @@ onMounted(fetchLinks)
 </script>
 
 <style scoped>
+</style>
+
+<style lang="scss">
+@use '~/assets/scss/all' as *;
 </style>
