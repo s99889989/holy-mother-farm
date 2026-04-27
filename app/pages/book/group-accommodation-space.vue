@@ -153,28 +153,59 @@ const sections = ref([
     id: 'sport',
     name: '快樂運動館',
     items: [
-      { id: 'sport-1', name: '植物扦插',    images: [], tags: [{ label: '成品帶回家', color: 'tag-brown' }, { label: '200元/人', color: 'tag-yellow' }, { label: '體驗時長5分鐘', color: 'tag-gray' }], description: '學習植物扦插技巧，帶著自己親手種植的植物回家。' },
-      { id: 'sport-2', name: '手洗窯玉',    images: [], tags: [{ label: '200元/人', color: 'tag-yellow' }, { label: '即時體驗', color: 'tag-blue' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '體驗陶藝製作，在農莊享受手工創作的樂趣。' },
-      { id: 'sport-3', name: '無患子溝渠液', images: [], tags: [{ label: '250元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }, { label: '季節限定', color: 'tag-red' }], description: '使用天然無患子製作環保清潔液，認識自然素材。' }
+      { id: 'sport-1', name: '植物扦插',    images: [
+        '/images/book/group-accommodation-space/22bd452e-3178-4705-b85c-a9439ef2912d.png',
+          '/images/book/group-accommodation-space/e02a3496-59cc-4ade-a210-480c48d03641.png',
+        ], tags: [{ label: '成品帶回家', color: 'tag-brown' }, { label: '200元/人', color: 'tag-yellow' }, { label: '體驗時長5分鐘', color: 'tag-gray' }], description: '學習植物扦插技巧，帶著自己親手種植的植物回家。' },
+      { id: 'sport-2', name: '手洗窯玉',    images: [
+          '/images/book/group-accommodation-space/9af9354d-3243-453f-83e4-8926edefc8c2.png',
+          '/images/book/group-accommodation-space/e2cc5721-66e6-4254-94ad-738b5c25c17b.png',
+        ], tags: [{ label: '200元/人', color: 'tag-yellow' }, { label: '即時體驗', color: 'tag-blue' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '體驗陶藝製作，在農莊享受手工創作的樂趣。' },
+      { id: 'sport-3', name: '無患子溝渠液', images: [
+          '/images/book/group-accommodation-space/d0bc0bce-23cd-4e25-8411-d440ee3e9416.png',
+          '/images/book/group-accommodation-space/79dc1690-c399-45f1-9bef-89410c370e1f.png',
+        ], tags: [{ label: '250元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }, { label: '季節限定', color: 'tag-red' }], description: '使用天然無患子製作環保清潔液，認識自然素材。' }
     ]
   },
   {
     id: 'kitchen',
     name: '樂智家園盟親廚房',
     items: [
-      { id: 'kitchen-1', name: '手作香草魚', images: [], tags: [{ label: '即時體驗', color: 'tag-blue' }, { label: '300元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '學習以新鮮香草料理魚料理，品嚐農莊在地食材的美味。' },
-      { id: 'kitchen-2', name: '植物紮托染', images: [], tags: [{ label: '即時體驗', color: 'tag-blue' }, { label: '350元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '利用天然植物染料體驗傳統紮染工藝，創作獨一無二的作品。' },
-      { id: 'kitchen-3', name: '醬滷豆腐',   images: [], tags: [{ label: '體驗時長30分鐘', color: 'tag-gray' }, { label: '1000元/組(3-5人)', color: 'tag-yellow' }], description: '學習傳統醬滷豆腐製作，感受台灣在地飲食文化。' }
+      { id: 'kitchen-1', name: '手作香草魚', images: [
+          '/images/book/group-accommodation-space/8ff0ab92-c740-4ce1-8fbc-0a3af93e1db5.png',
+          '/images/book/group-accommodation-space/6f758524-7272-4359-9a9c-611f5a663215.png',
+        ], tags: [{ label: '即時體驗', color: 'tag-blue' }, { label: '300元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '學習以新鮮香草料理魚料理，品嚐農莊在地食材的美味。' },
+      { id: 'kitchen-2', name: '植物紮托染', images: [
+          '/images/book/group-accommodation-space/b592e6ff-622b-4661-9320-a2c51db0967a.png',
+          '/images/book/group-accommodation-space/bf43f2fa-2b77-43ea-8521-1a53f70ee27a.png',
+        ], tags: [{ label: '即時體驗', color: 'tag-blue' }, { label: '350元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '利用天然植物染料體驗傳統紮染工藝，創作獨一無二的作品。' },
+      { id: 'kitchen-3', name: '醬滷豆腐',   images: [
+          '/images/book/group-accommodation-space/ec5f0415-98e2-4b17-aae4-67315e76bfed.png',
+          '/images/book/group-accommodation-space/a28a1f48-6eef-430a-b304-046ff3fe07d9.png',
+        ], tags: [{ label: '體驗時長30分鐘', color: 'tag-gray' }, { label: '1000元/組(3-5人)', color: 'tag-yellow' }], description: '學習傳統醬滷豆腐製作，感受台灣在地飲食文化。' }
     ]
   },
   {
     id: 'camping',
     name: '露營地租借',
     items: [
-      { id: 'camp-1', name: '環形運動',    images: [], tags: [{ label: '250元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '在寬闊戶外空間體驗環形團體運動，增進團隊向心力。' },
-      { id: 'camp-2', name: '桶油運動',    images: [], tags: [{ label: '350元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '趣味性十足的桶油競技，適合各年齡層參與。' },
-      { id: 'camp-3', name: '地板滾球體驗', images: [], tags: [{ label: '400元/人', color: 'tag-yellow' }, { label: '體驗時長60分鐘', color: 'tag-gray' }], description: '體驗地板滾球競賽，老少咸宜的益智運動。' },
-      { id: 'camp-4', name: '地板滾球競賽', images: [], tags: [{ label: '體驗時長90分鐘', color: 'tag-gray' }, { label: '350元/人', color: 'tag-yellow' }], description: '進階版地板滾球正式競賽，激烈精彩、樂趣無窮。' }
+      { id: 'camp-1', name: '環形運動',    images: [
+          '/images/book/group-accommodation-space/78907d2d-961e-4306-8690-dc2d2659dcf0 (1).png',
+          '/images/book/group-accommodation-space/da7817bf-1cbf-4eb2-9882-a0157ac6943f (1).png',
+        ], tags: [{ label: '250元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '在寬闊戶外空間體驗環形團體運動，增進團隊向心力。' },
+      { id: 'camp-2', name: '桶油運動',    images: [
+          '/images/book/group-accommodation-space/b6136977-a265-48f3-8420-2076352570d1 (1).png',
+          '/images/book/group-accommodation-space/07e4a21c-1e0b-464d-9669-aea45d66d19d (1).png',
+          '/images/book/group-accommodation-space/9a9fc814-b024-4eef-9686-cf697568edc9 (1).png',
+        ], tags: [{ label: '350元/人', color: 'tag-yellow' }, { label: '體驗時長50分鐘', color: 'tag-gray' }], description: '趣味性十足的桶油競技，適合各年齡層參與。' },
+      { id: 'camp-3', name: '地板滾球體驗', images: [
+          '/images/book/group-accommodation-space/87f4886e-753f-4ddb-bd38-5a3eca9782ca (1).png',
+          '/images/book/group-accommodation-space/f8a1bbdb-bb64-4c44-b11d-0cf7720c4699 (1).png',
+        ], tags: [{ label: '400元/人', color: 'tag-yellow' }, { label: '體驗時長60分鐘', color: 'tag-gray' }], description: '體驗地板滾球競賽，老少咸宜的益智運動。' },
+      { id: 'camp-4', name: '地板滾球競賽', images: [
+          '/images/book/group-accommodation-space/5bf961dc-eb46-44a7-b264-dbf1ef0834aa (1).png',
+          '/images/book/group-accommodation-space/49b59b5e-5e5c-437d-a322-ef321d93b575 (1).png',
+        ], tags: [{ label: '體驗時長90分鐘', color: 'tag-gray' }, { label: '350元/人', color: 'tag-yellow' }], description: '進階版地板滾球正式競賽，激烈精彩、樂趣無窮。' }
     ]
   }
 ])
