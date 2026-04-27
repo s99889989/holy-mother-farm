@@ -557,7 +557,12 @@ const batchDelete = async () => {
 // ── Computed ──────────────────────────────────────────────────────
 const filteredImages = computed(() => {
   const q = searchText.value.trim().toLowerCase()
-  return q ? images.value.filter(i => (i.displayName || i.originalName).toLowerCase().includes(q) || i.folder.toLowerCase().includes(q)) : images.value
+  const list = q
+    ? images.value.filter(i => (i.displayName || i.originalName).toLowerCase().includes(q) || i.folder.toLowerCase().includes(q))
+    : images.value
+  return [...list].sort((a, b) =>
+    (a.originalName || '').localeCompare(b.originalName || '', 'zh-TW', { numeric: true })
+  )
 })
 const allFolderPaths = computed(() => {
   const paths = []
