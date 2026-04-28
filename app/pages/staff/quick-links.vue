@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors">
+  <div class="min-h-screen bg-stone-50 dark:bg-zinc-950 transition-colors">
 
     <!-- Header -->
-    <div class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3">
+    <div class="bg-white dark:bg-zinc-950 border-b border-stone-200 dark:border-zinc-800 px-4 py-3">
       <div class="max-w-2xl mx-auto flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🔗</div>
         <div>
@@ -14,7 +14,7 @@
 
     <!-- 分類 Tab 列 -->
     <div v-if="categories.length > 0"
-         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-14 z-10">
+         class="bg-white dark:bg-zinc-950 border-b border-stone-200 dark:border-zinc-800 sticky top-14 z-10">
       <div class="max-w-2xl mx-auto">
         <div class="tab-scroll flex gap-1 px-3 py-2 overflow-x-auto">
           <button
@@ -22,7 +22,7 @@
             class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
             :class="activeId === cat.id
               ? 'bg-green-700 text-white font-semibold'
-              : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-zinc-700'"
+              : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-zinc-600'"
             style="font-size:13px"
             @click="activeId = cat.id"
           >
@@ -56,7 +56,7 @@
         <div v-else class="link-grid">
           <a v-for="link in activeCat.links" :key="link.id"
              :href="link.url" target="_blank" rel="noopener"
-             class="link-card bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl p-3 flex flex-col gap-2 shadow-sm">
+             class="link-card bg-white dark:bg-zinc-800 border border-stone-200 dark:border-zinc-600 rounded-2xl p-3 flex flex-col gap-2 shadow-sm">
 
             <div class="flex items-start justify-between">
               <div class="w-10 h-10 rounded-xl bg-stone-100 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">

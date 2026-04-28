@@ -2,7 +2,7 @@
   <nav class="staff-nav">
     <div class="staff-nav-inner">
       <!-- Logo / 品牌 -->
-      <NuxtLink to="/staff" class="staff-brand">
+      <NuxtLink to="/staff/home" class="staff-brand">
         <span class="staff-brand-icon">🌿</span>
         <span class="staff-brand-text">員工專區</span>
       </NuxtLink>
@@ -66,6 +66,7 @@ const isDark = ref(false)
 const navItems = [
   { to: '/staff/quick-links', icon: '🔗', label: '常用網址' },
   { to: '/staff/cash-count',  icon: '💵', label: '點鈔記錄' },
+  { to: '/staff/booking',     icon: '🪑', label: '訂位記錄' },
 ]
 
 const isActive   = (path) => route.path.startsWith(path)
@@ -88,7 +89,7 @@ onMounted(() => {
 watch(() => route.path, () => { isOpen.value = false })
 </script>
 
-<style scoped>
+<style>
 .staff-nav {
   position: sticky;
   top: 0;
