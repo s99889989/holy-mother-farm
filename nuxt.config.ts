@@ -13,12 +13,9 @@ export default defineNuxtConfig({
       'nuxt:payload': { driver: 'memory' }
     }
   },
-  css: [
-
-  ],
+  css: ['~/assets/css/main.css'],
   // API 位址統一在這裡管理
   // 本地開發讀 .env，正式環境讀 Netlify 環境變數
-
   runtimeConfig: {
     public: {
       apiBase: 'https://madustrialtd.asuscomm.com:8080'

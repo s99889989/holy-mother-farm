@@ -136,7 +136,6 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors">
-
     <!-- Header -->
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-14 z-20">
       <div class="max-w-2xl mx-auto flex items-center gap-2">

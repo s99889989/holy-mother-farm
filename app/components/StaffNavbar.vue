@@ -1,16 +1,22 @@
 <template>
-  <nav class="staff-nav">
+  <nav class="staff-nav bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
     <div class="staff-nav-inner">
       <!-- Logo / 品牌 -->
       <NuxtLink to="/staff/home" class="staff-brand">
         <span class="staff-brand-icon">🌿</span>
-        <span class="staff-brand-text">員工專區</span>
+        <span class="staff-brand-text text-green-700 dark:text-green-400">員工專區</span>
       </NuxtLink>
 
       <!-- 桌機選單 -->
       <ul class="staff-menu">
         <li v-for="item in navItems" :key="item.to">
-          <NuxtLink :to="item.to" class="staff-menu-link" :class="{ active: isActive(item.to) }">
+          <NuxtLink
+            :to="item.to"
+            class="staff-menu-link text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-green-700 dark:hover:text-green-400"
+            :class="isActive(item.to)
+              ? 'active bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400'
+              : ''"
+          >
             <span class="staff-menu-icon">{{ item.icon }}</span>
             {{ item.label }}
           </NuxtLink>
@@ -18,7 +24,11 @@
       </ul>
 
       <!-- 暗模式切換 -->
-      <button class="staff-dark-btn" @click="toggleDark" :title="isDark ? '切換亮色' : '切換暗色'">
+      <button
+        class="staff-dark-btn text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-green-700 dark:hover:text-yellow-400"
+        @click="toggleDark"
+        :title="isDark ? '切換亮色' : '切換暗色'"
+      >
         <!-- 月亮（目前亮色） -->
         <svg v-if="!isDark" class="staff-dark-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -33,21 +43,21 @@
 
       <!-- 手機漢堡 -->
       <button class="staff-hamburger" :class="{ open: isOpen }" @click="toggleMenu" aria-label="選單">
-        <span></span>
-        <span></span>
-        <span></span>
+        <span class="bg-stone-600 dark:bg-stone-300"></span>
+        <span class="bg-stone-600 dark:bg-stone-300"></span>
+        <span class="bg-stone-600 dark:bg-stone-300"></span>
       </button>
     </div>
 
     <!-- 手機下拉選單 -->
     <Transition name="mobile-drop">
-      <div v-if="isOpen" class="staff-mobile-menu">
+      <div v-if="isOpen" class="staff-mobile-menu bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
         <NuxtLink
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="staff-mobile-link"
-          :class="{ active: isActive(item.to) }"
+          class="staff-mobile-link text-stone-600 dark:text-stone-300 border-stone-100 dark:border-stone-800"
+          :class="isActive(item.to) ? 'active text-green-700 dark:text-green-400' : ''"
           @click="isOpen = false"
         >
           <span>{{ item.icon }}</span>
@@ -82,14 +92,9 @@ watch(() => route.path, () => { isOpen.value = false })
   position: sticky;
   top: 0;
   z-index: 50;
-  background: #fff;
-  border-bottom: 1px solid #e5e0d8;
+  border-bottom: 1px solid;
   box-shadow: 0 1px 6px rgba(0,0,0,0.06);
   font-family: 'Noto Sans TC', sans-serif;
-}
-:global(.dark) .staff-nav {
-  background: #1c1917;
-  border-bottom-color: #44403c;
 }
 
 .staff-nav-inner {
@@ -114,10 +119,8 @@ watch(() => route.path, () => { isOpen.value = false })
 .staff-brand-text {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #4a7c59;
   letter-spacing: 0.05em;
 }
-:global(.dark) .staff-brand-text { color: #6abf85; }
 
 /* 桌機選單 */
 .staff-menu {
@@ -139,16 +142,11 @@ watch(() => route.path, () => { isOpen.value = false })
   padding: 0.4rem 0.85rem;
   border-radius: 8px;
   font-size: 0.875rem;
-  color: #5a5048;
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
 }
-:global(.dark) .staff-menu-link { color: #d6d3d1; }
-.staff-menu-link:hover { background: #f0ece6; color: #2d6a4f; }
-:global(.dark) .staff-menu-link:hover { background: #292524; color: #6abf85; }
-.staff-menu-link.active { background: #e8f5ee; color: #2d6a4f; font-weight: 600; }
-:global(.dark) .staff-menu-link.active { background: #1a3326; color: #6abf85; }
+.staff-menu-link.active { font-weight: 600; }
 .staff-menu-icon { font-size: 0.9rem; }
 
 /* 暗模式按鈕 */
@@ -162,13 +160,9 @@ watch(() => route.path, () => { isOpen.value = false })
   border: none;
   background: none;
   cursor: pointer;
-  color: #78716c;
   flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
-.staff-dark-btn:hover { background: #f0ece6; color: #2d6a4f; }
-:global(.dark) .staff-dark-btn { color: #a8a29e; }
-:global(.dark) .staff-dark-btn:hover { background: #292524; color: #fbbf24; }
 .staff-dark-icon { width: 20px; height: 20px; }
 
 /* 漢堡按鈕 */
@@ -190,11 +184,9 @@ watch(() => route.path, () => { isOpen.value = false })
 .staff-hamburger span {
   display: block;
   height: 2px;
-  background: #5a5048;
   border-radius: 2px;
   transition: transform 0.25s, opacity 0.25s;
 }
-:global(.dark) .staff-hamburger span { background: #d6d3d1; }
 .staff-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .staff-hamburger.open span:nth-child(2) { opacity: 0; }
 .staff-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
@@ -203,13 +195,8 @@ watch(() => route.path, () => { isOpen.value = false })
 .staff-mobile-menu {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid #e5e0d8;
-  background: #fff;
+  border-top: 1px solid;
   padding: 0.5rem 1rem 1rem;
-}
-:global(.dark) .staff-mobile-menu {
-  background: #1c1917;
-  border-top-color: #44403c;
 }
 .staff-mobile-link {
   display: flex;
@@ -217,14 +204,11 @@ watch(() => route.path, () => { isOpen.value = false })
   gap: 0.6rem;
   padding: 0.75rem 0.5rem;
   font-size: 0.9rem;
-  color: #5a5048;
   text-decoration: none;
-  border-bottom: 1px solid #f0ece6;
+  border-bottom: 1px solid;
 }
-:global(.dark) .staff-mobile-link { color: #d6d3d1; border-bottom-color: #292524; }
 .staff-mobile-link:last-child { border-bottom: none; }
-.staff-mobile-link.active { color: #2d6a4f; font-weight: 600; }
-:global(.dark) .staff-mobile-link.active { color: #6abf85; }
+.staff-mobile-link.active { font-weight: 600; }
 
 /* 動畫 */
 .mobile-drop-enter-active,
