@@ -5,6 +5,4 @@
   </div>
 </template>
 
-<style lang="scss">
-@use '~/assets/scss/all' as *;
-</style>
+<style src="~/assets/css/main.css" />

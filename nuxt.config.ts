@@ -34,9 +34,8 @@ export default defineNuxtConfig({
     head: {
       script: [
         {
-          // 必須加 tagPosition: 'head' 且放在最前面
-          innerHTML: `(function(){try{if(localStorage.getItem('adminDark')==='1'){document.documentElement.classList.add('dark')}}catch(e){}})()`,
-          tagPosition: 'head',
+          innerHTML: `(function(){try{var a=localStorage.getItem('adminDark');var s=localStorage.getItem('staffDark');if(a==='1'||s==='1'){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+          tagPosition: 'head'
         }
       ]
     }

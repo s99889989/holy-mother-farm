@@ -17,6 +17,20 @@
         </li>
       </ul>
 
+      <!-- 暗模式切換 -->
+      <button class="staff-dark-btn" @click="toggleDark" :title="isDark ? '切換亮色' : '切換暗色'">
+        <!-- 月亮（目前亮色） -->
+        <svg v-if="!isDark" class="staff-dark-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
+        </svg>
+        <!-- 太陽（目前暗色） -->
+        <svg v-else class="staff-dark-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+        </svg>
+      </button>
+
       <!-- 手機漢堡 -->
       <button class="staff-hamburger" :class="{ open: isOpen }" @click="toggleMenu" aria-label="選單">
         <span></span>
@@ -45,16 +59,31 @@
 </template>
 
 <script setup>
-const route = useRoute()
+const route  = useRoute()
 const isOpen = ref(false)
+const isDark = ref(false)
 
 const navItems = [
   { to: '/staff/quick-links', icon: '🔗', label: '常用網址' },
-  // 未來可繼續加入員工功能頁
+  { to: '/staff/cash-count',  icon: '💵', label: '點鈔記錄' },
 ]
 
-const isActive = (path) => route.path.startsWith(path)
+const isActive   = (path) => route.path.startsWith(path)
 const toggleMenu = () => { isOpen.value = !isOpen.value }
+
+function toggleDark() {
+  isDark.value = !isDark.value
+  document.documentElement.classList.toggle('dark', isDark.value)
+  localStorage.setItem('staffDark', isDark.value ? '1' : '0')
+}
+
+onMounted(() => {
+  if (import.meta.client) {
+    const saved = localStorage.getItem('staffDark')
+    isDark.value = saved !== null ? saved === '1' : document.documentElement.classList.contains('dark')
+    document.documentElement.classList.toggle('dark', isDark.value)
+  }
+})
 
 watch(() => route.path, () => { isOpen.value = false })
 </script>
@@ -69,6 +98,10 @@ watch(() => route.path, () => { isOpen.value = false })
   box-shadow: 0 1px 6px rgba(0,0,0,0.06);
   font-family: 'Noto Sans TC', sans-serif;
 }
+:global(.dark) .staff-nav {
+  background: #1c1917;
+  border-bottom-color: #44403c;
+}
 
 .staff-nav-inner {
   max-width: 960px;
@@ -77,7 +110,7 @@ watch(() => route.path, () => { isOpen.value = false })
   height: 56px;
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 /* 品牌 */
@@ -88,15 +121,14 @@ watch(() => route.path, () => { isOpen.value = false })
   text-decoration: none;
   flex-shrink: 0;
 }
-.staff-brand-icon {
-  font-size: 1.25rem;
-}
+.staff-brand-icon { font-size: 1.25rem; }
 .staff-brand-text {
   font-size: 0.95rem;
   font-weight: 700;
   color: #4a7c59;
   letter-spacing: 0.05em;
 }
+:global(.dark) .staff-brand-text { color: #6abf85; }
 
 /* 桌機選單 */
 .staff-menu {
@@ -108,13 +140,9 @@ watch(() => route.path, () => { isOpen.value = false })
   padding: 0;
   flex: 1;
 }
-
 @media (max-width: 640px) {
-  .staff-menu {
-    display: none;
-  }
+  .staff-menu { display: none; }
 }
-
 .staff-menu-link {
   display: flex;
   align-items: center;
@@ -127,18 +155,32 @@ watch(() => route.path, () => { isOpen.value = false })
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
 }
-.staff-menu-link:hover {
-  background: #f0ece6;
-  color: #2d6a4f;
+:global(.dark) .staff-menu-link { color: #d6d3d1; }
+.staff-menu-link:hover { background: #f0ece6; color: #2d6a4f; }
+:global(.dark) .staff-menu-link:hover { background: #292524; color: #6abf85; }
+.staff-menu-link.active { background: #e8f5ee; color: #2d6a4f; font-weight: 600; }
+:global(.dark) .staff-menu-link.active { background: #1a3326; color: #6abf85; }
+.staff-menu-icon { font-size: 0.9rem; }
+
+/* 暗模式按鈕 */
+.staff-dark-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #78716c;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
 }
-.staff-menu-link.active {
-  background: #e8f5ee;
-  color: #2d6a4f;
-  font-weight: 600;
-}
-.staff-menu-icon {
-  font-size: 0.9rem;
-}
+.staff-dark-btn:hover { background: #f0ece6; color: #2d6a4f; }
+:global(.dark) .staff-dark-btn { color: #a8a29e; }
+:global(.dark) .staff-dark-btn:hover { background: #292524; color: #fbbf24; }
+.staff-dark-icon { width: 20px; height: 20px; }
 
 /* 漢堡按鈕 */
 .staff-hamburger {
@@ -152,15 +194,10 @@ watch(() => route.path, () => { isOpen.value = false })
   background: none;
   border: none;
   cursor: pointer;
-  margin-left: auto;
 }
-
 @media (max-width: 640px) {
-  .staff-hamburger {
-    display: flex;
-  }
+  .staff-hamburger { display: flex; }
 }
-
 .staff-hamburger span {
   display: block;
   height: 2px;
@@ -168,6 +205,7 @@ watch(() => route.path, () => { isOpen.value = false })
   border-radius: 2px;
   transition: transform 0.25s, opacity 0.25s;
 }
+:global(.dark) .staff-hamburger span { background: #d6d3d1; }
 .staff-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .staff-hamburger.open span:nth-child(2) { opacity: 0; }
 .staff-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
@@ -180,7 +218,10 @@ watch(() => route.path, () => { isOpen.value = false })
   background: #fff;
   padding: 0.5rem 1rem 1rem;
 }
-
+:global(.dark) .staff-mobile-menu {
+  background: #1c1917;
+  border-top-color: #44403c;
+}
 .staff-mobile-link {
   display: flex;
   align-items: center;
@@ -191,8 +232,10 @@ watch(() => route.path, () => { isOpen.value = false })
   text-decoration: none;
   border-bottom: 1px solid #f0ece6;
 }
+:global(.dark) .staff-mobile-link { color: #d6d3d1; border-bottom-color: #292524; }
 .staff-mobile-link:last-child { border-bottom: none; }
 .staff-mobile-link.active { color: #2d6a4f; font-weight: 600; }
+:global(.dark) .staff-mobile-link.active { color: #6abf85; }
 
 /* 動畫 */
 .mobile-drop-enter-active,
