@@ -59,9 +59,10 @@
 </template>
 
 <script setup>
-const route  = useRoute()
-const isOpen = ref(false)
-const isDark = ref(false)
+const route     = useRoute()
+const isOpen    = ref(false)
+const darkStore = useDarkModeStore()
+const isDark    = computed(() => darkStore.data.dark)
 
 const navItems = [
   { to: '/staff/quick-links', icon: '🔗', label: '常用網址' },
@@ -71,20 +72,7 @@ const navItems = [
 
 const isActive   = (path) => route.path.startsWith(path)
 const toggleMenu = () => { isOpen.value = !isOpen.value }
-
-function toggleDark() {
-  isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('staffDark', isDark.value ? '1' : '0')
-}
-
-onMounted(() => {
-  if (import.meta.client) {
-    const saved = localStorage.getItem('staffDark')
-    isDark.value = saved !== null ? saved === '1' : document.documentElement.classList.contains('dark')
-    document.documentElement.classList.toggle('dark', isDark.value)
-  }
-})
+const toggleDark = () => { darkStore.change_dark_mode() }
 
 watch(() => route.path, () => { isOpen.value = false })
 </script>

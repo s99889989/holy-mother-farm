@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-stone-50">
+  <div class="min-h-screen bg-stone-100 dark:bg-zinc-950 transition-colors">
     <StaffNavbar />
     <slot />
   </div>

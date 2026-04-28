@@ -5,27 +5,12 @@ import { useCommonStore } from '~/stores/common.js'
 const route       = useRoute()
 const commonStore = useCommonStore()
 const mobileOpen  = ref(false)
+const darkStore   = useDarkModeStore()
+const isDark      = computed(() => darkStore.data.dark)
+
+const toggleDark = () => { darkStore.change_dark_mode() }
 
 watch(() => route.path, () => { mobileOpen.value = false })
-
-const isDark = ref(false)
-
-function toggleDark() {
-  isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('adminDark', isDark.value ? '1' : '0')
-}
-
-onMounted(() => {
-  const saved = localStorage.getItem('adminDark')
-  if (saved !== null) {
-    isDark.value = saved === '1'
-  } else {
-    isDark.value = document.documentElement.classList.contains('dark')
-  }
-  document.documentElement.classList.toggle('dark', isDark.value)
-})
-
 
 const navGroups = [
   {
@@ -45,7 +30,7 @@ const navGroups = [
       {to: '/admin/management/BookIndex', label: '訂位管理'},
       {to: '/admin/management/ImageLibrary', label: '資源管理庫'},
       {to: '/admin/management/AssetRegistry', label: '財產登記'},
-      {to: '/admin/management/CustomerManagement', label: '客戶帳號' }
+      {to: '/admin/management/CustomerManagement', label: '客戶帳號'}
     ]
   },
 ]
@@ -147,7 +132,6 @@ const changePassword = async () => {
 
 <template>
   <!-- ══ 後台導覽列 ══ -->
-  <!-- bg-neutral-primary / border-default -->
   <div class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
 
     <!-- 桌機 -->
@@ -310,7 +294,6 @@ const changePassword = async () => {
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <!-- bg-neutral-secondary-soft / border-default -->
       <div v-if="mobileOpen"
            class="sm:hidden mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 space-y-2">
         <div v-for="group in navGroups" :key="group.label">

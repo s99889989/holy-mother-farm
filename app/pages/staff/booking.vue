@@ -263,12 +263,7 @@ onMounted(async () => {
                 <div class="flex-1 px-3 py-2.5 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-bold text-stone-800 dark:text-stone-100" style="font-size:14px">{{ b.name }}</span>
-                    <span :class="b.status === '已確認'
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'"
-                          class="px-2 py-0.5 rounded-full font-medium" style="font-size:11px">
-                      {{ b.status }}
-                    </span>
+
                   </div>
                   <div class="flex flex-wrap gap-x-2 gap-y-1 mt-1">
                     <span v-if="b.meatQty   > 0" class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-medium" style="font-size:11px">🍖 葷 {{ b.meatQty }}</span>
@@ -302,12 +297,7 @@ onMounted(async () => {
                 <div class="flex-1 px-3 py-2.5 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-bold text-stone-800 dark:text-stone-100" style="font-size:14px">{{ o.name }}</span>
-                    <span :class="o.status === '已確認'
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'"
-                          class="px-2 py-0.5 rounded-full font-medium" style="font-size:11px">
-                      {{ o.status }}
-                    </span>
+
                   </div>
                   <div class="flex flex-wrap gap-x-2 gap-y-1 mt-1">
                     <span v-if="o.meatQty   > 0" class="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 px-1.5 py-0.5 rounded-full font-medium" style="font-size:11px">🍖 葷 {{ o.meatQty }}</span>

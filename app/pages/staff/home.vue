@@ -90,7 +90,7 @@ onMounted(fetchToday)
                 <span class="font-black" style="font-size:24px">{{ bookings.length }}</span> 筆
                 · <span class="font-semibold">{{ bookingTotal }}</span> 人
               </p>
-              <div class="mt-1 space-y-0.5" style="font-size:11px; color: #16a34a">
+              <div class="mt-1 space-y-0.5 text-green-600 dark:text-green-400" style="font-size:11px">
                 <div v-if="bookingMeat > 0" class="dark:text-green-400">🍖 葷 {{ bookingMeat }}</div>
                 <div v-if="bookingVeg  > 0" class="dark:text-green-400">🌿 素 {{ bookingVeg }}</div>
               </div>
@@ -107,7 +107,7 @@ onMounted(fetchToday)
               <p class="text-stone-800 dark:text-stone-100" style="font-size:13px">
                 <span class="font-black" style="font-size:24px">{{ lunchTotal }}</span> 個
               </p>
-              <div class="mt-1 space-y-0.5" style="font-size:11px; color: #ea580c">
+              <div class="mt-1 space-y-0.5 text-green-600 dark:text-green-400" style="font-size:11px">
                 <div v-if="lunchMeat > 0" class="dark:text-orange-400">🍖 葷 {{ lunchMeat }}</div>
                 <div v-if="lunchVeg  > 0" class="dark:text-orange-400">🌿 素 {{ lunchVeg }}</div>
               </div>
