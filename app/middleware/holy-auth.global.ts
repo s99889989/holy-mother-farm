@@ -1,6 +1,5 @@
 export default defineNuxtRouteMiddleware((to) => {
   // ✅ 移到最上面，server/client 都執行
-  if (to.path === '/staff') return navigateTo('/staff/home')
 
   if (import.meta.server) return
 
