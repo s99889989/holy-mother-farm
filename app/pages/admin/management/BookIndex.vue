@@ -146,14 +146,21 @@ const totalVeg  = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(
 const bookingMeat = computed(() => bookings.value.reduce((s, b) => s + (Number(b.meatQty) || 0), 0))
 const bookingVeg  = computed(() => bookings.value.reduce((s, b) => s + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
 
-const recurBookingGuests = computed(() => {
-  if (!selectedDate.value) return 0
+const todayRecurBooking = computed(() => {
+  if (!selectedDate.value) return []
   const dow = new Date(selectedDate.value).getDay()
-  return recurringRules.value
-    .filter(r => r.type !== 'lunch' &&
-      (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
-    .reduce((s, r) => s + (r.guests || 0), 0)
+  return recurringRules.value.filter(r => r.type !== 'lunch' &&
+    (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
 })
+
+const recurBookingGuests = computed(() =>
+  todayRecurBooking.value.reduce((s, r) =>
+    s + (Number(r.meatQty)||0) + (Number(r.fullVegQty)||0) + (Number(r.eggVegQty)||0) + (Number(r.spiceVegQty)||0), 0)
+)
+const recurBookingMeat  = computed(() => todayRecurBooking.value.reduce((s,r) => s+(Number(r.meatQty)||0), 0))
+const recurBookingFull  = computed(() => todayRecurBooking.value.reduce((s,r) => s+(Number(r.fullVegQty)||0), 0))
+const recurBookingEgg   = computed(() => todayRecurBooking.value.reduce((s,r) => s+(Number(r.eggVegQty)||0), 0))
+const recurBookingSpice = computed(() => todayRecurBooking.value.reduce((s,r) => s+(Number(r.spiceVegQty)||0), 0))
 
 const openLunchModal = (order) => {
   lunchModal.isNew = !order
@@ -212,7 +219,7 @@ const toggleLunchStatus = async (o) => {
 const RECUR_BASE = computed(() => commonStore.data.main_url + '/holy/recurring')
 const recurringRules = ref([])
 const recurModal = reactive({show: false, isNew: true})
-const recurForm = reactive({id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: []})
+const recurForm = reactive({id: '', name: '', type: 'booking', time: '12:00', meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []})
 const recurExpand = ref({})
 
 const fetchRecurring = async () => {
@@ -227,11 +234,13 @@ const openRecurModal = (rule) => {
   if (rule) {
     Object.assign(recurForm, {
       id: rule.id, name: rule.name, type: rule.type || 'booking',
-      time: rule.time || '12:00', guests: rule.guests || 2,
+      time: rule.time || '12:00',
+      meatQty: rule.meatQty || 0, fullVegQty: rule.fullVegQty || 0,
+      eggVegQty: rule.eggVegQty || 0, spiceVegQty: rule.spiceVegQty || 0,
       note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : []
     })
   } else {
-    Object.assign(recurForm, {id: '', name: '', type: 'booking', time: '12:00', guests: 2, note: '', weekdays: []})
+    Object.assign(recurForm, {id: '', name: '', type: 'booking', time: '12:00', meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []})
   }
   recurModal.show = true
 }
@@ -499,11 +508,11 @@ onMounted(async () => {
                 <span class="font-semibold">{{ bookingMeat + bookingVeg + recurBookingGuests }}</span> 人
                 <span v-if="recurBookingGuests > 0" class="text-xs font-normal opacity-70 ml-1">（含包月 {{ recurBookingGuests }} 人）</span>
               </p>
-              <div v-if="bookings.length > 0" class="mt-1.5 space-y-0.5 text-xs text-green-700 dark:text-green-300">
-                <div v-if="bookingMeat > 0">🍖 葷 <span class="font-semibold">{{ bookingMeat }}</span></div>
-                <div v-if="bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) > 0">🌿 全素 <span class="font-semibold">{{ bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) }}</span></div>
-                <div v-if="bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) > 0">🥚 蛋奶素 <span class="font-semibold">{{ bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) }}</span></div>
-                <div v-if="bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) > 0">🧄 五辛素 <span class="font-semibold">{{ bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) }}</span></div>
+              <div v-if="bookings.length > 0 || recurBookingGuests > 0" class="mt-1.5 space-y-0.5 text-xs text-green-700 dark:text-green-300">
+                <div v-if="bookingMeat + recurBookingMeat > 0">🍖 葷 <span class="font-semibold">{{ bookingMeat + recurBookingMeat }}</span></div>
+                <div v-if="bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) + recurBookingFull > 0">🌿 全素 <span class="font-semibold">{{ bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) + recurBookingFull }}</span></div>
+                <div v-if="bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) + recurBookingEgg > 0">🥚 蛋奶素 <span class="font-semibold">{{ bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) + recurBookingEgg }}</span></div>
+                <div v-if="bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) + recurBookingSpice > 0">🧄 五辛素 <span class="font-semibold">{{ bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) + recurBookingSpice }}</span></div>
               </div>
             </div>
             <!-- 便當統計卡 -->
@@ -535,11 +544,11 @@ onMounted(async () => {
               <div class="flex items-center justify-between mb-2">
                 <p class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full bg-green-500"></span> 訂位
-                  <span v-if="bookings.length > 0" class="text-green-600 dark:text-green-400 normal-case font-normal flex flex-wrap gap-x-2">
-                    <span v-if="bookingMeat > 0">🍖 {{ bookingMeat }}</span>
-                    <span v-if="bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) > 0">🌿 {{ bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) }}</span>
-                    <span v-if="bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) > 0">🥚 {{ bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) }}</span>
-                    <span v-if="bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) > 0">🧄 {{ bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) }}</span>
+                  <span v-if="bookings.length > 0 || recurBookingGuests > 0" class="text-green-600 dark:text-green-400 normal-case font-normal flex flex-wrap gap-x-2">
+                    <span v-if="bookingMeat + recurBookingMeat > 0">🍖 {{ bookingMeat + recurBookingMeat }}</span>
+                    <span v-if="bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) + recurBookingFull > 0">🌿 {{ bookings.reduce((s,b)=>s+(Number(b.fullVegQty)||0),0) + recurBookingFull }}</span>
+                    <span v-if="bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) + recurBookingEgg > 0">🥚 {{ bookings.reduce((s,b)=>s+(Number(b.eggVegQty)||0),0) + recurBookingEgg }}</span>
+                    <span v-if="bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) + recurBookingSpice > 0">🧄 {{ bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) + recurBookingSpice }}</span>
                   </span>
                 </p>
                 <button @click="openBookingModal(null)"
@@ -691,8 +700,12 @@ onMounted(async () => {
                         <span :class="rule.type === 'lunch' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
                               class="px-2 py-0.5 rounded-full text-xs font-medium">{{ rule.type === 'lunch' ? '便當' : '訂位' }}</span>
                       </div>
-                      <div class="flex flex-wrap gap-2 text-xs text-stone-500 dark:text-stone-400">
-                        <span>👥 {{ rule.guests }} 人</span>
+                      <div class="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-xs text-stone-500 dark:text-stone-400">
+                        <span v-if="rule.meatQty   > 0" class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-medium">🍖 葷 {{ rule.meatQty }}</span>
+                        <span v-if="rule.fullVegQty > 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🌿 全素 {{ rule.fullVegQty }}</span>
+                        <span v-if="rule.eggVegQty  > 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🥚 蛋奶素 {{ rule.eggVegQty }}</span>
+                        <span v-if="rule.spiceVegQty> 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🧄 五辛素 {{ rule.spiceVegQty }}</span>
+
                         <span v-if="rule.weekdays && rule.weekdays.length > 0" class="flex items-center gap-0.5">
                           <span v-for="dow in [0,1,2,3,4,5,6]" :key="dow"
                                 :class="rule.weekdays.includes(dow)
@@ -955,19 +968,41 @@ onMounted(async () => {
                       class="flex-1 py-2 rounded-xl text-sm font-medium transition-colors">便當</button>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">用餐時段</label>
-              <select v-model="recurForm.time"
-                      class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400">
-                <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
-              </select>
+          <div>
+            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">用餐時段</label>
+            <select v-model="recurForm.time"
+                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400">
+              <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">葷素數量</label>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-2.5 border border-red-200 dark:border-red-800/30">
+                <label class="text-xs font-medium text-red-700 dark:text-red-400 block mb-1">🍖 葷食</label>
+                <input v-model.number="recurForm.meatQty" type="number" min="0"
+                       class="w-full bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"/>
+              </div>
+              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
+                <input v-model.number="recurForm.fullVegQty" type="number" min="0"
+                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+              </div>
+              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
+                <input v-model.number="recurForm.eggVegQty" type="number" min="0"
+                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+              </div>
+              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
+                <input v-model.number="recurForm.spiceVegQty" type="number" min="0"
+                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+              </div>
             </div>
-            <div>
-              <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">人數</label>
-              <input v-model.number="recurForm.guests" type="number" min="1"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"/>
-            </div>
+            <p class="text-xs text-stone-400 mt-1.5">
+              合計：{{ (recurForm.meatQty||0) + (recurForm.fullVegQty||0) + (recurForm.eggVegQty||0) + (recurForm.spiceVegQty||0) }} 人
+
+            </p>
           </div>
           <div>
             <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
