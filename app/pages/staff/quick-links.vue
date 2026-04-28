@@ -99,7 +99,6 @@
 
 <script setup>
 definePageMeta({ layout: 'staff' })
-useSiteHead()
 
 const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/links'
