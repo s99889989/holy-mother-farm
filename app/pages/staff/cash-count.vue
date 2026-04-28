@@ -53,6 +53,7 @@ function pickDate(date) {
 const loading    = ref(false)
 const records    = ref([])
 const expandedId = ref(null)
+const lightbox   = ref(null)  // 放大的圖片 URL，null = 關閉
 
 const recordDates     = computed(() => new Set(records.value.map(r => r.date)))
 const selectedRecords = computed(() => records.value.filter(r => r.date === selectedDate.value))
@@ -70,7 +71,22 @@ function toggleExpand(id) {
   expandedId.value = expandedId.value === id ? null : id
 }
 
-onMounted(fetchRecords)
+function openLightbox(url) {
+  lightbox.value = url
+}
+function closeLightbox() {
+  lightbox.value = null
+}
+
+const onKeydown = (e) => { if (e.key === 'Escape') closeLightbox() }
+
+onMounted(() => {
+  fetchRecords()
+  document.addEventListener('keydown', onKeydown)
+})
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+})
 </script>
 
 <template>
@@ -243,7 +259,8 @@ onMounted(fetchRecords)
 
               <div v-if="r.photoPath" class="px-4 pb-4">
                 <img :src="`${BASE()}/photo/${r.photoPath}`"
-                     class="w-full max-h-64 rounded-xl object-contain border border-stone-100 dark:border-stone-700" />
+                     class="w-full max-h-64 rounded-xl object-contain border border-stone-100 dark:border-stone-700 cursor-zoom-in"
+                     @click="openLightbox(`${BASE()}/photo/${r.photoPath}`)" />
               </div>
 
               <div v-if="r.updatedAt && r.updatedAt !== r.createdAt"
@@ -256,6 +273,23 @@ onMounted(fetchRecords)
       </div>
 
     </div>
+
+    <!-- Lightbox -->
+    <Transition name="lb">
+      <div v-if="lightbox"
+           class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+           @click.self="closeLightbox">
+        <img :src="lightbox"
+             class="max-w-full max-h-full rounded-xl object-contain shadow-2xl" />
+        <button class="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                @click="closeLightbox">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </Transition>
+
   </div>
 </template>
 
@@ -265,4 +299,7 @@ onMounted(fetchRecords)
 
 .expand-enter-active, .expand-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .expand-enter-from, .expand-leave-to { opacity: 0; transform: translateY(-4px); }
+
+.lb-enter-active, .lb-leave-active { transition: opacity 0.2s; }
+.lb-enter-from, .lb-leave-to { opacity: 0; }
 </style>
