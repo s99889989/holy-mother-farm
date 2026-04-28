@@ -8,7 +8,11 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true
   },
-
+  nitro: {
+    storage: {
+      'nuxt:payload': { driver: 'memory' }
+    }
+  },
   css: [
 
   ],
@@ -25,16 +29,14 @@ export default defineNuxtConfig({
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
       }
-    },
-    '/front/**': { prerender: true },       // 預先渲染成靜態 HTML
-    '/': { prerender: true }
-    // 其他需要 OG 的頁面也加進來
+    }
   },
   app: {
     head: {
       script: [
         {
-          innerHTML: `(function(){try{var a=localStorage.getItem('adminDark');var s=localStorage.getItem('staffDark');if(a==='1'||s==='1'){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+          // 必須加 tagPosition: 'head' 且放在最前面
+          innerHTML: `(function(){try{if(localStorage.getItem('adminDark')==='1'){document.documentElement.classList.add('dark')}}catch(e){}})()`,
           tagPosition: 'head'
         }
       ]

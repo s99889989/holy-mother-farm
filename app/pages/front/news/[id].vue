@@ -60,10 +60,12 @@ function topFunction() {
 // 切換文章時滾到 article-anchor
 function scrollToAnchor() {
   nextTick(() => {
-    setTimeout(() => {
-      const el = document.getElementById('article-anchor')
-      if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' })
-    }, 50)
+    if (import.meta.client) {
+      setTimeout(() => {
+        const el = document.getElementById('article-anchor')
+        if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' })
+      }, 50)
+    }
   })
 }
 const formatContent = (text) => {
