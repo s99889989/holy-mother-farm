@@ -1,6 +1,24 @@
 <script setup>
 useSiteHead()
 
+const commonStore = useCommonStore()
+const BASE        = computed(() => commonStore.data.main_url + '/holy/production-item')
+const API_ORIGIN  = computed(() => commonStore.data.main_url)
+
+const apiUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return API_ORIGIN.value + path
+}
+
+const itemList = ref([])
+const fetchItems = async () => {
+  try {
+    itemList.value = await (await fetch(`${BASE.value}/list`)).json()
+  } catch {
+    itemList.value = []
+  }
+}
+
 onMounted(() => {
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
@@ -11,6 +29,7 @@ onMounted(() => {
           : 'none'
     }
   }
+  fetchItems()
 })
 
 function topFunction() {
@@ -62,72 +81,93 @@ function topFunction() {
                   </div>
                 </div>
 
-                <!-- 產品列表第一行 -->
+                <!-- 產品列表 -->
                 <div class="row px-4 py-2">
-                  <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=9" target="_blank">
-                    <div class="col-12 col-md-4">
-                      <div class="card cus-card">
-                        <img class="img-fluid" src="/images/product/1/healthfarm_product1_photo4.jpg" alt="修女祈福蛋糕">
-                        <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=9" class="card-body py-2" target="_blank">
-                          <p class="card-text text-center prod-color">修女祈福蛋糕<i class="fas fa-chevron-right arrow-right"></i></p>
-                        </a>
-                      </div>
+                  <template v-if="itemList.length > 0">
+                    <div v-for="item in itemList" :key="item.id" class="col-12 col-md-4 mb-4">
+                      <component :is="item.link ? 'a' : 'div'"
+                                 v-bind="item.link ? { href: item.link, target: '_blank' } : {}"
+                                 :style="item.link ? '' : 'cursor:default'">
+                        <div class="card cus-card">
+                          <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" class="img-fluid" :alt="item.name">
+                          <div v-else class="img-fluid bg-light d-flex align-items-center justify-content-center"
+                               style="height:200px; color:#ccc;">
+                            <i class="fas fa-image fa-3x"></i>
+                          </div>
+                          <div class="card-body py-2">
+                            <p class="card-text text-center prod-color">
+                              {{ item.name }}
+                              <i v-if="item.link" class="fas fa-chevron-right arrow-right"></i>
+                            </p>
+                          </div>
+                        </div>
+                      </component>
                     </div>
-                  </a>
-                  <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=36" target="_blank">
-                    <div class="col-12 col-md-4">
-                      <div class="card cus-card">
-                        <img class="img-fluid" src="/images/product/other/healthfarm_product_photo08.jpg" alt="芳心好美系列精油">
-                        <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=36" class="card-body py-2" target="_blank">
-                          <p class="card-text text-center prod-color">芳心好美系列精油<i class="fas fa-chevron-right arrow-right"></i></p>
-                        </a>
-                      </div>
-                    </div>
-                  </a>
-                  <a href="https://shopping.st-mary.org.tw/product_detail.php?i=203&di=34" target="_blank">
-                    <div class="col-12 col-md-4 mt-4 mt-md-0">
-                      <div class="card cus-card">
-                        <img class="img-fluid" src="/images/product/other/healthfarm_product_photo07.jpg" alt="草本足浴包">
-                        <a href="https://shopping.st-mary.org.tw/product_detail.php?i=203&di=34" class="card-body py-2">
-                          <p class="card-text text-center prod-color">草本足浴包<i class="fas fa-chevron-right arrow-right"></i></p>
-                        </a>
-                      </div>
-                    </div>
-                  </a>
-                </div>
+                  </template>
 
-                <!-- 產品列表第二行 -->
-                <div class="row p-4">
-                  <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=23" target="_blank">
-                    <div class="col-12 col-md-4">
-                      <div class="card cus-card">
-                        <img class="img-fluid" src="/images/product/4/healthfarm_product4_photo1.jpg" alt="手工麵包">
-                        <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=23" class="card-body py-2" target="_blank">
-                          <p class="card-text text-center prod-color">手工麵包<i class="fas fa-chevron-right arrow-right"></i></p>
-                        </a>
+                  <!-- 尚無資料時保留原始靜態內容 -->
+                  <template v-else>
+                    <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=9" target="_blank">
+                      <div class="col-12 col-md-4">
+                        <div class="card cus-card">
+                          <img class="img-fluid" src="/images/product/1/healthfarm_product1_photo4.jpg" alt="修女祈福蛋糕">
+                          <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=9" class="card-body py-2" target="_blank">
+                            <p class="card-text text-center prod-color">修女祈福蛋糕<i class="fas fa-chevron-right arrow-right"></i></p>
+                          </a>
+                        </div>
                       </div>
-                    </div>
-                  </a>
-                  <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=19" target="_blank">
-                    <div class="col-12 col-md-4 mt-4 mt-md-0">
-                      <div class="card cus-card">
-                        <img class="img-fluid" src="/images/product/5/healthfarm_product5_photo1.jpg" alt="香藥草">
-                        <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=19" class="card-body py-2" target="_blank">
-                          <p class="card-text text-center prod-color">香 藥 草<i class="fas fa-chevron-right arrow-right"></i></p>
-                        </a>
+                    </a>
+                    <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=36" target="_blank">
+                      <div class="col-12 col-md-4">
+                        <div class="card cus-card">
+                          <img class="img-fluid" src="/images/product/other/healthfarm_product_photo08.jpg" alt="芳心好美系列精油">
+                          <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=36" class="card-body py-2" target="_blank">
+                            <p class="card-text text-center prod-color">芳心好美系列精油<i class="fas fa-chevron-right arrow-right"></i></p>
+                          </a>
+                        </div>
                       </div>
-                    </div>
-                  </a>
-                  <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=24" target="_blank">
-                    <div class="col-12 col-md-4 mt-4 mt-md-0">
-                      <div class="card cus-card">
-                        <img class="img-fluid" src="/images/product/other/healthfarm_product_photo06.jpg" alt="禮盒">
-                        <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=24" class="card-body py-2" target="_blank">
-                          <p class="card-text text-center prod-color">禮 盒<i class="fas fa-chevron-right arrow-right"></i></p>
-                        </a>
+                    </a>
+                    <a href="https://shopping.st-mary.org.tw/product_detail.php?i=203&di=34" target="_blank">
+                      <div class="col-12 col-md-4 mt-4 mt-md-0">
+                        <div class="card cus-card">
+                          <img class="img-fluid" src="/images/product/other/healthfarm_product_photo07.jpg" alt="草本足浴包">
+                          <a href="https://shopping.st-mary.org.tw/product_detail.php?i=203&di=34" class="card-body py-2">
+                            <p class="card-text text-center prod-color">草本足浴包<i class="fas fa-chevron-right arrow-right"></i></p>
+                          </a>
+                        </div>
                       </div>
-                    </div>
-                  </a>
+                    </a>
+                    <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=23" target="_blank">
+                      <div class="col-12 col-md-4 mt-4 mt-md-0">
+                        <div class="card cus-card">
+                          <img class="img-fluid" src="/images/product/4/healthfarm_product4_photo1.jpg" alt="手工麵包">
+                          <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=23" class="card-body py-2" target="_blank">
+                            <p class="card-text text-center prod-color">手工麵包<i class="fas fa-chevron-right arrow-right"></i></p>
+                          </a>
+                        </div>
+                      </div>
+                    </a>
+                    <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=19" target="_blank">
+                      <div class="col-12 col-md-4 mt-4 mt-md-0">
+                        <div class="card cus-card">
+                          <img class="img-fluid" src="/images/product/5/healthfarm_product5_photo1.jpg" alt="香藥草">
+                          <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=19" class="card-body py-2" target="_blank">
+                            <p class="card-text text-center prod-color">香 藥 草<i class="fas fa-chevron-right arrow-right"></i></p>
+                          </a>
+                        </div>
+                      </div>
+                    </a>
+                    <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=24" target="_blank">
+                      <div class="col-12 col-md-4 mt-4 mt-md-0">
+                        <div class="card cus-card">
+                          <img class="img-fluid" src="/images/product/other/healthfarm_product_photo06.jpg" alt="禮盒">
+                          <a href="https://shopping.st-mary.org.tw/index.php?dir=1&di=24" class="card-body py-2" target="_blank">
+                            <p class="card-text text-center prod-color">禮 盒<i class="fas fa-chevron-right arrow-right"></i></p>
+                          </a>
+                        </div>
+                      </div>
+                    </a>
+                  </template>
                 </div>
 
               </div>

@@ -26,6 +26,8 @@ const navGroups = [
     label: '內容管理',
     items: [
       {to: '/admin/management/News', label: '活動消息'},
+      {to: '/admin/management/Product', label: '推薦農產品'},
+      {to: '/admin/management/ProductionItem', label: '產品列表'},
       {to: '/admin/management/DailyMenu', label: '每日菜色'},
       {to: '/admin/management/BookIndex', label: '訂位管理'},
       {to: '/admin/management/ImageLibrary', label: '資源管理庫'},

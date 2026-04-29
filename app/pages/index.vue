@@ -16,11 +16,6 @@ onMounted(() => {
   }
 
   nextTick(() => {
-    // Bootstrap carousel
-    if (typeof window !== 'undefined' && window.$) {
-      window.$('#carousel-with-lb').carousel({ interval: 5000, ride: 'carousel' })
-    }
-
     // ✅ 初始化 AOS
     if (typeof window !== 'undefined' && window.AOS) {
       window.AOS.init({
@@ -30,6 +25,14 @@ onMounted(() => {
     }
   })
   fetchNews()
+  fetchProducts().then(() => {
+    nextTick(() => {
+      if (typeof window !== 'undefined' && window.$) {
+        window.$('#carousel-mobile').carousel({ interval: 5000, ride: 'carousel' })
+        window.$('#carousel-with-lb').carousel({ interval: 5000, ride: 'carousel' })
+      }
+    })
+  })
 })
 
 function topFunction() {
@@ -39,31 +42,66 @@ function topFunction() {
 
 function carouselPrev() {
   if (typeof window !== 'undefined' && window.$) {
+    window.$('#carousel-mobile').carousel('prev')
     window.$('#carousel-with-lb').carousel('prev')
   }
 }
 
 function carouselNext() {
   if (typeof window !== 'undefined' && window.$) {
+    window.$('#carousel-mobile').carousel('next')
     window.$('#carousel-with-lb').carousel('next')
   }
 }
 
 const commonStore = useCommonStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/news')
+const BASE_NEWS    = computed(() => commonStore.data.main_url + '/holy/news')
+const BASE_PRODUCT = computed(() => commonStore.data.main_url + '/holy/product')
+const API_ORIGIN   = computed(() => commonStore.data.main_url)
 
+const apiUrl = (path) => {
+  if (!path || path.startsWith('http')) return path
+  return API_ORIGIN.value + path
+}
+
+// ── 最新消息 ──────────────────────────────────────────────────────
 const allNews = ref([])
 const newsLoading = ref(false)
 const fetchNews = async () => {
-  console.log('讀取資料')
   newsLoading.value = true
   try {
-    allNews.value = await (await fetch(`${BASE.value}/list`)).json()
+    allNews.value = await (await fetch(`${BASE_NEWS.value}/list`)).json()
   } catch {
     allNews.value = []
   } finally {
     newsLoading.value = false
   }
+}
+
+// ── 推薦農產品 ─────────────────────────────────────────────────────
+const allProducts = ref([])
+const fetchProducts = async () => {
+  try {
+    allProducts.value = await (await fetch(`${BASE_PRODUCT.value}/list`)).json()
+  } catch {
+    allProducts.value = []
+  }
+}
+
+// mobile 每頁 2 張，desktop 每頁 4 張
+const productSlidesMobile  = computed(() => chunkArray(allProducts.value, 2))
+const productSlidesDesktop = computed(() => chunkArray(allProducts.value, 4))
+
+function openProductLink(item) {
+  if (item.link) {
+    window.open(item.link, '_blank', 'noopener')
+  }
+}
+
+function chunkArray(arr, size) {
+  const result = []
+  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size))
+  return result
 }
 </script>
 
@@ -237,246 +275,99 @@ const fetchNews = async () => {
               <img src="/images/homepage/healthfarm_hp_prod_arrow.png" class="arrow-right2" alt="">
             </a>
             <div class="col-sm-12 por">
-              <div id="carousel-with-lb" class="carousel slide carousel-multi-item" data-ride="carousel">
-                <div class="carousel-inner mdb-lightbox" role="listbox">
-                  <div id="mdb-lightbox-ui">
-                    <!-- Slide 1 -->
+
+              <!-- ── Mobile Carousel（每 slide 2 張）d-lg-none ── -->
+              <div id="carousel-mobile" class="carousel slide carousel-multi-item d-lg-none" data-ride="carousel">
+                <div class="carousel-inner" role="listbox">
+                  <template v-if="allProducts.length > 0">
+                    <div v-for="(slide, si) in productSlidesMobile" :key="'m'+si"
+                         :class="['carousel-item text-center', si === 0 ? 'active' : '']">
+                      <div class="row justify-content-center mb-2">
+                        <figure v-for="item in slide" :key="item.id" class="col-6">
+                          <a href="javascript:void(0)" @click.prevent="openProductLink(item)"
+                             :style="item.link ? 'cursor:pointer' : 'cursor:default'">
+                            <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" class="img-fluid" :alt="item.name">
+                            <div v-else class="img-fluid bg-stone-100 rounded" style="aspect-ratio:1;"></div>
+                            <p class="text-center prod-text">{{ item.name }}</p>
+                          </a>
+                        </figure>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else>
                     <div class="carousel-item active text-center">
                       <div class="row justify-content-center mb-2">
-                        <figure class="col-6 col-lg-3">
-                          <NuxtLink to="/production4">
+                        <figure class="col-6">
+                          <NuxtLink to="/front/production">
                             <img src="/images/homepage/prod/healthfarm_hp_prod_photo1.png" class="img-fluid" alt="">
                             <p class="text-center prod-text">火龍果小餐包</p>
                           </NuxtLink>
                         </figure>
-                        <figure class="col-6 col-lg-3">
-                          <NuxtLink to="/production2">
+                        <figure class="col-6">
+                          <NuxtLink to="/front/production">
                             <img src="/images/homepage/prod/healthfarm_hp_prod_photo2.png" class="img-fluid" alt="">
                             <p class="text-center prod-text">香蕉巧克力蛋糕</p>
                           </NuxtLink>
                         </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production5">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo3.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">好體力茶</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production6">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo4.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">一口酥綜合禮盒</p>
-                          </NuxtLink>
-                        </figure>
                       </div>
                     </div>
-                    <!-- Slide 2 -->
-                    <div class="carousel-item text-center">
-                      <div class="row justify-content-center mb-2">
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production5">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo3.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">好體力茶</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production6">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo4.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">一口酥綜合禮盒</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo5.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">樹枝棒</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production7">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo6.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">豆腐DIY模組</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo7.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">巧克力核桃餅乾</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production4">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo8.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">起司葡萄貝果</p>
-                          </NuxtLink>
-                        </figure>
+                  </template>
+                </div>
+              </div>
+
+              <!-- ── Desktop Carousel（每 slide 4 張）d-none d-lg-block ── -->
+              <div id="carousel-with-lb" class="carousel slide carousel-multi-item d-none d-lg-block" data-ride="carousel">
+                <div class="carousel-inner mdb-lightbox" role="listbox">
+                  <div id="mdb-lightbox-ui">
+                    <template v-if="allProducts.length > 0">
+                      <div v-for="(slide, si) in productSlidesDesktop" :key="'d'+si"
+                           :class="['carousel-item text-center', si === 0 ? 'active' : '']">
+                        <div class="row justify-content-center mb-2">
+                          <figure v-for="item in slide" :key="item.id" class="col-lg-3">
+                            <a href="javascript:void(0)" @click.prevent="openProductLink(item)"
+                               :style="item.link ? 'cursor:pointer' : 'cursor:default'">
+                              <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" class="img-fluid" :alt="item.name">
+                              <div v-else class="img-fluid bg-stone-100 rounded" style="aspect-ratio:1;"></div>
+                              <p class="text-center prod-text">{{ item.name }}</p>
+                            </a>
+                          </figure>
+                        </div>
                       </div>
-                    </div>
-                    <!-- Slide 3 -->
-                    <div class="carousel-item text-center">
-                      <div class="row justify-content-center mb-2">
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo5.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">樹枝棒</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production7">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo6.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">豆腐DIY模組</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production4">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo9.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">青椒起司麵包</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo10.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">薑餅乾</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production7">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo11.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">綜合堅果</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production6">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo12.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">手工餅乾禮盒</p>
-                          </NuxtLink>
-                        </figure>
+                    </template>
+                    <template v-else>
+                      <div class="carousel-item active text-center">
+                        <div class="row justify-content-center mb-2">
+                          <figure class="col-lg-3">
+                            <NuxtLink to="/front/production">
+                              <img src="/images/homepage/prod/healthfarm_hp_prod_photo1.png" class="img-fluid" alt="">
+                              <p class="text-center prod-text">火龍果小餐包</p>
+                            </NuxtLink>
+                          </figure>
+                          <figure class="col-lg-3">
+                            <NuxtLink to="/front/production">
+                              <img src="/images/homepage/prod/healthfarm_hp_prod_photo2.png" class="img-fluid" alt="">
+                              <p class="text-center prod-text">香蕉巧克力蛋糕</p>
+                            </NuxtLink>
+                          </figure>
+                          <figure class="col-lg-3">
+                            <NuxtLink to="/front/production">
+                              <img src="/images/homepage/prod/healthfarm_hp_prod_photo3.png" class="img-fluid" alt="">
+                              <p class="text-center prod-text">好體力茶</p>
+                            </NuxtLink>
+                          </figure>
+                          <figure class="col-lg-3">
+                            <NuxtLink to="/front/production">
+                              <img src="/images/homepage/prod/healthfarm_hp_prod_photo4.png" class="img-fluid" alt="">
+                              <p class="text-center prod-text">一口酥綜合禮盒</p>
+                            </NuxtLink>
+                          </figure>
+                        </div>
                       </div>
-                    </div>
-                    <!-- Slide 4 -->
-                    <div class="carousel-item text-center">
-                      <div class="row justify-content-center mb-2">
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo7.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">巧克力核桃餅乾</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production4">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo8.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">起司葡萄貝果</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production4">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo1.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">火龍果小餐包</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production2">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo2.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">香蕉巧克力蛋糕</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production5">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo3.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">好體力茶</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production6">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo4.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">一口酥綜合禮盒</p>
-                          </NuxtLink>
-                        </figure>
-                      </div>
-                    </div>
-                    <!-- Slide 5 -->
-                    <div class="carousel-item text-center">
-                      <div class="row justify-content-center mb-2">
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production4">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo9.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">青椒起司麵包</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo10.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">薑餅乾</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo5.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">樹枝棒</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production7">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo6.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">豆腐DIY模組</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo7.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">巧克力核桃餅乾</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production4">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo8.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">起司葡萄貝果</p>
-                          </NuxtLink>
-                        </figure>
-                      </div>
-                    </div>
-                    <!-- Slide 6 -->
-                    <div class="carousel-item text-center">
-                      <div class="row justify-content-center mb-2">
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production7">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo11.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">綜合堅果</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="col-6 d-lg-none">
-                          <NuxtLink to="/production6">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo12.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">手工餅乾禮盒</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production4">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo9.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">青椒起司麵包</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production3">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo10.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">薑餅乾</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production7">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo11.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">綜合堅果</p>
-                          </NuxtLink>
-                        </figure>
-                        <figure class="d-none col-lg-3 d-lg-inline-block">
-                          <NuxtLink to="/production6">
-                            <img src="/images/homepage/prod/healthfarm_hp_prod_photo12.png" class="img-fluid" alt="">
-                            <p class="text-center prod-text">手工餅乾禮盒</p>
-                          </NuxtLink>
-                        </figure>
-                      </div>
-                    </div>
+                    </template>
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         </div>

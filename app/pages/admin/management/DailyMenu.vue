@@ -644,9 +644,10 @@ const openSingleImageUpload = (item) => {
         await fetch(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${oldFile}`, { method: 'DELETE' })
       }
       const res = await fetch(`${BASE}/image/upload/${item.date}/${item.id}`, { method: 'POST', body: formData })
+      if (!res.ok) throw new Error(`上傳失敗（${res.status}）`)
       item.images = (await res.json()).slice(0, 1)
       showToast('圖片已更新')
-    } catch { showToast('上傳失敗') }
+    } catch (e) { showToast(e.message || '上傳失敗') }
   }
   input.click()
 }
@@ -668,16 +669,37 @@ const handleDrop = (e) => { dragOver.value = false; uploadImages(Array.from(e.da
 const uploadImages = async (files) => {
   if (!imageModal.item || files.length === 0) return
   uploading.value = true
+  let successCount = 0
+  const errors = []
   try {
-    const formData = new FormData(); files.forEach(f => formData.append('files', f))
-    const res = await fetch(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, { method: 'POST', body: formData })
-    const newPaths = await res.json()
-    imageModal.images.push(...newPaths)
-    const found = menuItems.value.find(i => i.id === imageModal.item.id)
-    if (found) found.images = [...imageModal.images]
-    showToast(`成功上傳 ${newPaths.length} 張圖片`)
-  } catch { showToast('上傳失敗') }
-  finally { uploading.value = false; if (fileInputRef.value) fileInputRef.value.value = '' }
+    for (const file of files) {
+      try {
+        const formData = new FormData()
+        formData.append('files', file)
+        const res = await fetch(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, { method: 'POST', body: formData })
+        if (!res.ok) throw new Error(`${file.name}：${res.status}`)
+        const newPaths = await res.json()
+        imageModal.images.push(...newPaths)
+        const found = menuItems.value.find(i => i.id === imageModal.item.id)
+        if (found) found.images = [...imageModal.images]
+        successCount++
+      } catch (err) {
+        errors.push(err.message || file.name)
+      }
+    }
+    if (errors.length === 0) {
+      showToast(`成功上傳 ${successCount} 張圖片`)
+    } else if (successCount > 0) {
+      showToast(`上傳 ${successCount} 張成功，${errors.length} 張失敗`)
+      console.error('上傳失敗：', errors)
+    } else {
+      showToast(`上傳失敗：${errors[0]}`)
+      console.error('上傳失敗：', errors)
+    }
+  } finally {
+    uploading.value = false
+    if (fileInputRef.value) fileInputRef.value.value = ''
+  }
 }
 
 const deleteMenuImage = async (idx) => {

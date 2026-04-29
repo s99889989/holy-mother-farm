@@ -1,5 +1,5 @@
 <script setup>
-import {useCommonStore} from '~/stores/common.js';
+import {useCommonStore} from "~/stores/common.js";
 
 useSiteHead()
 
