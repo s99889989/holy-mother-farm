@@ -78,6 +78,7 @@ const navItems = [
   { to: '/staff/quick-links', icon: '🔗', label: '常用網址' },
   { to: '/staff/cash-count',  icon: '💵', label: '點鈔記錄' },
   { to: '/staff/booking',     icon: '🪑', label: '訂位記錄' },
+  { to: '/staff/calendar',     icon: '🪑', label: '行事曆' },
 ]
 
 const isActive   = (path) => route.path.startsWith(path)
