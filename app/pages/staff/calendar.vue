@@ -1,172 +1,36 @@
 <script setup>
 definePageMeta({ layout: 'staff' })
 
-// ── 靜態資料（可替換為 API） ──────────────────────────────────────
-const rawEvents = {
-  '2026-04': [
-    { date: '2026-04-01', time: '08:00-10:00', title: '新進人員報到', owner: '高儀玟', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-01', time: '10:00-17:00', title: '慈濟大學參訪', owner: '賈德蘭', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-04-01', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-02', time: '07:00-07:00', title: '原訂醫院4月2日早上活動', owner: '侯寶捷', room: '', type: '醫院' },
-    { date: '2026-04-03', time: '14:00-16:30', title: '園區第一季環境消毒除蟲', owner: '蕭詩涵', room: '', type: '園區' },
-    { date: '2026-04-05', time: '08:30-16:30', title: '室配丙級檢定收費課程', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-06', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-08', time: '08:00-18:00', title: '會計師年度審查', owner: '高儀玟', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-08', time: '09:00-12:00', title: '居督會議', owner: '蕭燕菁', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-08', time: '12:30-13:30', title: '抗生素相關課程', owner: '陳竹君', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-08', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-09', time: '08:00-18:00', title: '會計師年度審查', owner: '高儀玟', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-09', time: '08:30-17:00', title: '丙級自來水配管課程', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-10', time: '08:00-18:00', title: '會計師年度審查', owner: '高儀玟', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-11', time: '08:30-16:30', title: '丙級室內配線課程', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-11', time: '08:30-16:30', title: '烘焙丙級證照班收費課程', owner: '王榮貴', room: 'P0G20201 雨田大樓二樓烘培教室', type: '園區' },
-    { date: '2026-04-12', time: '08:30-16:30', title: '室配丙級檢定收費課程', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-13', time: '08:00-12:00', title: '監理站簽約', owner: '賈德蘭', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-04-13', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-14', time: '08:00-12:00', title: '東職參訪', owner: '賈德蘭', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-04-14', time: '14:00-15:00', title: '115年緊急災害應變訓練', owner: '勒卡爾.夷丈.撒里朋岸', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-15', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-16', time: '12:30-13:30', title: '門診會議', owner: '林怡節', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-17', time: '08:00-12:00', title: '居家護理所團督', owner: '林茜莉', room: 'P0A30104 接待室', type: '園區' },
-    { date: '2026-04-17', time: '09:00-17:00', title: '地板滾球訓練社團', owner: '鄭如君', room: 'P0J10101 快樂競技館', type: '園區' },
-    { date: '2026-04-17', time: '14:00-15:00', title: '115年緊急災害應變訓練', owner: '勒卡爾.夷丈.撒里朋岸', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-18', time: '08:00-17:00', title: '樂齡地板滾球運動指導', owner: '鄭如君', room: 'P0E1B101 B1大禮堂', type: '園區' },
-    { date: '2026-04-18', time: '08:30-16:30', title: '愛的陪伴-安寧照護工作坊', owner: '陳妙玲', room: 'F0A20101 陽光教室', type: '芳心' },
-    { date: '2026-04-18', time: '08:30-16:30', title: '烘焙丙級證照班收費課程', owner: '王榮貴', room: 'P0G20201 雨田大樓二樓烘培教室', type: '園區' },
-    { date: '2026-04-18', time: '08:30-17:00', title: '簡易家庭水電收費課程', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-19', time: '08:00-17:00', title: '樂齡地板滾球運動指導', owner: '鄭如君', room: 'P0E1B101 B1大禮堂', type: '園區' },
-    { date: '2026-04-19', time: '08:30-16:30', title: '丙級室內配線收費課程', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-20', time: '08:00-17:30', title: '即測即評考試報名', owner: '蔣鍾悅湄', room: 'P0D20201 多功能大教室', type: '園區' },
-    { date: '2026-04-20', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-21', time: '08:00-17:00', title: '長照會議', owner: '蕭燕菁', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-21', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-21', time: '08:00-12:00', title: '東職參訪', owner: '賈德蘭', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-04-21', time: '12:00-14:00', title: '醫事行政室會議', owner: '曾淑玲', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-21', time: '13:30-17:30', title: '提供參與香草園協作坊', owner: '胡劉錦美', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-04-22', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-22', time: '13:30-17:30', title: '115年上半年度D區訓練', owner: '王云', room: 'P0D20201 多功能大教室', type: '園區' },
-    { date: '2026-04-22', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-23', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-23', time: '13:30-17:30', title: '115年上半年度自衛消防', owner: '王云', room: 'P0D20201 多功能大教室', type: '園區' },
-    { date: '2026-04-24', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-25', time: '08:00-17:00', title: '居服員課程+會議', owner: '李依璇', room: 'P0E1B101 B1大禮堂', type: '園區' },
-    { date: '2026-04-25', time: '08:30-16:30', title: '烘焙丙級證照班收費課程', owner: '王榮貴', room: 'P0G20201 雨田大樓二樓烘培教室', type: '園區' },
-    { date: '2026-04-25', time: '08:30-17:00', title: '簡易家庭水電收費課程', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-27', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-27', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-28', time: '08:00-12:00', title: '勞資會議', owner: '蔡明玲', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-28', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-28', time: '13:00-13:30', title: '召開115年第一次轉介會議', owner: '廖惠如', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-29', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-29', time: '13:00-15:00', title: '風險款-社會處方分工', owner: '游毓平', room: '', type: '醫院' },
-    { date: '2026-04-29', time: '15:00-17:30', title: '健保局CCM計畫輔導', owner: '游毓平', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-04-29', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-04-30', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-04-30', time: '11:00-14:00', title: '新竹華德福在樂活午餐', owner: '吳宣澔', room: 'P0B10201 樂活教室', type: '園區' },
-    { date: '2026-04-30', time: '13:00-13:30', title: '馬偕胡小姐團體用餐', owner: '吳宣澔', room: 'P0D30102 休憩小舖/照顧者咖啡屋', type: '園區' },
-  ],
-  '2026-05': [
-    { date: '2026-05-02', time: '09:00-13:30', title: '臺東縣手工藝發展協會活動', owner: '吳宣澔', room: 'P0B10201 樂活教室', type: '園區' },
-    { date: '2026-05-04', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-04', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-05', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-05', time: '12:30-14:00', title: '5月員工大會暨三合一活動', owner: '彭衍翰', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-05', time: '13:30-17:30', title: '提供參與香草園協作坊', owner: '吳宣澔', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-05-06', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-06', time: '12:00-12:30', title: '糖尿病在職教育', owner: '蘇麗芳', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-05-06', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-07', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-07', time: '12:30-13:30', title: '員工英文進修課', owner: '彭衍翰', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-08', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-08', time: '16:30-17:00', title: '英飛特PACS操作使用說明', owner: '王金龍', room: '', type: '醫院' },
-    { date: '2026-05-09', time: '08:30-16:30', title: '烘焙丙級證照班收費課程', owner: '王榮貴', room: 'P0G20201 雨田大樓二樓烘培教室', type: '園區' },
-    { date: '2026-05-11', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-11', time: '10:00-15:30', title: '董事會', owner: '吳宣澔', room: 'P0B10201 樂活教室', type: '園區' },
-    { date: '2026-05-11', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-12', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-12', time: '12:00-14:00', title: '醫事行政室會議', owner: '曾淑玲', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-05-12', time: '13:30-17:30', title: '提供參與香草園協作坊', owner: '吳宣澔', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-05-13', time: '08:00-08:00', title: '英飛特影像傳輸儲存系統說明', owner: '王金龍', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-05-13', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-13', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-14', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-14', time: '08:00-17:30', title: '失智症20小時課程', owner: '黃碧珍', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-15', time: '08:00-17:00', title: '長照會議', owner: '林茜莉', room: 'P0D20201 多功能大教室', type: '園區' },
-    { date: '2026-05-15', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-15', time: '08:00-17:30', title: '失智症20小時課程', owner: '黃碧珍', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-15', time: '09:00-17:00', title: '地板滾球訓練社團', owner: '鄭如君', room: 'P0J10101 快樂競技館', type: '園區' },
-    { date: '2026-05-15', time: '12:30-13:30', title: '門診月會議', owner: '高榮蓁', room: 'H0A10404 四樓會議室', type: '醫院' },
-    { date: '2026-05-16', time: '08:00-18:00', title: '115年照顧服務員術科測試', owner: '蔣鍾悅湄', room: 'P0D30201 照服員考場監一', type: '園區' },
-    { date: '2026-05-16', time: '08:00-17:30', title: '失智症20小時課程', owner: '黃碧珍', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-16', time: '08:30-16:30', title: '烘焙丙級證照班收費課程', owner: '王榮貴', room: 'P0G20201 雨田大樓二樓烘培教室', type: '園區' },
-    { date: '2026-05-17', time: '08:00-12:00', title: '醫院115年上半年度消防演練', owner: '侯寶捷', room: '', type: '醫院' },
-    { date: '2026-05-18', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-18', time: '11:30-12:30', title: '聖經協會-早餐午餐彌撒', owner: '吳宣澔', room: 'P0A20101 聖堂', type: '園區' },
-    { date: '2026-05-18', time: '13:30-16:00', title: '東區醫療網失智課程', owner: '游毓平', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-18', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: '', type: '醫院' },
-    { date: '2026-05-19', time: '08:00-17:00', title: '個資暨資安檢查周', owner: '陳奕誠', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-19', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-19', time: '13:30-15:30', title: '提供參與香草園協作坊', owner: '吳宣澔', room: 'P0A30102 簡報室', type: '園區' },
-    { date: '2026-05-20', time: '08:00-17:00', title: '個資暨資安檢查周', owner: '陳奕誠', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-20', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-20', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-21', time: '08:00-17:00', title: '個資暨資安檢查周', owner: '陳奕誠', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-21', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-22', time: '08:00-17:00', title: '個資暨資安檢查周', owner: '陳奕誠', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-22', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-22', time: '08:00-17:30', title: '衛生局保健科增能舒壓課程', owner: '吳宣澔', room: 'P0B10201 樂活教室', type: '園區' },
-    { date: '2026-05-23', time: '08:00-17:00', title: '居服員課程+會議', owner: '林茜莉', room: 'P0E1B101 B1大禮堂', type: '園區' },
-    { date: '2026-05-24', time: '08:00-12:00', title: '園區115年上半年度消防演練', owner: '侯寶捷', room: '', type: '園區' },
-    { date: '2026-05-25', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-25', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-26', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-27', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-27', time: '17:30-19:00', title: '燃脂增肌班', owner: '藍世昌', room: 'H0A10301 三樓大禮堂', type: '醫院' },
-    { date: '2026-05-28', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-29', time: '08:00-17:00', title: '室內電路配線技術檢定', owner: '王榮貴', room: 'P0I10201 水電實習廠', type: '園區' },
-    { date: '2026-05-29', time: '09:00-15:00', title: '卑南鄉文健站樂齡地板滾球', owner: '鄭如君', room: 'P0C20102 活動中心', type: '園區' },
-    { date: '2026-05-30', time: '08:30-16:30', title: '烘焙丙級證照班收費課程', owner: '王榮貴', room: 'P0G20201 雨田大樓二樓烘培教室', type: '園區' },
-  ]
-}
+const commonStore = useCommonStore()
+const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
 
-const notes = {
-  '2026-04': [
-    '(04/03) 請配合消毒公告須知事項。',
-    '(04/18) 於小舖平台用午餐，請備廚餘桶，感謝！'
-  ],
-  '2026-05': [
-    '(05/15) 請備－廚餘桶+回收桶+垃圾桶',
-    '(05/16) 多功能大教室、監一到監七教室 請備垃圾桶及廚餘桶',
-    '(05/18) 7:00早餐（餐廳） 8:00走讀（德蘭） 9:30會議（202、203） 11:30彌撒（聖堂） 12:30午餐（餐廳） 1:30離園',
-    '(05/22) 增能舒壓課程 樂活教室54人自助式（2圓桌包廂）+外面',
-    '(05/29) 人數300，中午於活動中心用餐(便當)，需於周邊準備廚餘回收區域，需於前一天貼製場地，要麻煩05/27協助清洗球場'
-  ]
-}
+// ── 狀態 ──────────────────────────────────────────────────────────
+const today        = new Date()
+const currentYear  = ref(today.getFullYear())
+const currentMonth = ref(today.getMonth() + 1)
 
-// ── 狀態 ───────────────────────────────────────────────────────────
-const today = new Date()
-const currentYear = ref(today.getFullYear())
-const currentMonth = ref(today.getMonth() + 1) // 1-based，預設今天；如果是4月顯示4月
-// 預設顯示4月（資料月份）
-if (currentMonth.value < 4) { currentMonth.value = 4 }
+const filterType     = ref('全部')
+const filterLocation = ref('')      // 地點篩選，空字串 = 全部
+const selectedEvent  = ref(null)
+const listView       = ref(false)
+const loading        = ref(false)
 
-const filterType = ref('全部') // 全部 / 醫院 / 園區 / 芳心
-const selectedEvent = ref(null)
-const showNotes = ref(false)
-const listView = ref(false)
+const allEvents    = ref([])   // 當月從 API 取回的活動
+const currentNotes = ref([])   // 當月備注
 
-// ── 計算 ───────────────────────────────────────────────────────────
-const monthKey = computed(() => `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`)
+// ── 計算 ──────────────────────────────────────────────────────────
+const monthKey   = computed(() => `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`)
 const monthLabel = computed(() => `${currentYear.value} 年 ${currentMonth.value} 月`)
 
-const monthEvents = computed(() => rawEvents[monthKey.value] || [])
-const currentNotes = computed(() => notes[monthKey.value] || [])
+const monthEvents = computed(() => allEvents.value)
 
-const filteredEvents = computed(() =>
-  filterType.value === '全部'
-    ? monthEvents.value
-    : monthEvents.value.filter(e => e.type === filterType.value)
-)
+// 套用類型 + 地點兩層篩選
+const filteredEvents = computed(() => {
+  let list = monthEvents.value
+  if (filterType.value !== '全部') list = list.filter(e => e.type === filterType.value)
+  if (filterLocation.value)       list = list.filter(e => extractLocation(e.room) === filterLocation.value)
+  return list
+})
 
 const typeCount = computed(() => {
   const counts = { 醫院: 0, 園區: 0, 芳心: 0 }
@@ -174,11 +38,37 @@ const typeCount = computed(() => {
   return counts
 })
 
-// 月曆格子
+// 從 room 欄位取出地點名稱（去掉前面的場地代碼 P0xxx / H0xxx）
+// 範例："P0I10201 水電實習廠" → "水電實習廠"
+//        "H0A10404 四樓會議室 " → "四樓會議室"
+//        "" → 不顯示
+function extractLocation(room) {
+  if (!room || !room.trim()) return ''
+  // 去掉開頭的場地代碼（英數字串）
+  const cleaned = room.trim().replace(/^[A-Z0-9]+\s*/, '').trim()
+  return cleaned || room.trim()
+}
+
+// 依目前選中的 type 動態產生可用地點清單（去重、排序、過濾空值）
+const availableLocations = computed(() => {
+  let base = monthEvents.value
+  if (filterType.value !== '全部') base = base.filter(e => e.type === filterType.value)
+  const locs = [...new Set(
+    base.map(e => extractLocation(e.room)).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+  return locs
+})
+
+// 切換 type 時，地點篩選自動 reset
+function setFilterType(t) {
+  filterType.value = t
+  filterLocation.value = ''
+}
+
 const calendarDays = computed(() => {
-  const year = currentYear.value
+  const year  = currentYear.value
   const month = currentMonth.value
-  const firstDay = new Date(year, month - 1, 1).getDay() // 0=Sun
+  const firstDay    = new Date(year, month - 1, 1).getDay()
   const daysInMonth = new Date(year, month, 0).getDate()
   const cells = []
   for (let i = 0; i < firstDay; i++) cells.push(null)
@@ -193,10 +83,50 @@ function eventsOnDay(day) {
 }
 
 function isToday(day) {
-  return day === today.getDate() && currentMonth.value === today.getMonth() + 1 && currentYear.value === today.getFullYear()
+  return day === today.getDate()
+    && currentMonth.value === today.getMonth() + 1
+    && currentYear.value  === today.getFullYear()
 }
 
-// 月份切換
+// hasData：只要當月有任何活動就算有資料
+const hasData = computed(() => allEvents.value.length > 0)
+
+const typeColor = { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }
+function chipClass(type) { return typeColor[type] || 'park' }
+
+const sortedEvents = computed(() =>
+  [...filteredEvents.value].sort((a, b) =>
+    a.date.localeCompare(b.date) || a.time.localeCompare(b.time)
+  )
+)
+
+// ── API ───────────────────────────────────────────────────────────
+// GET /holy/calendar/list?yearMonth=YYYY-MM  → CalendarEvent[]
+async function fetchEvents() {
+  loading.value = true
+  allEvents.value = []
+  try {
+    const res = await fetch(`${BASE.value}/list?yearMonth=${monthKey.value}`)
+    allEvents.value = res.ok ? await res.json() : []
+  } catch (e) {
+    console.error('行事曆載入失敗', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+// GET /holy/calendar/notes?yearMonth=YYYY-MM  → String[]
+async function fetchNotes() {
+  currentNotes.value = []
+  try {
+    const res = await fetch(`${BASE.value}/notes?yearMonth=${monthKey.value}`)
+    currentNotes.value = res.ok ? await res.json() : []
+  } catch (e) {
+    console.error('備注載入失敗', e)
+  }
+}
+
+// ── 月份切換 ──────────────────────────────────────────────────────
 function prevMonth() {
   if (currentMonth.value === 1) { currentMonth.value = 12; currentYear.value-- }
   else currentMonth.value--
@@ -206,18 +136,16 @@ function nextMonth() {
   else currentMonth.value++
 }
 
-const hasData = computed(() => !!rawEvents[monthKey.value])
+// 切換月份時重新拉資料
+watch(monthKey, () => {
+  fetchEvents()
+  fetchNotes()
+})
 
-// 顏色
-const typeColor = { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }
-function chipClass(type) {
-  return typeColor[type] || 'park'
-}
-
-// 排序後清單視圖
-const sortedEvents = computed(() =>
-  [...filteredEvents.value].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-)
+onMounted(() => {
+  fetchEvents()
+  fetchNotes()
+})
 </script>
 
 <template>
@@ -246,33 +174,55 @@ const sortedEvents = computed(() =>
     </header>
 
     <div class="cal-body">
-      <!-- ── 月份控制 ── -->
-      <div class="month-nav">
-        <button @click="prevMonth" class="nav-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <div class="month-label">
-          <span class="month-text">{{ monthLabel }}</span>
-          <span v-if="!hasData" class="no-data-badge">無資料</span>
+      <!-- ── 月份 + 篩選 同一排 ── -->
+      <div class="nav-filter-row">
+        <!-- 月份切換 -->
+        <div class="month-nav">
+          <button @click="prevMonth" class="nav-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="month-label">
+            <span class="month-text">{{ monthLabel }}</span>
+            <span v-if="!hasData && !loading" class="no-data-badge">無資料</span>
+          </div>
+          <button @click="nextMonth" class="nav-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
-        <button @click="nextMonth" class="nav-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
+
+        <!-- 篩選：類型 -->
+        <div class="filter-bar">
+          <button
+            v-for="t in ['全部', '醫院', '園區', '芳心']"
+            :key="t"
+            @click="setFilterType(t)"
+            :class="['filter-btn', `filter-${t === '全部' ? 'all' : typeColor[t]}`, filterType === t ? 'active' : '']"
+          >
+            {{ t }}
+            <span class="filter-count">
+              {{ t === '全部' ? monthEvents.length : (typeCount[t] || 0) }}
+            </span>
+          </button>
+        </div>
       </div>
 
-      <!-- ── 篩選 + 統計 ── -->
-      <div class="filter-bar">
+      <!-- ── 地點篩選 ── -->
+      <div v-if="availableLocations.length" class="location-bar">
         <button
-          v-for="t in ['全部', '醫院', '園區', '芳心']"
-          :key="t"
-          @click="filterType = t"
-          :class="['filter-btn', `filter-${t === '全部' ? 'all' : typeColor[t]}`, filterType === t ? 'active' : '']"
-        >
-          {{ t }}
-          <span class="filter-count">
-            {{ t === '全部' ? monthEvents.length : (typeCount[t] || 0) }}
-          </span>
-        </button>
+          :class="['loc-btn', filterLocation === '' ? 'active' : '']"
+          @click="filterLocation = ''"
+        >全部地點</button>
+        <button
+          v-for="loc in availableLocations"
+          :key="loc"
+          :class="['loc-btn', filterLocation === loc ? 'active' : '']"
+          @click="filterLocation = loc"
+        >{{ loc }}</button>
+      </div>
+
+      <!-- ── 載入中 ── -->
+      <div v-if="loading" class="loading-bar">
+        <div class="loading-shimmer"></div>
       </div>
 
       <!-- ── 月曆視圖 ── -->
@@ -351,12 +301,11 @@ const sortedEvents = computed(() =>
 
       <!-- ── 備注 ── -->
       <div v-if="currentNotes.length" class="notes-section">
-        <button class="notes-toggle" @click="showNotes = !showNotes">
+        <div class="notes-header">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          備注事項 ({{ currentNotes.length }})
-          <svg :style="{ transform: showNotes ? 'rotate(180deg)' : 'rotate(0deg)', transition: '.2s' }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div v-if="showNotes" class="notes-list">
+          備注事項
+        </div>
+        <div class="notes-list">
           <div v-for="(n, i) in currentNotes" :key="i" class="note-item">
             <span class="note-dot">▪</span>
             {{ n }}
@@ -405,6 +354,26 @@ const sortedEvents = computed(() =>
 </template>
 
 <style scoped>
+/* ── Loading ── */
+.loading-bar {
+  height: 3px;
+  background: #e8e3dc;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.loading-shimmer {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #3d6b52 0%, #6b9e7f 50%, #3d6b52 100%);
+  border-radius: 2px;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(350%); }
+}
+
 /* ── 基底 ── */
 .cal-wrap {
   min-height: 100vh;
@@ -664,13 +633,13 @@ const sortedEvents = computed(() =>
 
 /* ── Notes ── */
 .notes-section { margin-top: 20px; }
-.notes-toggle {
+.notes-header {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 600;
-  color: #78716c; background: none; border: none; cursor: pointer;
-  padding: 6px 0;
+  color: #78716c;
+  padding: 0 0 6px 0;
 }
-:root.dark .notes-toggle { color: #a1a1aa; }
+:root.dark .notes-header { color: #a1a1aa; }
 .notes-list {
   background: #fff8e8;
   border: 1px solid #f0e4ba;
@@ -753,6 +722,47 @@ const sortedEvents = computed(() =>
 .slide-enter-from .event-drawer { transform: translateY(100%); }
 .slide-leave-to { opacity: 0; }
 .slide-leave-to .event-drawer { transform: translateY(100%); }
+
+/* ── Location bar ── */
+.location-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e8e3dc;
+}
+:root.dark .location-bar {
+  background: #27272a;
+  border-color: #3f3f46;
+}
+.loc-btn {
+  padding: 4px 11px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1.5px solid #e2ddd8;
+  background: transparent;
+  color: #78716c;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+:root.dark .loc-btn {
+  border-color: #52525b;
+  color: #a1a1aa;
+}
+.loc-btn:hover {
+  border-color: #3d6b52;
+  color: #3d6b52;
+}
+.loc-btn.active {
+  background: #3d6b52;
+  border-color: #3d6b52;
+  color: #fff;
+}
 
 /* ── RWD ── */
 @media (max-width: 640px) {

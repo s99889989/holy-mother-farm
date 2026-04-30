@@ -32,7 +32,8 @@ const navGroups = [
       {to: '/admin/management/BookIndex', label: '訂位管理'},
       {to: '/admin/management/ImageLibrary', label: '資源管理庫'},
       {to: '/admin/management/AssetRegistry', label: '財產登記'},
-      {to: '/admin/management/CustomerManagement', label: '客戶帳號'}
+      {to: '/admin/management/CustomerManagement', label: '客戶帳號'},
+      {to: '/admin/management/admin-calendar', label: '行事曆'}
     ]
   },
 ]
