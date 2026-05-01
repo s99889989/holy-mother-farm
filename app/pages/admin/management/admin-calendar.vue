@@ -61,6 +61,42 @@
       </div>
     </div>
 
+    <!-- ── 篩選列 ── -->
+    <div class="border-b border-stone-100 dark:border-stone-800 bg-white dark:bg-zinc-900 px-4 py-2.5 space-y-2">
+      <div class="max-w-5xl mx-auto space-y-2">
+
+        <!-- 類型 -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs text-stone-400 mr-1 flex-shrink-0">類型</span>
+          <button
+            v-for="t in ['全部', ...TYPES]" :key="t"
+            @click="setFilterType(t)"
+            :class="['filter-type-btn', t === '全部' ? 'all' : typeColorClass(t), filterType === t ? 'active' : '']"
+          >
+            {{ t }}
+            <span class="filter-count">
+              {{ t === '全部' ? monthEventCount : (typeCount[t] || 0) }}
+            </span>
+          </button>
+        </div>
+
+        <!-- 地點 -->
+        <div v-if="availableLocations.length" class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs text-stone-400 mr-1 flex-shrink-0">地點</span>
+          <button
+            :class="['filter-loc-btn', filterLocation === '' ? 'active' : '']"
+            @click="filterLocation = ''"
+          >全部</button>
+          <button
+            v-for="loc in availableLocations" :key="loc"
+            :class="['filter-loc-btn', filterLocation === loc ? 'active' : '']"
+            @click="filterLocation = loc"
+          >{{ loc }}</button>
+        </div>
+
+      </div>
+    </div>
+
     <!-- ── 月曆主體 ── -->
     <div class="max-w-5xl mx-auto px-3 sm:px-4 py-4">
 
@@ -456,6 +492,29 @@ const today        = new Date()
 const currentYear  = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth() + 1)  // 1-based
 
+// ── 篩選狀態 ──────────────────────────────────────────────────────
+const filterType     = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
+const filterLocation = ref('')       // 空字串 = 全部地點
+
+function setFilterType(t) {
+  filterType.value     = t
+  filterLocation.value = ''
+}
+
+// room 欄位去掉場地代碼前綴："P0I10201 水電實習廠" → "水電實習廠"
+function extractLocation(room) {
+  if (!room || !room.trim()) return ''
+  return room.trim().replace(/^[A-Z0-9]+\s*/, '').trim() || room.trim()
+}
+
+// 依目前 filterType 動態產生可選地點（去重、排序）
+const availableLocations = computed(() => {
+  const ym   = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  let   base = events.value.filter(e => e.date?.startsWith(ym))
+  if (filterType.value !== '全部') base = base.filter(e => e.type === filterType.value)
+  return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+})
+
 function prevMonth() {
   if (currentMonth.value === 1) { currentMonth.value = 12; currentYear.value-- }
   else currentMonth.value--
@@ -497,12 +556,32 @@ const calendarCells = computed(() => {
 
 const monthEventCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  return events.value.filter(e => e.date?.startsWith(ym)).length
+  return events.value.filter(e => {
+    if (!e.date?.startsWith(ym)) return false
+    if (filterType.value !== '全部' && e.type !== filterType.value) return false
+    if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
+    return true
+  }).length
+})
+
+// 類型統計（當月）
+const typeCount = computed(() => {
+  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  const counts = { 醫院: 0, 園區: 0, 芳心: 0 }
+  events.value.filter(e => e.date?.startsWith(ym)).forEach(e => {
+    if (counts[e.type] !== undefined) counts[e.type]++
+  })
+  return counts
 })
 
 function eventsOnDate(dateStr) {
   return events.value
-    .filter(e => e.date === dateStr)
+    .filter(e => {
+      if (e.date !== dateStr) return false
+      if (filterType.value !== '全部' && e.type !== filterType.value) return false
+      if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
+      return true
+    })
     .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
 }
 
@@ -761,10 +840,12 @@ const currentYearMonth = computed(() =>
   `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
 )
 
-// 切換月份時重新載入備注
+// 切換月份時重新載入備注，並重置篩選
 watch(currentYearMonth, () => {
   fetchNotes()
-  noteEditIdx.value = -1
+  noteEditIdx.value    = -1
+  filterType.value     = '全部'
+  filterLocation.value = ''
 })
 
 async function fetchNotes() {
@@ -940,6 +1021,34 @@ onMounted(() => {
 :root.dark .type-badge.hospital { background: #4d2323; color: #f87171; }
 :root.dark .type-badge.park     { background: #1a3a26; color: #4ade80; }
 :root.dark .type-badge.fragrant { background: #3b1a2e; color: #f0abfc; }
+
+/* ── 篩選按鈕：類型 ── */
+.filter-type-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
+  border: 1.5px solid #e2ddd8; background: transparent; cursor: pointer;
+  color: #78716c; transition: all .15s;
+}
+:root.dark .filter-type-btn { border-color: #3f3f46; color: #a1a1aa; }
+.filter-count {
+  font-size: 10px; opacity: .7; background: rgba(0,0,0,.06);
+  border-radius: 8px; padding: 0 4px; min-width: 16px; text-align: center;
+}
+.filter-type-btn.active.all      { background: #1c1917; color: #fff; border-color: #1c1917; }
+.filter-type-btn.active.hospital { background: #e0534a; color: #fff; border-color: #e0534a; }
+.filter-type-btn.active.park     { background: #3d6b52; color: #fff; border-color: #3d6b52; }
+.filter-type-btn.active.fragrant { background: #a06080; color: #fff; border-color: #a06080; }
+.filter-type-btn:not(.active):hover { border-color: #6366f1; color: #6366f1; }
+
+/* ── 篩選按鈕：地點 ── */
+.filter-loc-btn {
+  padding: 3px 10px; border-radius: 14px; font-size: 11px; font-weight: 500;
+  border: 1.5px solid #e2ddd8; background: transparent; cursor: pointer;
+  color: #78716c; transition: all .15s; white-space: nowrap;
+}
+:root.dark .filter-loc-btn { border-color: #3f3f46; color: #a1a1aa; }
+.filter-loc-btn.active      { background: #6366f1; color: #fff; border-color: #6366f1; }
+.filter-loc-btn:not(.active):hover { border-color: #6366f1; color: #6366f1; }
 
 /* ── 表單欄位 ── */
 .field-label {
