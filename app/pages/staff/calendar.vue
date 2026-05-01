@@ -15,26 +15,39 @@ const selectedEvent  = ref(null)
 const listView       = ref(false)
 const loading        = ref(false)
 
-const allEvents    = ref([])   // 當月從 API 取回的活動
-const currentNotes = ref([])   // 當月備注
+const allEvents      = ref([])   // 當月從 API 取回的活動
+const googleEvents   = ref([])   // Google 日曆活動
+const googleLoading  = ref(false)
+const currentNotes   = ref([])   // 當月備注
+
+// ── Google Calendar 設定 ──────────────────────────────────────────
+// 請替換成實際的值（見頁面底部說明）
+const GOOGLE_CALENDAR_ID  = 'healthfarmpr@st-mary.org.tw'
+const GOOGLE_API_KEY      = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
 
 // ── 計算 ──────────────────────────────────────────────────────────
 const monthKey   = computed(() => `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`)
 const monthLabel = computed(() => `${currentYear.value} 年 ${currentMonth.value} 月`)
 
-const monthEvents = computed(() => allEvents.value)
+// 系統活動 + Google 活動合併（合併後保持各自 source 標記）
+const monthEvents = computed(() => [
+  ...allEvents.value,
+  ...googleEvents.value
+])
 
 // 套用類型 + 地點兩層篩選
 const filteredEvents = computed(() => {
   let list = monthEvents.value
-  if (filterType.value !== '全部') list = list.filter(e => e.type === filterType.value)
-  if (filterLocation.value)       list = list.filter(e => extractLocation(e.room) === filterLocation.value)
+  if (filterType.value === 'Google') return list.filter(e => e.source === 'google')
+  if (filterType.value !== '全部')   list = list.filter(e => e.type === filterType.value)
+  if (filterLocation.value)          list = list.filter(e => extractLocation(e.room) === filterLocation.value)
   return list
 })
 
 const typeCount = computed(() => {
-  const counts = { 醫院: 0, 園區: 0, 芳心: 0 }
-  monthEvents.value.forEach(e => { if (counts[e.type] !== undefined) counts[e.type]++ })
+  const counts = { 醫院: 0, 園區: 0, 芳心: 0, Google: 0 }
+  allEvents.value.forEach(e => { if (counts[e.type] !== undefined) counts[e.type]++ })
+  counts.Google = googleEvents.value.length
   return counts
 })
 
@@ -89,10 +102,13 @@ function isToday(day) {
 }
 
 // hasData：只要當月有任何活動就算有資料
-const hasData = computed(() => allEvents.value.length > 0)
+const hasData = computed(() => allEvents.value.length > 0 || googleEvents.value.length > 0)
 
 const typeColor = { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }
-function chipClass(type) { return typeColor[type] || 'park' }
+function chipClass(ev) {
+  if (ev.source === 'google') return 'google'
+  return typeColor[ev.type] || 'park'
+}
 
 const sortedEvents = computed(() =>
   [...filteredEvents.value].sort((a, b) =>
@@ -126,6 +142,55 @@ async function fetchNotes() {
   }
 }
 
+// ── Google Calendar API ───────────────────────────────────────────
+// Google Calendar Events API → 轉換成統一格式
+async function fetchGoogleEvents() {
+  if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
+  googleLoading.value = true
+  googleEvents.value  = []
+  try {
+    const year  = currentYear.value
+    const month = currentMonth.value
+    const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
+    const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
+      + `?key=${GOOGLE_API_KEY}`
+      + `&timeMin=${timeMin}&timeMax=${timeMax}`
+      + `&singleEvents=true&orderBy=startTime&maxResults=250`
+    const res  = await fetch(url)
+    const data = res.ok ? await res.json() : {}
+    googleEvents.value = (data.items || []).map(item => {
+      const isAllDay = !!item.start?.date
+      const startRaw = isAllDay ? item.start.date : item.start?.dateTime
+      const endRaw   = isAllDay ? item.end?.date   : item.end?.dateTime
+      const date     = startRaw ? startRaw.slice(0, 10) : ''
+      let time = ''
+      if (!isAllDay && startRaw) {
+        const s = new Date(startRaw)
+        const e = endRaw ? new Date(endRaw) : null
+        const fmt = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+        time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+      }
+      return {
+        id:          item.id,
+        date,
+        time,
+        title:       item.summary || '（無標題）',
+        owner:       item.organizer?.displayName || '',
+        room:        item.location || '',
+        type:        'Google',
+        source:      'google',
+        googleLink:  item.htmlLink || '',
+        description: item.description || ''
+      }
+    })
+  } catch (e) {
+    console.warn('Google 日曆載入失敗', e)
+  } finally {
+    googleLoading.value = false
+  }
+}
+
 // ── 月份切換 ──────────────────────────────────────────────────────
 function prevMonth() {
   if (currentMonth.value === 1) { currentMonth.value = 12; currentYear.value-- }
@@ -140,11 +205,13 @@ function nextMonth() {
 watch(monthKey, () => {
   fetchEvents()
   fetchNotes()
+  fetchGoogleEvents()
 })
 
 onMounted(() => {
   fetchEvents()
   fetchNotes()
+  fetchGoogleEvents()
 })
 </script>
 
@@ -193,14 +260,14 @@ onMounted(() => {
         <!-- 篩選：類型 -->
         <div class="filter-bar">
           <button
-            v-for="t in ['全部', '醫院', '園區', '芳心']"
+            v-for="t in ['全部', '醫院', '園區', '芳心', 'Google']"
             :key="t"
             @click="setFilterType(t)"
-            :class="['filter-btn', `filter-${t === '全部' ? 'all' : typeColor[t]}`, filterType === t ? 'active' : '']"
+            :class="['filter-btn', t === 'Google' ? 'filter-google' : `filter-${t === '全部' ? 'all' : typeColor[t]}`, filterType === t ? 'active' : '']"
           >
             {{ t }}
             <span class="filter-count">
-              {{ t === '全部' ? monthEvents.length : (typeCount[t] || 0) }}
+              {{ t === '全部' ? monthEvents.length : (typeCount[t] || 0) }}<span v-if="t === 'Google' && googleLoading" class="ml-1 inline-block w-2 h-2 border border-blue-400 border-t-transparent rounded-full animate-spin"></span>
             </span>
           </button>
         </div>
@@ -253,7 +320,7 @@ onMounted(() => {
                 <div
                   v-for="(ev, ei) in eventsOnDay(day).slice(0, 3)"
                   :key="ei"
-                  :class="['event-chip', chipClass(ev.type)]"
+                  :class="['event-chip', chipClass(ev)]"
                   @click="selectedEvent = ev"
                 >
                   <span class="chip-time">{{ ev.time.split('-')[0] }}</span>
@@ -283,7 +350,7 @@ onMounted(() => {
               class="list-item"
               @click="selectedEvent = ev"
             >
-              <div :class="['list-type-bar', chipClass(ev.type)]"></div>
+              <div :class="['list-type-bar', chipClass(ev)]"></div>
               <div class="list-date-col">
                 <span class="list-day">{{ parseInt(ev.date.split('-')[2]) }}</span>
                 <span class="list-month">{{ parseInt(ev.date.split('-')[1]) }}月</span>
@@ -293,7 +360,7 @@ onMounted(() => {
                 <p class="list-item-meta">{{ ev.time }} · {{ ev.owner }}</p>
                 <p v-if="ev.room" class="list-item-room">{{ ev.room }}</p>
               </div>
-              <span :class="['list-badge', chipClass(ev.type)]">{{ ev.type }}</span>
+              <span :class="['list-badge', chipClass(ev)]">{{ ev.type }}</span>
             </div>
           </template>
         </div>
@@ -319,10 +386,10 @@ onMounted(() => {
       <div v-if="selectedEvent" class="event-overlay" @click.self="selectedEvent = null">
         <div class="event-drawer">
           <div class="drawer-handle"></div>
-          <div :class="['drawer-type-strip', chipClass(selectedEvent.type)]"></div>
+          <div :class="['drawer-type-strip', chipClass(selectedEvent)]"></div>
           <div class="drawer-content">
             <div class="drawer-header">
-              <span :class="['drawer-badge', chipClass(selectedEvent.type)]">{{ selectedEvent.type }}</span>
+              <span :class="['drawer-badge', chipClass(selectedEvent)]">{{ selectedEvent.type }}</span>
               <button class="drawer-close" @click="selectedEvent = null">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -333,17 +400,26 @@ onMounted(() => {
                 <span class="meta-icon">📅</span>
                 <span>{{ selectedEvent.date }}</span>
               </div>
-              <div class="drawer-meta-row">
+              <div v-if="selectedEvent.time" class="drawer-meta-row">
                 <span class="meta-icon">🕐</span>
                 <span>{{ selectedEvent.time }}</span>
               </div>
-              <div class="drawer-meta-row">
+              <div v-if="selectedEvent.owner" class="drawer-meta-row">
                 <span class="meta-icon">👤</span>
                 <span>{{ selectedEvent.owner }}</span>
               </div>
               <div v-if="selectedEvent.room" class="drawer-meta-row">
                 <span class="meta-icon">📍</span>
                 <span>{{ selectedEvent.room }}</span>
+              </div>
+              <div v-if="selectedEvent.description" class="drawer-meta-row">
+                <span class="meta-icon">📝</span>
+                <span class="whitespace-pre-wrap">{{ selectedEvent.description }}</span>
+              </div>
+              <div v-if="selectedEvent.source === 'google' && selectedEvent.googleLink" class="drawer-meta-row">
+                <span class="meta-icon">🔗</span>
+                <a :href="selectedEvent.googleLink" target="_blank" rel="noopener"
+                   class="text-blue-500 underline text-sm">在 Google 日曆開啟</a>
               </div>
             </div>
           </div>
@@ -495,6 +571,9 @@ onMounted(() => {
 .filter-btn.active.filter-hospital { background: #e0534a; color: #fff; border-color: #e0534a; }
 .filter-btn.active.filter-park { background: #3d6b52; color: #fff; border-color: #3d6b52; }
 .filter-btn.active.filter-fragrant { background: #a06080; color: #fff; border-color: #a06080; }
+.filter-btn.filter-google { border-color: #bfdbfe; color: #2563eb; }
+:root.dark .filter-btn.filter-google { border-color: #1e3a5f; color: #93c5fd; }
+.filter-btn.active.filter-google { background: #2563eb; color: #fff; border-color: #2563eb; }
 
 /* ── Calendar Grid（含星期標頭，同一 grid 確保對齊）── */
 .calendar-grid {
@@ -569,6 +648,11 @@ onMounted(() => {
 .event-chip.hospital .chip-time { color: #c0392b; }
 .event-chip.park .chip-time { color: #2d6a46; }
 .event-chip.fragrant .chip-time { color: #9d4f78; }
+.event-chip.google { background: #dbeafe; }
+:root.dark .event-chip.google { background: #1e3a5f; }
+.event-chip.google .chip-time { color: #2563eb; }
+.event-chip.google .chip-title { color: #1d4ed8; }
+:root.dark .event-chip.google .chip-title { color: #93c5fd; }
 .chip-title {
   font-size: 10px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -600,6 +684,7 @@ onMounted(() => {
 .list-type-bar.hospital { background: #e0534a; }
 .list-type-bar.park { background: #3d6b52; }
 .list-type-bar.fragrant { background: #a06080; }
+.list-type-bar.google { background: #2563eb; }
 .list-date-col {
   width: 48px; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -623,6 +708,8 @@ onMounted(() => {
 .list-badge.hospital { background: #fee2e2; color: #c0392b; }
 .list-badge.park { background: #dcfce7; color: #2d6a46; }
 .list-badge.fragrant { background: #fce7f3; color: #9d4f78; }
+.list-badge.google { background: #dbeafe; color: #1d4ed8; }
+:root.dark .list-badge.google { background: #1e3a5f; color: #93c5fd; }
 
 /* ── Notes ── */
 .notes-section { margin-top: 20px; }
@@ -673,6 +760,7 @@ onMounted(() => {
 .drawer-type-strip.hospital { background: #e0534a; }
 .drawer-type-strip.park { background: #3d6b52; }
 .drawer-type-strip.fragrant { background: #a06080; }
+.drawer-type-strip.google { background: #2563eb; }
 .drawer-content { padding: 16px 20px 32px; }
 .drawer-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -685,6 +773,8 @@ onMounted(() => {
 .drawer-badge.hospital { background: #fee2e2; color: #c0392b; }
 .drawer-badge.park { background: #dcfce7; color: #2d6a46; }
 .drawer-badge.fragrant { background: #fce7f3; color: #9d4f78; }
+.drawer-badge.google { background: #dbeafe; color: #1d4ed8; }
+:root.dark .drawer-badge.google { background: #1e3a5f; color: #93c5fd; }
 .drawer-close {
   width: 32px; height: 32px; border-radius: 50%;
   border: 1px solid #e2ddd8; background: #faf9f7;

@@ -2,8 +2,9 @@
 definePageMeta({ layout: 'staff' })
 
 const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/booking'
+const BASE       = () => commonStore.data.main_url + '/holy/booking'
 const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
+const CAL_BASE   = () => commonStore.data.main_url + '/holy/calendar'
 
 const today = new Date()
 const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -12,14 +13,25 @@ const todayWeekday = weekDays[today.getDay()]
 const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${todayWeekday}`
 
 const shortcuts = [
-  { to: '/staff/booking', icon: '🪑', label: '訂位記錄', color: 'bg-green-700', desc: '查看當日訂位與便當' },
-  { to: '/staff/cash-count', icon: '💵', label: '點鈔記錄', color: 'bg-emerald-600', desc: '查看每日點鈔結果' },
-  { to: '/staff/quick-links', icon: '🔗', label: '常用網址', color: 'bg-blue-600', desc: '常用系統與工具連結' }
+  { to: '/staff/booking',     icon: '🪑', label: '訂位記錄', color: 'bg-green-700',   desc: '查看當日訂位與便當' },
+  { to: '/staff/cash-count',  icon: '💵', label: '點鈔記錄', color: 'bg-emerald-600', desc: '查看每日點鈔結果' },
+  { to: '/staff/calendar',    icon: '📅', label: '行事曆',   color: 'bg-indigo-600',  desc: '查看本月活動與備注' },
+  { to: '/staff/quick-links', icon: '🔗', label: '常用網址', color: 'bg-blue-600',    desc: '常用系統與工具連結' }
 ]
 
-const loading = ref(false)
-const bookings = ref([])
-const lunchOrders = ref([])
+const loading      = ref(false)
+const bookings     = ref([])
+const lunchOrders  = ref([])
+const todayEvents  = ref([])   // 今日行事曆活動
+
+// 行事曆類型色
+const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080' }
+function calChipBg(type) {
+  return { 醫院: '#fee2e2', 園區: '#dcfce7', 芳心: '#fce7f3' }[type] || '#f0f0f0'
+}
+function calChipText(type) {
+  return calTypeColor[type] || '#555'
+}
 
 const bookingTotal = computed(() => bookings.value.reduce((s, b) =>
   s + (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
@@ -34,12 +46,19 @@ const lunchVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o
 async function fetchToday() {
   loading.value = true
   try {
-    const [bRes, lRes] = await Promise.all([
+    const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+    const [bRes, lRes, cRes] = await Promise.all([
       fetch(`${BASE()}/get/${todayStr}`),
-      fetch(`${LUNCH_BASE()}/get/${todayStr}`)
+      fetch(`${LUNCH_BASE()}/get/${todayStr}`),
+      fetch(`${CAL_BASE()}/list?yearMonth=${ym}`)
     ])
-    bookings.value = bRes.ok ? await bRes.json() : []
+    bookings.value    = bRes.ok ? await bRes.json() : []
     lunchOrders.value = lRes.ok ? await lRes.json() : []
+    const allCal      = cRes.ok ? await cRes.json() : []
+    // 只留今天的，依時間排序
+    todayEvents.value = allCal
+      .filter(e => e.date === todayStr)
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   } catch (e) { console.error(e) } finally { loading.value = false }
 }
 
@@ -188,6 +207,67 @@ onMounted(fetchToday)
                 </div>
               </div>
             </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 今日行事曆 ── -->
+      <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-stone-100 dark:border-stone-700">
+          <span class="font-semibold text-stone-700 dark:text-stone-100" style="font-size:13px">
+            今日行事曆
+          </span>
+          <NuxtLink to="/staff/calendar"
+                    class="text-green-700 dark:text-green-400 font-medium" style="font-size:12px">
+            查看全月 →
+          </NuxtLink>
+        </div>
+
+        <!-- 載入中 -->
+        <div v-if="loading" class="px-4 py-5 text-center text-stone-400" style="font-size:13px">
+          載入中...
+        </div>
+
+        <!-- 無活動 -->
+        <div v-else-if="todayEvents.length === 0"
+             class="px-4 py-5 text-center text-stone-400" style="font-size:13px">
+          今天沒有排定的活動
+        </div>
+
+        <!-- 活動列表 -->
+        <div v-else class="divide-y divide-stone-100 dark:divide-zinc-700">
+          <div v-for="(ev, i) in todayEvents" :key="i"
+               class="flex items-start gap-3 px-4 py-3">
+            <!-- 時間 -->
+            <div class="flex-shrink-0 text-right" style="min-width:42px">
+              <span class="font-mono font-semibold text-stone-500 dark:text-stone-400"
+                    style="font-size:11px">
+                {{ ev.time ? ev.time.split('-')[0] : '' }}
+              </span>
+            </div>
+            <!-- 色條 -->
+            <div class="flex-shrink-0 w-1 self-stretch rounded-full mt-0.5"
+                 :style="{ background: calTypeColor[ev.type] || '#ccc' }">
+            </div>
+            <!-- 內容 -->
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-stone-800 dark:text-stone-100 leading-snug"
+                 style="font-size:13px">{{ ev.title }}</p>
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                <span v-if="ev.owner" class="text-stone-400" style="font-size:11px">
+                  👤 {{ ev.owner }}
+                </span>
+                <span v-if="ev.room" class="text-stone-400 truncate" style="font-size:11px">
+                  📍 {{ ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
+                </span>
+              </div>
+            </div>
+            <!-- 類型 badge -->
+            <span class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold self-start mt-0.5"
+                  style="font-size:10px"
+                  :style="{ background: calChipBg(ev.type), color: calChipText(ev.type) }">
+              {{ ev.type }}
+            </span>
           </div>
         </div>
       </div>
