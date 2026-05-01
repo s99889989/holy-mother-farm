@@ -227,15 +227,15 @@ onMounted(() => {
 
       <!-- ── 月曆視圖 ── -->
       <template v-if="!listView">
-        <!-- 星期標頭 -->
-        <div class="weekday-header">
-          <div v-for="d in ['日','一','二','三','四','五','六']" :key="d" class="weekday-cell" :class="d === '日' ? 'sun' : d === '六' ? 'sat' : ''">
+        <!-- 星期標頭 + 日曆格合併成同一 grid，確保永遠對齊 -->
+        <div class="calendar-grid">
+          <!-- 星期標頭（固定第一排） -->
+          <div v-for="d in ['日','一','二','三','四','五','六']" :key="'h'+d"
+               class="weekday-cell" :class="d === '日' ? 'sun' : d === '六' ? 'sat' : ''">
             {{ d }}
           </div>
-        </div>
 
-        <!-- 日曆格 -->
-        <div class="calendar-grid">
+          <!-- 日期格子 -->
           <div
             v-for="(day, idx) in calendarDays"
             :key="idx"
@@ -496,29 +496,21 @@ onMounted(() => {
 .filter-btn.active.filter-park { background: #3d6b52; color: #fff; border-color: #3d6b52; }
 .filter-btn.active.filter-fragrant { background: #a06080; color: #fff; border-color: #a06080; }
 
-/* ── Weekday header ── */
-.weekday-header {
+/* ── Calendar Grid（含星期標頭，同一 grid 確保對齊）── */
+.calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 4px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
 }
 .weekday-cell {
   text-align: center;
   font-size: 11px; font-weight: 600;
   color: #a8a29e;
-  padding: 4px 0;
-  text-transform: uppercase;
+  padding: 6px 0;
   letter-spacing: .5px;
 }
 .weekday-cell.sun { color: #e0534a; }
 .weekday-cell.sat { color: #5b7fc4; }
-
-/* ── Calendar Grid ── */
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
-}
 .day-cell {
   min-height: 90px;
   background: #fff;
@@ -528,7 +520,8 @@ onMounted(() => {
   transition: box-shadow .15s;
 }
 :root.dark .day-cell { background: #27272a; }
-.day-cell.empty { background: transparent; min-height: 0; }
+/* 空格子：不顯示背景，但高度保持和其他格子一致以撐開 row */
+.day-cell.empty { background: transparent; visibility: hidden; }
 .day-cell.weekend { background: #faf6f2; }
 :root.dark .day-cell.weekend { background: #232325; }
 .day-cell.has-events { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
