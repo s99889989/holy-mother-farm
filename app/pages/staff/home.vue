@@ -6,6 +6,10 @@ const BASE       = () => commonStore.data.main_url + '/holy/booking'
 const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
 const CAL_BASE   = () => commonStore.data.main_url + '/holy/calendar'
 
+// ── Google Calendar 設定（與 calendar.vue 保持一致）──────────────
+const GOOGLE_CALENDAR_ID = 'your-calendar-id@group.calendar.google.com'
+const GOOGLE_API_KEY     = 'YOUR_GOOGLE_API_KEY'
+
 const today = new Date()
 const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
@@ -24,13 +28,22 @@ const bookings     = ref([])
 const lunchOrders  = ref([])
 const todayEvents  = ref([])   // 今日行事曆活動
 
-// 行事曆類型色
-const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080' }
-function calChipBg(type) {
-  return { 醫院: '#fee2e2', 園區: '#dcfce7', 芳心: '#fce7f3' }[type] || '#f0f0f0'
+// 行事曆類型色（含 Google）
+const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb' }
+function calChipBg(ev) {
+  if (ev.source === 'google') return '#dbeafe'
+  return { 醫院: '#fee2e2', 園區: '#dcfce7', 芳心: '#fce7f3' }[ev.type] || '#f0f0f0'
 }
-function calChipText(type) {
-  return calTypeColor[type] || '#555'
+function calChipText(ev) {
+  if (ev.source === 'google') return '#1d4ed8'
+  return calTypeColor[ev.type] || '#555'
+}
+function calBarColor(ev) {
+  if (ev.source === 'google') return '#2563eb'
+  return calTypeColor[ev.type] || '#ccc'
+}
+function calBadgeLabel(ev) {
+  return ev.source === 'google' ? 'Google' : ev.type
 }
 
 const bookingTotal = computed(() => bookings.value.reduce((s, b) =>
@@ -47,18 +60,70 @@ async function fetchToday() {
   loading.value = true
   try {
     const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-    const [bRes, lRes, cRes] = await Promise.all([
+
+    // 系統活動 + Google 活動並行抓取
+    const promises = [
       fetch(`${BASE()}/get/${todayStr}`),
       fetch(`${LUNCH_BASE()}/get/${todayStr}`),
       fetch(`${CAL_BASE()}/list?yearMonth=${ym}`)
-    ])
+    ]
+
+    // Google Calendar API（只抓今天）
+    let googlePromise = Promise.resolve(null)
+    if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
+      const timeMin = encodeURIComponent(new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString())
+      const timeMax = encodeURIComponent(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString())
+      const gUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
+        + `?key=${GOOGLE_API_KEY}`
+        + `&timeMin=${timeMin}&timeMax=${timeMax}`
+        + `&singleEvents=true&orderBy=startTime&maxResults=50`
+      googlePromise = fetch(gUrl).catch(() => null)
+    }
+    promises.push(googlePromise)
+
+    const [bRes, lRes, cRes, gRes] = await Promise.all(promises)
+
     bookings.value    = bRes.ok ? await bRes.json() : []
     lunchOrders.value = lRes.ok ? await lRes.json() : []
-    const allCal      = cRes.ok ? await cRes.json() : []
-    // 只留今天的，依時間排序
-    todayEvents.value = allCal
+
+    // 系統活動（只留今天）
+    const allCal = cRes.ok ? await cRes.json() : []
+    const sysEvents = allCal
       .filter(e => e.date === todayStr)
+
+    // Google 活動（轉換格式）
+    let gEvents = []
+    if (gRes && gRes.ok) {
+      const gData = await gRes.json()
+      gEvents = (gData.items || []).map(item => {
+        const isAllDay = !!item.start?.date
+        const startRaw = isAllDay ? item.start.date : item.start?.dateTime
+        const endRaw   = isAllDay ? item.end?.date   : item.end?.dateTime
+        const date     = startRaw ? startRaw.slice(0, 10) : ''
+        let time = ''
+        if (!isAllDay && startRaw) {
+          const s = new Date(startRaw)
+          const e = endRaw ? new Date(endRaw) : null
+          const fmt = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+          time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+        }
+        return {
+          id: item.id, date, time,
+          title:       item.summary || '（無標題）',
+          owner:       item.organizer?.displayName || '',
+          room:        item.location || '',
+          type:        'Google',
+          source:      'google',
+          googleLink:  item.htmlLink || '',
+          description: item.description || ''
+        }
+      })
+    }
+
+    // 合併並依時間排序
+    todayEvents.value = [...sysEvents, ...gEvents]
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+
   } catch (e) { console.error(e) } finally { loading.value = false }
 }
 
@@ -247,7 +312,7 @@ onMounted(fetchToday)
             </div>
             <!-- 色條 -->
             <div class="flex-shrink-0 w-1 self-stretch rounded-full mt-0.5"
-                 :style="{ background: calTypeColor[ev.type] || '#ccc' }">
+                 :style="{ background: calBarColor(ev) }">
             </div>
             <!-- 內容 -->
             <div class="flex-1 min-w-0">
@@ -258,15 +323,15 @@ onMounted(fetchToday)
                   👤 {{ ev.owner }}
                 </span>
                 <span v-if="ev.room" class="text-stone-400 truncate" style="font-size:11px">
-                  📍 {{ ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
+                  📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
                 </span>
               </div>
             </div>
             <!-- 類型 badge -->
             <span class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold self-start mt-0.5"
                   style="font-size:10px"
-                  :style="{ background: calChipBg(ev.type), color: calChipText(ev.type) }">
-              {{ ev.type }}
+                  :style="{ background: calChipBg(ev), color: calChipText(ev) }">
+              {{ calBadgeLabel(ev) }}
             </span>
           </div>
         </div>
