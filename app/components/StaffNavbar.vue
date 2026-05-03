@@ -79,6 +79,7 @@ const navItems = [
   { to: '/staff/cash-count',  icon: '💵', label: '點鈔記錄' },
   { to: '/staff/booking',     icon: '🪑', label: '訂位記錄' },
   { to: '/staff/calendar',     icon: '🪑', label: '行事曆' },
+  { to: '/staff/work-record', icon: '📋', label: '執行記錄', color: 'bg-teal-700', desc: '場租空間工作規劃執行紀錄' },
 ]
 
 const isActive   = (path) => route.path.startsWith(path)

@@ -25,6 +25,14 @@
           <option value="active">正常</option>
           <option value="blocked">已封鎖</option>
         </select>
+        <select v-model="filterRole"
+                class="px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">全部權限</option>
+          <option value="CUSTOMER">一般客戶</option>
+          <option value="STAFF">員工</option>
+          <option value="EDITOR">編輯</option>
+          <option value="ADMIN">管理員</option>
+        </select>
       </div>
     </header>
 
@@ -49,8 +57,7 @@
             <th class="px-3 py-3 text-left">客戶</th>
             <th class="px-3 py-3 text-left">Email</th>
             <th class="px-3 py-3 text-left">電話</th>
-            <th class="px-3 py-3 text-left">地址</th>
-            <th class="px-3 py-3 text-left">生日</th>
+            <th class="px-3 py-3 text-center">權限</th>
             <th class="px-3 py-3 text-center">訂位</th>
             <th class="px-3 py-3 text-center">便當</th>
             <th class="px-3 py-3 text-left">建立時間</th>
@@ -75,18 +82,20 @@
             </td>
             <td class="px-3 py-2.5 text-stone-500 dark:text-stone-400">{{ c.email }}</td>
             <td class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ c.mobile || c.landline || '—' }}</td>
-            <td class="px-3 py-2.5 text-stone-500 dark:text-stone-400 max-w-36">
-              <div class="truncate" :title="c.address">{{ c.address || '—' }}</div>
+            <!-- 權限 -->
+            <td class="px-3 py-2.5 text-center">
+              <span :class="roleBadgeClass(c.role)" class="px-2 py-0.5 rounded-full text-xs font-medium">
+                {{ roleLabel(c.role) }}
+              </span>
             </td>
-            <td class="px-3 py-2.5 text-stone-500 dark:text-stone-400">{{ c.birthday || '—' }}</td>
             <td class="px-3 py-2.5 text-center">
               <span class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 font-medium">
-                {{ c.bookingCount ?? '…' }}
+                {{ c.bookingCount ?? '—' }}
               </span>
             </td>
             <td class="px-3 py-2.5 text-center">
               <span class="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 font-medium">
-                {{ c.lunchCount ?? '…' }}
+                {{ c.lunchCount ?? '—' }}
               </span>
             </td>
             <td class="px-3 py-2.5 text-stone-400 text-xs">{{ c.createdAt }}</td>
@@ -102,6 +111,8 @@
               <div class="flex items-center gap-1 justify-center">
                 <button @click="openEdit(c)"
                         class="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">編輯</button>
+                <button @click="openRoleModal(c)"
+                        class="px-2 py-1 text-xs border border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">權限</button>
                 <button @click="toggleBlock(c)"
                         :class="c.status === 'blocked'
                           ? 'border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
@@ -130,14 +141,19 @@
               {{ c.name?.charAt(0) || '?' }}
             </div>
             <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
                 <p class="font-semibold text-stone-800 dark:text-stone-100 truncate">{{ c.name }}</p>
-                <span :class="c.status === 'blocked'
-                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                  : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
-                      class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0">
-                  {{ c.status === 'blocked' ? '已封鎖' : '正常' }}
-                </span>
+                <div class="flex gap-1.5">
+                  <span :class="roleBadgeClass(c.role)" class="px-2 py-0.5 rounded-full text-xs font-medium">
+                    {{ roleLabel(c.role) }}
+                  </span>
+                  <span :class="c.status === 'blocked'
+                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
+                        class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0">
+                    {{ c.status === 'blocked' ? '已封鎖' : '正常' }}
+                  </span>
+                </div>
               </div>
               <p class="text-xs text-stone-400 mt-0.5 truncate">{{ c.email }}</p>
             </div>
@@ -145,14 +161,15 @@
           <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-stone-600 dark:text-stone-300 mb-3">
             <div v-if="c.mobile || c.landline"><span class="text-stone-400">電話：</span>{{ c.mobile || c.landline }}</div>
             <div v-if="c.birthday"><span class="text-stone-400">生日：</span>{{ c.birthday }}</div>
-            <div v-if="c.address" class="col-span-2"><span class="text-stone-400">地址：</span>{{ c.address }}</div>
-            <div><span class="text-stone-400">訂位：</span><span class="text-teal-600 font-medium">{{ c.bookingCount ?? '…' }} 筆</span></div>
-            <div><span class="text-stone-400">便當：</span><span class="text-orange-600 font-medium">{{ c.lunchCount ?? '…' }} 筆</span></div>
+            <div><span class="text-stone-400">訂位：</span><span class="text-teal-600 font-medium">{{ c.bookingCount ?? '—' }} 筆</span></div>
+            <div><span class="text-stone-400">便當：</span><span class="text-orange-600 font-medium">{{ c.lunchCount ?? '—' }} 筆</span></div>
             <div class="col-span-2 text-stone-400">建立：{{ c.createdAt }}</div>
           </div>
           <div class="flex gap-2">
             <button @click="openEdit(c)"
                     class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 transition-colors">編輯</button>
+            <button @click="openRoleModal(c)"
+                    class="flex-1 py-1.5 text-xs border border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-50 transition-colors">權限</button>
             <button @click="toggleBlock(c)"
                     :class="c.status === 'blocked'
                       ? 'border-green-300 text-green-600 hover:bg-green-50'
@@ -235,12 +252,63 @@
       </div>
     </div>
 
+    <!-- ══ 權限 Modal ══ -->
+    <div v-if="roleModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div class="flex items-center gap-3 mb-5">
+          <img v-if="roleModal.customer?.picture" :src="roleModal.customer.picture"
+               class="w-10 h-10 rounded-full object-cover border border-stone-200 flex-shrink-0"/>
+          <div v-else class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 font-bold flex-shrink-0">
+            {{ roleModal.customer?.name?.charAt(0) || '?' }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-stone-800 dark:text-stone-100 truncate">{{ roleModal.customer?.name }}</h3>
+            <p class="text-xs text-stone-400 truncate">{{ roleModal.customer?.email }}</p>
+          </div>
+          <button @click="roleModal.open = false" class="text-stone-400 hover:text-stone-600 p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <p class="text-xs text-stone-500 dark:text-stone-400 mb-3">選擇此帳號的系統權限：</p>
+
+        <!-- 權限選項 -->
+        <div class="space-y-2 mb-5">
+          <label v-for="opt in roleOptions" :key="opt.value"
+                 class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+                 :class="roleModal.selected === opt.value
+                   ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-600'
+                   : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-zinc-800'">
+            <input type="radio" :value="opt.value" v-model="roleModal.selected" class="mt-0.5 accent-purple-600"/>
+            <div>
+              <p class="text-sm font-semibold text-stone-800 dark:text-stone-100">{{ opt.label }}</p>
+              <p class="text-xs text-stone-400 mt-0.5">{{ opt.desc }}</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="flex gap-2">
+          <button @click="roleModal.open = false"
+                  class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+            取消
+          </button>
+          <button @click="saveRole" :disabled="saving"
+                  class="flex-1 py-2.5 text-sm bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
+            <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+            {{ saving ? '儲存中…' : '確認更新' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ 刪除確認 Modal ══ -->
     <div v-if="deleteTarget" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
       <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
         <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">確認刪除</h3>
         <p class="text-sm text-stone-500 dark:text-stone-400 mb-5">
-          確定要刪除 <span class="font-semibold text-stone-800 dark:text-stone-100">{{ deleteTarget.name }}</span>（{{ deleteTarget.email }}）的帳號嗎？此操作無法復原，訂位與便當紀錄不受影響。
+          確定要刪除 <span class="font-semibold text-stone-800 dark:text-stone-100">{{ deleteTarget.name }}</span>（{{ deleteTarget.email }}）的帳號嗎？此操作無法復原。
         </p>
         <div class="flex gap-2">
           <button @click="deleteTarget = null"
@@ -273,20 +341,46 @@
 definePageMeta({ layout: 'admin' })
 
 const commonStore = useCommonStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/admin/customers')
+const BASE        = computed(() => commonStore.data.main_url + '/holy/customer')
+const ADMIN_BASE  = computed(() => commonStore.data.main_url + '/holy/admin/customers')
 
 // ── 狀態 ──────────────────────────────────────────────────────────
-const customers   = ref([])
-const loading     = ref(true)
-const saving      = ref(false)
-const searchText  = ref('')
+const customers    = ref([])
+const loading      = ref(true)
+const saving       = ref(false)
+const searchText   = ref('')
 const filterStatus = ref('')
+const filterRole   = ref('')
 const deleteTarget = ref(null)
-const editError   = ref('')
-const toast       = reactive({ show: false, message: '' })
+const editError    = ref('')
+const toast        = reactive({ show: false, message: '' })
 
 const editModal = reactive({ open: false, customer: null })
 const editForm  = reactive({ name: '', mobile: '', landline: '', address: '', birthday: '', note: '' })
+
+const roleModal = reactive({ open: false, customer: null, selected: 'CUSTOMER' })
+
+// ── 權限設定 ──────────────────────────────────────────────────────
+const roleOptions = [
+  { value: 'CUSTOMER', label: '一般客戶', desc: '只能使用前台訂位、訂便當等功能' },
+  { value: 'STAFF',    label: '員工',     desc: '可進入員工區查看資料，無法編輯' },
+  { value: 'EDITOR',   label: '編輯',     desc: '可新增及編輯內容（菜單、活動等）' },
+  { value: 'ADMIN',    label: '管理員',   desc: '最高權限，可管理所有人的帳號與權限' },
+]
+
+const roleLabel = (role) => {
+  return roleOptions.find(o => o.value === role)?.label ?? role ?? 'CUSTOMER'
+}
+
+const roleBadgeClass = (role) => {
+  const map = {
+    CUSTOMER: 'bg-stone-100 text-stone-600 dark:bg-stone-700 dark:text-stone-300',
+    STAFF:    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    EDITOR:   'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+    ADMIN:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  }
+  return map[role] ?? map.CUSTOMER
+}
 
 // ── 計算屬性 ──────────────────────────────────────────────────────
 const filtered = computed(() => {
@@ -294,7 +388,8 @@ const filtered = computed(() => {
   return customers.value.filter(c => {
     const matchSearch = !q || [c.name, c.email, c.mobile, c.landline, c.address].some(v => v?.toLowerCase().includes(q))
     const matchStatus = !filterStatus.value || c.status === filterStatus.value
-    return matchSearch && matchStatus
+    const matchRole   = !filterRole.value || c.role === filterRole.value
+    return matchSearch && matchStatus && matchRole
   })
 })
 
@@ -320,7 +415,14 @@ const openEdit = (c) => {
   })
 }
 
-// ── API ───────────────────────────────────────────────────────────
+// ── 開啟權限 Modal ─────────────────────────────────────────────────
+const openRoleModal = (c) => {
+  roleModal.customer = c
+  roleModal.selected = c.role || 'CUSTOMER'
+  roleModal.open = true
+}
+
+// ── API：取得客戶清單 ──────────────────────────────────────────────
 const fetchCustomers = async () => {
   loading.value = true
   try {
@@ -333,11 +435,12 @@ const fetchCustomers = async () => {
   }
 }
 
+// ── API：儲存編輯 ──────────────────────────────────────────────────
 const saveEdit = async () => {
   editError.value = ''
   saving.value = true
   try {
-    const res = await fetch(BASE.value + '/update', {
+    const res = await fetch(ADMIN_BASE.value + '/update', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: editModal.customer.id, ...editForm })
@@ -357,13 +460,36 @@ const saveEdit = async () => {
   }
 }
 
+// ── API：更新 role ─────────────────────────────────────────────────
+const saveRole = async () => {
+  saving.value = true
+  try {
+    const res = await fetch(`${BASE.value}/${roleModal.customer.id}/role`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: roleModal.selected })
+    })
+    const data = await res.json()
+    if (data.success) {
+      roleModal.customer.role = roleModal.selected
+      roleModal.open = false
+      showToast(`權限已更新為「${roleLabel(roleModal.selected)}」`)
+    }
+  } catch {
+    console.error('更新 role 失敗')
+  } finally {
+    saving.value = false
+  }
+}
+
+// ── API：封鎖/解鎖 ─────────────────────────────────────────────────
 const toggleBlock = async (c) => {
   const newStatus = c.status === 'blocked' ? 'active' : 'blocked'
   try {
-    const res = await fetch(BASE.value + '/status', {
+    const res = await fetch(`${BASE.value}/${c.id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: c.id, status: newStatus })
+      body: JSON.stringify({ status: newStatus })
     })
     const data = await res.json()
     if (data.success) {
@@ -375,12 +501,13 @@ const toggleBlock = async (c) => {
   }
 }
 
+// ── API：刪除 ─────────────────────────────────────────────────────
 const confirmDelete = (c) => { deleteTarget.value = c }
 
 const doDelete = async () => {
   saving.value = true
   try {
-    const res = await fetch(`${BASE.value}/delete/${deleteTarget.value.id}`, { method: 'DELETE' })
+    const res = await fetch(`${ADMIN_BASE.value}/delete/${deleteTarget.value.id}`, { method: 'DELETE' })
     const data = await res.json()
     if (data.success) {
       await fetchCustomers()

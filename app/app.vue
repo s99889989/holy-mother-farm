@@ -1,10 +1,12 @@
 <script setup>
+import { usePermissionStore } from '~/stores/permission.js'
+
 useHead({
   meta: [
-    {name: 'viewport', content: 'width=device-width, initial-scale=1'}
+    { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    {rel: 'icon', href: '/favicon.ico'}
+    { rel: 'icon', href: '/favicon.ico' }
   ],
   htmlAttrs: {
     lang: 'tw'
@@ -23,9 +25,13 @@ useSeoMeta({
   twitterImage: 'https://ui.nuxt.com/assets/templates/nuxt/starter-light.png',
   twitterCard: 'summary_large_image'
 })
+
+const permissionStore = usePermissionStore()
+permissionStore.clear()
 </script>
+
 <template>
   <NuxtLayout>
-    <NuxtPage/>
+    <NuxtPage />
   </NuxtLayout>
 </template>
