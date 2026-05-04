@@ -6,78 +6,110 @@
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">權</div>
+          <div class="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            權
+          </div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">權限管理</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Permission Management</p>
+            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">
+              權限管理
+            </h1>
+            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">
+              Permission Management
+            </p>
           </div>
         </div>
       </div>
 
       <!-- 頁籤 -->
       <div class="flex gap-1 mt-3">
-        <button v-for="tab in tabs" :key="tab.id"
-                @click="activeTab = tab.id"
-                :class="activeTab === tab.id
-                  ? 'bg-violet-600 text-white'
-                  : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-zinc-700'"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          :class="activeTab === tab.id
+            ? 'bg-violet-600 text-white'
+            : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-zinc-700'"
+          class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+          @click="activeTab = tab.id"
+        >
           {{ tab.label }}
         </button>
       </div>
     </header>
 
     <div class="max-w-full px-3 sm:px-4 py-4">
-
       <!-- ════ 頁籤：權限組管理 ════ -->
       <div v-if="activeTab === 'groups'">
-
         <!-- 操作列 -->
         <div class="flex items-center justify-between mb-3">
-          <p class="text-xs text-stone-400">共 {{ groups.length }} 個群組，預設群組：
+          <p class="text-xs text-stone-400">
+            共 {{ groups.length }} 個群組，預設群組：
             <span class="font-semibold text-violet-600">{{ defaultGroup }}</span>
           </p>
-          <button @click="openCreateGroup"
-                  class="px-3 py-1.5 text-xs bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-1">
+          <button
+            class="px-3 py-1.5 text-xs bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-1"
+            @click="openCreateGroup"
+          >
             <span class="text-base leading-none">+</span> 新增群組
           </button>
         </div>
 
         <!-- 載入中 -->
-        <div v-if="loadingGroups" class="flex items-center justify-center py-16 text-stone-400 gap-2">
-          <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+        <div
+          v-if="loadingGroups"
+          class="flex items-center justify-center py-16 text-stone-400 gap-2"
+        >
+          <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
           載入中…
         </div>
 
         <!-- 群組卡片 -->
-        <div v-else class="space-y-3">
-          <div v-for="g in groups" :key="g.id"
-               class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-
+        <div
+          v-else
+          class="space-y-3"
+        >
+          <div
+            v-for="g in groups"
+            :key="g.id"
+            class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden"
+          >
             <!-- 群組標頭 -->
             <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100 dark:border-stone-700">
               <div class="flex items-center gap-2">
                 <span class="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 text-xs font-bold">{{ g.label?.charAt(0) }}</span>
                 <div>
-                  <p class="font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ g.label }}</p>
-                  <p class="text-xs text-stone-400">ID: {{ g.id }}</p>
+                  <p class="font-semibold text-stone-800 dark:text-stone-100 text-sm">
+                    {{ g.label }}
+                  </p>
+                  <p class="text-xs text-stone-400">
+                    ID: {{ g.id }}
+                  </p>
                 </div>
-                <span v-if="g.id === defaultGroup"
-                      class="px-2 py-0.5 text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 rounded-full font-medium ml-1">
+                <span
+                  v-if="g.id === defaultGroup"
+                  class="px-2 py-0.5 text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 rounded-full font-medium ml-1"
+                >
                   預設
                 </span>
               </div>
               <div class="flex items-center gap-1.5">
-                <button @click="setAsDefault(g.id)" v-if="g.id !== defaultGroup"
-                        class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 transition-colors">
+                <button
+                  v-if="g.id !== defaultGroup"
+                  class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 transition-colors"
+                  @click="setAsDefault(g.id)"
+                >
                   設為預設
                 </button>
-                <button @click="openEditGroup(g)"
-                        class="px-2 py-1 text-xs border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors">
+                <button
+                  class="px-2 py-1 text-xs border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors"
+                  @click="openEditGroup(g)"
+                >
                   編輯
                 </button>
-                <button @click="confirmDeleteGroup(g)" v-if="g.id !== defaultGroup"
-                        class="px-2 py-1 text-xs border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <button
+                  v-if="g.id !== defaultGroup"
+                  class="px-2 py-1 text-xs border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  @click="confirmDeleteGroup(g)"
+                >
                   刪除
                 </button>
               </div>
@@ -89,11 +121,14 @@
                 可進入 {{ countAllowed(g.pages) }} / {{ pageList.length }} 個頁面
               </p>
               <div class="flex flex-wrap gap-1.5">
-                <span v-for="page in pageList" :key="page.path"
-                      :class="g.pages[page.path]
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-stone-100 text-stone-400 dark:bg-zinc-800 dark:text-stone-500'"
-                      class="px-2 py-0.5 text-xs rounded-full">
+                <span
+                  v-for="page in pageList"
+                  :key="page.path"
+                  :class="g.pages[page.path]
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-stone-100 text-stone-400 dark:bg-zinc-800 dark:text-stone-500'"
+                  class="px-2 py-0.5 text-xs rounded-full"
+                >
                   {{ page.label }}
                 </span>
               </div>
@@ -104,43 +139,73 @@
 
       <!-- ════ 頁籤：用戶權限管理 ════ -->
       <div v-if="activeTab === 'users'">
-
         <!-- 搜尋 -->
         <div class="flex gap-2 mb-3">
-          <input v-model="userSearch" placeholder="搜尋姓名或 Email…"
-                 class="flex-1 px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400" />
+          <input
+            v-model="userSearch"
+            placeholder="搜尋姓名或 Email…"
+            class="flex-1 px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400"
+          >
         </div>
 
         <!-- 載入中 -->
-        <div v-if="loadingUsers" class="flex items-center justify-center py-16 text-stone-400 gap-2">
-          <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+        <div
+          v-if="loadingUsers"
+          class="flex items-center justify-center py-16 text-stone-400 gap-2"
+        >
+          <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
           載入中…
         </div>
 
         <!-- 桌機表格 -->
-        <div v-else-if="filteredUsers.length > 0" class="hidden md:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+        <div
+          v-else-if="filteredUsers.length > 0"
+          class="hidden md:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden"
+        >
           <table class="w-full text-sm">
             <thead class="bg-stone-50 dark:bg-zinc-800 text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wide">
               <tr>
-                <th class="px-3 py-3 text-left">用戶</th>
-                <th class="px-3 py-3 text-center">所屬群組</th>
-                <th class="px-3 py-3 text-center">個人覆蓋頁數</th>
-                <th class="px-3 py-3 text-center">操作</th>
+                <th class="px-3 py-3 text-left">
+                  用戶
+                </th>
+                <th class="px-3 py-3 text-center">
+                  所屬群組
+                </th>
+                <th class="px-3 py-3 text-center">
+                  個人覆蓋頁數
+                </th>
+                <th class="px-3 py-3 text-center">
+                  操作
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-              <tr v-for="u in filteredUsers" :key="u.id"
-                  class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
+              <tr
+                v-for="u in filteredUsers"
+                :key="u.id"
+                class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors"
+              >
                 <td class="px-3 py-2.5">
                   <div class="flex items-center gap-2">
-                    <img v-if="u.picture" :src="u.picture" :alt="u.name"
-                         class="w-8 h-8 rounded-full object-cover border border-stone-200 flex-shrink-0"/>
-                    <div v-else class="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 text-xs font-bold flex-shrink-0">
+                    <img
+                      v-if="u.picture"
+                      :src="u.picture"
+                      :alt="u.name"
+                      class="w-8 h-8 rounded-full object-cover border border-stone-200 flex-shrink-0"
+                    >
+                    <div
+                      v-else
+                      class="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 text-xs font-bold flex-shrink-0"
+                    >
                       {{ u.name?.charAt(0) || '?' }}
                     </div>
                     <div>
-                      <p class="font-medium text-stone-800 dark:text-stone-100">{{ u.name }}</p>
-                      <p class="text-xs text-stone-400">{{ u.email }}</p>
+                      <p class="font-medium text-stone-800 dark:text-stone-100">
+                        {{ u.name }}
+                      </p>
+                      <p class="text-xs text-stone-400">
+                        {{ u.email }}
+                      </p>
                     </div>
                   </div>
                 </td>
@@ -153,8 +218,10 @@
                   {{ overrideCount(userPermMap[u.id]?.pages) }} 頁
                 </td>
                 <td class="px-3 py-2.5 text-center">
-                  <button @click="openUserPerm(u)"
-                          class="px-3 py-1 text-xs bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
+                  <button
+                    class="px-3 py-1 text-xs bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
+                    @click="openUserPerm(u)"
+                  >
                     管理權限
                   </button>
                 </td>
@@ -164,42 +231,71 @@
         </div>
 
         <!-- 手機卡片 -->
-        <div v-else-if="filteredUsers.length > 0" class="md:hidden space-y-3">
+        <div
+          v-else-if="filteredUsers.length > 0"
+          class="md:hidden space-y-3"
+        >
           <!-- 同桌機，略 -->
         </div>
 
-        <div v-else class="text-center py-16 text-stone-400 text-sm">找不到符合的用戶</div>
+        <div
+          v-else
+          class="text-center py-16 text-stone-400 text-sm"
+        >
+          找不到符合的用戶
+        </div>
       </div>
-
     </div>
 
     <!-- ════ 新增/編輯群組 Modal ════ -->
-    <div v-if="groupModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto">
+    <div
+      v-if="groupModal.open"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto"
+    >
       <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-2xl p-6">
         <div class="flex items-center justify-between mb-5">
           <h3 class="font-bold text-stone-800 dark:text-stone-100">
             {{ groupModal.isCreate ? '新增權限組' : '編輯權限組：' + groupModal.data.label }}
           </h3>
-          <button @click="groupModal.open = false" class="text-stone-400 hover:text-stone-600 p-1">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          <button
+            class="text-stone-400 hover:text-stone-600 p-1"
+            @click="groupModal.open = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
         <div class="space-y-4">
-          <!-- ID（新增時才顯示）-->
+          <!-- ID（新增時才顯示） -->
           <div v-if="groupModal.isCreate">
             <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">群組 ID <span class="text-stone-400 font-normal">（英數字，建立後不能更改）</span></label>
-            <input v-model="groupModal.data.id" placeholder="例如：staff、editor、vip"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400"/>
+            <input
+              v-model="groupModal.data.id"
+              placeholder="例如：staff、editor、vip"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400"
+            >
           </div>
 
           <!-- 名稱 -->
           <div>
             <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">顯示名稱</label>
-            <input v-model="groupModal.data.label" placeholder="例如：員工、編輯人員"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400"/>
+            <input
+              v-model="groupModal.data.label"
+              placeholder="例如：員工、編輯人員"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400"
+            >
           </div>
 
           <!-- 頁面權限設定 -->
@@ -207,31 +303,59 @@
             <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-semibold text-stone-600 dark:text-stone-300">頁面權限</label>
               <div class="flex gap-2">
-                <button @click="setAllPages(true)"
-                        class="text-xs text-green-600 hover:underline">全部允許</button>
+                <button
+                  class="text-xs text-green-600 hover:underline"
+                  @click="setAllPages(true)"
+                >
+                  全部允許
+                </button>
                 <span class="text-stone-300">|</span>
-                <button @click="setAllPages(false)"
-                        class="text-xs text-red-500 hover:underline">全部禁止</button>
+                <button
+                  class="text-xs text-red-500 hover:underline"
+                  @click="setAllPages(false)"
+                >
+                  全部禁止
+                </button>
               </div>
             </div>
 
             <!-- 依區域分組顯示 -->
-            <div v-for="section in pageSections" :key="section.prefix" class="mb-3">
+            <div
+              v-for="section in pageSections"
+              :key="section.prefix"
+              class="mb-3"
+            >
               <div class="flex items-center gap-2 mb-1.5">
                 <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">{{ section.label }}</span>
-                <div class="flex-1 h-px bg-stone-100 dark:bg-stone-700"></div>
-                <button @click="setSectionPages(section.prefix, true)" class="text-xs text-green-600 hover:underline">全開</button>
-                <button @click="setSectionPages(section.prefix, false)" class="text-xs text-red-500 hover:underline">全關</button>
+                <div class="flex-1 h-px bg-stone-100 dark:bg-stone-700" />
+                <button
+                  class="text-xs text-green-600 hover:underline"
+                  @click="setSectionPages(section.prefix, true)"
+                >
+                  全開
+                </button>
+                <button
+                  class="text-xs text-red-500 hover:underline"
+                  @click="setSectionPages(section.prefix, false)"
+                >
+                  全關
+                </button>
               </div>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                <label v-for="page in section.pages" :key="page.path"
-                       class="flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors text-sm"
-                       :class="groupModal.data.pages[page.path]
-                         ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
-                         : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-zinc-800'">
-                  <input type="checkbox" :checked="groupModal.data.pages[page.path]"
-                         @change="groupModal.data.pages[page.path] = $event.target.checked"
-                         class="accent-violet-600 w-3.5 h-3.5 flex-shrink-0"/>
+                <label
+                  v-for="page in section.pages"
+                  :key="page.path"
+                  class="flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors text-sm"
+                  :class="groupModal.data.pages[page.path]
+                    ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
+                    : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-zinc-800'"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="groupModal.data.pages[page.path]"
+                    class="accent-violet-600 w-3.5 h-3.5 flex-shrink-0"
+                    @change="groupModal.data.pages[page.path] = $event.target.checked"
+                  >
                   <div class="min-w-0">
                     <p class="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">{{ page.label }}</p>
                     <p class="text-xs text-stone-400 truncate">{{ page.path }}</p>
@@ -241,16 +365,29 @@
             </div>
           </div>
 
-          <p v-if="groupModal.error" class="text-xs text-red-500">{{ groupModal.error }}</p>
+          <p
+            v-if="groupModal.error"
+            class="text-xs text-red-500"
+          >
+            {{ groupModal.error }}
+          </p>
 
           <div class="flex gap-2 pt-1">
-            <button @click="groupModal.open = false"
-                    class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+            <button
+              class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors"
+              @click="groupModal.open = false"
+            >
               取消
             </button>
-            <button @click="saveGroup" :disabled="saving"
-                    class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
-              <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+            <button
+              :disabled="saving"
+              class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+              @click="saveGroup"
+            >
+              <div
+                v-if="saving"
+                class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+              />
               {{ saving ? '儲存中…' : '儲存' }}
             </button>
           </div>
@@ -259,21 +396,47 @@
     </div>
 
     <!-- ════ 用戶權限 Modal ════ -->
-    <div v-if="userPermModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto">
+    <div
+      v-if="userPermModal.open"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto"
+    >
       <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-2xl p-6">
         <div class="flex items-center gap-3 mb-5">
-          <img v-if="userPermModal.user?.picture" :src="userPermModal.user.picture"
-               class="w-10 h-10 rounded-full object-cover border border-stone-200 flex-shrink-0"/>
-          <div v-else class="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 font-bold flex-shrink-0">
+          <img
+            v-if="userPermModal.user?.picture"
+            :src="userPermModal.user.picture"
+            class="w-10 h-10 rounded-full object-cover border border-stone-200 flex-shrink-0"
+          >
+          <div
+            v-else
+            class="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 font-bold flex-shrink-0"
+          >
             {{ userPermModal.user?.name?.charAt(0) || '?' }}
           </div>
           <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ userPermModal.user?.name }}</h3>
-            <p class="text-xs text-stone-400">{{ userPermModal.user?.email }}</p>
+            <h3 class="font-bold text-stone-800 dark:text-stone-100">
+              {{ userPermModal.user?.name }}
+            </h3>
+            <p class="text-xs text-stone-400">
+              {{ userPermModal.user?.email }}
+            </p>
           </div>
-          <button @click="userPermModal.open = false" class="text-stone-400 hover:text-stone-600 p-1">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          <button
+            class="text-stone-400 hover:text-stone-600 p-1"
+            @click="userPermModal.open = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -281,33 +444,54 @@
         <!-- 選擇群組 -->
         <div class="mb-4">
           <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">所屬群組</label>
-          <select v-model="userPermModal.group"
-                  class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400">
-            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.label }}（{{ g.id }}）</option>
+          <select
+            v-model="userPermModal.group"
+            class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400"
+          >
+            <option
+              v-for="g in groups"
+              :key="g.id"
+              :value="g.id"
+            >
+              {{ g.label }}（{{ g.id }}）
+            </option>
           </select>
-          <p class="text-xs text-stone-400 mt-1">群組設定為基礎，個人覆蓋優先於群組</p>
+          <p class="text-xs text-stone-400 mt-1">
+            群組設定為基礎，個人覆蓋優先於群組
+          </p>
         </div>
 
         <!-- 個人頁面覆蓋 -->
         <div>
           <div class="flex items-center justify-between mb-2">
             <label class="text-xs font-semibold text-stone-600 dark:text-stone-300">個人覆蓋設定</label>
-            <button @click="clearAllOverrides"
-                    class="text-xs text-stone-400 hover:text-red-500 hover:underline transition-colors">
+            <button
+              class="text-xs text-stone-400 hover:text-red-500 hover:underline transition-colors"
+              @click="clearAllOverrides"
+            >
               清除所有覆蓋（回歸群組）
             </button>
           </div>
 
-          <div v-for="section in pageSections" :key="section.prefix" class="mb-3">
+          <div
+            v-for="section in pageSections"
+            :key="section.prefix"
+            class="mb-3"
+          >
             <div class="flex items-center gap-2 mb-1.5">
               <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">{{ section.label }}</span>
-              <div class="flex-1 h-px bg-stone-100 dark:bg-stone-700"></div>
+              <div class="flex-1 h-px bg-stone-100 dark:bg-stone-700" />
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              <div v-for="page in section.pages" :key="page.path"
-                   class="flex items-center gap-2 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-sm">
+              <div
+                v-for="page in section.pages"
+                :key="page.path"
+                class="flex items-center gap-2 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-sm"
+              >
                 <div class="flex-1 min-w-0">
-                  <p class="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">{{ page.label }}</p>
+                  <p class="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">
+                    {{ page.label }}
+                  </p>
                   <!-- 群組預設顯示 -->
                   <p class="text-xs text-stone-400 mt-0.5">
                     群組預設：
@@ -317,12 +501,20 @@
                   </p>
                 </div>
                 <!-- 三態選擇：繼承群組 / 覆蓋允許 / 覆蓋禁止 -->
-                <select :value="getUserOverride(page.path)"
-                        @change="setUserOverride(page.path, $event.target.value)"
-                        class="text-xs px-2 py-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-1 focus:ring-violet-400">
-                  <option value="inherit">繼承群組</option>
-                  <option value="allow">覆蓋：允許</option>
-                  <option value="deny">覆蓋：禁止</option>
+                <select
+                  :value="getUserOverride(page.path)"
+                  class="text-xs px-2 py-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-1 focus:ring-violet-400"
+                  @change="setUserOverride(page.path, $event.target.value)"
+                >
+                  <option value="inherit">
+                    繼承群組
+                  </option>
+                  <option value="allow">
+                    覆蓋：允許
+                  </option>
+                  <option value="deny">
+                    覆蓋：禁止
+                  </option>
                 </select>
               </div>
             </div>
@@ -330,13 +522,21 @@
         </div>
 
         <div class="flex gap-2 pt-3 border-t border-stone-100 dark:border-stone-700 mt-4">
-          <button @click="userPermModal.open = false"
-                  class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+          <button
+            class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors"
+            @click="userPermModal.open = false"
+          >
             取消
           </button>
-          <button @click="saveUserPerm" :disabled="saving"
-                  class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
-            <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+          <button
+            :disabled="saving"
+            class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+            @click="saveUserPerm"
+          >
+            <div
+              v-if="saving"
+              class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+            />
             {{ saving ? '儲存中…' : '儲存' }}
           </button>
         </div>
@@ -344,19 +544,34 @@
     </div>
 
     <!-- ════ 刪除群組確認 Modal ════ -->
-    <div v-if="deleteGroupTarget" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+    <div
+      v-if="deleteGroupTarget"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+    >
       <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">確認刪除群組</h3>
+        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">
+          確認刪除群組
+        </h3>
         <p class="text-sm text-stone-500 dark:text-stone-400 mb-5">
-          確定要刪除「<span class="font-semibold text-stone-800 dark:text-stone-100">{{ deleteGroupTarget.label }}</span>」群組嗎？<br/>
+          確定要刪除「<span class="font-semibold text-stone-800 dark:text-stone-100">{{ deleteGroupTarget.label }}</span>」群組嗎？<br>
           已套用此群組的用戶將改為使用預設群組。
         </p>
         <div class="flex gap-2">
-          <button @click="deleteGroupTarget = null"
-                  class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 rounded-xl hover:bg-stone-200 transition-colors">取消</button>
-          <button @click="doDeleteGroup" :disabled="saving"
-                  class="flex-1 py-2.5 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
-            <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+          <button
+            class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 rounded-xl hover:bg-stone-200 transition-colors"
+            @click="deleteGroupTarget = null"
+          >
+            取消
+          </button>
+          <button
+            :disabled="saving"
+            class="flex-1 py-2.5 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+            @click="doDeleteGroup"
+          >
+            <div
+              v-if="saving"
+              class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+            />
             {{ saving ? '刪除中…' : '確認刪除' }}
           </button>
         </div>
@@ -365,10 +580,22 @@
 
     <!-- Toast -->
     <transition name="fade">
-      <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
-        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      <div
+        v-if="toast.show"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap"
+      >
+        <svg
+          class="w-4 h-4 text-green-400 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 13l4 4L19 7"
+          />
         </svg>
         {{ toast.message }}
       </div>
@@ -380,84 +607,85 @@
 definePageMeta({ layout: 'admin', pageLabel: '權限管理' })
 
 const commonStore = useCommonStore()
-const BASE        = computed(() => commonStore.data.main_url + '/holy/permission')
-const CUST_BASE   = computed(() => commonStore.data.main_url + '/holy/customer')
+const BASE = computed(() => commonStore.data.main_url + '/holy/permission')
+const CUST_BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 
 // ── 頁面清單（對應你的 Nuxt 路由）──────────────────────────────────
 const pageList = [
   // 首頁 & 登入
-  { path: '/',           label: '首頁' },
+  { path: '/', label: '首頁' },
   // Front
-  { path: '/front/about',       label: '關於我們' },
-  { path: '/front/access',      label: '交通資訊' },
-  { path: '/front/cafe',        label: '咖啡廳' },
-  { path: '/front/event',       label: '活動' },
-  { path: '/front/menu',        label: '菜單' },
-  { path: '/front/news/index',  label: '最新消息' },
-  { path: '/front/production',  label: '生產資訊' },
-  { path: '/front/public',      label: '公開頁面' },
-  { path: '/front/restaurant',  label: '餐廳' },
+  { path: '/front/about', label: '關於我們' },
+  { path: '/front/access', label: '交通資訊' },
+  { path: '/front/cafe', label: '咖啡廳' },
+  { path: '/front/event', label: '活動' },
+  { path: '/front/menu', label: '菜單' },
+  { path: '/front/news/index', label: '最新消息' },
+  { path: '/front/production', label: '生產資訊' },
+  { path: '/front/public', label: '公開頁面' },
+  { path: '/front/restaurant', label: '餐廳' },
   // Front 個人
-  { path: '/front/profile/booking',  label: '我的訂位' },
-  { path: '/front/profile/log',      label: '我的紀錄' },
-  { path: '/front/profile/lunch',    label: '我的便當' },
+  { path: '/front/profile/booking', label: '我的訂位' },
+  { path: '/front/profile/log', label: '我的紀錄' },
+  { path: '/front/profile/lunch', label: '我的便當' },
   { path: '/front/profile/settings', label: '帳號設定' },
   // Book
-  { path: '/book/CalendarPage',               label: '訂位日曆' },
-  { path: '/book/group-accommodation-space',  label: '團體住宿' },
-  { path: '/book/herbs-production-area',      label: '香草園區' },
-  { path: '/book/trial-courses',              label: '體驗課程' },
-  { path: '/book/venue-rental',               label: '場地租借' },
+  { path: '/book/CalendarPage', label: '訂位日曆' },
+  { path: '/book/group-accommodation-space', label: '團體住宿' },
+  { path: '/book/herbs-production-area', label: '香草園區' },
+  { path: '/book/trial-courses', label: '體驗課程' },
+  { path: '/book/venue-rental', label: '場地租借' },
   // Staff
-  { path: '/staff/home',        label: '員工首頁' },
-  { path: '/staff/booking',     label: '員工訂位' },
-  { path: '/staff/calendar',    label: '員工行事曆' },
-  { path: '/staff/cash-count',  label: '員工點鈔' },
+  { path: '/staff/home', label: '員工首頁' },
+  { path: '/staff/booking', label: '員工訂位' },
+  { path: '/staff/calendar', label: '員工行事曆' },
+  { path: '/staff/cash-count', label: '員工點鈔' },
   { path: '/staff/quick-links', label: '員工快速連結' },
+  { path: '/staff/work-record', label: '執行記錄' },
   // Admin
-  { path: '/admin/QuickLinks',                      label: '快速連結' },
-  { path: '/admin/Todo',                            label: '待辦事項' },
-  { path: '/admin/items/CashCount',                 label: '點鈔管理' },
-  { path: '/admin/items/CommonConfig',              label: '系統設定' },
-  { path: '/admin/items/InventoryQuantity',         label: '庫存數量' },
-  { path: '/admin/items/ShopInventory',             label: '商店庫存' },
-  { path: '/admin/management/AssetRegistry',        label: '資產登記' },
-  { path: '/admin/management/BookIndex',            label: '訂位管理' },
-  { path: '/admin/management/CustomerManagement',   label: '客戶管理' },
-  { path: '/admin/management/DailyMenu',            label: '每日菜單' },
-  { path: '/admin/management/ImageLibrary',         label: '圖庫管理' },
-  { path: '/admin/management/News',                 label: '最新消息管理' },
-  { path: '/admin/management/Product',              label: '商品管理' },
-  { path: '/admin/management/ProductionItem',       label: '生產項目' },
+  { path: '/admin/QuickLinks', label: '快速連結' },
+  { path: '/admin/Todo', label: '待辦事項' },
+  { path: '/admin/items/CashCount', label: '點鈔管理' },
+  { path: '/admin/items/CommonConfig', label: '系統設定' },
+  { path: '/admin/items/InventoryQuantity', label: '庫存數量' },
+  { path: '/admin/items/ShopInventory', label: '商店庫存' },
+  { path: '/admin/management/AssetRegistry', label: '資產登記' },
+  { path: '/admin/management/BookIndex', label: '訂位管理' },
+  { path: '/admin/management/CustomerManagement', label: '客戶管理' },
+  { path: '/admin/management/DailyMenu', label: '每日菜單' },
+  { path: '/admin/management/ImageLibrary', label: '圖庫管理' },
+  { path: '/admin/management/News', label: '最新消息管理' },
+  { path: '/admin/management/Product', label: '商品管理' },
+  { path: '/admin/management/ProductionItem', label: '生產項目' },
   { path: '/admin/management/PermissionManagement', label: '權限管理' },
-  { path: '/admin/management/admin-calendar',       label: '行政行事曆' },
+  { path: '/admin/management/admin-calendar', label: '行政行事曆' }
 ]
 
 // 依區域分組（顯示用）
 const pageSections = computed(() => [
-  { prefix: '/front',  label: 'Front 前台',   pages: pageList.filter(p => p.path.startsWith('/front')) },
-  { prefix: '/book',   label: 'Book 訂位',    pages: pageList.filter(p => p.path.startsWith('/book')) },
-  { prefix: '/staff',  label: 'Staff 員工區', pages: pageList.filter(p => p.path.startsWith('/staff')) },
-  { prefix: '/admin',  label: 'Admin 後台',   pages: pageList.filter(p => p.path.startsWith('/admin')) },
-  { prefix: '/',       label: '其他',         pages: pageList.filter(p => p.path === '/') },
+  { prefix: '/front', label: 'Front 前台', pages: pageList.filter(p => p.path.startsWith('/front')) },
+  { prefix: '/book', label: 'Book 訂位', pages: pageList.filter(p => p.path.startsWith('/book')) },
+  { prefix: '/staff', label: 'Staff 員工區', pages: pageList.filter(p => p.path.startsWith('/staff')) },
+  { prefix: '/admin', label: 'Admin 後台', pages: pageList.filter(p => p.path.startsWith('/admin')) },
+  { prefix: '/', label: '其他', pages: pageList.filter(p => p.path === '/') }
 ])
 
 // ── 頁籤 ──────────────────────────────────────────────────────────
 const tabs = [
   { id: 'groups', label: '⚙ 權限組管理' },
-  { id: 'users',  label: '👤 用戶權限' },
+  { id: 'users', label: '👤 用戶權限' }
 ]
 const activeTab = ref('groups')
 
 // ── 狀態 ──────────────────────────────────────────────────────────
-const groups        = ref([])
-const defaultGroup  = ref('guest')
+const groups = ref([])
+const defaultGroup = ref('guest')
 const loadingGroups = ref(true)
-const customers     = ref([])
-const userPermMap   = ref({})   // { customerId: { group, pages } }
-const loadingUsers  = ref(true)
-const userSearch    = ref('')
-const saving        = ref(false)
+const customers = ref([])
+const userPermMap = ref({}) // { customerId: { group, pages } }
+const loadingUsers = ref(true)
+const userSearch = ref('')
+const saving = ref(false)
 const deleteGroupTarget = ref(null)
 const toast = reactive({ show: false, message: '' })
 
@@ -466,7 +694,7 @@ const groupModal = reactive({
   open: false,
   isCreate: false,
   data: { id: '', label: '', pages: {} },
-  error: '',
+  error: ''
 })
 
 // ── 用戶權限 Modal ─────────────────────────────────────────────────
@@ -474,7 +702,7 @@ const userPermModal = reactive({
   open: false,
   user: null,
   group: 'guest',
-  overrides: {},   // { path: 'inherit' | 'allow' | 'deny' }
+  overrides: {} // { path: 'inherit' | 'allow' | 'deny' }
 })
 
 // ── Computed ──────────────────────────────────────────────────────
@@ -526,11 +754,11 @@ const clearAllOverrides = () => {
 
 // ── 群組全選/全關 ──────────────────────────────────────────────────
 const setAllPages = (val) => {
-  pageList.forEach(p => { groupModal.data.pages[p.path] = val })
+  pageList.forEach((p) => { groupModal.data.pages[p.path] = val })
 }
 
 const setSectionPages = (prefix, val) => {
-  pageList.filter(p => p.path.startsWith(prefix)).forEach(p => {
+  pageList.filter(p => p.path.startsWith(prefix)).forEach((p) => {
     groupModal.data.pages[p.path] = val
   })
 }
@@ -541,12 +769,11 @@ const fetchGroups = async () => {
   try {
     const [gRes, dRes] = await Promise.all([
       fetch(BASE.value + '/groups'),
-      fetch(BASE.value + '/default-group'),
+      fetch(BASE.value + '/default-group')
     ])
     groups.value = await gRes.json()
     defaultGroup.value = (await dRes.json()).defaultGroup ?? 'guest'
-  } catch (e) { console.error(e) }
-  finally { loadingGroups.value = false }
+  } catch (e) { console.error(e) } finally { loadingGroups.value = false }
 }
 
 // ── API：載入用戶 + 個人權限 ──────────────────────────────────────
@@ -562,9 +789,8 @@ const fetchUsers = async () => {
         fetch(`${BASE.value}/user/${c.id}`).then(r => r.json())
       )
     )
-    perms.forEach(p => { if (p.customerId) userPermMap.value[p.customerId] = p })
-  } catch (e) { console.error(e) }
-  finally { loadingUsers.value = false }
+    perms.forEach((p) => { if (p.customerId) userPermMap.value[p.customerId] = p })
+  } catch (e) { console.error(e) } finally { loadingUsers.value = false }
 }
 
 // ── 開啟新增群組 ───────────────────────────────────────────────────
@@ -618,8 +844,7 @@ const saveGroup = async () => {
     await fetchGroups()
     groupModal.open = false
     showToast(groupModal.isCreate ? '群組已新增' : '群組已更新')
-  } catch { groupModal.error = '連線失敗，請再試一次' }
-  finally { saving.value = false }
+  } catch { groupModal.error = '連線失敗，請再試一次' } finally { saving.value = false }
 }
 
 // ── 設為預設群組 ───────────────────────────────────────────────────
@@ -647,8 +872,7 @@ const doDeleteGroup = async () => {
       await fetchGroups()
       showToast('群組已刪除')
     }
-  } catch (e) { console.error(e) }
-  finally { saving.value = false; deleteGroupTarget.value = null }
+  } catch (e) { console.error(e) } finally { saving.value = false; deleteGroupTarget.value = null }
 }
 
 // ── 開啟用戶權限 Modal ─────────────────────────────────────────────
@@ -704,8 +928,7 @@ const saveUserPerm = async () => {
 
     userPermModal.open = false
     showToast('用戶權限已更新')
-  } catch (e) { console.error(e) }
-  finally { saving.value = false }
+  } catch (e) { console.error(e) } finally { saving.value = false }
 }
 
 // ── 初始化 ────────────────────────────────────────────────────────
