@@ -106,6 +106,12 @@
           <option value="">全部位置</option>
           <option v-for="l in managedLocationOptions" :key="l" :value="l">{{ l }}</option>
         </select>
+        <select v-model="filterListed"
+                class="px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-teal-400">
+          <option value="">全部財產</option>
+          <option value="true">列入財產</option>
+          <option value="false">不列入財產</option>
+        </select>
         <span class="text-xs text-stone-400 self-center">共 {{ filtered.length }} 筆</span>
       </div>
     </header>
@@ -131,7 +137,8 @@
             <tr>
               <th class="px-3 py-3 text-left">圖片</th>
               <th class="px-3 py-3 text-left">財產名稱／型號</th>
-              <th v-if="visibleCols.spec"         class="px-3 py-3 text-left">規格</th>
+              <th v-if="visibleCols.listed"        class="px-3 py-3 text-center">列入財產</th>
+              <th v-if="visibleCols.spec"          class="px-3 py-3 text-left">規格</th>
               <th v-if="visibleCols.brand"        class="px-3 py-3 text-left">廠牌</th>
               <th v-if="visibleCols.keeper"       class="px-3 py-3 text-left">保管人員</th>
               <th v-if="visibleCols.org"          class="px-3 py-3 text-left">機構</th>
@@ -163,6 +170,10 @@
               </td>
               <td class="px-3 py-2.5 font-medium text-stone-800 dark:text-stone-100 max-w-40">
                 <div class="truncate" :title="asset.name">{{ asset.name }}</div>
+              </td>
+              <td v-if="visibleCols.listed" class="px-3 py-2.5 text-center">
+                <span :class="asset.listed ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' : 'bg-stone-100 text-stone-400 dark:bg-zinc-800'"
+                      class="px-2 py-0.5 rounded-full text-xs">{{ asset.listed ? '✓ 列入' : '不列入' }}</span>
               </td>
               <td v-if="visibleCols.spec"     class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.spec }}</td>
               <td v-if="visibleCols.brand"    class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.brand }}</td>
@@ -374,6 +385,22 @@
               <option v-for="l in managedLocationOptions" :key="l" :value="l">{{ l }}</option>
             </select>
           </div>
+          <!-- 列入財產：簡易和完整模式都顯示 -->
+          <div class="sm:col-span-2">
+            <label class="flex items-center gap-3 cursor-pointer select-none group">
+              <div class="relative">
+                <input type="checkbox" v-model="modal.data.listed" class="sr-only" />
+                <div :class="modal.data.listed ? 'bg-teal-600' : 'bg-stone-200 dark:bg-zinc-700'"
+                     class="w-10 h-6 rounded-full transition-colors duration-200"></div>
+                <div :class="modal.data.listed ? 'translate-x-4' : 'translate-x-0'"
+                     class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"></div>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-stone-700 dark:text-stone-200">列入財產</p>
+                <p class="text-xs text-stone-400">取消勾選表示不列入正式財產清單</p>
+              </div>
+            </label>
+          </div>
           <template v-if="!modal.simple">
             <div>
               <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">廠牌</label>
@@ -575,6 +602,7 @@ const desktopView = ref('table')
 
 // ── 欄位顯示設定 ──────────────────────────────────────────────────
 const COL_DEFS = [
+  { key: 'listed',       label: '列入財產' },
   { key: 'spec',         label: '規格' },
   { key: 'brand',        label: '廠牌' },
   { key: 'keeper',       label: '保管人員' },
@@ -625,6 +653,7 @@ const searchText = ref('')
 const filterOrg = ref('')
 const filterUnit = ref('')
 const filterLocation = ref('')
+const filterListed = ref('')
 
 const LS_FILTERS = 'asset_filters'
 
@@ -635,6 +664,7 @@ const loadFilters = () => {
     if (saved.filterOrg) filterOrg.value = saved.filterOrg
     if (saved.filterUnit) filterUnit.value = saved.filterUnit
     if (saved.filterLocation) filterLocation.value = saved.filterLocation
+    if (saved.filterListed) filterListed.value = saved.filterListed
   } catch {}
 }
 
@@ -644,10 +674,11 @@ const saveFilters = () => {
     filterOrg: filterOrg.value,
     filterUnit: filterUnit.value,
     filterLocation: filterLocation.value,
+    filterListed: filterListed.value,
   }))
 }
 
-watch([desktopView, filterOrg, filterUnit, filterLocation], saveFilters)
+watch([desktopView, filterOrg, filterUnit, filterLocation, filterListed], saveFilters)
 
 // ── API ──────────────────────────────────────────────────────────
 const commonStore = useCommonStore()
@@ -661,6 +692,7 @@ const emptyAsset = () => ({
   id: '', name: '', spec: '', brand: '', keeper: '', org: '', unit: '',
   location: '', usage: '', issuer: '', quantity: 1, note: '',
   purchaseDate: '', price: null, lifespan: null, planName: '', plateNo: '', image: '',
+  listed: true,
 })
 
 const modal = reactive({ show: false, isNew: true, simple: true, data: emptyAsset() })
@@ -741,7 +773,9 @@ const filtered = computed(() => {
     const matchOrg = !filterOrg.value || a.org === filterOrg.value
     const matchUnit = !filterUnit.value || a.unit === filterUnit.value
     const matchLocation = !filterLocation.value || a.location === filterLocation.value
-    return matchSearch && matchOrg && matchUnit && matchLocation
+    const matchListed = !filterListed.value ||
+      (filterListed.value === 'true' ? a.listed !== false : a.listed === false)
+    return matchSearch && matchOrg && matchUnit && matchLocation && matchListed
   })
 })
 
