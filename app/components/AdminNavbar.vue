@@ -19,28 +19,38 @@ const navGroups = [
       { to: '/admin/items/CommonConfig', label: '設定管理' },
       { to: '/admin/items/ShopInventory', label: '休憩小舖庫存' },
       { to: '/admin/items/InventoryQuantity', label: '餐廳小舖庫存' },
+      { to: '/admin/management/AssetRegistry', label: '財產登記' },
       { to: '/admin/items/CashCount', label: '點鈔作業' }
     ]
   },
   {
-    label: '內容管理',
+    label: '前台內容',
     items: [
       { to: '/admin/management/News', label: '活動消息' },
       { to: '/admin/management/Product', label: '推薦農產品' },
       { to: '/admin/management/ProductionItem', label: '產品列表' },
+    ]
+  },
+  {
+    label: '其他',
+    items: [
       { to: '/admin/management/DailyMenu', label: '每日菜色' },
       { to: '/admin/management/BookIndex', label: '訂位管理' },
       { to: '/admin/management/ImageLibrary', label: '資源管理庫' },
-      { to: '/admin/management/AssetRegistry', label: '財產登記' },
-      { to: '/admin/management/CustomerManagement', label: '客戶帳號' },
       { to: '/admin/management/admin-calendar', label: '行事曆' },
+    ]
+  },
+  {
+    label: '帳戶',
+    items: [
+      { to: '/admin/management/CustomerManagement', label: '客戶帳號' },
       { to: '/admin/management/PermissionManagement', label: '權限' }
     ]
   }
 ]
 
 const standaloneItems = [
-  { to: '/admin/Todo', label: '工作待辦' },
+  // { to: '/admin/Todo', label: '工作待辦' },
   { to: '/admin/QuickLinks', label: '常用網址' }
 ]
 
