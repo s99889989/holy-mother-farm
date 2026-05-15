@@ -50,7 +50,7 @@
                 @click="activeCategory = cat.id"
                 :class="activeCategory === cat.id ? 'text-white' : 'bg-white dark:bg-zinc-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700'"
                 :style="activeCategory === cat.id ? { backgroundColor: cat.color } : {}"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1.5 flex-shrink-0">
+                class="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1.5">
           <span>{{ cat.icon }}</span>
           <span>{{ cat.name }}</span>
           <span class="opacity-70">({{ rulesInCategory(cat.id).length }})</span>
@@ -76,7 +76,6 @@
                rule.priority === 'critical' ? 'border-red-200 dark:border-red-800' :
                rule.priority === 'important' ? 'border-amber-200 dark:border-amber-800' :
                'border-stone-200 dark:border-stone-700']">
-          <!-- 卡片頂部色條 -->
           <div :class="['h-1',
             rule.priority === 'critical' ? 'bg-red-400' :
             rule.priority === 'important' ? 'bg-amber-400' : 'bg-stone-200 dark:bg-stone-700']"></div>
@@ -101,18 +100,24 @@
             <p v-if="rule.content" class="text-xs text-stone-500 dark:text-stone-400 mb-2 leading-relaxed">{{ rule.content }}</p>
             <!-- 步驟預覽 -->
             <div v-if="rule.steps && rule.steps.length > 0" class="mb-2">
-              <p class="text-xs text-stone-400 mb-1">{{ rule.steps.length }} 個步驟</p>
+              <p class="text-xs text-stone-400 mb-1">{{ rule.steps.length }} 個步驟
+                <span v-if="rule.steps.some(s => s.condition)" class="ml-1 text-amber-500">⬦ 含判斷分支</span>
+              </p>
               <div class="flex gap-1 flex-wrap">
                 <span v-for="(s, i) in rule.steps.slice(0, 3)" :key="i"
-                      class="px-2 py-0.5 bg-stone-50 dark:bg-zinc-800 text-stone-500 dark:text-stone-400 text-xs rounded-lg truncate max-w-48">
-                  {{ i + 1 }}. {{ s }}
+                      :class="[
+                        'px-2 py-0.5 text-xs rounded-lg truncate max-w-48',
+                        s.condition
+                          ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                          : 'bg-stone-50 dark:bg-zinc-800 text-stone-500 dark:text-stone-400'
+                      ]">
+                  {{ s.condition ? '⬦ ' + s.condition : (i + 1) + '. ' + (s.text || s) }}
                 </span>
                 <span v-if="rule.steps.length > 3" class="px-2 py-0.5 bg-stone-50 dark:bg-zinc-800 text-stone-400 text-xs rounded-lg">
                   +{{ rule.steps.length - 3 }} 個
                 </span>
               </div>
             </div>
-            <!-- 注意事項預覽 -->
             <p v-if="rule.warnings && rule.warnings.length > 0" class="text-xs text-red-400 mb-3">
               ⚠ {{ rule.warnings.length }} 個注意事項
             </p>
@@ -145,12 +150,14 @@
           </button>
         </div>
         <div class="px-5 py-4 space-y-4">
+
           <!-- 標題 -->
           <div>
             <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">標題 <span class="text-red-400">*</span></label>
             <input v-model="ruleModal.data.title" placeholder="例：烘焙麵包未售完處理"
                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
+
           <!-- 分類 + 重要程度 -->
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -173,36 +180,158 @@
               </div>
             </div>
           </div>
+
           <!-- 簡短說明 -->
           <div>
             <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">簡短說明</label>
             <input v-model="ruleModal.data.content" placeholder="一句話說明這條規則的目的"
                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
-          <!-- 執行步驟 -->
+
+          <!-- ── 執行步驟（新版：支援分支） ── -->
           <div>
             <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-medium text-stone-600 dark:text-stone-300">執行步驟</label>
-              <button @click="addStep"
-                      class="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5 hover:text-amber-700 transition-colors">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                新增步驟
-              </button>
-            </div>
-            <div class="space-y-2">
-              <div v-if="ruleModal.data.steps.length === 0" class="text-xs text-stone-400 text-center py-3 border border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
-                點擊「新增步驟」加入執行步驟
-              </div>
-              <div v-for="(step, idx) in ruleModal.data.steps" :key="idx" class="flex gap-2 items-start">
-                <span class="w-6 h-6 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-2">{{ idx + 1 }}</span>
-                <input v-model="ruleModal.data.steps[idx]" :placeholder="`步驟 ${idx + 1}`"
-                       class="flex-1 px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
-                <button @click="removeStep(idx)" class="text-stone-300 hover:text-red-400 transition-colors mt-2 p-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <div class="flex gap-2">
+                <button @click="addStep('normal')"
+                        class="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5 hover:text-amber-700 transition-colors">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  一般步驟
+                </button>
+                <button @click="addStep('branch')"
+                        class="text-xs text-amber-500 flex items-center gap-0.5 hover:text-amber-600 transition-colors border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded-md">
+                  ⬦ 判斷分支
                 </button>
               </div>
             </div>
+
+            <div class="space-y-3">
+              <div v-if="ruleModal.data.steps.length === 0"
+                   class="text-xs text-stone-400 text-center py-4 border border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
+                點擊右上角按鈕加入步驟
+              </div>
+
+              <!-- 逐個步驟渲染 -->
+              <div v-for="(step, idx) in ruleModal.data.steps" :key="idx"
+                   :class="[
+                     'rounded-xl border overflow-hidden',
+                     step.condition
+                       ? 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/10'
+                       : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800/50'
+                   ]">
+
+                <!-- 步驟 Header -->
+                <div class="flex items-center gap-2 px-3 py-2 border-b border-stone-100 dark:border-stone-700/50">
+                  <!-- 類型徽章 -->
+                  <span v-if="!step.condition"
+                        class="w-5 h-5 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    {{ getStepNumber(idx) }}
+                  </span>
+                  <span v-else class="text-amber-500 font-bold text-sm leading-none flex-shrink-0">⬦</span>
+                  <span class="text-xs text-stone-500 dark:text-stone-400 flex-1">
+                    {{ step.condition ? '判斷分支' : '一般步驟' }}
+                  </span>
+                  <!-- 上移/下移 -->
+                  <button v-if="idx > 0" @click="moveStep(idx, -1)"
+                          class="text-stone-300 hover:text-stone-500 dark:hover:text-stone-300 p-0.5 transition-colors" title="上移">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button v-if="idx < ruleModal.data.steps.length - 1" @click="moveStep(idx, 1)"
+                          class="text-stone-300 hover:text-stone-500 dark:hover:text-stone-300 p-0.5 transition-colors" title="下移">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                  <button @click="removeStep(idx)" class="text-stone-300 hover:text-red-400 p-0.5 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                <!-- 步驟內容 -->
+                <div class="px-3 py-2.5 space-y-2.5">
+
+                  <!-- 一般步驟：只有 text -->
+                  <template v-if="!step.condition && (!step.branches || step.branches.length === 0)">
+                    <input v-model="step.text" :placeholder="`步驟 ${getStepNumber(idx)} 內容`"
+                           class="w-full px-3 py-2 text-sm rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                    <button @click="convertToBranch(idx)"
+                            class="text-xs text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1">
+                      <span class="text-amber-400">⬦</span> 轉換成判斷分支
+                    </button>
+                  </template>
+
+                  <!-- 判斷分支步驟 -->
+                  <template v-else>
+                    <!-- 判斷條件說明 -->
+                    <div>
+                      <label class="text-xs text-stone-500 dark:text-stone-400 mb-1 block">判斷條件</label>
+                      <input v-model="step.condition" placeholder="例：數量是否足夠？"
+                             class="w-full px-3 py-2 text-sm rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                    </div>
+                    <!-- 補充說明（可選） -->
+                    <div>
+                      <label class="text-xs text-stone-500 dark:text-stone-400 mb-1 block">補充說明（選填）</label>
+                      <input v-model="step.text" placeholder="對這個判斷點的額外說明…"
+                             class="w-full px-3 py-2 text-sm rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                    </div>
+                    <!-- 分支列表 -->
+                    <div>
+                      <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs text-stone-500 dark:text-stone-400">分支選項</label>
+                        <button @click="addBranch(idx)"
+                                class="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 flex items-center gap-0.5 transition-colors">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                          新增分支
+                        </button>
+                      </div>
+                      <div class="space-y-2">
+                        <div v-if="!step.branches || step.branches.length === 0"
+                             class="text-xs text-stone-400 text-center py-2 border border-dashed border-stone-200 dark:border-stone-700 rounded-lg">
+                          點擊「新增分支」加入選項
+                        </div>
+                        <div v-for="(branch, bi) in step.branches" :key="bi"
+                             :class="[
+                               'rounded-lg border p-2.5',
+                               bi === 0 ? 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10' :
+                               bi === 1 ? 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10' :
+                               'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800/50'
+                             ]">
+                          <!-- 分支標籤 -->
+                          <div class="flex items-center gap-2 mb-2">
+                            <span :class="[
+                              'w-4 h-4 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0',
+                              bi === 0 ? 'bg-teal-500' : bi === 1 ? 'bg-red-400' : 'bg-stone-400'
+                            ]">{{ bi + 1 }}</span>
+                            <input v-model="branch.label" placeholder="分支標籤，例：是 / 否 / 數量不足"
+                                   class="flex-1 px-2 py-1 text-xs rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                            <button @click="removeBranch(idx, bi)" class="text-stone-300 hover:text-red-400 transition-colors p-0.5">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          </div>
+                          <!-- 分支子步驟 -->
+                          <div class="space-y-1.5 pl-2 border-l-2 border-stone-200 dark:border-stone-700">
+                            <div v-for="(subStep, si) in branch.steps" :key="si" class="flex gap-1.5 items-start">
+                              <span class="text-stone-400 text-xs mt-2 flex-shrink-0">{{ si + 1 }}.</span>
+                              <input v-model="branch.steps[si].text" :placeholder="`子步驟 ${si + 1}`"
+                                     class="flex-1 px-2 py-1.5 text-xs rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                              <button @click="removeSubStep(idx, bi, si)" class="text-stone-300 hover:text-red-400 transition-colors mt-1.5 p-0.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                              </button>
+                            </div>
+                            <button @click="addSubStep(idx, bi)"
+                                    class="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 flex items-center gap-0.5 mt-1 transition-colors">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                              加入子步驟
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                </div>
+              </div>
+            </div>
           </div>
+
           <!-- 注意事項 -->
           <div>
             <div class="flex items-center justify-between mb-2">
@@ -227,6 +356,7 @@
               </div>
             </div>
           </div>
+
           <!-- 備註 -->
           <div>
             <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">備註（選填）</label>
@@ -255,7 +385,6 @@
           </button>
         </div>
         <div class="px-5 py-4">
-          <!-- emoji 快選 -->
           <div class="flex gap-1.5 flex-wrap mb-3">
             <button v-for="e in EMOJI_OPTIONS" :key="e"
                     @click="categoryModal.newIcon = e"
@@ -326,11 +455,11 @@ const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/sop')
 
 // ── 狀態 ──────────────────────────────────────────────────────────
-const categories    = ref([])
-const rules         = ref([])
-const loading       = ref(false)
+const categories     = ref([])
+const rules          = ref([])
+const loading        = ref(false)
 const activeCategory = ref('')
-const searchText    = ref('')
+const searchText     = ref('')
 
 const fetchAll = async () => {
   loading.value = true
@@ -370,7 +499,21 @@ const filteredRules = computed(() => {
 const rulesInCategory = (catId) => rules.value.filter(r => r.categoryId === catId)
 const getCat = (id) => categories.value.find(c => c.id === id) || null
 
+// ── 步驟序號（跳過判斷節點不計入序號） ──────────────────────────
+const getStepNumber = (targetIdx) => {
+  let n = 0
+  for (let i = 0; i <= targetIdx; i++) {
+    const s = ruleModal.data.steps[i]
+    if (!s.condition) n++
+  }
+  return n
+}
+
 // ── 規則 Modal ────────────────────────────────────────────────────
+const emptyStep = () => ({ text: '', condition: '', branches: [] })
+const emptyBranch = () => ({ label: '', steps: [] })
+const emptySubStep = () => ({ text: '' })
+
 const emptyRule = () => ({
   id: '', title: '', content: '', steps: [], warnings: [],
   note: '', categoryId: activeCategory.value || '', priority: 'normal', pinned: false,
@@ -380,24 +523,75 @@ const ruleModal = reactive({ show: false, isNew: true, data: emptyRule() })
 
 const openRuleModal = (rule) => {
   ruleModal.isNew = !rule
-  ruleModal.data = rule
-    ? { ...rule, steps: [...(rule.steps || [])], warnings: [...(rule.warnings || [])] }
-    : emptyRule()
+  if (rule) {
+    // 深拷貝，確保分支陣列也獨立
+    ruleModal.data = {
+      ...rule,
+      steps: (rule.steps || []).map(s => ({
+        text: s.text || (typeof s === 'string' ? s : ''),
+        condition: s.condition || '',
+        branches: (s.branches || []).map(b => ({
+          label: b.label || '',
+          steps: (b.steps || []).map(sub => ({ text: sub.text || (typeof sub === 'string' ? sub : '') })),
+        })),
+      })),
+      warnings: [...(rule.warnings || [])],
+    }
+  } else {
+    ruleModal.data = emptyRule()
+  }
   ruleModal.show = true
 }
 
-const addStep    = () => ruleModal.data.steps.push('')
+// 新增步驟
+const addStep = (type) => {
+  if (type === 'branch') {
+    ruleModal.data.steps.push({ text: '', condition: '請填寫判斷條件', branches: [
+        { label: '是', steps: [] },
+        { label: '否', steps: [] },
+      ]})
+  } else {
+    ruleModal.data.steps.push(emptyStep())
+  }
+}
+
+// 一般步驟轉換成判斷分支
+const convertToBranch = (idx) => {
+  const s = ruleModal.data.steps[idx]
+  s.condition = s.text || '請填寫判斷條件'
+  s.text = ''
+  s.branches = [{ label: '是', steps: [] }, { label: '否', steps: [] }]
+}
+
 const removeStep = (idx) => ruleModal.data.steps.splice(idx, 1)
+
+const moveStep = (idx, dir) => {
+  const arr = ruleModal.data.steps
+  const target = idx + dir
+  if (target < 0 || target >= arr.length) return
+    ;[arr[idx], arr[target]] = [arr[target], arr[idx]]
+}
+
+// 分支操作
+const addBranch    = (stepIdx) => ruleModal.data.steps[stepIdx].branches.push(emptyBranch())
+const removeBranch = (stepIdx, bi) => ruleModal.data.steps[stepIdx].branches.splice(bi, 1)
+
+// 子步驟操作
+const addSubStep    = (stepIdx, bi) => ruleModal.data.steps[stepIdx].branches[bi].steps.push(emptySubStep())
+const removeSubStep = (stepIdx, bi, si) => ruleModal.data.steps[stepIdx].branches[bi].steps.splice(si, 1)
+
+// 注意事項
 const addWarning    = () => ruleModal.data.warnings.push('')
 const removeWarning = (idx) => ruleModal.data.warnings.splice(idx, 1)
 
 const saveRule = async () => {
   if (!ruleModal.data.title.trim()) { showToast('標題不能為空'); return }
-  // 過濾空白步驟和注意
   const data = {
     ...ruleModal.data,
-    steps:    ruleModal.data.steps.filter(s => s.trim()),
+    // 過濾空白警告
     warnings: ruleModal.data.warnings.filter(w => w.trim()),
+    // 步驟：過濾完全空白的一般步驟；判斷節點保留（condition 不為空）
+    steps: ruleModal.data.steps.filter(s => s.condition?.trim() || s.text?.trim()),
   }
   try {
     if (ruleModal.isNew) {
@@ -440,7 +634,6 @@ const togglePin = async (id) => {
 
 // ── 分類 Modal ────────────────────────────────────────────────────
 const categoryModal = reactive({ show: false, newName: '', newIcon: '📋', newColor: '#d97706' })
-
 const openCategoryModal = () => { categoryModal.show = true }
 
 const addCategory = async () => {
