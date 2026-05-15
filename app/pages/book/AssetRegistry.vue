@@ -121,7 +121,6 @@
 
       <!-- ── 桌機表格（含拖曳排序）── -->
       <div v-else-if="desktopView === 'table'" class="hidden md:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-        <!-- 拖曳提示列 -->
         <div class="px-4 py-2 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500 select-none">
           <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
           拖曳列左側圖示可調整順序，放開後自動儲存
@@ -172,12 +171,13 @@
                 ]">
               <!-- 拖曳把手 -->
               <td class="px-2 py-2.5 cursor-grab active:cursor-grabbing">
-                <svg class="w-4 h-4 text-stone-300 dark:text-stone-600 hover:text-stone-400 dark:hover:text-stone-400 transition-colors mx-auto" fill="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 text-stone-300 dark:text-stone-600 hover:text-stone-400 transition-colors mx-auto" fill="currentColor" viewBox="0 0 24 24">
                   <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
                   <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
                   <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
                 </svg>
               </td>
+              <!-- 表格縮圖：用小縮圖 thumbUrl -->
               <td class="px-3 py-2.5">
                 <img v-if="asset.image" :src="imgUrl(asset.thumbUrl) || imgUrl(asset.image)" :alt="asset.name"
                      loading="lazy"
@@ -231,14 +231,14 @@
         </div>
       </div>
 
-      <!-- ── 桌機卡片（圖片加大）── -->
+      <!-- ── 桌機卡片（圖片用大縮圖 thumbLgUrl）── -->
       <div v-else-if="desktopView === 'card'" class="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         <div v-for="asset in filtered" :key="asset.id"
              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-          <!-- 圖片區：固定高度，滿版顯示 -->
+          <!-- 圖片區：用大縮圖 thumbLgUrl，fallback 原圖 -->
           <div class="relative w-full h-44 bg-stone-100 dark:bg-zinc-800 overflow-hidden">
             <img v-if="asset.image"
-                 :src="imgUrl(asset.thumbUrl) || imgUrl(asset.image)"
+                 :src="imgUrl(asset.thumbLgUrl) || imgUrl(asset.image)"
                  :alt="asset.name"
                  loading="lazy"
                  class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
@@ -281,7 +281,7 @@
         </div>
       </div>
 
-      <!-- 手機卡片 -->
+      <!-- 手機卡片：用小縮圖 thumbUrl -->
       <div class="md:hidden space-y-3">
         <div v-for="asset in filtered" :key="asset.id"
              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
@@ -484,7 +484,6 @@
     <div v-if="preview.show"
          class="fixed inset-0 bg-black/85 flex items-center justify-center z-[60] cursor-pointer p-4"
          @click="preview.show = false">
-      <!-- Spinner：圖片尚未載入時顯示 -->
       <transition name="fade">
         <div v-if="preview.loading"
              class="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
@@ -593,14 +592,14 @@
 definePageMeta({ layout: 'book' })
 
 // ── Dark Mode ─────────────────────────────────────────────────────
-const darkStore = useDarkModeStore()
-const isDark    = computed(() => darkStore.data.dark)
+const darkStore  = useDarkModeStore()
+const isDark     = computed(() => darkStore.data.dark)
 const toggleDark = () => { darkStore.change_dark_mode() }
 
 // ── 桌機顯示模式 ──────────────────────────────────────────────────
 const desktopView = ref('table')
 
-// ── 欄位顯示設定 ──────────────────────────────────────────────────
+// ── 欄位設定 ──────────────────────────────────────────────────────
 const COL_DEFS = [
   { key: 'listed',       label: '列入財產' },
   { key: 'spec',         label: '規格' },
@@ -619,19 +618,19 @@ const COL_DEFS = [
   { key: 'planName',     label: '計畫名稱' },
   { key: 'plateNo',      label: '車號' },
 ]
-const DEFAULT_COLS   = Object.fromEntries(COL_DEFS.map(c => [c.key, true]))
-const LS_COLS        = 'asset_visible_cols'
-const visibleCols    = reactive({ ...DEFAULT_COLS })
+const DEFAULT_COLS    = Object.fromEntries(COL_DEFS.map(c => [c.key, true]))
+const LS_COLS         = 'asset_visible_cols'
+const visibleCols     = reactive({ ...DEFAULT_COLS })
 const showColSettings = ref(false)
 const colSettingsRef  = ref(null)
 
-const loadCols = () => {
+const loadCols  = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(LS_COLS) || '{}')
     for (const col of COL_DEFS) { if (col.key in saved) visibleCols[col.key] = saved[col.key] }
   } catch {}
 }
-const saveCols = () => { localStorage.setItem(LS_COLS, JSON.stringify({ ...visibleCols })) }
+const saveCols  = () => { localStorage.setItem(LS_COLS, JSON.stringify({ ...visibleCols })) }
 const toggleCol = (key) => { visibleCols[key] = !visibleCols[key]; saveCols() }
 const resetCols = () => { for (const col of COL_DEFS) visibleCols[col.key] = true; saveCols() }
 
@@ -645,12 +644,12 @@ const LS_FILTERS     = 'asset_filters'
 
 const loadFilters = () => {
   try {
-    const saved = JSON.parse(localStorage.getItem(LS_FILTERS) || '{}')
-    if (saved.desktopView)    desktopView.value    = saved.desktopView
-    if (saved.filterOrg)      filterOrg.value      = saved.filterOrg
-    if (saved.filterUnit)     filterUnit.value     = saved.filterUnit
-    if (saved.filterLocation) filterLocation.value = saved.filterLocation
-    if (saved.filterListed)   filterListed.value   = saved.filterListed
+    const s = JSON.parse(localStorage.getItem(LS_FILTERS) || '{}')
+    if (s.desktopView)    desktopView.value    = s.desktopView
+    if (s.filterOrg)      filterOrg.value      = s.filterOrg
+    if (s.filterUnit)     filterUnit.value     = s.filterUnit
+    if (s.filterLocation) filterLocation.value = s.filterLocation
+    if (s.filterListed)   filterListed.value   = s.filterListed
   } catch {}
 }
 const saveFilters = () => {
@@ -677,8 +676,8 @@ function emptyAsset() {
   return {
     id: '', name: '', spec: '', brand: '', keeper: '', org: '', unit: '',
     location: '', usage: '', issuer: '', quantity: 1, note: '',
-    purchaseDate: '', price: null, lifespan: null, planName: '', plateNo: '', image: '',
-    listed: true,
+    purchaseDate: '', price: null, lifespan: null, planName: '', plateNo: '',
+    image: '', thumbUrl: '', thumbLgUrl: '', listed: true,
   }
 }
 
@@ -689,21 +688,13 @@ const imgUrl = (path) => {
   return API_BASE.value.replace('/holy/assets', '') + path
 }
 
-const inferThumbUrl = (imageUrl) => {
-  if (!imageUrl) return ''
-  return imageUrl.replace(/\/([^/]+)$/, '/_thumb_$1')
-}
-
 // ── 大圖預覽 ─────────────────────────────────────────────────────
 const preview = reactive({ show: false, url: '', loading: false })
-
 const openPreview = (imagePath) => {
-  preview.url     = imgUrl(imagePath)
-  preview.loading = true
-  preview.show    = true
+  preview.url = imgUrl(imagePath); preview.loading = true; preview.show = true
 }
 
-// ── 圖片上傳 / 刪除 ───────────────────────────────────────────────
+// ── 圖片上傳：後端現在回傳 { image, thumbUrl, thumbLgUrl } ────────
 const triggerImageUpload = async () => {
   if (modal.isNew && !modal.data.id) {
     if (!modal.data.name?.trim()) { alert('請先填寫財產名稱再上傳圖片'); return }
@@ -711,9 +702,7 @@ const triggerImageUpload = async () => {
       const saved = await (await fetch(`${API_BASE.value}/save`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(modal.data)
       })).json()
-      modal.data.id = saved.id
-      modal.isNew   = false
-      assets.value.push({ ...modal.data })
+      modal.data.id = saved.id; modal.isNew = false; assets.value.push({ ...modal.data })
     } catch (e) { console.error(e); return }
   }
   imageInputRef.value?.click()
@@ -726,12 +715,21 @@ const handleImageChange = async (e) => {
   try {
     const formData = new FormData()
     formData.append('file', file)
-    const url      = await (await fetch(`${API_BASE.value}/image/upload/${modal.data.id}`, { method: 'POST', body: formData })).json()
-    const thumbUrl = inferThumbUrl(url)
-    modal.data.image    = url
-    modal.data.thumbUrl = thumbUrl
+    // 後端回傳 { image, thumbUrl, thumbLgUrl }
+    const result = await (await fetch(`${API_BASE.value}/image/upload/${modal.data.id}`, {
+      method: 'POST', body: formData
+    })).json()
+
+    modal.data.image      = result.image
+    modal.data.thumbUrl   = result.thumbUrl
+    modal.data.thumbLgUrl = result.thumbLgUrl
+
     const idx = assets.value.findIndex(a => a.id === modal.data.id)
-    if (idx >= 0) { assets.value[idx].image = url; assets.value[idx].thumbUrl = thumbUrl }
+    if (idx >= 0) {
+      assets.value[idx].image      = result.image
+      assets.value[idx].thumbUrl   = result.thumbUrl
+      assets.value[idx].thumbLgUrl = result.thumbLgUrl
+    }
   } catch (e) { console.error(e) }
   finally {
     uploadingImage.value = false
@@ -743,19 +741,19 @@ const deleteImage = async () => {
   if (!modal.data.id) return
   try {
     await fetch(`${API_BASE.value}/image/remove/${modal.data.id}`, { method: 'DELETE' })
-    modal.data.image    = ''
-    modal.data.thumbUrl = ''
+    modal.data.image = ''; modal.data.thumbUrl = ''; modal.data.thumbLgUrl = ''
     const idx = assets.value.findIndex(a => a.id === modal.data.id)
-    if (idx >= 0) { assets.value[idx].image = ''; assets.value[idx].thumbUrl = '' }
+    if (idx >= 0) {
+      assets.value[idx].image = ''; assets.value[idx].thumbUrl = ''; assets.value[idx].thumbLgUrl = ''
+    }
   } catch (e) { console.error(e) }
 }
 
 // ── Computed ──────────────────────────────────────────────────────
 const filtered = computed(() => assets.value.filter(a => {
-  const q           = searchText.value.toLowerCase()
-  const matchSearch = !q || a.name?.toLowerCase().includes(q) || a.spec?.toLowerCase().includes(q) ||
-    a.brand?.toLowerCase().includes(q) || a.keeper?.toLowerCase().includes(q) || a.location?.toLowerCase().includes(q)
-  return matchSearch &&
+  const q = searchText.value.toLowerCase()
+  return (!q || a.name?.toLowerCase().includes(q) || a.spec?.toLowerCase().includes(q) ||
+      a.brand?.toLowerCase().includes(q) || a.keeper?.toLowerCase().includes(q) || a.location?.toLowerCase().includes(q)) &&
     (!filterOrg.value      || a.org      === filterOrg.value) &&
     (!filterUnit.value     || a.unit     === filterUnit.value) &&
     (!filterLocation.value || a.location === filterLocation.value) &&
@@ -770,58 +768,38 @@ const dragOverIndex = ref(null)
 const reordering    = ref(false)
 
 const onDragStart = (index, event) => {
-  draggingIndex.value            = index
+  draggingIndex.value = index
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', String(index))
 }
-
-const onDragOver = (index) => {
-  if (draggingIndex.value === null || draggingIndex.value === index) return
-  dragOverIndex.value = index
-}
-
+const onDragOver  = (index) => { if (draggingIndex.value !== null && draggingIndex.value !== index) dragOverIndex.value = index }
 const onDragLeave = () => { dragOverIndex.value = null }
+const onDragEnd   = () => { draggingIndex.value = null; dragOverIndex.value = null }
 
 const onDrop = (targetIndex) => {
   if (draggingIndex.value === null || draggingIndex.value === targetIndex) {
-    draggingIndex.value = null
-    dragOverIndex.value = null
-    return
+    draggingIndex.value = null; dragOverIndex.value = null; return
   }
-
-  // 找出在 assets 本體的 index（filtered 是 computed，順序可能不同）
-  const draggingId = filtered.value[draggingIndex.value].id
-  const targetId   = filtered.value[targetIndex].id
-  const fromIdx    = assets.value.findIndex(a => a.id === draggingId)
-  const toIdx      = assets.value.findIndex(a => a.id === targetId)
-
+  const fromIdx = assets.value.findIndex(a => a.id === filtered.value[draggingIndex.value].id)
+  const toIdx   = assets.value.findIndex(a => a.id === filtered.value[targetIndex].id)
   if (fromIdx >= 0 && toIdx >= 0) {
     const [moved] = assets.value.splice(fromIdx, 1)
     assets.value.splice(toIdx, 0, moved)
     saveReorder()
   }
-
-  draggingIndex.value = null
-  dragOverIndex.value = null
+  draggingIndex.value = null; dragOverIndex.value = null
 }
-
-const onDragEnd = () => { draggingIndex.value = null; dragOverIndex.value = null }
 
 const saveReorder = async () => {
   reordering.value = true
   try {
     await fetch(`${API_BASE.value}/reorder`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(assets.value.map(a => a.id)),
     })
     showToast('排序已儲存')
-  } catch (e) {
-    console.error(e)
-    showToast('排序儲存失敗')
-  } finally {
-    reordering.value = false
-  }
+  } catch (e) { console.error(e); showToast('排序儲存失敗') }
+  finally { reordering.value = false }
 }
 
 // ── 保管單位 ──────────────────────────────────────────────────────
@@ -830,11 +808,11 @@ const showUnitManager    = ref(false)
 const newUnitInput       = ref('')
 const lastSelectedUnit   = ref('')
 
-const fetchUnits = async () => {
+const fetchUnits      = async () => {
   try { managedUnitOptions.value = await (await fetch(`${API_BASE.value}/units`)).json() }
   catch (e) { console.error(e) }
 }
-const addUnitOption = async () => {
+const addUnitOption   = async () => {
   const v = newUnitInput.value.trim(); if (!v) return
   try {
     managedUnitOptions.value = await (await fetch(`${API_BASE.value}/units/add`, {
@@ -859,16 +837,15 @@ const newLocationInput      = ref('')
 const customLocationOptions = ref([])
 const lastSelectedLocation  = ref('')
 
-const loadCustomLocations  = () => {
+const loadCustomLocations = () => {
   try { customLocationOptions.value = JSON.parse(localStorage.getItem(LS_KEY) || '[]') }
   catch { customLocationOptions.value = [] }
 }
-const saveCustomLocations = () => { localStorage.setItem(LS_KEY, JSON.stringify(customLocationOptions.value)) }
-
+const saveCustomLocations  = () => { localStorage.setItem(LS_KEY, JSON.stringify(customLocationOptions.value)) }
 const assetLocationOptions  = computed(() => [...new Set(assets.value.map(a => a.location).filter(Boolean))])
 const managedLocationOptions = computed(() => [...new Set([...assetLocationOptions.value, ...customLocationOptions.value])].sort())
 
-const addLocationOption = () => {
+const addLocationOption    = () => {
   const v = newLocationInput.value.trim()
   if (!v || managedLocationOptions.value.includes(v)) return
   customLocationOptions.value.push(v); saveCustomLocations(); newLocationInput.value = ''
@@ -958,10 +935,10 @@ const exportExcel = async () => {
     ws['!freeze'] = {xSplit:0,ySplit:3}
     XLSX.utils.book_append_sheet(wb, ws, sheetName.replace(/[\\/:*?[\]]/g,'_').slice(0,31))
   }
-  const buf  = XLSX.write(wb, {bookType:'xlsx',type:'array'})
+  const buf = XLSX.write(wb, {bookType:'xlsx',type:'array'})
   const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
   a.href = url; a.download = `財產登記_${new Date().toISOString().slice(0,10)}.xlsx`; a.click()
   URL.revokeObjectURL(url)
   showToast('Excel 已匯出')
@@ -986,9 +963,9 @@ const handleImport = async (e) => {
   for (const sheetName of wb.SheetNames) {
     const ws  = wb.Sheets[sheetName]
     const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:''})
-    const headerRowIdx = raw.findIndex(r=>r.includes('財產名稱/型號')); if (headerRowIdx<0) continue
-    const headers = raw[headerRowIdx]
-    for (let i=headerRowIdx+1; i<raw.length; i++) {
+    const hi  = raw.findIndex(r=>r.includes('財產名稱/型號')); if (hi<0) continue
+    const headers = raw[hi]
+    for (let i=hi+1; i<raw.length; i++) {
       const row={}; headers.forEach((h,idx)=>{ if(h) row[h]=raw[i][idx]??'' })
       const name = String(row['財產名稱/型號']??'').trim()
       if (!name||name.includes('填寫')||name.includes('參閱')||name==='財產名稱/型號') continue
@@ -1005,7 +982,9 @@ const handleImport = async (e) => {
   Object.assign(importState, {show:true, done:false, total:rows.length, current:0, success:0, fail:0})
   for (const asset of rows) {
     try {
-      const saved = await (await fetch(`${API_BASE.value}/save`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(asset)})).json()
+      const saved = await (await fetch(`${API_BASE.value}/save`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(asset)
+      })).json()
       assets.value.push(saved); importState.success++
     } catch { importState.fail++ }
     importState.current++
@@ -1015,13 +994,16 @@ const handleImport = async (e) => {
 
 // ── Toast ─────────────────────────────────────────────────────────
 const showToast = (msg) => {
-  toast.message = msg; toast.show = true
+  toast.message = msg;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
 onMounted(async () => {
   if (import.meta.client) {
-    loadCustomLocations(); loadFilters(); loadCols()
+    loadCustomLocations();
+    loadFilters();
+    loadCols()
     document.addEventListener('mousedown', (e) => {
       if (colSettingsRef.value && !colSettingsRef.value.contains(e.target)) showColSettings.value = false
     })
@@ -1032,6 +1014,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>
