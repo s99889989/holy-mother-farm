@@ -160,7 +160,7 @@
             <tr v-for="asset in filtered" :key="asset.id"
                 class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
               <td class="px-3 py-2.5">
-                <img v-if="asset.image" :src="asset.thumbUrl || imgUrl(asset.image)" :alt="asset.name"
+                <img v-if="asset.image" :src="imgUrl(asset.thumbUrl) || imgUrl(asset.image)" :alt="asset.name"
                      loading="lazy"
                      class="w-10 h-10 rounded-lg object-cover border border-stone-200 dark:border-stone-700 cursor-pointer"
                      @click="previewUrl = imgUrl(asset.image)" />
@@ -217,7 +217,7 @@
         <div v-for="asset in filtered" :key="asset.id"
              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
           <div class="flex items-start gap-3 mb-3">
-            <img v-if="asset.image" :src="asset.thumbUrl || imgUrl(asset.image)" :alt="asset.name"
+            <img v-if="asset.image" :src="imgUrl(asset.thumbUrl) || imgUrl(asset.image)" :alt="asset.name"
                  loading="lazy"
                  class="w-14 h-14 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0 cursor-pointer"
                  @click="previewUrl = imgUrl(asset.image)" />
@@ -260,7 +260,7 @@
         <div v-for="asset in filtered" :key="asset.id"
              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
           <div class="flex items-start gap-3 mb-3">
-            <img v-if="asset.image" :src="asset.thumbUrl || imgUrl(asset.image)" :alt="asset.name"
+            <img v-if="asset.image" :src="imgUrl(asset.thumbUrl) || imgUrl(asset.image)" :alt="asset.name"
                  loading="lazy"
                  class="w-16 h-16 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0 cursor-pointer"
                  @click="previewUrl = imgUrl(asset.image)" />
@@ -699,10 +699,17 @@ const modal = reactive({ show: false, isNew: true, simple: true, data: emptyAsse
 const imageInputRef = ref(null)
 const uploadingImage = ref(false)
 
+// ── imgUrl：將相對路徑補上 base URL，空字串直接回傳空字串 ──────────
 const imgUrl = (path) => {
   if (!path) return ''
   if (path.startsWith('http')) return path
   return API_BASE.value.replace('/holy/assets', '') + path
+}
+
+// ── thumbUrl 推算：在檔名前插入 _thumb_ 前綴 ──────────────────────
+const inferThumbUrl = (imageUrl) => {
+  if (!imageUrl) return ''
+  return imageUrl.replace(/\/([^/]+)$/, '/_thumb_$1')
 }
 
 const triggerImageUpload = async () => {
@@ -737,9 +744,15 @@ const handleImageChange = async (e) => {
     const url = await (await fetch(`${API_BASE.value}/image/upload/${modal.data.id}`, {
       method: 'POST', body: formData
     })).json()
-    modal.data.image = url
+    // ── 修正：同步更新 image 與 thumbUrl ──────────────────────────
+    const thumbUrl = inferThumbUrl(url)
+    modal.data.image    = url
+    modal.data.thumbUrl = thumbUrl
     const idx = assets.value.findIndex(a => a.id === modal.data.id)
-    if (idx >= 0) assets.value[idx].image = url
+    if (idx >= 0) {
+      assets.value[idx].image    = url
+      assets.value[idx].thumbUrl = thumbUrl
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -752,9 +765,14 @@ const deleteImage = async () => {
   if (!modal.data.id) return
   try {
     await fetch(`${API_BASE.value}/image/remove/${modal.data.id}`, { method: 'DELETE' })
-    modal.data.image = ''
+    // ── 修正：同步清除 image 與 thumbUrl ──────────────────────────
+    modal.data.image    = ''
+    modal.data.thumbUrl = ''
     const idx = assets.value.findIndex(a => a.id === modal.data.id)
-    if (idx >= 0) assets.value[idx].image = ''
+    if (idx >= 0) {
+      assets.value[idx].image    = ''
+      assets.value[idx].thumbUrl = ''
+    }
   } catch (e) {
     console.error(e)
   }
