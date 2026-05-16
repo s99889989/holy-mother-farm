@@ -747,6 +747,7 @@
     font-weight: 600;
     cursor: pointer;
     transition: opacity 0.15s;
+    text-align: center;
   }
   .bmodal__btn:hover { opacity: 0.88; }
 
