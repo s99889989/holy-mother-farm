@@ -188,11 +188,54 @@
                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
 
-          <!-- ── 執行步驟（新版：支援分支） ── -->
+          <!-- ── 執行步驟（支援表單 / 流程圖雙模式） ── -->
           <div>
-            <div class="flex items-center justify-between mb-2">
+            <!-- Tab 列 -->
+            <div class="flex items-center justify-between mb-3">
               <label class="text-xs font-medium text-stone-600 dark:text-stone-300">執行步驟</label>
-              <div class="flex gap-2">
+              <div class="flex items-center gap-1 p-0.5 rounded-lg bg-stone-100 dark:bg-zinc-800">
+                <button @click="stepsEditMode = 'form'"
+                        :class="[
+                          'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                          stepsEditMode === 'form'
+                            ? 'bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-200 shadow-sm'
+                            : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300'
+                        ]">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
+                  表單
+                </button>
+                <button @click="stepsEditMode = 'flow'"
+                        :class="[
+                          'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                          stepsEditMode === 'flow'
+                            ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm'
+                            : 'text-stone-500 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400'
+                        ]">
+                  <span class="text-amber-400 text-sm leading-none">⬦</span>
+                  流程圖
+                </button>
+              </div>
+            </div>
+
+            <!-- ══ 流程圖編輯模式 ══ -->
+            <div v-if="stepsEditMode === 'flow'"
+                 :class="[
+                   'rounded-xl border overflow-hidden',
+                   isDark ? 'border-zinc-700 bg-zinc-900/50' : 'border-stone-200 bg-stone-50/50'
+                 ]">
+              <div class="px-3 py-2 border-b flex items-center gap-2"
+                   :class="isDark ? 'border-zinc-700 bg-zinc-900' : 'border-stone-100 bg-white'">
+                <span class="text-amber-400 text-xs">⬦</span>
+                <span class="text-xs text-stone-500 dark:text-stone-400">點擊節點直接編輯，點「＋ 步驟 / 分支」新增</span>
+              </div>
+              <div class="p-3">
+                <SopFlowEditor :steps="ruleModal.data.steps" :dark="isDark" />
+              </div>
+            </div>
+
+            <!-- ══ 表單編輯模式 ══ -->
+            <template v-else>
+              <div class="flex justify-end gap-2 mb-2">
                 <button @click="addStep('normal')"
                         class="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5 hover:text-amber-700 transition-colors">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -203,133 +246,126 @@
                   ⬦ 判斷分支
                 </button>
               </div>
-            </div>
 
-            <div class="space-y-3">
-              <div v-if="ruleModal.data.steps.length === 0"
-                   class="text-xs text-stone-400 text-center py-4 border border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
-                點擊右上角按鈕加入步驟
-              </div>
-
-              <!-- 逐個步驟渲染 -->
-              <div v-for="(step, idx) in ruleModal.data.steps" :key="idx"
-                   :class="[
-                     'rounded-xl border overflow-hidden',
-                     step.condition
-                       ? 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/10'
-                       : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800/50'
-                   ]">
-
-                <!-- 步驟 Header -->
-                <div class="flex items-center gap-2 px-3 py-2 border-b border-stone-100 dark:border-stone-700/50">
-                  <!-- 類型徽章 -->
-                  <span v-if="!step.condition"
-                        class="w-5 h-5 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                    {{ getStepNumber(idx) }}
-                  </span>
-                  <span v-else class="text-amber-500 font-bold text-sm leading-none flex-shrink-0">⬦</span>
-                  <span class="text-xs text-stone-500 dark:text-stone-400 flex-1">
-                    {{ step.condition ? '判斷分支' : '一般步驟' }}
-                  </span>
-                  <!-- 上移/下移 -->
-                  <button v-if="idx > 0" @click="moveStep(idx, -1)"
-                          class="text-stone-300 hover:text-stone-500 dark:hover:text-stone-300 p-0.5 transition-colors" title="上移">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
-                  </button>
-                  <button v-if="idx < ruleModal.data.steps.length - 1" @click="moveStep(idx, 1)"
-                          class="text-stone-300 hover:text-stone-500 dark:hover:text-stone-300 p-0.5 transition-colors" title="下移">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                  </button>
-                  <button @click="removeStep(idx)" class="text-stone-300 hover:text-red-400 p-0.5 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
+              <div class="space-y-3">
+                <div v-if="ruleModal.data.steps.length === 0"
+                     class="text-xs text-stone-400 text-center py-4 border border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
+                  點擊右上角按鈕加入步驟
                 </div>
 
-                <!-- 步驟內容 -->
-                <div class="px-3 py-2.5 space-y-2.5">
+                <!-- 逐個步驟渲染 -->
+                <div v-for="(step, idx) in ruleModal.data.steps" :key="idx"
+                     :class="[
+                       'rounded-xl border overflow-hidden',
+                       step.condition
+                         ? 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/10'
+                         : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800/50'
+                     ]">
 
-                  <!-- 一般步驟：只有 text -->
-                  <template v-if="!step.condition && (!step.branches || step.branches.length === 0)">
-                    <input v-model="step.text" :placeholder="`步驟 ${getStepNumber(idx)} 內容`"
-                           class="w-full px-3 py-2 text-sm rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
-                    <button @click="convertToBranch(idx)"
-                            class="text-xs text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1">
-                      <span class="text-amber-400">⬦</span> 轉換成判斷分支
+                  <!-- 步驟 Header -->
+                  <div class="flex items-center gap-2 px-3 py-2 border-b border-stone-100 dark:border-stone-700/50">
+                    <span v-if="!step.condition"
+                          class="w-5 h-5 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      {{ getStepNumber(idx) }}
+                    </span>
+                    <span v-else class="text-amber-500 font-bold text-sm leading-none flex-shrink-0">⬦</span>
+                    <span class="text-xs text-stone-500 dark:text-stone-400 flex-1">
+                      {{ step.condition ? '判斷分支' : '一般步驟' }}
+                    </span>
+                    <button v-if="idx > 0" @click="moveStep(idx, -1)"
+                            class="text-stone-300 hover:text-stone-500 dark:hover:text-stone-300 p-0.5 transition-colors" title="上移">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
                     </button>
-                  </template>
+                    <button v-if="idx < ruleModal.data.steps.length - 1" @click="moveStep(idx, 1)"
+                            class="text-stone-300 hover:text-stone-500 dark:hover:text-stone-300 p-0.5 transition-colors" title="下移">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <button @click="removeStep(idx)" class="text-stone-300 hover:text-red-400 p-0.5 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
 
-                  <!-- 判斷分支步驟 -->
-                  <template v-else>
-                    <!-- 判斷條件說明 -->
-                    <div>
-                      <label class="text-xs text-stone-500 dark:text-stone-400 mb-1 block">判斷條件</label>
-                      <input v-model="step.condition" placeholder="例：數量是否足夠？"
-                             class="w-full px-3 py-2 text-sm rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
-                    </div>
-                    <!-- 補充說明（可選） -->
-                    <div>
-                      <label class="text-xs text-stone-500 dark:text-stone-400 mb-1 block">補充說明（選填）</label>
-                      <input v-model="step.text" placeholder="對這個判斷點的額外說明…"
+                  <!-- 步驟內容 -->
+                  <div class="px-3 py-2.5 space-y-2.5">
+
+                    <!-- 一般步驟：只有 text -->
+                    <template v-if="!step.condition && (!step.branches || step.branches.length === 0)">
+                      <input v-model="step.text" :placeholder="`步驟 ${getStepNumber(idx)} 內容`"
                              class="w-full px-3 py-2 text-sm rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
-                    </div>
-                    <!-- 分支列表 -->
-                    <div>
-                      <div class="flex items-center justify-between mb-2">
-                        <label class="text-xs text-stone-500 dark:text-stone-400">分支選項</label>
-                        <button @click="addBranch(idx)"
-                                class="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 flex items-center gap-0.5 transition-colors">
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                          新增分支
-                        </button>
+                      <button @click="convertToBranch(idx)"
+                              class="text-xs text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1">
+                        <span class="text-amber-400">⬦</span> 轉換成判斷分支
+                      </button>
+                    </template>
+
+                    <!-- 判斷分支步驟 -->
+                    <template v-else>
+                      <div>
+                        <label class="text-xs text-stone-500 dark:text-stone-400 mb-1 block">判斷條件</label>
+                        <input v-model="step.condition" placeholder="例：數量是否足夠？"
+                               class="w-full px-3 py-2 text-sm rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
                       </div>
-                      <div class="space-y-2">
-                        <div v-if="!step.branches || step.branches.length === 0"
-                             class="text-xs text-stone-400 text-center py-2 border border-dashed border-stone-200 dark:border-stone-700 rounded-lg">
-                          點擊「新增分支」加入選項
+                      <div>
+                        <label class="text-xs text-stone-500 dark:text-stone-400 mb-1 block">補充說明（選填）</label>
+                        <input v-model="step.text" placeholder="對這個判斷點的額外說明…"
+                               class="w-full px-3 py-2 text-sm rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                      </div>
+                      <div>
+                        <div class="flex items-center justify-between mb-2">
+                          <label class="text-xs text-stone-500 dark:text-stone-400">分支選項</label>
+                          <button @click="addBranch(idx)"
+                                  class="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 flex items-center gap-0.5 transition-colors">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            新增分支
+                          </button>
                         </div>
-                        <div v-for="(branch, bi) in step.branches" :key="bi"
-                             :class="[
-                               'rounded-lg border p-2.5',
-                               bi === 0 ? 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10' :
-                               bi === 1 ? 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10' :
-                               'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800/50'
-                             ]">
-                          <!-- 分支標籤 -->
-                          <div class="flex items-center gap-2 mb-2">
-                            <span :class="[
-                              'w-4 h-4 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0',
-                              bi === 0 ? 'bg-teal-500' : bi === 1 ? 'bg-red-400' : 'bg-stone-400'
-                            ]">{{ bi + 1 }}</span>
-                            <input v-model="branch.label" placeholder="分支標籤，例：是 / 否 / 數量不足"
-                                   class="flex-1 px-2 py-1 text-xs rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
-                            <button @click="removeBranch(idx, bi)" class="text-stone-300 hover:text-red-400 transition-colors p-0.5">
-                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
+                        <div class="space-y-2">
+                          <div v-if="!step.branches || step.branches.length === 0"
+                               class="text-xs text-stone-400 text-center py-2 border border-dashed border-stone-200 dark:border-stone-700 rounded-lg">
+                            點擊「新增分支」加入選項
                           </div>
-                          <!-- 分支子步驟 -->
-                          <div class="space-y-1.5 pl-2 border-l-2 border-stone-200 dark:border-stone-700">
-                            <div v-for="(subStep, si) in branch.steps" :key="si" class="flex gap-1.5 items-start">
-                              <span class="text-stone-400 text-xs mt-2 flex-shrink-0">{{ si + 1 }}.</span>
-                              <input v-model="branch.steps[si].text" :placeholder="`子步驟 ${si + 1}`"
-                                     class="flex-1 px-2 py-1.5 text-xs rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
-                              <button @click="removeSubStep(idx, bi, si)" class="text-stone-300 hover:text-red-400 transition-colors mt-1.5 p-0.5">
+                          <div v-for="(branch, bi) in step.branches" :key="bi"
+                               :class="[
+                                 'rounded-lg border p-2.5',
+                                 bi === 0 ? 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10' :
+                                 bi === 1 ? 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10' :
+                                 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800/50'
+                               ]">
+                            <div class="flex items-center gap-2 mb-2">
+                              <span :class="[
+                                'w-4 h-4 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0',
+                                bi === 0 ? 'bg-teal-500' : bi === 1 ? 'bg-red-400' : 'bg-stone-400'
+                              ]">{{ bi + 1 }}</span>
+                              <input v-model="branch.label" placeholder="分支標籤，例：是 / 否 / 數量不足"
+                                     class="flex-1 px-2 py-1 text-xs rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                              <button @click="removeBranch(idx, bi)" class="text-stone-300 hover:text-red-400 transition-colors p-0.5">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                               </button>
                             </div>
-                            <button @click="addSubStep(idx, bi)"
-                                    class="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 flex items-center gap-0.5 mt-1 transition-colors">
-                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                              加入子步驟
-                            </button>
+                            <div class="space-y-1.5 pl-2 border-l-2 border-stone-200 dark:border-stone-700">
+                              <div v-for="(subStep, si) in branch.steps" :key="si" class="flex gap-1.5 items-start">
+                                <span class="text-stone-400 text-xs mt-2 flex-shrink-0">{{ si + 1 }}.</span>
+                                <input v-model="branch.steps[si].text" :placeholder="`子步驟 ${si + 1}`"
+                                       class="flex-1 px-2 py-1.5 text-xs rounded-lg border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
+                                <button @click="removeSubStep(idx, bi, si)" class="text-stone-300 hover:text-red-400 transition-colors mt-1.5 p-0.5">
+                                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                              </div>
+                              <button @click="addSubStep(idx, bi)"
+                                      class="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 flex items-center gap-0.5 mt-1 transition-colors">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                加入子步驟
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </template>
+                    </template>
 
+                  </div>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
 
           <!-- 注意事項 -->
@@ -520,8 +556,10 @@ const emptyRule = () => ({
 })
 
 const ruleModal = reactive({ show: false, isNew: true, data: emptyRule() })
+const stepsEditMode = ref('form')  // 'form' | 'flow'
 
 const openRuleModal = (rule) => {
+  stepsEditMode.value = 'form'
   ruleModal.isNew = !rule
   if (rule) {
     // 深拷貝，確保分支陣列也獨立
@@ -657,19 +695,23 @@ const deleteCategory = async (id) => {
     if (!confirm('此分類下有規則，刪除後規則將變成未分類，確定繼續？')) return
   }
   try {
-    await fetch(`${BASE.value}/categories/remove/${id}`, { method: 'DELETE' })
-    rules.value.forEach(r => { if (r.categoryId === id) r.categoryId = '' })
+    await fetch(`${BASE.value}/categories/remove/${id}`, {method: 'DELETE'})
+    rules.value.forEach(r => {
+      if (r.categoryId === id) r.categoryId = ''
+    })
     categories.value = categories.value.filter(c => c.id !== id)
     if (activeCategory.value === id) activeCategory.value = ''
   } catch (e) {
-    console.error(e); showToast('刪除失敗')
+    console.error(e);
+    showToast('刪除失敗')
   }
 }
 
 // ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({ show: false, message: '' })
+const toast = reactive({show: false, message: ''})
 const showToast = (msg) => {
-  toast.message = msg; toast.show = true
+  toast.message = msg;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -677,8 +719,21 @@ onMounted(fetchAll)
 </script>
 
 <style scoped>
-.scrollbar-none::-webkit-scrollbar { display: none; }
-.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>

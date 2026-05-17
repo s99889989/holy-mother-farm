@@ -101,17 +101,76 @@
 
             <!-- 執行步驟 -->
             <div v-if="selectedRule.steps && selectedRule.steps.length > 0" class="mb-6">
-              <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-200 mb-4 flex items-center gap-2">
-                <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold">✓</span>
-                執行步驟
-              </h3>
-              <ol class="space-y-3">
-                <li v-for="(step, idx) in selectedRule.steps" :key="idx" class="flex gap-3">
-                  <span class="w-7 h-7 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{ idx + 1 }}</span>
-                  <div class="flex-1 bg-white dark:bg-zinc-800 rounded-xl px-4 py-3 text-sm text-stone-700 dark:text-stone-200 leading-relaxed shadow-sm border border-stone-100 dark:border-stone-700">
-                    {{ step }}
-                  </div>
-                </li>
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-stone-700 dark:text-stone-200 flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold">✓</span>
+                  執行步驟
+                </h3>
+                <!-- 切換顯示模式（有分支時才顯示） -->
+                <button v-if="hasBranches(selectedRule.steps)"
+                        @click="flowMode = !flowMode"
+                        :class="[
+                          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors',
+                          flowMode
+                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700'
+                            : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-amber-300 dark:hover:border-amber-700'
+                        ]">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 6h16M4 12h10M4 18h6M16 12l4-4m0 0l-4-4m4 4H10"/>
+                  </svg>
+                  {{ flowMode ? '列表模式' : '流程圖' }}
+                </button>
+              </div>
+
+              <!-- 流程圖模式 -->
+              <SopFlowChart v-if="flowMode && hasBranches(selectedRule.steps)"
+                            :steps="selectedRule.steps"
+                            :dark="isDark" />
+
+              <!-- 列表模式（原本） -->
+              <ol v-else class="space-y-3">
+                <template v-for="(step, idx) in selectedRule.steps" :key="idx">
+                  <!-- 一般步驟 -->
+                  <li v-if="!step.condition" class="flex gap-3">
+                    <span class="w-7 h-7 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{ getStepNumber(selectedRule.steps, idx) }}</span>
+                    <div class="flex-1 bg-white dark:bg-zinc-800 rounded-xl px-4 py-3 text-sm text-stone-700 dark:text-stone-200 leading-relaxed shadow-sm border border-stone-100 dark:border-stone-700">
+                      {{ step.text }}
+                    </div>
+                  </li>
+                  <!-- 判斷分支步驟 -->
+                  <li v-else class="flex gap-3">
+                    <span class="w-7 h-7 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-base flex items-center justify-center flex-shrink-0 mt-0.5">⬦</span>
+                    <div class="flex-1">
+                      <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 mb-2">
+                        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">{{ step.condition }}</p>
+                        <p v-if="step.text" class="text-xs text-amber-600 dark:text-amber-500 mt-1">{{ step.text }}</p>
+                      </div>
+                      <div class="space-y-2 pl-3">
+                        <div v-for="(branch, bi) in step.branches" :key="bi"
+                             :class="[
+                               'rounded-xl border px-3 py-2.5',
+                               bi === 0 ? 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10' :
+                               bi === 1 ? 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10' :
+                               'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800/50'
+                             ]">
+                          <p :class="[
+                            'text-xs font-semibold mb-2',
+                            bi === 0 ? 'text-teal-700 dark:text-teal-400' :
+                            bi === 1 ? 'text-red-600 dark:text-red-400' : 'text-stone-600 dark:text-stone-400'
+                          ]">→ {{ branch.label }}</p>
+                          <ol v-if="branch.steps && branch.steps.length > 0" class="space-y-1.5">
+                            <li v-for="(sub, si) in branch.steps" :key="si" class="flex gap-2 text-sm text-stone-600 dark:text-stone-300">
+                              <span class="text-stone-400 flex-shrink-0">{{ si + 1 }}.</span>
+                              <span class="leading-relaxed">{{ sub.text }}</span>
+                            </li>
+                          </ol>
+                          <p v-else class="text-xs text-stone-400 italic">（無子步驟）</p>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                </template>
               </ol>
             </div>
 
@@ -170,16 +229,69 @@
                 </button>
                 <div v-if="expandedIds.includes(rule.id)" class="px-4 pb-4 border-t border-stone-100 dark:border-stone-800">
                   <p v-if="rule.content" class="text-sm text-stone-500 dark:text-stone-400 mt-3 mb-4 leading-relaxed">{{ rule.content }}</p>
-                  <!-- 步驟 -->
+
+                  <!-- 步驟（手機版流程圖切換） -->
                   <div v-if="rule.steps && rule.steps.length > 0" class="mb-4">
-                    <p class="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-2.5">執行步驟</p>
-                    <ol class="space-y-2">
-                      <li v-for="(step, idx) in rule.steps" :key="idx" class="flex gap-2.5">
-                        <span class="w-6 h-6 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{ idx + 1 }}</span>
-                        <p class="text-sm text-stone-700 dark:text-stone-200 leading-relaxed pt-0.5">{{ step }}</p>
-                      </li>
-                    </ol>
+                    <div class="flex items-center justify-between mb-2.5">
+                      <p class="text-xs font-semibold text-stone-500 dark:text-stone-400">執行步驟</p>
+                      <button v-if="hasBranches(rule.steps)"
+                              @click.stop="toggleMobileFlow(rule.id)"
+                              :class="[
+                                'text-xs px-2 py-0.5 rounded-md border transition-colors',
+                                mobileFlowIds.includes(rule.id)
+                                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700'
+                                  : 'text-stone-400 border-stone-200 dark:border-stone-700'
+                              ]">
+                        {{ mobileFlowIds.includes(rule.id) ? '列表' : '流程圖' }}
+                      </button>
+                    </div>
+
+                    <!-- 手機流程圖 -->
+                    <SopFlowChart v-if="mobileFlowIds.includes(rule.id) && hasBranches(rule.steps)"
+                                  :steps="rule.steps"
+                                  :dark="isDark"
+                                  compact />
+
+                    <!-- 手機列表 -->
+                    <template v-else>
+                      <ol class="space-y-2">
+                        <template v-for="(step, idx) in rule.steps" :key="idx">
+                          <li v-if="!step.condition" class="flex gap-2.5">
+                            <span class="w-6 h-6 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{ getStepNumber(rule.steps, idx) }}</span>
+                            <p class="text-sm text-stone-700 dark:text-stone-200 leading-relaxed pt-0.5">{{ step.text }}</p>
+                          </li>
+                          <li v-else class="flex gap-2.5">
+                            <span class="w-6 h-6 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-600 text-sm flex items-center justify-center flex-shrink-0">⬦</span>
+                            <div class="flex-1">
+                              <p class="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1.5">{{ step.condition }}</p>
+                              <div class="space-y-1.5 pl-2">
+                                <div v-for="(branch, bi) in step.branches" :key="bi"
+                                     :class="[
+                                       'rounded-lg border px-2.5 py-2',
+                                       bi === 0 ? 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10' :
+                                       bi === 1 ? 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10' :
+                                       'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800/50'
+                                     ]">
+                                  <p :class="[
+                                    'text-xs font-semibold mb-1',
+                                    bi === 0 ? 'text-teal-700 dark:text-teal-400' :
+                                    bi === 1 ? 'text-red-600 dark:text-red-400' : 'text-stone-600 dark:text-stone-400'
+                                  ]">→ {{ branch.label }}</p>
+                                  <ol v-if="branch.steps && branch.steps.length > 0" class="space-y-1">
+                                    <li v-for="(sub, si) in branch.steps" :key="si" class="flex gap-1.5 text-xs text-stone-600 dark:text-stone-300">
+                                      <span class="text-stone-400 flex-shrink-0">{{ si + 1 }}.</span>
+                                      <span>{{ sub.text }}</span>
+                                    </li>
+                                  </ol>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                        </template>
+                      </ol>
+                    </template>
                   </div>
+
                   <!-- 注意 -->
                   <div v-if="rule.warnings && rule.warnings.length > 0" class="mb-3">
                     <p class="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-2">注意事項</p>
@@ -221,6 +333,8 @@ const loading = ref(false)
 const searchText = ref('')
 const selectedRuleId = ref('')
 const expandedIds = ref([])
+const flowMode = ref(false)       // 桌機：是否顯示流程圖
+const mobileFlowIds = ref([])          // 手機：哪些規則展示流程圖
 
 const fetchAll = async () => {
   loading.value = true
@@ -231,7 +345,6 @@ const fetchAll = async () => {
     ])
     categories.value = cats
     rules.value = rs
-    // 預設選取第一筆
     const first = sortedRules.value[0]
     if (first) selectedRuleId.value = first.id
   } catch (e) {
@@ -257,7 +370,7 @@ const filteredRulesInCategory = (catId) => {
     if (!q) return true
     return r.title.toLowerCase().includes(q) ||
       r.content?.toLowerCase().includes(q) ||
-      r.steps?.some(s => s.toLowerCase().includes(q)) ||
+      r.steps?.some(s => (s.text || s).toString().toLowerCase().includes(q)) ||
       r.warnings?.some(w => w.toLowerCase().includes(q))
   })
 }
@@ -278,15 +391,35 @@ const selectedCat = computed(() =>
   categories.value.find(c => c.id === selectedRule.value?.categoryId) || null
 )
 
+// ── 工具函數 ──────────────────────────────────────────────────────
+// 計算非分支步驟的序號
+const getStepNumber = (steps, targetIdx) => {
+  let n = 0
+  for (let i = 0; i <= targetIdx; i++) {
+    if (!steps[i].condition) n++
+  }
+  return n
+}
+
+// 是否含有分支步驟
+const hasBranches = (steps) => steps?.some(s => s.condition)
+
 // ── 操作 ──────────────────────────────────────────────────────────
 const selectRule = (rule) => {
   selectedRuleId.value = rule.id
+  flowMode.value = false  // 切換規則時回到列表模式
 }
 
 const toggleExpand = (id) => {
   const idx = expandedIds.value.indexOf(id)
   if (idx >= 0) expandedIds.value.splice(idx, 1)
   else expandedIds.value.push(id)
+}
+
+const toggleMobileFlow = (id) => {
+  const idx = mobileFlowIds.value.indexOf(id)
+  if (idx >= 0) mobileFlowIds.value.splice(idx, 1)
+  else mobileFlowIds.value.push(id)
 }
 
 onMounted(fetchAll)
