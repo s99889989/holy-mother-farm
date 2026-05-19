@@ -666,10 +666,11 @@ const EXCLUDE_PREFIXES = ['/front/old', '/staff/old']
 
 const pageList = router.getRoutes()
   .filter(r =>
-    r.path
-    && !r.path.includes(':')
-    && !EXCLUDE_PATHS.includes(r.path)
-    && !EXCLUDE_PREFIXES.some(prefix => r.path.startsWith(prefix))
+    r.path &&
+    r.path !== '' &&           // ← 加這行
+    !r.path.includes(':') &&
+    !EXCLUDE_PATHS.includes(r.path) &&
+    !EXCLUDE_PREFIXES.some(prefix => r.path.startsWith(prefix))
   )
   .map(r => ({
     path: r.path,
