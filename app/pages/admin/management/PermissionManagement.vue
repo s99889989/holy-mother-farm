@@ -610,57 +610,72 @@ const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/permission')
 const CUST_BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 
-// ── 頁面清單（對應你的 Nuxt 路由）──────────────────────────────────
-const pageList = [
-  // 首頁 & 登入
-  { path: '/', label: '首頁' },
-  // Front
-  { path: '/front/about', label: '關於我們' },
-  { path: '/front/access', label: '交通資訊' },
-  { path: '/front/cafe', label: '咖啡廳' },
-  { path: '/front/event', label: '活動' },
-  { path: '/front/menu', label: '菜單' },
-  { path: '/front/news/index', label: '最新消息' },
-  { path: '/front/production', label: '生產資訊' },
-  { path: '/front/public', label: '公開頁面' },
-  { path: '/front/restaurant', label: '餐廳' },
-  // Front 個人
-  { path: '/front/profile/booking', label: '我的訂位' },
-  { path: '/front/profile/log', label: '我的紀錄' },
-  { path: '/front/profile/lunch', label: '我的便當' },
-  { path: '/front/profile/settings', label: '帳號設定' },
-  // Book
-  { path: '/book/CalendarPage', label: '訂位日曆' },
-  { path: '/book/group-accommodation-space', label: '團體住宿' },
-  { path: '/book/herbs-production-area', label: '香草園區' },
-  { path: '/book/trial-courses', label: '體驗課程' },
-  { path: '/book/venue-rental', label: '場地租借' },
-  { path: '/book/AssetRegistry', label: '財產登記' },
-  // Staff
-  { path: '/staff/home', label: '員工首頁' },
-  { path: '/staff/booking', label: '員工訂位' },
-  { path: '/staff/calendar', label: '員工行事曆' },
-  { path: '/staff/cash-count', label: '員工點鈔' },
-  { path: '/staff/quick-links', label: '員工快速連結' },
-  { path: '/staff/work-record', label: '執行記錄' },
-  // Admin
-  { path: '/admin/QuickLinks', label: '快速連結' },
-  { path: '/admin/Todo', label: '待辦事項' },
-  { path: '/admin/items/CashCount', label: '點鈔管理' },
-  { path: '/admin/items/CommonConfig', label: '系統設定' },
-  { path: '/admin/items/InventoryQuantity', label: '庫存數量' },
-  { path: '/admin/items/ShopInventory', label: '商店庫存' },
-  { path: '/admin/management/AssetRegistry', label: '資產登記' },
-  { path: '/admin/management/BookIndex', label: '訂位管理' },
-  { path: '/admin/management/CustomerManagement', label: '客戶管理' },
-  { path: '/admin/management/DailyMenu', label: '每日菜單' },
-  { path: '/admin/management/ImageLibrary', label: '圖庫管理' },
-  { path: '/admin/management/News', label: '最新消息管理' },
-  { path: '/admin/management/Product', label: '商品管理' },
-  { path: '/admin/management/ProductionItem', label: '生產項目' },
-  { path: '/admin/management/PermissionManagement', label: '權限管理' },
-  { path: '/admin/management/admin-calendar', label: '行政行事曆' }
-]
+// ── 頁面清單（自動從 Nuxt 路由產生）────────────────────────────────
+const router = useRouter()
+
+// 路由 path → 中文 label 對照表
+// 新增頁面後只需在這裡補一行，不補也能運作（fallback 顯示 path）
+const PAGE_LABELS = {
+  '/': '首頁',
+  '/front/about': '關於我們',
+  '/front/access': '交通資訊',
+  '/front/cafe': '咖啡廳',
+  '/front/event': '活動',
+  '/front/menu': '菜單',
+  '/front/news/index': '最新消息',
+  '/front/production': '生產資訊',
+  '/front/public': '公開頁面',
+  '/front/restaurant': '餐廳',
+  '/front/profile/booking': '我的訂位',
+  '/front/profile/log': '我的紀錄',
+  '/front/profile/lunch': '我的便當',
+  '/front/profile/settings': '帳號設定',
+  '/book/CalendarPage': '訂位日曆',
+  '/book/group-accommodation-space': '團體住宿',
+  '/book/herbs-production-area': '香草園區',
+  '/book/trial-courses': '體驗課程',
+  '/book/venue-rental': '場地租借',
+  '/book/AssetRegistry': '財產登記',
+  '/staff/home': '員工首頁',
+  '/staff/booking': '員工訂位',
+  '/staff/calendar': '員工行事曆',
+  '/staff/cash-count': '員工點鈔',
+  '/staff/quick-links': '員工快速連結',
+  '/staff/work-record': '執行記錄',
+  '/admin/QuickLinks': '快速連結',
+  '/admin/Todo': '待辦事項',
+  '/admin/items/CashCount': '點鈔管理',
+  '/admin/items/CommonConfig': '系統設定',
+  '/admin/items/InventoryQuantity': '庫存數量',
+  '/admin/items/ShopInventory': '商店庫存',
+  '/admin/management/AssetRegistry': '資產登記',
+  '/admin/management/BookIndex': '訂位管理',
+  '/admin/management/CustomerManagement': '客戶管理',
+  '/admin/management/DailyMenu': '每日菜單',
+  '/admin/management/ImageLibrary': '圖庫管理',
+  '/admin/management/News': '最新消息管理',
+  '/admin/management/Product': '商品管理',
+  '/admin/management/ProductionItem': '生產項目',
+  '/admin/management/PermissionManagement': '權限管理',
+  '/admin/management/admin-calendar': '行政行事曆'
+}
+
+// 排除不需要控管的路由（登入頁、動態路由等）
+const EXCLUDE_PATHS = ['/login', '/404']
+const EXCLUDE_PREFIXES = ['/front/old', '/staff/old']
+
+const pageList = router.getRoutes()
+  .filter(r =>
+    r.path
+    && !r.path.includes(':')
+    && !EXCLUDE_PATHS.includes(r.path)
+    && !EXCLUDE_PREFIXES.some(prefix => r.path.startsWith(prefix))
+  )
+  .map(r => ({
+    path: r.path,
+    label: PAGE_LABELS[r.path] ?? r.path
+  }))
+  .sort((a, b) => a.path.localeCompare(b.path))
 
 // 依區域分組（顯示用）
 const pageSections = computed(() => [
