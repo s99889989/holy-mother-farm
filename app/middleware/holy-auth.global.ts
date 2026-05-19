@@ -2,9 +2,10 @@
 //
 // 權限優先順序：
 //   1. 後台帳密登入（holy_auth）→ 全部頁面直接放行，不受 Google 權限系統控管
-//   2. Google 登入用戶（STAFF/EDITOR/ADMIN）→ 依 role 放行對應區域
-//   3. Google 登入用戶（其他）→ 查 permissionStore（後端 permissions.yml）決定是否可進
-//   4. 未登入 → 只能進 / 和 /login
+//   2. / 和 /login → 永遠放行
+//   3. Google 登入 STAFF/EDITOR/ADMIN → /staff 區域直接放行
+//   4. Google 登入用戶（其他）→ 查 permissionStore（後端 permissions.yml）決定是否可進
+//   5. 未登入訪客 → 查 permissionStore，套預設群組（guest）權限決定是否可進
 
 import { usePermissionStore } from '~/stores/permission'
 
@@ -21,25 +22,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // ── 2. 根路徑 / 登入頁 → 永遠放行 ───────────────────────────────
   if (to.path === '/' || to.path === '/login') return
 
-  // ── 3. Google 登入 + 權限檢查 ────────────────────────────────────
-  const customerStore = useCustomerStore()
+  const customerStore  = useCustomerStore()
   const permissionStore = usePermissionStore()
-  const commonStore = useCommonStore()
+  const commonStore    = useCommonStore()
 
-  // 未 Google 登入 → 回首頁
-  if (!customerStore.isLoggedIn) {
-    return navigateTo('/')
-  }
+  // ── 3. Google 登入 STAFF → /staff 區域直接放行 ───────────────────
+  if (to.path.startsWith('/staff') && customerStore.isLoggedIn && customerStore.isStaff) return
 
-  // ✅ STAFF/EDITOR/ADMIN → 直接放行 /staff 區域，不需查後端
-  if (to.path.startsWith('/staff') && customerStore.isStaff) return
-
-  // 還沒載入過權限 → 先去後端拉
+  // ── 4 & 5. 載入權限（登入用戶帶 customerId，訪客不帶，後端套預設群組）──
   if (!permissionStore.loaded) {
-    await permissionStore.load(
-      customerStore.customer.id,
-      commonStore.data.main_url
-    )
+    const customerId = customerStore.isLoggedIn ? customerStore.customer.id : null
+    await permissionStore.load(customerId, commonStore.data.main_url)
   }
 
   // 沒有此頁面的權限 → 回首頁

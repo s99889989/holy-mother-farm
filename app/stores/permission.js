@@ -1,6 +1,6 @@
 // stores/permission.js
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
 export const usePermissionStore = defineStore('permission', () => {
   // 此用戶可進入的路由清單（後端 /my-pages 回傳）
@@ -8,14 +8,11 @@ export const usePermissionStore = defineStore('permission', () => {
   const loaded       = ref(false)
 
   // ── 載入此用戶的所有可進頁面 ────────────────────────────────────
+  // customerId 為 null 時，後端會套預設群組（guest）的權限
   const load = async (customerId, baseUrl) => {
-    if (!customerId) {
-      allowedPages.value = []
-      loaded.value = true
-      return
-    }
     try {
-      const res  = await fetch(`${baseUrl}/holy/permission/my-pages?customerId=${customerId}`)
+      const query = customerId ? `?customerId=${customerId}` : ''
+      const res  = await fetch(`${baseUrl}/holy/permission/my-pages${query}`)
       const data = await res.json()
       allowedPages.value = Array.isArray(data) ? data : []
     } catch {
