@@ -635,6 +635,7 @@ const pageList = [
   { path: '/book/herbs-production-area', label: '香草園區' },
   { path: '/book/trial-courses', label: '體驗課程' },
   { path: '/book/venue-rental', label: '場地租借' },
+  { path: '/book/AssetRegistry', label: '財產登記' },
   // Staff
   { path: '/staff/home', label: '員工首頁' },
   { path: '/staff/booking', label: '員工訂位' },
