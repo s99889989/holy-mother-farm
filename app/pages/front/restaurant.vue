@@ -1,21 +1,23 @@
 <script setup>
+definePageMeta({ layout: 'front' })
+
 useSiteHead()
 
 onMounted(() => {
   window.onscroll = () => {
     const btn = document.getElementById('myBtn')
     if (btn) {
-      btn.style.display =
-          document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
-              ? 'block'
-              : 'none'
+      btn.style.display
+        = document.body.scrollTop > 20 || document.documentElement.scrollTop > 20
+          ? 'block'
+          : 'none'
     }
   }
 
   // 初始化 Bootstrap carousel
   nextTick(() => {
     if (typeof window !== 'undefined' && window.$) {
-      window.$('#carouselExampleIndicators').carousel({interval: 5000, ride: 'carousel'})
+      window.$('#carouselExampleIndicators').carousel({ interval: 5000, ride: 'carousel' })
     }
   })
 })
@@ -24,52 +26,86 @@ function topFunction() {
   document.body.scrollTop = 0
   document.documentElement.scrollTop = 0
 }
-
 </script>
 
 <template>
   <div class="overflow">
-    <SiteNavbar/>
-
     <!-- Cover -->
     <section>
       <div class="cover-box">
-        <img class="img-fluid d-md-none mob-cover" src="/images/restaurant/mobile-restaurant-cover.png" alt="">
-        <img class="img-fluid d-none d-md-inline-block mob-cover" src="/images/restaurant/restaurant-cover.png" alt="">
-        <img class="cover-title" src="/images/restaurant/restaurant-title.png" alt="">
+        <img
+          class="img-fluid d-md-none mob-cover"
+          src="/images/restaurant/mobile-restaurant-cover.png"
+          alt=""
+        >
+        <img
+          class="img-fluid d-none d-md-inline-block mob-cover"
+          src="/images/restaurant/restaurant-cover.png"
+          alt=""
+        >
+        <img
+          class="cover-title"
+          src="/images/restaurant/restaurant-title.png"
+          alt=""
+        >
       </div>
     </section>
 
     <!-- Content -->
     <div class="container">
-      <div class="container" id="body"></div>
-      <section id="breadcrumb" class="my-1 mx-3 mx-sm-5">
+      <div
+        id="body"
+        class="container"
+      />
+      <section
+        id="breadcrumb"
+        class="my-1 mx-3 mx-sm-5"
+      >
         <NuxtLink to="/front/public">首頁</NuxtLink>
         > 田園餐廳
       </section>
-      <section id="content" class="mx-3 mx-sm-5">
+      <section
+        id="content"
+        class="mx-3 mx-sm-5"
+      >
         <div class="col-12 text-center my-3">
           <div class="row justify-content-center no-gutters">
-            <div class="sub-nav nav text-center align-items-center row justify-content-center" id="nav-tab"
-                 role="tablist">
-              <a class="nav-item nav-link tab-link active" href="#introduce">餐廳簡介</a> |
-              <a class="nav-item nav-link tab-link" href="#info">營業時間</a> |
-              <a class="nav-item nav-link tab-link" href="#menu">用餐方式</a>
+            <div
+              id="nav-tab"
+              class="sub-nav nav text-center align-items-center row justify-content-center"
+              role="tablist"
+            >
+              <a
+                class="nav-item nav-link tab-link active"
+                href="#introduce"
+              >餐廳簡介</a> |
+              <a
+                class="nav-item nav-link tab-link"
+                href="#info"
+              >營業時間</a> |
+              <a
+                class="nav-item nav-link tab-link"
+                href="#menu"
+              >用餐方式</a>
             </div>
           </div>
         </div>
-        <div class="bar-green bar-green-center"></div>
+        <div class="bar-green bar-green-center" />
         <div class="row bg-greenweb py-5 px-sm-2">
           <div class="col-12 px-sm-4">
             <div class="row justify-content-center no-gutters">
               <div class="col-12 rounded bg-lightGreen py-3">
-
                 <!-- 餐廳簡介 -->
                 <div class="row pt-4 justify-content-center no-gutters">
                   <div class="col-10">
-                    <div class="section"></div>
-                    <div class="circle"></div>
-                    <div class="sub-header" id="introduce">無國界創意料理</div>
+                    <div class="section" />
+                    <div class="circle" />
+                    <div
+                      id="introduce"
+                      class="sub-header"
+                    >
+                      無國界創意料理
+                    </div>
                   </div>
                   <div class="col-12 col-lg-10">
                     <div class="row pb-4 justify-content-center">
@@ -79,10 +115,18 @@ function topFunction() {
                     </div>
                     <div class="row no-gutters justify-content-center">
                       <div class="col-10 col-sm-6">
-                        <img src="/images/restaurant/restaurant-introduce-photo1.jpg" class="img-fluid" alt="">
+                        <img
+                          src="/images/restaurant/restaurant-introduce-photo1.jpg"
+                          class="img-fluid"
+                          alt=""
+                        >
                       </div>
                       <div class="col-10 col-sm-6 pt-3 pt-md-0">
-                        <img src="/images/restaurant/restaurant-introduce-photo2.jpg" class="img-fluid" alt="">
+                        <img
+                          src="/images/restaurant/restaurant-introduce-photo2.jpg"
+                          class="img-fluid"
+                          alt=""
+                        >
                       </div>
                     </div>
                     <div class="row py-4 justify-content-center">
@@ -92,10 +136,18 @@ function topFunction() {
                     </div>
                     <div class="row no-gutters justify-content-center">
                       <div class="col-10 col-md-6">
-                        <img src="/images/restaurant/restaurant-introduce-photo3.jpg" class="img-fluid" alt="">
+                        <img
+                          src="/images/restaurant/restaurant-introduce-photo3.jpg"
+                          class="img-fluid"
+                          alt=""
+                        >
                       </div>
                       <div class="col-10 col-md-6 pt-3 pt-md-0">
-                        <img src="/images/restaurant/restaurant-introduce-photo4.jpg" class="img-fluid" alt="">
+                        <img
+                          src="/images/restaurant/restaurant-introduce-photo4.jpg"
+                          class="img-fluid"
+                          alt=""
+                        >
                       </div>
                     </div>
                     <div class="row py-4 justify-content-center">
@@ -109,9 +161,14 @@ function topFunction() {
                 <!-- 營業時間 -->
                 <div class="row pt-4 justify-content-center no-gutters">
                   <div class="col-10">
-                    <div class="section"></div>
-                    <div class="circle"></div>
-                    <div class="sub-header" id="info">營業時間</div>
+                    <div class="section" />
+                    <div class="circle" />
+                    <div
+                      id="info"
+                      class="sub-header"
+                    >
+                      營業時間
+                    </div>
                   </div>
                   <div class="col-12 col-lg-10">
                     <div class="row justify-content-center no-gutters">
@@ -120,15 +177,25 @@ function topFunction() {
                         訂位電話：(089)381382#889 <br>
                         詳細資訊：即時營業資訊可加入田園餐廳LINE官方社群[<a
                           href="https://line.me/ti/g2/OZ50sFtSK0aUnYsHGxX-RVjvit0PZyjVvsh-lg?utm_source=invitation&utm_medium=link_copy&utm_campaign=default"
-                          target="_blank" rel="noopener noreferrer">田園餐廳之友</a>]，也可在此傳送訊息，提供稱呼、時間、人數可以線上快速訂位。
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >田園餐廳之友</a>]，也可在此傳送訊息，提供稱呼、時間、人數可以線上快速訂位。
                       </div>
                     </div>
                     <div class="row no-gutters py-sm-4 justify-content-center">
                       <div class="col-10 col-md-6">
-                        <img src="/images/restaurant/restaurant-info-photo1.jpg" class="img-fluid" alt="">
+                        <img
+                          src="/images/restaurant/restaurant-info-photo1.jpg"
+                          class="img-fluid"
+                          alt=""
+                        >
                       </div>
                       <div class="col-10 col-md-6 py-3 pt-sm-0">
-                        <img src="/images/restaurant/restaurant-info-photo2.jpg" class="img-fluid" alt="">
+                        <img
+                          src="/images/restaurant/restaurant-info-photo2.jpg"
+                          class="img-fluid"
+                          alt=""
+                        >
                       </div>
                     </div>
                   </div>
@@ -137,9 +204,14 @@ function topFunction() {
                 <!-- 用餐方式 -->
                 <div class="row pt-4 justify-content-center no-gutters">
                   <div class="col-10">
-                    <div class="section"></div>
-                    <div class="circle"></div>
-                    <div class="sub-header" id="menu">用餐方式</div>
+                    <div class="section" />
+                    <div class="circle" />
+                    <div
+                      id="menu"
+                      class="sub-header"
+                    >
+                      用餐方式
+                    </div>
                   </div>
                   <div class="col-12 col-lg-10">
                     <div class="row py-4 justify-content-center">
@@ -151,40 +223,84 @@ function topFunction() {
                     </div>
                     <div class="row justify-content-center">
                       <div class="col-10 col-sm-8">
-                        <div id="carouselExampleIndicators" class="carousel slide" data-ride="carousel"
-                             style="box-shadow: 10px 10px 5px #888888;" data-interval="3000">
+                        <div
+                          id="carouselExampleIndicators"
+                          class="carousel slide"
+                          data-ride="carousel"
+                          style="box-shadow: 10px 10px 5px #888888;"
+                          data-interval="3000"
+                        >
                           <ol class="carousel-indicators">
-                            <li data-target="#carouselExampleIndicators" data-slide-to="0" class="active"></li>
-                            <li data-target="#carouselExampleIndicators" data-slide-to="1"></li>
-                            <li data-target="#carouselExampleIndicators" data-slide-to="2"></li>
-                            <li data-target="#carouselExampleIndicators" data-slide-to="3"></li>
+                            <li
+                              data-target="#carouselExampleIndicators"
+                              data-slide-to="0"
+                              class="active"
+                            />
+                            <li
+                              data-target="#carouselExampleIndicators"
+                              data-slide-to="1"
+                            />
+                            <li
+                              data-target="#carouselExampleIndicators"
+                              data-slide-to="2"
+                            />
+                            <li
+                              data-target="#carouselExampleIndicators"
+                              data-slide-to="3"
+                            />
                           </ol>
                           <div class="carousel-inner">
                             <div class="carousel-item active">
-                              <img class="d-block w-100" src="/images/restaurant/restaurant-menu-photo1_n.jpg"
-                                   alt="1 slide">
+                              <img
+                                class="d-block w-100"
+                                src="/images/restaurant/restaurant-menu-photo1_n.jpg"
+                                alt="1 slide"
+                              >
                             </div>
                             <div class="carousel-item">
-                              <img class="d-block w-100" src="/images/restaurant/restaurant-menu-photo2_n.jpg"
-                                   alt="2 slide">
+                              <img
+                                class="d-block w-100"
+                                src="/images/restaurant/restaurant-menu-photo2_n.jpg"
+                                alt="2 slide"
+                              >
                             </div>
                             <div class="carousel-item">
-                              <img class="d-block w-100" src="/images/restaurant/restaurant-menu-photo3_n.jpg"
-                                   alt="3 slide">
+                              <img
+                                class="d-block w-100"
+                                src="/images/restaurant/restaurant-menu-photo3_n.jpg"
+                                alt="3 slide"
+                              >
                             </div>
                             <div class="carousel-item">
-                              <img class="d-block w-100" src="/images/restaurant/restaurant-menu-photo4_n.jpg"
-                                   alt="4 slide">
+                              <img
+                                class="d-block w-100"
+                                src="/images/restaurant/restaurant-menu-photo4_n.jpg"
+                                alt="4 slide"
+                              >
                             </div>
                           </div>
-                          <a class="carousel-control-prev" href="#carouselExampleIndicators" role="button"
-                             data-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                          <a
+                            class="carousel-control-prev"
+                            href="#carouselExampleIndicators"
+                            role="button"
+                            data-slide="prev"
+                          >
+                            <span
+                              class="carousel-control-prev-icon"
+                              aria-hidden="true"
+                            />
                             <span class="sr-only">Previous</span>
                           </a>
-                          <a class="carousel-control-next" href="#carouselExampleIndicators" role="button"
-                             data-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                          <a
+                            class="carousel-control-next"
+                            href="#carouselExampleIndicators"
+                            role="button"
+                            data-slide="next"
+                          >
+                            <span
+                              class="carousel-control-next-icon"
+                              aria-hidden="true"
+                            />
                             <span class="sr-only">Next</span>
                           </a>
                         </div>
@@ -197,12 +313,11 @@ function topFunction() {
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
         </div>
-        <div class="bar-green bar-green-center2"></div>
+        <div class="bar-green bar-green-center2" />
       </section>
     </div>
 
@@ -215,17 +330,7 @@ function topFunction() {
     </div>
 
     <div class="container">
-      <div class="bar-waterDrop mt-5 mx-lg-5"></div>
+      <div class="bar-waterDrop mt-5 mx-lg-5" />
     </div>
-
-    <SiteFooter/>
-
-    <button @click="topFunction" id="myBtn" title="Go to top" class="d-lg-none">
-      <i class="fas fa-chevron-up"></i>
-    </button>
   </div>
 </template>
-
-<style lang="scss">
-@use '~/assets/scss/all' as *;
-</style>

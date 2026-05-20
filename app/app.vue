@@ -28,10 +28,20 @@ useSeoMeta({
 
 const permissionStore = usePermissionStore()
 permissionStore.clear()
+
+const router = useRouter()
+router.beforeEach((to, from) => {
+  const fromStaff = from.path.startsWith('/staff')
+  const toFront = !to.path.startsWith('/staff')
+  if (fromStaff && toFront) {
+    window.location.href = to.fullPath
+    return false
+  }
+})
 </script>
 
 <template>
   <NuxtLayout>
-    <NuxtPage />
+    <NuxtPage/>
   </NuxtLayout>
 </template>

@@ -1,4 +1,6 @@
 <script setup>
+definePageMeta({ layout: 'front' })
+
 useSiteHead()
 
 // HTML 標籤轉純文字
@@ -57,8 +59,6 @@ function topFunction() {
 
 <template>
   <div class="overflow">
-    <SiteNavbar />
-
     <!-- Cover -->
     <section>
       <div class="cover-box">
@@ -162,15 +162,5 @@ function topFunction() {
     <div class="container">
       <div class="bar-waterDrop mt-5 mx-lg-5"></div>
     </div>
-
-    <SiteFooter />
-
-    <button @click="topFunction" id="myBtn" title="Go to top" class="d-lg-none">
-      <i class="fas fa-chevron-up"></i>
-    </button>
   </div>
 </template>
-
-<style lang="scss">
-@use '~/assets/scss/all' as *;
-</style>

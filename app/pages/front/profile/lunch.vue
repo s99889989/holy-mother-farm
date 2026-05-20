@@ -3,6 +3,8 @@ import {ref, reactive, computed, watch} from 'vue'
 import {useCommonStore} from '~/stores/common.js'
 import {useCustomerStore} from '~/stores/customer.js'
 
+definePageMeta({ layout: 'front' })
+
 useSiteHead()
 
 function topFunction() {
@@ -209,8 +211,6 @@ onMounted(() => {
 
 <template>
   <div class="overflow">
-    <SiteNavbar/>
-
     <!-- Cover -->
     <section>
       <div class="cover-box">
@@ -401,12 +401,6 @@ onMounted(() => {
       <div class="bar-waterDrop mt-5 mx-lg-5"></div>
     </div>
 
-    <SiteFooter/>
-
-    <button @click="topFunction" id="myBtn" title="Go to top" class="d-lg-none">
-      <i class="fas fa-chevron-up"></i>
-    </button>
-
     <!-- 預訂成功 Modal -->
     <Teleport to="body">
       <Transition name="lmodal">
@@ -427,10 +421,6 @@ onMounted(() => {
 
   </div>
 </template>
-
-<style lang="scss">
-@use '~/assets/scss/all' as *;
-</style>
 
 <style scoped>
 /* ── 步驟列 ── */

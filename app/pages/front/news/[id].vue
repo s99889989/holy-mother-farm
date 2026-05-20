@@ -1,5 +1,6 @@
 <script setup>
 definePageMeta({
+  layout: 'front',
   scrollToTop: false
 })
 
@@ -79,8 +80,6 @@ watch(() => route.params.id, () => {
 
 <template>
   <div class="overflow">
-    <SiteNavbar />
-
     <!-- Cover -->
     <section>
       <div class="cover-box">
@@ -161,15 +160,5 @@ watch(() => route.params.id, () => {
     <div class="container">
       <div class="bar-waterDrop mt-5 mx-lg-5"></div>
     </div>
-
-    <SiteFooter />
-
-    <button @click="topFunction" id="myBtn" title="Go to top" class="d-lg-none">
-      <i class="fas fa-chevron-up"></i>
-    </button>
   </div>
 </template>
-
-<style lang="scss">
-@use '~/assets/scss/all' as *;
-</style>

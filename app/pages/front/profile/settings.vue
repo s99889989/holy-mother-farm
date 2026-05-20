@@ -3,6 +3,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useCommonStore } from '~/stores/common.js'
 import { useCustomerStore } from '~/stores/customer.js'
 
+definePageMeta({ layout: 'front' })
+
 useSiteHead()
 
 function topFunction() {
@@ -120,7 +122,6 @@ const saveProfile = async () => {
 
 <template>
   <div class="overflow">
-    <SiteNavbar/>
 
     <!-- Cover -->
     <section>
@@ -233,10 +234,6 @@ const saveProfile = async () => {
     </button>
   </div>
 </template>
-
-<style lang="scss">
-@use '~/assets/scss/all' as *;
-</style>
 
 <style scoped>
 /* ── 標題 ── */

@@ -4,6 +4,8 @@ import {useCommonStore} from '~/stores/common.js'
 import {useCustomerStore} from '~/stores/customer.js'
 import GoogleLoginButton from '~/components/GoogleLoginButton.vue'
 
+definePageMeta({ layout: 'front' })
+
 useSiteHead()
 
 onMounted(() => {
@@ -156,7 +158,6 @@ watch(customer, async (c) => {
 
 <template>
   <div class="overflow">
-    <SiteNavbar/>
 
     <!-- Cover -->
     <section>
@@ -299,12 +300,6 @@ watch(customer, async (c) => {
       <div class="bar-waterDrop mt-5 mx-lg-5"></div>
     </div>
 
-    <SiteFooter/>
-
-    <button @click="topFunction" id="myBtn" title="Go to top" class="d-lg-none">
-      <i class="fas fa-chevron-up"></i>
-    </button>
-
     <!-- 申請取消確認 Modal -->
     <Teleport to="body">
       <Transition name="cmodal">
@@ -337,10 +332,6 @@ watch(customer, async (c) => {
 
   </div>
 </template>
-
-<style lang="scss">
-@use '~/assets/scss/all' as *;
-</style>
 
 <style scoped>
 /* ── 未登入 ── */
