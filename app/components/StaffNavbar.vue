@@ -392,7 +392,7 @@ const navGroups = [
     label: '🧾️ 庫存・財務',
     items: [
       {to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count'},
-      {to: '/staff/inventory', icon: '📦', label: '庫存管理', key: 'staff.inventory'},
+      // {to: '/staff/inventory', icon: '📦', label: '庫存管理', key: 'staff.inventory'},
     ]
   },
   {

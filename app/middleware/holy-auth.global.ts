@@ -77,21 +77,21 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const commonStore = useCommonStore()
 
   if (!permissionStore.loaded) {
-    const customerId = customerStore.isLoggedIn ? customerStore.customer.id : null
+    const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
     await permissionStore.load(customerId, commonStore.data.main_url)
   } else {
     // 已有快取 → 背景靜默更新，不擋頁面
-    const customerId = customerStore.isLoggedIn ? customerStore.customer.id : null
+    const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
     permissionStore.load(customerId, commonStore.data.main_url, true) // 不 await
   }
 
   // ── 5. 檢查權限 ───────────────────────────────────────────────────
-  if (!permissionStore.can(requiredKey)) {
-    // 需要登入才有的權限 → 導到登入頁
-    if (!customerStore.isLoggedIn
-      && (requiredKey.startsWith('profile.') || requiredKey.startsWith('staff.'))) {
-      return navigateTo('/login')
-    }
-    return navigateTo('/')
-  }
+  // if (!permissionStore.can(requiredKey)) {
+  //   // 需要登入才有的權限 → 導到登入頁
+  //   if (!customerStore.isLoggedIn
+  //     && (requiredKey.startsWith('profile.') || requiredKey.startsWith('staff.'))) {
+  //     return navigateTo('/login')
+  //   }
+  //   return navigateTo('/login')
+  // }
 })

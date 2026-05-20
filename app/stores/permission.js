@@ -10,17 +10,16 @@ export const usePermissionStore = defineStore('permission', () => {
   // ── 載入權限 ──────────────────────────────────────────────────────
   // silent=true 時：背景刷新，不重置 loaded（頁面不會閃爍）
   const load = async (customerId, baseUrl, silent = false) => {
-    // 已載入且同一人且非強制 → 跳過
-    if (loaded.value && loadedId.value === (customerId ?? null) && !silent) return
+    const id = customerId != null ? String(customerId) : null  // ← 統一 string
+    if (loaded.value && loadedId.value === id && !silent) return
 
     try {
       const query = customerId ? `?customerId=${customerId}` : ''
       const res   = await fetch(`${baseUrl}/holy/permission/my-perms${query}`)
       const data  = await res.json()
       perms.value    = (data && typeof data === 'object') ? data : {}
-      loadedId.value = customerId ?? null
+      loadedId.value = id  // ← 統一 string
     } catch {
-      // silent 刷新失敗就保留舊值，不清空
       if (!silent) perms.value = {}
     } finally {
       loaded.value = true
