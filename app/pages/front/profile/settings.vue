@@ -137,8 +137,7 @@ const saveProfile = async () => {
       <div class="container" id="body"></div>
       <section id="breadcrumb" class="my-1 mx-3 mx-sm-5">
         <NuxtLink to="/front/public">首頁</NuxtLink>
-        > 田園餐廳 >
-        <NuxtLink to="/front/profile/log">我的紀錄</NuxtLink>
+        > <NuxtLink to="/front/restaurant">田園餐廳</NuxtLink>
         > 帳號設定
       </section>
       <section id="content" class="mx-3 mx-sm-5">

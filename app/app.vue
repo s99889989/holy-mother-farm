@@ -33,7 +33,10 @@ const router = useRouter()
 router.beforeEach((to, from) => {
   const fromStaff = from.path.startsWith('/staff')
   const toFront = !to.path.startsWith('/staff')
-  if (fromStaff && toFront) {
+  const fromFront = !from.path.startsWith('/staff')
+  const toStaff = to.path.startsWith('/staff')
+
+  if ((fromStaff && toFront) || (fromFront && toStaff)) {
     window.location.href = to.fullPath
     return false
   }

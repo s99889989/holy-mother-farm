@@ -1,8 +1,8 @@
 <template>
-  <SiteNavbar />
+  <FrontNavbar />
   <div class="overflow">
     <slot />
-    <SiteFooter />
+    <<FrontFooter />
     <button @click="topFunction" id="myBtn" title="Go to top" class="d-lg-none">
       <i class="fas fa-chevron-up"></i>
     </button>
