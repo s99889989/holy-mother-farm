@@ -149,7 +149,6 @@ const allNavItems = [
   { to: '/staff/cash-count',  icon: '💵', label: '點鈔記錄',  key: 'staff.cash-count'  },
   { to: '/staff/booking',     icon: '🪑', label: '訂位管理',  key: 'staff.booking'     },
   { to: '/staff/calendar',    icon: '📅', label: '行事曆',    key: 'staff.calendar'    },
-  { to: '/staff/work-record', icon: '📋', label: '執行記錄',  key: 'staff.work-record' },
   { to: '/staff/menu',        icon: '🍽️', label: '每日菜單',  key: 'staff.menu'        },
   { to: '/staff/news',        icon: '📰', label: '消息管理',  key: 'staff.news'        },
   { to: '/staff/product',     icon: '🛍️', label: '商品管理',  key: 'staff.product'     },

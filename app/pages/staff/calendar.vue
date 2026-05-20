@@ -1,6 +1,5 @@
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors">
-    <StaffNavbar />
 
     <!-- ── Header ── -->
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">

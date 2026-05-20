@@ -71,9 +71,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const permissionStore = usePermissionStore()
   const commonStore     = useCommonStore()
 
+  // middleware 的 ── 4. 載入權限 部分改成：
   if (!permissionStore.loaded) {
     const customerId = customerStore.isLoggedIn ? customerStore.customer.id : null
     await permissionStore.load(customerId, commonStore.data.main_url)
+  } else {
+    // 已有快取 → 背景靜默更新，不擋頁面
+    const customerId = customerStore.isLoggedIn ? customerStore.customer.id : null
+    permissionStore.load(customerId, commonStore.data.main_url, true)  // 不 await
   }
 
   // ── 5. 檢查權限 ───────────────────────────────────────────────────
