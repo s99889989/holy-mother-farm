@@ -25,13 +25,10 @@
           <option value="active">正常</option>
           <option value="blocked">已封鎖</option>
         </select>
-        <select v-model="filterRole"
+        <select v-model="filterGroup"
                 class="px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-blue-400">
-          <option value="">全部權限</option>
-          <option value="CUSTOMER">一般客戶</option>
-          <option value="STAFF">員工</option>
-          <option value="EDITOR">編輯</option>
-          <option value="ADMIN">管理員</option>
+          <option value="">全部群組</option>
+          <option v-for="g in permGroups" :key="g.id" :value="g.id">{{ g.label }}</option>
         </select>
       </div>
     </header>
@@ -57,7 +54,7 @@
             <th class="px-3 py-3 text-left">客戶</th>
             <th class="px-3 py-3 text-left">Email</th>
             <th class="px-3 py-3 text-left">電話</th>
-            <th class="px-3 py-3 text-center">權限</th>
+            <th class="px-3 py-3 text-center">權限群組</th>
             <th class="px-3 py-3 text-center">訂位</th>
             <th class="px-3 py-3 text-center">便當</th>
             <th class="px-3 py-3 text-left">建立時間</th>
@@ -82,10 +79,10 @@
             </td>
             <td class="px-3 py-2.5 text-stone-500 dark:text-stone-400">{{ c.email }}</td>
             <td class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ c.mobile || c.landline || '—' }}</td>
-            <!-- 權限 -->
+            <!-- 權限群組 -->
             <td class="px-3 py-2.5 text-center">
-              <span :class="roleBadgeClass(c.role)" class="px-2 py-0.5 rounded-full text-xs font-medium">
-                {{ roleLabel(c.role) }}
+              <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                {{ groupLabel(userPermMap[c.id]?.group) }}
               </span>
             </td>
             <td class="px-3 py-2.5 text-center">
@@ -111,8 +108,8 @@
               <div class="flex items-center gap-1 justify-center">
                 <button @click="openEdit(c)"
                         class="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">編輯</button>
-                <button @click="openRoleModal(c)"
-                        class="px-2 py-1 text-xs border border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">權限</button>
+                <button @click="openPermModal(c)"
+                        class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors">權限</button>
                 <button @click="toggleBlock(c)"
                         :class="c.status === 'blocked'
                           ? 'border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
@@ -144,8 +141,8 @@
               <div class="flex items-center justify-between gap-2 flex-wrap">
                 <p class="font-semibold text-stone-800 dark:text-stone-100 truncate">{{ c.name }}</p>
                 <div class="flex gap-1.5">
-                  <span :class="roleBadgeClass(c.role)" class="px-2 py-0.5 rounded-full text-xs font-medium">
-                    {{ roleLabel(c.role) }}
+                  <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                    {{ groupLabel(userPermMap[c.id]?.group) }}
                   </span>
                   <span :class="c.status === 'blocked'
                     ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
@@ -168,8 +165,8 @@
           <div class="flex gap-2">
             <button @click="openEdit(c)"
                     class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 transition-colors">編輯</button>
-            <button @click="openRoleModal(c)"
-                    class="flex-1 py-1.5 text-xs border border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-50 transition-colors">權限</button>
+            <button @click="openPermModal(c)"
+                    class="flex-1 py-1.5 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-xl hover:bg-violet-50 transition-colors">權限</button>
             <button @click="toggleBlock(c)"
                     :class="c.status === 'blocked'
                       ? 'border-green-300 text-green-600 hover:bg-green-50'
@@ -252,52 +249,81 @@
       </div>
     </div>
 
-    <!-- ══ 權限 Modal ══ -->
-    <div v-if="roleModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
+    <!-- ══ 用戶權限 Modal ══ -->
+    <div v-if="permModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto">
+      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-2xl p-6 my-auto">
+        <!-- 用戶資訊 -->
         <div class="flex items-center gap-3 mb-5">
-          <img v-if="roleModal.customer?.picture" :src="roleModal.customer.picture"
+          <img v-if="permModal.customer?.picture" :src="permModal.customer.picture"
                class="w-10 h-10 rounded-full object-cover border border-stone-200 flex-shrink-0"/>
-          <div v-else class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 font-bold flex-shrink-0">
-            {{ roleModal.customer?.name?.charAt(0) || '?' }}
+          <div v-else class="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 font-bold flex-shrink-0">
+            {{ permModal.customer?.name?.charAt(0) || '?' }}
           </div>
           <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-stone-800 dark:text-stone-100 truncate">{{ roleModal.customer?.name }}</h3>
-            <p class="text-xs text-stone-400 truncate">{{ roleModal.customer?.email }}</p>
+            <h3 class="font-bold text-stone-800 dark:text-stone-100 truncate">{{ permModal.customer?.name }}</h3>
+            <p class="text-xs text-stone-400 truncate">{{ permModal.customer?.email }}</p>
           </div>
-          <button @click="roleModal.open = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <button @click="permModal.open = false" class="text-stone-400 hover:text-stone-600 p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
         </div>
 
-        <p class="text-xs text-stone-500 dark:text-stone-400 mb-3">選擇此帳號的系統權限：</p>
-
-        <!-- 權限選項 -->
-        <div class="space-y-2 mb-5">
-          <label v-for="opt in roleOptions" :key="opt.value"
-                 class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
-                 :class="roleModal.selected === opt.value
-                   ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-600'
-                   : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-zinc-800'">
-            <input type="radio" :value="opt.value" v-model="roleModal.selected" class="mt-0.5 accent-purple-600"/>
-            <div>
-              <p class="text-sm font-semibold text-stone-800 dark:text-stone-100">{{ opt.label }}</p>
-              <p class="text-xs text-stone-400 mt-0.5">{{ opt.desc }}</p>
-            </div>
-          </label>
+        <!-- 選擇群組 -->
+        <div class="mb-5">
+          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">所屬群組</label>
+          <select v-model="permModal.group"
+                  class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400">
+            <option v-for="g in permGroups" :key="g.id" :value="g.id">{{ g.label }}（{{ g.id }}）</option>
+          </select>
+          <p class="text-xs text-stone-400 mt-1">群組為基礎，個人覆蓋優先於群組設定</p>
         </div>
 
-        <div class="flex gap-2">
-          <button @click="roleModal.open = false"
-                  class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
-            取消
-          </button>
-          <button @click="saveRole" :disabled="saving"
-                  class="flex-1 py-2.5 text-sm bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
+        <!-- 個人覆蓋 -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300">個人覆蓋設定</label>
+            <button class="text-xs text-stone-400 hover:text-red-500 hover:underline transition-colors"
+                    @click="permModal.overrides = {}">清除所有覆蓋</button>
+          </div>
+
+          <div v-for="section in permSections" :key="section.prefix" class="mb-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">{{ section.label }}</span>
+              <div class="flex-1 h-px bg-stone-100 dark:bg-stone-700" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              <div v-for="key in section.keys" :key="key"
+                   class="flex items-center gap-2 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700">
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-medium text-stone-700 dark:text-stone-200">{{ KEY_LABELS[key] ?? key }}</p>
+                  <p class="text-xs text-stone-400 mt-0.5">
+                    群組預設：
+                    <span :class="groupDefaultForKey(key) ? 'text-green-600' : 'text-red-500'">
+                      {{ groupDefaultForKey(key) ? '開啟' : '關閉' }}
+                    </span>
+                  </p>
+                </div>
+                <select :value="permModal.overrides[key] ?? 'inherit'"
+                        class="text-xs px-2 py-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-1 focus:ring-violet-400"
+                        @change="permModal.overrides[key] = $event.target.value">
+                  <option value="inherit">繼承群組</option>
+                  <option value="allow">覆蓋：開啟</option>
+                  <option value="deny">覆蓋：關閉</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-2 pt-3 border-t border-stone-100 dark:border-stone-700 mt-4">
+          <button @click="permModal.open = false"
+                  class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">取消</button>
+          <button @click="savePerm" :disabled="saving"
+                  class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
             <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-            {{ saving ? '儲存中…' : '確認更新' }}
+            {{ saving ? '儲存中…' : '儲存' }}
           </button>
         </div>
       </div>
@@ -343,6 +369,7 @@ definePageMeta({ layout: 'admin' })
 const commonStore = useCommonStore()
 const BASE        = computed(() => commonStore.data.main_url + '/holy/customer')
 const ADMIN_BASE  = computed(() => commonStore.data.main_url + '/holy/admin/customers')
+const PERM_BASE   = computed(() => commonStore.data.main_url + '/holy/permission')
 
 // ── 狀態 ──────────────────────────────────────────────────────────
 const customers    = ref([])
@@ -350,37 +377,66 @@ const loading      = ref(true)
 const saving       = ref(false)
 const searchText   = ref('')
 const filterStatus = ref('')
-const filterRole   = ref('')
+const filterGroup  = ref('')
 const deleteTarget = ref(null)
 const editError    = ref('')
 const toast        = reactive({ show: false, message: '' })
 
+// ── 權限相關狀態 ──────────────────────────────────────────────────
+const permGroups   = ref([])   // 所有群組（從 permission API 取得）
+const defaultGroup = ref('guest')
+const userPermMap  = ref({})   // { customerId: { group, permissions } }
+
 const editModal = reactive({ open: false, customer: null })
 const editForm  = reactive({ name: '', mobile: '', landline: '', address: '', birthday: '', note: '' })
 
-const roleModal = reactive({ open: false, customer: null, selected: 'CUSTOMER' })
+const permModal = reactive({
+  open: false,
+  customer: null,
+  group: 'guest',
+  overrides: {}  // { key: 'inherit' | 'allow' | 'deny' }
+})
 
-// ── 權限設定 ──────────────────────────────────────────────────────
-const roleOptions = [
-  { value: 'CUSTOMER', label: '一般客戶', desc: '只能使用前台訂位、訂便當等功能' },
-  { value: 'STAFF',    label: '員工',     desc: '可進入員工區查看資料，無法編輯' },
-  { value: 'EDITOR',   label: '編輯',     desc: '可新增及編輯內容（菜單、活動等）' },
-  { value: 'ADMIN',    label: '管理員',   desc: '最高權限，可管理所有人的帳號與權限' },
+// ── Permission Key 中文對照 ──────────────────────────────────────
+const KEY_LABELS = {
+  'front.view':                 '前台瀏覽',
+  'profile.view':               '個人頁面',
+  'staff.cash-count':           '點鈔紀錄（查看）',
+  'staff.cash-count.edit':      '點鈔紀錄（編輯）',
+  'staff.inventory':            '庫存管理（查看）',
+  'staff.inventory.edit':       '庫存管理（編輯）',
+  'staff.booking':              '訂位管理（查看）',
+  'staff.booking.edit':         '訂位管理（編輯）',
+  'staff.menu':                 '每日菜單（查看）',
+  'staff.menu.edit':            '每日菜單（編輯）',
+  'staff.calendar':             '行事曆（查看）',
+  'staff.calendar.edit':        '行事曆（編輯）',
+  'staff.asset':                '財產登記（查看）',
+  'staff.asset.edit':           '財產登記（編輯）',
+  'staff.files':                '檔案管理（查看）',
+  'staff.files.edit':           '檔案管理（編輯）',
+  'staff.news':                 '消息管理（查看）',
+  'staff.news.edit':            '消息管理（編輯）',
+  'staff.product':              '商品管理（查看）',
+  'staff.product.edit':         '商品管理（編輯）',
+  'staff.production':           '產品訂購管理（查看）',
+  'staff.production.edit':      '產品訂購管理（編輯）',
+  'staff.home':                 '員工首頁（查看）',
+  'staff.home.edit':            '員工首頁（編輯）',
+  'staff.quick-links':          '常用網址（查看）',
+  'staff.quick-links.edit':     '常用網址（編輯）',
+  'staff.customer':             '客戶管理（查看）',
+  'staff.customer.edit':        '客戶管理（編輯）',
+}
+
+const permSections = [
+  { prefix: 'front',     label: '前台',      keys: ['front.view', 'profile.view'] },
+  { prefix: 'inventory', label: '庫存・財務', keys: ['staff.cash-count', 'staff.cash-count.edit', 'staff.inventory', 'staff.inventory.edit'] },
+  { prefix: 'ops',       label: '營運管理',  keys: ['staff.booking', 'staff.booking.edit', 'staff.menu', 'staff.menu.edit', 'staff.calendar', 'staff.calendar.edit', 'staff.asset', 'staff.asset.edit', 'staff.files', 'staff.files.edit'] },
+  { prefix: 'content',   label: '前台內容',  keys: ['staff.news', 'staff.news.edit', 'staff.product', 'staff.product.edit', 'staff.production', 'staff.production.edit'] },
+  { prefix: 'tools',     label: '工具・系統', keys: ['staff.home', 'staff.home.edit', 'staff.quick-links', 'staff.quick-links.edit'] },
+  { prefix: 'misc',      label: '其他',      keys: ['staff.customer', 'staff.customer.edit'] },
 ]
-
-const roleLabel = (role) => {
-  return roleOptions.find(o => o.value === role)?.label ?? role ?? 'CUSTOMER'
-}
-
-const roleBadgeClass = (role) => {
-  const map = {
-    CUSTOMER: 'bg-stone-100 text-stone-600 dark:bg-stone-700 dark:text-stone-300',
-    STAFF:    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    EDITOR:   'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-    ADMIN:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  }
-  return map[role] ?? map.CUSTOMER
-}
 
 // ── 計算屬性 ──────────────────────────────────────────────────────
 const filtered = computed(() => {
@@ -388,8 +444,8 @@ const filtered = computed(() => {
   return customers.value.filter(c => {
     const matchSearch = !q || [c.name, c.email, c.mobile, c.landline, c.address].some(v => v?.toLowerCase().includes(q))
     const matchStatus = !filterStatus.value || c.status === filterStatus.value
-    const matchRole   = !filterRole.value || c.role === filterRole.value
-    return matchSearch && matchStatus && matchRole
+    const matchGroup  = !filterGroup.value  || userPermMap.value[c.id]?.group === filterGroup.value
+    return matchSearch && matchStatus && matchGroup
   })
 })
 
@@ -398,6 +454,14 @@ const showToast = (msg) => {
   toast.message = msg
   toast.show = true
   setTimeout(() => toast.show = false, 2500)
+}
+
+const groupLabel = (groupId) =>
+  permGroups.value.find(g => g.id === groupId)?.label ?? groupId ?? '—'
+
+const groupDefaultForKey = (key) => {
+  const g = permGroups.value.find(g => g.id === permModal.group)
+  return g?.permissions?.[key] ?? false
 }
 
 // ── 開啟編輯 ──────────────────────────────────────────────────────
@@ -415,11 +479,19 @@ const openEdit = (c) => {
   })
 }
 
-// ── 開啟權限 Modal ─────────────────────────────────────────────────
-const openRoleModal = (c) => {
-  roleModal.customer = c
-  roleModal.selected = c.role || 'CUSTOMER'
-  roleModal.open = true
+// ── 開啟用戶權限 Modal ────────────────────────────────────────────
+const openPermModal = (c) => {
+  const perm = userPermMap.value[c.id]
+  permModal.customer = c
+  permModal.group = perm?.group ?? defaultGroup.value
+  const overrides = {}
+  if (perm?.permissions) {
+    Object.entries(perm.permissions).forEach(([key, allow]) => {
+      overrides[key] = allow ? 'allow' : 'deny'
+    })
+  }
+  permModal.overrides = overrides
+  permModal.open = true
 }
 
 // ── API：取得客戶清單 ──────────────────────────────────────────────
@@ -433,6 +505,29 @@ const fetchCustomers = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// ── API：取得權限群組 + 所有用戶權限 ─────────────────────────────
+const fetchPermData = async () => {
+  try {
+    const [gRes, dRes] = await Promise.all([
+      fetch(PERM_BASE.value + '/groups'),
+      fetch(PERM_BASE.value + '/default-group'),
+    ])
+    permGroups.value   = await gRes.json()
+    defaultGroup.value = (await dRes.json()).defaultGroup ?? 'guest'
+  } catch (e) { console.error(e) }
+}
+
+const fetchUserPerms = async () => {
+  try {
+    const perms = await Promise.all(
+      customers.value.map(c =>
+        fetch(`${PERM_BASE.value}/user/${c.id}`).then(r => r.json())
+      )
+    )
+    perms.forEach(p => { if (p.customerId) userPermMap.value[p.customerId] = p })
+  } catch (e) { console.error(e) }
 }
 
 // ── API：儲存編輯 ──────────────────────────────────────────────────
@@ -460,26 +555,42 @@ const saveEdit = async () => {
   }
 }
 
-// ── API：更新 role ─────────────────────────────────────────────────
-const saveRole = async () => {
+// ── API：儲存用戶權限 ─────────────────────────────────────────────
+const savePerm = async () => {
   saving.value = true
+  const customerId = permModal.customer.id
   try {
-    const res = await fetch(`${BASE.value}/${roleModal.customer.id}/role`, {
+    // 1. 儲存群組
+    await fetch(`${PERM_BASE.value}/user/${customerId}/group`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: roleModal.selected })
+      body: JSON.stringify({ group: permModal.group })
     })
-    const data = await res.json()
-    if (data.success) {
-      roleModal.customer.role = roleModal.selected
-      roleModal.open = false
-      showToast(`權限已更新為「${roleLabel(roleModal.selected)}」`)
+
+    // 2. 儲存個人覆蓋
+    for (const [key, val] of Object.entries(permModal.overrides)) {
+      if (val === 'inherit') {
+        await fetch(`${PERM_BASE.value}/user/${customerId}/perm`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key })
+        })
+      } else {
+        await fetch(`${PERM_BASE.value}/user/${customerId}/perm`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, allow: val === 'allow' })
+        })
+      }
     }
-  } catch {
-    console.error('更新 role 失敗')
-  } finally {
-    saving.value = false
-  }
+
+    // 3. 重新拉最新資料
+    const res = await fetch(`${PERM_BASE.value}/user/${customerId}`)
+    userPermMap.value[customerId] = await res.json()
+
+    permModal.open = false
+    showToast('用戶權限已更新')
+  } catch (e) { console.error(e) } finally { saving.value = false }
 }
 
 // ── API：封鎖/解鎖 ─────────────────────────────────────────────────
@@ -496,9 +607,7 @@ const toggleBlock = async (c) => {
       c.status = newStatus
       showToast(newStatus === 'blocked' ? '帳號已封鎖' : '帳號已解鎖')
     }
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 // ── API：刪除 ─────────────────────────────────────────────────────
@@ -513,15 +622,17 @@ const doDelete = async () => {
       await fetchCustomers()
       showToast('帳號已刪除')
     }
-  } catch (e) {
-    console.error(e)
-  } finally {
+  } catch (e) { console.error(e) } finally {
     saving.value = false
     deleteTarget.value = null
   }
 }
 
-onMounted(fetchCustomers)
+// ── 初始化 ────────────────────────────────────────────────────────
+onMounted(async () => {
+  await Promise.all([fetchCustomers(), fetchPermData()])
+  await fetchUserPerms()
+})
 </script>
 
 <style scoped>

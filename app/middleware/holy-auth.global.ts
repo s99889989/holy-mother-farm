@@ -13,38 +13,39 @@ import { usePermissionStore } from '~/stores/permission'
 // 路由 → 需要的 permission key
 // 沒有列在這裡的路由一律放行（前台公開頁面）
 const ROUTE_PERMISSIONS: Record<string, string> = {
-  // 個人頁面（需登入）
-  '/front/profile/booking':       'profile.view',
-  '/front/profile/log':           'profile.view',
-  '/front/profile/lunch':         'profile.view',
-  '/front/profile/settings':      'profile.view',
+  // ── 個人頁面（需登入）──────────────────────────────────────────
+  '/front/profile/booking':                 'profile.view',
+  '/front/profile/log':                     'profile.view',
+  '/front/profile/lunch':                   'profile.view',
+  '/front/profile/settings':               'profile.view',
 
-  // 員工區
-  '/staff/home':                  'staff.home',
-  '/staff/booking':               'staff.booking',
-  '/staff/calendar':              'staff.calendar',
-  '/staff/cash-count':            'staff.cash-count',
-  '/staff/quick-links':           'staff.quick-links',
-  '/staff/work-record':           'staff.work-record',
-  '/staff/menu':                  'staff.menu',
-  '/staff/news':                  'staff.news',
-  '/staff/product':               'staff.product',
-  '/staff/production':            'staff.production',
-  '/staff/image':                 'staff.image',
-  '/staff/inventory':             'staff.inventory',
-  '/staff/asset':                 'staff.asset',
-  '/staff/customer':              'staff.customer',
-  // 從 admin 搬來的管理頁面（路徑不變，仍在 /admin，但用 staff key 控管）
-  '/admin/management/BookIndex':           'staff.booking',
-  '/admin/management/DailyMenu':           'staff.menu',
-  '/admin/management/News':                'staff.news',
-  '/admin/management/Product':             'staff.product',
-  '/admin/management/ProductionItem':      'staff.production',
-  '/admin/management/ImageLibrary':        'staff.image',
-  '/admin/management/CustomerManagement':  'staff.customer',
-  '/admin/management/AssetRegistry':       'staff.asset',
-  '/admin/management/admin-calendar':      'staff.calendar',
-  '/admin/items/CashCount':                'staff.cash-count',
+  // ── 員工首頁 ────────────────────────────────────────────────────
+  '/staff/home':                            'staff.home',
+
+  // ── 庫存・財務 ──────────────────────────────────────────────────
+  '/staff/stock/cash-count-view':           'staff.cash-count',
+  '/staff/stock/cash-count-edit':           'staff.cash-count.edit',
+
+  // ── 營運管理 ────────────────────────────────────────────────────
+  '/staff/management/booking-view':         'staff.booking',
+  '/staff/management/booking-edit':         'staff.booking.edit',
+  '/staff/management/menu-view':            'staff.menu',
+  '/staff/management/menu-edit':            'staff.menu.edit',
+  '/staff/management/calendar-view':        'staff.calendar',
+  '/staff/management/calendar-edit':        'staff.calendar.edit',
+  '/staff/management/asset-view':           'staff.asset',
+  '/staff/management/asset-edit':           'staff.asset.edit',
+  '/staff/management/files-view':           'staff.files',
+  '/staff/management/files-edit':           'staff.files.edit',
+
+  // ── 前台內容 ────────────────────────────────────────────────────
+  '/staff/front/news-edit':                 'staff.news.edit',
+  '/staff/front/product-edit':              'staff.product.edit',
+  '/staff/front/production-edit':           'staff.production.edit',
+
+  // ── 工具・系統 ──────────────────────────────────────────────────
+  '/staff/system/quick-links-view':         'staff.quick-links',
+  '/staff/system/quick-links-edit':         'staff.quick-links.edit',
 }
 
 export default defineNuxtRouteMiddleware(async (to) => {
@@ -57,8 +58,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // ── 1. 後台帳密登入者 → 全部放行 ─────────────────────────────────
   if (localStorage.getItem('holy_auth')) return
 
-  // ── 2. 根路徑 / 登入頁 → 永遠放行 ───────────────────────────────
-  if (to.path === '/' || to.path === '/login') return
+  // ── 2. 根路徑 / 登入頁 → 永遠放行（但已登入者離開登入頁）────────
+  const customerStore   = useCustomerStore()
+  if (to.path === '/login') {
+    if (customerStore.isLoggedIn) return navigateTo('/staff/home')
+    return
+  }
+  if (to.path === '/') return
 
   // ── 3. 此路由不需要權限檢查 → 放行 ──────────────────────────────
   const requiredKey = (to.meta.requiredPermission as string)
@@ -67,11 +73,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!requiredKey) return
 
   // ── 4. 載入權限 ───────────────────────────────────────────────────
-  const customerStore   = useCustomerStore()
   const permissionStore = usePermissionStore()
   const commonStore     = useCommonStore()
 
-  // middleware 的 ── 4. 載入權限 部分改成：
   if (!permissionStore.loaded) {
     const customerId = customerStore.isLoggedIn ? customerStore.customer.id : null
     await permissionStore.load(customerId, commonStore.data.main_url)

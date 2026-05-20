@@ -7,7 +7,7 @@
         to="/staff/home"
         class="flex items-center gap-1.5 px-2 py-1 mr-1 text-green-700 dark:text-green-400 font-bold text-sm"
       >
-        🌿 員工專區
+        🏠 首頁
       </NuxtLink>
 
       <!-- 分類 dropdown -->
@@ -230,12 +230,14 @@
       </div>
     </div>
 
-    <!-- 手機 -->
+    <!-- 手機列 -->
     <div class="sm:hidden flex items-center justify-between">
       <NuxtLink
         to="/staff/home"
-        class="text-green-700 dark:text-green-400 font-bold text-sm"
-      >🌿 員工專區</NuxtLink>
+        class="flex items-center gap-1.5 text-green-700 dark:text-green-400 font-bold text-sm"
+      >
+        🏠 員工專區
+      </NuxtLink>
       <div class="flex items-center gap-1">
         <button
           class="p-1 rounded text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
@@ -374,40 +376,47 @@ const perm = usePermission()
 const customerStore = useCustomerStore()
 const customer = computed(() => customerStore.customer)
 
-const toggleDark = () => { darkStore.change_dark_mode() }
+const toggleDark = () => {
+  darkStore.change_dark_mode()
+}
 
-watch(() => route.path, () => { mobileOpen.value = false; dropOpen.value = {} })
+watch(() => route.path, () => {
+  mobileOpen.value = false;
+  dropOpen.value = {}
+})
 
 // ── 選單定義 ─────────────────────────────────────────────────────
 // 每個 item 可加 icon（選填）和 key（權限 key，不填則不做權限過濾）
 const navGroups = [
   {
-    label: '⚙️ 員工作業',
+    label: '🧾️ 庫存・財務',
     items: [
-      { to: '/staff/home', icon: '🏠', label: '員工首頁', key: 'staff.home' },
-      { to: '/staff/cash-count', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count' },
-      { to: '/staff/booking', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
-      { to: '/staff/calendar', icon: '📅', label: '行事曆', key: 'staff.calendar' },
-      { to: '/staff/image', icon: '🖼️', label: '圖庫管理', key: 'staff.image' },
-      { to: '/staff/inventory', icon: '📦', label: '庫存管理', key: 'staff.inventory' },
-      { to: '/staff/asset', icon: '🏷️', label: '財產登記', key: 'staff.asset' }
+      {to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count'},
+      {to: '/staff/inventory', icon: '📦', label: '庫存管理', key: 'staff.inventory'},
+    ]
+  },
+  {
+    label: '🗿 營運管理',
+    items: [
+      {to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking'},
+      {to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu'},
+      {to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar'},
+      {to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset'},
+      {to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files'},
     ]
   },
   {
     label: '🌐 前台內容',
     items: [
-      { to: '/staff/menu', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
-      { to: '/staff/news', icon: '📰', label: '消息管理', key: 'staff.news' },
-      { to: '/staff/product', icon: '🛍️', label: '商品管理', key: 'staff.product' },
-      { to: '/staff/production', icon: '🌾', label: '產品訂購', key: 'staff.production' },
-      { to: '/staff/customer', icon: '👥', label: '客戶管理', key: 'staff.customer' }
+      {to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit'},
+      {to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit'},
+      {to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit'},
     ]
-  }
+  },
 ]
 
 const standaloneItems = [
-  // 範例：{ to: '/staff/xxx', icon: '📌', label: 'XXX', key: 'staff.xxx' },
-  { to: '/staff/quick-links', icon: '🔗', label: '常用網址', key: 'staff.quick-links' }
+  {to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links'},
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────
@@ -415,7 +424,7 @@ const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
 
 const visibleGroups = computed(() =>
   navGroups
-    .map(g => ({ ...g, items: filterItems(g.items) }))
+    .map(g => ({...g, items: filterItems(g.items)}))
     .filter(g => g.items.length > 0)
 )
 
@@ -425,7 +434,7 @@ const activeGroup = computed(() =>
   visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
 )
 
-// ── Dropdown 控制（照 AdminNavbar 模式）──────────────────────────
+// ── Dropdown 控制 ─────────────────────────────────────────────────
 function toggleDrop(label) {
   dropOpen.value = {
     ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),

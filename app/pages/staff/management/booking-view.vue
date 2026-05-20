@@ -1,5 +1,6 @@
 <script setup>
-definePageMeta({layout: 'admin'})
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.booking' })
+const perm = usePermission()
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
@@ -523,7 +524,6 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
-    <AdminNavbar/>
 
     <!-- ── 頂部導覽 ── -->
     <header
@@ -687,7 +687,7 @@ onMounted(async () => {
                       }}</span>
                   </span>
                 </p>
-                <button @click="openBookingModal(null)"
+                <button v-if="perm.can('staff.booking.edit')" @click="openBookingModal(null)"
                         class="flex items-center gap-1 px-3 py-1 bg-green-800 text-white text-xs rounded-lg hover:bg-green-900 transition-colors">
                   <span class="leading-none">+</span> 新增
                 </button>
@@ -741,11 +741,11 @@ onMounted(async () => {
                         </div>
                       </div>
                       <div class="flex gap-1.5 flex-shrink-0">
-                        <button @click="openBookingModal(booking)"
+                        <button v-if="perm.can('staff.booking.edit')" @click="openBookingModal(booking)"
                                 class="px-2.5 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors">
                           編輯
                         </button>
-                        <button @click="confirmDeleteBooking(booking)"
+                        <button v-if="perm.can('staff.booking.edit')" @click="confirmDeleteBooking(booking)"
                                 class="px-2.5 py-1 text-xs border border-red-300 dark:border-red-700 text-red-400 rounded-lg hover:bg-red-50 transition-colors">
                           刪除
                         </button>

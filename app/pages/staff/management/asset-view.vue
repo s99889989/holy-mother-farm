@@ -1,6 +1,5 @@
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
-    <AdminNavbar />
 
     <!-- ── Header ── -->
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
@@ -18,7 +17,7 @@
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
             匯出 CSV
           </button>
-          <button @click="openModal(null)"
+          <button v-if="perm.can('staff.inventory.edit')" @click="openModal(null)"
                   class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             新增財產
@@ -165,9 +164,9 @@
           </div>
           <p v-if="asset.note" class="text-xs text-stone-400 italic mb-3">{{ asset.note }}</p>
           <div class="flex gap-2">
-            <button @click="openModal(asset)"
+            <button v-if="perm.can('staff.inventory.edit')" @click="openModal(asset)"
                     class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 transition-colors">編輯</button>
-            <button @click="confirmDelete(asset)"
+            <button v-if="perm.can('staff.inventory.edit')" @click="confirmDelete(asset)"
                     class="flex-1 py-1.5 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 transition-colors">刪除</button>
           </div>
         </div>
@@ -382,7 +381,8 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.asset' })
+const perm = usePermission()
 
 // ── API ──────────────────────────────────────────────────────────
 const commonStore = useCommonStore()

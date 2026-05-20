@@ -11,21 +11,13 @@
           <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Permission Management</p>
         </div>
       </div>
-      <!-- 頁籤 -->
-      <div class="flex gap-1 mt-3">
-        <button
-          v-for="tab in tabs" :key="tab.id"
-          :class="activeTab === tab.id ? 'bg-violet-600 text-white' : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-zinc-700'"
-          class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
-          @click="activeTab = tab.id"
-        >{{ tab.label }}</button>
-      </div>
+
     </header>
 
     <div class="max-w-full px-3 sm:px-4 py-4">
 
-      <!-- ══ 頁籤：權限組管理 ══ -->
-      <div v-if="activeTab === 'groups'">
+      <!-- ══ 權限組管理 ══ -->
+      <div>
         <div class="flex items-center justify-between mb-3">
           <p class="text-xs text-stone-400">
             共 {{ groups.length }} 個群組，預設：
@@ -86,60 +78,6 @@
         </div>
       </div>
 
-      <!-- ══ 頁籤：用戶權限管理 ══ -->
-      <div v-if="activeTab === 'users'">
-        <div class="flex gap-2 mb-3">
-          <input
-            v-model="userSearch" placeholder="搜尋姓名或 Email…"
-            class="flex-1 px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400"
-          >
-        </div>
-
-        <div v-if="loadingUsers" class="flex items-center justify-center py-16 text-stone-400 gap-2">
-          <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />載入中…
-        </div>
-
-        <div v-else-if="filteredUsers.length > 0" class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-          <table class="w-full text-sm">
-            <thead class="bg-stone-50 dark:bg-zinc-800 text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wide">
-            <tr>
-              <th class="px-3 py-3 text-left">用戶</th>
-              <th class="px-3 py-3 text-center">群組</th>
-              <th class="px-3 py-3 text-center hidden sm:table-cell">個人覆蓋</th>
-              <th class="px-3 py-3 text-center">操作</th>
-            </tr>
-            </thead>
-            <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-            <tr v-for="u in filteredUsers" :key="u.id" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors">
-              <td class="px-3 py-2.5">
-                <div class="flex items-center gap-2">
-                  <img v-if="u.picture" :src="u.picture" :alt="u.name" class="w-8 h-8 rounded-full object-cover border border-stone-200 flex-shrink-0">
-                  <div v-else class="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 text-xs font-bold flex-shrink-0">{{ u.name?.charAt(0) || '?' }}</div>
-                  <div>
-                    <p class="font-medium text-stone-800 dark:text-stone-100 text-sm">{{ u.name }}</p>
-                    <p class="text-xs text-stone-400">{{ u.email }}</p>
-                  </div>
-                </div>
-              </td>
-              <td class="px-3 py-2.5 text-center">
-                  <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                    {{ groupLabel(userPermMap[u.id]?.group) }}
-                  </span>
-              </td>
-              <td class="px-3 py-2.5 text-center text-stone-500 dark:text-stone-400 text-xs hidden sm:table-cell">
-                {{ overrideCount(userPermMap[u.id]?.permissions) }} 項
-              </td>
-              <td class="px-3 py-2.5 text-center">
-                <button
-                  class="px-3 py-1 text-xs bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
-                  @click="openUserPerm(u)">管理權限</button>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-else class="text-center py-16 text-stone-400 text-sm">找不到符合的用戶</div>
-      </div>
     </div>
 
     <!-- ══ 新增/編輯群組 Modal ══ -->
@@ -222,80 +160,6 @@
       </div>
     </div>
 
-    <!-- ══ 用戶權限 Modal ══ -->
-    <div v-if="userPermModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-2xl p-6 my-auto">
-        <!-- 用戶資訊 -->
-        <div class="flex items-center gap-3 mb-5">
-          <img v-if="userPermModal.user?.picture" :src="userPermModal.user.picture" class="w-10 h-10 rounded-full object-cover border border-stone-200 flex-shrink-0">
-          <div v-else class="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 font-bold flex-shrink-0">{{ userPermModal.user?.name?.charAt(0) || '?' }}</div>
-          <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ userPermModal.user?.name }}</h3>
-            <p class="text-xs text-stone-400">{{ userPermModal.user?.email }}</p>
-          </div>
-          <button class="text-stone-400 hover:text-stone-600 p-1" @click="userPermModal.open = false">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-
-        <!-- 選擇群組 -->
-        <div class="mb-5">
-          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">所屬群組</label>
-          <select v-model="userPermModal.group"
-                  class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400">
-            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.label }}（{{ g.id }}）</option>
-          </select>
-          <p class="text-xs text-stone-400 mt-1">群組為基礎，個人覆蓋優先於群組設定</p>
-        </div>
-
-        <!-- 個人覆蓋 -->
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300">個人覆蓋設定</label>
-            <button class="text-xs text-stone-400 hover:text-red-500 hover:underline transition-colors" @click="clearAllOverrides">清除所有覆蓋</button>
-          </div>
-
-          <div v-for="section in permSections" :key="section.prefix" class="mb-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">{{ section.label }}</span>
-              <div class="flex-1 h-px bg-stone-100 dark:bg-stone-700" />
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              <div v-for="key in section.keys" :key="key"
-                   class="flex items-center gap-2 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700">
-                <div class="flex-1 min-w-0">
-                  <p class="text-xs font-medium text-stone-700 dark:text-stone-200">{{ KEY_LABELS[key] ?? key }}</p>
-                  <p class="text-xs text-stone-400 mt-0.5">
-                    群組預設：
-                    <span :class="groupDefaultForKey(key) ? 'text-green-600' : 'text-red-500'">
-                      {{ groupDefaultForKey(key) ? '開啟' : '關閉' }}
-                    </span>
-                  </p>
-                </div>
-                <select :value="getUserOverride(key)"
-                        class="text-xs px-2 py-1 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-1 focus:ring-violet-400"
-                        @change="setUserOverride(key, $event.target.value)">
-                  <option value="inherit">繼承群組</option>
-                  <option value="allow">覆蓋：開啟</option>
-                  <option value="deny">覆蓋：關閉</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex gap-2 pt-3 border-t border-stone-100 dark:border-stone-700 mt-4">
-          <button class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors" @click="userPermModal.open = false">取消</button>
-          <button :disabled="saving"
-                  class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                  @click="saveUserPerm">
-            <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            {{ saving ? '儲存中…' : '儲存' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- ══ 刪除群組確認 ══ -->
     <div v-if="deleteGroupTarget" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
       <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
@@ -334,96 +198,103 @@ definePageMeta({ layout: 'admin', pageLabel: '權限管理' })
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/permission')
-const CUST_BASE = computed(() => commonStore.data.main_url + '/holy/customer')
-
 // ── Permission Key 中文對照 ──────────────────────────────────────
 const KEY_LABELS = {
-  'front.view':           '前台瀏覽',
-  'profile.view':         '個人頁面',
-  'staff.home':           '員工首頁',
-  'staff.booking':        '訂位管理（查看）',
-  'staff.booking.edit':   '訂位管理（編輯）',
-  'staff.calendar':       '行事曆（查看）',
-  'staff.calendar.edit':  '行事曆（編輯）',
-  'staff.cash-count':     '點鈔作業',
-  'staff.quick-links':    '快速連結',
-  'staff.work-record':    '執行記錄（查看）',
-  'staff.work-record.edit': '執行記錄（編輯）',
-  'staff.menu':           '每日菜單（查看）',
-  'staff.menu.edit':      '每日菜單（編輯）',
-  'staff.news':           '消息管理（查看）',
-  'staff.news.edit':      '消息管理（編輯）',
-  'staff.product':        '商品管理（查看）',
-  'staff.product.edit':   '商品管理（編輯）',
-  'staff.image':          '圖庫管理（查看）',
-  'staff.image.edit':     '圖庫管理（編輯）',
-  'staff.inventory':        '庫存管理（查看）',
-  'staff.inventory.edit':   '庫存管理（編輯）',
-  'staff.asset':            '財產登記（查看）',
-  'staff.asset.edit':       '財產登記（編輯）',
-  'staff.production':       '產品訂購管理（查看）',
-  'staff.production.edit':  '產品訂購管理（編輯）',
-  'staff.customer':         '客戶管理（查看）',
-  'staff.customer.edit':    '客戶管理（編輯）',
+  // 前台
+  'front.view':                 '前台瀏覽',
+  'profile.view':               '個人頁面',
+  // 庫存・財務
+  'staff.cash-count':           '點鈔紀錄（查看）',
+  'staff.cash-count.edit':      '點鈔紀錄（編輯）',
+  'staff.inventory':            '庫存管理（查看）',
+  'staff.inventory.edit':       '庫存管理（編輯）',
+  // 營運管理
+  'staff.booking':              '訂位管理（查看）',
+  'staff.booking.edit':         '訂位管理（編輯）',
+  'staff.menu':                 '每日菜單（查看）',
+  'staff.menu.edit':            '每日菜單（編輯）',
+  'staff.calendar':             '行事曆（查看）',
+  'staff.calendar.edit':        '行事曆（編輯）',
+  'staff.asset':                '財產登記（查看）',
+  'staff.asset.edit':           '財產登記（編輯）',
+  'staff.files':                '檔案管理（查看）',
+  'staff.files.edit':           '檔案管理（編輯）',
+  // 前台內容
+  'staff.news':                 '消息管理（查看）',
+  'staff.news.edit':            '消息管理（編輯）',
+  'staff.product':              '商品管理（查看）',
+  'staff.product.edit':         '商品管理（編輯）',
+  'staff.production':           '產品訂購管理（查看）',
+  'staff.production.edit':      '產品訂購管理（編輯）',
+  // 工具・系統
+  'staff.home':                 '員工首頁（查看）',
+  'staff.home.edit':            '員工首頁（編輯）',
+  'staff.quick-links':          '常用網址（查看）',
+  'staff.quick-links.edit':     '常用網址（編輯）',
+  // 其他
+  'staff.customer':             '客戶管理（查看）',
+  'staff.customer.edit':        '客戶管理（編輯）',
 }
 
 // ── Permission 分區顯示 ──────────────────────────────────────────
 const permSections = [
   {
     prefix: 'front',
-    label: '前台 / 個人頁面',
+    label: '前台',
     keys: ['front.view', 'profile.view']
   },
   {
-    prefix: 'staff-basic',
-    label: '員工區（基本）',
-    keys: ['staff.home', 'staff.cash-count', 'staff.quick-links']
+    prefix: 'inventory',
+    label: '庫存・財務',
+    keys: [
+      'staff.cash-count', 'staff.cash-count.edit',
+      'staff.inventory',  'staff.inventory.edit',
+    ]
   },
   {
-    prefix: 'staff-booking',
-    label: '訂位管理',
-    keys: ['staff.booking', 'staff.booking.edit']
-  },
-  {
-    prefix: 'staff-calendar',
-    label: '行事曆',
-    keys: ['staff.calendar', 'staff.calendar.edit']
-  },
-  {
-    prefix: 'staff-record',
-    label: '執行記錄',
-    keys: ['staff.work-record', 'staff.work-record.edit']
-  },
-  {
-    prefix: 'staff-content',
-    label: '內容管理',
-    keys: ['staff.menu', 'staff.menu.edit', 'staff.news', 'staff.news.edit', 'staff.product', 'staff.product.edit', 'staff.image', 'staff.image.edit']
-  },
-  {
-    prefix: 'staff-ops',
+    prefix: 'ops',
     label: '營運管理',
-    keys: ['staff.inventory', 'staff.inventory.edit', 'staff.asset', 'staff.asset.edit', 'staff.production', 'staff.production.edit', 'staff.customer', 'staff.customer.edit']
+    keys: [
+      'staff.booking',     'staff.booking.edit',
+      'staff.menu',        'staff.menu.edit',
+      'staff.calendar',    'staff.calendar.edit',
+      'staff.asset',       'staff.asset.edit',
+      'staff.files',       'staff.files.edit',
+    ]
+  },
+  {
+    prefix: 'content',
+    label: '前台內容',
+    keys: [
+      'staff.news',       'staff.news.edit',
+      'staff.product',    'staff.product.edit',
+      'staff.production', 'staff.production.edit',
+    ]
+  },
+  {
+    prefix: 'tools',
+    label: '工具・系統',
+    keys: [
+      'staff.home',        'staff.home.edit',
+      'staff.quick-links', 'staff.quick-links.edit',
+    ]
+  },
+  {
+    prefix: 'misc',
+    label: '其他',
+    keys: [
+      'staff.customer', 'staff.customer.edit',
+    ]
   },
 ]
 
 // allKeys 從 sections 展開
 const allKeys = permSections.flatMap(s => s.keys)
 
-// ── 頁籤 ──────────────────────────────────────────────────────────
-const tabs = [
-  { id: 'groups', label: '⚙ 權限組管理' },
-  { id: 'users',  label: '👤 用戶權限' },
-]
-const activeTab = ref('groups')
-
 // ── 狀態 ──────────────────────────────────────────────────────────
 const groups         = ref([])
 const defaultGroup   = ref('guest')
 const loadingGroups  = ref(true)
-const customers      = ref([])
-const userPermMap    = ref({})
-const loadingUsers   = ref(true)
-const userSearch     = ref('')
 const saving         = ref(false)
 const deleteGroupTarget = ref(null)
 const toast = reactive({ show: false, message: '' })
@@ -435,21 +306,6 @@ const groupModal = reactive({
   error: ''
 })
 
-const userPermModal = reactive({
-  open: false,
-  user: null,
-  group: 'guest',
-  overrides: {} // { key: 'inherit' | 'allow' | 'deny' }
-})
-
-// ── Computed ──────────────────────────────────────────────────────
-const filteredUsers = computed(() => {
-  const q = userSearch.value.toLowerCase()
-  return customers.value.filter(c =>
-    !q || c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)
-  )
-})
-
 // ── 工具 ──────────────────────────────────────────────────────────
 const showToast = (msg) => {
   toast.message = msg; toast.show = true
@@ -457,17 +313,7 @@ const showToast = (msg) => {
 }
 
 const countAllowed = (perms) => perms ? Object.values(perms).filter(Boolean).length : 0
-const overrideCount = (perms) => perms ? Object.keys(perms).length : 0
 const groupLabel = (groupId) => groups.value.find(g => g.id === groupId)?.label ?? groupId ?? '—'
-
-const groupDefaultForKey = (key) => {
-  const g = groups.value.find(g => g.id === userPermModal.group)
-  return g?.permissions?.[key] ?? false
-}
-
-const getUserOverride = (key) => userPermModal.overrides[key] ?? 'inherit'
-const setUserOverride = (key, val) => { userPermModal.overrides[key] = val }
-const clearAllOverrides = () => { userPermModal.overrides = {} }
 
 // ── 群組全選/分區 ──────────────────────────────────────────────────
 const setAllPerms = (val) => {
@@ -489,22 +335,6 @@ const fetchGroups = async () => {
     groups.value = await gRes.json()
     defaultGroup.value = (await dRes.json()).defaultGroup ?? 'guest'
   } catch (e) { console.error(e) } finally { loadingGroups.value = false }
-}
-
-// ── 載入用戶 ──────────────────────────────────────────────────────
-const fetchUsers = async () => {
-  loadingUsers.value = true
-  try {
-    const res = await fetch(CUST_BASE.value + '/list')
-    customers.value = await res.json()
-
-    const perms = await Promise.all(
-      customers.value.map(c =>
-        fetch(`${BASE.value}/user/${c.id}`).then(r => r.json())
-      )
-    )
-    perms.forEach(p => { if (p.customerId) userPermMap.value[p.customerId] = p })
-  } catch (e) { console.error(e) } finally { loadingUsers.value = false }
 }
 
 // ── 開啟新增群組 ──────────────────────────────────────────────────
@@ -587,66 +417,8 @@ const doDeleteGroup = async () => {
   } catch (e) { console.error(e) } finally { saving.value = false; deleteGroupTarget.value = null }
 }
 
-// ── 開啟用戶權限 Modal ────────────────────────────────────────────
-const openUserPerm = (u) => {
-  const perm = userPermMap.value[u.id]
-  userPermModal.user  = u
-  userPermModal.group = perm?.group ?? defaultGroup.value
-
-  // permissions map → overrides 格式
-  const overrides = {}
-  if (perm?.permissions) {
-    Object.entries(perm.permissions).forEach(([key, allow]) => {
-      overrides[key] = allow ? 'allow' : 'deny'
-    })
-  }
-  userPermModal.overrides = overrides
-  userPermModal.open = true
-}
-
-// ── 儲存用戶權限 ──────────────────────────────────────────────────
-const saveUserPerm = async () => {
-  saving.value = true
-  const customerId = userPermModal.user.id
-  try {
-    // 1. 儲存群組
-    await fetch(`${BASE.value}/user/${customerId}/group`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ group: userPermModal.group })
-    })
-
-    // 2. 儲存個人覆蓋
-    for (const [key, val] of Object.entries(userPermModal.overrides)) {
-      if (val === 'inherit') {
-        await fetch(`${BASE.value}/user/${customerId}/perm`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key })
-        })
-      } else {
-        await fetch(`${BASE.value}/user/${customerId}/perm`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key, allow: val === 'allow' })
-        })
-      }
-    }
-
-    // 3. 重新拉最新資料
-    const res = await fetch(`${BASE.value}/user/${customerId}`)
-    userPermMap.value[customerId] = await res.json()
-
-    userPermModal.open = false
-    showToast('用戶權限已更新')
-  } catch (e) { console.error(e) } finally { saving.value = false }
-}
-
 // ── 初始化 ────────────────────────────────────────────────────────
-onMounted(() => { fetchGroups(); fetchUsers() })
-watch(activeTab, (tab) => {
-  if (tab === 'users' && customers.value.length === 0) fetchUsers()
-})
+onMounted(() => { fetchGroups() })
 </script>
 
 <style scoped>

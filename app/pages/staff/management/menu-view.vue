@@ -1,7 +1,6 @@
 <template>
   <ClientOnly>
     <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
-      <AdminNavbar />
 
       <!-- ── 頂部導覽 ── -->
       <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
@@ -22,7 +21,7 @@
               <button @click="isEditMode = false"
                       :class="!isEditMode ? 'bg-orange-700 text-white' : 'text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-700'"
                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">查看</button>
-              <button @click="isEditMode = true"
+              <button :disabled="!perm.can('staff.menu.edit')" @click="perm.can('staff.menu.edit') && (isEditMode = true)"
                       :class="isEditMode ? 'bg-orange-700 text-white' : 'text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-700'"
                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">編輯</button>
             </div>
@@ -327,7 +326,8 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.menu' })
+const perm = usePermission()
 
 const commonStore = useCommonStore()
 const BASE        = commonStore.data.main_url + '/holy/menu'

@@ -99,7 +99,6 @@ const changePassword = async () => {
           {{ item.label }}
         </NuxtLink>
       </nav>
-
       <!-- 開燈 / 關燈 -->
       <button
         class="p-1.5 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
