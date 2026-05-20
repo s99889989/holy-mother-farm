@@ -3,20 +3,19 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const usePermissionStore = defineStore('permission', () => {
-  // 此用戶可進入的路由清單（後端 /my-pages 回傳）
-  const allowedPages = ref([])
-  const loaded       = ref(false)
+  // 完整的 permission map：{ "front.view": true, "staff.home": false, ... }
+  const perms  = ref({})
+  const loaded = ref(false)
 
-  // ── 載入此用戶的所有可進頁面 ────────────────────────────────────
-  // customerId 為 null 時，後端會套預設群組（guest）的權限
+  // ── 載入權限（customerId 為 null 時套預設群組）────────────────────
   const load = async (customerId, baseUrl) => {
     try {
       const query = customerId ? `?customerId=${customerId}` : ''
-      const res  = await fetch(`${baseUrl}/holy/permission/my-pages${query}`)
+      const res  = await fetch(`${baseUrl}/holy/permission/my-perms${query}`)
       const data = await res.json()
-      allowedPages.value = Array.isArray(data) ? data : []
+      perms.value = (data && typeof data === 'object') ? data : {}
     } catch {
-      allowedPages.value = []
+      perms.value = {}
     } finally {
       loaded.value = true
     }
@@ -24,16 +23,24 @@ export const usePermissionStore = defineStore('permission', () => {
 
   // ── 登出時清除 ───────────────────────────────────────────────────
   const clear = () => {
-    allowedPages.value = []
+    perms.value  = {}
     loaded.value = false
   }
 
-  // ── 檢查某路由是否有權限 ─────────────────────────────────────────
-  // 後台帳密登入（holy_auth）直接全過，不受此 store 控管
-  const canAccess = (path) => {
-    // 完全符合 或 是某個允許路由的子路徑
-    return allowedPages.value.some(p => path === p || path.startsWith(p + '/'))
+  // ── 檢查單一權限 ─────────────────────────────────────────────────
+  const can = (key) => {
+    return perms.value[key] === true
   }
 
-  return { allowedPages, loaded, load, clear, canAccess }
+  // ── 檢查多個權限（任一符合）──────────────────────────────────────
+  const canAny = (...keys) => {
+    return keys.some(k => can(k))
+  }
+
+  // ── 檢查多個權限（全部符合）──────────────────────────────────────
+  const canAll = (...keys) => {
+    return keys.every(k => can(k))
+  }
+
+  return { perms, loaded, load, clear, can, canAny, canAll }
 })
