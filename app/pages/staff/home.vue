@@ -149,11 +149,12 @@ onMounted(async () => {
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors">
     <!-- Header -->
     <!-- DEBUG 用，確認後刪掉 -->
-    <div style="background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;white-space:pre-wrap;word-break:break-all">
-      loaded: {{ permissionStore.loaded }}
-      loadedId: {{ permissionStore.loadedId }}
-      perms: {{ JSON.stringify(permissionStore.perms, null, 2) }}
-    </div>
+<!--    <div style="background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;white-space:pre-wrap;word-break:break-all">-->
+<!--      loaded: {{ permissionStore.loaded }}-->
+<!--      loadedId: {{ permissionStore.loadedId }}-->
+<!--      perms: {{ JSON.stringify(permissionStore.perms, null, 2) }}-->
+<!--    </div>-->
+
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-800 flex items-center justify-center text-white flex-shrink-0"

@@ -8,6 +8,7 @@ const mobileOpen = ref(false)
 const darkStore = useDarkModeStore()
 const isDark = computed(() => darkStore.data.dark)
 
+
 const toggleDark = () => { darkStore.change_dark_mode() }
 watch(() => route.path, () => { mobileOpen.value = false })
 
