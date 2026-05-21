@@ -381,7 +381,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.asset' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.asset.edit' })
 const perm = usePermission()
 
 // ── API ──────────────────────────────────────────────────────────

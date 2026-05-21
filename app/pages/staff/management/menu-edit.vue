@@ -326,7 +326,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.menu' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.menu.edit' })
 const perm = usePermission()
 
 const commonStore = useCommonStore()

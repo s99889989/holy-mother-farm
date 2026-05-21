@@ -8,7 +8,7 @@ const permissionStore = usePermissionStore()
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 const BASE             = computed(() => commonStore.data.main_url + '/holy/customer')
 
-onMounted(() => {
+onMounted(async () => {
   if (import.meta.client) {
     if (localStorage.getItem('adminDark') === '1') {
       document.documentElement.classList.add('dark')
@@ -23,11 +23,29 @@ onMounted(() => {
     return
   }
 
-  // 已 Google 登入 → 員工首頁
+  // 已 Google 登入（store 有資料，同 session）→ 員工首頁
   if (customerStore.isLoggedIn) {
     navigateTo('/staff/home')
     return
   }
+
+  // 嘗試從後端 cookie 恢復登入狀態（重開瀏覽器後仍有效，30 天內）
+  try {
+    const res = await fetch(`${BASE.value}/me`, { credentials: 'include' })
+    if (res.ok) {
+      const data = await res.json()
+      if (!data.error) {
+        customerStore.setCustomer(data)
+        await permissionStore.load(data.id, commonStore.data.main_url)
+        if (permissionStore.can('staff.home')) {
+          navigateTo('/staff/home')
+        } else {
+          navigateTo('/')
+        }
+        return
+      }
+    }
+  } catch { /* cookie 不存在或已過期，繼續顯示登入頁 */ }
 
   // 動態載入 Google SDK（與 SiteNavbar 相同模式）
   if (!document.getElementById('google-gsi-script')) {
@@ -73,9 +91,9 @@ const handleCredential = async (response) => {
   try {
     const res  = await fetch(`${BASE.value}/google-login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
-      body: JSON.stringify({ credential: response.credential })
+      body: JSON.stringify({credential: response.credential})
     })
     const data = await res.json()
     if (data.error) {
@@ -98,10 +116,10 @@ const handleCredential = async (response) => {
 }
 
 // ── 帳密登入 ─────────────────────────────────────────────────────
-const username  = ref('')
-const password  = ref('')
-const loading   = ref(false)
-const error     = ref('')
+const username = ref('')
+const password = ref('')
+const loading = ref(false)
+const error = ref('')
 const activeTab = ref('google')
 
 const login = async () => {
@@ -111,21 +129,21 @@ const login = async () => {
   }
   if (loading.value) return
   loading.value = true
-  error.value   = ''
+  error.value = ''
   try {
     const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
       method: 'POST',
-      body: { username: username.value, password: password.value },
+      body: {username: username.value, password: password.value},
     })
     if (res.success) {
       localStorage.setItem('holy_auth', 'ok')
       navigateTo('/admin/management/PermissionManagement')
     } else {
-      error.value    = '帳號或密碼錯誤，請再試一次'
+      error.value = '帳號或密碼錯誤，請再試一次'
       password.value = ''
     }
   } catch {
-    error.value    = '帳號或密碼錯誤，請再試一次'
+    error.value = '帳號或密碼錯誤，請再試一次'
     password.value = ''
   } finally {
     loading.value = false
@@ -148,7 +166,8 @@ watch(activeTab, (tab) => {
       <div class="flex items-center gap-3">
         <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-8 w-auto dark:brightness-90">
         <div>
-          <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">台東聖母健康農莊</h1>
+          <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">
+            台東聖母健康農莊</h1>
           <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Holy Mother Health Farm</p>
         </div>
       </div>
@@ -160,12 +179,14 @@ watch(activeTab, (tab) => {
 
         <!-- Logo -->
         <div class="text-center mb-8">
-          <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-16 mx-auto mb-3 dark:brightness-90">
+          <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊"
+               class="h-16 mx-auto mb-3 dark:brightness-90">
           <p class="text-sm text-stone-500 dark:text-stone-400">登入您的帳號</p>
         </div>
 
         <!-- 卡片 -->
-        <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div
+          class="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
 
           <!-- Tab -->
           <div class="flex border-b border-stone-100 dark:border-zinc-700">
@@ -192,7 +213,10 @@ watch(activeTab, (tab) => {
           <!-- Google 登入 tab -->
           <div v-if="activeTab === 'google'" class="p-8">
             <div class="flex items-center gap-2 mb-6">
-              <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">員</div>
+              <div
+                class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                員
+              </div>
               <div>
                 <h2 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm">員工 / 會員登入</h2>
                 <p class="text-xs text-stone-400 mt-0.5">使用 Google 帳號登入</p>
@@ -206,11 +230,11 @@ watch(activeTab, (tab) => {
 
               <div class="flex justify-center min-h-[44px] items-center">
                 <div v-if="googleLoading" class="flex items-center gap-2 text-sm text-stone-400">
-                  <div class="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                  <div class="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"/>
                   登入中…
                 </div>
                 <!-- Google SDK 在這裡渲染按鈕 -->
-                <div v-show="!googleLoading" id="google-login-btn" />
+                <div v-show="!googleLoading" id="google-login-btn"/>
               </div>
 
               <p v-if="googleError" class="text-xs text-red-500 dark:text-red-400 text-center">{{ googleError }}</p>
@@ -220,7 +244,10 @@ watch(activeTab, (tab) => {
           <!-- 管理員帳密 tab -->
           <div v-if="activeTab === 'admin'" class="p-8">
             <div class="flex items-center gap-2 mb-6">
-              <div class="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">管</div>
+              <div
+                class="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                管
+              </div>
               <div>
                 <h2 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm">管理員登入</h2>
                 <p class="text-xs text-stone-400 mt-0.5">Admin Login</p>
@@ -256,7 +283,8 @@ watch(activeTab, (tab) => {
                 class="w-full py-3 rounded-xl text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                 @click="login"
               >
-                <div v-if="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div v-if="loading"
+                     class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
                 {{ loading ? '登入中…' : '登入' }}
               </button>
             </div>
@@ -266,7 +294,8 @@ watch(activeTab, (tab) => {
 
         <!-- 回前台 -->
         <div class="text-center mt-5">
-          <NuxtLink to="/" class="text-sm text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+          <NuxtLink to="/"
+                    class="text-sm text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
             ← 回到農莊網站
           </NuxtLink>
         </div>

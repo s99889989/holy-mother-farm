@@ -394,7 +394,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.image' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.files.edit' })
 const perm = usePermission()
 
 const commonStore = useCommonStore()

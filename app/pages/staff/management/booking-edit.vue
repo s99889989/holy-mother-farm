@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.booking' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.booking.edit' })
 const perm = usePermission()
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/booking')

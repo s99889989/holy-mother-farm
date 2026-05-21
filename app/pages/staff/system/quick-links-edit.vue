@@ -98,7 +98,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.quick-links.edit' })
 
 const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/links'

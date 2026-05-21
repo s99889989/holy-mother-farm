@@ -84,7 +84,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
     permissionStore.load(customerId, commonStore.data.main_url, true) // 不 await
   }
-
+  console.log('需求' + requiredKey)
   // ── 5. 檢查權限 ───────────────────────────────────────────────────
   // if (!permissionStore.can(requiredKey)) {
   //   // 需要登入才有的權限 → 導到登入頁

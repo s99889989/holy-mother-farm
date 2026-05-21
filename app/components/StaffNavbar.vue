@@ -129,7 +129,7 @@
         >
           <button
             class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-            @click="toggleMenu"
+            @click.stop="menuOpen = !menuOpen"
           >
             <img
               v-if="customer.picture"
@@ -227,20 +227,25 @@
             </div>
           </Transition>
         </div>
+
       </div>
+
+
+
     </div>
 
-    <!-- 手機列 -->
+    <!-- 手機 navbar -->
     <div class="sm:hidden flex items-center justify-between">
       <NuxtLink
         to="/staff/home"
         class="flex items-center gap-1.5 text-green-700 dark:text-green-400 font-bold text-sm"
       >
-        🏠 員工專區
+        🏠 首頁
       </NuxtLink>
       <div class="flex items-center gap-1">
         <button
           class="p-1 rounded text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          :title="isDark ? '切換亮色' : '切換暗色'"
           @click="toggleDark"
         >
           <svg
@@ -374,6 +379,7 @@ const darkStore = useDarkModeStore()
 const isDark = computed(() => darkStore.data.dark)
 const perm = usePermission()
 const customerStore = useCustomerStore()
+const commonStore = useCommonStore()
 const customer = computed(() => customerStore.customer)
 
 const toggleDark = () => {
@@ -381,42 +387,42 @@ const toggleDark = () => {
 }
 
 watch(() => route.path, () => {
-  mobileOpen.value = false;
+  mobileOpen.value = false
   dropOpen.value = {}
+  menuOpen.value = false
 })
 
 // ── 選單定義 ─────────────────────────────────────────────────────
-// 每個 item 可加 icon（選填）和 key（權限 key，不填則不做權限過濾）
 const navGroups = [
   {
     label: '🧾️ 庫存・財務',
     items: [
-      {to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count'},
-      // {to: '/staff/inventory', icon: '📦', label: '庫存管理', key: 'staff.inventory'},
+      { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count' },
+      { to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit' },
     ]
   },
   {
     label: '🗿 營運管理',
     items: [
-      {to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking'},
-      {to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu'},
-      {to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar'},
-      {to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset'},
-      {to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files'},
+      { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
+      { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
+      { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
+      { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset' },
+      { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files' },
     ]
   },
   {
     label: '🌐 前台內容',
     items: [
-      {to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit'},
-      {to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit'},
-      {to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit'},
+      { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
+      { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
+      { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' },
     ]
   },
 ]
 
 const standaloneItems = [
-  {to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links'},
+  { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links' },
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────
@@ -424,7 +430,7 @@ const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
 
 const visibleGroups = computed(() =>
   navGroups
-    .map(g => ({...g, items: filterItems(g.items)}))
+    .map(g => ({ ...g, items: filterItems(g.items) }))
     .filter(g => g.items.length > 0)
 )
 
@@ -440,33 +446,35 @@ function toggleDrop(label) {
     ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
     [label]: !dropOpen.value[label]
   }
-}
-
-const toggleMenu = (e) => {
-  e.stopPropagation()
-  menuOpen.value = !menuOpen.value
-}
-
-const closeMenu = () => {
   menuOpen.value = false
 }
 
+// ── 點外部關閉所有 dropdown（統一一個 handler）────────────────────
 function onClickOutside(e) {
-  if (!e.target.closest('.nav-dropdown-wrap')) dropOpen.value = {}
+  if (!e.target.closest('.nav-dropdown-wrap')) {
+    dropOpen.value = {}
+    menuOpen.value = false
+  }
 }
 
 onMounted(() => {
   document.addEventListener('click', onClickOutside)
-  document.addEventListener('click', closeMenu)
 })
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside)
-  document.removeEventListener('click', closeMenu)
 })
 
-const logout = () => {
-  customerStore.logout?.()
+// ── 登出 ──────────────────────────────────────────────────────────
+const logout = async () => {
+  try {
+    await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch { /* 即使失敗也繼續清除本地狀態 */ }
+  customerStore.clearCustomer()
   usePermissionStore().clear()
+  menuOpen.value = false
   navigateTo('/')
 }
 </script>
