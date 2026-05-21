@@ -181,10 +181,9 @@
               </div>
               <ul class="py-1">
                 <li>
-                  <NuxtLink
-                    to="/front/profile/settings"
-                    class="flex items-center gap-2 px-3 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
-                    @click="menuOpen = false"
+                  <button
+                    class="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+                    @click="goProfile"
                   >
                     <svg
                       class="w-3.5 h-3.5"
@@ -200,7 +199,7 @@
                       />
                     </svg>
                     個人設定
-                  </NuxtLink>
+                  </button>
                 </li>
                 <li class="border-t border-stone-100 dark:border-stone-700 mt-1 pt-1">
                   <button
@@ -227,11 +226,7 @@
             </div>
           </Transition>
         </div>
-
       </div>
-
-
-
     </div>
 
     <!-- 手機 navbar -->
@@ -398,31 +393,40 @@ const navGroups = [
     label: '🧾️ 庫存・財務',
     items: [
       { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count' },
-      { to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit' },
+      { to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit' }
     ]
   },
   {
     label: '🗿 營運管理',
     items: [
       { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
+      { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' },
       { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
+      { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit' },
       { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
+      { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar.edit' },
       { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset' },
+      { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit' },
       { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files' },
+      { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files.edit' }
     ]
   },
   {
     label: '🌐 前台內容',
     items: [
+      { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news' },
       { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
+      { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product' },
       { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
-      { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' },
+      { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production' },
+      { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' }
     ]
   },
 ]
 
 const standaloneItems = [
   { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links' },
+  { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links.edit' }
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────
@@ -463,6 +467,12 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside)
 })
+
+// ── 個人設定導航（先關 dropdown 再跳頁，避免路由切換重渲染造成 CSS 異常）──
+const goProfile = () => {
+  menuOpen.value = false
+  nextTick(() => navigateTo('/staff/profile/settings'))
+}
 
 // ── 登出 ──────────────────────────────────────────────────────────
 const logout = async () => {
