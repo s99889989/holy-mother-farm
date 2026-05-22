@@ -44,6 +44,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // /staff 根路徑自動導向 /staff/home
   if (to.path === '/staff') return navigateTo('/staff/home')
 
+  // ── /book 底下全部放行 ────────────────────────────────────────────
+  if (to.path.startsWith('/book')) return
+
   // ── /admin 路徑 ───────────────────────────────────────────────────
   // server side 一律擋（無法讀 localStorage）
   if (to.path.startsWith('/admin')) {
