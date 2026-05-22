@@ -54,8 +54,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // ── /admin 路徑 → server/client 都擋，需要 holy_auth ─────────────
   if (to.path.startsWith('/admin')) {
-    if (import.meta.server) return navigateTo('/')
-    if (!localStorage.getItem('holy_auth')) return navigateTo('/')
+    if (import.meta.server) return navigateTo('/login')
+    if (!localStorage.getItem('holy_auth')) return navigateTo('/login')
     return
   }
 
