@@ -201,6 +201,20 @@
                     個人設定
                   </button>
                 </li>
+                <li>
+                  <a
+                    href="/admin/management/PermissionManagement"
+                    target="_blank"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+                    @click="menuOpen = false"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    後台管理
+                  </a>
+                </li>
                 <li class="border-t border-stone-100 dark:border-stone-700 mt-1 pt-1">
                   <button
                     class="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -392,41 +406,41 @@ const navGroups = [
   {
     label: '🧾️ 庫存・財務',
     items: [
-      { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count' },
-      { to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit' }
+      {to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count'},
+      {to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit'}
     ]
   },
   {
     label: '🗿 營運管理',
     items: [
-      { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
-      { to: '/staff/management/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' },
-      { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
-      { to: '/staff/management/menu-edit', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit' },
-      { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
-      { to: '/staff/management/calendar-edit', icon: '📅', label: '行事曆', key: 'staff.calendar.edit' },
-      { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset' },
-      { to: '/staff/management/asset-edit', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit' },
-      { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files' },
-      { to: '/staff/management/files-edit', icon: '📁', label: '檔案管理', key: 'staff.files.edit' }
+      {to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking'},
+      {to: '/staff/management/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit'},
+      {to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu'},
+      {to: '/staff/management/menu-edit', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit'},
+      {to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar'},
+      {to: '/staff/management/calendar-edit', icon: '📅', label: '行事曆', key: 'staff.calendar.edit'},
+      {to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset'},
+      {to: '/staff/management/asset-edit', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit'},
+      {to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files'},
+      {to: '/staff/management/files-edit', icon: '📁', label: '檔案管理', key: 'staff.files.edit'}
     ]
   },
   {
     label: '🌐 前台內容',
     items: [
-      { to: '/staff/front/news-view', icon: '📰', label: '消息管理', key: 'staff.news' },
-      { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
-      { to: '/staff/front/product-view', icon: '🛍️', label: '商品管理', key: 'staff.product' },
-      { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
-      { to: '/staff/front/production-view', icon: '🌾', label: '產品訂購', key: 'staff.production' },
-      { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' }
+      {to: '/staff/front/news-view', icon: '📰', label: '消息管理', key: 'staff.news'},
+      {to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit'},
+      {to: '/staff/front/product-view', icon: '🛍️', label: '商品管理', key: 'staff.product'},
+      {to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit'},
+      {to: '/staff/front/production-view', icon: '🌾', label: '產品訂購', key: 'staff.production'},
+      {to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit'}
     ]
   },
 ]
 
 const standaloneItems = [
-  { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links' },
-  { to: '/staff/system/quick-links-edit', icon: '🔗', label: '常用網址', key: 'staff.quick-links.edit' }
+  {to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links'},
+  {to: '/staff/system/quick-links-edit', icon: '🔗', label: '常用網址', key: 'staff.quick-links.edit'}
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────
@@ -434,7 +448,7 @@ const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
 
 const visibleGroups = computed(() =>
   navGroups
-    .map(g => ({ ...g, items: filterItems(g.items) }))
+    .map(g => ({...g, items: filterItems(g.items)}))
     .filter(g => g.items.length > 0)
 )
 
@@ -481,7 +495,8 @@ const logout = async () => {
       method: 'POST',
       credentials: 'include',
     })
-  } catch { /* 即使失敗也繼續清除本地狀態 */ }
+  } catch { /* 即使失敗也繼續清除本地狀態 */
+  }
   customerStore.clearCustomer()
   usePermissionStore().clear()
   menuOpen.value = false

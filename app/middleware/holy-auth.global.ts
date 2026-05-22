@@ -64,7 +64,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // ── 2. 根路徑 / 登入頁 → 永遠放行（但已登入者離開登入頁）────────
   const customerStore = useCustomerStore()
   if (to.path === '/login') {
-    if (customerStore.isLoggedIn) return navigateTo('/staff/home')
+    if (localStorage.getItem('holy_auth')) return navigateTo('/admin/management/PermissionManagement')
     return
   }
   if (to.path === '/') return
