@@ -1,17 +1,7 @@
 // middleware/holy-auth.global.ts
-//
-// 權限優先順序：
-//   1. 後台帳密登入（holy_auth）→ 全部放行
-//   2. / 和 /login             → 永遠放行
-//   3. /front/*（非 profile）  → 永遠放行
-//   4. 任何人（含未登入）       → 載入 permissionStore，依 permission key 判斷
-//      - 未登入   → 套預設群組（guest）
-//      - Google 登入 → 套個人群組 + 覆蓋
 
 import { usePermissionStore } from '~/stores/permission'
 
-// 路由 → 需要的 permission key
-// 沒有列在這裡的路由一律放行（前台公開頁面）
 const ROUTE_PERMISSIONS: Record<string, string> = {
   // ── 個人頁面（需登入）──────────────────────────────────────────
   '/front/profile/booking': 'profile.view',
@@ -48,38 +38,54 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   '/staff/system/quick-links-edit': 'staff.quick-links.edit'
 }
 
+const ADMIN_HOME = '/admin/management/PermissionManagement'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   // /staff 根路徑自動導向 /staff/home
   if (to.path === '/staff') return navigateTo('/staff/home')
 
-  // ── /admin 路徑 → server/client 都擋，需要 holy_auth ─────────────
+  // ── /admin 路徑 ───────────────────────────────────────────────────
+  // server side 一律擋（無法讀 localStorage）
   if (to.path.startsWith('/admin')) {
     if (import.meta.server) return navigateTo('/login')
-    if (!localStorage.getItem('holy_auth')) return navigateTo('/login')
-    return
+    return localStorage.getItem('holy_auth')
+      ? undefined
+      : navigateTo('/login')
   }
 
-  // Server side 不執行以下邏輯
+  // server side 以下不執行
   if (import.meta.server) return
 
-  // ── 1. 後台帳密登入者 → 全部放行 ─────────────────────────────────
-  if (localStorage.getItem('holy_auth')) return
-
-  // ── 2. 根路徑 / 登入頁 → 永遠放行（但已登入者離開登入頁）────────
+  const hasAdminAuth = !!localStorage.getItem('holy_auth')
   const customerStore = useCustomerStore()
+
+  // ── /login ────────────────────────────────────────────────────────
+  // 已有 holy_auth → 跳後台
+  // 已 Google 登入 → 跳後台（staff.home）
   if (to.path === '/login') {
+    if (hasAdminAuth) return navigateTo(ADMIN_HOME)
     if (customerStore.isLoggedIn) return navigateTo('/staff/home')
     return
   }
+
+  // ── 前台公開頁面 / 根路徑 → 放行 ─────────────────────────────────
   if (to.path === '/') return
 
-  // ── 3. 此路由不需要權限檢查 → 放行 ──────────────────────────────
+  // ── holy_auth 登入者 → 全部放行 ──────────────────────────────────
+  if (hasAdminAuth) return
+
+  // ── /staff 路徑 ───────────────────────────────────────────────────
+  // 未登入 → 跳 /
+  if (to.path.startsWith('/staff') && !customerStore.isLoggedIn) {
+    return navigateTo('/')
+  }
+
+  // ── 載入權限並檢查 ────────────────────────────────────────────────
   const requiredKey = (to.meta.requiredPermission as string)
     ?? ROUTE_PERMISSIONS[to.path]
 
   if (!requiredKey) return
 
-  // ── 4. 載入權限 ───────────────────────────────────────────────────
   const permissionStore = usePermissionStore()
   const commonStore = useCommonStore()
 
@@ -87,18 +93,15 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
     await permissionStore.load(customerId, commonStore.data.main_url)
   } else {
-    // 已有快取 → 背景靜默更新，不擋頁面
     const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
-    permissionStore.load(customerId, commonStore.data.main_url, true) // 不 await
+    permissionStore.load(customerId, commonStore.data.main_url, true)
   }
-  console.log('需求' + requiredKey)
-  // ── 5. 檢查權限 ───────────────────────────────────────────────────
+
   if (!permissionStore.can(requiredKey)) {
-    // 需要登入才有的權限 → 導到登入頁
-    if (!customerStore.isLoggedIn
-      && (requiredKey.startsWith('profile.') || requiredKey.startsWith('staff.'))) {
-      return navigateTo('/login')
+    // /staff 頁面沒權限 → 跳 /staff/home（而不是登入頁）
+    if (to.path.startsWith('/staff') && to.path !== '/staff/home') {
+      return navigateTo('/staff/home')
     }
-    return navigateTo('/login')
+    return navigateTo('/')
   }
 })
