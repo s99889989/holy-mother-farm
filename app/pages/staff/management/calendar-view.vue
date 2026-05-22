@@ -68,13 +68,13 @@
         <div class="flex flex-wrap items-center gap-1.5">
           <span class="text-xs text-stone-400 mr-1 flex-shrink-0">類型</span>
           <button
-            v-for="t in ['全部', ...TYPES]" :key="t"
+            v-for="t in ['全部', ...TYPES, 'Google']" :key="t"
             @click="setFilterType(t)"
-            :class="['filter-type-btn', t === '全部' ? 'all' : typeColorClass(t), filterType === t ? 'active' : '']"
+            :class="['filter-type-btn', t === '全部' ? 'all' : t === 'Google' ? 'google' : typeColorClass(t), filterType === t ? 'active' : '']"
           >
             {{ t }}
             <span class="filter-count">
-              {{ t === '全部' ? monthEventCount : (typeCount[t] || 0) }}
+              {{ t === '全部' ? monthEventCount : (typeCount[t] || 0) }}<span v-if="t === 'Google' && googleLoading" class="ml-1 inline-block w-2 h-2 border border-blue-400 border-t-transparent rounded-full animate-spin"></span>
             </span>
           </button>
         </div>
@@ -147,7 +147,7 @@
                 <div
                   v-for="ev in cell.events.slice(0, 3)"
                   :key="ev.id"
-                  :class="['cal-chip', typeChipClass(ev.type)]"
+                  :class="['cal-chip', chipClass(ev)]"
                   @click.stop="openEdit(ev)"
                 >
                   <span class="chip-time hidden sm:inline">{{ ev.time?.split('-')[0] }}</span>
@@ -278,6 +278,9 @@
                 <p class="text-xs text-stone-400 mt-0.5">{{ ev.time }}</p>
                 <p v-if="ev.owner" class="text-xs text-stone-400">👤 {{ ev.owner }}</p>
                 <p v-if="ev.room"  class="text-xs text-stone-400 truncate">📍 {{ ev.room }}</p>
+                <p v-if="ev.description" class="text-xs text-stone-400 mt-1 line-clamp-2">📝 {{ ev.description }}</p>
+                <a v-if="ev.source === 'google' && ev.googleLink" :href="ev.googleLink" target="_blank" rel="noopener"
+                   class="text-xs text-blue-500 underline mt-1 inline-block" @click.stop>在 Google 日曆開啟</a>
                 <span :class="['type-badge mt-1.5', typeColorClass(ev.type)]">{{ ev.type }}</span>
               </div>
               <!-- 操作 -->
@@ -473,14 +476,28 @@ const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
 const TYPES    = ['醫院', '園區', '芳心']
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
+// ── Google Calendar 設定 ──────────────────────────────────────────
+const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
+const GOOGLE_API_KEY     = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
+
+const googleEvents  = ref([])
+const googleLoading = ref(false)
+
 // ── 顏色工具 ─────────────────────────────────────────────────────
 function typeColorClass(type) {
+  if (type === 'Google') return 'google'
   return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[type] || 'park'
 }
 function typeChipClass(type) {
+  if (type === 'Google') return 'chip-google'
   return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[type] || 'chip-park'
 }
+function chipClass(ev) {
+  if (ev.source === 'google') return 'chip-google'
+  return typeChipClass(ev.type)
+}
 function typeBarClass(type) {
+  if (type === 'Google') return 'bg-blue-500'
   return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[type] || 'bg-emerald-500'
 }
 function legendDotClass(type) {
@@ -510,8 +527,9 @@ function extractLocation(room) {
 // 依目前 filterType 動態產生可選地點（去重、排序）
 const availableLocations = computed(() => {
   const ym   = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  let   base = events.value.filter(e => e.date?.startsWith(ym))
-  if (filterType.value !== '全部') base = base.filter(e => e.type === filterType.value)
+  let   base = allEvents.value.filter(e => e.date?.startsWith(ym))
+  if (filterType.value !== '全部' && filterType.value !== 'Google') base = base.filter(e => e.type === filterType.value)
+  if (filterType.value === 'Google') base = base.filter(e => e.source === 'google')
   return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 })
 
@@ -556,8 +574,9 @@ const calendarCells = computed(() => {
 
 const monthEventCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  return events.value.filter(e => {
+  return allEvents.value.filter(e => {
     if (!e.date?.startsWith(ym)) return false
+    if (filterType.value === 'Google') return e.source === 'google'
     if (filterType.value !== '全部' && e.type !== filterType.value) return false
     if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
     return true
@@ -567,17 +586,19 @@ const monthEventCount = computed(() => {
 // 類型統計（當月）
 const typeCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const counts = { 醫院: 0, 園區: 0, 芳心: 0 }
+  const counts = { 醫院: 0, 園區: 0, 芳心: 0, Google: 0 }
   events.value.filter(e => e.date?.startsWith(ym)).forEach(e => {
     if (counts[e.type] !== undefined) counts[e.type]++
   })
+  counts.Google = googleEvents.value.filter(e => e.date?.startsWith(ym)).length
   return counts
 })
 
 function eventsOnDate(dateStr) {
-  return events.value
+  return allEvents.value
     .filter(e => {
       if (e.date !== dateStr) return false
+      if (filterType.value === 'Google') return e.source === 'google'
       if (filterType.value !== '全部' && e.type !== filterType.value) return false
       if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
       return true
@@ -591,6 +612,9 @@ const loading = ref(false)
 const saving  = ref(false)
 const toast   = reactive({ show: false, message: '' })
 
+// 系統活動 + Google 活動合併
+const allEvents = computed(() => [...events.value, ...googleEvents.value])
+
 async function fetchEvents() {
   loading.value = true
   try {
@@ -601,6 +625,54 @@ async function fetchEvents() {
     showToast('載入失敗')
   } finally {
     loading.value = false
+  }
+}
+
+// ── Google Calendar API ───────────────────────────────────────────
+async function fetchGoogleEvents() {
+  if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
+  googleLoading.value = true
+  googleEvents.value  = []
+  try {
+    const year  = currentYear.value
+    const month = currentMonth.value
+    const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
+    const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
+      + `?key=${GOOGLE_API_KEY}`
+      + `&timeMin=${timeMin}&timeMax=${timeMax}`
+      + `&singleEvents=true&orderBy=startTime&maxResults=250`
+    const res  = await fetch(url)
+    const data = res.ok ? await res.json() : {}
+    googleEvents.value = (data.items || []).map(item => {
+      const isAllDay = !!item.start?.date
+      const startRaw = isAllDay ? item.start.date : item.start?.dateTime
+      const endRaw   = isAllDay ? item.end?.date   : item.end?.dateTime
+      const date     = startRaw ? startRaw.slice(0, 10) : ''
+      let time = ''
+      if (!isAllDay && startRaw) {
+        const s = new Date(startRaw)
+        const e = endRaw ? new Date(endRaw) : null
+        const fmt = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+        time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+      }
+      return {
+        id:          item.id,
+        date,
+        time,
+        title:       item.summary || '（無標題）',
+        owner:       item.organizer?.displayName || '',
+        room:        item.location || '',
+        type:        'Google',
+        source:      'google',
+        googleLink:  item.htmlLink || '',
+        description: item.description || ''
+      }
+    })
+  } catch (e) {
+    console.warn('Google 日曆載入失敗', e)
+  } finally {
+    googleLoading.value = false
   }
 }
 
@@ -631,6 +703,11 @@ function openAddOnDate(dateStr) {
 }
 
 function openEdit(ev) {
+  // Google 活動直接開啟 Google 連結，不走編輯 Modal
+  if (ev.source === 'google') {
+    if (ev.googleLink) window.open(ev.googleLink, '_blank', 'noopener')
+    return
+  }
   formModal.isNew = false
   formModal.id    = ev.id
   Object.assign(form, { date: ev.date, time: ev.time, title: ev.title, owner: ev.owner, room: ev.room, type: ev.type })
@@ -843,6 +920,7 @@ const currentYearMonth = computed(() =>
 // 切換月份時重新載入備注，並重置篩選
 watch(currentYearMonth, () => {
   fetchNotes()
+  fetchGoogleEvents()
   noteEditIdx.value    = -1
   filterType.value     = '全部'
   filterLocation.value = ''
@@ -918,6 +996,7 @@ function showToast(msg) {
 onMounted(() => {
   fetchEvents()
   fetchNotes()
+  fetchGoogleEvents()
 })
 </script>
 
@@ -1002,9 +1081,11 @@ onMounted(() => {
 .chip-hospital { background: #fee2e2; color: #c0392b; }
 .chip-park     { background: #d1fae5; color: #065f46; }
 .chip-fragrant { background: #fce7f3; color: #9d4f78; }
+.chip-google   { background: #dbeafe; color: #1d4ed8; }
 :root.dark .chip-hospital { background: #4d2323; color: #fca5a5; }
 :root.dark .chip-park     { background: #1a3a26; color: #6ee7b7; }
 :root.dark .chip-fragrant { background: #3b1a2e; color: #f0abfc; }
+:root.dark .chip-google   { background: #1e3a5f; color: #93c5fd; }
 
 /* ── 類型 badge ── */
 .type-badge {
@@ -1018,9 +1099,11 @@ onMounted(() => {
 .type-badge.hospital { background: #fee2e2; color: #c0392b; }
 .type-badge.park     { background: #d1fae5; color: #065f46; }
 .type-badge.fragrant { background: #fce7f3; color: #9d4f78; }
+.type-badge.google   { background: #dbeafe; color: #1d4ed8; }
 :root.dark .type-badge.hospital { background: #4d2323; color: #f87171; }
 :root.dark .type-badge.park     { background: #1a3a26; color: #4ade80; }
 :root.dark .type-badge.fragrant { background: #3b1a2e; color: #f0abfc; }
+:root.dark .type-badge.google   { background: #1e3a5f; color: #93c5fd; }
 
 /* ── 篩選按鈕：類型 ── */
 .filter-type-btn {
@@ -1038,6 +1121,9 @@ onMounted(() => {
 .filter-type-btn.active.hospital { background: #e0534a; color: #fff; border-color: #e0534a; }
 .filter-type-btn.active.park     { background: #3d6b52; color: #fff; border-color: #3d6b52; }
 .filter-type-btn.active.fragrant { background: #a06080; color: #fff; border-color: #a06080; }
+.filter-type-btn.google          { border-color: #bfdbfe; color: #2563eb; }
+:root.dark .filter-type-btn.google { border-color: #1e3a5f; color: #93c5fd; }
+.filter-type-btn.active.google   { background: #2563eb; color: #fff; border-color: #2563eb; }
 .filter-type-btn:not(.active):hover { border-color: #6366f1; color: #6366f1; }
 
 /* ── 篩選按鈕：地點 ── */

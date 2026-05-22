@@ -400,25 +400,25 @@ const navGroups = [
     label: '🗿 營運管理',
     items: [
       { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
-      { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' },
+      { to: '/staff/management/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' },
       { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
-      { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit' },
+      { to: '/staff/management/menu-edit', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit' },
       { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
-      { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar.edit' },
+      { to: '/staff/management/calendar-edit', icon: '📅', label: '行事曆', key: 'staff.calendar.edit' },
       { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset' },
-      { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit' },
+      { to: '/staff/management/asset-edit', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit' },
       { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files' },
-      { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files.edit' }
+      { to: '/staff/management/files-edit', icon: '📁', label: '檔案管理', key: 'staff.files.edit' }
     ]
   },
   {
     label: '🌐 前台內容',
     items: [
-      { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news' },
+      { to: '/staff/front/news-view', icon: '📰', label: '消息管理', key: 'staff.news' },
       { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
-      { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product' },
+      { to: '/staff/front/product-view', icon: '🛍️', label: '商品管理', key: 'staff.product' },
       { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
-      { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production' },
+      { to: '/staff/front/production-view', icon: '🌾', label: '產品訂購', key: 'staff.production' },
       { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' }
     ]
   },
@@ -426,7 +426,7 @@ const navGroups = [
 
 const standaloneItems = [
   { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links' },
-  { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links.edit' }
+  { to: '/staff/system/quick-links-edit', icon: '🔗', label: '常用網址', key: 'staff.quick-links.edit' }
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────

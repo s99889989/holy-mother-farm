@@ -1,12 +1,12 @@
 <script setup>
-definePageMeta({ layout: 'blank' })
+definePageMeta({layout: 'loginl'})
 
-const commonStore     = useCommonStore()
-const customerStore   = useCustomerStore()
+const commonStore = useCommonStore()
+const customerStore = useCustomerStore()
 const permissionStore = usePermissionStore()
 
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
-const BASE             = computed(() => commonStore.data.main_url + '/holy/customer')
+const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 
 onMounted(async () => {
   if (import.meta.client) {
@@ -31,7 +31,7 @@ onMounted(async () => {
 
   // 嘗試從後端 cookie 恢復登入狀態（重開瀏覽器後仍有效，30 天內）
   try {
-    const res = await fetch(`${BASE.value}/me`, { credentials: 'include' })
+    const res = await fetch(`${BASE.value}/me`, {credentials: 'include'})
     if (res.ok) {
       const data = await res.json()
       if (!data.error) {
@@ -45,13 +45,14 @@ onMounted(async () => {
         return
       }
     }
-  } catch { /* cookie 不存在或已過期，繼續顯示登入頁 */ }
+  } catch { /* cookie 不存在或已過期，繼續顯示登入頁 */
+  }
 
   // 動態載入 Google SDK（與 SiteNavbar 相同模式）
   if (!document.getElementById('google-gsi-script')) {
     const script = document.createElement('script')
-    script.id    = 'google-gsi-script'
-    script.src   = 'https://accounts.google.com/gsi/client'
+    script.id = 'google-gsi-script'
+    script.src = 'https://accounts.google.com/gsi/client'
     script.async = true
     script.defer = true
     script.onload = () => initGoogle()
@@ -63,7 +64,7 @@ onMounted(async () => {
 
 // ── Google 登入 ──────────────────────────────────────────────────
 const googleLoading = ref(false)
-const googleError   = ref('')
+const googleError = ref('')
 
 const initGoogle = () => {
   if (!window.google || !GOOGLE_CLIENT_ID.value) return
@@ -87,9 +88,9 @@ const renderGoogleBtn = (elId) => {
 
 const handleCredential = async (response) => {
   googleLoading.value = true
-  googleError.value   = ''
+  googleError.value = ''
   try {
-    const res  = await fetch(`${BASE.value}/google-login`, {
+    const res = await fetch(`${BASE.value}/google-login`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       credentials: 'include',
@@ -159,41 +160,32 @@ watch(activeTab, (tab) => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-screen bg-stone-100 dark:bg-zinc-950 transition-colors flex flex-col">
 
-    <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-      <div class="flex items-center gap-3">
-        <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊" class="h-8 w-auto dark:brightness-90">
-        <div>
-          <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">
-            台東聖母健康農莊</h1>
-          <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Holy Mother Health Farm</p>
-        </div>
+    <!-- Navbar（與 StaffNavbar 同風格） -->
+    <nav class="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-700 px-4 py-2">
+      <div class="flex items-center gap-2">
+        <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊"
+             class="h-7 w-auto dark:brightness-90">
+        <span class="font-bold text-stone-700 dark:text-stone-200 text-sm">台東聖母健康農莊</span>
+        <span class="text-stone-300 dark:text-stone-600 text-sm ml-1">系統登入</span>
       </div>
-    </header>
+    </nav>
 
     <!-- 主體 -->
-    <div class="flex items-center justify-center px-4 py-12">
+    <div class="flex-1 flex items-center justify-center px-4 py-12">
       <div class="w-full max-w-sm">
-
-        <!-- Logo -->
-        <div class="text-center mb-8">
-          <img src="/images/global/healthfarm_logo.png" alt="台東聖母健康農莊"
-               class="h-16 mx-auto mb-3 dark:brightness-90">
-          <p class="text-sm text-stone-500 dark:text-stone-400">登入您的帳號</p>
-        </div>
 
         <!-- 卡片 -->
         <div
-          class="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          class="bg-white dark:bg-stone-900 rounded-xl shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden">
 
           <!-- Tab -->
-          <div class="flex border-b border-stone-100 dark:border-zinc-700">
+          <div class="flex border-b border-stone-100 dark:border-stone-700">
             <button
               class="flex-1 py-3 text-sm font-medium transition-colors"
               :class="activeTab === 'google'
-                ? 'text-green-700 dark:text-green-400 border-b-2 border-green-700 dark:border-green-400 bg-green-50/50 dark:bg-green-900/10'
+                ? 'text-green-700 dark:text-green-400 border-b-2 border-green-700 dark:border-green-400 bg-green-50/50 dark:bg-green-950/20'
                 : 'text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300'"
               @click="activeTab = 'google'"
             >
@@ -202,7 +194,7 @@ watch(activeTab, (tab) => {
             <button
               class="flex-1 py-3 text-sm font-medium transition-colors"
               :class="activeTab === 'admin'
-                ? 'text-blue-700 dark:text-blue-400 border-b-2 border-blue-700 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/10'
+                ? 'text-blue-700 dark:text-blue-400 border-b-2 border-blue-700 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300'"
               @click="activeTab = 'admin'"
             >
@@ -256,31 +248,31 @@ watch(activeTab, (tab) => {
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">帳號</label>
+                <label class="block text-sm font-medium text-stone-600 dark:text-stone-300 mb-1.5">帳號</label>
                 <input
                   v-model="username" type="text" placeholder="請輸入帳號"
-                  class="w-full px-4 py-3 rounded-xl border text-sm text-gray-800 dark:text-gray-100 dark:bg-zinc-700 outline-none transition-all"
+                  class="w-full px-4 py-2.5 rounded-lg border text-sm text-stone-800 dark:text-stone-100 dark:bg-stone-800 outline-none transition-all"
                   :class="error
                     ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
-                    : 'border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30'"
+                    : 'border-stone-200 dark:border-stone-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30'"
                   @keydown.enter="login"
                 >
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1.5">密碼</label>
+                <label class="block text-sm font-medium text-stone-600 dark:text-stone-300 mb-1.5">密碼</label>
                 <input
                   v-model="password" type="password" placeholder="請輸入密碼"
-                  class="w-full px-4 py-3 rounded-xl border text-sm text-gray-800 dark:text-gray-100 dark:bg-zinc-700 outline-none transition-all"
+                  class="w-full px-4 py-2.5 rounded-lg border text-sm text-stone-800 dark:text-stone-100 dark:bg-stone-800 outline-none transition-all"
                   :class="error
                     ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
-                    : 'border-gray-200 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30'"
+                    : 'border-stone-200 dark:border-stone-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30'"
                   @keydown.enter="login"
                 >
               </div>
               <p v-if="error" class="text-sm text-red-500 dark:text-red-400 text-center">{{ error }}</p>
               <button
                 :disabled="loading"
-                class="w-full py-3 rounded-xl text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                class="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                 @click="login"
               >
                 <div v-if="loading"
@@ -295,7 +287,7 @@ watch(activeTab, (tab) => {
         <!-- 回前台 -->
         <div class="text-center mt-5">
           <NuxtLink to="/"
-                    class="text-sm text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                    class="text-sm text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 transition-colors">
             ← 回到農莊網站
           </NuxtLink>
         </div>
