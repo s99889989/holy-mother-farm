@@ -1,12 +1,12 @@
 <script setup>
-import { usePermissionStore } from '~/stores/permission.js'
+import {usePermissionStore} from '~/stores/permission.js'
 
 useHead({
   meta: [
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' }
+    {name: 'viewport', content: 'width=device-width, initial-scale=1'}
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' }
+    {rel: 'icon', href: '/favicon.ico'}
   ],
   htmlAttrs: {
     lang: 'tw'
@@ -31,12 +31,16 @@ permissionStore.clear()
 
 const router = useRouter()
 router.beforeEach((to, from) => {
-  const fromStaff = from.path.startsWith('/staff')
-  const toFront = !to.path.startsWith('/staff')
-  const fromFront = !from.path.startsWith('/staff')
-  const toStaff = to.path.startsWith('/staff')
+  // 定義各「區域」
+  const zone = (path) => {
+    if (path.startsWith('/staff')) return 'staff'
+    if (path.startsWith('/admin')) return 'admin'
+    if (path === '/login') return 'login'
+    return 'front'
+  }
 
-  if ((fromStaff && toFront) || (fromFront && toStaff)) {
+  // 跨區域一律用 window.location.href 強制完整重載，避免 CSS 殘留
+  if (zone(to.path) !== zone(from.path)) {
     window.location.href = to.fullPath
     return false
   }
