@@ -93,6 +93,7 @@ const handleCredential = async (response) => {
     const data = await res.json()
     if (!data.error) {
       customerStore.setCustomer(data)
+      await permissionStore.load(data.id, commonStore.data.main_url)
       avatarOpen.value = false
       mobAvatarOpen.value = false
     }
@@ -103,6 +104,7 @@ const handleCredential = async (response) => {
 const logout = async () => {
   await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
   customerStore.clearCustomer()
+  permissionStore.clear()
   avatarOpen.value = false
   mobAvatarOpen.value = false
 }
@@ -110,7 +112,10 @@ const logout = async () => {
 const fetchMe = async () => {
   try {
     const data = await (await fetch(`${BASE.value}/me`, {credentials: 'include'})).json()
-    if (!data.error) customerStore.setCustomer(data)
+    if (!data.error) {
+      customerStore.setCustomer(data)
+      await permissionStore.load(data.id, commonStore.data.main_url)
+    }
   } catch {
   }
 }
@@ -185,7 +190,7 @@ onUnmounted(() => {
               <NuxtLink to="/front/profile/booking" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">線上訂位</NuxtLink>
               <NuxtLink to="/front/profile/lunch" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">便當預訂</NuxtLink>
               <NuxtLink to="/front/profile/settings" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">帳號設定</NuxtLink>
-              <NuxtLink v-if="canAccessStaff" to="/staff/home" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link mob-avatar-dropdown__link--staff">員工後台</NuxtLink>
+              <NuxtLink v-if="canAccessStaff" to="/staff/home" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link mob-avatar-dropdown__link--staff">員工專區</NuxtLink>
               <button @click="logout()" class="mob-avatar-dropdown__logout">登出</button>
             </div>
             <!-- 未登入 -->
@@ -418,15 +423,15 @@ onUnmounted(() => {
                   帳號設定
                 </NuxtLink>
               </li>
-              <li v-if="canAccessStaff" class="avatar-dropdown__divider">
-                <NuxtLink to="/staff/home" @click="closeAvatar" class="avatar-dropdown__item avatar-dropdown__item--staff">
-                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9"/>
-                  </svg>
-                  員工後台
-                </NuxtLink>
-              </li>
+<!--              <li v-if="canAccessStaff" class="avatar-dropdown__divider">-->
+<!--                <NuxtLink to="/staff/home" @click="closeAvatar" class="avatar-dropdown__item avatar-dropdown__item&#45;&#45;staff">-->
+<!--                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">-->
+<!--                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"-->
+<!--                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9"/>-->
+<!--                  </svg>-->
+<!--                  員工專區-->
+<!--                </NuxtLink>-->
+<!--              </li>-->
               <li class="avatar-dropdown__divider">
                 <button @click="logout" class="avatar-dropdown__logout">
                   <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
