@@ -423,7 +423,7 @@ onUnmounted(() => {
                   帳號設定
                 </NuxtLink>
               </li>
-              <li v-if="canAccessStaff" class="avatar-dropdown__divider">
+              <li v-if="canAccessStaff">
                 <NuxtLink to="/staff/home" @click="closeAvatar" class="avatar-dropdown__item avatar-dropdown__item--staff">
                   <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -802,6 +802,7 @@ onUnmounted(() => {
 .avatar-dropdown__item--staff {
   color: #1FC29C;
   font-weight: 600;
+  border-top: 1px solid #f5f5f5;
 }
 
 .avatar-dropdown__item--staff:hover {
