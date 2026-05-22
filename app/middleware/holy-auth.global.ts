@@ -61,10 +61,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // ── /login ────────────────────────────────────────────────────────
   // 已有 holy_auth → 跳後台
-  // 已 Google 登入 → 跳後台（staff.home）
   if (to.path === '/login') {
     if (hasAdminAuth) return navigateTo(ADMIN_HOME)
-    if (customerStore.isLoggedIn) return navigateTo('/staff/home')
     return
   }
 
