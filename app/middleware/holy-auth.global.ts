@@ -52,19 +52,23 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // /staff 根路徑自動導向 /staff/home
   if (to.path === '/staff') return navigateTo('/staff/home')
 
-  // Server side 不執行
+  // ── /admin 路徑 → server/client 都擋，需要 holy_auth ─────────────
+  if (to.path.startsWith('/admin')) {
+    if (import.meta.server) return navigateTo('/')
+    if (!localStorage.getItem('holy_auth')) return navigateTo('/')
+    return
+  }
+
+  // Server side 不執行以下邏輯
   if (import.meta.server) return
 
   // ── 1. 後台帳密登入者 → 全部放行 ─────────────────────────────────
   if (localStorage.getItem('holy_auth')) return
 
-  // ── 1.5 /admin 路徑 → 需要 holy_auth，否則跳首頁 ─────────────────
-  if (to.path.startsWith('/admin')) return navigateTo('/login')
-
   // ── 2. 根路徑 / 登入頁 → 永遠放行（但已登入者離開登入頁）────────
   const customerStore = useCustomerStore()
   if (to.path === '/login') {
-    if (localStorage.getItem('holy_auth')) return navigateTo('/admin/management/PermissionManagement')
+    if (customerStore.isLoggedIn) return navigateTo('/staff/home')
     return
   }
   if (to.path === '/') return
