@@ -26,7 +26,10 @@ const toggleMenu = (e) => {
   menuOpen.value = !menuOpen.value
 }
 
-function onClickOutside() { menuOpen.value = false }
+function onClickOutside() {
+  menuOpen.value = false
+}
+
 onMounted(() => document.addEventListener('click', onClickOutside))
 onUnmounted(() => document.removeEventListener('click', onClickOutside))
 
@@ -37,14 +40,14 @@ const logout = () => {
 
 // ── 修改密碼 Modal ────────────────────────────────────────────────
 const pwModal = ref(false)
-const pwForm = reactive({ oldPassword: '', newPassword: '', confirm: '' })
+const pwForm = reactive({oldPassword: '', newPassword: '', confirm: ''})
 const pwError = ref('')
 const pwOk = ref(false)
 const pwLoading = ref(false)
 
 const openPwModal = () => {
   closeMenu()
-  Object.assign(pwForm, { oldPassword: '', newPassword: '', confirm: '' })
+  Object.assign(pwForm, {oldPassword: '', newPassword: '', confirm: ''})
   pwError.value = ''
   pwOk.value = false
   pwModal.value = true
@@ -53,23 +56,28 @@ const openPwModal = () => {
 const changePassword = async () => {
   pwError.value = ''
   if (!pwForm.oldPassword || !pwForm.newPassword || !pwForm.confirm) {
-    pwError.value = '請填寫所有欄位'; return
+    pwError.value = '請填寫所有欄位';
+    return
   }
   if (pwForm.newPassword !== pwForm.confirm) {
-    pwError.value = '新密碼與確認密碼不一致'; return
+    pwError.value = '新密碼與確認密碼不一致';
+    return
   }
   if (pwForm.newPassword.length < 4) {
-    pwError.value = '新密碼至少 4 個字元'; return
+    pwError.value = '新密碼至少 4 個字元';
+    return
   }
   pwLoading.value = true
   try {
     const res = await $fetch(`${commonStore.data.main_url}/holy/auth/password`, {
       method: 'PUT',
-      body: { oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword }
+      body: {oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword}
     })
     if (res.success) {
       pwOk.value = true
-      setTimeout(() => { pwModal.value = false }, 1500)
+      setTimeout(() => {
+        pwModal.value = false
+      }, 1500)
     } else {
       pwError.value = res.message || '舊密碼錯誤'
     }
@@ -107,11 +115,11 @@ const changePassword = async () => {
       >
         <svg v-if="isDark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z" />
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"/>
         </svg>
         <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       </button>
 
@@ -137,13 +145,41 @@ const changePassword = async () => {
           >
             <ul class="p-1">
               <li>
+                <a
+                  href="/"
+                  target="_blank"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  @click="closeMenu"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                  </svg>
+                  首頁
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/staff/home"
+                  target="_blank"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  @click="closeMenu"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9"/>
+                  </svg>
+                  員工專區
+                </a>
+              </li>
+              <li class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
                 <button
                   class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   @click="openPwModal"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                   </svg>
                   修改密碼
                 </button>
@@ -155,7 +191,7 @@ const changePassword = async () => {
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                   </svg>
                   登出
                 </button>
@@ -177,7 +213,7 @@ const changePassword = async () => {
         <h3 class="font-bold text-stone-800 dark:text-stone-100">修改密碼</h3>
         <button class="text-stone-400 hover:text-stone-600 p-1" @click="pwModal = false">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
       </div>
@@ -207,13 +243,15 @@ const changePassword = async () => {
           <button
             class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors"
             @click="pwModal = false"
-          >取消</button>
+          >取消
+          </button>
           <button
             :disabled="pwLoading"
             class="flex-1 py-2.5 text-sm bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
             @click="changePassword"
           >
-            <div v-if="pwLoading" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div v-if="pwLoading"
+                 class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
             {{ pwLoading ? '更新中…' : '確認修改' }}
           </button>
         </div>

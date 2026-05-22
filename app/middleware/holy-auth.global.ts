@@ -58,6 +58,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // ── 1. 後台帳密登入者 → 全部放行 ─────────────────────────────────
   if (localStorage.getItem('holy_auth')) return
 
+  // ── 1.5 /admin 路徑 → 需要 holy_auth，否則跳首頁 ─────────────────
+  if (to.path.startsWith('/admin')) return navigateTo('/login')
+
   // ── 2. 根路徑 / 登入頁 → 永遠放行（但已登入者離開登入頁）────────
   const customerStore = useCustomerStore()
   if (to.path === '/login') {
@@ -86,12 +89,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
   console.log('需求' + requiredKey)
   // ── 5. 檢查權限 ───────────────────────────────────────────────────
-  // if (!permissionStore.can(requiredKey)) {
-  //   // 需要登入才有的權限 → 導到登入頁
-  //   if (!customerStore.isLoggedIn
-  //     && (requiredKey.startsWith('profile.') || requiredKey.startsWith('staff.'))) {
-  //     return navigateTo('/login')
-  //   }
-  //   return navigateTo('/login')
-  // }
+  if (!permissionStore.can(requiredKey)) {
+    // 需要登入才有的權限 → 導到登入頁
+    if (!customerStore.isLoggedIn
+      && (requiredKey.startsWith('profile.') || requiredKey.startsWith('staff.'))) {
+      return navigateTo('/login')
+    }
+    return navigateTo('/login')
+  }
 })
