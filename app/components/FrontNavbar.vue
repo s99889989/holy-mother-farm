@@ -2,6 +2,7 @@
 import {ref, computed, onMounted, onUnmounted, nextTick} from 'vue'
 import {useCommonStore} from '~/stores/common.js'
 import {useCustomerStore} from '~/stores/customer.js'
+import {usePermissionStore} from '~/stores/permission.js'
 
 const isOpen = ref(false)
 const route = useRoute()
@@ -27,6 +28,8 @@ const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 const avatarOpen = ref(false)
 const avatarRef = ref(null)
 const customer = computed(() => customerStore.customer)
+const permissionStore = usePermissionStore()
+const canAccessStaff = computed(() => permissionStore.can('staff.home'))
 
 const toggleAvatar = () => {
   avatarOpen.value = !avatarOpen.value
@@ -182,6 +185,7 @@ onUnmounted(() => {
               <NuxtLink to="/front/profile/booking" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">線上訂位</NuxtLink>
               <NuxtLink to="/front/profile/lunch" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">便當預訂</NuxtLink>
               <NuxtLink to="/front/profile/settings" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link">帳號設定</NuxtLink>
+              <a v-if="canAccessStaff" href="/staff/home" target="_blank" @click="mobAvatarOpen = false" class="mob-avatar-dropdown__link mob-avatar-dropdown__link--staff">員工後台</a>
               <button @click="logout()" class="mob-avatar-dropdown__logout">登出</button>
             </div>
             <!-- 未登入 -->
@@ -413,6 +417,15 @@ onUnmounted(() => {
                   </svg>
                   帳號設定
                 </NuxtLink>
+              </li>
+              <li v-if="canAccessStaff" class="avatar-dropdown__divider">
+                <a href="/staff/home" target="_blank" @click="closeAvatar" class="avatar-dropdown__item avatar-dropdown__item--staff">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9"/>
+                  </svg>
+                  員工後台
+                </a>
               </li>
               <li class="avatar-dropdown__divider">
                 <button @click="logout" class="avatar-dropdown__logout">
@@ -779,6 +792,27 @@ onUnmounted(() => {
   font-size: 12px;
   color: #888;
   margin: 0 0 12px;
+}
+
+.avatar-dropdown__item--staff {
+  color: #1FC29C;
+  font-weight: 600;
+}
+
+.avatar-dropdown__item--staff:hover {
+  background-color: #f0fdf9;
+  color: #17a083;
+}
+
+.mob-avatar-dropdown__link--staff {
+  color: #1FC29C;
+  font-weight: 600;
+  border-top: 1px solid #f5f5f5;
+}
+
+.mob-avatar-dropdown__link--staff:hover {
+  background-color: #f0fdf9;
+  color: #17a083;
 }
 
 /* ── 手機版 Transition ───────────────────────────────────────────── */

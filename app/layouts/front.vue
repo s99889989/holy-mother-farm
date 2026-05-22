@@ -10,6 +10,19 @@
 </template>
 
 <script setup>
+const commonStore = useCommonStore()
+const customerStore = useCustomerStore()
+const permissionStore = usePermissionStore()
+
+onMounted(async () => {
+  const customerId = customerStore.isLoggedIn ? customerStore.customer.id : null
+  if (!permissionStore.loaded) {
+    await permissionStore.load(customerId, commonStore.data.main_url)
+  } else {
+    permissionStore.load(customerId, commonStore.data.main_url, true)
+  }
+})
+
 function topFunction() {
   document.body.scrollTop = 0
   document.documentElement.scrollTop = 0
