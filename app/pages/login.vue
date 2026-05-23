@@ -145,6 +145,7 @@ const login = async () => {
         <div class="text-center mt-5">
           <NuxtLink
             to="/"
+            :prefetch="false"
             class="text-sm text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 transition-colors"
           >
             ← 回到農莊網站
