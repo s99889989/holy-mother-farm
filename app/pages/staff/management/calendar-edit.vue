@@ -105,17 +105,13 @@
       </div>
 
       <template v-else>
-        <!-- 星期標頭 -->
-        <div class="calendar-grid gap-1 mb-1">
+        <!-- 星期標頭 + 日期格子 同一個 grid，確保欄寬完全對齊 -->
+        <div class="calendar-grid gap-1">
           <div v-for="d in weekdays" :key="d"
                :class="['text-center text-xs font-semibold py-2 tracking-wide',
               d === '日' ? 'text-red-400' : d === '六' ? 'text-blue-400' : 'text-stone-400 dark:text-stone-500']">
             {{ d }}
           </div>
-        </div>
-
-        <!-- 日期格子 -->
-        <div class="calendar-grid gap-1">
           <div v-for="(cell, idx) in calendarCells" :key="idx"
                :class="['cal-cell', {
               'opacity-0 pointer-events-none': !cell.day,
@@ -1034,7 +1030,8 @@
   /* ── 月曆格線 ── */
   .calendar-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    width: 100%;
   }
 
   /* ── 日期格子 ── */
