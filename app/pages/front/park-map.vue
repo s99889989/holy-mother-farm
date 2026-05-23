@@ -6,18 +6,21 @@
   import { ref, computed, onUnmounted } from 'vue'
 
   // ── 控制點（GPS ↔ 圖片比例，IDW 插值用）─────────────────────────
-  // 每個點都是實地測量，imgX/imgY 為圖片比例（0~1），lat/lng 為實測 GPS
   const CONTROL_POINTS = [
-    { imgX: 0.550, imgY: 0.810, lat: 22.76123, lng: 121.09413 },  // 園區大門
-    { imgX: 0.700, imgY: 0.520, lat: 22.76086, lng: 121.09526 },  // 快樂運動館B1
-    { imgX: 0.620, imgY: 0.701, lat: 22.76110, lng: 121.09454 },  // 田園餐廳
-    { imgX: 0.831, imgY: 0.565, lat: 22.76051, lng: 121.09502 },  // 聖賀德住香草園
-    { imgX: 0.740, imgY: 0.670, lat: 22.76075, lng: 121.09474 },  // 全食物烘焙坊
-    { imgX: 0.440, imgY: 0.367, lat: 22.76163, lng: 121.09588 },  // 手作教室
-    { imgX: 0.710, imgY: 0.798, lat: 22.76078, lng: 121.09416 },  // 高齡服務培訓中心
-    { imgX: 0.690, imgY: 0.650, lat: 22.76089, lng: 121.09485 },  // 休憩小舖
-    { imgX: 0.800, imgY: 0.810, lat: 22.76058, lng: 121.09404 },  // 聖堂·天使花園
-    { imgX: 0.900, imgY: 0.350, lat: 22.76038, lng: 121.09605 },  // 森林好食光
+    { imgX: 0.550, imgY: 0.810, lat: 22.76123,  lng: 121.09413 },  // 園區大門
+    { imgX: 0.700, imgY: 0.520, lat: 22.76086,  lng: 121.09526 },  // 快樂運動館B1
+    { imgX: 0.400, imgY: 0.680, lat: 22.76167,  lng: 121.09485 },  // 樂智幸福家園
+    { imgX: 0.620, imgY: 0.711, lat: 22.76107,  lng: 121.09463 },  // 田園餐廳
+    { imgX: 0.710, imgY: 0.330, lat: 22.76086,  lng: 121.09614 },  // 療癒森林
+    { imgX: 0.831, imgY: 0.565, lat: 22.76052,  lng: 121.09511 },  // 聖賀德住香草園
+    { imgX: 0.740, imgY: 0.670, lat: 22.76075,  lng: 121.09468 },  // 全食物烘焙坊
+    { imgX: 0.440, imgY: 0.367, lat: 22.76164,  lng: 121.09595 },  // 手作教室
+    { imgX: 0.710, imgY: 0.798, lat: 22.76081,  lng: 121.09416 },  // 高齡服務培訓中心
+    { imgX: 0.690, imgY: 0.650, lat: 22.76089,  lng: 121.09476 },  // 休憩小舖
+    { imgX: 0.800, imgY: 0.810, lat: 22.76056,  lng: 121.09411 },  // 聖堂·天使花園
+    { imgX: 0.300, imgY: 0.350, lat: 22.76200,  lng: 121.09601 },  // 木工教室
+    { imgX: 0.558, imgY: 0.490, lat: 22.76125,  lng: 121.09538 },  // 康樂據點
+    { imgX: 0.900, imgY: 0.350, lat: 22.76041,  lng: 121.09605 },  // 森林好食光
   ]
 
   // IDW（加權反距離插值）：GPS → 圖片比例
@@ -41,22 +44,22 @@
     }
   }
 
-  // ── 設施資料（10點實測 + 4點待校準）────────────────────────────
+  // ── 設施資料（14點實測校準 2026-05-23）──────────────────────────
   const landmarks = ref([
-    { id:1,  name:'園區大門',           icon:'🚪', lat:22.761240, lng:121.094103, imgX:0.550, imgY:0.810, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
-    { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.760886, lng:121.095293, imgX:0.700, imgY:0.520, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
-    { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.761659, lng:121.094846, imgX:0.400, imgY:0.660, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
-    { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.761070, lng:121.094551, imgX:0.620, imgY:0.701, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
-    { id:5,  name:'療癒森林',           icon:'🌲', lat:22.760862, lng:121.096098, imgX:0.710, imgY:0.330, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
-    { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.760519, lng:121.095112, imgX:0.831, imgY:0.565, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
-    { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.760748, lng:121.094680, imgX:0.740, imgY:0.670, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
-    { id:8,  name:'手作教室',           icon:'🎨', lat:22.761624, lng:121.095915, imgX:0.440, imgY:0.367, desc:'各式手作體驗課程，需提前預約確認時段。',                      tag:'orange', tagLabel:'需預約' },
-    { id:9,  name:'高齡服務培訓中心',   icon:'🎓', lat:22.760805, lng:121.094155, imgX:0.710, imgY:0.798, desc:'專業培訓空間，適合了解服務模式，教育參訪首選。',               tag:'green',  tagLabel:'教育參訪' },
-    { id:10, name:'休憩小舖',           icon:'☕', lat:22.760888, lng:121.094761, imgX:0.690, imgY:0.650, desc:'輕食飲品，參觀中場休息使用，提供茶飲與輕點心。',              tag:'gold',   tagLabel:'休息站' },
-    { id:11, name:'聖堂 · 天使花園',   icon:'⛪', lat:22.760558, lng:121.094108, imgX:0.800, imgY:0.810, desc:'靈性空間與靜謐庭園，可自由參觀，氛圍寧靜。',                  tag:'gold',   tagLabel:'靜思空間' },
-    { id:12, name:'木工教室',           icon:'🪚', lat:22.761964, lng:121.096171, imgX:0.300, imgY:0.350, desc:'木工體驗課程，提供親手製作的樂趣，需提前預約。',              tag:'orange', tagLabel:'需預約' },
-    { id:13, name:'康樂據點',           icon:'🏥', lat:22.761253, lng:121.095492, imgX:0.558, imgY:0.490, desc:'社區型健康服務空間，日常活動示範中心。',                      tag:'green',  tagLabel:'服務示範' },
-    { id:14, name:'森林好食光',         icon:'🍃', lat:22.760372, lng:121.095993, imgX:0.900, imgY:0.350, desc:'東北角森林餐飲體驗空間，享受自然中用餐的美好。',              tag:'gold',   tagLabel:'餐飲' },
+    { id:1,  name:'園區大門',           icon:'🚪', lat:22.76123,  lng:121.09413, imgX:0.550, imgY:0.810, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
+    { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.76086,  lng:121.09526, imgX:0.700, imgY:0.520, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
+    { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.76167,  lng:121.09485, imgX:0.400, imgY:0.680, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
+    { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.76107,  lng:121.09463, imgX:0.620, imgY:0.711, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
+    { id:5,  name:'療癒森林',           icon:'🌲', lat:22.76086,  lng:121.09614, imgX:0.710, imgY:0.330, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
+    { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.76052,  lng:121.09511, imgX:0.831, imgY:0.565, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
+    { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.76075,  lng:121.09468, imgX:0.740, imgY:0.670, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
+    { id:8,  name:'手作教室',           icon:'🎨', lat:22.76164,  lng:121.09595, imgX:0.440, imgY:0.367, desc:'各式手作體驗課程，需提前預約確認時段。',                      tag:'orange', tagLabel:'需預約' },
+    { id:9,  name:'高齡服務培訓中心',   icon:'🎓', lat:22.76081,  lng:121.09416, imgX:0.710, imgY:0.798, desc:'專業培訓空間，適合了解服務模式，教育參訪首選。',               tag:'green',  tagLabel:'教育參訪' },
+    { id:10, name:'休憩小舖',           icon:'☕', lat:22.76089,  lng:121.09476, imgX:0.690, imgY:0.650, desc:'輕食飲品，參觀中場休息使用，提供茶飲與輕點心。',              tag:'gold',   tagLabel:'休息站' },
+    { id:11, name:'聖堂 · 天使花園',   icon:'⛪', lat:22.76056,  lng:121.09411, imgX:0.800, imgY:0.810, desc:'靈性空間與靜謐庭園，可自由參觀，氛圍寧靜。',                  tag:'gold',   tagLabel:'靜思空間' },
+    { id:12, name:'木工教室',           icon:'🪚', lat:22.76200,  lng:121.09601, imgX:0.300, imgY:0.350, desc:'木工體驗課程，提供親手製作的樂趣，需提前預約。',              tag:'orange', tagLabel:'需預約' },
+    { id:13, name:'康樂據點',           icon:'🏥', lat:22.76125,  lng:121.09538, imgX:0.558, imgY:0.490, desc:'社區型健康服務空間，日常活動示範中心。',                      tag:'green',  tagLabel:'服務示範' },
+    { id:14, name:'森林好食光',         icon:'🍃', lat:22.76041,  lng:121.09605, imgX:0.900, imgY:0.350, desc:'東北角森林餐飲體驗空間，享受自然中用餐的美好。',              tag:'gold',   tagLabel:'餐飲' },
   ])
 
   // ── GPS 狀態 ──────────────────────────────────────────────────
@@ -235,7 +238,21 @@
       }
     })
   }
-  // ── UI 狀態 ───────────────────────────────────────────────────
+  // ── 地圖模式切換 ──────────────────────────────────────────────
+  const mapMode = ref('illustrated') // 'illustrated' | 'google'
+
+  const googleMapsUrl = computed(() => {
+    const base = 'https://www.google.com/maps/embed/v1/place'
+    const key = 'AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY' // 公開示範 key，需換成自己的
+    // 有 GPS 時顯示附近，否則顯示園區
+    if (currentGPS.value) {
+      const { lat, lng } = currentGPS.value
+      return `https://maps.google.com/maps?q=${lat},${lng}&z=18&output=embed`
+    }
+    return `https://maps.google.com/maps?q=22.76100,121.09480&z=17&output=embed`
+  })
+
+
   const statusClass = computed(() => {
     if (!isTracking.value) return 'status-off'
     if (currentGPS.value) return 'status-live'
@@ -303,6 +320,20 @@
 
                       <!-- 按鈕群組 -->
                       <div class="map-btn-group">
+                        <!-- 地圖切換 -->
+                        <div class="map-mode-toggle">
+                          <button
+                            class="mode-btn"
+                            :class="{ 'mode-btn--active': mapMode === 'illustrated' }"
+                            @click="mapMode = 'illustrated'"
+                          >🗺️ 園區導覽圖</button>
+                          <button
+                            class="mode-btn"
+                            :class="{ 'mode-btn--active': mapMode === 'google' }"
+                            @click="mapMode = 'google'"
+                          >📍 精準定位</button>
+                        </div>
+
                         <button
                           class="map-ctrl-btn"
                           :class="{ 'map-ctrl-btn--active': isTracking }"
@@ -316,50 +347,52 @@
                           {{ isTracking ? '停止定位' : '開始定位' }}
                         </button>
 
-                        <button
-                          class="map-ctrl-btn"
-                          :class="{ 'map-ctrl-btn--active': showLandmarks }"
-                          @click="showLandmarks = !showLandmarks"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                            <circle cx="12" cy="10" r="3"/>
-                          </svg>
-                          {{ showLandmarks ? '隱藏設施' : '顯示設施' }}
-                        </button>
+                        <template v-if="mapMode === 'illustrated'">
+                          <button
+                            class="map-ctrl-btn"
+                            :class="{ 'map-ctrl-btn--active': showLandmarks }"
+                            @click="showLandmarks = !showLandmarks"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                              <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                            {{ showLandmarks ? '隱藏設施' : '顯示設施' }}
+                          </button>
 
-                        <button class="map-ctrl-btn" @click="toggleFullscreen">
-                          <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
-                            <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M16 21h3a2 2 0 002-2v-3"/>
-                          </svg>
-                          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
-                            <path d="M8 3v3a2 2 0 01-2 2H3M21 8h-3a2 2 0 01-2-2V3M3 16h3a2 2 0 012 2v3M16 21v-3a2 2 0 012-2h3"/>
-                          </svg>
-                          {{ isFullscreen ? '離開全螢幕' : '全螢幕' }}
-                        </button>
+                          <button class="map-ctrl-btn" @click="toggleFullscreen">
+                            <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                              <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M16 21h3a2 2 0 002-2v-3"/>
+                            </svg>
+                            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                              <path d="M8 3v3a2 2 0 01-2 2H3M21 8h-3a2 2 0 01-2-2V3M3 16h3a2 2 0 012 2v3M16 21v-3a2 2 0 012-2h3"/>
+                            </svg>
+                            {{ isFullscreen ? '離開全螢幕' : '全螢幕' }}
+                          </button>
 
-                        <button
-                          class="map-ctrl-btn"
-                          :class="{ 'map-ctrl-btn--calib': calibMode }"
-                          @click="toggleCalibMode"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
-                            <circle cx="12" cy="12" r="3"/><path d="M3 12h2M19 12h2M12 3v2M12 19v2"/>
-                            <circle cx="12" cy="12" r="9" stroke-dasharray="3 2"/>
-                          </svg>
-                          {{ calibMode ? `校準中 (${calibRecords.length})` : '校準模式' }}
-                        </button>
+                          <button
+                            class="map-ctrl-btn"
+                            :class="{ 'map-ctrl-btn--calib': calibMode }"
+                            @click="toggleCalibMode"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                              <circle cx="12" cy="12" r="3"/><path d="M3 12h2M19 12h2M12 3v2M12 19v2"/>
+                              <circle cx="12" cy="12" r="9" stroke-dasharray="3 2"/>
+                            </svg>
+                            {{ calibMode ? `校準中 (${calibRecords.length})` : '校準模式' }}
+                          </button>
 
-                        <button
-                          v-if="calibRecords.length"
-                          class="map-ctrl-btn map-ctrl-btn--output"
-                          @click="showCalibOutput = !showCalibOutput"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
-                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                          </svg>
-                          輸出 ({{ calibRecords.length }})
-                        </button>
+                          <button
+                            v-if="calibRecords.length"
+                            class="map-ctrl-btn map-ctrl-btn--output"
+                            @click="showCalibOutput = !showCalibOutput"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            輸出 ({{ calibRecords.length }})
+                          </button>
+                        </template>
                       </div>
 
                     </div>
@@ -369,56 +402,75 @@
                 <!-- 地圖 -->
                 <div class="row justify-content-center">
                   <div class="col-10">
-                    <div class="map-wrapper" ref="mapSection" :class="{ 'map-fullscreen': isFullscreen }">
-                      <!-- 全螢幕關閉按鈕（僅全螢幕時顯示） -->
-                      <button class="fullscreen-close-btn" @click="toggleFullscreen">✕</button>
-                      <div class="map-container" :class="{ 'calib-pins-visible': calibMode }">
-                        <img
-                          ref="mapImage"
-                          src="/images/point_B.png"
-                          alt="聖母健康園區探索地圖"
-                          class="map-img img-fluid"
-                          draggable="false"
-                        />
 
-                        <!-- 設施 Pins -->
-                        <template v-if="showLandmarks">
-                          <div
-                            v-for="lm in landmarks"
-                            :key="lm.id"
-                            class="landmark-pin"
-                            :style="pinStyle(lm)"
-                            :class="{
-                              'landmark-pin--selected': selectedLandmark?.id === lm.id,
-                              'landmark-pin--nearby':   nearestLandmark?.id === lm.id && isTracking
-                            }"
-                            @click.stop="selectLandmark(lm)"
-                          >
-                            <span class="pin-icon">{{ lm.icon }}</span>
-                            <span class="pin-label">{{ lm.name }}</span>
-                          </div>
-                        </template>
-
-                        <!-- 目前位置藍點 -->
-                        <transition name="pop">
-                          <div
-                            v-if="mappedPosition"
-                            class="position-dot"
-                            :style="dotStyle"
-                          >
-                            <div class="pulse-ring"></div>
-                            <div class="pulse-ring pulse-ring--delay"></div>
-                            <div class="dot-core"></div>
-                            <div class="position-label">你在這裡</div>
-                          </div>
-                        </transition>
+                    <!-- 手繪園區圖 -->
+                    <div v-show="mapMode === 'illustrated'">
+                      <div class="map-wrapper" ref="mapSection" :class="{ 'map-fullscreen': isFullscreen }">
+                        <button class="fullscreen-close-btn" @click="toggleFullscreen">✕</button>
+                        <div class="map-container" :class="{ 'calib-pins-visible': calibMode }">
+                          <img
+                            ref="mapImage"
+                            src="/images/point_B.png"
+                            alt="聖母健康園區探索地圖"
+                            class="map-img img-fluid"
+                            draggable="false"
+                          />
+                          <template v-if="showLandmarks">
+                            <div
+                              v-for="lm in landmarks"
+                              :key="lm.id"
+                              class="landmark-pin"
+                              :style="pinStyle(lm)"
+                              :class="{
+                                'landmark-pin--selected': selectedLandmark?.id === lm.id,
+                                'landmark-pin--nearby':   nearestLandmark?.id === lm.id && isTracking
+                              }"
+                              @click.stop="selectLandmark(lm)"
+                            >
+                              <span class="pin-icon">{{ lm.icon }}</span>
+                              <span class="pin-label">{{ lm.name }}</span>
+                            </div>
+                          </template>
+                          <transition name="pop">
+                            <div v-if="mappedPosition" class="position-dot" :style="dotStyle">
+                              <div class="pulse-ring"></div>
+                              <div class="pulse-ring pulse-ring--delay"></div>
+                              <div class="dot-core"></div>
+                              <div class="position-label">你在這裡</div>
+                            </div>
+                          </transition>
+                        </div>
                       </div>
+                      <p class="map-hint">
+                        💡 粉紅虛線範圍為「樂智幸福家園」核心區域，從 <strong>園區大門</strong>（博物館路側）入場後沿中央大道前進。<br>
+                        <span style="color:#e65100;">⚠️ 此圖為手繪示意圖，建築位置僅供參考，精確定位請切換「精準定位」。</span>
+                      </p>
                     </div>
 
-                    <!-- 地圖說明 -->
-                    <p class="map-hint">
-                      💡 粉紅虛線範圍為「樂智幸福家園」核心區域，從 <strong>園區大門</strong>（博物館路側）入場後沿中央大道前進。
-                    </p>
+                    <!-- Google Maps 精準定位 -->
+                    <div v-show="mapMode === 'google'">
+                      <div class="google-map-wrapper">
+                        <iframe
+                          v-if="currentGPS"
+                          :src="googleMapsUrl"
+                          class="google-map-iframe"
+                          allowfullscreen
+                          loading="lazy"
+                          referrerpolicy="no-referrer-when-downgrade"
+                        ></iframe>
+                        <div v-else class="google-map-placeholder">
+                          <div class="placeholder-icon">📍</div>
+                          <p>請先開啟 GPS 定位<br>才能顯示你的精確位置</p>
+                          <button class="map-ctrl-btn map-ctrl-btn--active mt-2" @click="startTracking">
+                            開始定位
+                          </button>
+                        </div>
+                      </div>
+                      <p class="map-hint">
+                        📍 Google Maps 即時顯示你的精確位置，藍點為目前所在地。
+                      </p>
+                    </div>
+
                   </div>
                 </div>
 
@@ -830,7 +882,66 @@
   .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
   .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-  /* ── 校準模式按鈕 ── */
+  /* ── 地圖模式切換 ── */
+  .map-mode-toggle {
+    display: flex;
+    background: #e8f0e4;
+    border-radius: 20px;
+    padding: 3px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .mode-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 16px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    background: transparent;
+    color: #666;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .mode-btn--active {
+    background: white;
+    color: #2d5a27;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  }
+
+  /* ── Google Maps ── */
+  .google-map-wrapper {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #c8e6b8;
+    overflow: hidden;
+    background: #f0f0f0;
+  }
+  .google-map-iframe {
+    width: 100%;
+    height: 480px;
+    border: none;
+    display: block;
+  }
+  .google-map-placeholder {
+    height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    text-align: center;
+    padding: 20px;
+  }
+  .placeholder-icon { font-size: 48px; margin-bottom: 12px; }
+  .google-map-placeholder p { font-size: 14px; line-height: 1.6; margin-bottom: 4px; }
+
+  @media (max-width: 768px) {
+    .google-map-iframe { height: 380px; }
+  }
+
+
   .map-ctrl-btn--calib  { background: #fff3e0 !important; border-color: #e65100 !important; color: #e65100 !important; }
   .map-ctrl-btn--output { background: #e8f5e9 !important; border-color: #2e7d32 !important; color: #2e7d32 !important; }
 
