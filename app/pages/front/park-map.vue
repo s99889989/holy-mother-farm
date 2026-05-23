@@ -3,7 +3,7 @@
 
   useSiteHead()
 
-  import { ref, computed, onUnmounted } from 'vue'
+  import { ref, computed, onUnmounted, watch } from 'vue'
 
   // ── 控制點（GPS ↔ 圖片比例，IDW 插值用）─────────────────────────
   const CONTROL_POINTS = [
@@ -92,6 +92,8 @@
     if (watchId.value !== null) { navigator.geolocation.clearWatch(watchId.value); watchId.value = null }
     isTracking.value = false
     currentGPS.value = null
+    googleMapsSet.value = false
+    googleMapsUrl.value = ''
   }
 
   // ── 圖片 ref ─────────────────────────────────────────────────
@@ -240,16 +242,15 @@
   }
   // ── 地圖模式切換 ──────────────────────────────────────────────
   const mapMode = ref('illustrated') // 'illustrated' | 'google'
+  const googleMapsUrl = ref('')
+  const googleMapsSet = ref(false)
 
-  const googleMapsUrl = computed(() => {
-    const base = 'https://www.google.com/maps/embed/v1/place'
-    const key = 'AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY' // 公開示範 key，需換成自己的
-    // 有 GPS 時顯示附近，否則顯示園區
-    if (currentGPS.value) {
-      const { lat, lng } = currentGPS.value
-      return `https://maps.google.com/maps?q=${lat},${lng}&z=18&output=embed`
+  // GPS 第一次取得時固定 URL，之後不再更新避免 iframe 重載
+  watch(currentGPS, (gps) => {
+    if (gps && !googleMapsSet.value) {
+      googleMapsUrl.value = `https://maps.google.com/maps?q=${gps.lat},${gps.lng}&z=18&output=embed`
+      googleMapsSet.value = true
     }
-    return `https://maps.google.com/maps?q=22.76100,121.09480&z=17&output=embed`
   })
 
 
