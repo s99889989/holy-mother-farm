@@ -436,7 +436,6 @@
                               <div class="pulse-ring"></div>
                               <div class="pulse-ring pulse-ring--delay"></div>
                               <div class="dot-core"></div>
-                              <div class="position-label">你在這裡</div>
                             </div>
                           </transition>
                         </div>
