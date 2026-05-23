@@ -1,138 +1,161 @@
 <script setup>
-definePageMeta({ layout: 'front' })
+  definePageMeta({ layout: 'front' })
 
-useSiteHead()
+  useSiteHead()
 
-import { ref, computed, onUnmounted } from 'vue'
+  import { ref, computed, onUnmounted } from 'vue'
 
-// ── 固定校準錨點（GPS ↔ 圖片比例轉換）────────────────────────
-// P1：園區大門   imgX=42% imgY=83%  →  GPS 22.75985, 121.09390
-// P2：快樂運動館 imgX=63% imgY=47%  →  GPS 22.76155, 121.09510
-const ANCHOR1 = { imgX: 0.42, imgY: 0.83, lat: 22.75985, lng: 121.09390 }
-const ANCHOR2 = { imgX: 0.63, imgY: 0.47, lat: 22.76155, lng: 121.09510 }
-const SCALE_LAT = (ANCHOR2.lat - ANCHOR1.lat) / (ANCHOR2.imgY - ANCHOR1.imgY)
-const SCALE_LNG = (ANCHOR2.lng - ANCHOR1.lng) / (ANCHOR2.imgX - ANCHOR1.imgX)
+  // ── 固定校準錨點（GPS ↔ 圖片比例轉換）────────────────────────
+  // P1：園區大門   imgX=42% imgY=83%  →  GPS 22.75985, 121.09390
+  // P2：快樂運動館 imgX=63% imgY=47%  →  GPS 22.76155, 121.09510
+  // 錨點根據現場兩點實測校準：
+  // P1 園區大門  22.76122, 121.09420  P2 田園餐廳  22.76120, 121.09488
+  const ANCHOR1 = { imgX: 0.42, imgY: 0.83, lat: 22.76122, lng: 121.09420 }
+  const ANCHOR2 = { imgX: 0.54, imgY: 0.75, lat: 22.76120, lng: 121.09488 }
+  const SCALE_LAT = (ANCHOR2.lat - ANCHOR1.lat) / (ANCHOR2.imgY - ANCHOR1.imgY)
+  const SCALE_LNG = (ANCHOR2.lng - ANCHOR1.lng) / (ANCHOR2.imgX - ANCHOR1.imgX)
 
-function gpsToImgFraction(lat, lng) {
-  const x = ANCHOR1.imgX + (lng - ANCHOR1.lng) / SCALE_LNG
-  const y = ANCHOR1.imgY + (lat - ANCHOR1.lat) / SCALE_LAT
-  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) }
-}
-
-// ── 設施資料 ──────────────────────────────────────────────────
-const landmarks = ref([
-  { id:1,  name:'園區大門',           icon:'🚪', lat:22.75985,  lng:121.09390, imgX:0.45, imgY:0.83, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
-  { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.76155,  lng:121.09510, imgX:0.63, imgY:0.47, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
-  { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.761172, lng:121.093214, imgX:0.30, imgY:0.55, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
-  { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.760228, lng:121.094586, imgX:0.54, imgY:0.75, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
-  { id:5,  name:'療癒森林',           icon:'🌲', lat:22.762494, lng:121.095614, imgX:0.72, imgY:0.27, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
-  { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.760936, lng:121.095843, imgX:0.76, imgY:0.60, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
-  { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.760086, lng:121.096186, imgX:0.82, imgY:0.78, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
-  { id:8,  name:'手作教室',           icon:'🎨', lat:22.762731, lng:121.093671, imgX:0.38, imgY:0.22, desc:'各式手作體驗課程，需提前預約確認時段。',                      tag:'orange', tagLabel:'需預約' },
-  { id:9,  name:'高齡服務培訓中心',   icon:'🎓', lat:22.759661, lng:121.095214, imgX:0.65, imgY:0.87, desc:'專業培訓空間，適合了解服務模式，教育參訪首選。',               tag:'green',  tagLabel:'教育參訪' },
-  { id:10, name:'休憩小舖',           icon:'☕', lat:22.760558, lng:121.096014, imgX:0.79, imgY:0.68, desc:'輕食飲品，參觀中場休息使用，提供茶飲與輕點心。',              tag:'gold',   tagLabel:'休息站' },
-  { id:11, name:'聖堂 · 天使花園',   icon:'⛪', lat:22.759614, lng:121.095614, imgX:0.72, imgY:0.88, desc:'靈性空間與靜謐庭園，可自由參觀，氛圍寧靜。',                  tag:'gold',   tagLabel:'靜思空間' },
-  { id:12, name:'木工教室',           icon:'🪚', lat:22.762258, lng:121.092814, imgX:0.23, imgY:0.32, desc:'木工體驗課程，提供親手製作的樂趣，需提前預約。',              tag:'orange', tagLabel:'需預約' },
-  { id:13, name:'康樂據點',           icon:'🏥', lat:22.761456, lng:121.094186, imgX:0.47, imgY:0.49, desc:'社區型健康服務空間，日常活動示範中心。',                      tag:'green',  tagLabel:'服務示範' },
-  { id:14, name:'森林好食光',         icon:'🍃', lat:22.762731, lng:121.096357, imgX:0.89, imgY:0.36, desc:'東北角森林餐飲體驗空間，享受自然中用餐的美好。',              tag:'gold',   tagLabel:'餐飲' },
-])
-
-// ── GPS 狀態 ──────────────────────────────────────────────────
-const isTracking = ref(false)
-const currentGPS = ref(null)
-const errorMsg = ref('')
-const lastUpdated = ref('')
-const watchId = ref(null)
-
-function toggleTracking() {
-  isTracking.value ? stopTracking() : startTracking()
-}
-function startTracking() {
-  if (!navigator.geolocation) { showError('此裝置不支援 GPS 定位'); return }
-  isTracking.value = true
-  watchId.value = navigator.geolocation.watchPosition(
-    (pos) => {
-      currentGPS.value = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }
-      lastUpdated.value = new Date().toLocaleTimeString('zh-TW')
-    },
-    (err) => {
-      const msgs = { 1:'使用者拒絕定位授權', 2:'無法取得位置資訊', 3:'定位請求逾時' }
-      showError(msgs[err.code] || '定位失敗')
-      isTracking.value = false
-    },
-    { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
-  )
-}
-function stopTracking() {
-  if (watchId.value !== null) { navigator.geolocation.clearWatch(watchId.value); watchId.value = null }
-  isTracking.value = false
-  currentGPS.value = null
-}
-
-// ── 圖片 ref ─────────────────────────────────────────────────
-const mapImage = ref(null)
-
-// ── 位置轉換 ──────────────────────────────────────────────────
-const mappedPosition = computed(() => {
-  if (!currentGPS.value) return null
-  return gpsToImgFraction(currentGPS.value.lat, currentGPS.value.lng)
-})
-const dotStyle = computed(() => {
-  if (!mappedPosition.value) return {}
-  return { left: mappedPosition.value.x * 100 + '%', top: mappedPosition.value.y * 100 + '%' }
-})
-function pinStyle(lm) {
-  return { left: lm.imgX * 100 + '%', top: lm.imgY * 100 + '%' }
-}
-
-// ── 最近設施 ──────────────────────────────────────────────────
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 6371000
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLng = (lng2 - lng1) * Math.PI / 180
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))
-}
-const nearestLandmark = computed(() => {
-  if (!currentGPS.value) return null
-  let nearest = null, minDist = Infinity
-  for (const lm of landmarks.value) {
-    const dist = haversine(currentGPS.value.lat, currentGPS.value.lng, lm.lat, lm.lng)
-    if (dist < minDist) { minDist = dist; nearest = { ...lm, dist } }
+  function gpsToImgFraction(lat, lng) {
+    const x = ANCHOR1.imgX + (lng - ANCHOR1.lng) / SCALE_LNG
+    const y = ANCHOR1.imgY + (lat - ANCHOR1.lat) / SCALE_LAT
+    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) }
   }
-  return nearest
-})
-function distToLandmark(lm) {
-  if (!currentGPS.value) return '—'
-  return haversine(currentGPS.value.lat, currentGPS.value.lng, lm.lat, lm.lng)
-}
 
-// ── 設施彈窗 ──────────────────────────────────────────────────
-const showLandmarks = ref(true)
-const selectedLandmark = ref(null)
-function selectLandmark(lm) {
-  selectedLandmark.value = selectedLandmark.value?.id === lm.id ? null : lm
-}
+  // ── 設施資料 ──────────────────────────────────────────────────
+  const landmarks = ref([
+    { id:1,  name:'園區大門',           icon:'🚪', lat:22.761220, lng:121.094200, imgX:0.42, imgY:0.83, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
+    { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.761130, lng:121.095390, imgX:0.63, imgY:0.47, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
+    { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.761150, lng:121.093520, imgX:0.30, imgY:0.55, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
+    { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.761200, lng:121.094880, imgX:0.54, imgY:0.75, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
+    { id:5,  name:'療癒森林',           icon:'🌲', lat:22.761080, lng:121.095900, imgX:0.72, imgY:0.27, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
+    { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.761162, lng:121.096127, imgX:0.76, imgY:0.60, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
+    { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.761208, lng:121.096467, imgX:0.82, imgY:0.78, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
+    { id:8,  name:'手作教室',           icon:'🎨', lat:22.761067, lng:121.093973, imgX:0.38, imgY:0.22, desc:'各式手作體驗課程，需提前預約確認時段。',                      tag:'orange', tagLabel:'需預約' },
+    { id:9,  name:'高齡服務培訓中心',   icon:'🎓', lat:22.761230, lng:121.095503, imgX:0.65, imgY:0.87, desc:'專業培訓空間，適合了解服務模式，教育參訪首選。',               tag:'green',  tagLabel:'教育參訪' },
+    { id:10, name:'休憩小舖',           icon:'☕', lat:22.761182, lng:121.096297, imgX:0.79, imgY:0.68, desc:'輕食飲品，參觀中場休息使用，提供茶飲與輕點心。',              tag:'gold',   tagLabel:'休息站' },
+    { id:11, name:'聖堂 · 天使花園',   icon:'⛪', lat:22.761233, lng:121.095900, imgX:0.72, imgY:0.88, desc:'靈性空間與靜謐庭園，可自由參觀，氛圍寧靜。',                  tag:'gold',   tagLabel:'靜思空間' },
+    { id:12, name:'木工教室',           icon:'🪚', lat:22.761092, lng:121.093123, imgX:0.23, imgY:0.32, desc:'木工體驗課程，提供親手製作的樂趣，需提前預約。',              tag:'orange', tagLabel:'需預約' },
+    { id:13, name:'康樂據點',           icon:'🏥', lat:22.761135, lng:121.094483, imgX:0.47, imgY:0.49, desc:'社區型健康服務空間，日常活動示範中心。',                      tag:'green',  tagLabel:'服務示範' },
+    { id:14, name:'森林好食光',         icon:'🍃', lat:22.761067, lng:121.096637, imgX:0.85, imgY:0.22, desc:'東北角森林餐飲體驗空間，享受自然中用餐的美好。',              tag:'gold',   tagLabel:'餐飲' },
+  ])
 
+  // ── GPS 狀態 ──────────────────────────────────────────────────
+  const isTracking = ref(false)
+  const currentGPS = ref(null)
+  const errorMsg = ref('')
+  const lastUpdated = ref('')
+  const watchId = ref(null)
 
-// ── UI 狀態 ───────────────────────────────────────────────────
-const statusClass = computed(() => {
-  if (!isTracking.value) return 'status-off'
-  if (currentGPS.value) return 'status-live'
-  return 'status-searching'
-})
-const statusText = computed(() => {
-  if (!isTracking.value) return '尚未定位'
-  if (currentGPS.value) return 'GPS 即時追蹤中'
-  return '搜尋 GPS 訊號…'
-})
+  function toggleTracking() {
+    isTracking.value ? stopTracking() : startTracking()
+  }
+  function startTracking() {
+    if (!navigator.geolocation) { showError('此裝置不支援 GPS 定位'); return }
+    isTracking.value = true
+    watchId.value = navigator.geolocation.watchPosition(
+      (pos) => {
+        currentGPS.value = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }
+        lastUpdated.value = new Date().toLocaleTimeString('zh-TW')
+      },
+      (err) => {
+        const msgs = { 1:'使用者拒絕定位授權', 2:'無法取得位置資訊', 3:'定位請求逾時' }
+        showError(msgs[err.code] || '定位失敗')
+        isTracking.value = false
+      },
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
+    )
+  }
+  function stopTracking() {
+    if (watchId.value !== null) { navigator.geolocation.clearWatch(watchId.value); watchId.value = null }
+    isTracking.value = false
+    currentGPS.value = null
+  }
 
-function showError(msg) {
-  errorMsg.value = msg
-  setTimeout(() => { errorMsg.value = '' }, 4000)
-}
+  // ── 圖片 ref ─────────────────────────────────────────────────
+  const mapImage = ref(null)
 
-onUnmounted(() => { stopTracking() })
+  // ── 位置轉換 ──────────────────────────────────────────────────
+  const mappedPosition = computed(() => {
+    if (!currentGPS.value) return null
+    return gpsToImgFraction(currentGPS.value.lat, currentGPS.value.lng)
+  })
+  const dotStyle = computed(() => {
+    if (!mappedPosition.value) return {}
+    return { left: mappedPosition.value.x * 100 + '%', top: mappedPosition.value.y * 100 + '%' }
+  })
+  function pinStyle(lm) {
+    return { left: lm.imgX * 100 + '%', top: lm.imgY * 100 + '%' }
+  }
+
+  // ── 最近設施 ──────────────────────────────────────────────────
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371000
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2
+    return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))
+  }
+  const nearestLandmark = computed(() => {
+    if (!currentGPS.value) return null
+    let nearest = null, minDist = Infinity
+    for (const lm of landmarks.value) {
+      const dist = haversine(currentGPS.value.lat, currentGPS.value.lng, lm.lat, lm.lng)
+      if (dist < minDist) { minDist = dist; nearest = { ...lm, dist } }
+    }
+    return nearest
+  })
+  function distToLandmark(lm) {
+    if (!currentGPS.value) return '—'
+    return haversine(currentGPS.value.lat, currentGPS.value.lng, lm.lat, lm.lng)
+  }
+
+  // ── 設施彈窗 ──────────────────────────────────────────────────
+  const showLandmarks = ref(true)
+  const selectedLandmark = ref(null)
+  function selectLandmark(lm) {
+    selectedLandmark.value = selectedLandmark.value?.id === lm.id ? null : lm
+  }
+
+  // ── 全螢幕 ────────────────────────────────────────────────────
+  const mapSection = ref(null)
+  const isFullscreen = ref(false)
+
+  function toggleFullscreen() {
+    const el = mapSection.value
+    if (!el) return
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.() || el.webkitRequestFullscreen?.() || el.mozRequestFullScreen?.()
+    } else {
+      document.exitFullscreen?.() || document.webkitExitFullscreen?.() || document.mozCancelFullScreen?.()
+    }
+  }
+
+  if (import.meta.client) {
+    document.addEventListener('fullscreenchange', () => {
+      isFullscreen.value = !!document.fullscreenElement
+    })
+    document.addEventListener('webkitfullscreenchange', () => {
+      isFullscreen.value = !!document.fullscreenElement
+    })
+  }
+  // ── UI 狀態 ───────────────────────────────────────────────────
+  const statusClass = computed(() => {
+    if (!isTracking.value) return 'status-off'
+    if (currentGPS.value) return 'status-live'
+    return 'status-searching'
+  })
+  const statusText = computed(() => {
+    if (!isTracking.value) return '尚未定位'
+    if (currentGPS.value) return 'GPS 即時追蹤中'
+    return '搜尋 GPS 訊號…'
+  })
+
+  function showError(msg) {
+    errorMsg.value = msg
+    setTimeout(() => { errorMsg.value = '' }, 4000)
+  }
+
+  onUnmounted(() => { stopTracking() })
 </script>
 
 <template>
@@ -208,9 +231,16 @@ onUnmounted(() => { stopTracking() })
                           {{ showLandmarks ? '隱藏設施' : '顯示設施' }}
                         </button>
 
-
+                        <button class="map-ctrl-btn" @click="toggleFullscreen">
+                          <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                            <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M16 21h3a2 2 0 002-2v-3"/>
+                          </svg>
+                          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                            <path d="M8 3v3a2 2 0 01-2 2H3M21 8h-3a2 2 0 01-2-2V3M3 16h3a2 2 0 012 2v3M16 21v-3a2 2 0 012-2h3"/>
+                          </svg>
+                          {{ isFullscreen ? '離開全螢幕' : '全螢幕' }}
+                        </button>
                       </div>
-
 
                     </div>
                   </div>
@@ -219,7 +249,7 @@ onUnmounted(() => { stopTracking() })
                 <!-- 地圖 -->
                 <div class="row justify-content-center">
                   <div class="col-10">
-                    <div class="map-wrapper">
+                    <div class="map-wrapper" ref="mapSection" :class="{ 'map-fullscreen': isFullscreen }">
                       <div class="map-container">
                         <img
                           ref="mapImage"
@@ -348,279 +378,313 @@ onUnmounted(() => { stopTracking() })
 </template>
 
 <style scoped>
-/* ── 地圖容器 ── */
-.map-wrapper {
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid #c8e6b8;
-  background: #e8e4dc;
-  position: relative;
-  overflow: visible;
-}
-.map-container {
-  display: block;
-  position: relative;
-  width: 100%;
-}
-.map-img {
-  display: block;
-  width: 100%;
-  height: auto;
-  user-select: none;
-  pointer-events: none;
-}
-.map-hint {
-  font-size: 13px;
-  color: #555;
-  background: #f0f7ec;
-  border-left: 3px solid #7ab648;
-  padding: 8px 12px;
-  border-radius: 0 6px 6px 0;
-  margin-top: 10px;
-  margin-bottom: 0;
-}
+  /* ── 地圖容器 ── */
+  .map-wrapper {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #c8e6b8;
+    background: #e8e4dc;
+    position: relative;
+    overflow: visible;
+  }
+  .map-container {
+    display: block;
+    position: relative;
+    width: 100%;
+  }
+  .map-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    pointer-events: none;
+  }
+  .map-hint {
+    font-size: 13px;
+    color: #555;
+    background: #f0f7ec;
+    border-left: 3px solid #7ab648;
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 10px;
+    margin-bottom: 0;
+  }
 
-/* ── 控制列 ── */
-.map-toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 0;
-}
-.map-btn-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  flex: 1;
-}
-.map-ctrl-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 13px;
-  border: 1.5px solid #8aba68;
-  border-radius: 20px;
-  background: white;
-  font-size: 13px;
-  font-family: inherit;
-  color: #3d7a2d;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-}
-.map-ctrl-btn:hover { background: #edf7e8; }
-.map-ctrl-btn--active { background: #3d7a2d; color: white; border-color: #3d7a2d; }
+  /* ── 控制列 ── */
+  .map-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 0;
+  }
+  .map-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+  }
+  .map-ctrl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 13px;
+    border: 1.5px solid #8aba68;
+    border-radius: 20px;
+    background: white;
+    font-size: 13px;
+    font-family: inherit;
+    color: #3d7a2d;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .map-ctrl-btn:hover { background: #edf7e8; }
+  .map-ctrl-btn--active { background: #3d7a2d; color: white; border-color: #3d7a2d; }
 
 
-/* ── GPS 狀態徽章 ── */
-.gps-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 5px 12px;
-  border-radius: 20px;
-  background: #f0f0f0;
-  color: #666;
-  white-space: nowrap;
-}
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #bbb;
-  flex-shrink: 0;
-}
-.status-live .status-dot {
-  background: #4caf50;
-  box-shadow: 0 0 6px #4caf50;
-  animation: blink 1.5s infinite;
-}
-.status-live { background: #e8f5e9; color: #2e7d32; }
-.status-searching .status-dot { background: #ff9800; animation: blink 0.8s infinite; }
-.status-searching { background: #fff3e0; color: #e65100; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  /* ── GPS 狀態徽章 ── */
+  .gps-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: #f0f0f0;
+    color: #666;
+    white-space: nowrap;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #bbb;
+    flex-shrink: 0;
+  }
+  .status-live .status-dot {
+    background: #4caf50;
+    box-shadow: 0 0 6px #4caf50;
+    animation: blink 1.5s infinite;
+  }
+  .status-live { background: #e8f5e9; color: #2e7d32; }
+  .status-searching .status-dot { background: #ff9800; animation: blink 0.8s infinite; }
+  .status-searching { background: #fff3e0; color: #e65100; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-/* ── 目前位置藍點 ── */
-.position-dot {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  z-index: 20;
-  pointer-events: none;
-}
-.dot-core {
-  width: 16px;
-  height: 16px;
-  background: #1976d2;
-  border: 3px solid white;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(25,118,210,0.5);
-  position: relative;
-  z-index: 3;
-}
-.pulse-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(25,118,210,0.6);
-  border-radius: 50%;
-  animation: pulseRing 2s ease-out infinite;
-  z-index: 1;
-}
-.pulse-ring--delay { animation-delay: 1s; }
-@keyframes pulseRing {
-  0%   { transform: translate(-50%,-50%) scale(1); opacity: 0.8; }
-  100% { transform: translate(-50%,-50%) scale(4); opacity: 0; }
-}
-.position-label {
-  position: absolute;
-  top: -26px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1976d2;
-  color: white;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-}
+  /* ── 目前位置藍點 ── */
+  .position-dot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    pointer-events: none;
+  }
+  .dot-core {
+    width: 16px;
+    height: 16px;
+    background: #1976d2;
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(25,118,210,0.5);
+    position: relative;
+    z-index: 3;
+  }
+  .pulse-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(25,118,210,0.6);
+    border-radius: 50%;
+    animation: pulseRing 2s ease-out infinite;
+    z-index: 1;
+  }
+  .pulse-ring--delay { animation-delay: 1s; }
+  @keyframes pulseRing {
+    0%   { transform: translate(-50%,-50%) scale(1); opacity: 0.8; }
+    100% { transform: translate(-50%,-50%) scale(4); opacity: 0; }
+  }
+  .position-label {
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1976d2;
+    color: white;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
 
-/* ── 設施 Pins ── */
-.landmark-pin {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  z-index: 10;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: transform 0.2s;
-}
-.landmark-pin:hover,
-.landmark-pin--selected {
-  transform: translate(-50%, -100%) scale(1.25);
-  z-index: 15;
-}
-.pin-icon {
-  font-size: 20px;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
-  line-height: 1;
-}
-.pin-label {
-  background: rgba(255,255,255,0.93);
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-  margin-top: 2px;
-  white-space: nowrap;
-  color: #1a1a1a;
-  font-weight: 500;
-}
-.landmark-pin--selected .pin-label { background: #3d7a2d; color: white; }
-.landmark-pin--nearby   .pin-label { background: #1565c0; color: white; }
+  /* ── 設施 Pins ── */
+  .landmark-pin {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    z-index: 10;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.2s;
+  }
+  .landmark-pin:hover,
+  .landmark-pin--selected {
+    transform: translate(-50%, -100%) scale(1.25);
+    z-index: 15;
+  }
+  .pin-icon {
+    font-size: 20px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+    line-height: 1;
+  }
+  .pin-label {
+    background: rgba(255,255,255,0.93);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    margin-top: 2px;
+    white-space: nowrap;
+    color: #1a1a1a;
+    font-weight: 500;
+  }
+  .landmark-pin--selected .pin-label { background: #3d7a2d; color: white; }
+  .landmark-pin--nearby   .pin-label { background: #1565c0; color: white; }
 
-/* ── GPS 資訊卡 ── */
-.gps-info-card {
-  background: white;
-  border: 1px solid #c8e6b8;
-  border-radius: 8px;
-  padding: 14px 16px;
-}
-.gps-info-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-bottom: 12px;
-}
-@media (max-width: 576px) {
-  .gps-info-grid { grid-template-columns: repeat(2, 1fr); }
-}
-.gps-info-item { text-align: center; }
-.gps-info-label { display: block; font-size: 11px; color: #888; margin-bottom: 2px; }
-.gps-info-val   { font-size: 13px; font-weight: 600; color: #2d2d2d; }
-.nearest-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #f0f7ec;
-  border-radius: 8px;
-  padding: 10px 14px;
-  border: 1px solid #c8e6b8;
-}
-.nearest-icon { font-size: 24px; }
-.nearest-name { font-size: 14px; font-weight: 600; color: #3d7a2d; }
-.nearest-dist { font-size: 12px; color: #888; }
+  /* ── GPS 資訊卡 ── */
+  .gps-info-card {
+    background: white;
+    border: 1px solid #c8e6b8;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .gps-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 576px) {
+    .gps-info-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .gps-info-item { text-align: center; }
+  .gps-info-label { display: block; font-size: 11px; color: #888; margin-bottom: 2px; }
+  .gps-info-val   { font-size: 13px; font-weight: 600; color: #2d2d2d; }
+  .nearest-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f0f7ec;
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 1px solid #c8e6b8;
+  }
+  .nearest-icon { font-size: 24px; }
+  .nearest-name { font-size: 14px; font-weight: 600; color: #3d7a2d; }
+  .nearest-dist { font-size: 12px; color: #888; }
 
-/* ── 設施詳情底板 ── */
-.landmark-sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: white;
-  border-radius: 20px 20px 0 0;
-  padding: 24px 32px 36px;
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
-  z-index: 200;
-  text-align: center;
-}
-.sheet-close {
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  background: #f5f5f5;
-  border: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 13px;
-  cursor: pointer;
-  color: #555;
-}
-.sheet-icon { font-size: 36px; margin-bottom: 8px; }
-.landmark-sheet p { font-size: 14px; color: #555; }
-.sheet-dist { font-size: 13px; color: #1565c0; font-weight: 500; }
+  /* ── 設施詳情底板 ── */
+  .landmark-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 32px 36px;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
+    z-index: 200;
+    text-align: center;
+  }
+  .sheet-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: #f5f5f5;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 13px;
+    cursor: pointer;
+    color: #555;
+  }
+  .sheet-icon { font-size: 36px; margin-bottom: 8px; }
+  .landmark-sheet p { font-size: 14px; color: #555; }
+  .sheet-dist { font-size: 13px; color: #1565c0; font-weight: 500; }
 
-.landmark-tag {
-  display: inline-block;
-  padding: 4px 14px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 500;
-}
-.landmark-tag--green  { background: #e8f5e9; color: #2e7d32; }
-.landmark-tag--orange { background: #fff3e0; color: #e65100; }
-.landmark-tag--gold   { background: #fffde7; color: #f57f17; }
+  .landmark-tag {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .landmark-tag--green  { background: #e8f5e9; color: #2e7d32; }
+  .landmark-tag--orange { background: #fff3e0; color: #e65100; }
+  .landmark-tag--gold   { background: #fffde7; color: #f57f17; }
 
-/* ── 錯誤提示 ── */
-.error-toast {
-  position: fixed;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #c62828;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 13px;
-  z-index: 300;
-  white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-}
+  /* ── 錯誤提示 ── */
+  .error-toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #c62828;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    z-index: 300;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
 
-/* ── Transitions ── */
-.slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
-.slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(12px); }
-.sheet-enter-active, .sheet-leave-active { transition: transform 0.35s cubic-bezier(0.4,0,0.2,1); }
-.sheet-enter-from, .sheet-leave-to { transform: translateY(100%); }
-.pop-enter-active { transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
-.pop-enter-from   { opacity: 0; transform: translate(-50%,-50%) scale(0); }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+  /* ── Transitions ── */
+  .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+  .slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(12px); }
+  .sheet-enter-active, .sheet-leave-active { transition: transform 0.35s cubic-bezier(0.4,0,0.2,1); }
+  .sheet-enter-from, .sheet-leave-to { transform: translateY(100%); }
+  .pop-enter-active { transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .pop-enter-from   { opacity: 0; transform: translate(-50%,-50%) scale(0); }
+  .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+  .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+  /* ── 全螢幕模式 ── */
+  .map-fullscreen {
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  /* 全螢幕時地圖填滿整個 fullscreen element */
+  .map-wrapper:fullscreen,
+  .map-wrapper:-webkit-full-screen,
+  .map-wrapper:-moz-full-screen {
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: none !important;
+    overflow: auto;
+  }
+  .map-wrapper:fullscreen .map-container,
+  .map-wrapper:-webkit-full-screen .map-container,
+  .map-wrapper:-moz-full-screen .map-container {
+    width: auto;
+    max-width: 100vw;
+    max-height: 100vh;
+  }
+  .map-wrapper:fullscreen .map-img,
+  .map-wrapper:-webkit-full-screen .map-img,
+  .map-wrapper:-moz-full-screen .map-img {
+    max-height: 100vh;
+    width: auto;
+    max-width: 100vw;
+    object-fit: contain;
+  }
 </style>
