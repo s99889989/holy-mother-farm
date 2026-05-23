@@ -8,10 +8,9 @@
   // ── 固定校準錨點（GPS ↔ 圖片比例轉換）────────────────────────
   // P1：園區大門   imgX=42% imgY=83%  →  GPS 22.75985, 121.09390
   // P2：快樂運動館 imgX=63% imgY=47%  →  GPS 22.76155, 121.09510
-  // 錨點根據現場兩點實測校準：
-  // P1 園區大門  22.76122, 121.09420  P2 田園餐廳  22.76120, 121.09488
-  const ANCHOR1 = { imgX: 0.42, imgY: 0.83, lat: 22.76122, lng: 121.09420 }
-  const ANCHOR2 = { imgX: 0.54, imgY: 0.75, lat: 22.76120, lng: 121.09488 }
+  // 錨點根據7點實測最小二乘法校準（2026-05-23）
+  const ANCHOR1 = { imgX: 0.42, imgY: 0.83, lat: 22.761327, lng: 121.094306 }
+  const ANCHOR2 = { imgX: 0.63, imgY: 0.47, lat: 22.760953, lng: 121.095314 }
   const SCALE_LAT = (ANCHOR2.lat - ANCHOR1.lat) / (ANCHOR2.imgY - ANCHOR1.imgY)
   const SCALE_LNG = (ANCHOR2.lng - ANCHOR1.lng) / (ANCHOR2.imgX - ANCHOR1.imgX)
 
@@ -21,22 +20,22 @@
     return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) }
   }
 
-  // ── 設施資料 ──────────────────────────────────────────────────
+  // ── 設施資料（7點實測最小二乘法校準 2026-05-23）─────────────────
   const landmarks = ref([
-    { id:1,  name:'園區大門',           icon:'🚪', lat:22.761220, lng:121.094200, imgX:0.42, imgY:0.83, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
-    { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.761130, lng:121.095390, imgX:0.63, imgY:0.47, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
-    { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.761150, lng:121.093520, imgX:0.30, imgY:0.55, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
-    { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.761200, lng:121.094880, imgX:0.54, imgY:0.75, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
-    { id:5,  name:'療癒森林',           icon:'🌲', lat:22.761080, lng:121.095900, imgX:0.72, imgY:0.27, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
-    { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.761162, lng:121.096127, imgX:0.76, imgY:0.60, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
-    { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.761208, lng:121.096467, imgX:0.82, imgY:0.78, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
-    { id:8,  name:'手作教室',           icon:'🎨', lat:22.761067, lng:121.093973, imgX:0.38, imgY:0.22, desc:'各式手作體驗課程，需提前預約確認時段。',                      tag:'orange', tagLabel:'需預約' },
-    { id:9,  name:'高齡服務培訓中心',   icon:'🎓', lat:22.761230, lng:121.095503, imgX:0.65, imgY:0.87, desc:'專業培訓空間，適合了解服務模式，教育參訪首選。',               tag:'green',  tagLabel:'教育參訪' },
-    { id:10, name:'休憩小舖',           icon:'☕', lat:22.761182, lng:121.096297, imgX:0.79, imgY:0.68, desc:'輕食飲品，參觀中場休息使用，提供茶飲與輕點心。',              tag:'gold',   tagLabel:'休息站' },
-    { id:11, name:'聖堂 · 天使花園',   icon:'⛪', lat:22.761233, lng:121.095900, imgX:0.72, imgY:0.88, desc:'靈性空間與靜謐庭園，可自由參觀，氛圍寧靜。',                  tag:'gold',   tagLabel:'靜思空間' },
-    { id:12, name:'木工教室',           icon:'🪚', lat:22.761092, lng:121.093123, imgX:0.23, imgY:0.32, desc:'木工體驗課程，提供親手製作的樂趣，需提前預約。',              tag:'orange', tagLabel:'需預約' },
-    { id:13, name:'康樂據點',           icon:'🏥', lat:22.761135, lng:121.094483, imgX:0.47, imgY:0.49, desc:'社區型健康服務空間，日常活動示範中心。',                      tag:'green',  tagLabel:'服務示範' },
-    { id:14, name:'森林好食光',         icon:'🍃', lat:22.761067, lng:121.096637, imgX:0.85, imgY:0.22, desc:'東北角森林餐飲體驗空間，享受自然中用餐的美好。',              tag:'gold',   tagLabel:'餐飲' },
+    { id:1,  name:'園區大門',           icon:'🚪', lat:22.761327, lng:121.094306, imgX:0.42, imgY:0.83, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
+    { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.760953, lng:121.095314, imgX:0.63, imgY:0.47, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
+    { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.761571, lng:121.094927, imgX:0.30, imgY:0.55, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
+    { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.761105, lng:121.094572, imgX:0.54, imgY:0.75, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
+    { id:5,  name:'療癒森林',           icon:'🌲', lat:22.760795, lng:121.095859, imgX:0.72, imgY:0.27, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
+    { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.760699, lng:121.095068, imgX:0.76, imgY:0.60, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
+    { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.760575, lng:121.094658, imgX:0.82, imgY:0.78, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
+    { id:8,  name:'手作教室',           icon:'🎨', lat:22.761440, lng:121.095787, imgX:0.38, imgY:0.22, desc:'各式手作體驗課程，需提前預約確認時段。',                      tag:'orange', tagLabel:'需預約' },
+    { id:9,  name:'高齡服務培訓中心',   icon:'🎓', lat:22.760890, lng:121.094339, imgX:0.65, imgY:0.87, desc:'專業培訓空間，適合了解服務模式，教育參訪首選。',               tag:'green',  tagLabel:'教育參訪' },
+    { id:10, name:'休憩小舖',           icon:'☕', lat:22.760638, lng:121.094888, imgX:0.79, imgY:0.68, desc:'輕食飲品，參觀中場休息使用，提供茶飲與輕點心。',              tag:'gold',   tagLabel:'休息站' },
+    { id:11, name:'聖堂 · 天使花園',   icon:'⛪', lat:22.760757, lng:121.094354, imgX:0.72, imgY:0.88, desc:'靈性空間與靜謐庭園，可自由參觀，氛圍寧靜。',                  tag:'gold',   tagLabel:'靜思空間' },
+    { id:12, name:'木工教室',           icon:'🪚', lat:22.761717, lng:121.095454, imgX:0.23, imgY:0.32, desc:'木工體驗課程，提供親手製作的樂趣，需提前預約。',              tag:'orange', tagLabel:'需預約' },
+    { id:13, name:'康樂據點',           icon:'🏥', lat:22.761253, lng:121.095173, imgX:0.47, imgY:0.49, desc:'社區型健康服務空間，日常活動示範中心。',                      tag:'green',  tagLabel:'服務示範' },
+    { id:14, name:'森林好食光',         icon:'🍃', lat:22.760553, lng:121.096056, imgX:0.85, imgY:0.22, desc:'東北角森林餐飲體驗空間，享受自然中用餐的美好。',              tag:'gold',   tagLabel:'餐飲' },
   ])
 
   // ── GPS 狀態 ──────────────────────────────────────────────────
@@ -113,29 +112,106 @@
   const showLandmarks = ref(true)
   const selectedLandmark = ref(null)
   function selectLandmark(lm) {
+    // 校準模式：點設施直接記錄 GPS
+    if (calibMode.value) {
+      recordCalibPoint(lm)
+      return
+    }
     selectedLandmark.value = selectedLandmark.value?.id === lm.id ? null : lm
   }
 
-  // ── 全螢幕 ────────────────────────────────────────────────────
+  // ── 校準模式 ──────────────────────────────────────────────────
+  const calibMode = ref(false)
+  const calibRecords = ref([])   // [{ id, name, lat, lng }]
+  const showCalibOutput = ref(false)
+  const copySuccess = ref(false)
+
+  function toggleCalibMode() {
+    calibMode.value = !calibMode.value
+    selectedLandmark.value = null
+    if (!calibMode.value) showCalibOutput.value = false
+  }
+
+  function recordCalibPoint(lm) {
+    if (!currentGPS.value) {
+      showError('請先開始定位')
+      return
+    }
+    // 同一設施重複點則更新
+    const existing = calibRecords.value.findIndex(r => r.id === lm.id)
+    const record = {
+      id: lm.id,
+      name: lm.name,
+      imgX: lm.imgX,
+      imgY: lm.imgY,
+      lat: currentGPS.value.lat,
+      lng: currentGPS.value.lng,
+      accuracy: currentGPS.value.accuracy,
+    }
+    if (existing >= 0) {
+      calibRecords.value[existing] = record
+    } else {
+      calibRecords.value.push(record)
+    }
+    calibToast.value = `✅ 已記錄「${lm.name}」`
+    setTimeout(() => { calibToast.value = '' }, 2000)
+  }
+
+  const calibToast = ref('')
+
+  function clearCalibRecords() {
+    if (confirm('確定清除所有校準記錄？')) calibRecords.value = []
+  }
+
+  const calibOutputText = computed(() => {
+    if (!calibRecords.value.length) return ''
+    return calibRecords.value
+      .map(r => `${r.name} 緯度${r.lat.toFixed(5)} 經度${r.lng.toFixed(5)}`)
+      .join('\n')
+  })
+
+  async function copyCalibOutput() {
+    try {
+      await navigator.clipboard.writeText(calibOutputText.value)
+      copySuccess.value = true
+      setTimeout(() => { copySuccess.value = false }, 2000)
+    } catch {
+      showError('複製失敗，請手動選取文字複製')
+    }
+  }
+
+  // ── 全螢幕（CSS 模擬，相容 iOS）────────────────────────────────
   const mapSection = ref(null)
   const isFullscreen = ref(false)
 
   function toggleFullscreen() {
-    const el = mapSection.value
-    if (!el) return
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.() || el.webkitRequestFullscreen?.() || el.mozRequestFullScreen?.()
+    // 優先嘗試原生 API（Android Chrome / 桌機）
+    if (!isFullscreen.value && document.fullscreenEnabled) {
+      mapSection.value?.requestFullscreen?.()
+        .then(() => { isFullscreen.value = true })
+        .catch(() => { isFullscreen.value = true }) // fallback to CSS
+      return
+    }
+    if (isFullscreen.value && document.fullscreenElement) {
+      document.exitFullscreen?.()
+      isFullscreen.value = false
+      return
+    }
+    // iOS fallback：純 CSS 模擬全螢幕
+    isFullscreen.value = !isFullscreen.value
+    if (isFullscreen.value) {
+      document.body.style.overflow = 'hidden'
     } else {
-      document.exitFullscreen?.() || document.webkitExitFullscreen?.() || document.mozCancelFullScreen?.()
+      document.body.style.overflow = ''
     }
   }
 
   if (import.meta.client) {
     document.addEventListener('fullscreenchange', () => {
-      isFullscreen.value = !!document.fullscreenElement
-    })
-    document.addEventListener('webkitfullscreenchange', () => {
-      isFullscreen.value = !!document.fullscreenElement
+      if (!document.fullscreenElement) {
+        isFullscreen.value = false
+        document.body.style.overflow = ''
+      }
     })
   }
   // ── UI 狀態 ───────────────────────────────────────────────────
@@ -240,6 +316,29 @@
                           </svg>
                           {{ isFullscreen ? '離開全螢幕' : '全螢幕' }}
                         </button>
+
+                        <button
+                          class="map-ctrl-btn"
+                          :class="{ 'map-ctrl-btn--calib': calibMode }"
+                          @click="toggleCalibMode"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                            <circle cx="12" cy="12" r="3"/><path d="M3 12h2M19 12h2M12 3v2M12 19v2"/>
+                            <circle cx="12" cy="12" r="9" stroke-dasharray="3 2"/>
+                          </svg>
+                          {{ calibMode ? `校準中 (${calibRecords.length})` : '校準模式' }}
+                        </button>
+
+                        <button
+                          v-if="calibRecords.length"
+                          class="map-ctrl-btn map-ctrl-btn--output"
+                          @click="showCalibOutput = !showCalibOutput"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                          </svg>
+                          輸出 ({{ calibRecords.length }})
+                        </button>
                       </div>
 
                     </div>
@@ -250,6 +349,8 @@
                 <div class="row justify-content-center">
                   <div class="col-10">
                     <div class="map-wrapper" ref="mapSection" :class="{ 'map-fullscreen': isFullscreen }">
+                      <!-- 全螢幕關閉按鈕（僅全螢幕時顯示） -->
+                      <button class="fullscreen-close-btn" @click="toggleFullscreen">✕</button>
                       <div class="map-container">
                         <img
                           ref="mapImage"
@@ -346,7 +447,7 @@
 
     <!-- 設施說明彈窗 -->
     <transition name="sheet">
-      <div v-if="selectedLandmark" class="landmark-sheet" @click.stop>
+      <div v-if="selectedLandmark && !calibMode" class="landmark-sheet" @click.stop>
         <button class="sheet-close" @click="selectedLandmark = null">✕</button>
         <div class="sheet-icon">{{ selectedLandmark.icon }}</div>
         <div class="sub-header mb-2">{{ selectedLandmark.name }}</div>
@@ -356,6 +457,46 @@
           <span v-if="currentGPS" class="sheet-dist">距你約 {{ distToLandmark(selectedLandmark) }} 公尺</span>
         </div>
       </div>
+    </transition>
+
+    <!-- 校準模式提示橫幅 -->
+    <transition name="sheet">
+      <div v-if="calibMode" class="calib-banner" @click.stop>
+        <div class="calib-banner-title">
+          📍 校準模式開啟中
+          <button class="calib-banner-close" @click="toggleCalibMode">完成</button>
+        </div>
+        <p>走到設施門口後，點地圖上對應的圖示即可記錄 GPS。</p>
+        <div v-if="calibRecords.length" class="calib-recorded-list">
+          <div v-for="r in calibRecords" :key="r.id" class="calib-recorded-item">
+            <span>{{ r.name }}</span>
+            <span class="calib-recorded-gps">{{ r.lat.toFixed(5) }}, {{ r.lng.toFixed(5) }} ±{{ Math.round(r.accuracy) }}m</span>
+            <button class="calib-del-btn" @click="calibRecords.splice(calibRecords.indexOf(r), 1)">✕</button>
+          </div>
+        </div>
+        <div v-else class="calib-empty">尚未記錄任何設施</div>
+      </div>
+    </transition>
+
+    <!-- 校準輸出面板 -->
+    <transition name="sheet">
+      <div v-if="showCalibOutput && !calibMode" class="calib-output-panel" @click.stop>
+        <button class="sheet-close" @click="showCalibOutput = false">✕</button>
+        <div class="calib-output-title">📋 校準資料輸出</div>
+        <p style="font-size:13px;color:#555;margin-bottom:10px;">複製下方內容貼給 Claude 進行座標校正：</p>
+        <textarea class="calib-textarea" readonly :value="calibOutputText"></textarea>
+        <div class="calib-output-actions">
+          <button class="map-ctrl-btn map-ctrl-btn--active" @click="copyCalibOutput">
+            {{ copySuccess ? '✅ 已複製！' : '複製到剪貼簿' }}
+          </button>
+          <button class="map-ctrl-btn" style="color:#c62828;border-color:#c62828;" @click="clearCalibRecords">清除記錄</button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- 校準記錄 Toast -->
+    <transition name="fade">
+      <div v-if="calibToast" class="calib-toast">{{ calibToast }}</div>
     </transition>
 
     <!-- 錯誤提示 -->
@@ -654,37 +795,156 @@
   .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
   .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-  /* ── 全螢幕模式 ── */
-  .map-fullscreen {
-    border-radius: 0 !important;
-    border: none !important;
+  /* ── 校準模式按鈕 ── */
+  .map-ctrl-btn--calib  { background: #fff3e0 !important; border-color: #e65100 !important; color: #e65100 !important; }
+  .map-ctrl-btn--output { background: #e8f5e9 !important; border-color: #2e7d32 !important; color: #2e7d32 !important; }
+
+  /* ── 校準模式橫幅 ── */
+  .calib-banner {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff8e1;
+    border-top: 3px solid #ffa000;
+    border-radius: 20px 20px 0 0;
+    padding: 18px 20px 28px;
+    z-index: 200;
+    box-shadow: 0 -6px 24px rgba(0,0,0,0.12);
   }
-  /* 全螢幕時地圖填滿整個 fullscreen element */
-  .map-wrapper:fullscreen,
-  .map-wrapper:-webkit-full-screen,
-  .map-wrapper:-moz-full-screen {
-    background: #1a1a1a;
+  .calib-banner-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #e65100;
+    margin-bottom: 6px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 100vw !important;
-    height: 100vh !important;
-    max-height: none !important;
-    overflow: auto;
+    justify-content: space-between;
   }
-  .map-wrapper:fullscreen .map-container,
-  .map-wrapper:-webkit-full-screen .map-container,
-  .map-wrapper:-moz-full-screen .map-container {
-    width: auto;
-    max-width: 100vw;
-    max-height: 100vh;
+  .calib-banner-close {
+    background: #e65100;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
   }
-  .map-wrapper:fullscreen .map-img,
-  .map-wrapper:-webkit-full-screen .map-img,
-  .map-wrapper:-moz-full-screen .map-img {
-    max-height: 100vh;
-    width: auto;
-    max-width: 100vw;
-    object-fit: contain;
+  .calib-banner p { font-size: 13px; color: #666; margin-bottom: 10px; }
+  .calib-recorded-list { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+  .calib-recorded-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border-radius: 8px;
+    padding: 7px 10px;
+    border: 1px solid #ffe082;
+    font-size: 13px;
   }
+  .calib-recorded-gps { flex: 1; font-size: 11px; color: #888; text-align: right; }
+  .calib-del-btn {
+    background: none; border: none; color: #bbb;
+    font-size: 13px; cursor: pointer; padding: 0 2px;
+  }
+  .calib-del-btn:hover { color: #c62828; }
+  .calib-empty { font-size: 13px; color: #bbb; text-align: center; padding: 8px 0; }
+
+  /* ── 校準輸出面板 ── */
+  .calib-output-panel {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: white;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 36px;
+    z-index: 200;
+    box-shadow: 0 -6px 24px rgba(0,0,0,0.15);
+  }
+  .calib-output-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2d5a27;
+    margin-bottom: 8px;
+  }
+  .calib-textarea {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid #c8e6b8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: monospace;
+    font-size: 13px;
+    color: #333;
+    background: #f5faf3;
+    resize: none;
+    margin-bottom: 12px;
+  }
+  .calib-output-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ── 校準 Toast ── */
+  .calib-toast {
+    position: fixed;
+    top: 80px; left: 50%;
+    transform: translateX(-50%);
+    background: #2e7d32;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    z-index: 300;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+</style>
+
+.map-wrapper {
+position: relative;
+transition: all 0.3s ease;
+}
+.map-wrapper.map-fullscreen {
+position: fixed !important;
+top: 0 !important;
+left: 0 !important;
+width: 100vw !important;
+height: 100dvh !important;
+z-index: 9999 !important;
+border-radius: 0 !important;
+border: none !important;
+background: #111 !important;
+display: flex;
+align-items: center;
+justify-content: center;
+overflow: auto;
+}
+.map-wrapper.map-fullscreen .map-container {
+width: auto;
+max-width: 100vw;
+}
+.map-wrapper.map-fullscreen .map-img {
+max-height: 100dvh;
+width: auto;
+max-width: 100vw;
+object-fit: contain;
+}
+/* 全螢幕時浮出關閉按鈕 */
+.fullscreen-close-btn {
+display: none;
+}
+.map-wrapper.map-fullscreen .fullscreen-close-btn {
+display: flex;
+position: absolute;
+top: 14px;
+right: 14px;
+z-index: 10000;
+width: 40px;
+height: 40px;
+background: rgba(0,0,0,0.55);
+border: none;
+border-radius: 50%;
+color: white;
+font-size: 18px;
+align-items: center;
+justify-content: center;
+cursor: pointer;
+backdrop-filter: blur(4px);
+}
 </style>
