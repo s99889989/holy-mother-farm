@@ -5,32 +5,57 @@
 
   import { ref, computed, onUnmounted } from 'vue'
 
-  // ── 固定校準錨點（GPS ↔ 圖片比例轉換）────────────────────────
-  // P1：園區大門   imgX=42% imgY=83%  →  GPS 22.75985, 121.09390
-  // P2：快樂運動館 imgX=63% imgY=47%  →  GPS 22.76155, 121.09510
-  // 錨點根據10點實測最小二乘法校準（2026-05-23，僅保留實際測量點）
-  const ANCHOR1 = { imgX: 0.550, imgY: 0.810, lat: 22.761240, lng: 121.094103 }
-  const ANCHOR2 = { imgX: 0.700, imgY: 0.520, lat: 22.760886, lng: 121.095293 }
-  const SCALE_LAT = (ANCHOR2.lat - ANCHOR1.lat) / (ANCHOR2.imgY - ANCHOR1.imgY)
-  const SCALE_LNG = (ANCHOR2.lng - ANCHOR1.lng) / (ANCHOR2.imgX - ANCHOR1.imgX)
+  // ── 控制點（GPS ↔ 圖片比例，IDW 插值用）─────────────────────────
+  // 每個點都是實地測量，imgX/imgY 為圖片比例（0~1），lat/lng 為實測 GPS
+  const CONTROL_POINTS = [
+    { imgX: 0.550, imgY: 0.810, lat: 22.76123, lng: 121.09413 },  // 園區大門
+    { imgX: 0.700, imgY: 0.520, lat: 22.76086, lng: 121.09526 },  // 快樂運動館B1
+    { imgX: 0.620, imgY: 0.701, lat: 22.76110, lng: 121.09454 },  // 田園餐廳
+    { imgX: 0.831, imgY: 0.565, lat: 22.76051, lng: 121.09502 },  // 聖賀德住香草園
+    { imgX: 0.740, imgY: 0.670, lat: 22.76075, lng: 121.09474 },  // 全食物烘焙坊
+    { imgX: 0.440, imgY: 0.367, lat: 22.76163, lng: 121.09588 },  // 手作教室
+    { imgX: 0.710, imgY: 0.798, lat: 22.76078, lng: 121.09416 },  // 高齡服務培訓中心
+    { imgX: 0.690, imgY: 0.650, lat: 22.76089, lng: 121.09485 },  // 休憩小舖
+    { imgX: 0.800, imgY: 0.810, lat: 22.76058, lng: 121.09404 },  // 聖堂·天使花園
+    { imgX: 0.900, imgY: 0.350, lat: 22.76038, lng: 121.09605 },  // 森林好食光
+  ]
 
+  // IDW（加權反距離插值）：GPS → 圖片比例
+  // power=3 讓近的點影響更大，遠的點影響快速衰減
   function gpsToImgFraction(lat, lng) {
-    const x = ANCHOR1.imgX + (lng - ANCHOR1.lng) / SCALE_LNG
-    const y = ANCHOR1.imgY + (lat - ANCHOR1.lat) / SCALE_LAT
-    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) }
+    const power = 3
+    let sumW = 0, sumX = 0, sumY = 0
+    for (const cp of CONTROL_POINTS) {
+      const dLat = (lat - cp.lat) * 111000
+      const dLng = (lng - cp.lng) * 102000
+      const dist2 = dLat * dLat + dLng * dLng
+      if (dist2 < 0.0001) return { x: cp.imgX, y: cp.imgY } // 幾乎在控制點上
+      const w = 1 / Math.pow(dist2, power / 2)
+      sumW += w
+      sumX += w * cp.imgX
+      sumY += w * cp.imgY
+    }
+    return {
+      x: Math.max(0, Math.min(1, sumX / sumW)),
+      y: Math.max(0, Math.min(1, sumY / sumW)),
+    }
   }
 
-  // ── 設施資料（10點實測校準，僅保留實際量測設施 2026-05-23）────
+  // ── 設施資料（10點實測 + 4點待校準）────────────────────────────
   const landmarks = ref([
     { id:1,  name:'園區大門',           icon:'🚪', lat:22.761240, lng:121.094103, imgX:0.550, imgY:0.810, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
     { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.760886, lng:121.095293, imgX:0.700, imgY:0.520, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
+    { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.761659, lng:121.094846, imgX:0.400, imgY:0.660, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
     { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.761070, lng:121.094551, imgX:0.620, imgY:0.701, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
+    { id:5,  name:'療癒森林',           icon:'🌲', lat:22.760862, lng:121.096098, imgX:0.710, imgY:0.330, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
     { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.760519, lng:121.095112, imgX:0.831, imgY:0.565, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
     { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.760748, lng:121.094680, imgX:0.740, imgY:0.670, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
     { id:8,  name:'手作教室',           icon:'🎨', lat:22.761624, lng:121.095915, imgX:0.440, imgY:0.367, desc:'各式手作體驗課程，需提前預約確認時段。',                      tag:'orange', tagLabel:'需預約' },
     { id:9,  name:'高齡服務培訓中心',   icon:'🎓', lat:22.760805, lng:121.094155, imgX:0.710, imgY:0.798, desc:'專業培訓空間，適合了解服務模式，教育參訪首選。',               tag:'green',  tagLabel:'教育參訪' },
     { id:10, name:'休憩小舖',           icon:'☕', lat:22.760888, lng:121.094761, imgX:0.690, imgY:0.650, desc:'輕食飲品，參觀中場休息使用，提供茶飲與輕點心。',              tag:'gold',   tagLabel:'休息站' },
     { id:11, name:'聖堂 · 天使花園',   icon:'⛪', lat:22.760558, lng:121.094108, imgX:0.800, imgY:0.810, desc:'靈性空間與靜謐庭園，可自由參觀，氛圍寧靜。',                  tag:'gold',   tagLabel:'靜思空間' },
+    { id:12, name:'木工教室',           icon:'🪚', lat:22.761964, lng:121.096171, imgX:0.300, imgY:0.350, desc:'木工體驗課程，提供親手製作的樂趣，需提前預約。',              tag:'orange', tagLabel:'需預約' },
+    { id:13, name:'康樂據點',           icon:'🏥', lat:22.761253, lng:121.095492, imgX:0.558, imgY:0.490, desc:'社區型健康服務空間，日常活動示範中心。',                      tag:'green',  tagLabel:'服務示範' },
     { id:14, name:'森林好食光',         icon:'🍃', lat:22.760372, lng:121.095993, imgX:0.900, imgY:0.350, desc:'東北角森林餐飲體驗空間，享受自然中用餐的美好。',              tag:'gold',   tagLabel:'餐飲' },
   ])
 
