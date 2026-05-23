@@ -894,57 +894,49 @@
     white-space: nowrap;
     box-shadow: 0 4px 16px rgba(0,0,0,0.2);
   }
-</style>
 
-.map-wrapper {
-position: relative;
-transition: all 0.3s ease;
-}
-.map-wrapper.map-fullscreen {
-position: fixed !important;
-top: 0 !important;
-left: 0 !important;
-width: 100vw !important;
-height: 100dvh !important;
-z-index: 9999 !important;
-border-radius: 0 !important;
-border: none !important;
-background: #111 !important;
-display: flex;
-align-items: center;
-justify-content: center;
-overflow: auto;
-}
-.map-wrapper.map-fullscreen .map-container {
-width: auto;
-max-width: 100vw;
-}
-.map-wrapper.map-fullscreen .map-img {
-max-height: 100dvh;
-width: auto;
-max-width: 100vw;
-object-fit: contain;
-}
-/* 全螢幕時浮出關閉按鈕 */
-.fullscreen-close-btn {
-display: none;
-}
-.map-wrapper.map-fullscreen .fullscreen-close-btn {
-display: flex;
-position: absolute;
-top: 14px;
-right: 14px;
-z-index: 10000;
-width: 40px;
-height: 40px;
-background: rgba(0,0,0,0.55);
-border: none;
-border-radius: 50%;
-color: white;
-font-size: 18px;
-align-items: center;
-justify-content: center;
-cursor: pointer;
-backdrop-filter: blur(4px);
-}
+  /* ── 全螢幕模式（CSS 模擬，相容 iOS Safari / Chrome）── */
+  .map-wrapper {
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  .map-wrapper.map-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    z-index: 9999 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    background: #111 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+  }
+  .map-wrapper.map-fullscreen .map-container {
+    width: auto;
+    max-width: 100vw;
+  }
+  .map-wrapper.map-fullscreen .map-img {
+    max-height: 100dvh;
+    width: auto;
+    max-width: 100vw;
+    object-fit: contain;
+  }
+  .fullscreen-close-btn { display: none; }
+  .map-wrapper.map-fullscreen .fullscreen-close-btn {
+    display: flex;
+    position: absolute;
+    top: 14px; right: 14px;
+    z-index: 10000;
+    width: 40px; height: 40px;
+    background: rgba(0,0,0,0.55);
+    border: none; border-radius: 50%;
+    color: white; font-size: 18px;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
 </style>
