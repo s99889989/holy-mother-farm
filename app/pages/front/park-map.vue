@@ -25,7 +25,7 @@
     { id:1,  name:'園區大門',           icon:'🚪', lat:22.761327, lng:121.094306, imgX:0.550, imgY:0.810, desc:'主要入口，遊覽車可在附近停放。博物館路側。',                  tag:'green',  tagLabel:'入口' },
     { id:2,  name:'快樂運動館B1大禮堂', icon:'🏋️', lat:22.760953, lng:121.095314, imgX:0.700, imgY:0.520, desc:'大型室內大禮堂，適合集合說明，可容納大型團體。',              tag:'orange', tagLabel:'集合推薦' },
     { id:3,  name:'樂智幸福家園',       icon:'🏡', lat:22.761571, lng:121.094927, imgX:0.400, imgY:0.660, desc:'核心示範區，含樂智團體家屋、廣場、農藝區、小規模多機能。',     tag:'orange', tagLabel:'重點參觀' },
-    { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.761105, lng:121.094572, imgX:0.690, imgY:0.670, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
+    { id:4,  name:'田園餐廳',           icon:'🍽️', lat:22.761105, lng:121.094572, imgX:0.62, imgY:0.701, desc:'1F 用餐空間，主打健康有機食材，適合安排團體午餐，需提前訂位。', tag:'gold',   tagLabel:'餐飲' },
     { id:5,  name:'療癒森林',           icon:'🌲', lat:22.760795, lng:121.095859, imgX:0.710, imgY:0.330, desc:'東北角自然步道，感受森林療癒氛圍，適合輕度健走。',             tag:'green',  tagLabel:'戶外亮點' },
     { id:6,  name:'聖賀德住香草園',     icon:'🌿', lat:22.760699, lng:121.095068, imgX:0.831, imgY:0.565, desc:'香草植物園，感官體驗豐富，年長者特別喜愛。',                  tag:'green',  tagLabel:'體驗亮點' },
     { id:7,  name:'全食物烘焙坊',       icon:'🍞', lat:22.760575, lng:121.094658, imgX:0.740, imgY:0.670, desc:'1F 健康烘焙產品，可觀摩或採購伴手禮。',                       tag:'gold',   tagLabel:'伴手禮' },
