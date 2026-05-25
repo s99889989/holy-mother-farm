@@ -445,10 +445,25 @@ async function switchToAll() {
 }
 
 // ── 步驟鎖定判斷 ──────────────────────────────────────────────
-// 若同 task 中有 stepOrder 較小且未 done 的紀錄，則此步驟鎖定
+// 平行群組鎖定邏輯：
+// 同 task 中，比本步驟的 parallelGroup 小的最大群組，若有未完成則鎖定
+// 同群組的步驟互不鎖定（可平行進行）
 function isLocked(record, group) {
-  if (record.stepOrder <= 1) return false
-  return group.records.some(r => r.stepOrder < record.stepOrder && r.status !== 'done')
+  const myGroup = record.parallelGroup || record.stepOrder
+  if (myGroup <= 1) return false
+  // 找比本群組小的所有步驟
+  const prevGroupRecords = group.records.filter(r => {
+    const rg = r.parallelGroup || r.stepOrder
+    return rg < myGroup
+  })
+  if (prevGroupRecords.length === 0) return false
+  // 找最大的前置群組
+  const maxPrevGroup = Math.max(...prevGroupRecords.map(r => r.parallelGroup || r.stepOrder))
+  // 該群組所有步驟必須全部 done
+  const prevGroupDone = prevGroupRecords
+    .filter(r => (r.parallelGroup || r.stepOrder) === maxPrevGroup)
+    .every(r => r.status === 'done')
+  return !prevGroupDone
 }
 
 // ── 操作權限判斷 ──────────────────────────────────────────────

@@ -262,6 +262,10 @@
                       <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm text-stone-700 dark:text-stone-200 font-medium">{{ step.name }}</span>
                         <span v-if="step.estMinutes" class="text-xs text-stone-400">⏱ {{ step.estMinutes }} 分</span>
+                        <span v-if="step.parallelGroup && isParallelStep(step, task.steps)"
+                              class="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full">
+                          平行 {{ step.parallelGroup }}
+                        </span>
                         <!-- 負責人頭像 -->
                         <div class="flex -space-x-1">
                           <div v-for="cid in step.assigneeIds" :key="cid"
@@ -325,35 +329,35 @@
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
-                  <tr class="border-b border-stone-100 dark:border-stone-700">
-                    <th class="text-left px-4 py-3 text-xs font-medium text-stone-400 w-24 sticky left-0 bg-white dark:bg-zinc-800">員工</th>
-                    <th v-for="day in scheduleDays" :key="day.date"
-                        class="px-1 py-2 text-center min-w-8"
-                        :class="day.isSun ? 'text-red-400' : 'text-stone-400'">
-                      <div class="text-xs font-medium">{{ day.dayNum }}</div>
-                      <div class="text-xs">{{ day.weekday }}</div>
-                    </th>
-                  </tr>
+                <tr class="border-b border-stone-100 dark:border-stone-700">
+                  <th class="text-left px-4 py-3 text-xs font-medium text-stone-400 w-24 sticky left-0 bg-white dark:bg-zinc-800">員工</th>
+                  <th v-for="day in scheduleDays" :key="day.date"
+                      class="px-1 py-2 text-center min-w-8"
+                      :class="day.isSun ? 'text-red-400' : 'text-stone-400'">
+                    <div class="text-xs font-medium">{{ day.dayNum }}</div>
+                    <div class="text-xs">{{ day.weekday }}</div>
+                  </th>
+                </tr>
                 </thead>
                 <tbody class="divide-y divide-stone-50 dark:divide-zinc-700">
-                  <tr v-for="staff in staffList" :key="staff.id">
-                    <td class="px-4 py-2 sticky left-0 bg-white dark:bg-zinc-800">
-                      <div class="flex items-center gap-1.5">
-                        <img v-if="staff.picture" :src="staff.picture" class="w-6 h-6 rounded-full" />
-                        <span class="text-xs font-medium text-stone-700 dark:text-stone-200 truncate max-w-16">{{ staff.name }}</span>
-                      </div>
-                    </td>
-                    <td v-for="day in scheduleDays" :key="day.date" class="px-0.5 py-1 text-center">
-                      <button @click="toggleSchedule(staff.id, day.date)"
-                              :class="getScheduleStatus(staff.id, day.date)
+                <tr v-for="staff in staffList" :key="staff.id">
+                  <td class="px-4 py-2 sticky left-0 bg-white dark:bg-zinc-800">
+                    <div class="flex items-center gap-1.5">
+                      <img v-if="staff.picture" :src="staff.picture" class="w-6 h-6 rounded-full" />
+                      <span class="text-xs font-medium text-stone-700 dark:text-stone-200 truncate max-w-16">{{ staff.name }}</span>
+                    </div>
+                  </td>
+                  <td v-for="day in scheduleDays" :key="day.date" class="px-0.5 py-1 text-center">
+                    <button @click="toggleSchedule(staff.id, day.date)"
+                            :class="getScheduleStatus(staff.id, day.date)
                                 ? 'bg-red-100 dark:bg-red-900/30 text-red-500'
                                 : day.isSun ? 'bg-stone-50 dark:bg-zinc-700/50 text-stone-300 dark:text-stone-600'
                                             : 'hover:bg-teal-50 dark:hover:bg-teal-900/20 text-stone-200 dark:text-zinc-700'"
-                              class="w-7 h-7 rounded-lg text-xs font-medium transition-colors mx-auto block">
-                        {{ getScheduleStatus(staff.id, day.date) ? '休' : (day.isSun ? '日' : '') }}
-                      </button>
-                    </td>
-                  </tr>
+                            class="w-7 h-7 rounded-lg text-xs font-medium transition-colors mx-auto block">
+                      {{ getScheduleStatus(staff.id, day.date) ? '休' : (day.isSun ? '日' : '') }}
+                    </button>
+                  </td>
+                </tr>
                 </tbody>
               </table>
             </div>
@@ -406,40 +410,40 @@
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead class="border-b border-stone-100 dark:border-stone-700">
-                  <tr>
-                    <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">日期</th>
-                    <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">工作</th>
-                    <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">步驟</th>
-                    <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">執行人</th>
-                    <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">狀態</th>
-                    <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">完成時間</th>
-                  </tr>
+                <tr>
+                  <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">日期</th>
+                  <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">工作</th>
+                  <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">步驟</th>
+                  <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">執行人</th>
+                  <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">狀態</th>
+                  <th class="text-left px-4 py-3 text-xs font-medium text-stone-400">完成時間</th>
+                </tr>
                 </thead>
                 <tbody class="divide-y divide-stone-50 dark:divide-zinc-700">
-                  <tr v-for="r in historyRecords" :key="r.id" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30">
-                    <td class="px-4 py-2.5 text-stone-600 dark:text-stone-300 whitespace-nowrap">{{ r.date }}</td>
-                    <td class="px-4 py-2.5">
-                      <span class="text-stone-800 dark:text-stone-100 font-medium">{{ r.taskName }}</span>
-                      <span :class="r.priority === 'required' ? 'text-teal-600' : 'text-amber-600'"
-                            class="ml-1.5 text-xs">{{ r.priority === 'required' ? '必' : '選' }}</span>
-                    </td>
-                    <td class="px-4 py-2.5 text-stone-500 dark:text-stone-400">{{ r.stepName }}</td>
-                    <td class="px-4 py-2.5 text-stone-600 dark:text-stone-300">
-                      {{ r.actualDoerName || r.assigneeName }}
-                      <span v-if="r.actualDoer && r.actualDoer !== r.assigneeId"
-                            class="text-xs text-amber-500 ml-1">接手</span>
-                    </td>
-                    <td class="px-4 py-2.5">
+                <tr v-for="r in historyRecords" :key="r.id" class="hover:bg-stone-50 dark:hover:bg-zinc-700/30">
+                  <td class="px-4 py-2.5 text-stone-600 dark:text-stone-300 whitespace-nowrap">{{ r.date }}</td>
+                  <td class="px-4 py-2.5">
+                    <span class="text-stone-800 dark:text-stone-100 font-medium">{{ r.taskName }}</span>
+                    <span :class="r.priority === 'required' ? 'text-teal-600' : 'text-amber-600'"
+                          class="ml-1.5 text-xs">{{ r.priority === 'required' ? '必' : '選' }}</span>
+                  </td>
+                  <td class="px-4 py-2.5 text-stone-500 dark:text-stone-400">{{ r.stepName }}</td>
+                  <td class="px-4 py-2.5 text-stone-600 dark:text-stone-300">
+                    {{ r.actualDoerName || r.assigneeName }}
+                    <span v-if="r.actualDoer && r.actualDoer !== r.assigneeId"
+                          class="text-xs text-amber-500 ml-1">接手</span>
+                  </td>
+                  <td class="px-4 py-2.5">
                       <span :class="statusBadgeClass(r.status)"
                             class="text-xs px-2 py-0.5 rounded-full font-medium">
                         {{ statusLabel(r.status) }}
                       </span>
-                    </td>
-                    <td class="px-4 py-2.5 text-stone-400 text-xs whitespace-nowrap">{{ r.doneAt ? r.doneAt.slice(0, 16) : '—' }}</td>
-                  </tr>
-                  <tr v-if="historyRecords.length === 0">
-                    <td colspan="6" class="text-center py-10 text-stone-400">無紀錄</td>
-                  </tr>
+                  </td>
+                  <td class="px-4 py-2.5 text-stone-400 text-xs whitespace-nowrap">{{ r.doneAt ? r.doneAt.slice(0, 16) : '—' }}</td>
+                </tr>
+                <tr v-if="historyRecords.length === 0">
+                  <td colspan="6" class="text-center py-10 text-stone-400">無紀錄</td>
+                </tr>
                 </tbody>
               </table>
             </div>
@@ -552,6 +556,21 @@
               <input v-model="stepModal.note" type="text" placeholder="選填，給執行者的提示"
                      class="w-full border border-stone-200 dark:border-stone-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
+            <!-- 平行群組 -->
+            <div class="bg-stone-50 dark:bg-zinc-700/50 rounded-xl p-3">
+              <label class="flex items-center gap-2 cursor-pointer select-none mb-1">
+                <input type="checkbox" v-model="stepModal.isParallel"
+                       class="rounded border-stone-300 text-teal-600 focus:ring-teal-500"
+                       @change="onParallelChange" />
+                <span class="text-sm font-medium text-stone-700 dark:text-stone-200">與其他步驟同時進行（平行）</span>
+              </label>
+              <div v-if="stepModal.isParallel" class="mt-2">
+                <label class="text-xs text-stone-400 mb-1 block">平行群組編號（相同編號的步驟可同時進行）</label>
+                <input v-model.number="stepModal.parallelGroup" type="number" min="1"
+                       class="w-full border border-stone-200 dark:border-stone-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                <p class="text-xs text-stone-400 mt-1">例：烘培和香藥草都設群組 2，寄送設群組 3，則兩者完成後才能寄送</p>
+              </div>
+            </div>
             <div>
               <label class="text-xs font-medium text-stone-500 dark:text-stone-400 mb-2 block">負責人</label>
               <div class="space-y-1.5 max-h-40 overflow-y-auto">
@@ -583,11 +602,11 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.task.manage' })
+definePageMeta({layout: 'staff', requiredPermission: 'staff.task.manage'})
 
 const commonStore = useCommonStore()
-const BASE        = () => commonStore.data.main_url + '/holy/task'
-const REC_BASE    = () => commonStore.data.main_url + '/holy/task/record'
+const BASE = () => commonStore.data.main_url + '/holy/task'
+const REC_BASE = () => commonStore.data.main_url + '/holy/task/record'
 
 // ── 日期 ──────────────────────────────────────────────────────
 const today = new Date()
@@ -598,29 +617,31 @@ const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　星期$
 // ── 分頁 ──────────────────────────────────────────────────────
 const activeTab = ref('overview')
 const tabs = [
-  { key: 'overview',  label: '今日總覽' },
-  { key: 'tasks',     label: '項目管理' },
-  { key: 'schedule',  label: '排休管理' },
-  { key: 'history',   label: '歷史紀錄' }
+  {key: 'overview', label: '今日總覽'},
+  {key: 'tasks', label: '項目管理'},
+  {key: 'schedule', label: '排休管理'},
+  {key: 'history', label: '歷史紀錄'}
 ]
 
 // ── 員工清單 ──────────────────────────────────────────────────
 const staffList = ref([])
-const staffMap  = computed(() => Object.fromEntries(staffList.value.map(s => [s.id, s])))
+const staffMap = computed(() => Object.fromEntries(staffList.value.map(s => [s.id, s])))
 
 async function loadStaffList() {
   try {
     const res = await fetch(`${BASE()}/staff/list`)
     staffList.value = await res.json()
-  } catch { staffList.value = [] }
+  } catch {
+    staffList.value = []
+  }
 }
 
 // ── 今日總覽 ──────────────────────────────────────────────────
 const loadingOverview = ref(false)
-const generating      = ref(false)
+const generating = ref(false)
 const overviewRecords = ref([])
-const summary         = ref({ requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0 })
-const expandedGroups  = ref(new Set())
+const summary = ref({requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0})
+const expandedGroups = ref(new Set())
 
 const reqPct = computed(() =>
   summary.value.requiredTotal ? Math.round(summary.value.requiredDone / summary.value.requiredTotal * 100) : 0)
@@ -632,7 +653,14 @@ const groupedRecords = computed(() => {
   const map = new Map()
   for (const r of overviewRecords.value) {
     if (!map.has(r.taskId)) {
-      map.set(r.taskId, { taskId: r.taskId, taskName: r.taskName, priority: r.priority, records: [], doneCount: 0, totalCount: 0 })
+      map.set(r.taskId, {
+        taskId: r.taskId,
+        taskName: r.taskName,
+        priority: r.priority,
+        records: [],
+        doneCount: 0,
+        totalCount: 0
+      })
     }
     const g = map.get(r.taskId)
     g.records.push(r)
@@ -653,43 +681,52 @@ function toggleGroup(taskId) {
 async function generateRecords() {
   generating.value = true
   try {
-    await fetch(`${REC_BASE()}/generate/${todayStr}`, { method: 'POST' })
+    await fetch(`${REC_BASE()}/generate/${todayStr}`, {method: 'POST'})
     await loadOverview()
-  } finally { generating.value = false }
+  } finally {
+    generating.value = false
+  }
 }
 
 async function loadOverview() {
   loadingOverview.value = true
   try {
-    const res  = await fetch(`${REC_BASE()}/daily/${todayStr}`)
+    const res = await fetch(`${REC_BASE()}/daily/${todayStr}`)
     const data = await res.json()
     overviewRecords.value = data.records || []
-    summary.value = data.summary || { requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0 }
+    summary.value = data.summary || {requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0}
     // 預設展開所有群組
     expandedGroups.value = new Set(overviewRecords.value.map(r => r.taskId))
-  } catch { overviewRecords.value = [] }
-  finally  { loadingOverview.value = false }
+  } catch {
+    overviewRecords.value = []
+  } finally {
+    loadingOverview.value = false
+  }
 }
 
 // 今日排休
 const todaySchedule = ref([])
+
 function isOnLeave(customerId) {
   return todaySchedule.value.some(s => s.customerId === customerId && s.date === todayStr)
 }
+
 async function loadTodaySchedule() {
   const ym = todayStr.slice(0, 7)
   try {
     const res = await fetch(`${BASE()}/schedule/${ym}`)
     todaySchedule.value = await res.json()
-  } catch { todaySchedule.value = [] }
+  } catch {
+    todaySchedule.value = []
+  }
 }
 
 // ── 工作項目 ──────────────────────────────────────────────────
-const tasks        = ref([])
+const tasks = ref([])
 const loadingTasks = ref(false)
 const showInactive = ref(false)
 const expandedSteps = ref(new Set())
-const saving        = ref(false)
+const saving = ref(false)
 
 function toggleSteps(taskId) {
   const s = new Set(expandedSteps.value)
@@ -702,8 +739,11 @@ async function loadTasks() {
   try {
     const res = await fetch(`${BASE()}/list?includeInactive=${showInactive.value}`)
     tasks.value = await res.json()
-  } catch { tasks.value = [] }
-  finally { loadingTasks.value = false }
+  } catch {
+    tasks.value = []
+  } finally {
+    loadingTasks.value = false
+  }
 }
 
 // Task Modal
@@ -714,12 +754,16 @@ const taskModal = reactive({
 
 function openTaskModal(task) {
   if (task) {
-    Object.assign(taskModal, { show: true, id: task.id, name: task.name,
+    Object.assign(taskModal, {
+      show: true, id: task.id, name: task.name,
       description: task.description || '', category: task.category,
-      priority: task.priority, estMinutes: task.estMinutes || 0 })
+      priority: task.priority, estMinutes: task.estMinutes || 0
+    })
   } else {
-    Object.assign(taskModal, { show: true, id: null, name: '', description: '',
-      category: 'daily', priority: 'required', estMinutes: 0 })
+    Object.assign(taskModal, {
+      show: true, id: null, name: '', description: '',
+      category: 'daily', priority: 'required', estMinutes: 0
+    })
   }
 }
 
@@ -727,39 +771,71 @@ async function saveTask() {
   if (!taskModal.name.trim()) return
   saving.value = true
   try {
-    const body = { name: taskModal.name, description: taskModal.description,
-                   category: taskModal.category, priority: taskModal.priority,
-                   estMinutes: taskModal.estMinutes }
+    const body = {
+      name: taskModal.name, description: taskModal.description,
+      category: taskModal.category, priority: taskModal.priority,
+      estMinutes: taskModal.estMinutes
+    }
     if (taskModal.id) {
-      await fetch(`${BASE()}/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: taskModal.id }) })
+      await fetch(`${BASE()}/update`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...body, id: taskModal.id})
+      })
     } else {
-      await fetch(`${BASE()}/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      await fetch(`${BASE()}/save`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      })
     }
     taskModal.show = false
     await loadTasks()
-  } finally { saving.value = false }
+  } finally {
+    saving.value = false
+  }
 }
 
 async function toggleTask(task) {
-  await fetch(`${BASE()}/toggle/${task.id}`, { method: 'PUT' })
+  await fetch(`${BASE()}/toggle/${task.id}`, {method: 'PUT'})
   await loadTasks()
 }
 
 // Step Modal
 const stepModal = reactive({
   show: false, id: null, taskId: null, taskName: '',
-  name: '', stepOrder: 1, estMinutes: 0, note: '', assigneeIds: []
+  name: '', stepOrder: 1, parallelGroup: 1, isParallel: false,
+  estMinutes: 0, note: '', assigneeIds: []
 })
+
+function onParallelChange() {
+  if (stepModal.isParallel && stepModal.parallelGroup === stepModal.stepOrder) {
+    // 預設群組編號等於步驟順序
+    stepModal.parallelGroup = stepModal.stepOrder
+  }
+}
+
+function isParallelStep(step, steps) {
+  if (!steps) return false
+  return steps.some(s => s.id !== step.id && s.parallelGroup === step.parallelGroup)
+}
 
 function openStepModal(task, step) {
   if (step) {
-    Object.assign(stepModal, { show: true, id: step.id, taskId: task.id, taskName: task.name,
-      name: step.name, stepOrder: step.stepOrder, estMinutes: step.estMinutes || 0,
-      note: step.note || '', assigneeIds: [...(step.assigneeIds || [])] })
+    const pg = step.parallelGroup || step.stepOrder
+    const isP = task.steps?.some(s => s.id !== step.id && s.parallelGroup === pg) || false
+    Object.assign(stepModal, {
+      show: true, id: step.id, taskId: task.id, taskName: task.name,
+      name: step.name, stepOrder: step.stepOrder, parallelGroup: pg, isParallel: isP,
+      estMinutes: step.estMinutes || 0, note: step.note || '', assigneeIds: [...(step.assigneeIds || [])]
+    })
   } else {
     const nextOrder = (task.steps?.length || 0) + 1
-    Object.assign(stepModal, { show: true, id: null, taskId: task.id, taskName: task.name,
-      name: '', stepOrder: nextOrder, estMinutes: 0, note: '', assigneeIds: [] })
+    Object.assign(stepModal, {
+      show: true, id: null, taskId: task.id, taskName: task.name,
+      name: '', stepOrder: nextOrder, parallelGroup: nextOrder, isParallel: false,
+      estMinutes: 0, note: '', assigneeIds: []
+    })
   }
 }
 
@@ -767,27 +843,41 @@ async function saveStep() {
   if (!stepModal.name.trim()) return
   saving.value = true
   try {
-    const body = { taskId: stepModal.taskId, name: stepModal.name,
-                   stepOrder: stepModal.stepOrder, estMinutes: stepModal.estMinutes,
-                   note: stepModal.note, assigneeIds: stepModal.assigneeIds }
+    const pg = stepModal.isParallel ? stepModal.parallelGroup : stepModal.stepOrder
+    const body = {
+      taskId: stepModal.taskId, name: stepModal.name,
+      stepOrder: stepModal.stepOrder, parallelGroup: pg,
+      estMinutes: stepModal.estMinutes,
+      note: stepModal.note, assigneeIds: stepModal.assigneeIds
+    }
     if (stepModal.id) {
-      await fetch(`${BASE()}/step/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: stepModal.id }) })
+      await fetch(`${BASE()}/step/update`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...body, id: stepModal.id})
+      })
     } else {
-      await fetch(`${BASE()}/step/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      await fetch(`${BASE()}/step/save`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      })
     }
     stepModal.show = false
     await loadTasks()
-  } finally { saving.value = false }
+  } finally {
+    saving.value = false
+  }
 }
 
 async function removeStep(step) {
   if (!confirm(`確定刪除步驟「${step.name}」？`)) return
-  await fetch(`${BASE()}/step/remove/${step.id}`, { method: 'DELETE' })
+  await fetch(`${BASE()}/step/remove/${step.id}`, {method: 'DELETE'})
   await loadTasks()
 }
 
 // ── 排休管理 ──────────────────────────────────────────────────
-const scheduleDate    = ref(new Date(today.getFullYear(), today.getMonth(), 1))
+const scheduleDate = ref(new Date(today.getFullYear(), today.getMonth(), 1))
 const scheduleRecords = ref([])
 
 const scheduleYearMonth = computed(() => {
@@ -800,13 +890,18 @@ const scheduleYM = computed(() => {
 })
 
 const scheduleDays = computed(() => {
-  const d   = scheduleDate.value
+  const d = scheduleDate.value
   const year = d.getFullYear(), month = d.getMonth()
   const days = new Date(year, month + 1, 0).getDate()
-  return Array.from({ length: days }, (_, i) => {
-    const dt  = new Date(year, month, i + 1)
+  return Array.from({length: days}, (_, i) => {
+    const dt = new Date(year, month, i + 1)
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`
-    return { date: dateStr, dayNum: i + 1, weekday: ['日','一','二','三','四','五','六'][dt.getDay()], isSun: dt.getDay() === 0 }
+    return {
+      date: dateStr,
+      dayNum: i + 1,
+      weekday: ['日', '一', '二', '三', '四', '五', '六'][dt.getDay()],
+      isSun: dt.getDay() === 0
+    }
   })
 })
 
@@ -817,13 +912,13 @@ function getScheduleStatus(customerId, date) {
 async function toggleSchedule(customerId, date) {
   if (getScheduleStatus(customerId, date)) {
     await fetch(`${BASE()}/schedule/remove`, {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId, date })
+      method: 'DELETE', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({customerId, date})
     })
   } else {
     await fetch(`${BASE()}/schedule/save`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId, date, type: 'off' })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({customerId, date, type: 'off'})
     })
   }
   await loadSchedule()
@@ -833,49 +928,80 @@ async function loadSchedule() {
   try {
     const res = await fetch(`${BASE()}/schedule/${scheduleYM.value}`)
     scheduleRecords.value = await res.json()
-  } catch { scheduleRecords.value = [] }
+  } catch {
+    scheduleRecords.value = []
+  }
 }
 
-function prevMonth() { scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() - 1, 1); loadSchedule() }
-function nextMonth() { scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() + 1, 1); loadSchedule() }
+function prevMonth() {
+  scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() - 1, 1);
+  loadSchedule()
+}
+
+function nextMonth() {
+  scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() + 1, 1);
+  loadSchedule()
+}
 
 // ── 歷史紀錄 ──────────────────────────────────────────────────
 const histFilter = reactive({
   from: todayStr.slice(0, 8) + '01',
-  to:   todayStr,
+  to: todayStr,
   customerId: '',
   taskId: ''
 })
-const historyRecords  = ref([])
-const loadingHistory  = ref(false)
+const historyRecords = ref([])
+const loadingHistory = ref(false)
 
 async function loadHistory() {
   loadingHistory.value = true
   try {
     const params = new URLSearchParams()
-    if (histFilter.from)       params.set('from', histFilter.from)
-    if (histFilter.to)         params.set('to',   histFilter.to)
+    if (histFilter.from) params.set('from', histFilter.from)
+    if (histFilter.to) params.set('to', histFilter.to)
     if (histFilter.customerId) params.set('customerId', histFilter.customerId)
-    if (histFilter.taskId)     params.set('taskId', histFilter.taskId)
+    if (histFilter.taskId) params.set('taskId', histFilter.taskId)
     const res = await fetch(`${REC_BASE()}/history?${params}`)
     historyRecords.value = await res.json()
-  } catch { historyRecords.value = [] }
-  finally { loadingHistory.value = false }
+  } catch {
+    historyRecords.value = []
+  } finally {
+    loadingHistory.value = false
+  }
 }
 
 // ── 工具函式 ──────────────────────────────────────────────────
 function statusLabel(s) {
-  return { pending: '待處理', in_progress: '進行中', done: '已完成', skipped: '略過' }[s] || s
+  return {pending: '待處理', in_progress: '進行中', done: '已完成', skipped: '略過'}[s] || s
 }
+
 function statusDot(s) {
-  return { pending: 'bg-stone-300', in_progress: 'bg-amber-400', done: 'bg-teal-500', skipped: 'bg-stone-200' }[s] || 'bg-stone-300'
+  return {
+    pending: 'bg-stone-300',
+    in_progress: 'bg-amber-400',
+    done: 'bg-teal-500',
+    skipped: 'bg-stone-200'
+  }[s] || 'bg-stone-300'
 }
+
 function statusTextClass(s) {
-  return { pending: 'text-stone-400', in_progress: 'text-amber-500', done: 'text-teal-600', skipped: 'text-stone-300' }[s] || 'text-stone-400'
+  return {
+    pending: 'text-stone-400',
+    in_progress: 'text-amber-500',
+    done: 'text-teal-600',
+    skipped: 'text-stone-300'
+  }[s] || 'text-stone-400'
 }
+
 function statusBadgeClass(s) {
-  return { pending: 'bg-stone-100 dark:bg-zinc-700 text-stone-500', in_progress: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600', done: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700', skipped: 'bg-stone-50 text-stone-400' }[s] || ''
+  return {
+    pending: 'bg-stone-100 dark:bg-zinc-700 text-stone-500',
+    in_progress: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600',
+    done: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700',
+    skipped: 'bg-stone-50 text-stone-400'
+  }[s] || ''
 }
+
 function groupStatusClass(group) {
   if (group.doneCount === group.totalCount && group.totalCount > 0) return 'bg-teal-500'
   if (group.doneCount > 0) return 'bg-amber-400'
