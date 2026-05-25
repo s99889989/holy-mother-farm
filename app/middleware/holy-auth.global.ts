@@ -27,6 +27,8 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   '/staff/management/asset-edit': 'staff.asset.edit',
   '/staff/management/files-view': 'staff.files',
   '/staff/management/files-edit': 'staff.files.edit',
+  '/staff/task/task-board': 'staff.task',
+  '/staff/task/task-manager': 'staff.task.manage',
 
   // ── 前台內容 ────────────────────────────────────────────────────
   '/staff/front/news-edit': 'staff.news.edit',
