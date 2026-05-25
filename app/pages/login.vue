@@ -1,57 +1,60 @@
 <script setup>
-definePageMeta({ layout: 'loginl' })
+  definePageMeta({ layout: 'loginl' })
 
-const commonStore = useCommonStore()
+  const commonStore = useCommonStore()
 
-onMounted(async () => {
-  if (import.meta.client) {
-    if (localStorage.getItem('adminDark') === '1') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+  const loggedIn = ref(false)
+
+  onMounted(async () => {
+    if (import.meta.client) {
+      if (localStorage.getItem('adminDark') === '1') {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
     }
-  }
 
-  // 已用帳密登入 → 後台
-  if (localStorage.getItem('holy_auth')) {
-    navigateTo('/admin/management/PermissionManagement')
-    return
-  }
-})
+    // 已用帳密登入 → 後台
+    if (localStorage.getItem('holy_auth')) {
+      loggedIn.value = true
+      await navigateTo('/admin/management/PermissionManagement')
+      return
+    }
+  })
 
-// ── 帳密登入 ─────────────────────────────────────────────────────
-const username = ref('')
-const password = ref('')
-const loading = ref(false)
-const error = ref('')
+  // ── 帳密登入 ─────────────────────────────────────────────────────
+  const username = ref('')
+  const password = ref('')
+  const loading = ref(false)
+  const error = ref('')
 
-const login = async () => {
-  if (!username.value || !password.value) {
-    error.value = '請輸入帳號和密碼'
-    return
-  }
-  if (loading.value) return
-  loading.value = true
-  error.value = ''
-  try {
-    const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
-      method: 'POST',
-      body: { username: username.value, password: password.value }
-    })
-    if (res.success) {
-      localStorage.setItem('holy_auth', 'ok')
-      navigateTo('/admin/management/PermissionManagement')
-    } else {
+  const login = async () => {
+    if (!username.value || !password.value) {
+      error.value = '請輸入帳號和密碼'
+      return
+    }
+    if (loading.value) return
+    loading.value = true
+    error.value = ''
+    try {
+      const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
+        method: 'POST',
+        body: { username: username.value, password: password.value }
+      })
+      if (res.success) {
+        localStorage.setItem('holy_auth', 'ok')
+        navigateTo('/admin/management/PermissionManagement')
+      } else {
+        error.value = '帳號或密碼錯誤，請再試一次'
+        password.value = ''
+      }
+    } catch {
       error.value = '帳號或密碼錯誤，請再試一次'
       password.value = ''
+    } finally {
+      loading.value = false
     }
-  } catch {
-    error.value = '帳號或密碼錯誤，請再試一次'
-    password.value = ''
-  } finally {
-    loading.value = false
   }
-}
 </script>
 
 <template>
@@ -70,7 +73,7 @@ const login = async () => {
     </nav>
 
     <!-- 主體 -->
-    <div class="flex-1 flex items-center justify-center px-4 py-12">
+    <div v-if="!loggedIn" class="flex-1 flex items-center justify-center px-4 py-12">
       <div class="w-full max-w-sm">
         <!-- 卡片 -->
         <div
@@ -145,6 +148,7 @@ const login = async () => {
         <div class="text-center mt-5">
           <NuxtLink
             to="/"
+            :prefetch="false"
             class="text-sm text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 transition-colors"
           >
             ← 回到農莊網站
