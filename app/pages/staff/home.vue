@@ -18,6 +18,8 @@ const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${today
 
 // ── 快捷方式 ──────────────────────────────────────────────────────
 const shortcuts = [
+  { to: '/staff/task/task-board', icon: '✅', label: '今日工作', color: 'bg-indigo-600', desc: '查看今日工作並打卡' },
+  { to: '/staff/task/task-manager', icon: '📋', label: '工作管理', color: 'bg-teal-700', desc: '管理工作項目與排休' },
   { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', color: 'bg-green-700', desc: '查看當日訂位與便當' },
   { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', color: 'bg-emerald-600', desc: '查看每日點鈔結果' },
   { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', color: 'bg-indigo-600', desc: '查看本月活動與備注' },
@@ -141,12 +143,11 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors">
-
-<!--    <div style="background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;white-space:pre-wrap;word-break:break-all">-->
-<!--      loaded: {{ permissionStore.loaded }}-->
-<!--      loadedId: {{ permissionStore.loadedId }}-->
-<!--      perms: {{ JSON.stringify(permissionStore.perms, null, 2) }}-->
-<!--    </div>-->
+    <!--    <div style="background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;white-space:pre-wrap;word-break:break-all"> -->
+    <!--      loaded: {{ permissionStore.loaded }} -->
+    <!--      loadedId: {{ permissionStore.loadedId }} -->
+    <!--      perms: {{ JSON.stringify(permissionStore.perms, null, 2) }} -->
+    <!--    </div> -->
 
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
