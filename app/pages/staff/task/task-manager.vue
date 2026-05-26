@@ -247,7 +247,17 @@
               <!-- 步驟樹狀 -->
               <div v-if="expandedSteps.has(task.id)"
                    class="border-t border-stone-100 dark:border-stone-700 px-4 py-3">
-                <div class="text-xs font-medium text-stone-400 mb-2">流程步驟</div>
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-xs font-medium text-stone-400">流程步驟</div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-stone-400">快速指派全部步驟：</span>
+                    <select @change="quickAssignAll(task, $event.target.value); $event.target.value = ''"
+                            class="text-xs border border-stone-200 dark:border-stone-600 rounded-lg px-2 py-1 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-200">
+                      <option value="">選擇員工</option>
+                      <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                  </div>
+                </div>
                 <!-- 樹狀示意 -->
                 <div class="space-y-1 mb-3">
                   <div v-for="(step, idx) in task.steps" :key="step.id"
@@ -287,6 +297,9 @@
                                 class="text-xs text-stone-400 hover:text-red-500 transition-colors">刪除</button>
                       </div>
                       <p v-if="step.note" class="text-xs text-stone-400 mt-0.5">{{ step.note }}</p>
+                      <img v-if="step.imageUrl" :src="step.imageUrl"
+                           class="mt-1.5 h-16 w-auto rounded-lg object-cover cursor-pointer border border-stone-200 dark:border-stone-600 hover:opacity-80 transition-opacity"
+                           @click="lightboxImg = step.imageUrl" />
                     </div>
                   </div>
                   <div v-if="!task.steps || task.steps.length === 0"
@@ -556,6 +569,26 @@
               <input v-model="stepModal.note" type="text" placeholder="選填，給執行者的提示"
                      class="w-full border border-stone-200 dark:border-stone-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
+            <!-- 步驟說明圖片 -->
+            <div>
+              <label class="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1 block">說明圖片</label>
+              <div v-if="stepModal.imageUrl" class="relative inline-block mb-2">
+                <img :src="stepModal.imageUrl" class="h-24 w-auto rounded-xl object-cover border border-stone-200 dark:border-stone-600 cursor-pointer"
+                     @click="lightboxImg = stepModal.imageUrl" />
+                <button @click="stepModal.imageUrl = ''"
+                        class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-600">✕</button>
+              </div>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="file" accept="image/*" @change="uploadStepImage" class="hidden" ref="stepImageInput" />
+                <span :class="uploadingImg ? 'opacity-50' : ''"
+                      class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  {{ uploadingImg ? '上傳中...' : '上傳圖片' }}
+                </span>
+              </label>
+            </div>
             <!-- 平行群組 -->
             <div class="bg-stone-50 dark:bg-zinc-700/50 rounded-xl p-3">
               <label class="flex items-center gap-2 cursor-pointer select-none mb-1">
@@ -599,14 +632,22 @@
 
     </div>
   </ClientOnly>
+  <!-- Lightbox -->
+  <div v-if="lightboxImg" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+       @click="lightboxImg = null">
+    <img :src="lightboxImg" class="max-w-full max-h-full rounded-xl object-contain" @click.stop />
+    <button @click="lightboxImg = null"
+            class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 text-lg">✕</button>
+  </div>
+
 </template>
 
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'staff.task.manage'})
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.task.manage' })
 
 const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/task'
-const REC_BASE = () => commonStore.data.main_url + '/holy/task/record'
+const BASE        = () => commonStore.data.main_url + '/holy/task'
+const REC_BASE    = () => commonStore.data.main_url + '/holy/task/record'
 
 // ── 日期 ──────────────────────────────────────────────────────
 const today = new Date()
@@ -617,31 +658,29 @@ const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　星期$
 // ── 分頁 ──────────────────────────────────────────────────────
 const activeTab = ref('overview')
 const tabs = [
-  {key: 'overview', label: '今日總覽'},
-  {key: 'tasks', label: '項目管理'},
-  {key: 'schedule', label: '排休管理'},
-  {key: 'history', label: '歷史紀錄'}
+  { key: 'overview',  label: '今日總覽' },
+  { key: 'tasks',     label: '項目管理' },
+  { key: 'schedule',  label: '排休管理' },
+  { key: 'history',   label: '歷史紀錄' }
 ]
 
 // ── 員工清單 ──────────────────────────────────────────────────
 const staffList = ref([])
-const staffMap = computed(() => Object.fromEntries(staffList.value.map(s => [s.id, s])))
+const staffMap  = computed(() => Object.fromEntries(staffList.value.map(s => [s.id, s])))
 
 async function loadStaffList() {
   try {
     const res = await fetch(`${BASE()}/staff/list`)
     staffList.value = await res.json()
-  } catch {
-    staffList.value = []
-  }
+  } catch { staffList.value = [] }
 }
 
 // ── 今日總覽 ──────────────────────────────────────────────────
 const loadingOverview = ref(false)
-const generating = ref(false)
+const generating      = ref(false)
 const overviewRecords = ref([])
-const summary = ref({requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0})
-const expandedGroups = ref(new Set())
+const summary         = ref({ requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0 })
+const expandedGroups  = ref(new Set())
 
 const reqPct = computed(() =>
   summary.value.requiredTotal ? Math.round(summary.value.requiredDone / summary.value.requiredTotal * 100) : 0)
@@ -653,14 +692,7 @@ const groupedRecords = computed(() => {
   const map = new Map()
   for (const r of overviewRecords.value) {
     if (!map.has(r.taskId)) {
-      map.set(r.taskId, {
-        taskId: r.taskId,
-        taskName: r.taskName,
-        priority: r.priority,
-        records: [],
-        doneCount: 0,
-        totalCount: 0
-      })
+      map.set(r.taskId, { taskId: r.taskId, taskName: r.taskName, priority: r.priority, records: [], doneCount: 0, totalCount: 0 })
     }
     const g = map.get(r.taskId)
     g.records.push(r)
@@ -681,52 +713,43 @@ function toggleGroup(taskId) {
 async function generateRecords() {
   generating.value = true
   try {
-    await fetch(`${REC_BASE()}/generate/${todayStr}`, {method: 'POST'})
+    await fetch(`${REC_BASE()}/generate/${todayStr}`, { method: 'POST' })
     await loadOverview()
-  } finally {
-    generating.value = false
-  }
+  } finally { generating.value = false }
 }
 
 async function loadOverview() {
   loadingOverview.value = true
   try {
-    const res = await fetch(`${REC_BASE()}/daily/${todayStr}`)
+    const res  = await fetch(`${REC_BASE()}/daily/${todayStr}`)
     const data = await res.json()
     overviewRecords.value = data.records || []
-    summary.value = data.summary || {requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0}
+    summary.value = data.summary || { requiredTotal: 0, requiredDone: 0, optionalTotal: 0, optionalDone: 0 }
     // 預設展開所有群組
     expandedGroups.value = new Set(overviewRecords.value.map(r => r.taskId))
-  } catch {
-    overviewRecords.value = []
-  } finally {
-    loadingOverview.value = false
-  }
+  } catch { overviewRecords.value = [] }
+  finally  { loadingOverview.value = false }
 }
 
 // 今日排休
 const todaySchedule = ref([])
-
 function isOnLeave(customerId) {
   return todaySchedule.value.some(s => s.customerId === customerId && s.date === todayStr)
 }
-
 async function loadTodaySchedule() {
   const ym = todayStr.slice(0, 7)
   try {
     const res = await fetch(`${BASE()}/schedule/${ym}`)
     todaySchedule.value = await res.json()
-  } catch {
-    todaySchedule.value = []
-  }
+  } catch { todaySchedule.value = [] }
 }
 
 // ── 工作項目 ──────────────────────────────────────────────────
-const tasks = ref([])
+const tasks        = ref([])
 const loadingTasks = ref(false)
 const showInactive = ref(false)
 const expandedSteps = ref(new Set())
-const saving = ref(false)
+const saving        = ref(false)
 
 function toggleSteps(taskId) {
   const s = new Set(expandedSteps.value)
@@ -739,11 +762,8 @@ async function loadTasks() {
   try {
     const res = await fetch(`${BASE()}/list?includeInactive=${showInactive.value}`)
     tasks.value = await res.json()
-  } catch {
-    tasks.value = []
-  } finally {
-    loadingTasks.value = false
-  }
+  } catch { tasks.value = [] }
+  finally { loadingTasks.value = false }
 }
 
 // Task Modal
@@ -754,16 +774,12 @@ const taskModal = reactive({
 
 function openTaskModal(task) {
   if (task) {
-    Object.assign(taskModal, {
-      show: true, id: task.id, name: task.name,
+    Object.assign(taskModal, { show: true, id: task.id, name: task.name,
       description: task.description || '', category: task.category,
-      priority: task.priority, estMinutes: task.estMinutes || 0
-    })
+      priority: task.priority, estMinutes: task.estMinutes || 0 })
   } else {
-    Object.assign(taskModal, {
-      show: true, id: null, name: '', description: '',
-      category: 'daily', priority: 'required', estMinutes: 0
-    })
+    Object.assign(taskModal, { show: true, id: null, name: '', description: '',
+      category: 'daily', priority: 'required', estMinutes: 0 })
   }
 }
 
@@ -771,33 +787,21 @@ async function saveTask() {
   if (!taskModal.name.trim()) return
   saving.value = true
   try {
-    const body = {
-      name: taskModal.name, description: taskModal.description,
+    const body = { name: taskModal.name, description: taskModal.description,
       category: taskModal.category, priority: taskModal.priority,
-      estMinutes: taskModal.estMinutes
-    }
+      estMinutes: taskModal.estMinutes }
     if (taskModal.id) {
-      await fetch(`${BASE()}/update`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...body, id: taskModal.id})
-      })
+      await fetch(`${BASE()}/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: taskModal.id }) })
     } else {
-      await fetch(`${BASE()}/save`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-      })
+      await fetch(`${BASE()}/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     }
     taskModal.show = false
     await loadTasks()
-  } finally {
-    saving.value = false
-  }
+  } finally { saving.value = false }
 }
 
 async function toggleTask(task) {
-  await fetch(`${BASE()}/toggle/${task.id}`, {method: 'PUT'})
+  await fetch(`${BASE()}/toggle/${task.id}`, { method: 'PUT' })
   await loadTasks()
 }
 
@@ -805,7 +809,7 @@ async function toggleTask(task) {
 const stepModal = reactive({
   show: false, id: null, taskId: null, taskName: '',
   name: '', stepOrder: 1, parallelGroup: 1, isParallel: false,
-  estMinutes: 0, note: '', assigneeIds: []
+  estMinutes: 0, note: '', imageUrl: '', assigneeIds: []
 })
 
 function onParallelChange() {
@@ -824,18 +828,14 @@ function openStepModal(task, step) {
   if (step) {
     const pg = step.parallelGroup || step.stepOrder
     const isP = task.steps?.some(s => s.id !== step.id && s.parallelGroup === pg) || false
-    Object.assign(stepModal, {
-      show: true, id: step.id, taskId: task.id, taskName: task.name,
+    Object.assign(stepModal, { show: true, id: step.id, taskId: task.id, taskName: task.name,
       name: step.name, stepOrder: step.stepOrder, parallelGroup: pg, isParallel: isP,
-      estMinutes: step.estMinutes || 0, note: step.note || '', assigneeIds: [...(step.assigneeIds || [])]
-    })
+      estMinutes: step.estMinutes || 0, note: step.note || '', imageUrl: step.imageUrl || '', assigneeIds: [...(step.assigneeIds || [])] })
   } else {
     const nextOrder = (task.steps?.length || 0) + 1
-    Object.assign(stepModal, {
-      show: true, id: null, taskId: task.id, taskName: task.name,
+    Object.assign(stepModal, { show: true, id: null, taskId: task.id, taskName: task.name,
       name: '', stepOrder: nextOrder, parallelGroup: nextOrder, isParallel: false,
-      estMinutes: 0, note: '', assigneeIds: []
-    })
+      estMinutes: 0, note: '', imageUrl: '', assigneeIds: [] })
   }
 }
 
@@ -844,40 +844,29 @@ async function saveStep() {
   saving.value = true
   try {
     const pg = stepModal.isParallel ? stepModal.parallelGroup : stepModal.stepOrder
-    const body = {
-      taskId: stepModal.taskId, name: stepModal.name,
+    const body = { taskId: stepModal.taskId, name: stepModal.name,
       stepOrder: stepModal.stepOrder, parallelGroup: pg,
       estMinutes: stepModal.estMinutes,
-      note: stepModal.note, assigneeIds: stepModal.assigneeIds
-    }
+      note: stepModal.note, imageUrl: stepModal.imageUrl,
+      assigneeIds: stepModal.assigneeIds }
     if (stepModal.id) {
-      await fetch(`${BASE()}/step/update`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...body, id: stepModal.id})
-      })
+      await fetch(`${BASE()}/step/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: stepModal.id }) })
     } else {
-      await fetch(`${BASE()}/step/save`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-      })
+      await fetch(`${BASE()}/step/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     }
     stepModal.show = false
     await loadTasks()
-  } finally {
-    saving.value = false
-  }
+  } finally { saving.value = false }
 }
 
 async function removeStep(step) {
   if (!confirm(`確定刪除步驟「${step.name}」？`)) return
-  await fetch(`${BASE()}/step/remove/${step.id}`, {method: 'DELETE'})
+  await fetch(`${BASE()}/step/remove/${step.id}`, { method: 'DELETE' })
   await loadTasks()
 }
 
 // ── 排休管理 ──────────────────────────────────────────────────
-const scheduleDate = ref(new Date(today.getFullYear(), today.getMonth(), 1))
+const scheduleDate    = ref(new Date(today.getFullYear(), today.getMonth(), 1))
 const scheduleRecords = ref([])
 
 const scheduleYearMonth = computed(() => {
@@ -890,18 +879,13 @@ const scheduleYM = computed(() => {
 })
 
 const scheduleDays = computed(() => {
-  const d = scheduleDate.value
+  const d   = scheduleDate.value
   const year = d.getFullYear(), month = d.getMonth()
   const days = new Date(year, month + 1, 0).getDate()
-  return Array.from({length: days}, (_, i) => {
-    const dt = new Date(year, month, i + 1)
+  return Array.from({ length: days }, (_, i) => {
+    const dt  = new Date(year, month, i + 1)
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`
-    return {
-      date: dateStr,
-      dayNum: i + 1,
-      weekday: ['日', '一', '二', '三', '四', '五', '六'][dt.getDay()],
-      isSun: dt.getDay() === 0
-    }
+    return { date: dateStr, dayNum: i + 1, weekday: ['日','一','二','三','四','五','六'][dt.getDay()], isSun: dt.getDay() === 0 }
   })
 })
 
@@ -912,13 +896,13 @@ function getScheduleStatus(customerId, date) {
 async function toggleSchedule(customerId, date) {
   if (getScheduleStatus(customerId, date)) {
     await fetch(`${BASE()}/schedule/remove`, {
-      method: 'DELETE', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({customerId, date})
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId, date })
     })
   } else {
     await fetch(`${BASE()}/schedule/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({customerId, date, type: 'off'})
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId, date, type: 'off' })
     })
   }
   await loadSchedule()
@@ -928,71 +912,46 @@ async function loadSchedule() {
   try {
     const res = await fetch(`${BASE()}/schedule/${scheduleYM.value}`)
     scheduleRecords.value = await res.json()
-  } catch {
-    scheduleRecords.value = []
-  }
+  } catch { scheduleRecords.value = [] }
 }
 
-function prevMonth() {
-  scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() - 1, 1);
-  loadSchedule()
-}
-
-function nextMonth() {
-  scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() + 1, 1);
-  loadSchedule()
-}
+function prevMonth() { scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() - 1, 1); loadSchedule() }
+function nextMonth() { scheduleDate.value = new Date(scheduleDate.value.getFullYear(), scheduleDate.value.getMonth() + 1, 1); loadSchedule() }
 
 // ── 歷史紀錄 ──────────────────────────────────────────────────
 const histFilter = reactive({
   from: todayStr.slice(0, 8) + '01',
-  to: todayStr,
+  to:   todayStr,
   customerId: '',
   taskId: ''
 })
-const historyRecords = ref([])
-const loadingHistory = ref(false)
+const historyRecords  = ref([])
+const loadingHistory  = ref(false)
 
 async function loadHistory() {
   loadingHistory.value = true
   try {
     const params = new URLSearchParams()
-    if (histFilter.from) params.set('from', histFilter.from)
-    if (histFilter.to) params.set('to', histFilter.to)
+    if (histFilter.from)       params.set('from', histFilter.from)
+    if (histFilter.to)         params.set('to',   histFilter.to)
     if (histFilter.customerId) params.set('customerId', histFilter.customerId)
-    if (histFilter.taskId) params.set('taskId', histFilter.taskId)
+    if (histFilter.taskId)     params.set('taskId', histFilter.taskId)
     const res = await fetch(`${REC_BASE()}/history?${params}`)
     historyRecords.value = await res.json()
-  } catch {
-    historyRecords.value = []
-  } finally {
-    loadingHistory.value = false
-  }
+  } catch { historyRecords.value = [] }
+  finally { loadingHistory.value = false }
 }
 
 // ── 工具函式 ──────────────────────────────────────────────────
 function statusLabel(s) {
-  return {pending: '待處理', in_progress: '進行中', done: '已完成', skipped: '略過'}[s] || s
+  return { pending: '待處理', in_progress: '進行中', done: '已完成', skipped: '略過' }[s] || s
 }
-
 function statusDot(s) {
-  return {
-    pending: 'bg-stone-300',
-    in_progress: 'bg-amber-400',
-    done: 'bg-teal-500',
-    skipped: 'bg-stone-200'
-  }[s] || 'bg-stone-300'
+  return { pending: 'bg-stone-300', in_progress: 'bg-amber-400', done: 'bg-teal-500', skipped: 'bg-stone-200' }[s] || 'bg-stone-300'
 }
-
 function statusTextClass(s) {
-  return {
-    pending: 'text-stone-400',
-    in_progress: 'text-amber-500',
-    done: 'text-teal-600',
-    skipped: 'text-stone-300'
-  }[s] || 'text-stone-400'
+  return { pending: 'text-stone-400', in_progress: 'text-amber-500', done: 'text-teal-600', skipped: 'text-stone-300' }[s] || 'text-stone-400'
 }
-
 function statusBadgeClass(s) {
   return {
     pending: 'bg-stone-100 dark:bg-zinc-700 text-stone-500',
@@ -1006,6 +965,52 @@ function groupStatusClass(group) {
   if (group.doneCount === group.totalCount && group.totalCount > 0) return 'bg-teal-500'
   if (group.doneCount > 0) return 'bg-amber-400'
   return 'bg-stone-300 dark:bg-zinc-500'
+}
+
+// ── Lightbox ─────────────────────────────────────────────────
+const lightboxImg = ref(null)
+
+// ── 步驟圖片上傳 ──────────────────────────────────────────────
+const stepImageInput = ref(null)
+const uploadingImg = ref(false)
+
+async function uploadStepImage(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  uploadingImg.value = true
+  try {
+    const formData = new FormData()
+    formData.append('files', file)
+    formData.append('folder', 'task_steps')
+    const res = await fetch(`${commonStore.data.main_url}/holy/images/upload`, {method: 'POST', body: formData})
+    const data = await res.json()
+    if (data?.[0]?.thumbUrl) stepModal.imageUrl = data[0].thumbUrl
+    else if (data?.[0]?.url) stepModal.imageUrl = data[0].url
+  } catch {
+    alert('圖片上傳失敗')
+  } finally {
+    uploadingImg.value = false
+    if (stepImageInput.value) stepImageInput.value.value = ''
+  }
+}
+
+// ── 快速指派全部步驟 ──────────────────────────────────────────
+async function quickAssignAll(task, customerId) {
+  if (!customerId || !task.steps?.length) return
+  if (!confirm(`確定將「${task.name}」所有步驟都指派給 ${staffMap.value[customerId]?.name || customerId}？`)) return
+  saving.value = true
+  try {
+    for (const step of task.steps) {
+      await fetch(`${BASE()}/step/assignees/${step.id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify([customerId])
+      })
+    }
+    await loadTasks()
+  } finally {
+    saving.value = false
+  }
 }
 
 // ── 初始化 ────────────────────────────────────────────────────

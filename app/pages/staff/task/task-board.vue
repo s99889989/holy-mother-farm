@@ -13,8 +13,21 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <!-- 顯示切換 -->
+            <!-- 主分頁切換 -->
             <div class="flex items-center gap-1 bg-stone-100 dark:bg-zinc-800 rounded-xl p-1">
+              <button @click="activeTab = 'today'"
+                      :class="activeTab === 'today' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-800 dark:text-stone-100' : 'text-stone-500 dark:text-stone-400'"
+                      class="px-3 py-1 rounded-lg text-xs font-medium transition-all">
+                今日
+              </button>
+              <button @click="activeTab = 'history'"
+                      :class="activeTab === 'history' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-800 dark:text-stone-100' : 'text-stone-500 dark:text-stone-400'"
+                      class="px-3 py-1 rounded-lg text-xs font-medium transition-all">
+                紀錄
+              </button>
+            </div>
+            <!-- 今日：顯示切換 -->
+            <div v-if="activeTab === 'today'" class="flex items-center gap-1 bg-stone-100 dark:bg-zinc-800 rounded-xl p-1">
               <button @click="viewMode = 'mine'"
                       :class="viewMode === 'mine' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-800 dark:text-stone-100' : 'text-stone-500 dark:text-stone-400'"
                       class="px-3 py-1 rounded-lg text-xs font-medium transition-all">
@@ -26,8 +39,7 @@
                 全部
               </button>
             </div>
-            <!-- 重新整理 -->
-            <button @click="loadRecords" :disabled="loading"
+            <button @click="activeTab === 'today' ? loadRecords() : loadHistory()" :disabled="loading"
                     class="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-xl transition-colors disabled:opacity-50">
               <svg :class="loading ? 'animate-spin' : ''" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -39,257 +51,154 @@
 
       <div class="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-5">
 
-        <!-- 個人今日完成度 -->
-        <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 mb-4">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2">
-              <img v-if="myPicture" :src="myPicture" class="w-7 h-7 rounded-full" />
-              <span class="text-sm font-semibold text-stone-700 dark:text-stone-200">{{ myName || '今日進度' }}</span>
-            </div>
-            <span class="text-xs text-stone-400">{{ myDoneCount }} / {{ myTotalCount }} 完成</span>
-          </div>
-          <div class="h-2 bg-stone-100 dark:bg-zinc-700 rounded-full overflow-hidden">
-            <div class="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                 :style="{ width: myPct + '%' }"></div>
-          </div>
-        </div>
+        <!-- ── 今日工作 tab ── -->
+        <div v-if="activeTab === 'today'">
 
-        <!-- 載入中 -->
-        <div v-if="loading" class="text-center py-12 text-stone-400">
-          <svg class="w-6 h-6 animate-spin mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          載入中...
-        </div>
-
-        <div v-else>
-          <!-- ── 必要工作 ── -->
-          <div v-if="requiredGroups.length > 0" class="mb-5">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">必要工作</span>
-              <span class="text-xs text-stone-400">{{ requiredDone }}/{{ requiredTotal }}</span>
+          <!-- 個人今日完成度 -->
+          <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <img v-if="myPicture" :src="myPicture" class="w-7 h-7 rounded-full" />
+                <span class="text-sm font-semibold text-stone-700 dark:text-stone-200">{{ myName || '今日進度' }}</span>
+              </div>
+              <span class="text-xs text-stone-400">{{ myDoneCount }} / {{ myTotalCount }} 完成</span>
             </div>
-            <div class="space-y-2">
-              <div v-for="group in requiredGroups" :key="group.taskId"
-                   class="bg-white dark:bg-zinc-800 rounded-2xl border shadow-sm overflow-hidden transition-all"
-                   :class="group.allDone ? 'border-teal-200 dark:border-teal-800' : 'border-stone-200 dark:border-stone-700'">
-                <!-- 項目標題 -->
-                <div class="flex items-center gap-3 px-4 py-3 cursor-pointer"
-                     @click="toggleGroup(group.taskId)">
-                  <!-- 整體完成圈 -->
-                  <div :class="group.allDone ? 'bg-teal-500 border-teal-500' : 'border-stone-300 dark:border-stone-500'"
-                       class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all">
-                    <svg v-if="group.allDone" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                    </svg>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
+            <div class="h-2 bg-stone-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+              <div class="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                   :style="{ width: myPct + '%' }"></div>
+            </div>
+          </div>
+
+          <!-- 載入中 -->
+          <div v-if="loading" class="text-center py-12 text-stone-400">
+            <svg class="w-6 h-6 animate-spin mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            載入中...
+          </div>
+
+          <div v-else>
+            <!-- ── 必要工作 ── -->
+            <div v-if="requiredGroups.length > 0" class="mb-5">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">必要工作</span>
+                <span class="text-xs text-stone-400">{{ requiredDone }}/{{ requiredTotal }}</span>
+              </div>
+              <div class="space-y-2">
+                <div v-for="group in requiredGroups" :key="group.taskId"
+                     class="bg-white dark:bg-zinc-800 rounded-2xl border shadow-sm overflow-hidden transition-all"
+                     :class="group.allDone ? 'border-teal-200 dark:border-teal-800' : 'border-stone-200 dark:border-stone-700'">
+                  <!-- 項目標題 -->
+                  <div class="flex items-center gap-3 px-4 py-3 cursor-pointer"
+                       @click="toggleGroup(group.taskId)">
+                    <!-- 整體完成圈 -->
+                    <div :class="group.allDone ? 'bg-teal-500 border-teal-500' : 'border-stone-300 dark:border-stone-500'"
+                         class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all">
+                      <svg v-if="group.allDone" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
                       <span :class="group.allDone ? 'line-through text-stone-400' : 'text-stone-800 dark:text-stone-100'"
                             class="font-semibold text-sm transition-all">{{ group.taskName }}</span>
-                      <span v-if="group.estMinutes" class="text-xs text-stone-400">⏱ {{ group.estMinutes }} 分</span>
-                      <span class="text-xs text-stone-400">{{ group.doneCount }}/{{ group.totalCount }}</span>
-                    </div>
-                  </div>
-                  <svg :class="expandedGroups.has(group.taskId) ? 'rotate-180' : ''"
-                       class="w-4 h-4 text-stone-400 transition-transform flex-shrink-0"
-                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                  </svg>
-                </div>
-
-                <!-- 步驟清單 -->
-                <div v-if="expandedGroups.has(group.taskId)"
-                     class="border-t border-stone-100 dark:border-stone-700 divide-y divide-stone-50 dark:divide-zinc-700">
-                  <div v-for="r in group.records" :key="r.id"
-                       class="px-4 py-3"
-                       :class="isLocked(r, group) ? 'opacity-40' : ''">
-                    <div class="flex items-start gap-3">
-                      <!-- 步驟順序線 -->
-                      <div class="flex flex-col items-center flex-shrink-0 pt-0.5">
-                        <div :class="stepCircleClass(r, group)"
-                             class="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all">
-                          <svg v-if="r.status === 'done'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                          </svg>
-                          <svg v-else-if="r.status === 'in_progress'" class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="4"/>
-                          </svg>
-                          <span v-else-if="!isLocked(r, group)" class="text-xs">{{ r.stepOrder }}</span>
-                          <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                          </svg>
-                        </div>
-                        <div v-if="r.stepOrder < group.maxStepOrder"
-                             class="w-px h-4 mt-1"
-                             :class="r.status === 'done' ? 'bg-teal-300' : 'bg-stone-200 dark:bg-zinc-600'"></div>
-                      </div>
-
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-2">
-                          <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
-                              <span :class="r.status === 'done' ? 'line-through text-stone-400' : 'text-stone-700 dark:text-stone-200'"
-                                    class="text-sm font-medium">{{ r.stepName }}</span>
-                              <span v-if="r.stepEstMinutes" class="text-xs text-stone-400">{{ r.stepEstMinutes }} 分</span>
-                              <!-- 接手標示 -->
-                              <span v-if="r.actualDoer && r.actualDoer !== r.assigneeId"
-                                    class="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
-                                接手：{{ r.actualDoerName }}
-                              </span>
-                              <!-- 排休提示 -->
-                              <span v-if="r.assigneeOnLeave && !r.actualDoer"
-                                    class="text-xs bg-red-100 dark:bg-red-900/20 text-red-400 px-1.5 py-0.5 rounded-full">
-                                負責人休假
-                              </span>
-                            </div>
-                            <!-- 負責人 -->
-                            <div class="text-xs text-stone-400 mt-0.5">
-                              負責：{{ r.assigneeName }}
-                              <span v-if="r.doneAt" class="ml-2 text-teal-500">{{ r.doneAt.slice(11, 16) }} 完成</span>
-                              <span v-else-if="r.startedAt" class="ml-2 text-amber-500">{{ r.startedAt.slice(11, 16) }} 開始</span>
-                            </div>
-                            <!-- 備註 -->
-                            <div v-if="r.note" class="text-xs text-stone-400 mt-0.5 italic">{{ r.note }}</div>
-                          </div>
-
-                          <!-- 操作按鈕 -->
-                          <div class="flex items-center gap-1 flex-shrink-0" v-if="!isLocked(r, group)">
-                            <!-- 接手按鈕（其他人的 pending 工作） -->
-                            <button v-if="canTakeover(r)"
-                                    @click="takeover(r)"
-                                    class="text-xs px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 font-medium transition-colors">
-                              接手
-                            </button>
-                            <!-- 開始按鈕 -->
-                            <button v-if="canStart(r)"
-                                    @click="startRecord(r)"
-                                    class="text-xs px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 font-medium transition-colors">
-                              開始
-                            </button>
-                            <!-- 完成按鈕 -->
-                            <button v-if="canDone(r)"
-                                    @click="doneRecord(r)"
-                                    class="text-xs px-2.5 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 hover:bg-teal-100 font-medium transition-colors">
-                              完成
-                            </button>
-                            <!-- 備註按鈕 -->
-                            <button @click="openNoteModal(r)"
-                                    class="p-1.5 text-stone-300 dark:text-zinc-600 hover:text-stone-500 dark:hover:text-stone-400 rounded-lg transition-colors">
-                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
+                        <span v-if="group.estMinutes" class="text-xs text-stone-400">⏱ {{ group.estMinutes }} 分</span>
+                        <span class="text-xs text-stone-400">{{ group.doneCount }}/{{ group.totalCount }}</span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ── 選做工作 ── -->
-          <div v-if="optionalGroups.length > 0">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs font-semibold text-stone-400 uppercase tracking-wide">選做工作</span>
-              <span class="text-xs text-stone-400">{{ optionalDone }}/{{ optionalTotal }}</span>
-            </div>
-            <div class="space-y-2">
-              <div v-for="group in optionalGroups" :key="group.taskId"
-                   class="bg-white dark:bg-zinc-800 rounded-2xl border shadow-sm overflow-hidden transition-all"
-                   :class="group.allDone ? 'border-teal-200 dark:border-teal-800 opacity-70' : 'border-stone-200 dark:border-stone-700'">
-                <div class="flex items-center gap-3 px-4 py-3 cursor-pointer"
-                     @click="toggleGroup(group.taskId)">
-                  <div :class="group.allDone ? 'bg-teal-500 border-teal-500' : 'border-stone-300 dark:border-stone-500'"
-                       class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all">
-                    <svg v-if="group.allDone" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    <svg :class="expandedGroups.has(group.taskId) ? 'rotate-180' : ''"
+                         class="w-4 h-4 text-stone-400 transition-transform flex-shrink-0"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                   </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span :class="group.allDone ? 'line-through text-stone-400' : 'text-stone-700 dark:text-stone-200'"
-                            class="font-semibold text-sm transition-all">{{ group.taskName }}</span>
-                      <span class="text-xs bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">選做</span>
-                      <span v-if="group.estMinutes" class="text-xs text-stone-400">⏱ {{ group.estMinutes }} 分</span>
-                    </div>
-                  </div>
-                  <svg :class="expandedGroups.has(group.taskId) ? 'rotate-180' : ''"
-                       class="w-4 h-4 text-stone-400 transition-transform flex-shrink-0"
-                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                  </svg>
-                </div>
 
-                <div v-if="expandedGroups.has(group.taskId)"
-                     class="border-t border-stone-100 dark:border-stone-700 divide-y divide-stone-50 dark:divide-zinc-700">
-                  <div v-for="r in group.records" :key="r.id"
-                       class="px-4 py-3"
-                       :class="isLocked(r, group) ? 'opacity-40' : ''">
-                    <div class="flex items-start gap-3">
-                      <div class="flex flex-col items-center flex-shrink-0 pt-0.5">
-                        <div :class="stepCircleClass(r, group)"
-                             class="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all">
-                          <svg v-if="r.status === 'done'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                          </svg>
-                          <svg v-else-if="r.status === 'in_progress'" class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="4"/>
-                          </svg>
-                          <span v-else-if="!isLocked(r, group)" class="text-xs">{{ r.stepOrder }}</span>
-                          <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                          </svg>
+                  <!-- 步驟清單 -->
+                  <div v-if="expandedGroups.has(group.taskId)"
+                       class="border-t border-stone-100 dark:border-stone-700 divide-y divide-stone-50 dark:divide-zinc-700">
+                    <div v-for="r in group.records" :key="r.id"
+                         class="px-4 py-3"
+                         :class="isLocked(r, group) ? 'opacity-40' : ''">
+                      <div class="flex items-start gap-3">
+                        <!-- 步驟順序線 -->
+                        <div class="flex flex-col items-center flex-shrink-0 pt-0.5">
+                          <div :class="stepCircleClass(r, group)"
+                               class="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all">
+                            <svg v-if="r.status === 'done'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <svg v-else-if="r.status === 'in_progress'" class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="4"/>
+                            </svg>
+                            <span v-else-if="!isLocked(r, group)" class="text-xs">{{ r.stepOrder }}</span>
+                            <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                          </div>
+                          <div v-if="r.stepOrder < group.maxStepOrder"
+                               class="w-px h-4 mt-1"
+                               :class="r.status === 'done' ? 'bg-teal-300' : 'bg-stone-200 dark:bg-zinc-600'"></div>
                         </div>
-                        <div v-if="r.stepOrder < group.maxStepOrder"
-                             class="w-px h-4 mt-1"
-                             :class="r.status === 'done' ? 'bg-teal-300' : 'bg-stone-200 dark:bg-zinc-600'"></div>
-                      </div>
 
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-2">
-                          <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                              <div class="flex items-center gap-2 flex-wrap">
                               <span :class="r.status === 'done' ? 'line-through text-stone-400' : 'text-stone-700 dark:text-stone-200'"
                                     class="text-sm font-medium">{{ r.stepName }}</span>
-                              <span v-if="r.actualDoer && r.actualDoer !== r.assigneeId"
-                                    class="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 px-1.5 py-0.5 rounded-full">
+                                <span v-if="r.stepEstMinutes" class="text-xs text-stone-400">{{ r.stepEstMinutes }} 分</span>
+                                <!-- 接手標示 -->
+                                <span v-if="r.actualDoer && r.actualDoer !== r.assigneeId"
+                                      class="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
                                 接手：{{ r.actualDoerName }}
                               </span>
-                              <span v-if="r.assigneeOnLeave && !r.actualDoer"
-                                    class="text-xs bg-red-100 dark:bg-red-900/20 text-red-400 px-1.5 py-0.5 rounded-full">
+                                <!-- 排休提示 -->
+                                <span v-if="r.assigneeOnLeave && !r.actualDoer"
+                                      class="text-xs bg-red-100 dark:bg-red-900/20 text-red-400 px-1.5 py-0.5 rounded-full">
                                 負責人休假
                               </span>
+                              </div>
+                              <!-- 負責人 -->
+                              <div class="text-xs text-stone-400 mt-0.5">
+                                負責：{{ r.assigneeName }}
+                                <span v-if="r.doneAt" class="ml-2 text-teal-500">{{ r.doneAt.slice(11, 16) }} 完成</span>
+                                <span v-else-if="r.startedAt" class="ml-2 text-amber-500">{{ r.startedAt.slice(11, 16) }} 開始</span>
+                              </div>
+                              <!-- 備註 -->
+                              <div v-if="r.note" class="text-xs text-stone-400 mt-0.5 italic">{{ r.note }}</div>
+                              <img v-if="r.imageUrl" :src="r.imageUrl"
+                                   class="mt-1.5 h-12 w-auto rounded-lg object-cover cursor-pointer border border-stone-100 dark:border-zinc-600 hover:opacity-80"
+                                   @click="lightboxImg = r.imageUrl" />
                             </div>
-                            <div class="text-xs text-stone-400 mt-0.5">
-                              負責：{{ r.assigneeName }}
-                              <span v-if="r.doneAt" class="ml-2 text-teal-500">{{ r.doneAt.slice(11, 16) }} 完成</span>
-                              <span v-else-if="r.startedAt" class="ml-2 text-amber-500">{{ r.startedAt.slice(11, 16) }} 開始</span>
-                            </div>
-                            <div v-if="r.note" class="text-xs text-stone-400 mt-0.5 italic">{{ r.note }}</div>
-                          </div>
 
-                          <div class="flex items-center gap-1 flex-shrink-0" v-if="!isLocked(r, group)">
-                            <button v-if="canTakeover(r)" @click="takeover(r)"
-                                    class="text-xs px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-100 font-medium transition-colors">
-                              接手
-                            </button>
-                            <button v-if="canStart(r)" @click="startRecord(r)"
-                                    class="text-xs px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 hover:bg-indigo-100 font-medium transition-colors">
-                              開始
-                            </button>
-                            <button v-if="canDone(r)" @click="doneRecord(r)"
-                                    class="text-xs px-2.5 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 hover:bg-teal-100 font-medium transition-colors">
-                              完成
-                            </button>
-                            <button @click="openNoteModal(r)"
-                                    class="p-1.5 text-stone-300 dark:text-zinc-600 hover:text-stone-500 rounded-lg transition-colors">
-                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                              </svg>
-                            </button>
+                            <!-- 操作按鈕 -->
+                            <div class="flex items-center gap-1 flex-shrink-0" v-if="!isLocked(r, group)">
+                              <!-- 接手按鈕（其他人的 pending 工作） -->
+                              <button v-if="canTakeover(r)"
+                                      @click="takeover(r)"
+                                      class="text-xs px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 font-medium transition-colors">
+                                接手
+                              </button>
+                              <!-- 開始按鈕 -->
+                              <button v-if="canStart(r)"
+                                      @click="startRecord(r)"
+                                      class="text-xs px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 font-medium transition-colors">
+                                開始
+                              </button>
+                              <!-- 完成按鈕 -->
+                              <button v-if="canDone(r)"
+                                      @click="doneRecord(r)"
+                                      class="text-xs px-2.5 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 hover:bg-teal-100 font-medium transition-colors">
+                                完成
+                              </button>
+                              <!-- 備註按鈕 -->
+                              <button @click="openNoteModal(r)"
+                                      class="p-1.5 text-stone-300 dark:text-zinc-600 hover:text-stone-500 dark:hover:text-stone-400 rounded-lg transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -298,13 +207,175 @@
                 </div>
               </div>
             </div>
+
+            <!-- ── 選做工作 ── -->
+            <div v-if="optionalGroups.length > 0">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-semibold text-stone-400 uppercase tracking-wide">選做工作</span>
+                <span class="text-xs text-stone-400">{{ optionalDone }}/{{ optionalTotal }}</span>
+              </div>
+              <div class="space-y-2">
+                <div v-for="group in optionalGroups" :key="group.taskId"
+                     class="bg-white dark:bg-zinc-800 rounded-2xl border shadow-sm overflow-hidden transition-all"
+                     :class="group.allDone ? 'border-teal-200 dark:border-teal-800 opacity-70' : 'border-stone-200 dark:border-stone-700'">
+                  <div class="flex items-center gap-3 px-4 py-3 cursor-pointer"
+                       @click="toggleGroup(group.taskId)">
+                    <div :class="group.allDone ? 'bg-teal-500 border-teal-500' : 'border-stone-300 dark:border-stone-500'"
+                         class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all">
+                      <svg v-if="group.allDone" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                      <span :class="group.allDone ? 'line-through text-stone-400' : 'text-stone-700 dark:text-stone-200'"
+                            class="font-semibold text-sm transition-all">{{ group.taskName }}</span>
+                        <span class="text-xs bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">選做</span>
+                        <span v-if="group.estMinutes" class="text-xs text-stone-400">⏱ {{ group.estMinutes }} 分</span>
+                      </div>
+                    </div>
+                    <svg :class="expandedGroups.has(group.taskId) ? 'rotate-180' : ''"
+                         class="w-4 h-4 text-stone-400 transition-transform flex-shrink-0"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  <div v-if="expandedGroups.has(group.taskId)"
+                       class="border-t border-stone-100 dark:border-stone-700 divide-y divide-stone-50 dark:divide-zinc-700">
+                    <div v-for="r in group.records" :key="r.id"
+                         class="px-4 py-3"
+                         :class="isLocked(r, group) ? 'opacity-40' : ''">
+                      <div class="flex items-start gap-3">
+                        <div class="flex flex-col items-center flex-shrink-0 pt-0.5">
+                          <div :class="stepCircleClass(r, group)"
+                               class="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all">
+                            <svg v-if="r.status === 'done'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <svg v-else-if="r.status === 'in_progress'" class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="4"/>
+                            </svg>
+                            <span v-else-if="!isLocked(r, group)" class="text-xs">{{ r.stepOrder }}</span>
+                            <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                          </div>
+                          <div v-if="r.stepOrder < group.maxStepOrder"
+                               class="w-px h-4 mt-1"
+                               :class="r.status === 'done' ? 'bg-teal-300' : 'bg-stone-200 dark:bg-zinc-600'"></div>
+                        </div>
+
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                              <div class="flex items-center gap-2 flex-wrap">
+                              <span :class="r.status === 'done' ? 'line-through text-stone-400' : 'text-stone-700 dark:text-stone-200'"
+                                    class="text-sm font-medium">{{ r.stepName }}</span>
+                                <span v-if="r.actualDoer && r.actualDoer !== r.assigneeId"
+                                      class="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 px-1.5 py-0.5 rounded-full">
+                                接手：{{ r.actualDoerName }}
+                              </span>
+                                <span v-if="r.assigneeOnLeave && !r.actualDoer"
+                                      class="text-xs bg-red-100 dark:bg-red-900/20 text-red-400 px-1.5 py-0.5 rounded-full">
+                                負責人休假
+                              </span>
+                              </div>
+                              <div class="text-xs text-stone-400 mt-0.5">
+                                負責：{{ r.assigneeName }}
+                                <span v-if="r.doneAt" class="ml-2 text-teal-500">{{ r.doneAt.slice(11, 16) }} 完成</span>
+                                <span v-else-if="r.startedAt" class="ml-2 text-amber-500">{{ r.startedAt.slice(11, 16) }} 開始</span>
+                              </div>
+                              <div v-if="r.note" class="text-xs text-stone-400 mt-0.5 italic">{{ r.note }}</div>
+                              <img v-if="r.imageUrl" :src="r.imageUrl"
+                                   class="mt-1.5 h-12 w-auto rounded-lg object-cover cursor-pointer border border-stone-100 dark:border-zinc-600 hover:opacity-80"
+                                   @click="lightboxImg = r.imageUrl" />
+                            </div>
+
+                            <div class="flex items-center gap-1 flex-shrink-0" v-if="!isLocked(r, group)">
+                              <button v-if="canTakeover(r)" @click="takeover(r)"
+                                      class="text-xs px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-100 font-medium transition-colors">
+                                接手
+                              </button>
+                              <button v-if="canStart(r)" @click="startRecord(r)"
+                                      class="text-xs px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 hover:bg-indigo-100 font-medium transition-colors">
+                                開始
+                              </button>
+                              <button v-if="canDone(r)" @click="doneRecord(r)"
+                                      class="text-xs px-2.5 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 hover:bg-teal-100 font-medium transition-colors">
+                                完成
+                              </button>
+                              <button @click="openNoteModal(r)"
+                                      class="p-1.5 text-stone-300 dark:text-zinc-600 hover:text-stone-500 rounded-lg transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 空狀態 -->
+            <div v-if="requiredGroups.length === 0 && optionalGroups.length === 0"
+                 class="text-center py-16 text-stone-400">
+              <div class="text-4xl mb-3">✅</div>
+              <div class="text-sm">今日無工作，或尚未產生紀錄</div>
+            </div>
           </div>
 
-          <!-- 空狀態 -->
-          <div v-if="requiredGroups.length === 0 && optionalGroups.length === 0"
-               class="text-center py-16 text-stone-400">
-            <div class="text-4xl mb-3">✅</div>
-            <div class="text-sm">今日無工作，或尚未產生紀錄</div>
+        </div> <!-- end today tab -->
+
+        <!-- ── 歷史紀錄 tab ── -->
+        <div v-if="activeTab === 'history'">
+          <!-- 篩選 -->
+          <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 mb-4">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="text-xs text-stone-400 mb-1 block">開始日期</label>
+                <input type="date" v-model="histFilter.from"
+                       class="w-full text-sm border border-stone-200 dark:border-stone-600 rounded-lg px-2 py-1.5 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100" />
+              </div>
+              <div>
+                <label class="text-xs text-stone-400 mb-1 block">結束日期</label>
+                <input type="date" v-model="histFilter.to"
+                       class="w-full text-sm border border-stone-200 dark:border-stone-600 rounded-lg px-2 py-1.5 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100" />
+              </div>
+            </div>
+            <button @click="loadHistory"
+                    class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-colors">
+              查詢
+            </button>
+          </div>
+
+          <div v-if="loadingHistory" class="text-center py-10 text-stone-400">載入中...</div>
+          <div v-else class="space-y-2">
+            <!-- 依日期分組 -->
+            <div v-for="(dayGroup, date) in historyByDate" :key="date"
+                 class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+              <div class="px-4 py-2.5 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between">
+                <span class="text-sm font-semibold text-stone-700 dark:text-stone-200">{{ date }}</span>
+                <span class="text-xs text-stone-400">{{ dayGroup.filter(r => r.status === 'done').length }}/{{ dayGroup.length }} 完成</span>
+              </div>
+              <div class="divide-y divide-stone-50 dark:divide-zinc-700">
+                <div v-for="r in dayGroup" :key="r.id" class="flex items-center gap-3 px-4 py-2.5">
+                  <span :class="statusDot(r.status)" class="w-2 h-2 rounded-full flex-shrink-0"></span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm text-stone-700 dark:text-stone-200">{{ r.taskName }}</div>
+                    <div class="text-xs text-stone-400">{{ r.stepName }}
+                      <span v-if="r.actualDoer && r.actualDoer !== r.assigneeId" class="text-amber-500 ml-1">（接手）</span>
+                    </div>
+                  </div>
+                  <span :class="statusTextClass(r.status)" class="text-xs flex-shrink-0">{{ statusLabel(r.status) }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="Object.keys(historyByDate).length === 0" class="text-center py-12 text-stone-400 text-sm">無紀錄</div>
           </div>
         </div>
 
@@ -344,6 +415,14 @@
 
     </div>
   </ClientOnly>
+  <!-- Lightbox -->
+  <div v-if="lightboxImg" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+       @click="lightboxImg = null">
+    <img :src="lightboxImg" class="max-w-full max-h-full rounded-xl object-contain" @click.stop />
+    <button @click="lightboxImg = null"
+            class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 text-lg">✕</button>
+  </div>
+
 </template>
 
 <script setup>
@@ -366,6 +445,7 @@ const myName    = computed(() => customerStore.customer?.name || '')
 const myPicture = computed(() => customerStore.customer?.picture || '')
 
 // ── 資料 ──────────────────────────────────────────────────────
+const activeTab = ref('today')
 const loading   = ref(false)
 const saving    = ref(false)
 const records   = ref([])
@@ -517,20 +597,22 @@ async function saveNote() {
   try {
     await fetch(`${REC_BASE()}/note/${noteModal.recordId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
-      body: JSON.stringify({ note: noteModal.text })
+      body: JSON.stringify({note: noteModal.text})
     })
     noteModal.show = false
     await loadRecords()
-  } finally { saving.value = false }
+  } finally {
+    saving.value = false
+  }
 }
 
 // ── 樣式工具 ──────────────────────────────────────────────────
 function stepCircleClass(r, group) {
-  if (r.status === 'done')        return 'bg-teal-500 border-teal-500 text-white'
+  if (r.status === 'done') return 'bg-teal-500 border-teal-500 text-white'
   if (r.status === 'in_progress') return 'bg-amber-400 border-amber-400 text-white'
-  if (isLocked(r, group))         return 'bg-stone-100 dark:bg-zinc-700 border-stone-200 dark:border-zinc-600 text-stone-300'
+  if (isLocked(r, group)) return 'bg-stone-100 dark:bg-zinc-700 border-stone-200 dark:border-zinc-600 text-stone-300'
   return 'bg-white dark:bg-zinc-800 border-indigo-300 dark:border-indigo-600 text-indigo-500'
 }
 
@@ -538,8 +620,9 @@ function stepCircleClass(r, group) {
 onMounted(async () => {
   // 先產生當天紀錄，再載入
   try {
-    await fetch(`${REC_BASE()}/generate/${todayStr}`, { method: 'POST', credentials: 'include' })
-  } catch { /* ignore */ }
+    await fetch(`${REC_BASE()}/generate/${todayStr}`, {method: 'POST', credentials: 'include'})
+  } catch { /* ignore */
+  }
   await loadRecords()
 })
 </script>
