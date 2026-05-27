@@ -208,7 +208,7 @@
                         {{ task.priority === 'required' ? '必做' : '選做' }}
                       </span>
                       <span class="text-xs bg-stone-100 dark:bg-zinc-700 text-stone-500 dark:text-stone-400 px-2 py-0.5 rounded-full">
-                        {{ task.category === 'daily' ? '每日' : '一次性' }}
+                        {{ repeatTypeLabel(task) }}
                       </span>
                       <span v-if="task.estMinutes" class="text-xs text-stone-400">⏱ {{ task.estMinutes }} 分</span>
                       <span v-if="task.active === 0" class="text-xs bg-red-100 text-red-500 px-2 py-0.5 rounded-full">已停用</span>
@@ -244,13 +244,15 @@
                 </div>
               </div>
 
-              <!-- 步驟樹狀 -->
+              <!-- 流程圖步驟 -->
               <div v-if="expandedSteps.has(task.id)"
-                   class="border-t border-stone-100 dark:border-stone-700 px-4 py-3">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="text-xs font-medium text-stone-400">流程步驟</div>
+                   class="border-t border-stone-100 dark:border-stone-700 px-4 py-4">
+
+                <!-- 工具列 -->
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs font-medium text-stone-400">流程步驟</span>
                   <div class="flex items-center gap-2">
-                    <span class="text-xs text-stone-400">快速指派全部步驟：</span>
+                    <span class="text-xs text-stone-400">快速指派：</span>
                     <select @change="quickAssignAll(task, $event.target.value); $event.target.value = ''"
                             class="text-xs border border-stone-200 dark:border-stone-600 rounded-lg px-2 py-1 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-200">
                       <option value="">選擇員工</option>
@@ -258,60 +260,145 @@
                     </select>
                   </div>
                 </div>
-                <!-- 樹狀示意 -->
-                <div class="space-y-1 mb-3">
-                  <div v-for="(step, idx) in task.steps" :key="step.id"
-                       class="flex items-start gap-2">
-                    <!-- 樹狀連線 -->
-                    <div class="flex flex-col items-center flex-shrink-0 w-5 mt-1">
-                      <div v-if="idx > 0" class="w-px h-2 bg-stone-200 dark:bg-zinc-600"></div>
-                      <div class="w-2 h-2 rounded-full border-2 border-teal-500 bg-white dark:bg-zinc-800"></div>
-                      <div v-if="idx < task.steps.length - 1" class="w-px flex-1 min-h-2 bg-stone-200 dark:bg-zinc-600"></div>
+
+                <!-- 流程圖容器（可垂直滾動） -->
+                <div class="overflow-y-auto overflow-x-auto max-h-[600px] rounded-xl bg-stone-50 dark:bg-zinc-900/50 border border-stone-200 dark:border-stone-700 p-4">
+                  <div class="flex flex-col items-center min-w-[320px]">
+
+                    <!-- 開始節點 -->
+                    <div class="flow-node-cap">開始</div>
+
+                    <!-- 第一個插入點（在開始節點下方） -->
+                    <div class="flow-connector-wrap">
+                      <div class="flow-line"></div>
+                      <button @click="openInsertModal(task, null, 'after')"
+                              class="flow-add-btn group">
+                        <span class="flow-add-icon">＋</span>
+                      </button>
+                      <div class="flow-line"></div>
+                      <div class="flow-arrow"></div>
                     </div>
-                    <div class="flex-1 min-w-0 pb-1">
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-sm text-stone-700 dark:text-stone-200 font-medium">{{ step.name }}</span>
-                        <span v-if="step.estMinutes" class="text-xs text-stone-400">⏱ {{ step.estMinutes }} 分</span>
-                        <span v-if="step.parallelGroup && isParallelStep(step, task.steps)"
-                              class="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full">
-                          平行 {{ step.parallelGroup }}
-                        </span>
-                        <!-- 負責人頭像 -->
-                        <div class="flex -space-x-1">
-                          <div v-for="cid in step.assigneeIds" :key="cid"
-                               class="relative group">
-                            <img v-if="staffMap[cid]?.picture"
-                                 :src="staffMap[cid].picture"
-                                 class="w-5 h-5 rounded-full border border-white dark:border-zinc-800 object-cover" />
-                            <div v-else class="w-5 h-5 rounded-full bg-teal-600 border border-white dark:border-zinc-800 flex items-center justify-center text-white text-xs">
-                              {{ (staffMap[cid]?.name || '?').charAt(0) }}
+
+                    <!-- 依 parallelGroup 分組顯示 -->
+                    <template v-for="(groupSteps, gIdx) in groupedSteps(task.steps)" :key="'g'+gIdx">
+
+                      <!-- ── 平行群組 ── -->
+                      <div v-if="groupSteps.length > 1" class="w-full flex flex-col items-center">
+                        <!-- 分叉橫線 -->
+                        <div class="flow-fork-bar" :style="{ width: Math.min(groupSteps.length * 180, 600) + 'px' }"></div>
+                        <!-- 並排步驟 -->
+                        <div class="flex items-stretch justify-center gap-0"
+                             :style="{ width: Math.min(groupSteps.length * 180, 600) + 'px' }">
+                          <div v-for="(step, sIdx) in groupSteps" :key="step.id"
+                               class="flex flex-col items-center flex-1">
+                            <div class="flow-line"></div>
+                            <div class="flow-arrow"></div>
+                            <!-- 步驟節點 -->
+                            <div class="flow-node group/node relative">
+                              <!-- hover 操作 -->
+                              <div class="absolute -top-2 -right-2 hidden group-hover/node:flex gap-1 z-10">
+                                <button @click="openStepModal(task, step)"
+                                        class="w-6 h-6 rounded-full bg-teal-500 text-white flex items-center justify-center shadow-md hover:bg-teal-600 transition-colors">
+                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                                <button @click="removeStep(step)"
+                                        class="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors">
+                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                              </div>
+                              <div class="font-medium text-sm text-stone-800 dark:text-stone-100 text-center leading-snug">{{ step.name }}</div>
+                              <div class="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
+                                <span v-if="step.estMinutes" class="text-xs text-stone-400">⏱{{ step.estMinutes }}分</span>
+                                <div class="flex -space-x-1">
+                                  <div v-for="cid in step.assigneeIds" :key="cid" class="relative group/av">
+                                    <img v-if="staffMap[cid]?.picture" :src="staffMap[cid].picture" class="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-700 object-cover"/>
+                                    <div v-else class="w-5 h-5 rounded-full bg-teal-600 border-2 border-white dark:border-zinc-700 flex items-center justify-center text-white text-xs font-bold">{{ (staffMap[cid]?.name||'?').charAt(0) }}</div>
+                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-stone-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover/av:opacity-100 pointer-events-none z-20 shadow-lg">{{ staffMap[cid]?.name||cid }}</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <img v-if="step.imageUrl" :src="fixImgUrl(step.imageUrl)"
+                                   class="mt-2 w-full h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                                   @click="lightboxImg = fixImgUrl(step.imageUrl)" />
                             </div>
-                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-stone-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
-                              {{ staffMap[cid]?.name || cid }}
+                            <!-- 每個平行節點下方的「+」按鈕 -->
+                            <div class="flow-connector-wrap">
+                              <div class="flow-line"></div>
+                              <button @click="openInsertModal(task, step, 'after')"
+                                      class="flow-add-btn group">
+                                <span class="flow-add-icon">＋</span>
+                              </button>
+                              <div class="flow-line"></div>
                             </div>
                           </div>
                         </div>
-                        <button @click="openStepModal(task, step)"
-                                class="text-xs text-stone-400 hover:text-teal-600 transition-colors">編輯</button>
-                        <button @click="removeStep(step)"
-                                class="text-xs text-stone-400 hover:text-red-500 transition-colors">刪除</button>
+                        <!-- 合流橫線 -->
+                        <div class="flow-fork-bar" :style="{ width: Math.min(groupSteps.length * 180, 600) + 'px' }"></div>
+                        <!-- 插入點 -->
+                        <div class="flow-connector-wrap">
+                          <div class="flow-line"></div>
+                          <button @click="openInsertModal(task, groupSteps[groupSteps.length-1], 'after')"
+                                  class="flow-add-btn group">
+                            <span class="flow-add-icon">＋</span>
+                          </button>
+                          <div class="flow-line"></div>
+                          <div v-if="gIdx < groupedSteps(task.steps).length - 1" class="flow-arrow"></div>
+                        </div>
                       </div>
-                      <p v-if="step.note" class="text-xs text-stone-400 mt-0.5">{{ step.note }}</p>
-                      <img v-if="step.imageUrl" :src="step.imageUrl"
-                           class="mt-1.5 h-16 w-auto rounded-lg object-cover cursor-pointer border border-stone-200 dark:border-stone-600 hover:opacity-80 transition-opacity"
-                           @click="lightboxImg = step.imageUrl" />
-                    </div>
+
+                      <!-- ── 單一步驟 ── -->
+                      <div v-else-if="groupSteps.length === 1" class="flex flex-col items-center">
+                        <!-- 步驟節點 -->
+                        <div class="flow-node group/node relative">
+                          <!-- hover 操作 -->
+                          <div class="absolute -top-2 -right-2 hidden group-hover/node:flex gap-1 z-10">
+                            <button @click="openStepModal(task, groupSteps[0])"
+                                    class="w-6 h-6 rounded-full bg-teal-500 text-white flex items-center justify-center shadow-md hover:bg-teal-600 transition-colors">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button @click="removeStep(groupSteps[0])"
+                                    class="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          </div>
+                          <div class="font-medium text-sm text-stone-800 dark:text-stone-100 text-center leading-snug">{{ groupSteps[0].name }}</div>
+                          <div class="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
+                            <span v-if="groupSteps[0].estMinutes" class="text-xs text-stone-400">⏱{{ groupSteps[0].estMinutes }}分</span>
+                            <div class="flex -space-x-1">
+                              <div v-for="cid in groupSteps[0].assigneeIds" :key="cid" class="relative group/av">
+                                <img v-if="staffMap[cid]?.picture" :src="staffMap[cid].picture" class="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-700 object-cover"/>
+                                <div v-else class="w-5 h-5 rounded-full bg-teal-600 border-2 border-white dark:border-zinc-700 flex items-center justify-center text-white text-xs font-bold">{{ (staffMap[cid]?.name||'?').charAt(0) }}</div>
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-stone-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover/av:opacity-100 pointer-events-none z-20 shadow-lg">{{ staffMap[cid]?.name||cid }}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <img v-if="groupSteps[0].imageUrl" :src="fixImgUrl(groupSteps[0].imageUrl)"
+                               class="mt-2 w-full h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                               @click="lightboxImg = fixImgUrl(groupSteps[0].imageUrl)" />
+                        </div>
+                        <!-- 插入點（非最後一組） -->
+                        <div class="flow-connector-wrap">
+                          <div class="flow-line"></div>
+                          <button @click="openInsertModal(task, groupSteps[0], 'after')"
+                                  class="flow-add-btn group">
+                            <span class="flow-add-icon">＋</span>
+                          </button>
+                          <div class="flow-line"></div>
+                          <div v-if="gIdx < groupedSteps(task.steps).length - 1" class="flow-arrow"></div>
+                        </div>
+                      </div>
+
+                    </template>
+
+                    <!-- 空狀態 -->
+                    <div v-if="!task.steps || task.steps.length === 0"
+                         class="text-xs text-stone-400 py-6">尚無步驟，點上方「＋」新增</div>
+
+                    <!-- 結束節點 -->
+                    <div v-if="task.steps && task.steps.length > 0" class="flow-node-cap">結束</div>
+
                   </div>
-                  <div v-if="!task.steps || task.steps.length === 0"
-                       class="text-xs text-stone-400 py-2">尚無步驟</div>
                 </div>
-                <button @click="openStepModal(task, null)"
-                        class="flex items-center gap-1 text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 font-medium transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                  </svg>
-                  新增步驟
-                </button>
               </div>
             </div>
             <div v-if="tasks.length === 0" class="text-center py-10 text-stone-400">尚無工作項目</div>
@@ -493,10 +580,11 @@
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1 block">類型</label>
-                <select v-model="taskModal.category"
+                <label class="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1 block">重複週期</label>
+                <select v-model="taskModal.repeatType"
                         class="w-full border border-stone-200 dark:border-stone-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-500">
-                  <option value="daily">每日重複</option>
+                  <option value="daily">每天</option>
+                  <option value="weekly">每週指定天</option>
                   <option value="once">一次性</option>
                 </select>
               </div>
@@ -507,6 +595,22 @@
                   <option value="required">必做</option>
                   <option value="optional">選做</option>
                 </select>
+              </div>
+            </div>
+            <!-- 每週指定天 -->
+            <div v-if="taskModal.repeatType === 'weekly'" class="bg-stone-50 dark:bg-zinc-700/50 rounded-xl p-3">
+              <label class="text-xs font-medium text-stone-500 dark:text-stone-400 mb-2 block">每週哪幾天執行</label>
+              <div class="flex gap-1.5 flex-wrap">
+                <label v-for="d in weekDayOptions" :key="d.value"
+                       class="cursor-pointer select-none">
+                  <input type="checkbox" :value="d.value" v-model="taskModal.repeatDaysArr" class="hidden" />
+                  <span :class="taskModal.repeatDaysArr.includes(d.value)
+                    ? 'bg-teal-600 text-white border-teal-600'
+                    : 'bg-white dark:bg-zinc-700 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-500'"
+                        class="inline-block w-9 h-9 rounded-xl border-2 text-xs font-bold flex items-center justify-center transition-all">
+                    {{ d.label }}
+                  </span>
+                </label>
               </div>
             </div>
             <div>
@@ -523,6 +627,55 @@
             <button @click="saveTask" :disabled="saving"
                     class="flex-1 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium transition-colors disabled:opacity-50">
               {{ saving ? '儲存中...' : '儲存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           插入步驟選擇 Modal
+      ══════════════════════════════════ -->
+      <div v-if="insertModal.show"
+           class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+           @click.self="insertModal.show = false">
+        <div class="bg-white dark:bg-zinc-800 rounded-2xl w-full max-w-xs shadow-2xl">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-stone-100 dark:border-stone-700">
+            <h3 class="font-bold text-stone-800 dark:text-stone-100 text-sm">新增步驟</h3>
+            <button @click="insertModal.show = false" class="text-stone-400 hover:text-stone-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="px-5 py-4 space-y-2">
+            <p class="text-xs text-stone-400 mb-3">
+              要在「{{ insertModal.afterStepName || '開始' }}」之後插入什麼？
+            </p>
+            <!-- 單一步驟 -->
+            <button @click="doInsert('single')"
+                    class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-stone-200 dark:border-stone-600 hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all group">
+              <div class="w-8 h-8 rounded-lg bg-stone-100 dark:bg-zinc-700 group-hover:bg-teal-100 dark:group-hover:bg-teal-900/40 flex items-center justify-center transition-colors">
+                <svg class="w-4 h-4 text-stone-500 group-hover:text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <div class="text-sm font-medium text-stone-700 dark:text-stone-200 group-hover:text-teal-700 dark:group-hover:text-teal-300">單一步驟</div>
+                <div class="text-xs text-stone-400">接在前一步驟完成後才能做</div>
+              </div>
+            </button>
+            <!-- 平行步驟 -->
+            <button @click="doInsert('parallel')"
+                    class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-stone-200 dark:border-stone-600 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group">
+              <div class="w-8 h-8 rounded-lg bg-stone-100 dark:bg-zinc-700 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/40 flex items-center justify-center transition-colors">
+                <svg class="w-4 h-4 text-stone-500 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+                </svg>
+              </div>
+              <div class="text-left">
+                <div class="text-sm font-medium text-stone-700 dark:text-stone-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">與上方步驟同時進行</div>
+                <div class="text-xs text-stone-400">加入同一個平行群組</div>
+              </div>
             </button>
           </div>
         </div>
@@ -573,8 +726,8 @@
             <div>
               <label class="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1 block">說明圖片</label>
               <div v-if="stepModal.imageUrl" class="relative inline-block mb-2">
-                <img :src="stepModal.imageUrl" class="h-24 w-auto rounded-xl object-cover border border-stone-200 dark:border-stone-600 cursor-pointer"
-                     @click="lightboxImg = stepModal.imageUrl" />
+                <img :src="fixImgUrl(stepModal.imageUrl)" class="h-24 w-auto rounded-xl object-cover border border-stone-200 dark:border-stone-600 cursor-pointer"
+                     @click="lightboxImg = fixImgUrl(stepModal.imageUrl)" />
                 <button @click="stepModal.imageUrl = ''"
                         class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-600">✕</button>
               </div>
@@ -769,17 +922,32 @@ async function loadTasks() {
 // Task Modal
 const taskModal = reactive({
   show: false, id: null, name: '', description: '',
-  category: 'daily', priority: 'required', estMinutes: 0
+  category: 'daily', repeatType: 'daily', repeatDays: '', repeatDaysArr: [],
+  priority: 'required', estMinutes: 0
 })
+
+const weekDayOptions = [
+  { value: 0, label: '日' },
+  { value: 1, label: '一' },
+  { value: 2, label: '二' },
+  { value: 3, label: '三' },
+  { value: 4, label: '四' },
+  { value: 5, label: '五' },
+  { value: 6, label: '六' },
+]
 
 function openTaskModal(task) {
   if (task) {
+    const daysArr = task.repeatDays ? task.repeatDays.split(',').map(Number) : []
     Object.assign(taskModal, { show: true, id: task.id, name: task.name,
       description: task.description || '', category: task.category,
+      repeatType: task.repeatType || task.category || 'daily',
+      repeatDays: task.repeatDays || '', repeatDaysArr: daysArr,
       priority: task.priority, estMinutes: task.estMinutes || 0 })
   } else {
     Object.assign(taskModal, { show: true, id: null, name: '', description: '',
-      category: 'daily', priority: 'required', estMinutes: 0 })
+      category: 'daily', repeatType: 'daily', repeatDays: '', repeatDaysArr: [],
+      priority: 'required', estMinutes: 0 })
   }
 }
 
@@ -787,8 +955,14 @@ async function saveTask() {
   if (!taskModal.name.trim()) return
   saving.value = true
   try {
+    const repeatDays = taskModal.repeatType === 'weekly'
+      ? taskModal.repeatDaysArr.sort().join(',')
+      : ''
     const body = { name: taskModal.name, description: taskModal.description,
-      category: taskModal.category, priority: taskModal.priority,
+      category: taskModal.repeatType,
+      repeatType: taskModal.repeatType,
+      repeatDays,
+      priority: taskModal.priority,
       estMinutes: taskModal.estMinutes }
     if (taskModal.id) {
       await fetch(`${BASE()}/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, id: taskModal.id }) })
@@ -817,6 +991,20 @@ function onParallelChange() {
     // 預設群組編號等於步驟順序
     stepModal.parallelGroup = stepModal.stepOrder
   }
+}
+
+// 依 parallelGroup 分組，回傳 [[step,step],[step],...]
+function groupedSteps(steps) {
+  if (!steps || steps.length === 0) return []
+  const sorted = [...steps].sort((a, b) => (a.parallelGroup || a.stepOrder) - (b.parallelGroup || b.stepOrder) || a.stepOrder - b.stepOrder)
+  const groups = []
+  let lastGroup = -1
+  for (const step of sorted) {
+    const g = step.parallelGroup || step.stepOrder
+    if (g !== lastGroup) { groups.push([]); lastGroup = g }
+    groups[groups.length - 1].push(step)
+  }
+  return groups
 }
 
 function isParallelStep(step, steps) {
@@ -943,6 +1131,24 @@ async function loadHistory() {
 }
 
 // ── 工具函式 ──────────────────────────────────────────────────
+// 確保圖片 URL 有加上後端 base（避免被 Nuxt router 攔截）
+function fixImgUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  const base = commonStore.data.main_url || ''
+  return base + url
+}
+
+function repeatTypeLabel(task) {
+  if (task.repeatType === 'once' || task.category === 'once') return '一次性'
+  if (task.repeatType === 'weekly') {
+    const days = (task.repeatDays || '').split(',').filter(Boolean)
+    const names = ['日','一','二','三','四','五','六']
+    return '每週' + days.map(d => names[parseInt(d)] || '').join('、')
+  }
+  return '每日'
+}
+
 function statusLabel(s) {
   return { pending: '待處理', in_progress: '進行中', done: '已完成', skipped: '略過' }[s] || s
 }
@@ -953,14 +1159,8 @@ function statusTextClass(s) {
   return { pending: 'text-stone-400', in_progress: 'text-amber-500', done: 'text-teal-600', skipped: 'text-stone-300' }[s] || 'text-stone-400'
 }
 function statusBadgeClass(s) {
-  return {
-    pending: 'bg-stone-100 dark:bg-zinc-700 text-stone-500',
-    in_progress: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600',
-    done: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700',
-    skipped: 'bg-stone-50 text-stone-400'
-  }[s] || ''
+  return { pending: 'bg-stone-100 dark:bg-zinc-700 text-stone-500', in_progress: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600', done: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700', skipped: 'bg-stone-50 text-stone-400' }[s] || ''
 }
-
 function groupStatusClass(group) {
   if (group.doneCount === group.totalCount && group.totalCount > 0) return 'bg-teal-500'
   if (group.doneCount > 0) return 'bg-amber-400'
@@ -972,7 +1172,7 @@ const lightboxImg = ref(null)
 
 // ── 步驟圖片上傳 ──────────────────────────────────────────────
 const stepImageInput = ref(null)
-const uploadingImg = ref(false)
+const uploadingImg   = ref(false)
 
 async function uploadStepImage(event) {
   const file = event.target.files?.[0]
@@ -982,16 +1182,83 @@ async function uploadStepImage(event) {
     const formData = new FormData()
     formData.append('files', file)
     formData.append('folder', 'task_steps')
-    const res = await fetch(`${commonStore.data.main_url}/holy/images/upload`, {method: 'POST', body: formData})
+    const res  = await fetch(`${commonStore.data.main_url}/holy/images/upload`, { method: 'POST', body: formData, credentials: 'include' })
     const data = await res.json()
-    if (data?.[0]?.thumbUrl) stepModal.imageUrl = data[0].thumbUrl
-    else if (data?.[0]?.url) stepModal.imageUrl = data[0].url
-  } catch {
-    alert('圖片上傳失敗')
-  } finally {
+    const base = commonStore.data.main_url
+    if (data?.[0]?.thumbUrl) stepModal.imageUrl = base + data[0].thumbUrl
+    else if (data?.[0]?.url)  stepModal.imageUrl = base + data[0].url
+  } catch { alert('圖片上傳失敗') }
+  finally {
     uploadingImg.value = false
     if (stepImageInput.value) stepImageInput.value.value = ''
   }
+}
+
+// ── 插入步驟 Modal ───────────────────────────────────────────
+const insertModal = reactive({
+  show:          false,
+  task:          null,
+  afterStep:     null,  // null = 插在開始節點後
+  afterStepName: ''
+})
+
+function openInsertModal(task, afterStep, position) {
+  insertModal.task          = task
+  insertModal.afterStep     = afterStep
+  insertModal.afterStepName = afterStep?.name || ''
+  insertModal.show          = true
+}
+
+function doInsert(type) {
+  insertModal.show = false
+  const task      = insertModal.task
+  const afterStep = insertModal.afterStep
+  const steps     = task.steps || []
+
+  let newOrder, newGroup
+
+  if (!afterStep) {
+    // 插在開始節點後（最前面）
+    newOrder = 1
+    newGroup = 1
+  } else {
+    const afterGroup = afterStep.parallelGroup || afterStep.stepOrder
+
+    if (type === 'parallel') {
+      // 加入同一個平行群組
+      const sameGroup = steps.filter(s => (s.parallelGroup || s.stepOrder) === afterGroup)
+      newOrder = Math.max(...sameGroup.map(s => s.stepOrder)) + 1
+      newGroup = afterGroup
+    } else {
+      // 單一步驟，接在 afterStep 這個分支後面
+      // 找出 afterStep 所在群組之後的第一個群組
+      const groups     = groupedSteps(steps)
+      const myGroupIdx = groups.findIndex(g => g.some(s => s.id === afterStep.id))
+      const nextGroup  = myGroupIdx < groups.length - 1
+        ? (groups[myGroupIdx + 1][0].parallelGroup || groups[myGroupIdx + 1][0].stepOrder)
+        : null
+
+      // 取目前最大的 group 編號 + 1 作為新群組
+      const maxGroup = Math.max(...steps.map(s => s.parallelGroup || s.stepOrder), 0)
+      newOrder       = steps.length + 1
+      newGroup       = maxGroup + 1
+    }
+  }
+
+  Object.assign(stepModal, {
+    show:          true,
+    id:            null,
+    taskId:        task.id,
+    taskName:      task.name,
+    name:          '',
+    stepOrder:     newOrder,
+    parallelGroup: newGroup,
+    isParallel:    type === 'parallel',
+    estMinutes:    0,
+    note:          '',
+    imageUrl:      '',
+    assigneeIds:   []
+  })
 }
 
 // ── 快速指派全部步驟 ──────────────────────────────────────────
@@ -1003,14 +1270,12 @@ async function quickAssignAll(task, customerId) {
     for (const step of task.steps) {
       await fetch(`${BASE()}/step/assignees/${step.id}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([customerId])
       })
     }
     await loadTasks()
-  } finally {
-    saving.value = false
-  }
+  } finally { saving.value = false }
 }
 
 // ── 初始化 ────────────────────────────────────────────────────
@@ -1024,3 +1289,82 @@ onMounted(async () => {
   ])
 })
 </script>
+
+<style scoped>
+.flow-node {
+  position: relative;
+  width: 176px;
+  background: white;
+  border: 2px solid #d6d3d1;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: box-shadow 0.15s;
+}
+.flow-node:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
+.dark .flow-node { background: #27272a; border-color: #6b7280; }
+
+.flow-node-cap {
+  padding: 0.375rem 1.25rem;
+  border-radius: 9999px;
+  border: 2px solid #a8a29e;
+  font-size: 0.75rem;
+  color: #78716c;
+  font-weight: 600;
+  background: white;
+}
+.dark .flow-node-cap { background: #27272a; border-color: #6b7280; color: #9ca3af; }
+
+.flow-line {
+  width: 1px;
+  height: 20px;
+  background: #d6d3d1;
+}
+.dark .flow-line { background: #4b5563; }
+
+.flow-arrow {
+  width: 0;
+  height: 0;
+  margin-top: -1px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #a8a29e;
+}
+.dark .flow-arrow { border-top-color: #57534e; }
+
+.flow-fork-bar {
+  height: 1px;
+  background: #d6d3d1;
+}
+.dark .flow-fork-bar { background: #4b5563; }
+
+.flow-connector-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.flow-add-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  border: 2px dashed #d6d3d1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d6d3d1;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  z-index: 10;
+  margin: 2px 0;
+}
+.flow-add-btn:hover { border-color: #0d9488; color: #0d9488; }
+.dark .flow-add-btn { background: #18181b; border-color: #4b5563; color: #4b5563; }
+.dark .flow-add-btn:hover { border-color: #0d9488; color: #0d9488; }
+
+.flow-add-icon {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+</style>

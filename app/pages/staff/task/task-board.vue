@@ -166,9 +166,9 @@
                               </div>
                               <!-- 備註 -->
                               <div v-if="r.note" class="text-xs text-stone-400 mt-0.5 italic">{{ r.note }}</div>
-                              <img v-if="r.imageUrl" :src="r.imageUrl"
+                              <img v-if="r.imageUrl" :src="fixImgUrl(r.imageUrl)"
                                    class="mt-1.5 h-12 w-auto rounded-lg object-cover cursor-pointer border border-stone-100 dark:border-zinc-600 hover:opacity-80"
-                                   @click="lightboxImg = r.imageUrl" />
+                                   @click="lightboxImg = fixImgUrl(r.imageUrl)" />
                             </div>
 
                             <!-- 操作按鈕 -->
@@ -287,9 +287,9 @@
                                 <span v-else-if="r.startedAt" class="ml-2 text-amber-500">{{ r.startedAt.slice(11, 16) }} 開始</span>
                               </div>
                               <div v-if="r.note" class="text-xs text-stone-400 mt-0.5 italic">{{ r.note }}</div>
-                              <img v-if="r.imageUrl" :src="r.imageUrl"
+                              <img v-if="r.imageUrl" :src="fixImgUrl(r.imageUrl)"
                                    class="mt-1.5 h-12 w-auto rounded-lg object-cover cursor-pointer border border-stone-100 dark:border-zinc-600 hover:opacity-80"
-                                   @click="lightboxImg = r.imageUrl" />
+                                   @click="lightboxImg = fixImgUrl(r.imageUrl)" />
                             </div>
 
                             <div class="flex items-center gap-1 flex-shrink-0" v-if="!isLocked(r, group)">
@@ -333,24 +333,64 @@
 
         <!-- ── 歷史紀錄 tab ── -->
         <div v-if="activeTab === 'history'">
-          <!-- 篩選 -->
+          <!-- 月份切換 + 日曆 -->
           <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 mb-4">
-            <div class="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label class="text-xs text-stone-400 mb-1 block">開始日期</label>
-                <input type="date" v-model="histFilter.from"
-                       class="w-full text-sm border border-stone-200 dark:border-stone-600 rounded-lg px-2 py-1.5 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100" />
-              </div>
-              <div>
-                <label class="text-xs text-stone-400 mb-1 block">結束日期</label>
-                <input type="date" v-model="histFilter.to"
-                       class="w-full text-sm border border-stone-200 dark:border-stone-600 rounded-lg px-2 py-1.5 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100" />
+            <!-- 月份導覽 -->
+            <div class="flex items-center justify-between mb-3">
+              <button @click="calPrevMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+                <svg class="w-4 h-4 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <span class="text-sm font-semibold text-stone-700 dark:text-stone-100">{{ calYearMonthLabel }}</span>
+              <button @click="calNextMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+                <svg class="w-4 h-4 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+            <!-- 星期標題 -->
+            <div class="grid grid-cols-7 mb-1">
+              <div v-for="d in ['日','一','二','三','四','五','六']" :key="d"
+                   class="text-center text-xs text-stone-400 py-1">{{ d }}</div>
+            </div>
+            <!-- 日期格子 -->
+            <div class="grid grid-cols-7 gap-0.5">
+              <div v-for="cell in calCells" :key="cell.key" class="aspect-square">
+                <button v-if="cell.day"
+                        @click="calSelectDate(cell.dateStr)"
+                        :class="[
+                          'w-full h-full rounded-lg text-xs font-medium transition-all flex flex-col items-center justify-center gap-0.5',
+                          calSelectedDate === cell.dateStr
+                            ? 'bg-indigo-600 text-white'
+                            : cell.isToday
+                              ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold'
+                              : cell.isSun
+                                ? 'text-red-400 hover:bg-stone-100 dark:hover:bg-zinc-700'
+                                : 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'
+                        ]">
+                  {{ cell.day }}
+                  <!-- 有紀錄的日期顯示小點 -->
+                  <span v-if="calDatesWithRecord.has(cell.dateStr) && calSelectedDate !== cell.dateStr"
+                        class="w-1 h-1 rounded-full bg-indigo-400"></span>
+                </button>
               </div>
             </div>
-            <button @click="loadHistory"
-                    class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-colors">
-              查詢
-            </button>
+            <!-- 快速選擇 -->
+            <div class="flex gap-2 mt-3">
+              <button @click="calSelectRange(7)"
+                      class="flex-1 py-1.5 text-xs rounded-lg border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors">
+                最近 7 天
+              </button>
+              <button @click="calSelectRange(30)"
+                      class="flex-1 py-1.5 text-xs rounded-lg border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors">
+                最近 30 天
+              </button>
+              <button @click="calSelectThisMonth"
+                      class="flex-1 py-1.5 text-xs rounded-lg border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors">
+                本月
+              </button>
+            </div>
           </div>
 
           <div v-if="loadingHistory" class="text-center py-10 text-stone-400">載入中...</div>
@@ -426,7 +466,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.task' })
+definePageMeta({layout: 'staff', requiredPermission: 'staff.task'})
 
 const commonStore = useCommonStore()
 const customerStore = useCustomerStore()
@@ -440,16 +480,124 @@ const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　星期${weekDays[today.getDay()]}`
 
 // ── 目前登入者 ────────────────────────────────────────────────
-const myId      = computed(() => customerStore.customer?.id || '')
-const myName    = computed(() => customerStore.customer?.name || '')
+const myId = computed(() => customerStore.customer?.id || '')
+const myName = computed(() => customerStore.customer?.name || '')
 const myPicture = computed(() => customerStore.customer?.picture || '')
 
 // ── 資料 ──────────────────────────────────────────────────────
 const activeTab = ref('today')
-const loading   = ref(false)
-const saving    = ref(false)
-const records   = ref([])
-const viewMode  = ref('mine') // 'mine' | 'all'
+const loading = ref(false)
+const saving = ref(false)
+const records = ref([])
+const viewMode = ref('mine') // 'mine' | 'all'
+
+// ── 歷史紀錄 ──────────────────────────────────────────────────
+const histFilter = reactive({
+  from: todayStr.slice(0, 8) + '01',
+  to: todayStr
+})
+const historyRecords = ref([])
+const loadingHistory = ref(false)
+
+const historyByDate = computed(() => {
+  const map = {}
+  for (const r of historyRecords.value) {
+    if (!map[r.date]) map[r.date] = []
+    map[r.date].push(r)
+  }
+  return map
+})
+
+async function loadHistory() {
+  loadingHistory.value = true
+  try {
+    const params = new URLSearchParams()
+    if (histFilter.from) params.set('from', histFilter.from)
+    if (histFilter.to) params.set('to', histFilter.to)
+    if (myId.value) params.set('customerId', myId.value)
+    const res = await fetch(`${REC_BASE()}/history?${params}`, {credentials: 'include'})
+    historyRecords.value = await res.json()
+  } catch {
+    historyRecords.value = []
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+// ── 日曆 ──────────────────────────────────────────────────────
+const calDate = ref(new Date(today.getFullYear(), today.getMonth(), 1))
+const calSelectedDate = ref(todayStr) // 目前選中的單日（null = 顯示範圍）
+
+const calYearMonthLabel = computed(() => {
+  const d = calDate.value
+  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
+})
+
+// 日曆格子（含前補空白）
+const calCells = computed(() => {
+  const d = calDate.value
+  const year = d.getFullYear()
+  const month = d.getMonth()
+  const days = new Date(year, month + 1, 0).getDate()
+  const first = new Date(year, month, 1).getDay() // 0=日
+  const cells = []
+  for (let i = 0; i < first; i++) cells.push({key: 'e' + i, day: null})
+  for (let i = 1; i <= days; i++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
+    cells.push({
+      key: dateStr,
+      day: i,
+      dateStr,
+      isToday: dateStr === todayStr,
+      isSun: new Date(year, month, i).getDay() === 0
+    })
+  }
+  return cells
+})
+
+// 有紀錄的日期集合（用來顯示小點）
+const calDatesWithRecord = computed(() => new Set(historyRecords.value.map(r => r.date)))
+
+function calPrevMonth() {
+  const d = calDate.value
+  calDate.value = new Date(d.getFullYear(), d.getMonth() - 1, 1)
+}
+
+function calNextMonth() {
+  const d = calDate.value
+  calDate.value = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+}
+
+function calSelectDate(dateStr) {
+  calSelectedDate.value = dateStr
+  histFilter.from = dateStr
+  histFilter.to = dateStr
+  loadHistory()
+}
+
+function calSelectRange(days) {
+  calSelectedDate.value = null
+  const end = new Date(today)
+  const start = new Date(today)
+  start.setDate(start.getDate() - days + 1)
+  histFilter.from = fmtDate(start)
+  histFilter.to = fmtDate(end)
+  loadHistory()
+}
+
+function calSelectThisMonth() {
+  calSelectedDate.value = null
+  histFilter.from = todayStr.slice(0, 8) + '01'
+  histFilter.to = todayStr
+  loadHistory()
+}
+
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// ── Lightbox ──────────────────────────────────────────────────
+const lightboxImg = ref(null)
 
 // ── 分組 ──────────────────────────────────────────────────────
 const grouped = computed(() => {
@@ -457,14 +605,14 @@ const grouped = computed(() => {
   for (const r of records.value) {
     if (!map.has(r.taskId)) {
       map.set(r.taskId, {
-        taskId:      r.taskId,
-        taskName:    r.taskName,
-        priority:    r.priority,
-        estMinutes:  r.taskEstMinutes,
-        records:     [],
-        doneCount:   0,
-        totalCount:  0,
-        allDone:     false,
+        taskId: r.taskId,
+        taskName: r.taskName,
+        priority: r.priority,
+        estMinutes: r.taskEstMinutes,
+        records: [],
+        doneCount: 0,
+        totalCount: 0,
+        allDone: false,
         maxStepOrder: 0
       })
     }
@@ -485,19 +633,20 @@ const requiredGroups = computed(() => grouped.value.filter(g => g.priority === '
 const optionalGroups = computed(() => grouped.value.filter(g => g.priority === 'optional'))
 
 // 個人完成度（不管 viewMode，都算我的）
-const myRecords   = computed(() => records.value.filter(r => r.assigneeId === myId.value || r.actualDoer === myId.value))
+const myRecords = computed(() => records.value.filter(r => r.assigneeId === myId.value || r.actualDoer === myId.value))
 const myDoneCount = computed(() => myRecords.value.filter(r => r.status === 'done').length)
 const myTotalCount = computed(() => myRecords.value.length)
-const myPct       = computed(() => myTotalCount.value ? Math.round(myDoneCount.value / myTotalCount.value * 100) : 0)
+const myPct = computed(() => myTotalCount.value ? Math.round(myDoneCount.value / myTotalCount.value * 100) : 0)
 
 // 必要/選做統計
-const requiredDone  = computed(() => requiredGroups.value.reduce((s, g) => s + g.doneCount, 0))
+const requiredDone = computed(() => requiredGroups.value.reduce((s, g) => s + g.doneCount, 0))
 const requiredTotal = computed(() => requiredGroups.value.reduce((s, g) => s + g.totalCount, 0))
-const optionalDone  = computed(() => optionalGroups.value.reduce((s, g) => s + g.doneCount, 0))
+const optionalDone = computed(() => optionalGroups.value.reduce((s, g) => s + g.doneCount, 0))
 const optionalTotal = computed(() => optionalGroups.value.reduce((s, g) => s + g.totalCount, 0))
 
 // ── 展開/收合 ─────────────────────────────────────────────────
 const expandedGroups = ref(new Set())
+
 function toggleGroup(taskId) {
   const s = new Set(expandedGroups.value)
   s.has(taskId) ? s.delete(taskId) : s.add(taskId)
@@ -511,12 +660,15 @@ async function loadRecords() {
     const url = viewMode.value === 'mine'
       ? `${REC_BASE()}/my/${todayStr}`
       : `${REC_BASE()}/all/${todayStr}`
-    const res = await fetch(url, { credentials: 'include' })
+    const res = await fetch(url, {credentials: 'include'})
     records.value = await res.json()
     // 預設全部展開
     expandedGroups.value = new Set(records.value.map(r => r.taskId))
-  } catch { records.value = [] }
-  finally { loading.value = false }
+  } catch {
+    records.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
 async function switchToAll() {
@@ -550,14 +702,17 @@ function isLocked(record, group) {
 function isMyRecord(r) {
   return r.assigneeId === myId.value || r.actualDoer === myId.value
 }
+
 function canTakeover(r) {
   // pending、不是我負責、沒有人接手
   return r.status === 'pending' && r.assigneeId !== myId.value && !r.actualDoer
 }
+
 function canStart(r) {
   // pending 且是我負責（或我接手）
   return r.status === 'pending' && isMyRecord(r)
 }
+
 function canDone(r) {
   // pending 或 in_progress 且是我負責
   return (r.status === 'pending' || r.status === 'in_progress') && isMyRecord(r)
@@ -566,30 +721,36 @@ function canDone(r) {
 // ── 操作 API ─────────────────────────────────────────────────
 async function startRecord(r) {
   try {
-    await fetch(`${REC_BASE()}/start/${r.id}`, { method: 'PUT', credentials: 'include' })
+    await fetch(`${REC_BASE()}/start/${r.id}`, {method: 'PUT', credentials: 'include'})
     await loadRecords()
-  } catch { alert('操作失敗，請重試') }
+  } catch {
+    alert('操作失敗，請重試')
+  }
 }
 
 async function doneRecord(r) {
   try {
-    await fetch(`${REC_BASE()}/done/${r.id}`, { method: 'PUT', credentials: 'include' })
+    await fetch(`${REC_BASE()}/done/${r.id}`, {method: 'PUT', credentials: 'include'})
     await loadRecords()
-  } catch { alert('操作失敗，請重試') }
+  } catch {
+    alert('操作失敗，請重試')
+  }
 }
 
 async function takeover(r) {
   try {
-    await fetch(`${REC_BASE()}/takeover/${r.id}`, { method: 'PUT', credentials: 'include' })
+    await fetch(`${REC_BASE()}/takeover/${r.id}`, {method: 'PUT', credentials: 'include'})
     await loadRecords()
-  } catch { alert('操作失敗，請重試') }
+  } catch {
+    alert('操作失敗，請重試')
+  }
 }
 
 // ── 備註 Modal ────────────────────────────────────────────────
-const noteModal = reactive({ show: false, recordId: null, stepName: '', text: '' })
+const noteModal = reactive({show: false, recordId: null, stepName: '', text: ''})
 
 function openNoteModal(r) {
-  Object.assign(noteModal, { show: true, recordId: r.id, stepName: r.stepName, text: r.note || '' })
+  Object.assign(noteModal, {show: true, recordId: r.id, stepName: r.stepName, text: r.note || ''})
 }
 
 async function saveNote() {
@@ -614,6 +775,45 @@ function stepCircleClass(r, group) {
   if (r.status === 'in_progress') return 'bg-amber-400 border-amber-400 text-white'
   if (isLocked(r, group)) return 'bg-stone-100 dark:bg-zinc-700 border-stone-200 dark:border-zinc-600 text-stone-300'
   return 'bg-white dark:bg-zinc-800 border-indigo-300 dark:border-indigo-600 text-indigo-500'
+}
+
+
+// ── 工具函式 ──────────────────────────────────────────────────
+function fixImgUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return (commonStore.data.main_url || '') + url
+}
+
+function statusLabel(s) {
+  return {pending: '待處理', in_progress: '進行中', done: '已完成', skipped: '略過'}[s] || s
+}
+
+function statusDot(s) {
+  return {
+    pending: 'bg-stone-300',
+    in_progress: 'bg-amber-400',
+    done: 'bg-teal-500',
+    skipped: 'bg-stone-200'
+  }[s] || 'bg-stone-300'
+}
+
+function statusTextClass(s) {
+  return {
+    pending: 'text-stone-400',
+    in_progress: 'text-amber-500',
+    done: 'text-teal-600',
+    skipped: 'text-stone-300'
+  }[s] || 'text-stone-400'
+}
+
+function statusBadgeClass(s) {
+  return {
+    pending: 'bg-stone-100 dark:bg-zinc-700 text-stone-500',
+    in_progress: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600',
+    done: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700',
+    skipped: 'bg-stone-50 text-stone-400'
+  }[s] || ''
 }
 
 // ── 初始化 ────────────────────────────────────────────────────
