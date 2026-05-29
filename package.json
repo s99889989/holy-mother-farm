@@ -21,6 +21,7 @@
     "@tiptap/extension-underline": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
     "@tiptap/vue-3": "^3.22.4",
+    "better-sqlite3": "^12.10.0",
     "flowbite": "^4.0.1",
     "nuxt": "^4.4.2",
     "pinia": "^3.0.4",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
+    "@types/better-sqlite3": "^7.6.13",
     "eslint": "^10.0.3",
     "sass-embedded": "^1.99.0",
     "typescript": "^5.9.3",
