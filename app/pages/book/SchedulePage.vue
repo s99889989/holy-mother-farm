@@ -1,724 +1,505 @@
-<template>
-  <div class="schedule-app">
-    <!-- Header -->
-    <div class="app-header">
-      <div class="header-left">
-        <h1 class="title">
-          <span class="title-org">聖母健康農莊</span>
-          <span class="title-divider">／</span>
-          <span class="title-dept" v-if="selectedDept">{{ selectedDept }}</span>
-          <span class="title-dept placeholder" v-else>請選擇部門</span>
-        </h1>
-        <div class="subtitle">{{ currentYear }}年{{ currentMonth }}月份班表</div>
-      </div>
-      <div class="header-right">
-        <div class="month-nav">
-          <button class="nav-btn" @click="changeMonth(-1)">&#8249;</button>
-          <span class="month-label">{{ currentYear }} / {{ String(currentMonth).padStart(2,'0') }}</span>
-          <button class="nav-btn" @click="changeMonth(1)">&#8250;</button>
-        </div>
-        <div class="dept-select-wrap">
-          <select v-model="selectedDept" class="dept-select">
-            <option value="">選擇部門</option>
-            <option v-for="d in departments" :key="d.name" :value="d.name">{{ d.name }}</option>
-          </select>
-        </div>
-        <div class="view-toggle">
-          <button :class="['toggle-btn', view === 'table' ? 'active' : '']" @click="view = 'table'">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="4" rx="0.5"/><rect x="9" y="1" width="6" height="4" rx="0.5"/><rect x="1" y="7" width="6" height="4" rx="0.5"/><rect x="9" y="7" width="6" height="4" rx="0.5"/><rect x="1" y="13" width="6" height="2" rx="0.5"/><rect x="9" y="13" width="6" height="2" rx="0.5"/></svg>
-            班表
-          </button>
-          <button :class="['toggle-btn', view === 'calendar' ? 'active' : '']" @click="view = 'calendar'">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="14" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="1" x2="5" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="1" x2="11" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" stroke-width="1"/></svg>
-            日曆
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Legend -->
-    <div class="legend-bar">
-      <span v-for="l in legends" :key="l.code" class="legend-item">
-        <span :class="['legend-badge', `badge-${l.code.toLowerCase()}`]">{{ l.code }}</span>
-        <span class="legend-text">{{ l.label }}</span>
-      </span>
-    </div>
-
-    <!-- No dept selected -->
-    <div v-if="!selectedDept" class="empty-state">
-      <div class="empty-icon">📋</div>
-      <div class="empty-text">請選擇部門以查看班表</div>
-    </div>
-
-    <!-- TABLE VIEW -->
-    <div v-else-if="view === 'table'" class="table-wrap">
-      <div class="table-scroll">
-        <table class="schedule-table">
-          <thead>
-            <tr class="header-row-1">
-              <th class="col-name" rowspan="2">姓名</th>
-              <th v-for="d in daysInMonth" :key="d"
-                  :class="['col-day', getDayClass(d)]">
-                {{ d }}
-              </th>
-              <th class="col-summary" colspan="2">本月排休</th>
-            </tr>
-            <tr class="header-row-2">
-              <th v-for="d in daysInMonth" :key="d"
-                  :class="['col-weekday', getDayClass(d)]">
-                {{ getWeekdayShort(d) }}
-              </th>
-              <th class="col-summary-sub">應休</th>
-              <th class="col-summary-sub">實休</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="emp in currentDeptEmployees" :key="emp.id">
-              <tr class="emp-row">
-                <td class="cell-name">
-                  <div class="emp-name">{{ emp.name }}</div>
-                  <div class="emp-id">{{ emp.id }}</div>
-                </td>
-                <td v-for="d in daysInMonth" :key="d"
-                    :class="['cell-day', getDayClass(d), getCellClass(emp.schedule[d])]"
-                    @click="openEditCell(emp, d)"
-                    :title="`${emp.name} ${currentMonth}/${d} - 點擊編輯`">
-                  <span v-if="emp.schedule[d]" :class="['cell-badge', `badge-${(emp.schedule[d]||'').toLowerCase()}`]">
-                    {{ emp.schedule[d] }}
-                  </span>
-                </td>
-                <td class="cell-summary">{{ countExpected(emp) }}</td>
-                <td class="cell-summary">{{ countActual(emp) }}</td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- CALENDAR VIEW -->
-    <div v-else-if="view === 'calendar'" class="calendar-wrap">
-      <!-- Employee filter for calendar -->
-      <div class="cal-filter">
-        <span class="cal-filter-label">顯示員工：</span>
-        <label v-for="emp in currentDeptEmployees" :key="emp.id" class="cal-emp-toggle">
-          <input type="checkbox" :value="emp.id" v-model="calSelectedEmps">
-          <span class="cal-emp-name">{{ emp.name }}</span>
-        </label>
-      </div>
-
-      <div class="calendar-grid">
-        <div class="cal-header-row">
-          <div v-for="wd in weekdays" :key="wd" :class="['cal-header-cell', wd === '日' || wd === '六' ? 'weekend' : '']">
-            星期{{ wd }}
-          </div>
-        </div>
-        <div class="cal-body">
-          <!-- leading blank cells -->
-          <div v-for="n in leadingBlanks" :key="'b'+n" class="cal-day-cell empty"></div>
-          <!-- day cells -->
-          <div v-for="d in daysInMonth" :key="d"
-               :class="['cal-day-cell', getDayClass(d), isToday(d) ? 'today' : '']">
-            <div class="cal-day-num">
-              <span>{{ d }}</span>
-              <span class="cal-lunar" v-if="lunarDates[d]">{{ lunarDates[d] }}</span>
-              <span class="cal-holiday-label" v-if="holidayLabels[d]">{{ holidayLabels[d] }}</span>
-              <span class="cal-work-label" v-else-if="!isWeekend(d)">工作日</span>
-            </div>
-            <div class="cal-emp-list">
-              <template v-for="emp in calFilteredEmps" :key="emp.id">
-                <div v-if="emp.schedule[d]"
-                     :class="['cal-emp-entry', `badge-${(emp.schedule[d]||'').toLowerCase()}`]"
-                     @click="openEditCell(emp, d)">
-                  <span class="cal-emp-entry-name">{{ emp.name }}</span>
-                  <span class="cal-emp-entry-badge">{{ emp.schedule[d] }}</span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit Modal -->
-    <div v-if="editModal.open" class="modal-overlay" @click.self="editModal.open = false">
-      <div class="modal-box">
-        <div class="modal-header">
-          <span class="modal-title">編輯排休</span>
-          <button class="modal-close" @click="editModal.open = false">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="modal-info">
-            <span class="modal-emp">{{ editModal.emp?.name }}</span>
-            <span class="modal-date">{{ currentMonth }}月{{ editModal.day }}日（{{ editModal.weekday }}）</span>
-          </div>
-          <div class="modal-options">
-            <button v-for="opt in editOptions" :key="opt.code"
-                    :class="['opt-btn', `badge-${opt.code.toLowerCase()}`, editModal.value === opt.code ? 'selected' : '']"
-                    @click="editModal.value = opt.code">
-              {{ opt.code }} {{ opt.label }}
-            </button>
-            <button :class="['opt-btn opt-clear', editModal.value === '' ? 'selected' : '']"
-                    @click="editModal.value = ''">
-              — 清除
-            </button>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" @click="editModal.open = false">取消</button>
-          <button class="btn-save" @click="saveEdit">儲存</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
-import { ref, computed, reactive } from 'vue'
+definePageMeta({ layout: 'staff' })
 
-// ── State ──────────────────────────────────────────────
-const view = ref('table')
-const currentYear = ref(2026)
-const currentMonth = ref(6)
-const selectedDept = ref('健康餐飲組')
-const calSelectedEmps = ref([])
-
-// ── Static data ────────────────────────────────────────
-const legends = [
-  { code: '休', label: '休假日' },
-  { code: '例', label: '例假日' },
-  { code: '假', label: '國定假日' },
-  { code: '積', label: '積休' },
-  { code: '特', label: '特休' },
-  { code: '半', label: '半天' },
-  { code: '公', label: '公假' },
-  { code: '原', label: '原假' },
+// ── 靜態設定 ──────────────────────────────────────────────────────
+const LEGENDS = [
+  { code: '休', label: '休假日',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  { code: '例', label: '例假日',   color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' },
+  { code: '假', label: '國定假日', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' },
+  { code: '積', label: '積休',     color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  { code: '特', label: '特休',     color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
+  { code: '半', label: '半天',     color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+  { code: '公', label: '公假',     color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+  { code: '原', label: '原假',     color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
+  { code: '加', label: '加班',     color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
 ]
 
-const editOptions = [
-  { code: '休', label: '休假' },
-  { code: '例', label: '例假' },
-  { code: '假', label: '國定假' },
-  { code: '積', label: '積休' },
-  { code: '特', label: '特休' },
-  { code: '半', label: '半天' },
-  { code: '公', label: '公假' },
-  { code: '原', label: '原假' },
-  { code: '加', label: '加班' },
-  { code: 'V', label: 'V' },
-]
+const EDIT_OPTIONS = [...LEGENDS, { code: 'V', label: 'V', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' }]
 
-const weekdays = ['日','一','二','三','四','五','六']
+const WEEKDAY_NAMES = ['日','一','二','三','四','五','六']
 
-// 2026-06 lunar approximation (illustrative)
-const lunarDates = {
-  1:'十六', 2:'十七', 3:'十八', 4:'十九', 5:'二十', 6:'廿一',
-  7:'廿二', 8:'廿三', 9:'廿四', 10:'廿五', 11:'廿六', 12:'廿七',
-  13:'廿八', 14:'廿九', 15:'五月', 16:'初二', 17:'初三', 18:'初四',
-  19:'初五', 20:'初六', 21:'初七', 22:'初八', 23:'初九', 24:'初十',
-  25:'十一', 26:'十二', 27:'十三', 28:'十四', 29:'十五', 30:'十六',
+function badgeClass(code) {
+  return LEGENDS.find(l => l.code === code)?.color
+    ?? 'bg-stone-100 text-stone-600 dark:bg-zinc-700 dark:text-stone-300'
 }
 
-const holidayLabels = {
-  19: '端午節',
-}
-
-// 2026-06 weekends: 6,7,13,14,19(端午補),20,21,27,28
-const weekendDays = new Set([6,7,13,14,20,21,27,28])
-// day 1 = 一 (Monday), so day 6 = 六, day 7 = 日
-// June 2026 starts on Monday
-const startWeekday = 1 // 0=Sun,1=Mon,...
-
-// ── Department data ────────────────────────────────────
+// ── 部門員工資料 ──────────────────────────────────────────────────
 const departments = reactive([
   {
     name: '健康餐飲組',
     employees: [
-      { name: '林萬玉', id: 'F00029', schedule: { 1:'休', 5:'例', 8:'休', 12:'例', 18:'休', 19:'休', 20:'例', 23:'休', 27:'例' } },
-      { name: '郭婕妤', id: 'F00227', schedule: { 3:'休', 5:'例', 6:'休', 7:'積', 12:'例', 18:'休', 19:'休', 20:'例', 22:'休', 27:'例' } },
-      { name: '黃秋珍', id: 'A00026', schedule: { 2:'下', 3:'特', 4:'特', 5:'特', 6:'休', 7:'例', 11:'休', 12:'例', 18:'休', 19:'休', 20:'例', 24:'休', 27:'例' } },
-      { name: '陶彩萍', id: 'F00210', schedule: { 2:'休', 5:'例', 9:'休', 12:'例', 18:'休', 19:'休', 20:'例', 22:'休', 27:'例' } },
-      { name: '郭儀珍', id: 'F00216', schedule: { 4:'休', 5:'特', 6:'例', 8:'休', 12:'例', 16:'積', 18:'休', 19:'休', 20:'例', 21:'休', 27:'例' } },
-      { name: '張小娟', id: 'F00009', schedule: { 5:'休', 6:'例', 11:'休', 12:'例', 18:'休', 19:'休', 20:'例', 24:'休', 27:'例' } },
-      { name: '陳治國', id: 'F00036', schedule: { 1:'休', 4:'休', 5:'休', 6:'例', 7:'半', 11:'休', 12:'休', 13:'例', 14:'半', 18:'休', 19:'休', 20:'例', 21:'休', 25:'休', 27:'例', 28:'休' } },
+      { name: '林萬玉', id: 'F00029', expected: 9,  schedule: { 1:'休', 7:'例', 11:'休', 14:'例', 19:'休', 20:'休', 21:'例', 24:'休', 28:'例' } },
+      { name: '郭婕妤', id: 'F00227', expected: 9,  schedule: { 4:'休', 7:'例', 8:'休', 9:'積', 14:'例', 19:'休', 20:'休', 21:'例', 25:'休', 28:'例' } },
+      { name: '黃秋珍', id: 'A00026', expected: 9,  schedule: { 2:'下', 3:'特', 4:'特', 5:'特', 6:'休', 7:'例', 13:'休', 14:'例', 19:'休', 20:'休', 21:'例', 27:'休', 28:'例' } },
+      { name: '陶彩萍', id: 'F00210', expected: 9,  schedule: { 3:'休', 7:'例', 11:'休', 14:'例', 19:'休', 20:'休', 21:'例', 24:'休', 28:'例' } },
+      { name: '郭儀珍', id: 'F00216', expected: 9,  schedule: { 5:'休', 6:'特', 7:'例', 10:'休', 14:'例', 18:'積', 19:'休', 20:'休', 21:'例', 22:'休', 28:'例' } },
+      { name: '張小娟', id: 'F00009', expected: 9,  schedule: { 6:'休', 7:'例', 13:'休', 14:'例', 19:'休', 20:'休', 21:'例', 27:'休', 28:'例' } },
+      { name: '陳治國', id: 'F00036', expected: 15, schedule: { 1:'休', 5:'休', 6:'休', 7:'例', 8:'半', 12:'休', 13:'休', 14:'例', 15:'半', 19:'休', 20:'休', 21:'例', 22:'休', 27:'休', 28:'例', 29:'休' } },
     ]
   },
   {
     name: '服務中心',
     employees: [
-      { name: '賈德蘭', id: 'A00208', schedule: { 5:'休', 6:'公', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'例', 27:'休', 28:'例' } },
-      { name: '施秀秀', id: 'F00225', schedule: { 3:'休', 7:'例', 8:'休', 9:'積', 13:'例', 15:'積', 19:'假', 20:'休', 21:'例', 28:'例' } },
-      { name: '吳宣澔', id: 'F00228', schedule: { 6:'休', 7:'例', 12:'休', 13:'例', 17:'積', 19:'假', 20:'休', 21:'例', 27:'休', 28:'例' } },
-      { name: '林瓊華', id: 'F00231', schedule: { 2:'休', 7:'例', 10:'休', 13:'例', 19:'假', 20:'休', 21:'例', 22:'休', 28:'例' } },
+      { name: '賈德蘭', id: 'A00208', expected: 9, schedule: { 5:'休', 6:'公', 7:'例', 13:'休', 14:'例', 19:'假', 20:'休', 21:'例', 27:'休', 28:'例' } },
+      { name: '施秀秀', id: 'F00225', expected: 9, schedule: { 3:'休', 7:'例', 8:'休', 9:'積', 14:'例', 16:'積', 19:'假', 20:'休', 21:'例', 28:'例' } },
+      { name: '吳宣澔', id: 'F00228', expected: 9, schedule: { 6:'休', 7:'例', 13:'休', 14:'例', 18:'積', 19:'假', 20:'休', 21:'例', 27:'休', 28:'例' } },
+      { name: '林瓊華', id: 'F00231', expected: 9, schedule: { 2:'休', 7:'例', 11:'休', 14:'例', 19:'假', 20:'休', 21:'例', 22:'休', 28:'例' } },
     ]
   },
   {
     name: '香藥草教育推廣組',
     employees: [
-      { name: '力素朱', id: 'F00178', schedule: { 6:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 22:'V', 27:'例', 28:'休' } },
-      { name: '王建斌', id: 'F00200', schedule: { 6:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
-      { name: '王明宗', id: 'F00204', schedule: { 5:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
-      { name: '郭廣榮', id: 'F00010', schedule: { 4:'例', 5:'休', 12:'休', 13:'例', 19:'假', 20:'例', 21:'休', 27:'休', 28:'例' } },
-      { name: '陳鈺文', id: 'F00207', schedule: { 4:'例', 5:'休', 12:'例', 13:'休', 19:'假', 20:'休', 21:'假', 27:'例', 28:'休' } },
-      { name: '姜家智', id: 'F00230', schedule: { 5:'休', 6:'例', 12:'例', 13:'休', 19:'假', 20:'例', 21:'休', 26:'休', 27:'例' } },
-      { name: '應芝雲', id: 'F00212', schedule: { 5:'休', 6:'例', 9:'原', 10:'原', 11:'原', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
+      { name: '力素朱', id: 'F00178', expected: 9, schedule: { 6:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 22:'V', 27:'例', 28:'休' } },
+      { name: '王建斌', id: 'F00200', expected: 9, schedule: { 6:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
+      { name: '王明宗', id: 'F00204', expected: 9, schedule: { 5:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
+      { name: '郭廣榮', id: 'F00010', expected: 9, schedule: { 4:'例', 5:'休', 12:'休', 13:'例', 19:'假', 20:'例', 21:'休', 27:'休', 28:'例' } },
+      { name: '陳鈺文', id: 'F00207', expected: 9, schedule: { 4:'例', 5:'休', 12:'例', 13:'休', 19:'假', 20:'休', 21:'假', 27:'例', 28:'休' } },
+      { name: '姜家智', id: 'F00230', expected: 9, schedule: { 5:'休', 6:'例', 12:'例', 13:'休', 19:'假', 20:'例', 21:'休', 26:'休', 27:'例' } },
+      { name: '應芝雲', id: 'F00212', expected: 9, schedule: { 5:'休', 6:'例', 9:'原', 10:'原', 11:'原', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
     ]
   }
 ])
 
-// ── Computed ───────────────────────────────────────────
-const daysInMonth = computed(() => {
-  return Array.from({ length: new Date(currentYear.value, currentMonth.value, 0).getDate() }, (_, i) => i + 1)
-})
+// ── 日期狀態 ──────────────────────────────────────────────────────
+const currentYear  = ref(2026)
+const currentMonth = ref(6)
 
-const leadingBlanks = computed(() => {
-  // June 2026 starts on Monday = index 1
-  return startWeekday
-})
-
-const currentDeptEmployees = computed(() => {
-  const dept = departments.find(d => d.name === selectedDept.value)
-  return dept ? dept.employees : []
-})
-
-const calFilteredEmps = computed(() => {
-  if (calSelectedEmps.value.length === 0) return currentDeptEmployees.value
-  return currentDeptEmployees.value.filter(e => calSelectedEmps.value.includes(e.id))
-})
-
-// ── Helpers ────────────────────────────────────────────
-function getDayOfWeek(day) {
-  // June 2026: day 1 = Monday
-  return (startWeekday + day - 1) % 7 // 0=Sun,1=Mon,...6=Sat
+// June 2026 starts on Monday (weekday index 1)
+// 國定假日
+const HOLIDAYS = { 19: '端午節' }
+// 農曆（示意）
+const LUNAR = {
+  1:'十六',2:'十七',3:'十八',4:'十九',5:'廿十',6:'廿一',7:'廿二',
+  8:'廿三',9:'廿四',10:'廿五',11:'廿六',12:'廿七',13:'廿八',14:'廿九',
+  15:'五月',16:'初二',17:'初三',18:'初四',19:'初五',20:'初六',21:'初七',
+  22:'初八',23:'初九',24:'初十',25:'十一',26:'十二',27:'十三',28:'十四',
+  29:'十五',30:'十六',
 }
 
-function isWeekend(day) {
-  const dow = getDayOfWeek(day)
-  return dow === 0 || dow === 6
-}
+const daysInMonth = computed(() => new Date(currentYear.value, currentMonth.value, 0).getDate())
+const days = computed(() => Array.from({ length: daysInMonth.value }, (_, i) => i + 1))
 
-function getDayClass(day) {
-  const dow = getDayOfWeek(day)
-  if (dow === 0) return 'sunday'
-  if (dow === 6) return 'saturday'
-  if (holidayLabels[day]) return 'holiday'
+function getWeekday(day) {
+  // June 2026 day 1 = Monday = index 1
+  return (1 + day - 1) % 7
+}
+function isWeekend(day) { const w = getWeekday(day); return w === 0 || w === 6 }
+function isSaturday(day) { return getWeekday(day) === 6 }
+function isSunday(day)   { return getWeekday(day) === 0 }
+function isHoliday(day)  { return !!HOLIDAYS[day] }
+
+function dayHeaderClass(day) {
+  if (isSunday(day))  return 'text-red-500'
+  if (isSaturday(day)) return 'text-blue-500'
+  if (isHoliday(day)) return 'text-pink-500'
+  return 'text-stone-400 dark:text-stone-500'
+}
+function dayCellBg(day) {
+  if (isSunday(day))   return 'bg-red-50 dark:bg-red-900/10'
+  if (isSaturday(day)) return 'bg-blue-50 dark:bg-blue-900/10'
+  if (isHoliday(day))  return 'bg-pink-50 dark:bg-pink-900/10'
   return ''
 }
 
-function getWeekdayShort(day) {
-  const names = ['日','一','二','三','四','五','六']
-  return names[getDayOfWeek(day)]
-}
-
-function getCellClass(val) {
-  if (!val) return ''
-  return `has-badge badge-bg-${val.toLowerCase()}`
-}
-
-function countExpected(emp) {
-  return emp.schedule._expected ?? 9
-}
-
 function countActual(emp) {
-  const vals = ['休','例','假','積','特','半','公','原']
-  return Object.values(emp.schedule).filter(v => vals.includes(v)).length
+  const valid = ['休','例','假','積','特','半','公','原']
+  return Object.values(emp.schedule).filter(v => valid.includes(v)).length
 }
 
-function isToday(day) {
-  const today = new Date()
-  return today.getFullYear() === currentYear.value && today.getMonth() + 1 === currentMonth.value && today.getDate() === day
-}
+// 每日統計
+const OFF_CODES = new Set(["休","例","假","積","特","半","公","原"])
 
+function dailyOffCount(day) {
+  return currentDeptEmployees.value.filter(e => OFF_CODES.has(e.schedule[day])).length
+}
+function dailyWorkCount(day) {
+  return currentDeptEmployees.value.length - dailyOffCount(day)
+}
+const totalEmployees = computed(() => currentDeptEmployees.value.length)
+
+// ── 月份切換 ─────────────────────────────────────────────────────
 function changeMonth(dir) {
-  let m = currentMonth.value + dir
-  let y = currentYear.value
+  let m = currentMonth.value + dir, y = currentYear.value
   if (m > 12) { m = 1; y++ }
-  if (m < 1) { m = 12; y-- }
-  currentMonth.value = m
-  currentYear.value = y
+  if (m < 1)  { m = 12; y-- }
+  currentMonth.value = m; currentYear.value = y
 }
 
-// ── Edit modal ─────────────────────────────────────────
-const editModal = reactive({ open: false, emp: null, day: null, value: '', weekday: '' })
+// ── 部門 & 檢視 ───────────────────────────────────────────────────
+const selectedDept = ref('健康餐飲組')
+const view = ref('table')   // 'table' | 'calendar'
 
-function openEditCell(emp, day) {
-  editModal.emp = emp
-  editModal.day = day
-  editModal.value = emp.schedule[day] || ''
-  editModal.weekday = '星期' + getWeekdayShort(day)
-  editModal.open = true
+const currentDeptEmployees = computed(
+  () => departments.find(d => d.name === selectedDept.value)?.employees ?? []
+)
+
+// 日曆篩選員工
+const calSelectedIds = ref([])
+const calFilteredEmps = computed(() =>
+  calSelectedIds.value.length
+    ? currentDeptEmployees.value.filter(e => calSelectedIds.value.includes(e.id))
+    : currentDeptEmployees.value
+)
+
+// 日曆 leading blanks（June 2026 starts Monday = 1 blank for Sunday column）
+const calLeadingBlanks = computed(() => getWeekday(1)) // weekday of day 1
+
+// ── 編輯 Modal ────────────────────────────────────────────────────
+const showForm  = ref(false)
+const editEmp   = ref(null)
+const editDay   = ref(null)
+const editValue = ref('')
+const toast     = reactive({ show: false, message: '' })
+
+function openEdit(emp, day) {
+  editEmp.value   = emp
+  editDay.value   = day
+  editValue.value = emp.schedule[day] ?? ''
+  showForm.value  = true
 }
 
 function saveEdit() {
-  if (editModal.emp) {
-    if (editModal.value === '') {
-      delete editModal.emp.schedule[editModal.day]
-    } else {
-      editModal.emp.schedule[editModal.day] = editModal.value
-    }
+  if (editEmp.value) {
+    if (editValue.value === '') delete editEmp.value.schedule[editDay.value]
+    else editEmp.value.schedule[editDay.value] = editValue.value
   }
-  editModal.open = false
+  showForm.value = false
+  showToast('已儲存')
 }
+
+function showToast(msg) {
+  toast.message = msg; toast.show = true
+  setTimeout(() => toast.show = false, 2000)
+}
+
+const editWeekday = computed(() =>
+  editDay.value ? `星期${WEEKDAY_NAMES[getWeekday(editDay.value)]}` : ''
+)
 </script>
 
+<template>
+  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+
+    <!-- ── Header ── -->
+    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+
+        <!-- 左：標題 + 部門選擇 -->
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">📋</div>
+          <div class="min-w-0">
+            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base truncate">員工排假班表</h1>
+            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Shift Schedule</p>
+          </div>
+        </div>
+
+        <!-- 右：月份切換 + 部門 + 切換檢視 -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- 月份 -->
+          <div class="flex items-center gap-1 bg-stone-100 dark:bg-zinc-800 rounded-lg px-1 py-0.5">
+            <button @click="changeMonth(-1)"
+                    class="p-1.5 hover:bg-stone-200 dark:hover:bg-zinc-700 rounded-md transition-colors">
+              <svg class="w-4 h-4 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <span class="text-sm font-semibold text-stone-700 dark:text-stone-200 min-w-[80px] text-center">
+              {{ currentYear }} / {{ String(currentMonth).padStart(2,'0') }}
+            </span>
+            <button @click="changeMonth(1)"
+                    class="p-1.5 hover:bg-stone-200 dark:hover:bg-zinc-700 rounded-md transition-colors">
+              <svg class="w-4 h-4 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 部門 -->
+          <select v-model="selectedDept"
+                  class="text-sm border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400">
+            <option v-for="d in departments" :key="d.name" :value="d.name">{{ d.name }}</option>
+          </select>
+
+          <!-- 檢視切換 -->
+          <div class="flex items-center gap-0.5 bg-stone-100 dark:bg-zinc-800 rounded-lg p-0.5">
+            <button @click="view = 'table'"
+                    :class="['px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                             view === 'table'
+                               ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm'
+                               : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200']">
+              班表
+            </button>
+            <button @click="view = 'calendar'"
+                    :class="['px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                             view === 'calendar'
+                               ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm'
+                               : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200']">
+              日曆
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 圖例 -->
+      <div class="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-stone-100 dark:border-stone-800">
+        <span v-for="l in LEGENDS" :key="l.code"
+              class="inline-flex items-center gap-1 text-xs">
+          <span :class="['inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold', l.color]">{{ l.code }}</span>
+          <span class="text-stone-400 dark:text-stone-500">{{ l.label }}</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- ── 主體 ── -->
+    <div class="max-w-[1400px] mx-auto px-3 sm:px-4 py-4 sm:py-6">
+
+      <!-- ══ 班表檢視 ══ -->
+      <div v-if="view === 'table'">
+        <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse min-w-[700px]">
+              <thead>
+              <!-- 日期行 -->
+              <tr class="bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
+                <th class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 px-3 py-2 text-left text-stone-500 dark:text-stone-400 font-medium whitespace-nowrap border-r border-stone-200 dark:border-stone-700 min-w-[100px]">姓名</th>
+                <th v-for="d in days" :key="d"
+                    :class="['px-0 py-2 text-center font-semibold w-8 min-w-[32px]', dayHeaderClass(d)]">
+                  {{ d }}
+                </th>
+                <th class="px-2 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap border-l border-stone-200 dark:border-stone-700 w-10">應</th>
+                <th class="px-2 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap w-10">實</th>
+              </tr>
+              <!-- 星期行 -->
+              <tr class="border-b-2 border-stone-200 dark:border-stone-700">
+                <th class="sticky left-0 z-10 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 px-3 py-1 text-left text-stone-300 dark:text-stone-600 font-normal text-[10px]">
+                  {{ currentYear }}年{{ currentMonth }}月
+                </th>
+                <th v-for="d in days" :key="d"
+                    :class="['py-1 text-center text-[10px] font-normal', dayHeaderClass(d), dayCellBg(d)]">
+                  {{ WEEKDAY_NAMES[getWeekday(d)] }}
+                  <div v-if="HOLIDAYS[d]" class="text-[9px] text-pink-400 leading-tight">{{ HOLIDAYS[d] }}</div>
+                </th>
+                <th class="border-l border-stone-200 dark:border-stone-700" colspan="2"></th>
+              </tr>
+              </thead>
+              <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
+              <tr v-for="emp in currentDeptEmployees" :key="emp.id"
+                  class="hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
+                <!-- 姓名 -->
+                <td class="sticky left-0 z-10 bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800/40 border-r border-stone-200 dark:border-stone-700 px-3 py-2 whitespace-nowrap">
+                  <div class="font-semibold text-stone-800 dark:text-stone-100 text-xs">{{ emp.name }}</div>
+                  <div class="text-[10px] text-stone-400 dark:text-stone-500">{{ emp.id }}</div>
+                </td>
+                <!-- 每日格 -->
+                <td v-for="d in days" :key="d"
+                    :class="['text-center py-1.5 px-0 cursor-pointer transition-colors', dayCellBg(d),
+                               'hover:ring-1 hover:ring-inset hover:ring-green-400']"
+                    @click="openEdit(emp, d)">
+                    <span v-if="emp.schedule[d]"
+                          :class="['inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold', badgeClass(emp.schedule[d])]">
+                      {{ emp.schedule[d] }}
+                    </span>
+                </td>
+                <!-- 統計 -->
+                <td class="text-center border-l border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 font-medium py-2">
+                  {{ emp.expected }}
+                </td>
+                <td class="text-center text-stone-700 dark:text-stone-200 font-semibold py-2">
+                  {{ countActual(emp) }}
+                </td>
+              </tr>
+              </tbody>
+              <tfoot class="border-t-2 border-stone-200 dark:border-stone-700">
+              <!-- 每日人力 -->
+              <tr class="bg-stone-50 dark:bg-zinc-800">
+                <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-3 py-2 whitespace-nowrap">
+                  <div class="text-xs font-semibold text-stone-600 dark:text-stone-300">每日人力</div>
+                  <div class="text-[10px] text-stone-400 dark:text-stone-500">總人數 {{ totalEmployees }}</div>
+                </td>
+                <td v-for="d in days" :key="d"
+                    :class="['text-center py-1.5 px-0', dayCellBg(d)]">
+                    <span v-if="dailyWorkCount(d) > 0"
+                          class="inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                      {{ dailyWorkCount(d) }}
+                    </span>
+                  <span v-else class="text-[10px] text-stone-300 dark:text-stone-600">—</span>
+                </td>
+                <td class="border-l border-stone-200 dark:border-stone-700" colspan="2"></td>
+              </tr>
+              <!-- 休假人數 -->
+              <tr class="bg-stone-50/60 dark:bg-zinc-800/60">
+                <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-3 py-2 whitespace-nowrap">
+                  <div class="text-xs font-semibold text-stone-500 dark:text-stone-400">休假人數</div>
+                </td>
+                <td v-for="d in days" :key="d"
+                    :class="['text-center py-1.5 px-0', dayCellBg(d)]">
+                    <span v-if="dailyOffCount(d) > 0"
+                          class="inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold bg-stone-200 text-stone-500 dark:bg-zinc-700 dark:text-stone-300">
+                      {{ dailyOffCount(d) }}
+                    </span>
+                  <span v-else class="text-[10px] text-stone-300 dark:text-stone-600">—</span>
+                </td>
+                <td class="border-l border-stone-200 dark:border-stone-700" colspan="2"></td>
+              </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- 空狀態 -->
+        <div v-if="currentDeptEmployees.length === 0"
+             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 px-4 py-12 text-center text-stone-400 text-sm shadow-sm mt-3">
+          此部門暫無員工資料
+        </div>
+      </div>
+
+      <!-- ══ 日曆檢視 ══ -->
+      <div v-else-if="view === 'calendar'">
+        <!-- 員工篩選 -->
+        <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-4 py-3 mb-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs text-stone-400 dark:text-stone-500 font-medium">顯示員工：</span>
+            <label v-for="emp in currentDeptEmployees" :key="emp.id"
+                   class="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" :value="emp.id" v-model="calSelectedIds" class="rounded accent-green-600">
+              <span :class="['text-xs px-2 py-0.5 rounded-full transition-colors',
+                             calSelectedIds.includes(emp.id)
+                               ? 'bg-green-700 text-white'
+                               : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300']">
+                {{ emp.name }}
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 日曆格 -->
+        <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+          <!-- 星期標題 -->
+          <div class="grid grid-cols-7 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800">
+            <div v-for="(w, wi) in WEEKDAY_NAMES" :key="w"
+                 :class="['text-center text-xs font-semibold py-2',
+                          wi === 0 ? 'text-red-500' : wi === 6 ? 'text-blue-500' : 'text-stone-500 dark:text-stone-400']">
+              星期{{ w }}
+            </div>
+          </div>
+
+          <!-- 日期格 -->
+          <div class="grid grid-cols-7 divide-x divide-y divide-stone-100 dark:divide-stone-800">
+            <!-- 補白 -->
+            <div v-for="n in calLeadingBlanks" :key="'blank'+n"
+                 class="min-h-[100px] bg-stone-50/50 dark:bg-zinc-800/30"></div>
+
+            <!-- 日格 -->
+            <div v-for="d in days" :key="d"
+                 :class="['min-h-[100px] p-1.5 transition-colors', dayCellBg(d)]">
+              <!-- 日期數字 -->
+              <div class="flex items-center gap-1 mb-1">
+                <span :class="['text-sm font-bold leading-none', dayHeaderClass(d)]">{{ d }}</span>
+                <span v-if="HOLIDAYS[d]"
+                      class="text-[9px] bg-pink-100 dark:bg-pink-900/30 text-pink-500 rounded px-1 py-0.5 leading-none">
+                  {{ HOLIDAYS[d] }}
+                </span>
+                <span v-else-if="!isWeekend(d)"
+                      class="text-[9px] text-stone-300 dark:text-stone-600">工作日</span>
+                <span v-if="LUNAR[d]" class="text-[9px] text-stone-300 dark:text-stone-600 ml-auto">{{ LUNAR[d] }}</span>
+              </div>
+
+              <!-- 員工假別 -->
+              <div class="flex flex-col gap-0.5">
+                <template v-for="emp in calFilteredEmps" :key="emp.id">
+                  <button v-if="emp.schedule[d]"
+                          :class="['flex items-center justify-between gap-1 w-full px-1.5 py-0.5 rounded text-[11px] transition-opacity hover:opacity-80', badgeClass(emp.schedule[d])]"
+                          @click="openEdit(emp, d)">
+                    <span class="flex flex-col items-start min-w-0">
+                      <span class="font-medium truncate leading-tight">{{ emp.name }}</span>
+                      <span class="text-[9px] opacity-60 leading-tight">{{ emp.id }}</span>
+                    </span>
+                    <span class="font-bold flex-shrink-0">{{ emp.schedule[d] }}</span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 編輯 Modal (bottom-sheet on mobile) ── -->
+    <div v-if="showForm"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+         @click.self="showForm = false">
+      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
+
+        <!-- 標題 -->
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-stone-800 dark:text-stone-100">編輯排休</h3>
+            <p class="text-xs text-stone-400 mt-0.5">
+              {{ editEmp?.name }}
+              <span class="text-stone-300 dark:text-stone-600">{{ editEmp?.id }}</span>
+              · {{ currentMonth }}/{{ editDay }} {{ editWeekday }}
+            </p>
+          </div>
+          <button @click="showForm = false"
+                  class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-stone-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 選項 -->
+        <div class="grid grid-cols-4 gap-2 mb-4">
+          <button v-for="opt in EDIT_OPTIONS" :key="opt.code"
+                  :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
+                           editValue === opt.code
+                             ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105'
+                             : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
+                  @click="editValue = opt.code">
+            <span :class="['w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold', opt.color]">
+              {{ opt.code }}
+            </span>
+            <span class="text-[10px] text-stone-500 dark:text-stone-400">{{ opt.label }}</span>
+          </button>
+          <!-- 清除 -->
+          <button :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
+                           editValue === ''
+                             ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105'
+                             : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
+                  @click="editValue = ''">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold bg-stone-100 dark:bg-zinc-700 text-stone-400">—</span>
+            <span class="text-[10px] text-stone-500 dark:text-stone-400">清除</span>
+          </button>
+        </div>
+
+        <!-- 按鈕 -->
+        <div class="flex gap-2">
+          <button @click="showForm = false"
+                  class="flex-1 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors">
+            取消
+          </button>
+          <button @click="saveEdit"
+                  class="flex-1 py-2.5 text-sm bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors">
+            儲存
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <transition name="fade">
+      <div v-if="toast.show"
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
+        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        {{ toast.message }}
+      </div>
+    </transition>
+  </div>
+</template>
+
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-.schedule-app {
-  font-family: 'Noto Sans TC', sans-serif;
-  background: #f4f6f9;
-  min-height: 100vh;
-  color: #1a2332;
-}
-
-/* ── Header ── */
-.app-header {
-  background: linear-gradient(135deg, #1a2e4a 0%, #243b5e 100%);
-  color: white;
-  padding: 16px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
-}
-
-.title {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  line-height: 1.2;
-}
-.title-org { color: #f0d080; }
-.title-divider { margin: 0 6px; opacity: 0.5; }
-.title-dept { color: #a8d4ff; }
-.title-dept.placeholder { color: #6a8aaa; font-style: italic; }
-.subtitle { font-size: 13px; color: #7aaadd; margin-top: 2px; }
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.month-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 4px 10px;
-}
-.nav-btn {
-  background: none; border: none; color: white;
-  font-size: 20px; cursor: pointer; line-height: 1;
-  padding: 0 4px;
-  transition: color 0.15s;
-}
-.nav-btn:hover { color: #f0d080; }
-.month-label { font-size: 15px; font-weight: 600; min-width: 72px; text-align: center; }
-
-.dept-select-wrap select {
-  background: rgba(255,255,255,0.15);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 7px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  outline: none;
-}
-.dept-select-wrap select option { background: #1a2e4a; }
-
-.view-toggle {
-  display: flex;
-  gap: 4px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 3px;
-}
-.toggle-btn {
-  display: flex; align-items: center; gap: 5px;
-  background: none; border: none; color: rgba(255,255,255,0.7);
-  padding: 5px 12px; border-radius: 6px;
-  font-size: 13px; font-family: inherit; cursor: pointer;
-  transition: all 0.15s;
-}
-.toggle-btn.active {
-  background: white; color: #1a2e4a; font-weight: 600;
-}
-.toggle-btn:not(.active):hover { color: white; background: rgba(255,255,255,0.15); }
-
-/* ── Legend ── */
-.legend-bar {
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 8px 24px;
-  display: flex; flex-wrap: wrap; gap: 12px;
-  align-items: center;
-}
-.legend-item { display: flex; align-items: center; gap: 5px; }
-.legend-badge {
-  display: inline-block; width: 22px; height: 22px;
-  line-height: 22px; text-align: center;
-  border-radius: 4px; font-size: 12px; font-weight: 700;
-}
-.legend-text { font-size: 12px; color: #556; }
-
-/* ── Badge colors ── */
-.badge-休, .badge-bg-休 { background: #dbeafe; color: #1d4ed8; }
-.badge-例, .badge-bg-例 { background: #fef9c3; color: #854d0e; }
-.badge-假, .badge-bg-假 { background: #fce7f3; color: #9d174d; }
-.badge-積, .badge-bg-積 { background: #d1fae5; color: #065f46; }
-.badge-特, .badge-bg-特 { background: #ede9fe; color: #4c1d95; }
-.badge-半, .badge-bg-半 { background: #ffedd5; color: #7c2d12; }
-.badge-公, .badge-bg-公 { background: #e0f2fe; color: #0369a1; }
-.badge-原, .badge-bg-原 { background: #f0fdf4; color: #14532d; }
-.badge-加, .badge-bg-加 { background: #fee2e2; color: #991b1b; }
-.badge-v, .badge-bg-v,
-.badge-V, .badge-bg-V { background: #fef3c7; color: #92400e; }
-.badge-下, .badge-bg-下 { background: #f1f5f9; color: #475569; }
-
-/* ── Empty state ── */
-.empty-state {
-  text-align: center; padding: 80px 20px;
-  color: #94a3b8;
-}
-.empty-icon { font-size: 48px; margin-bottom: 12px; }
-.empty-text { font-size: 16px; }
-
-/* ── Table View ── */
-.table-wrap { padding: 16px 24px; }
-.table-scroll { overflow-x: auto; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); }
-
-.schedule-table {
-  border-collapse: collapse;
-  min-width: 900px;
-  width: 100%;
-  background: white;
-  font-size: 12px;
-}
-
-.schedule-table th, .schedule-table td {
-  border: 1px solid #e2e8f0;
-  padding: 0;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.header-row-1 th, .header-row-2 th {
-  background: #1a2e4a;
-  color: white;
-  font-weight: 600;
-  font-size: 12px;
-  padding: 5px 2px;
-}
-
-.col-name { min-width: 80px; width: 80px; }
-.col-day { min-width: 28px; width: 28px; }
-.col-weekday { min-width: 28px; width: 28px; font-size: 11px; }
-.col-summary { min-width: 60px; }
-.col-summary-sub { min-width: 30px; font-size: 11px; }
-
-th.saturday, td.saturday { background: #e8f4ff; }
-th.sunday, td.sunday { background: #fff0f0; color: #c0392b; }
-th.holiday, td.holiday { background: #ffeef5; color: #c0392b; }
-.header-row-1 th.saturday, .header-row-2 th.saturday { background: #2563a8; }
-.header-row-1 th.sunday, .header-row-2 th.sunday { background: #992222; }
-.header-row-1 th.holiday, .header-row-2 th.holiday { background: #7d1d4a; }
-
-.cell-name {
-  text-align: left;
-  padding: 6px 8px !important;
-  background: #f8fafc;
-}
-.emp-name { font-weight: 600; font-size: 13px; color: #1a2332; }
-.emp-id { font-size: 10px; color: #94a3b8; margin-top: 1px; }
-
-.cell-day {
-  width: 28px; height: 42px;
-  cursor: pointer;
-  transition: background 0.1s;
-  vertical-align: middle;
-  padding: 2px !important;
-}
-.cell-day:hover { background: #f0f9ff !important; }
-
-.cell-badge {
-  display: inline-block;
-  width: 22px; height: 22px;
-  line-height: 22px; text-align: center;
-  border-radius: 4px;
-  font-size: 12px; font-weight: 700;
-}
-
-.cell-summary {
-  font-weight: 600; font-size: 13px;
-  color: #1a2e4a; background: #f8fafc;
-  padding: 0 6px !important;
-}
-
-.emp-row:hover td { background: #f7fbff; }
-.emp-row:hover td.saturday { background: #d6eeff; }
-.emp-row:hover td.sunday { background: #ffe5e5; }
-
-/* ── Calendar View ── */
-.calendar-wrap { padding: 12px 24px 24px; }
-
-.cal-filter {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  background: white; border-radius: 8px; padding: 10px 16px;
-  margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  font-size: 13px;
-}
-.cal-filter-label { color: #64748b; font-weight: 500; }
-.cal-emp-toggle { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-.cal-emp-toggle input { cursor: pointer; }
-.cal-emp-name {
-  background: #e8f0fe; color: #1a56db;
-  padding: 2px 8px; border-radius: 12px; font-size: 12px;
-  transition: background 0.15s;
-}
-.cal-emp-toggle input:checked + .cal-emp-name { background: #1a56db; color: white; }
-
-.calendar-grid {
-  background: white; border-radius: 10px;
-  box-shadow: 0 1px 8px rgba(0,0,0,0.08);
-  overflow: hidden;
-}
-
-.cal-header-row {
-  display: grid; grid-template-columns: repeat(7, 1fr);
-  background: #1a2e4a;
-}
-.cal-header-cell {
-  color: white; text-align: center;
-  padding: 10px 4px; font-size: 13px; font-weight: 600;
-}
-.cal-header-cell.weekend { color: #fca5a5; }
-
-.cal-body {
-  display: grid; grid-template-columns: repeat(7, 1fr);
-  border-top: 1px solid #e2e8f0;
-}
-
-.cal-day-cell {
-  border-right: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-  min-height: 100px;
-  padding: 6px;
-  vertical-align: top;
-  transition: background 0.1s;
-}
-.cal-day-cell:nth-child(7n) { border-right: none; }
-.cal-day-cell.empty { background: #f8fafc; }
-.cal-day-cell.saturday { background: #f0f7ff; }
-.cal-day-cell.sunday { background: #fff5f5; }
-.cal-day-cell.holiday { background: #fff0f8; }
-.cal-day-cell.today { box-shadow: inset 0 0 0 2px #3b82f6; }
-
-.cal-day-num {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-  margin-bottom: 4px;
-}
-.cal-day-num > span:first-child {
-  font-size: 15px; font-weight: 700; color: #1a2332;
-  min-width: 20px;
-}
-.sunday .cal-day-num > span:first-child,
-.holiday .cal-day-num > span:first-child { color: #dc2626; }
-.cal-lunar { font-size: 10px; color: #94a3b8; }
-.cal-holiday-label { font-size: 10px; color: #be185d; font-weight: 600; background: #fce7f3; padding: 1px 4px; border-radius: 3px; }
-.cal-work-label { font-size: 10px; color: #94a3b8; }
-
-.cal-emp-list { display: flex; flex-direction: column; gap: 2px; }
-.cal-emp-entry {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 2px 5px; border-radius: 4px;
-  cursor: pointer; font-size: 11px;
-  transition: opacity 0.1s;
-}
-.cal-emp-entry:hover { opacity: 0.8; }
-.cal-emp-entry-name { font-weight: 500; }
-.cal-emp-entry-badge { font-weight: 700; }
-
-/* ── Modal ── */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 999; padding: 20px;
-}
-.modal-box {
-  background: white; border-radius: 12px;
-  width: 100%; max-width: 400px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-  overflow: hidden;
-}
-.modal-header {
-  background: #1a2e4a; color: white;
-  padding: 14px 20px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.modal-title { font-size: 15px; font-weight: 600; }
-.modal-close {
-  background: none; border: none; color: rgba(255,255,255,0.7);
-  font-size: 16px; cursor: pointer; line-height: 1;
-  padding: 2px 4px;
-}
-.modal-close:hover { color: white; }
-
-.modal-body { padding: 16px 20px; }
-.modal-info {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 14px; padding-bottom: 12px;
-  border-bottom: 1px solid #e2e8f0;
-}
-.modal-emp { font-size: 16px; font-weight: 700; color: #1a2332; }
-.modal-date { font-size: 13px; color: #64748b; }
-
-.modal-options {
-  display: flex; flex-wrap: wrap; gap: 8px;
-}
-.opt-btn {
-  padding: 7px 14px; border-radius: 7px;
-  border: 2px solid transparent;
-  font-size: 13px; font-weight: 600;
-  font-family: inherit; cursor: pointer;
-  transition: all 0.15s;
-}
-.opt-btn.selected { border-color: #1a2e4a; box-shadow: 0 0 0 2px rgba(26,46,74,0.2); transform: scale(1.05); }
-.opt-clear {
-  background: #f1f5f9; color: #64748b;
-}
-.opt-clear.selected { border-color: #64748b; }
-
-.modal-footer {
-  padding: 12px 20px;
-  display: flex; justify-content: flex-end; gap: 8px;
-  border-top: 1px solid #e2e8f0;
-}
-.btn-cancel {
-  padding: 8px 18px; border-radius: 7px;
-  background: #f1f5f9; border: none; color: #475569;
-  font-size: 13px; font-family: inherit; cursor: pointer;
-}
-.btn-save {
-  padding: 8px 18px; border-radius: 7px;
-  background: #1a2e4a; border: none; color: white;
-  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
-  transition: background 0.15s;
-}
-.btn-save:hover { background: #243b5e; }
-
-@media (max-width: 640px) {
-  .app-header { padding: 12px 16px; }
-  .table-wrap, .calendar-wrap { padding: 12px; }
-  .cal-day-cell { min-height: 70px; padding: 4px; }
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>
