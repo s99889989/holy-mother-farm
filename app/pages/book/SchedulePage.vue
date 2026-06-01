@@ -11,30 +11,51 @@ const LEGENDS = [
   { code: '半', label: '半天',     color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
   { code: '公', label: '公假',     color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
   { code: '原', label: '原假',     color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
-  { code: '加', label: '加班',     color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+  // { code: '加', label: '加班',     color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
 ]
 
-const EDIT_OPTIONS = [...LEGENDS, { code: 'V', label: 'V', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' }]
+// 附加標記：休假時可額外標記的工作內容
+const EXTRA_OPTIONS = [
+  { code: '加', label: '加班', color: 'bg-red-500 text-white' },
+  { code: '水', label: '澆水', color: 'bg-lime-600 text-white' },
+]
+
+const EDIT_OPTIONS = [...LEGENDS, { code: 'V', label: 'V', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-700' }]
 
 const WEEKDAY_NAMES = ['日','一','二','三','四','五','六']
 
-function badgeClass(code) {
+// 解析 schedule 值，相容舊字串格式
+function parseCell(val) {
+  if (!val) return { code: '', extra: '' }
+  if (typeof val === 'string') return { code: val, extra: '' }
+  return { code: val.code ?? '', extra: val.extra ?? '' }
+}
+
+function badgeClass(codeOrVal) {
+  const code = typeof codeOrVal === 'string' ? codeOrVal : codeOrVal?.code ?? ''
   return LEGENDS.find(l => l.code === code)?.color
     ?? 'bg-stone-100 text-stone-600 dark:bg-zinc-700 dark:text-stone-300'
 }
+
+function extraBadgeClass(extra) {
+  return EXTRA_OPTIONS.find(e => e.code === extra)?.color ?? 'bg-stone-400 text-white'
+}
+
+// OFF_CODES 用於判斷是否休假（不含「加」，加班不算休）
+const OFF_CODES = new Set(['休','例','假','積','特','半','公','原'])
 
 // ── 部門員工資料 ──────────────────────────────────────────────────
 const departments = reactive([
   {
     name: '健康餐飲組',
     employees: [
-      { name: '林萬玉', id: 'F00029', expected: 9,  schedule: { 1:'休', 7:'例', 11:'休', 14:'例', 19:'休', 20:'休', 21:'例', 24:'休', 28:'例' } },
-      { name: '郭婕妤', id: 'F00227', expected: 9,  schedule: { 4:'休', 7:'例', 8:'休', 9:'積', 14:'例', 19:'休', 20:'休', 21:'例', 25:'休', 28:'例' } },
-      { name: '黃秋珍', id: 'A00026', expected: 9,  schedule: { 2:'下', 3:'特', 4:'特', 5:'特', 6:'休', 7:'例', 13:'休', 14:'例', 19:'休', 20:'休', 21:'例', 27:'休', 28:'例' } },
-      { name: '陶彩萍', id: 'F00210', expected: 9,  schedule: { 3:'休', 7:'例', 11:'休', 14:'例', 19:'休', 20:'休', 21:'例', 24:'休', 28:'例' } },
-      { name: '郭儀珍', id: 'F00216', expected: 9,  schedule: { 5:'休', 6:'特', 7:'例', 10:'休', 14:'例', 18:'積', 19:'休', 20:'休', 21:'例', 22:'休', 28:'例' } },
-      { name: '張小娟', id: 'F00009', expected: 9,  schedule: { 6:'休', 7:'例', 13:'休', 14:'例', 19:'休', 20:'休', 21:'例', 27:'休', 28:'例' } },
-      { name: '陳治國', id: 'F00036', expected: 15, schedule: { 1:'休', 5:'休', 6:'休', 7:'例', 8:'半', 12:'休', 13:'休', 14:'例', 15:'半', 19:'休', 20:'休', 21:'例', 22:'休', 27:'休', 28:'例', 29:'休' } },
+      { name: '林萬玉', id: 'F00029', expected: 9,  schedule: { 1:'休', 7:'例', 11:'休', 14:'例', 19:'假', 20:'休', 21:'例', 24:'休', 28:'例' } },
+      { name: '郭婕妤', id: 'F00227', expected: 9, schedule: { 4: { code: '休', extra: '加' }, 7:'例', 8:'休', 9:'積', 14:'例', 19:'假', 20:'休', 21:'例', 25:'休', 28:'例' } },
+      { name: '黃秋珍', id: 'A00026', expected: 9,  schedule: { 2:'下', 3:'特', 4:'特', 5:'特', 6:'休', 7:'例', 13:'休', 14:'例', 19:'假', 20:'休', 21:'例', 27:'休', 28:'例' } },
+      { name: '陶彩萍', id: 'F00210', expected: 9,  schedule: { 3:'休', 7:'例', 11:'休', 14:'例', 19:'假', 20:'休', 21:'例', 24:'休', 28:'例' } },
+      { name: '郭儀珍', id: 'F00216', expected: 9,  schedule: { 5:'休', 6:'特', 7:'例', 10:'休', 14:'例', 18:'積', 19:'假', 20:'休', 21:'例', 22:'休', 28:'例' } },
+      { name: '張小娟', id: 'F00009', expected: 9,  schedule: { 6:'休', 7:'例', 13:'休', 14:'例', 19:'假', 20:'休', 21:'例', 27:'休', 28:'例' } },
+      { name: '陳治國', id: 'F00036', expected: 15, schedule: { 1:'休', 5:'休', 6:'休', 7:'例', 8:'半', 12:'休', 13:'休', 14:'例', 15:'半', 19:'假', 20:'休', 21:'例', 22:'休', 27:'休', 28:'例', 29:'休' } },
     ]
   },
   {
@@ -49,13 +70,13 @@ const departments = reactive([
   {
     name: '香藥草教育推廣組',
     employees: [
-      { name: '力素朱', id: 'F00178', expected: 9, schedule: { 6:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 22:'V', 27:'例', 28:'休' } },
-      { name: '王建斌', id: 'F00200', expected: 9, schedule: { 6:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
-      { name: '王明宗', id: 'F00204', expected: 9, schedule: { 5:'休', 7:'例', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
-      { name: '郭廣榮', id: 'F00010', expected: 9, schedule: { 4:'例', 5:'休', 12:'休', 13:'例', 19:'假', 20:'例', 21:'休', 27:'休', 28:'例' } },
-      { name: '陳鈺文', id: 'F00207', expected: 9, schedule: { 4:'例', 5:'休', 12:'例', 13:'休', 19:'假', 20:'休', 21:'假', 27:'例', 28:'休' } },
-      { name: '姜家智', id: 'F00230', expected: 9, schedule: { 5:'休', 6:'例', 12:'例', 13:'休', 19:'假', 20:'例', 21:'休', 26:'休', 27:'例' } },
-      { name: '應芝雲', id: 'F00212', expected: 9, schedule: { 5:'休', 6:'例', 9:'原', 10:'原', 11:'原', 12:'休', 13:'例', 19:'假', 20:'休', 21:'假', 27:'休', 28:'例' } },
+      { name: '力素朱', id: 'F00178', expected: 9, schedule: { 6: { code: '休', extra: '水' }, 7:'例', 13:'休', 14:'例', 19:'假', 20:'休', 21:'例', 22:'V', 27:'例', 28: { code: '休', extra: '水' }} },
+      { name: '王建斌', id: 'F00200', expected: 9, schedule: { 6:'休', 7:'例', 13: { code: '休', extra: '水' }, 14:'例', 19:'假', 20: { code: '休', extra: '水' }, 21:'例', 27:'休', 28:'例' } },
+      { name: '王明宗', id: 'F00204', expected: 9, schedule: { 6:'休', 7:'例', 13: { code: '休', extra: '水' }, 14:'例', 19:'假', 20:'休', 21:'例', 27: { code: '休', extra: '水' }, 28:'例' } },
+      { name: '郭廣榮', id: 'F00010', expected: 9, schedule: { 6:'例', 7: { code: '休', extra: '水' }, 13:'休', 14:'例', 19:'假', 20:'例', 21: { code: '休', extra: '水' }, 27:'休', 28:'例' } },
+      { name: '陳鈺文', id: 'F00207', expected: 9, schedule: { 6:'例', 7: { code: '休', extra: '水' }, 13:'例', 14: { code: '休', extra: '水' }, 19:'假', 20:'休', 21:'例', 27:'例', 28: { code: '休', extra: '水' } } },
+      { name: '姜家智', id: 'F00230', expected: 9, schedule: { 6:'休', 7:'例', 13:'例', 14: { code: '休', extra: '水' }, 19:'假', 20:'例', 21: { code: '休', extra: '水' }, 27:'休', 28:'例' } },
+      { name: '應芝雲', id: 'F00212', expected: 9, schedule: { 6: { code: '休', extra: '水' }, 7:'例', 10:'原', 11:'原', 12:'原', 13:'休', 14:'例', 19:'假', 20: { code: '休', extra: '水' }, 21:'假', 27: { code: '休', extra: '水' }, 28:'例' } },
     ]
   }
 ])
@@ -64,10 +85,7 @@ const departments = reactive([
 const currentYear  = ref(2026)
 const currentMonth = ref(6)
 
-// June 2026 starts on Monday (weekday index 1)
-// 國定假日
 const HOLIDAYS = { 19: '端午節' }
-// 農曆（示意）
 const LUNAR = {
   1:'十六',2:'十七',3:'十八',4:'十九',5:'廿十',6:'廿一',7:'廿二',
   8:'廿三',9:'廿四',10:'廿五',11:'廿六',12:'廿七',13:'廿八',14:'廿九',
@@ -80,7 +98,6 @@ const daysInMonth = computed(() => new Date(currentYear.value, currentMonth.valu
 const days = computed(() => Array.from({ length: daysInMonth.value }, (_, i) => i + 1))
 
 function getWeekday(day) {
-  // June 2026 day 1 = Monday = index 1
   return (1 + day - 1) % 7
 }
 function isWeekend(day) { const w = getWeekday(day); return w === 0 || w === 6 }
@@ -103,14 +120,17 @@ function dayCellBg(day) {
 
 function countActual(emp) {
   const valid = ['休','例','假','積','特','半','公','原']
-  return Object.values(emp.schedule).filter(v => valid.includes(v)).length
+  return Object.values(emp.schedule).filter(v => {
+    const { code } = parseCell(v)
+    return valid.includes(code)
+  }).length
 }
 
-// 每日統計
-const OFF_CODES = new Set(["休","例","假","積","特","半","公","原"])
-
 function dailyOffCount(day) {
-  return currentDeptEmployees.value.filter(e => OFF_CODES.has(e.schedule[day])).length
+  return currentDeptEmployees.value.filter(e => {
+    const { code } = parseCell(e.schedule[day])
+    return OFF_CODES.has(code)
+  }).length
 }
 function dailyWorkCount(day) {
   return currentDeptEmployees.value.length - dailyOffCount(day)
@@ -127,13 +147,12 @@ function changeMonth(dir) {
 
 // ── 部門 & 檢視 ───────────────────────────────────────────────────
 const selectedDept = ref('健康餐飲組')
-const view = ref('table')   // 'table' | 'calendar'
+const view = ref('table')
 
 const currentDeptEmployees = computed(
   () => departments.find(d => d.name === selectedDept.value)?.employees ?? []
 )
 
-// 日曆篩選員工
 const calSelectedIds = ref([])
 const calFilteredEmps = computed(() =>
   calSelectedIds.value.length
@@ -141,27 +160,40 @@ const calFilteredEmps = computed(() =>
     : currentDeptEmployees.value
 )
 
-// 日曆 leading blanks（June 2026 starts Monday = 1 blank for Sunday column）
-const calLeadingBlanks = computed(() => getWeekday(1)) // weekday of day 1
+const calLeadingBlanks = computed(() => getWeekday(1))
 
 // ── 編輯 Modal ────────────────────────────────────────────────────
 const showForm  = ref(false)
 const editEmp   = ref(null)
 const editDay   = ref(null)
-const editValue = ref('')
+const editCode  = ref('')   // 主狀態
+const editExtra = ref('')   // 附加標記
 const toast     = reactive({ show: false, message: '' })
 
 function openEdit(emp, day) {
-  editEmp.value   = emp
-  editDay.value   = day
-  editValue.value = emp.schedule[day] ?? ''
+  editEmp.value = emp
+  editDay.value = day
+  const cell = parseCell(emp.schedule[day])
+  editCode.value  = cell.code
+  editExtra.value = cell.extra
   showForm.value  = true
 }
 
+// 只有休假類才可設定附加標記
+const canSetExtra = computed(() => OFF_CODES.has(editCode.value))
+
 function saveEdit() {
   if (editEmp.value) {
-    if (editValue.value === '') delete editEmp.value.schedule[editDay.value]
-    else editEmp.value.schedule[editDay.value] = editValue.value
+    if (editCode.value === '') {
+      delete editEmp.value.schedule[editDay.value]
+    } else {
+      const extra = canSetExtra.value ? editExtra.value : ''
+      if (extra) {
+        editEmp.value.schedule[editDay.value] = { code: editCode.value, extra }
+      } else {
+        editEmp.value.schedule[editDay.value] = editCode.value
+      }
+    }
   }
   showForm.value = false
   showToast('已儲存')
@@ -184,7 +216,7 @@ const editWeekday = computed(() =>
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between gap-3 flex-wrap">
 
-        <!-- 左：標題 + 部門選擇 -->
+        <!-- 左：標題 -->
         <div class="flex items-center gap-2 min-w-0">
           <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">📋</div>
           <div class="min-w-0">
@@ -242,10 +274,16 @@ const editWeekday = computed(() =>
 
       <!-- 圖例 -->
       <div class="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-stone-100 dark:border-stone-800">
-        <span v-for="l in LEGENDS" :key="l.code"
-              class="inline-flex items-center gap-1 text-xs">
+        <span v-for="l in LEGENDS" :key="l.code" class="inline-flex items-center gap-1 text-xs">
           <span :class="['inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold', l.color]">{{ l.code }}</span>
           <span class="text-stone-400 dark:text-stone-500">{{ l.label }}</span>
+        </span>
+        <!-- 附加標記圖例 -->
+        <span class="inline-block w-px h-4 bg-stone-200 dark:bg-stone-700 self-center mx-1"></span>
+        <span class="text-xs text-stone-300 dark:text-stone-600 self-center mr-0.5">附加：</span>
+        <span v-for="e in EXTRA_OPTIONS" :key="'ex'+e.code" class="inline-flex items-center gap-1 text-xs">
+          <span :class="['inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold', e.color]">{{ e.code }}</span>
+          <span class="text-stone-400 dark:text-stone-500">{{ e.label }}</span>
         </span>
       </div>
     </header>
@@ -259,7 +297,6 @@ const editWeekday = computed(() =>
           <div class="overflow-x-auto">
             <table class="w-full text-xs border-collapse min-w-[700px]">
               <thead>
-              <!-- 日期行 -->
               <tr class="bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
                 <th class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 px-3 py-2 text-left text-stone-500 dark:text-stone-400 font-medium whitespace-nowrap border-r border-stone-200 dark:border-stone-700 min-w-[100px]">姓名</th>
                 <th v-for="d in days" :key="d"
@@ -269,7 +306,6 @@ const editWeekday = computed(() =>
                 <th class="px-2 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap border-l border-stone-200 dark:border-stone-700 w-10">應</th>
                 <th class="px-2 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap w-10">實</th>
               </tr>
-              <!-- 星期行 -->
               <tr class="border-b-2 border-stone-200 dark:border-stone-700">
                 <th class="sticky left-0 z-10 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 px-3 py-1 text-left text-stone-300 dark:text-stone-600 font-normal text-[10px]">
                   {{ currentYear }}年{{ currentMonth }}月
@@ -285,22 +321,30 @@ const editWeekday = computed(() =>
               <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
               <tr v-for="emp in currentDeptEmployees" :key="emp.id"
                   class="hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
-                <!-- 姓名 -->
                 <td class="sticky left-0 z-10 bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800/40 border-r border-stone-200 dark:border-stone-700 px-3 py-2 whitespace-nowrap">
                   <div class="font-semibold text-stone-800 dark:text-stone-100 text-xs">{{ emp.name }}</div>
                   <div class="text-[10px] text-stone-400 dark:text-stone-500">{{ emp.id }}</div>
                 </td>
-                <!-- 每日格 -->
                 <td v-for="d in days" :key="d"
                     :class="['text-center py-1.5 px-0 cursor-pointer transition-colors', dayCellBg(d),
                                'hover:ring-1 hover:ring-inset hover:ring-green-400']"
                     @click="openEdit(emp, d)">
-                    <span v-if="emp.schedule[d]"
-                          :class="['inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold', badgeClass(emp.schedule[d])]">
-                      {{ emp.schedule[d] }}
-                    </span>
+                  <!-- 有值：顯示 badge + 附加角標 -->
+                  <template v-if="emp.schedule[d]">
+                    <div class="relative inline-flex items-center justify-center">
+                      <span :class="['inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold',
+                                     badgeClass(parseCell(emp.schedule[d]).code)]">
+                        {{ parseCell(emp.schedule[d]).code }}
+                      </span>
+                      <!-- 附加標記角標 -->
+                      <span v-if="parseCell(emp.schedule[d]).extra"
+                            :class="['absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold leading-none shadow-sm',
+                                     extraBadgeClass(parseCell(emp.schedule[d]).extra)]">
+                        {{ parseCell(emp.schedule[d]).extra }}
+                      </span>
+                    </div>
+                  </template>
                 </td>
-                <!-- 統計 -->
                 <td class="text-center border-l border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 font-medium py-2">
                   {{ emp.expected }}
                 </td>
@@ -310,7 +354,6 @@ const editWeekday = computed(() =>
               </tr>
               </tbody>
               <tfoot class="border-t-2 border-stone-200 dark:border-stone-700">
-              <!-- 每日人力 -->
               <tr class="bg-stone-50 dark:bg-zinc-800">
                 <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-3 py-2 whitespace-nowrap">
                   <div class="text-xs font-semibold text-stone-600 dark:text-stone-300">每日人力</div>
@@ -326,7 +369,6 @@ const editWeekday = computed(() =>
                 </td>
                 <td class="border-l border-stone-200 dark:border-stone-700" colspan="2"></td>
               </tr>
-              <!-- 休假人數 -->
               <tr class="bg-stone-50/60 dark:bg-zinc-800/60">
                 <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-3 py-2 whitespace-nowrap">
                   <div class="text-xs font-semibold text-stone-500 dark:text-stone-400">休假人數</div>
@@ -374,7 +416,6 @@ const editWeekday = computed(() =>
 
         <!-- 日曆格 -->
         <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-          <!-- 星期標題 -->
           <div class="grid grid-cols-7 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800">
             <div v-for="(w, wi) in WEEKDAY_NAMES" :key="w"
                  :class="['text-center text-xs font-semibold py-2',
@@ -383,16 +424,12 @@ const editWeekday = computed(() =>
             </div>
           </div>
 
-          <!-- 日期格 -->
           <div class="grid grid-cols-7 divide-x divide-y divide-stone-100 dark:divide-stone-800">
-            <!-- 補白 -->
             <div v-for="n in calLeadingBlanks" :key="'blank'+n"
                  class="min-h-[100px] bg-stone-50/50 dark:bg-zinc-800/30"></div>
 
-            <!-- 日格 -->
             <div v-for="d in days" :key="d"
                  :class="['min-h-[100px] p-1.5 transition-colors', dayCellBg(d)]">
-              <!-- 日期數字 -->
               <div class="flex items-center gap-1 mb-1">
                 <span :class="['text-sm font-bold leading-none', dayHeaderClass(d)]">{{ d }}</span>
                 <span v-if="HOLIDAYS[d]"
@@ -404,17 +441,25 @@ const editWeekday = computed(() =>
                 <span v-if="LUNAR[d]" class="text-[9px] text-stone-300 dark:text-stone-600 ml-auto">{{ LUNAR[d] }}</span>
               </div>
 
-              <!-- 員工假別 -->
               <div class="flex flex-col gap-0.5">
                 <template v-for="emp in calFilteredEmps" :key="emp.id">
                   <button v-if="emp.schedule[d]"
-                          :class="['flex items-center justify-between gap-1 w-full px-1.5 py-0.5 rounded text-[11px] transition-opacity hover:opacity-80', badgeClass(emp.schedule[d])]"
+                          :class="['flex items-center justify-between gap-1 w-full px-1.5 py-0.5 rounded text-[11px] transition-opacity hover:opacity-80',
+                                   badgeClass(parseCell(emp.schedule[d]).code)]"
                           @click="openEdit(emp, d)">
                     <span class="flex flex-col items-start min-w-0">
                       <span class="font-medium truncate leading-tight">{{ emp.name }}</span>
                       <span class="text-[9px] opacity-60 leading-tight">{{ emp.id }}</span>
                     </span>
-                    <span class="font-bold flex-shrink-0">{{ emp.schedule[d] }}</span>
+                    <span class="flex items-center gap-0.5 flex-shrink-0">
+                      <span class="font-bold">{{ parseCell(emp.schedule[d]).code }}</span>
+                      <!-- 附加標記 -->
+                      <span v-if="parseCell(emp.schedule[d]).extra"
+                            :class="['w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold leading-none shadow-sm',
+                                     extraBadgeClass(parseCell(emp.schedule[d]).extra)]">
+                        {{ parseCell(emp.schedule[d]).extra }}
+                      </span>
+                    </span>
                   </button>
                 </template>
               </div>
@@ -424,7 +469,7 @@ const editWeekday = computed(() =>
       </div>
     </div>
 
-    <!-- ── 編輯 Modal (bottom-sheet on mobile) ── -->
+    <!-- ── 編輯 Modal ── -->
     <div v-if="showForm"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
          @click.self="showForm = false">
@@ -448,14 +493,15 @@ const editWeekday = computed(() =>
           </button>
         </div>
 
-        <!-- 選項 -->
+        <!-- 主狀態選項 -->
+        <p class="text-[11px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide mb-2">主狀態</p>
         <div class="grid grid-cols-4 gap-2 mb-4">
           <button v-for="opt in EDIT_OPTIONS" :key="opt.code"
                   :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
-                           editValue === opt.code
+                           editCode === opt.code
                              ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105'
                              : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
-                  @click="editValue = opt.code">
+                  @click="editCode = opt.code">
             <span :class="['w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold', opt.color]">
               {{ opt.code }}
             </span>
@@ -463,13 +509,64 @@ const editWeekday = computed(() =>
           </button>
           <!-- 清除 -->
           <button :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
-                           editValue === ''
+                           editCode === ''
                              ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105'
                              : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
-                  @click="editValue = ''">
+                  @click="editCode = ''; editExtra = ''">
             <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold bg-stone-100 dark:bg-zinc-700 text-stone-400">—</span>
             <span class="text-[10px] text-stone-500 dark:text-stone-400">清除</span>
           </button>
+        </div>
+
+        <!-- 附加標記（只在休假類顯示） -->
+        <transition name="fade">
+          <div v-if="canSetExtra" class="mb-4">
+            <p class="text-[11px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide mb-2">
+              附加工作 <span class="text-stone-300 dark:text-stone-600 normal-case font-normal">（休假期間）</span>
+            </p>
+            <div class="flex gap-2">
+              <!-- 無附加 -->
+              <button :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all',
+                               editExtra === ''
+                                 ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800'
+                                 : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
+                      @click="editExtra = ''">
+                <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-stone-100 dark:bg-zinc-700 text-stone-400">—</span>
+                <span class="text-[10px] text-stone-500 dark:text-stone-400">無</span>
+              </button>
+              <button v-for="opt in EXTRA_OPTIONS" :key="opt.code"
+                      :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all',
+                               editExtra === opt.code
+                                 ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105'
+                                 : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
+                      @click="editExtra = opt.code">
+                <span :class="['w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold', opt.color]">
+                  {{ opt.code }}
+                </span>
+                <span class="text-[10px] text-stone-500 dark:text-stone-400">{{ opt.label }}</span>
+              </button>
+            </div>
+          </div>
+        </transition>
+
+        <!-- 預覽 -->
+        <div v-if="editCode" class="mb-4 px-3 py-2 bg-stone-50 dark:bg-zinc-800 rounded-xl flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+          <span class="text-stone-400">預覽：</span>
+          <div class="relative inline-flex items-center justify-center">
+            <span :class="['inline-flex items-center justify-center w-7 h-7 rounded-lg text-sm font-bold', badgeClass(editCode)]">
+              {{ editCode }}
+            </span>
+            <span v-if="editExtra"
+                  :class="['absolute -top-1 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold leading-none shadow-sm', extraBadgeClass(editExtra)]">
+              {{ editExtra }}
+            </span>
+          </div>
+          <span class="ml-1">
+            {{ LEGENDS.find(l => l.code === editCode)?.label ?? editCode }}
+            <template v-if="editExtra">
+              ＋ {{ EXTRA_OPTIONS.find(e => e.code === editExtra)?.label }}
+            </template>
+          </span>
         </div>
 
         <!-- 按鈕 -->
