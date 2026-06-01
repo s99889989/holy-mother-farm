@@ -705,6 +705,7 @@ const editWeekday = computed(() =>
     </div>
 
     <!-- Toast -->
+
     <transition name="fade">
       <div v-if="toast.show"
            class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
