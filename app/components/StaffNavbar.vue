@@ -473,6 +473,12 @@ const navGroups = [
     ]
   },
   {
+    label: '👥 人事',
+    items: [
+      { to: '/staff/personnel/class-schedule-edit', icon: '🌴', label: '假表', key: 'staff.cash-count.edit' }
+    ]
+  },
+  {
     label: '🗿 營運管理',
     items: [
       { to: '/staff/task/task-board', icon: '✅', label: '今日工作', color: 'bg-indigo-600', key: 'staff.task' },
