@@ -50,9 +50,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path.startsWith('/book')) return
 
   // ── /admin 路徑 ───────────────────────────────────────────────────
-  // server side 一律擋（無法讀 localStorage）
+  // SSR 時無法讀 localStorage，一律放行交給 client 端判斷
+  // （原本 SSR redirect 到 /login 會導致 login 頁面 HTML 疊在 admin 頁面上）
   if (to.path.startsWith('/admin')) {
-    if (import.meta.server) return navigateTo('/login')
+    if (import.meta.server) return
     return localStorage.getItem('holy_auth')
       ? undefined
       : navigateTo('/login')
