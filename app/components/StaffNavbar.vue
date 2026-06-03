@@ -475,7 +475,8 @@ const navGroups = [
   {
     label: '👥 人事',
     items: [
-      { to: '/staff/personnel/class-schedule-edit', icon: '🌴', label: '假表', key: 'staff.cash-count.edit' }
+      { to: '/staff/personnel/class-schedule-edit', icon: '🌴', label: '假表', key: 'staff.cash-count.edit' },
+      { to: '/staff/personnel/phone-directory', icon: '🌴', label: '電話', key: 'staff.cash-count.edit' }
     ]
   },
   {
