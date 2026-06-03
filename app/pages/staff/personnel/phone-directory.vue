@@ -156,6 +156,8 @@
 </template>
 
 <script setup>
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.quick-links.edit' })
+
 import { ref, computed } from 'vue'
 
 // ── 機構清單 ──────────────────────────────────────────────────────
@@ -406,7 +408,7 @@ const farmData = {
     {
       name: '服務中心',
       entries: [
-        { name: '應芝雲', ext: '866' },
+        { name: '吳宣澔', ext: '866' },
         { name: '賈德蘭', ext: '867' },
         { name: '王頌恩', ext: '868' },
         { name: '羅晚惠', ext: '869' },
