@@ -10,7 +10,7 @@ const LEGENDS = [
   { code: '特', label: '特休', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
   { code: '半', label: '半天', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
   { code: '公', label: '公假', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  { code: '原', label: '原假', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' }
+  { code: '原', label: '原住民歲時祭儀', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
   // { code: '加', label: '加班',     color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
 ]
 

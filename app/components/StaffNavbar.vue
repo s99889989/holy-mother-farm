@@ -203,7 +203,7 @@
                 </li>
                 <li>
                   <a
-                    href="/"
+                    href="https://holyfarm.netlify.app"
                     target="_blank"
                     class="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
                     @click="menuOpen = false"
@@ -410,7 +410,7 @@
             個人設定
           </button>
           <a
-            href="/"
+            href="https://holyfarm.netlify.app"
             target="_blank"
             class="px-2 py-1.5 rounded text-sm font-medium text-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
             @click="mobileOpen = false"
