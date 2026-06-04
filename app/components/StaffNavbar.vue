@@ -224,33 +224,6 @@
                     首頁
                   </a>
                 </li>
-                <li>
-                  <a
-                    href="/admin/management/PermissionManagement"
-                    target="_blank"
-                    class="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
-                    @click="menuOpen = false"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                      /><circle
-                        cx="12"
-                        cy="12"
-                        r="3"
-                      />
-                    </svg>
-                    後台管理
-                  </a>
-                </li>
                 <li class="border-t border-stone-100 dark:border-stone-700 mt-1 pt-1">
                   <button
                     class="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -401,8 +374,8 @@
           >{{ item.label }}</NuxtLink>
         </div>
 
-        <!-- 個人設定 / 首頁 / 後台管理 -->
-        <div class="border-t border-stone-200 dark:border-stone-700 pt-2 grid grid-cols-3 gap-1">
+        <!-- 個人設定 / 首頁 -->
+        <div class="border-t border-stone-200 dark:border-stone-700 pt-2 grid grid-cols-2 gap-1">
           <button
             class="px-2 py-1.5 rounded text-sm font-medium text-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
             @click="mobileOpen = false; goProfile()"
@@ -416,14 +389,6 @@
             @click="mobileOpen = false"
           >
             首頁
-          </a>
-          <a
-            href="/admin/management/PermissionManagement"
-            target="_blank"
-            class="px-2 py-1.5 rounded text-sm font-medium text-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
-            @click="mobileOpen = false"
-          >
-            後台管理
           </a>
         </div>
 
@@ -500,12 +465,12 @@ const navGroups = [
   {
     label: '🌐 前台內容',
     items: [
-      { to: '/staff/front/news-view', icon: '📰', label: '消息管理', key: 'staff.news' },
-      { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
-      { to: '/staff/front/product-view', icon: '🛍️', label: '商品管理', key: 'staff.product' },
-      { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
-      { to: '/staff/front/production-view', icon: '🌾', label: '產品訂購', key: 'staff.production' },
-      { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' }
+      { to: '/staff/content/news-view', icon: '📰', label: '消息管理', key: 'staff.news' },
+      { to: '/staff/content/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
+      { to: '/staff/content/product-view', icon: '🛍️', label: '商品管理', key: 'staff.product' },
+      { to: '/staff/content/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
+      { to: '/staff/content/production-view', icon: '🌾', label: '產品訂購', key: 'staff.production' },
+      { to: '/staff/content/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' }
     ]
   }
 ]

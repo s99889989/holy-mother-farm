@@ -3,12 +3,6 @@
 import { usePermissionStore } from '~/stores/permission'
 
 const ROUTE_PERMISSIONS: Record<string, string> = {
-  // ── 個人頁面（需登入）──────────────────────────────────────────
-  '/front/profile/booking': 'profile.view',
-  '/front/profile/log': 'profile.view',
-  '/front/profile/lunch': 'profile.view',
-  '/front/profile/settings': 'profile.view',
-
   // ── 員工首頁 ────────────────────────────────────────────────────
   '/staff/home': 'staff.home',
 
@@ -45,9 +39,6 @@ const ADMIN_HOME = '/admin/management/PermissionManagement'
 export default defineNuxtRouteMiddleware(async (to) => {
   // /staff 根路徑自動導向 /staff/home
   if (to.path === '/staff') return navigateTo('/staff/home')
-
-  // ── /book 底下全部放行 ────────────────────────────────────────────
-  if (to.path.startsWith('/book')) return
 
   // ── /admin 路徑 ───────────────────────────────────────────────────
   // SSR 時無法讀 localStorage，一律放行交給 client 端判斷
@@ -102,10 +93,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!permissionStore.can(requiredKey)) {
-    // /staff 頁面沒權限 → 跳 /staff/home（而不是登入頁）
-    if (to.path.startsWith('/staff') && to.path !== '/staff/home') {
-      return navigateTo('/staff/home')
-    }
     return navigateTo('/')
   }
 })

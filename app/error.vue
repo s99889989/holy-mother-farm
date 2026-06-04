@@ -5,7 +5,7 @@ const props = defineProps({
 
 onMounted(() => {
   if (props.error?.statusCode === 404) {
-    window.location.href = '/login'
+    window.location.href = '/'
   }
 })
 </script>
