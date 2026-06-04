@@ -202,9 +202,10 @@ const DEFAULT_EDGES = [
   { id: 'e17', from: 'n12', to: 'n13', label: '' },
 ]
 
-const nodes    = reactive(JSON.parse(JSON.stringify(DEFAULT_NODES)))
-const edges    = reactive(JSON.parse(JSON.stringify(DEFAULT_EDGES)))
-const selected = ref(null)
+const nodes      = reactive(JSON.parse(JSON.stringify(DEFAULT_NODES)))
+const edges      = reactive(JSON.parse(JSON.stringify(DEFAULT_EDGES)))
+const selected   = ref(null)       // node id
+const selectedEdgeId = ref(null)   // edge id
 const addingEdge = ref(null)
 const activeTab  = ref('view')
 const editorSvg  = ref(null)
@@ -213,26 +214,38 @@ let toastTimer   = null
 let nextId       = 16
 
 const getNode = id => nodes.find(n => n.id === id)
+const getEdge = id => edges.find(e => e.id === id)
 const pal     = p  => PALETTES[p] || PALETTES.neutral
 
 function nodeCx(n) { return n.x + n.w / 2 }
 function nodeCy(n) { return n.y + n.h / 2 }
 
+// Each edge can have an optional { mx, my } waypoint for the elbow midpoint
 function edgePoints(e) {
   const f = getNode(e.from), t = getNode(e.to)
   if (!f || !t) return ''
   const fx = nodeCx(f), fy = f.y + f.h
   const tx = nodeCx(t), ty = t.y
-  const my = fy + (ty - fy) * 0.5
+  const mx = e.mid ? e.mid.x : (fx + tx) / 2
+  const my = e.mid ? e.mid.y : fy + (ty - fy) * 0.5
   return `M${fx},${fy} L${fx},${my} L${tx},${my} L${tx},${ty}`
 }
 
-function edgeMidLabel(e) {
+function edgeMidPoint(e) {
   const f = getNode(e.from), t = getNode(e.to)
   if (!f || !t) return { x: 0, y: 0 }
   const fx = nodeCx(f), fy = f.y + f.h
   const tx = nodeCx(t), ty = t.y
-  return { x: (fx + tx) / 2, y: fy + (ty - fy) * 0.5 }
+  return {
+    x: e.mid ? e.mid.x : (fx + tx) / 2,
+    y: e.mid ? e.mid.y : fy + (ty - fy) * 0.5,
+  }
+}
+
+// label sits slightly above the midpoint elbow
+function edgeMidLabel(e) {
+  const m = edgeMidPoint(e)
+  return { x: m.x, y: m.y - 8 }
 }
 
 function diamondPts(n) {
@@ -255,6 +268,7 @@ const legendY = computed(() =>
 )
 
 const selectedNode = computed(() => selected.value ? getNode(selected.value) : null)
+const selectedEdge = computed(() => selectedEdgeId.value ? getEdge(selectedEdgeId.value) : null)
 
 const connectedEdges = computed(() =>
   selectedNode.value
@@ -265,13 +279,20 @@ const connectedEdges = computed(() =>
 function selectNode(id) {
   if (addingEdge.value) {
     if (addingEdge.value.fromId !== id) {
-      edges.push({ id: 'e' + (++nextId), from: addingEdge.value.fromId, to: id, label: '' })
+      edges.push({ id: 'e' + (++nextId), from: addingEdge.value.fromId, to: id, label: '', mid: null })
       showToast('連線已建立')
     }
     addingEdge.value = null
     return
   }
+  selectedEdgeId.value = null
   selected.value = selected.value === id ? null : id
+}
+
+function selectEdge(id) {
+  if (addingEdge.value) return
+  selected.value = null
+  selectedEdgeId.value = selectedEdgeId.value === id ? null : id
 }
 
 function addNode() {
@@ -282,6 +303,10 @@ function addNode() {
 }
 
 function deleteSelected() {
+  if (selectedEdgeId.value) {
+    deleteEdge(selectedEdgeId.value)
+    return
+  }
   if (!selected.value) return
   const idx = nodes.findIndex(n => n.id === selected.value)
   if (idx >= 0) nodes.splice(idx, 1)
@@ -295,7 +320,14 @@ function deleteSelected() {
 function deleteEdge(id) {
   const idx = edges.findIndex(e => e.id === id)
   if (idx >= 0) edges.splice(idx, 1)
+  if (selectedEdgeId.value === id) selectedEdgeId.value = null
   showToast('連線已刪除')
+}
+
+function resetEdgeMid(edgeId) {
+  const e = getEdge(edgeId)
+  if (e) e.mid = null
+  showToast('折點已重置')
 }
 
 function toggleEdgeMode() {
@@ -306,6 +338,7 @@ function resetAll() {
   nodes.splice(0, nodes.length, ...JSON.parse(JSON.stringify(DEFAULT_NODES)))
   edges.splice(0, edges.length, ...JSON.parse(JSON.stringify(DEFAULT_EDGES)))
   selected.value = null
+  selectedEdgeId.value = null
   showToast('已還原為原始版本')
 }
 
@@ -362,6 +395,53 @@ function endDrag() {
   window.removeEventListener('mouseup', endDrag)
   window.removeEventListener('touchmove', onDrag)
   window.removeEventListener('touchend', endDrag)
+}
+
+// ── waypoint drag ──
+let draggingWaypoint = null
+
+function startWaypointDrag(e, edgeId) {
+  const svgEl = editorSvg.value
+  if (!svgEl) return
+  e.preventDefault()
+  e.stopPropagation()
+  const edge = getEdge(edgeId)
+  if (!edge) return
+  // init mid from current computed position if not set
+  if (!edge.mid) {
+    const m = edgeMidPoint(edge)
+    edge.mid = { x: m.x, y: m.y }
+  }
+  const pt = svgEl.createSVGPoint()
+  const cp = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }
+  pt.x = cp.x; pt.y = cp.y
+  const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+  draggingWaypoint = { edgeId, svgEl, offsetX: sp.x - edge.mid.x, offsetY: sp.y - edge.mid.y }
+  window.addEventListener('mousemove', onWaypointDrag)
+  window.addEventListener('mouseup', endWaypointDrag)
+  window.addEventListener('touchmove', onWaypointDrag, { passive: false })
+  window.addEventListener('touchend', endWaypointDrag)
+}
+
+function onWaypointDrag(e) {
+  if (!draggingWaypoint) return
+  e.preventDefault()
+  const pt = draggingWaypoint.svgEl.createSVGPoint()
+  const cp = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }
+  pt.x = cp.x; pt.y = cp.y
+  const sp = pt.matrixTransform(draggingWaypoint.svgEl.getScreenCTM().inverse())
+  const edge = getEdge(draggingWaypoint.edgeId)
+  if (edge) {
+    edge.mid = { x: sp.x - draggingWaypoint.offsetX, y: sp.y - draggingWaypoint.offsetY }
+  }
+}
+
+function endWaypointDrag() {
+  draggingWaypoint = null
+  window.removeEventListener('mousemove', onWaypointDrag)
+  window.removeEventListener('mouseup', endWaypointDrag)
+  window.removeEventListener('touchmove', onWaypointDrag)
+  window.removeEventListener('touchend', endWaypointDrag)
 }
 </script>
 
@@ -471,7 +551,7 @@ function endDrag() {
                         :fill="pal(n.palette).stroke">{{ n.sub }}</text>
                 </template>
                 <template v-else-if="n.type === 'diamond'">
-                  <polygon :points="diamondPts(n)" fill="none" :stroke="pal(n.palette).text" stroke-width="1" opacity="0.85" />
+                  <polygon :points="diamondPts(n)" fill="transparent" :stroke="pal(n.palette).text" stroke-width="1" opacity="0.85" />
                   <text :x="n.x + n.w / 2" :y="n.y + n.h / 2" text-anchor="middle" dominant-baseline="central"
                         font-size="13" font-weight="500" fill="#FAF9F5">{{ n.label }}</text>
                 </template>
@@ -492,7 +572,7 @@ function endDrag() {
                       class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
                 ＋ 新增節點
               </button>
-              <button @click="deleteSelected" :disabled="!selected"
+              <button @click="deleteSelected" :disabled="!selected && !selectedEdgeId"
                       class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 🗑 刪除選取
               </button>
@@ -531,11 +611,26 @@ function endDrag() {
                     </marker>
                   </defs>
                   <g v-for="e in edges" :key="e.id">
-                    <path :d="edgePoints(e)" fill="none" stroke="#9C9A92" stroke-width="0.8" opacity="0.45" marker-end="url(#ea)" />
-                    <text v-if="e.label" :x="edgeMidLabel(e).x" :y="edgeMidLabel(e).y - 5"
-                          text-anchor="middle" font-size="11" fill="#9C9A92">{{ e.label }}</text>
-                    <circle :cx="edgeMidLabel(e).x" :cy="edgeMidLabel(e).y" r="8" fill="transparent"
-                            style="cursor:pointer" @click.stop="deleteEdge(e.id)" />
+                    <!-- wide invisible hit area for clicking the line -->
+                    <path :d="edgePoints(e)" fill="none" stroke="transparent" stroke-width="12"
+                          style="cursor:pointer" @click.stop="selectEdge(e.id)" />
+                    <!-- visible line -->
+                    <path :d="edgePoints(e)" fill="none"
+                          :stroke="selectedEdgeId === e.id ? '#60A5FA' : '#9C9A92'"
+                          :stroke-width="selectedEdgeId === e.id ? 1.5 : 0.8"
+                          opacity="0.9" marker-end="url(#ea)" />
+                    <!-- label -->
+                    <text v-if="e.label" :x="edgeMidLabel(e).x" :y="edgeMidLabel(e).y"
+                          text-anchor="middle" font-size="11"
+                          :fill="selectedEdgeId === e.id ? '#93C5FD' : '#9C9A92'">{{ e.label }}</text>
+                    <!-- waypoint drag handle (only when edge is selected) -->
+                    <g v-if="selectedEdgeId === e.id">
+                      <circle :cx="edgeMidPoint(e).x" :cy="edgeMidPoint(e).y" r="6"
+                              fill="#1D4ED8" stroke="#93C5FD" stroke-width="1.5"
+                              style="cursor:move"
+                              @mousedown.stop="startWaypointDrag($event, e.id)"
+                              @touchstart.stop.prevent="startWaypointDrag($event, e.id)" />
+                    </g>
                   </g>
                   <g v-for="n in nodes" :key="n.id"
                      :style="{ cursor: addingEdge ? 'crosshair' : 'grab' }"
@@ -555,7 +650,7 @@ function endDrag() {
                             :fill="pal(n.palette).stroke" style="pointer-events:none">{{ n.sub }}</text>
                     </template>
                     <template v-else-if="n.type === 'diamond'">
-                      <polygon :points="diamondPts(n)" fill="none"
+                      <polygon :points="diamondPts(n)" fill="transparent"
                                :stroke="selected === n.id ? '#FFD700' : pal(n.palette).text"
                                :stroke-width="selected === n.id ? 2 : 1" opacity="0.9" />
                       <text :x="n.x + n.w / 2" :y="n.y + n.h / 2" text-anchor="middle" dominant-baseline="central"
@@ -565,7 +660,7 @@ function endDrag() {
                 </svg>
               </div>
 
-              <!-- Property panel -->
+              <!-- Node property panel -->
               <div v-if="selectedNode"
                    class="w-48 flex-shrink-0 bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-3 text-xs">
                 <p class="text-[10px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide mb-2">節點屬性</p>
@@ -626,9 +721,54 @@ function endDrag() {
                 </template>
               </div>
 
+              <!-- Edge property panel -->
+              <div v-else-if="selectedEdge"
+                   class="w-48 flex-shrink-0 bg-white dark:bg-zinc-900 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-sm p-3 text-xs">
+                <p class="text-[10px] font-semibold text-blue-400 dark:text-blue-500 uppercase tracking-wide mb-2">連線屬性</p>
+
+                <div class="text-[11px] text-stone-500 dark:text-stone-400 mb-2 leading-relaxed">
+                  {{ (getNode(selectedEdge.from) || { label: '?' }).label }}
+                  <span class="text-blue-400 mx-1">→</span>
+                  {{ (getNode(selectedEdge.to) || { label: '?' }).label }}
+                </div>
+
+                <label class="block text-stone-500 dark:text-stone-400 mb-1">標籤文字</label>
+                <input v-model="selectedEdge.label" placeholder="例：是 / 否"
+                       class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-400 mb-3" />
+
+                <div class="border-t border-stone-100 dark:border-stone-800 pt-2">
+                  <p class="text-[10px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide mb-2">折點位置</p>
+                  <p class="text-[11px] text-stone-400 dark:text-stone-500 mb-2 leading-relaxed">拖動線上的藍色圓點調整路徑</p>
+                  <div class="grid grid-cols-2 gap-1.5 mb-2">
+                    <div>
+                      <label class="block text-stone-500 dark:text-stone-400 mb-1">X</label>
+                      <input type="number" :value="selectedEdge.mid ? Math.round(selectedEdge.mid.x) : Math.round(edgeMidPoint(selectedEdge).x)"
+                             @input="e => { if (!selectedEdge.mid) selectedEdge.mid = edgeMidPoint(selectedEdge); selectedEdge.mid.x = +e.target.value }"
+                             class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-400" />
+                    </div>
+                    <div>
+                      <label class="block text-stone-500 dark:text-stone-400 mb-1">Y</label>
+                      <input type="number" :value="selectedEdge.mid ? Math.round(selectedEdge.mid.y) : Math.round(edgeMidPoint(selectedEdge).y)"
+                             @input="e => { if (!selectedEdge.mid) selectedEdge.mid = edgeMidPoint(selectedEdge); selectedEdge.mid.y = +e.target.value }"
+                             class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-400" />
+                    </div>
+                  </div>
+                  <button @click="resetEdgeMid(selectedEdge.id)"
+                          class="w-full px-2 py-1.5 text-[11px] border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 transition-colors mb-2">
+                    ↺ 重置折點
+                  </button>
+                </div>
+
+                <button @click="deleteEdge(selectedEdge.id)"
+                        class="w-full px-2 py-1.5 text-[11px] border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                  🗑 刪除此連線
+                </button>
+              </div>
+
+              <!-- Empty panel -->
               <div v-else
                    class="w-48 flex-shrink-0 bg-stone-50 dark:bg-zinc-800/50 rounded-2xl border border-dashed border-stone-200 dark:border-stone-700 p-4 text-center text-xs text-stone-400 dark:text-stone-500">
-                點選節點<br>查看屬性
+                點選節點或連線<br>查看屬性
               </div>
             </div>
           </div>
