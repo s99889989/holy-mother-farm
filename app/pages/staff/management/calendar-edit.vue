@@ -912,7 +912,7 @@ function parseTxtContent(raw) {
 }
 
 function eventKey(e) {
-  return `${e.date}|${e.time}|${e.title}|${e.owner}`
+  return `${e.date}|${e.time}|${e.title}|${e.owner}|${e.room}`
 }
 
 function parseTxt() {
