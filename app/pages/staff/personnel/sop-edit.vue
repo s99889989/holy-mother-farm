@@ -1,6 +1,6 @@
 <script setup>
 definePageMeta({layout: 'staff'})
-import {ref, reactive, computed, h, nextTick, onMounted, onUnmounted} from 'vue'
+import {ref, reactive, computed, h, nextTick, onMounted} from 'vue'
 
 useHead({title: 'SOP 手冊 — 聖母健康農莊'})
 
@@ -354,94 +354,12 @@ function getFc(block) {
       addingEdge: null,
       svgRef: null,
       nextId: 200,
-      zoom: 100,
-      history: [],
-      future: [],
     }
   }
   return fcState[block.id]
 }
 
-// ── Undo / Redo ──────────────────────────────────────────────
-function fcSnapshot(block) {
-  const s = getFc(block)
-  s.history.push(JSON.stringify({ nodes: block.nodes, edges: block.edges }))
-  if (s.history.length > 50) s.history.shift()
-  s.future = []
-}
-function fcUndo(block) {
-  const s = getFc(block)
-  if (!s.history.length) return
-  s.future.push(JSON.stringify({ nodes: block.nodes, edges: block.edges }))
-  const prev = JSON.parse(s.history.pop())
-  block.nodes.splice(0, block.nodes.length, ...prev.nodes)
-  block.edges.splice(0, block.edges.length, ...prev.edges)
-  s.selected = null; s.selectedEdgeId = null
-}
-function fcRedo(block) {
-  const s = getFc(block)
-  if (!s.future.length) return
-  s.history.push(JSON.stringify({ nodes: block.nodes, edges: block.edges }))
-  const next = JSON.parse(s.future.pop())
-  block.nodes.splice(0, block.nodes.length, ...next.nodes)
-  block.edges.splice(0, block.edges.length, ...next.edges)
-  s.selected = null; s.selectedEdgeId = null
-}
-
-// ── Clipboard ────────────────────────────────────────────────
-const _fcClipboard = ref(null)
-function fcCopy(block) {
-  const s = getFc(block)
-  if (!s.selected) return
-  const node = block.nodes.find(n => n.id === s.selected)
-  if (!node) return
-  _fcClipboard.value = JSON.parse(JSON.stringify(node))
-  showToast('已複製節點')
-}
-function fcPaste(block) {
-  if (!_fcClipboard.value) return
-  const s = getFc(block)
-  fcSnapshot(block)
-  const id = 'n' + (++s.nextId)
-  const node = { ...JSON.parse(JSON.stringify(_fcClipboard.value)), id, x: _fcClipboard.value.x + 24, y: _fcClipboard.value.y + 24 }
-  block.nodes.push(node)
-  s.selected = id
-  showToast('已貼上節點')
-}
-
-const pal = p => {
-  if (p && p.startsWith('custom:')) {
-    const parts = p.split(':')
-    return { fill: parts[1]||'#444441', stroke: parts[2]||'#B4B2A9', text: parts[3]||'#D3D1C7' }
-  }
-  return PALETTES[p] || PALETTES.neutral
-}
-
-// 預設色票
-function subLines(sub) {
-  if (!sub) return []
-  return sub.split('\n')
-}
-
-const PRESET_COLORS = [
-  { label:'顧客（綠）',   value:'customer' },
-  { label:'訂單（紫）',   value:'order' },
-  { label:'付款（橙）',   value:'payment' },
-  { label:'發票（草綠）', value:'invoice' },
-  { label:'帳單（磚紅）', value:'receipt' },
-  { label:'其他（灰）',   value:'neutral' },
-  { label:'自訂顏色',     value:'custom' },
-]
-function palFill(p)   { return pal(p).fill }
-function palStroke(p) { return pal(p).stroke }
-function palText(p)   { return pal(p).text }
-function setCustomColor(node, key, val) {
-  const parts = node.palette.startsWith('custom:') ? node.palette.split(':') : ['custom', palFill(node.palette), palStroke(node.palette), palText(node.palette)]
-  if (key === 'fill')   parts[1] = val
-  if (key === 'stroke') parts[2] = val
-  if (key === 'text')   parts[3] = val
-  node.palette = parts.join(':')
-}
+const pal = p => PALETTES[p] || PALETTES.neutral
 
 function nodeCx(n) {
   return n.x + n.w / 2
@@ -478,7 +396,7 @@ function diamondPts(n) {
 
 function fcViewBox(block) {
   const ns = block.nodes
-  if (!ns.length) return '0 0 900 600'
+  if (!ns.length) return '0 0 680 200'
   const pad = 40
   const minX = ns.reduce((m, n) => Math.min(m, n.x), Infinity) - pad
   const minY = ns.reduce((m, n) => Math.min(m, n.y), Infinity) - pad
@@ -490,36 +408,6 @@ function fcViewBox(block) {
 function fcLegendY(block) {
   return block.nodes.reduce((m, n) => Math.max(m, n.y + n.h), -Infinity) + 20
 }
-
-// ── Delete / Ctrl 快捷鍵 ────────────────────────────────────
-function onKeyDown(e) {
-  const tag = document.activeElement?.tagName
-  const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-  let activeBlock = null
-  outer: for (const group of sopData.groups) {
-    for (const page of group.pages) {
-      for (const block of page.blocks) {
-        if (block.type !== 'flowchart') continue
-        const s = fcState[block.id]
-        if (s && s.tab === 'edit') { activeBlock = block; break outer }
-      }
-    }
-  }
-  if (!activeBlock) return
-  const s = fcState[activeBlock.id]
-  const ctrl = e.ctrlKey || e.metaKey
-  if (ctrl && e.key === 'z' && !e.shiftKey) { e.preventDefault(); fcUndo(activeBlock); return }
-  if (ctrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); fcRedo(activeBlock); return }
-  // Ctrl+C / Ctrl+V 只在焦點不在輸入框時攔截，避免干擾一般文字複製貼上
-  if (ctrl && e.key === 'c' && !inInput) { fcCopy(activeBlock); return }
-  if (ctrl && e.key === 'v' && !inInput) { e.preventDefault(); fcPaste(activeBlock); return }
-  if (ctrl && (e.key === '+' || e.key === '=')) { e.preventDefault(); fcAddNode(activeBlock); return }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && !inInput) {
-    if (s.selected || s.selectedEdgeId) { e.preventDefault(); fcDeleteSelected(activeBlock) }
-  }
-}
-onMounted(() => window.addEventListener('keydown', onKeyDown))
-onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 
 function fcSelectNode(block, id) {
   const s = getFc(block)
@@ -541,32 +429,10 @@ function fcSelectEdge(block, id) {
   s.selectedEdgeId = s.selectedEdgeId === id ? null : id
 }
 
-// ── 自動節點大小 ─────────────────────────────────────────────
-function estimateTextWidth(text, fontSize = 14) {
-  if (!text) return 0
-  let w = 0
-  for (const ch of text) {
-    w += /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\u3040-\u30ff]/.test(ch) ? fontSize : fontSize * 0.55
-  }
-  return w
-}
-function autoNodeSize(node) {
-  const PADX = 28, PADY = 16, LABEL_H = 20, SUB_LINE_H = 16, MIN_W = 110, MIN_H = 44
-  const labelW = estimateTextWidth(node.label, 14)
-  const subLineArr = node.sub ? node.sub.split('\n') : []
-  const subW = subLineArr.length ? Math.max(...subLineArr.map(l => estimateTextWidth(l, 11))) : 0
-  const w = Math.max(MIN_W, Math.max(labelW, subW) + PADX * 2)
-  const h = Math.max(MIN_H, PADY + LABEL_H + (subLineArr.length ? subLineArr.length * SUB_LINE_H + 6 : 0) + PADY)
-  node.w = Math.round(w); node.h = Math.round(h)
-}
-
 function fcAddNode(block) {
   const s = getFc(block)
-  fcSnapshot(block)
   const id = 'n' + (++s.nextId)
-  const node = { id, type:'rect', label:'新節點', x:200, y:200, w:120, h:40, palette:'neutral', sub:'' }
-  autoNodeSize(node)
-  block.nodes.push(node)
+  block.nodes.push({id, type: 'rect', label: '新節點', x: 200, y: 200, w: 120, h: 40, palette: 'neutral', sub: ''})
   s.selected = id
 }
 
@@ -577,7 +443,6 @@ function fcDeleteSelected(block) {
     return
   }
   if (!s.selected) return
-  fcSnapshot(block)
   const idx = block.nodes.findIndex(n => n.id === s.selected)
   if (idx >= 0) block.nodes.splice(idx, 1)
   for (let i = block.edges.length - 1; i >= 0; i--) {
@@ -588,7 +453,6 @@ function fcDeleteSelected(block) {
 
 function fcDeleteEdge(block, id) {
   const s = getFc(block)
-  fcSnapshot(block)
   const idx = block.edges.findIndex(e => e.id === id)
   if (idx >= 0) block.edges.splice(idx, 1)
   if (s.selectedEdgeId === id) s.selectedEdgeId = null
@@ -1178,86 +1042,64 @@ function showToast(msg) {
                         <template v-if="n.type==='rect'">
                           <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="pal(n.palette).fill"
                                 :stroke="pal(n.palette).stroke" stroke-width="0.5"/>
-                          <text :x="n.x+n.w/2"
-                                :y="subLines(n.sub).length ? n.y+22 : n.y+n.h/2+5"
-                                text-anchor="middle" font-size="14" font-weight="500" :fill="pal(n.palette).text">{{n.label}}</text>
-                          <text v-if="n.sub" :x="n.x+n.w/2" text-anchor="middle" font-size="11" :fill="pal(n.palette).stroke">
-                            <tspan v-for="(line,li) in subLines(n.sub)" :key="li" :x="n.x+n.w/2"
-                                   :y="li===0 ? n.y+38 : undefined" :dy="li===0 ? undefined : 16">{{line}}</tspan>
+                          <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-8:n.y+n.h/2" text-anchor="middle"
+                                dominant-baseline="central" font-size="14" font-weight="500"
+                                :fill="pal(n.palette).text">{{ n.label }}
+                          </text>
+                          <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+10" text-anchor="middle"
+                                dominant-baseline="central" font-size="11" :fill="pal(n.palette).stroke">{{ n.sub }}
                           </text>
                         </template>
                         <template v-else-if="n.type==='diamond'">
                           <polygon :points="diamondPts(n)" fill="transparent" :stroke="pal(n.palette).text"
                                    stroke-width="1" opacity="0.85"/>
-                          <text :x="n.x+n.w/2"
-                                :y="subLines(n.sub).length ? n.y+n.h/2-6 : n.y+n.h/2+5"
-                                text-anchor="middle" font-size="13" font-weight="500" fill="#FAF9F5">{{n.label}}</text>
-                          <text v-if="n.sub" :x="n.x+n.w/2" text-anchor="middle" font-size="10" fill="#B4B2A9">
-                            <tspan v-for="(line,li) in subLines(n.sub)" :key="li" :x="n.x+n.w/2"
-                                   :y="li===0 ? n.y+n.h/2+10 : undefined" :dy="li===0 ? undefined : 13">{{line}}</tspan>
+                          <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-7:n.y+n.h/2" text-anchor="middle"
+                                dominant-baseline="central" font-size="13" font-weight="500" fill="#FAF9F5">
+                            {{ n.label }}
+                          </text>
+                          <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+9" text-anchor="middle"
+                                dominant-baseline="central" font-size="10" fill="#B4B2A9">{{ n.sub }}
                           </text>
                         </template>
+                      </g>
+                      <g v-for="(l,i) in LEGEND" :key="l.label" :transform="`translate(0,${fcLegendY(block)})`">
+                        <rect :x="40+i*105" y="0" width="14" height="14" rx="3" :fill="pal(l.palette).fill"
+                              :stroke="pal(l.palette).stroke" stroke-width="0.5"/>
+                        <text :x="60+i*105" y="11" font-size="12" fill="#C2C0B6">{{ l.label }}</text>
                       </g>
                     </svg>
                   </div>
 
                   <!-- Edit -->
                   <div v-else>
-                    <!-- ── 工具列（sticky） ── -->
-                    <div class="sticky top-16 z-20 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 mb-3 flex flex-wrap gap-2 items-center shadow-sm">
-                      <button @click="fcAddNode(block)" title="新增節點 (Ctrl++)"
+                    <div class="flex flex-wrap gap-2 mb-3">
+                      <button @click="fcAddNode(block)"
                               class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
-                        ＋ 新增
+                        ＋ 新增節點
                       </button>
-                      <button @click="fcDeleteSelected(block)" title="刪除 (Del)"
+                      <button @click="fcDeleteSelected(block)"
                               :disabled="!getFc(block).selected && !getFc(block).selectedEdgeId"
                               class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-red-600 dark:text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40">
-                        🗑
+                        🗑 刪除選取
                       </button>
-                      <button @click="getFc(block).addingEdge = getFc(block).addingEdge ? null : { fromId: getFc(block).selected }"
-                              :disabled="!getFc(block).selected" title="連線"
-                              :class="['px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors disabled:opacity-40',
+                      <button
+                        @click="getFc(block).addingEdge = getFc(block).addingEdge ? null : { fromId: getFc(block).selected }"
+                        :disabled="!getFc(block).selected"
+                        :class="['px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors disabled:opacity-40',
                                        getFc(block).addingEdge ? 'bg-green-700 border-green-700 text-white' : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300']">
-                        {{ getFc(block).addingEdge ? '選目標…' : '↗ 連線' }}
+                        {{ getFc(block).addingEdge ? '點選目標節點…' : '↗ 連線' }}
                       </button>
-                      <button @click="fcCopy(block)" title="複製節點 (Ctrl+C)" :disabled="!getFc(block).selected"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 transition-colors disabled:opacity-40">
-                        ⎘
-                      </button>
-                      <button @click="fcPaste(block)" title="貼上節點 (Ctrl+V)" :disabled="!_fcClipboard"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 transition-colors disabled:opacity-40">
-                        ⎗
-                      </button>
-                      <button @click="fcUndo(block)" title="復原 (Ctrl+Z)" :disabled="!getFc(block).history?.length"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 transition-colors disabled:opacity-40">
-                        ↩
-                      </button>
-                      <button @click="fcRedo(block)" title="重做 (Ctrl+Y)" :disabled="!getFc(block).future?.length"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 transition-colors disabled:opacity-40">
-                        ↪
-                      </button>
-                      <div class="flex items-center gap-1.5 ml-auto">
-                        <button @click="getFc(block).zoom = Math.max(30, getFc(block).zoom - 10)"
-                                class="w-6 h-6 flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-700 text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-700 text-xs font-bold">−</button>
-                        <input type="range" min="30" max="200" step="5" :value="getFc(block).zoom"
-                               @input="getFc(block).zoom = Number($event.target.value)" class="w-24 accent-green-600" />
-                        <span class="text-xs text-stone-500 dark:text-stone-400 w-10 text-center">{{ getFc(block).zoom }}%</span>
-                        <button @click="getFc(block).zoom = Math.min(200, getFc(block).zoom + 10)"
-                                class="w-6 h-6 flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-700 text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-700 text-xs font-bold">＋</button>
-                        <button @click="getFc(block).zoom = 100"
-                                class="px-2 py-1 text-[11px] rounded-lg border border-stone-200 dark:border-stone-700 text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 transition-colors">重設</button>
-                      </div>
-                      <button @click="e => fcExport(block, e.currentTarget.closest('.fc-editor-wrap').querySelector('svg'))"
-                              title="匯出 SVG" class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-500 hover:bg-stone-50 transition-colors">
-                        ⬇
+                      <button @click="e => fcExport(block, e.currentTarget.closest('.fc-editor').querySelector('svg'))"
+                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-500 hover:bg-stone-50 transition-colors ml-auto">
+                        ⬇ 匯出
                       </button>
                     </div>
 
-                    <div class="fc-editor-wrap" style="display:grid; grid-template-columns: 1fr 212px; gap: 12px; align-items: start;">
-                      <div class="flex-1 bg-zinc-900 rounded-xl overflow-x-auto" style="min-height:600px; max-height:75vh; overflow-y:auto;">
-                        <svg :viewBox="fcViewBox(block)"
-                             :width="getFc(block).zoom + '%'"
-                             :style="{minWidth: '600px', display:'block', cursor: getFc(block).addingEdge ? 'crosshair' : 'default'}"
+                    <div class="fc-editor flex gap-3 items-start">
+                      <div class="flex-1 bg-zinc-900 rounded-xl overflow-auto">
+                        <svg :viewBox="fcViewBox(block)" width="100%"
+                             style="min-width:400px;display:block;"
+                             :style="{cursor: getFc(block).addingEdge ? 'crosshair' : 'default'}"
                              :ref="el => { if(el) getFc(block).svgRef = el }">
                           <defs>
                             <marker id="ea" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6"
@@ -1294,24 +1136,26 @@ function showToast(msg) {
                                     :fill="pal(n.palette).fill"
                                     :stroke="getFc(block).selected===n.id?'#FFD700':pal(n.palette).stroke"
                                     :stroke-width="getFc(block).selected===n.id?2:0.5"/>
-                              <text :x="n.x+n.w/2"
-                                    :y="subLines(n.sub).length ? n.y+22 : n.y+n.h/2+5"
-                                    text-anchor="middle" font-size="14" font-weight="500" :fill="pal(n.palette).text" style="pointer-events:none">{{n.label}}</text>
-                              <text v-if="n.sub" :x="n.x+n.w/2" text-anchor="middle" font-size="11" :fill="pal(n.palette).stroke" style="pointer-events:none">
-                                <tspan v-for="(line,li) in subLines(n.sub)" :key="li" :x="n.x+n.w/2"
-                                       :y="li===0 ? n.y+38 : undefined" :dy="li===0 ? undefined : 16">{{line}}</tspan>
+                              <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-8:n.y+n.h/2" text-anchor="middle"
+                                    dominant-baseline="central" font-size="14" font-weight="500"
+                                    :fill="pal(n.palette).text" style="pointer-events:none">{{ n.label }}
+                              </text>
+                              <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+10" text-anchor="middle"
+                                    dominant-baseline="central" font-size="11" :fill="pal(n.palette).stroke"
+                                    style="pointer-events:none">{{ n.sub }}
                               </text>
                             </template>
                             <template v-else-if="n.type==='diamond'">
                               <polygon :points="diamondPts(n)" fill="transparent"
                                        :stroke="getFc(block).selected===n.id?'#FFD700':pal(n.palette).text"
                                        :stroke-width="getFc(block).selected===n.id?2:1" opacity="0.9"/>
-                              <text :x="n.x+n.w/2"
-                                    :y="subLines(n.sub).length ? n.y+n.h/2-6 : n.y+n.h/2+5"
-                                    text-anchor="middle" font-size="13" font-weight="500" fill="#FAF9F5" style="pointer-events:none">{{n.label}}</text>
-                              <text v-if="n.sub" :x="n.x+n.w/2" text-anchor="middle" font-size="10" fill="#B4B2A9" style="pointer-events:none">
-                                <tspan v-for="(line,li) in subLines(n.sub)" :key="li" :x="n.x+n.w/2"
-                                       :y="li===0 ? n.y+n.h/2+10 : undefined" :dy="li===0 ? undefined : 13">{{line}}</tspan>
+                              <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-7:n.y+n.h/2" text-anchor="middle"
+                                    dominant-baseline="central" font-size="13" font-weight="500" fill="#FAF9F5"
+                                    style="pointer-events:none">{{ n.label }}
+                              </text>
+                              <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+9" text-anchor="middle"
+                                    dominant-baseline="central" font-size="10" fill="#B4B2A9"
+                                    style="pointer-events:none">{{ n.sub }}
                               </text>
                             </template>
                           </g>
@@ -1319,18 +1163,16 @@ function showToast(msg) {
                       </div>
 
                       <!-- Property panel -->
-                      <div style="position:sticky; top:120px; align-self:start;">
+                      <div class="w-48 flex-shrink-0">
                         <div v-if="getFc(block).selected && block.nodes.find(n=>n.id===getFc(block).selected)"
                              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 text-xs">
                           <p class="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-2">節點屬性</p>
                           <label class="block text-stone-500 mb-1">文字</label>
                           <input v-model="block.nodes.find(n=>n.id===getFc(block).selected).label"
                                  class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none mb-2"/>
-                          <label class="block text-stone-500 mb-1">副標題 <span class="text-stone-400 font-normal">（換行用 Enter）</span></label>
-                          <textarea v-model="block.nodes.find(n=>n.id===getFc(block).selected).sub"
-                                    @input="autoNodeSize(block.nodes.find(n=>n.id===getFc(block).selected))"
-                                    placeholder="（選填，Enter 換行）" rows="3"
-                                    class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none mb-2 resize-none"/>
+                          <label class="block text-stone-500 mb-1">副標題</label>
+                          <input v-model="block.nodes.find(n=>n.id===getFc(block).selected).sub" placeholder="（選填）"
+                                 class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none mb-2"/>
                           <label class="block text-stone-500 mb-1">形狀</label>
                           <select v-model="block.nodes.find(n=>n.id===getFc(block).selected).type"
                                   class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none mb-2">
@@ -1338,60 +1180,15 @@ function showToast(msg) {
                             <option value="diamond">菱形（判斷）</option>
                           </select>
                           <label class="block text-stone-500 mb-1">顏色</label>
-                          <div class="flex flex-wrap gap-1.5 mb-2">
-                            <button v-for="pc in PRESET_COLORS.filter(x=>x.value!=='custom')" :key="pc.value"
-                                    @click="block.nodes.find(n=>n.id===getFc(block).selected).palette = pc.value"
-                                    :title="pc.label"
-                                    :style="{background: PALETTES[pc.value].fill, border: '2px solid ' + PALETTES[pc.value].stroke}"
-                                    :class="['w-6 h-6 rounded-md transition-transform hover:scale-110',
-                                             block.nodes.find(n=>n.id===getFc(block).selected).palette===pc.value ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-800 scale-110' : '']">
-                            </button>
-                          </div>
-                          <div class="mb-2">
-                            <button @click="block.nodes.find(n=>n.id===getFc(block).selected).palette = 'custom:' + palFill(block.nodes.find(n=>n.id===getFc(block).selected).palette) + ':' + palStroke(block.nodes.find(n=>n.id===getFc(block).selected).palette) + ':' + palText(block.nodes.find(n=>n.id===getFc(block).selected).palette)"
-                                    v-if="!block.nodes.find(n=>n.id===getFc(block).selected).palette?.startsWith('custom:')"
-                                    class="w-full px-2 py-1 text-[11px] border border-dashed border-stone-300 dark:border-stone-600 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors">
-                              🎨 切換自訂顏色
-                            </button>
-                            <div v-if="block.nodes.find(n=>n.id===getFc(block).selected).palette?.startsWith('custom:')" class="space-y-1.5">
-                              <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-stone-400 w-8">背景</span>
-                                <input type="color" :value="palFill(block.nodes.find(n=>n.id===getFc(block).selected).palette)"
-                                       @input="setCustomColor(block.nodes.find(n=>n.id===getFc(block).selected),'fill',$event.target.value)"
-                                       class="w-7 h-7 rounded cursor-pointer border-0 p-0" />
-                                <input :value="palFill(block.nodes.find(n=>n.id===getFc(block).selected).palette)"
-                                       @input="setCustomColor(block.nodes.find(n=>n.id===getFc(block).selected),'fill',$event.target.value)"
-                                       class="flex-1 px-1.5 py-1 text-[10px] border border-stone-200 dark:border-stone-700 rounded bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none font-mono" />
-                              </div>
-                              <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-stone-400 w-8">框線</span>
-                                <input type="color" :value="palStroke(block.nodes.find(n=>n.id===getFc(block).selected).palette)"
-                                       @input="setCustomColor(block.nodes.find(n=>n.id===getFc(block).selected),'stroke',$event.target.value)"
-                                       class="w-7 h-7 rounded cursor-pointer border-0 p-0" />
-                                <input :value="palStroke(block.nodes.find(n=>n.id===getFc(block).selected).palette)"
-                                       @input="setCustomColor(block.nodes.find(n=>n.id===getFc(block).selected),'stroke',$event.target.value)"
-                                       class="flex-1 px-1.5 py-1 text-[10px] border border-stone-200 dark:border-stone-700 rounded bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none font-mono" />
-                              </div>
-                              <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-stone-400 w-8">文字</span>
-                                <input type="color" :value="palText(block.nodes.find(n=>n.id===getFc(block).selected).palette)"
-                                       @input="setCustomColor(block.nodes.find(n=>n.id===getFc(block).selected),'text',$event.target.value)"
-                                       class="w-7 h-7 rounded cursor-pointer border-0 p-0" />
-                                <input :value="palText(block.nodes.find(n=>n.id===getFc(block).selected).palette)"
-                                       @input="setCustomColor(block.nodes.find(n=>n.id===getFc(block).selected),'text',$event.target.value)"
-                                       class="flex-1 px-1.5 py-1 text-[10px] border border-stone-200 dark:border-stone-700 rounded bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none font-mono" />
-                              </div>
-                              <button @click="block.nodes.find(n=>n.id===getFc(block).selected).palette = 'neutral'"
-                                      class="w-full px-2 py-1 text-[11px] border border-stone-200 dark:border-stone-700 rounded-lg text-stone-400 hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors">
-                                ← 改回預設色
-                              </button>
-                            </div>
-                          </div>
-                          <div class="flex items-center justify-between text-[10px] text-stone-400 dark:text-stone-500 mt-1">
-                            <span>自動尺寸 {{ block.nodes.find(n=>n.id===getFc(block).selected).w }} × {{ block.nodes.find(n=>n.id===getFc(block).selected).h }}</span>
-                            <button @click="autoNodeSize(block.nodes.find(n=>n.id===getFc(block).selected))"
-                                    class="px-2 py-0.5 rounded-lg border border-stone-200 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-zinc-700 transition-colors">↺ 重新計算</button>
-                          </div>
+                          <select v-model="block.nodes.find(n=>n.id===getFc(block).selected).palette"
+                                  class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none mb-2">
+                            <option value="customer">顧客（綠）</option>
+                            <option value="order">訂單（紫）</option>
+                            <option value="payment">付款（橙）</option>
+                            <option value="invoice">發票（草綠）</option>
+                            <option value="receipt">帳單（磚紅）</option>
+                            <option value="neutral">其他（灰）</option>
+                          </select>
                           <div class="grid grid-cols-2 gap-1.5">
                             <div><label class="block text-stone-500 mb-1">寬</label>
                               <input type="number" v-model.number="block.nodes.find(n=>n.id===getFc(block).selected).w"
