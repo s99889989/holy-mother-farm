@@ -1,8 +1,9 @@
 <script setup>
 definePageMeta({ layout: 'staff' })
 
-// ── API base ──────────────────────────────────────────────────────
-const API = '/api/staff/class-schedule'
+// ── API base（參考 quick-links-edit.vue 使用 commonStore）────────
+const commonStore = useCommonStore()
+const BASE = () => commonStore.data.main_url + '/holy/class-schedule'
 
 // ── 假別設定 ──────────────────────────────────────────────────────
 const LEGENDS = [
@@ -96,7 +97,7 @@ async function fetchSchedule() {
   loading.value   = true
   loadError.value = ''
   try {
-    const res  = await $fetch(`${API}/${currentYear.value}/${currentMonth.value}`)
+    const res  = await (await fetch(`${BASE()}/${currentYear.value}/${currentMonth.value}`)).json()
     if (!res.success) throw new Error(res.message ?? '載入失敗')
     const data = res.data
     // 後端回傳 YML 解析結果，key 為整數需轉換
@@ -204,17 +205,19 @@ async function saveEdit() {
   try {
     const extra = canSetExtra.value ? editExtra.value : ''
     // 呼叫後端
-    await $fetch(`${API}/cell`, {
+    const res = await (await fetch(`${BASE()}/cell`, {
       method: 'POST',
-      body: {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         year:       currentYear.value,
         month:      currentMonth.value,
         employeeId: editEmp.value.id,
         day:        editDay.value,
         code:       editCode.value,
         extra:      extra
-      }
-    })
+      })
+    })).json()
+    if (!res.success) throw new Error(res.message)
     // 更新本地資料
     if (editCode.value === '') {
       delete editEmp.value.schedule[editDay.value]
@@ -268,12 +271,8 @@ const filteredLeaveRequests = computed(() =>
 async function fetchLeaveRequests() {
   leaveLoading.value = true
   try {
-    const res = await $fetch(`${API}/leave/list`, {
-      params: {
-        year:  currentYear.value,
-        month: currentMonth.value,
-      }
-    })
+    const params = new URLSearchParams({ year: currentYear.value, month: currentMonth.value })
+    const res = await (await fetch(`${BASE()}/leave/list?${params}`)).json()
     if (res.success) leaveRequests.value = res.data ?? []
   } catch (e) {
     showToast('載入請假清單失敗', true)
@@ -299,9 +298,10 @@ async function submitLeaveRequest() {
   if (!leaveForm.employeeId) { showToast('請選擇員工', true); return }
   leaveSubmitting.value = true
   try {
-    const res = await $fetch(`${API}/leave/apply`, {
+    const res = await (await fetch(`${BASE()}/leave/apply`, {
       method: 'POST',
-      body: {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         employeeId:    leaveForm.employeeId,
         employeeName:  leaveForm.employeeName,
         department:    leaveForm.department,
@@ -313,8 +313,8 @@ async function submitLeaveRequest() {
         halfDayPeriod: leaveForm.halfDay ? leaveForm.halfDayPeriod : null,
         reason:        leaveForm.reason,
         extra:         leaveForm.extra
-      }
-    })
+      })
+    })).json()
     if (!res.success) throw new Error(res.message)
     // 插入本地清單（不重新 fetch，保持即時感）
     const labelMap = Object.fromEntries(APPLY_LEAVE_CODES.map(c => [c.code, c.label]))
@@ -345,10 +345,11 @@ async function submitLeaveRequest() {
 
 async function approveLeave(req) {
   try {
-    const res = await $fetch(`${API}/leave/review`, {
+    const res = await (await fetch(`${BASE()}/leave/review`, {
       method: 'POST',
-      body: { requestId: req.id, status: 'APPROVED', reviewerName: '', reviewNote: '' }
-    })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: req.id, status: 'APPROVED', reviewerName: '', reviewNote: '' })
+    })).json()
     if (!res.success) throw new Error(res.message)
     req.status     = 'APPROVED'
     req.reviewedAt = new Date().toISOString()
@@ -366,10 +367,11 @@ async function approveLeave(req) {
 
 async function rejectLeave(req) {
   try {
-    const res = await $fetch(`${API}/leave/review`, {
+    const res = await (await fetch(`${BASE()}/leave/review`, {
       method: 'POST',
-      body: { requestId: req.id, status: 'REJECTED', reviewerName: '', reviewNote: '' }
-    })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: req.id, status: 'REJECTED', reviewerName: '', reviewNote: '' })
+    })).json()
     if (!res.success) throw new Error(res.message)
     req.status     = 'REJECTED'
     req.reviewedAt = new Date().toISOString()
@@ -382,7 +384,7 @@ async function rejectLeave(req) {
 async function cancelLeave(req) {
   if (req.status !== 'PENDING') return
   try {
-    await $fetch(`${API}/leave/${req.id}`, { method: 'DELETE' })
+    await fetch(`${BASE()}/leave/${req.id}`, { method: 'DELETE' })
     leaveRequests.value = leaveRequests.value.filter(r => r.id !== req.id)
     showToast('申請已撤回')
   } catch (e) {
@@ -454,14 +456,22 @@ async function saveStaff() {
       expectedLeave: staffForm.expectedLeave
     }
     if (staffFormMode.value === 'add') {
-      const res = await $fetch(`${API}/employees`, { method: 'POST', body })
+      const res = await (await fetch(`${BASE()}/employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })).json()
       if (!res.success) throw new Error(res.message)
       // 本地插入
       const dept = departments.value.find(d => d.name === staffForm.department)
       if (dept) dept.employees.push({ id: body.id, name: body.name, expected: body.expectedLeave, schedule: {} })
       showToast(`已新增員工：${body.name}`)
     } else {
-      const res = await $fetch(`${API}/employees/${body.id}`, { method: 'PUT', body })
+      const res = await (await fetch(`${BASE()}/employees/${body.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })).json()
       if (!res.success) throw new Error(res.message)
       // 本地更新，含跨部門
       for (const dept of departments.value) {
@@ -497,7 +507,7 @@ function confirmDeleteStaff(empId) {
 async function deleteStaff() {
   const id = staffDeleteId.value
   try {
-    await $fetch(`${API}/employees/${id}`, { method: 'DELETE' })
+    await fetch(`${BASE()}/employees/${id}`, { method: 'DELETE' })
     for (const dept of departments.value) {
       const idx = dept.employees.findIndex(e => e.id === id)
       if (idx !== -1) {
