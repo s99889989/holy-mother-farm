@@ -292,7 +292,7 @@ async function saveStaff() {
       if (dept) dept.employees.push({ id: body.id, name: body.name, expected: body.expectedLeave, schedule: {} })
       showToast(`已新增員工：${body.name}`)
     } else {
-      const res = await (await fetch(`${BASE()}/employees/${body.id}`, {
+      const res = await (await fetch(`${BASE()}/employees/${body.id}?year=${currentYear.value}&month=${currentMonth.value}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
