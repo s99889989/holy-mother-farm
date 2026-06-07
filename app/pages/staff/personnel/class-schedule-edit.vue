@@ -237,6 +237,7 @@ const editWeekday = computed(() =>
 // ════════════════════════════════════════════════════════════════════
 // ── 人員設定 ──────────────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════
+const staffTab          = ref('dept')   // 'dept' | 'shift'
 const showStaffForm     = ref(false)
 const staffFormMode     = ref('add')
 const staffDeleteId     = ref(null)
@@ -247,7 +248,8 @@ const staffForm = reactive({
   id:            '',
   name:          '',
   department:    '',
-  expectedLeave: 9
+  expectedLeave: 9,
+  shiftCode:     ''
 })
 
 const deptNames = computed(() => departments.value.map(d => d.name))
@@ -258,6 +260,7 @@ function openAddStaff() {
   staffForm.name          = ''
   staffForm.department    = departments.value[0]?.name ?? ''
   staffForm.expectedLeave = 9
+  staffForm.shiftCode     = ''
   showStaffForm.value     = true
 }
 
@@ -267,6 +270,7 @@ function openEditStaff(emp, deptName) {
   staffForm.name          = emp.name
   staffForm.department    = deptName
   staffForm.expectedLeave = emp.expected
+  staffForm.shiftCode     = emp.shiftCode ?? ''
   showStaffForm.value     = true
 }
 
@@ -278,7 +282,8 @@ async function saveStaff() {
       id:            staffForm.id.trim(),
       name:          staffForm.name.trim(),
       department:    staffForm.department,
-      expectedLeave: staffForm.expectedLeave
+      expectedLeave: staffForm.expectedLeave,
+      shiftCode:     staffForm.shiftCode
     }
     if (staffFormMode.value === 'add') {
       const res = await (await fetch(`${BASE()}/employees`, {
@@ -437,6 +442,97 @@ async function deleteDept() {
 }
 
 
+// ════════════════════════════════════════════════════════════════════
+// ── 班別設定 ──────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+const shifts        = ref([])      // { code, label, start, end, breakMinutes }
+const shiftsSaving  = ref(false)
+const showShiftForm = ref(false)
+const shiftForm     = reactive({ code: '', label: '', start: '', end: '', breakMinutes: 60 })
+const shiftEditIdx  = ref(null)    // null = 新增，number = 編輯
+
+async function fetchShifts() {
+  try {
+    const res = await (await fetch(`${BASE()}/shifts`)).json()
+    if (res.success) shifts.value = res.data ?? []
+  } catch (e) {
+    console.warn('班別載入失敗', e)
+  }
+}
+
+function openAddShift() {
+  shiftEditIdx.value     = null
+  shiftForm.code         = ''
+  shiftForm.label        = ''
+  shiftForm.start        = ''
+  shiftForm.end          = ''
+  shiftForm.breakMinutes = 60
+  showShiftForm.value    = true
+}
+
+function openEditShift(idx) {
+  shiftEditIdx.value     = idx
+  const s                = shifts.value[idx]
+  shiftForm.code         = s.code
+  shiftForm.label        = s.label
+  shiftForm.start        = s.start
+  shiftForm.end          = s.end
+  shiftForm.breakMinutes = s.breakMinutes ?? 60
+  showShiftForm.value    = true
+}
+
+function deleteShift(idx) {
+  shifts.value.splice(idx, 1)
+  saveShifts()
+}
+
+async function saveShiftForm() {
+  if (!shiftForm.code.trim() || !shiftForm.start || !shiftForm.end) return
+  const entry = {
+    code:         shiftForm.code.trim(),
+    label:        shiftForm.label.trim(),
+    start:        shiftForm.start,
+    end:          shiftForm.end,
+    breakMinutes: Number(shiftForm.breakMinutes)
+  }
+  if (shiftEditIdx.value === null) {
+    shifts.value.push(entry)
+  } else {
+    shifts.value.splice(shiftEditIdx.value, 1, entry)
+  }
+  showShiftForm.value = false
+  await saveShifts()
+}
+
+async function saveShifts() {
+  shiftsSaving.value = true
+  try {
+    const res = await (await fetch(`${BASE()}/shifts`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(shifts.value)
+    })).json()
+    if (!res.success) throw new Error(res.message)
+    showToast('班別已儲存')
+  } catch (e) {
+    showToast('儲存失敗：' + e.message, true)
+  } finally {
+    shiftsSaving.value = false
+  }
+}
+
+// 計算實際工時（分鐘 → 小時字串）
+function calcWorkHours(shift) {
+  if (!shift.start || !shift.end) return ''
+  const [sh, sm] = shift.start.split(':').map(Number)
+  const [eh, em] = shift.end.split(':').map(Number)
+  let total = (eh * 60 + em) - (sh * 60 + sm) - (shift.breakMinutes ?? 0)
+  if (total <= 0) return ''
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return m === 0 ? `${h}H` : `${h}H${m}M`
+}
+
 // ── 匯出 Excel ────────────────────────────────────────────────────
 const downloading = ref(false)
 
@@ -463,6 +559,7 @@ async function exportExcel() {
 // ── 初始載入 ─────────────────────────────────────────────────
 onMounted(() => {
   fetchSchedule()
+  fetchShifts()
 })
 </script>
 
@@ -798,48 +895,113 @@ onMounted(() => {
 
       <!-- ══ 人員設定 ══ -->
       <div v-else-if="view === 'staff'">
-        <div class="flex items-center gap-2 mb-4">
-          <h2 class="text-lg font-bold text-stone-800 dark:text-stone-100 flex-1">人員設定</h2>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-base font-medium rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="openAddDept">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            新增組別
-          </button>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-base font-medium rounded-lg transition-colors" @click="openAddStaff">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            新增員工
+
+        <!-- 子頁籤 -->
+        <div class="flex items-center gap-0.5 bg-stone-100 dark:bg-zinc-800 rounded-xl p-0.5 w-fit mb-4">
+          <button v-for="t in [{key:'dept',label:'組別設定'},{key:'shift',label:'班別設定'}]" :key="t.key"
+                  :class="['px-4 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                     staffTab === t.key
+                       ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm'
+                       : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200']"
+                  @click="staffTab = t.key">
+            {{ t.label }}
           </button>
         </div>
-        <div class="space-y-4">
-          <div v-for="dept in departments" :key="dept.name"
-               class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-3 bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
-              <div class="flex items-center gap-2 min-w-0">
-                <span class="font-semibold text-stone-800 dark:text-stone-100 text-base">{{ dept.name }}</span>
-                <span class="text-base text-stone-400 dark:text-stone-500">{{ dept.employees.length }} 人</span>
+
+        <!-- ── 組別設定 tab ── -->
+        <div v-if="staffTab === 'dept'">
+          <div class="flex items-center gap-2 mb-4">
+            <h2 class="text-lg font-bold text-stone-800 dark:text-stone-100 flex-1">人員設定</h2>
+            <button class="flex items-center gap-1.5 px-3 py-1.5 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-base font-medium rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="openAddDept">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              新增組別
+            </button>
+            <button class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-base font-medium rounded-lg transition-colors" @click="openAddStaff">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              新增員工
+            </button>
+          </div>
+          <div class="space-y-4">
+            <div v-for="dept in departments" :key="dept.name"
+                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-3 bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="font-semibold text-stone-800 dark:text-stone-100 text-base">{{ dept.name }}</span>
+                  <span class="text-base text-stone-400 dark:text-stone-500">{{ dept.employees.length }} 人</span>
+                </div>
+                <div class="flex gap-1 flex-shrink-0">
+                  <button class="text-base px-2 py-1 text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                          @click="openRenameDept(dept.name)">改名</button>
+                  <button class="text-base px-2 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          @click="confirmDeleteDept(dept.name)">刪除</button>
+                </div>
               </div>
-              <div class="flex gap-1 flex-shrink-0">
-                <button class="text-base px-2 py-1 text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
-                        @click="openRenameDept(dept.name)">改名</button>
-                <button class="text-base px-2 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        @click="confirmDeleteDept(dept.name)">刪除</button>
+              <div v-if="dept.employees.length === 0" class="px-4 py-6 text-center text-stone-400 text-lg">此部門暫無員工</div>
+              <div v-else class="divide-y divide-stone-100 dark:divide-stone-800">
+                <div v-for="emp in dept.employees" :key="emp.id"
+                     class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
+                  <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-lg flex-shrink-0">
+                    {{ emp.name.slice(0, 1) }}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-stone-800 dark:text-stone-100 text-lg">{{ emp.name }}</div>
+                    <div class="flex items-center gap-2 text-sm text-stone-400 dark:text-stone-500 mt-0.5">
+                      <span>{{ emp.id }}</span>
+                      <span class="text-stone-200 dark:text-stone-700">·</span>
+                      <span>預計休假 {{ emp.expected }} 天</span>
+                      <template v-if="emp.shiftCode">
+                        <span class="text-stone-200 dark:text-stone-700">·</span>
+                        <span class="px-1.5 py-0.5 bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 rounded font-medium text-xs">{{ emp.shiftCode }}</span>
+                      </template>
+                    </div>
+                  </div>
+                  <div class="flex gap-1.5 flex-shrink-0">
+                    <button class="text-lg px-2.5 py-1 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                            @click="openEditStaff(emp, dept.name)">編輯</button>
+                    <button class="text-lg px-2.5 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            @click="confirmDeleteStaff(emp.id)">刪除</button>
+                  </div>
+                </div>
               </div>
             </div>
-            <div v-if="dept.employees.length === 0" class="px-4 py-6 text-center text-stone-400 text-lg">此部門暫無員工</div>
+          </div>
+        </div>
+
+        <!-- ── 班別設定 tab ── -->
+        <div v-else-if="staffTab === 'shift'">
+          <div class="flex items-center gap-2 mb-4">
+            <h2 class="text-lg font-bold text-stone-800 dark:text-stone-100 flex-1">班別設定</h2>
+            <button class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-base font-medium rounded-lg transition-colors"
+                    @click="openAddShift">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              新增班別
+            </button>
+          </div>
+          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+            <div v-if="shifts.length === 0" class="px-4 py-8 text-center text-stone-400 text-base">尚未設定任何班別</div>
             <div v-else class="divide-y divide-stone-100 dark:divide-stone-800">
-              <div v-for="emp in dept.employees" :key="emp.id"
+              <div v-for="(shift, idx) in shifts" :key="idx"
                    class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
-                <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-lg flex-shrink-0">
-                  {{ emp.name.slice(0, 1) }}
+                <div class="w-10 h-10 rounded-xl bg-stone-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                  <span class="font-bold text-base text-stone-700 dark:text-stone-200">{{ shift.code }}</span>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="font-semibold text-stone-800 dark:text-stone-100 text-lg">{{ emp.name }}</div>
-                  <div class="text-lg text-stone-400 dark:text-stone-500">{{ emp.id }} · 預計休假 {{ emp.expected }} 天</div>
+                  <div class="font-semibold text-stone-800 dark:text-stone-100 text-base">
+                    {{ shift.code }}<span v-if="shift.label" class="text-stone-400 dark:text-stone-500 font-normal ml-1.5 text-sm">{{ shift.label }}</span>
+                  </div>
+                  <div class="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
+                    {{ shift.start }} ~ {{ shift.end }}
+                    <span class="mx-1 text-stone-200 dark:text-stone-700">·</span>
+                    休息 {{ shift.breakMinutes >= 60 ? Math.floor(shift.breakMinutes / 60) + 'H' + (shift.breakMinutes % 60 ? shift.breakMinutes % 60 + 'M' : '') : shift.breakMinutes + 'M' }}
+                    <span class="mx-1 text-stone-200 dark:text-stone-700">·</span>
+                    實際 <span class="text-green-700 dark:text-green-400 font-medium">{{ calcWorkHours(shift) }}</span>
+                  </div>
                 </div>
-                <div class="flex gap-1.5 flex-shrink-0">
-                  <button class="text-lg px-2.5 py-1 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
-                          @click="openEditStaff(emp, dept.name)">編輯</button>
-                  <button class="text-lg px-2.5 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          @click="confirmDeleteStaff(emp.id)">刪除</button>
+                <div class="flex gap-1 flex-shrink-0">
+                  <button class="text-sm px-2.5 py-1 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                          @click="openEditShift(idx)">編輯</button>
+                  <button class="text-sm px-2.5 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          @click="deleteShift(idx)">刪除</button>
                 </div>
               </div>
             </div>
@@ -848,7 +1010,76 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- ══ Modal：排班編輯 ══ -->
+    <!-- ══ Modal：班別新增/編輯 ══ -->
+    <div v-if="showShiftForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" @click.self="showShiftForm = false">
+      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ shiftEditIdx === null ? '新增班別' : '編輯班別' }}</h3>
+          <button class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-stone-400" @click="showShiftForm = false">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="space-y-3 mb-5">
+          <div class="flex gap-3">
+            <div class="flex-1">
+              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">班別代碼</label>
+              <input v-model="shiftForm.code" type="text" placeholder="e.g. C3"
+                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+            </div>
+            <div class="flex-[2]">
+              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">說明（選填）</label>
+              <input v-model="shiftForm.label" type="text" placeholder="e.g. 早班"
+                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-1">
+              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">上班時間</label>
+              <input v-model="shiftForm.start" type="time"
+                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+            </div>
+            <div class="flex-1">
+              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">下班時間</label>
+              <input v-model="shiftForm.end" type="time"
+                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">休息時間（分鐘）</label>
+            <div class="flex items-center gap-2">
+              <input v-model.number="shiftForm.breakMinutes" type="number" min="0" step="30"
+                     class="w-28 text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+              <div class="flex gap-1">
+                <button v-for="m in [30, 60, 90]" :key="m"
+                        :class="['px-2.5 py-1.5 text-xs rounded-lg border transition-colors',
+                           shiftForm.breakMinutes === m
+                             ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                             : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-zinc-800']"
+                        @click="shiftForm.breakMinutes = m">{{ m }}M</button>
+              </div>
+            </div>
+          </div>
+          <!-- 預覽工時 -->
+          <div v-if="shiftForm.start && shiftForm.end"
+               class="px-3 py-2 bg-stone-50 dark:bg-zinc-800 rounded-xl text-sm text-stone-500 dark:text-stone-400 flex items-center gap-2">
+            <span>實際工時：</span>
+            <span class="font-semibold text-green-700 dark:text-green-400">{{ calcWorkHours(shiftForm) || '—' }}</span>
+            <span class="text-stone-300 dark:text-stone-600 mx-1">·</span>
+            <span>{{ shiftForm.start }} ~ {{ shiftForm.end }}，休息 {{ shiftForm.breakMinutes }}M</span>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="flex-1 py-2.5 text-base border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors"
+                  @click="showShiftForm = false">取消</button>
+          <button class="flex-1 py-2.5 text-base bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+                  :disabled="shiftsSaving || !shiftForm.code.trim() || !shiftForm.start || !shiftForm.end"
+                  @click="saveShiftForm">
+            <svg v-if="shiftsSaving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+            {{ shiftsSaving ? '儲存中…' : (shiftEditIdx === null ? '新增' : '儲存') }}
+          </button>
+        </div>
+      </div>
+    </div>
     <div v-if="showForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" @click.self="showForm = false">
       <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
@@ -954,6 +1185,16 @@ onMounted(() => {
             <label class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">預計休假天數（當月）</label>
             <input v-model.number="staffForm.expectedLeave" type="number" min="0" max="31"
                    class="w-full text-lg border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+          </div>
+          <div>
+            <label class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">班別（當月）</label>
+            <select v-model="staffForm.shiftCode"
+                    class="w-full text-lg border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400">
+              <option value="">— 未指定 —</option>
+              <option v-for="s in shifts" :key="s.code" :value="s.code">
+                {{ s.code }}{{ s.label ? '　' + s.label : '' }}　{{ s.start }}~{{ s.end }}
+              </option>
+            </select>
           </div>
         </div>
         <div class="flex gap-2">
