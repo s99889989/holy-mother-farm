@@ -36,9 +36,13 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="row in data?.rows" :key="row.id"
-            class="hover:bg-gray-50">
-          <td class="border px-3 py-2 font-mono">{{ row.tracking_no }}</td>
+        <tr
+          v-for="row in data?.rows"
+          :key="row.id"
+          class="hover:bg-blue-50 cursor-pointer transition-colors"
+          @click="navigateTo(`/waybills/${row.id}`)"
+        >
+          <td class="border px-3 py-2 font-mono text-blue-600">{{ row.tracking_no }}</td>
           <td class="border px-3 py-2">{{ row.send_date }}</td>
           <td class="border px-3 py-2">{{ row.sender_name }}</td>
           <td class="border px-3 py-2">{{ row.customer_name }}</td>
@@ -54,10 +58,10 @@
 
     <!-- 分頁 -->
     <div class="flex gap-2 mt-4 items-center">
-      <button :disabled="page <= 1" @click="page--; search()"
+      <button :disabled="page <= 1" @click="page--; refresh()"
               class="border px-3 py-1 rounded disabled:opacity-40">上一頁</button>
       <span>第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ data?.total }} 筆）</span>
-      <button :disabled="page >= totalPages" @click="page++; search()"
+      <button :disabled="page >= totalPages" @click="page++; refresh()"
               class="border px-3 py-1 rounded disabled:opacity-40">下一頁</button>
     </div>
   </div>
@@ -70,20 +74,21 @@ const endDate = ref('')
 const page = ref(1)
 const limit = 20
 
-const params = ref({})
-
-const { data } = await useFetch('/api/waybills', { query: params })
+const { data, refresh } = await useFetch('/api/waybills', {
+  query: {
+    keyword,
+    start_date: startDate,
+    end_date: endDate,
+    page,
+    limit
+  }
+})
 
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / limit))
 
 function search() {
-  params.value = {
-    keyword: keyword.value,
-    start_date: startDate.value,
-    end_date: endDate.value,
-    page: page.value,
-    limit
-  }
+  page.value = 1
+  refresh()
 }
 
 function reset() {
@@ -91,6 +96,6 @@ function reset() {
   startDate.value = ''
   endDate.value = ''
   page.value = 1
-  search()
+  refresh()
 }
 </script>

@@ -11,6 +11,12 @@ export default defineNuxtConfig({
   nitro: {
     storage: {
       'nuxt:payload': { driver: 'memory' }
+    },
+    experimental: {
+      wasm: true
+    },
+    rollupConfig: {
+      external: ['better-sqlite3', 'node-gyp-build']
     }
   },
   // ~/assets/css/main.css
