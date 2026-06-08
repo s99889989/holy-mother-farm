@@ -431,7 +431,7 @@ watch(() => route.path, () => {
 // ── 選單定義 ─────────────────────────────────────────────────────
 const navGroups = [
   {
-    label: '🧾️ 庫存・財務',
+    label: '🎒️ 庫存・財務',
     items: [
       { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count' },
       { to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit' }
@@ -450,8 +450,6 @@ const navGroups = [
     items: [
       { to: '/staff/task/task-board', icon: '✅', label: '今日工作', color: 'bg-indigo-600', key: 'staff.task' },
       { to: '/staff/task/task-manager', icon: '📋', label: '工作管理', color: 'bg-teal-700', key: 'staff.task.manage' },
-      { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
-      { to: '/staff/management/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' },
       { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
       { to: '/staff/management/menu-edit', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit' },
       { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
@@ -460,6 +458,14 @@ const navGroups = [
       { to: '/staff/management/asset-edit', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit' },
       { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files' },
       { to: '/staff/management/files-edit', icon: '📁', label: '檔案管理', key: 'staff.files.edit' }
+    ]
+  },
+  {
+    label: '🧾 訂單管理',
+    items: [
+      { to: '/staff/order/soybean-log', icon: '🥛', label: '豆漿訂單', key: 'staff.booking.edit' },
+      { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
+      { to: '/staff/management/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' }
     ]
   },
   {
