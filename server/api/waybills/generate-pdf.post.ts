@@ -25,14 +25,25 @@ function py(y: number, rowOffset = 0, by = 0) {
 }
 
 // ── 條碼/QR ──────────────────────────────────────────────────
+// 主條碼（託運單號 12 碼）→ Code 128C（純數字對，掃出來最乾淨）
 async function bc128(text: string, hmm = 10): Promise<Buffer | null> {
   try {
     return await bwipjs.toBuffer({
-      bcid: 'code128', text, scale: 2,
+      bcid: 'code128c', text, scale: 2,
       height: Math.round(hmm * 3), includetext: false, backgroundcolor: 'FFFFFF'
     })
-  } catch { return null }
+  } catch {
+    // fallback: auto code128（應對非純數字的情況）
+    try {
+      return await bwipjs.toBuffer({
+        bcid: 'code128', text, scale: 2,
+        height: Math.round(hmm * 3), includetext: false, backgroundcolor: 'FFFFFF'
+      })
+    } catch { return null }
+  }
 }
+// 小條碼（客代單號 10 碼）→ Interleaved 2 of 5
+// 位數必須是偶數；不需要加 '+' 前綴
 async function bcI25(text: string, hmm = 10): Promise<Buffer | null> {
   try {
     const t = text.length % 2 ? '0' + text : text
@@ -348,7 +359,12 @@ async function drawData(
       const tn = (String(w.temperature  ?? '1').replace(/^0+/, '') || '1').padStart(2, '0')
       const ps = (String(w.package_size ?? '2').replace(/^0+/, '') || '2').padStart(2, '0')
       const dt = String(w.deliver_time  ?? '4').padStart(2, '0')
-      const qd = `tracking_number=${w.tracking_no}&customer_id=${w.sender_code}&product_price=${w.price ?? 0}&temperature=${tn}&package_size=${ps}&receiver_suda5=${w.customer_postcode ?? ''}&delivery_date=${dd}&delivery_timezone=${dt}`
+      // 黑貓 QRCode 格式（pipe-separated）：
+      // 01|{tracking_no}|10|{order_no+00}|{waybilltype}|0|{deliver_time}|{temperature}||{customer_postcode}|{deliver_date}|{package_size}||0|||||||||||
+      const wt   = String(w.waybilltype   ?? 'N')
+      const on   = String(w.order_no      ?? '').padEnd(10, '0')
+      const pc   = String(w.customer_postcode ?? '')
+      const qd   = `01|${w.tracking_no}|10|${on}00|${wt}|0|${dt}|${tn}||${pc}|${dd}|${ps}||0|||||||||||`
       const buf = await makeQR(qd)
       if (buf) {
         const img = await doc.embedPng(buf)
@@ -368,7 +384,7 @@ async function drawData(
       const bh  = fh > 0 ? fh : 10
       const bw2 = fw > 0 ? m(fw) : m(50)
       const buf = col === 'base_customer_postcode_barcode'
-        ? await bcI25('+' + v, bh)
+        ? await bcI25(v, bh)
         : await bc128(v, bh)
       if (buf) {
         const img = await doc.embedPng(buf)
