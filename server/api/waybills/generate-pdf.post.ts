@@ -91,7 +91,12 @@ function fval(col: string, w: any): string {
     case 'full_customer_phone':       return String(w.customer_phone ?? w.customer_mobile ?? '')
     case 'full_customer_phone_star': {
       const p = String(w.customer_phone ?? w.customer_mobile ?? '')
-      return p.length > 6 ? p.slice(0, 2) + '****' + p.slice(6) : p
+      if (p.length <= 6) return p
+      const clean = p.replace(/-/g, '')
+      // 手機（10碼，0XXX開頭）：0980-****-1898
+      if (/^09\d{8}$/.test(clean)) return clean.slice(0, 4) + '-****-' + clean.slice(-4)
+      // 固話（07-XXXXXXX 等）：07****9968
+      return p.slice(0, 2) + '****' + p.slice(6)
     }
     case 'customer_postcode':
     case 'base_customer_postcode':    return String(w.customer_postcode ?? '')
@@ -109,7 +114,14 @@ function fval(col: string, w: any): string {
     case 'price_character_two':       return price > 0 ? '收' : ''
     case 'price_character_three':     return price > 0 ? '款' : ''
     case 'ezcat_version':             return 'EZCATe3.7.0'
-    case 'address_db_version':        return '26060901'
+    case 'address_db_version': {
+      // 郵遞區號DB版本：YYMMDD01（今日日期）
+      const now = new Date()
+      const yy = String(now.getFullYear()).slice(-2)
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const dd = String(now.getDate()).padStart(2, '0')
+      return `${yy}${mm}${dd}01`
+    }
     default: return ''
   }
 }
@@ -118,6 +130,10 @@ function fval(col: string, w: any): string {
 // bx/by = paper.x / paper.y（通常都是 0）
 // rowOffset = 這一模的 paper_rows.y（第一模=0, 第二模=148）
 function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number, dateLabel = '收貨日') {
+  // 郵碼版本效期：當月第一天 ~ 最後一天
+  const now = new Date()
+  const firstDay = `${String(now.getMonth() + 1).padStart(2, '0')}/01`
+  const lastDay  = `${String(now.getMonth() + 1).padStart(2, '0')}/${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`
   const bk = rgb(0, 0, 0)
   const lw = 0.4
   const spaced = dateLabel.split('').join(' ')
@@ -143,7 +159,7 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
     try {
       p.drawText(s, {
         x: px(x, bx),
-        y: py(y, rowOffset, by) - pt * 0.7,
+        y: py(y, rowOffset, by) - pt * 1.3,
         size: pt,
         font,
         color: bk,
@@ -242,9 +258,9 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
 
   // 郵碼版本效期
   txt('此郵碼版本適用於', 194, 40, 5)
-  txt('06/01', 192, 72, 8)
+  txt(firstDay, 192, 72, 8)
   txt('至',    194, 75, 8)
-  txt('06/30', 192, 79, 8)
+  txt(lastDay, 192, 79, 8)
 
   // ═══ 會計聯 ═══
   rect(75, 84, 175, 119)
@@ -371,7 +387,7 @@ async function drawData(
     try {
       p.drawText(v, {
         x: px(fx, bx),
-        y: py(fy, rowOffset, by) - pt * 0.7,
+        y: py(fy, rowOffset, by) - pt * 0.3,
         size: pt,
         font,
         color: rgb(0, 0, 0),
@@ -416,7 +432,7 @@ export default defineEventHandler(async (event) => {
   const pub = path.join(process.cwd(), 'public')
   const doc = await PDFDocument.create()
   doc.registerFontkit(fontkit)
-  const font = await doc.embedFont(fs.readFileSync(path.join(pub, 'fonts', 'kaiu.ttf')))
+  const font = await doc.embedFont(fs.readFileSync(path.join(pub, 'fonts', 'PMingLiU.ttf')))
 
   // paper.x / paper.y → 全頁偏移（通常 0）
   const bx = Number(paper?.x ?? 0)
