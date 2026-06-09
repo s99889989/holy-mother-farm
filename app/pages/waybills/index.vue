@@ -421,7 +421,7 @@ function makeForm() {
   const acct   = (accounts.value    as any[])?.[0]
   const sender = (senders.value     as any[])?.find((s:any) => s.default_sender)
     ?? (senders.value     as any[])?.[0]
-  const paper  = (papers.value      as any[])?.[0]
+  const paper  = (papers.value as any[])?.find((p:any) => p.id === 2) ?? (papers.value as any[])?.[0]
   const pname  = (productnames.value as any[])?.[0]
 
   return {
@@ -614,19 +614,24 @@ async function deleteSelected() {
   }
 }
 
-// 列印（呼叫 API → 取得 waybill_group id → 開黑貓列印頁）
+// 列印 → 直接產生 PDF 下載
 async function doPrint(ids: number[]) {
   if (!ids.length) return alert('沒有可列印的託運單')
   try {
-    const res = await $fetch<any>('/api/waybills/print', {
+    const res = await $fetch<Blob>('/api/waybills/generate-pdf', {
       method: 'POST',
-      body: { ids }
+      body: { ids, paper_id: form.paper_id },
+      responseType: 'blob',
     })
-    // 開啟黑貓原本的列印頁（localhost 黑貓系統）
-    window.open(`http://localhost/waybill_groups/${res.waybill_group_id}`, '_blank')
+    const url = URL.createObjectURL(res)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `waybills_${Date.now()}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
     await refreshList()
   } catch (e: any) {
-    alert(e?.data?.message ?? '列印失敗')
+    alert(e?.data?.message ?? '產生 PDF 失敗')
   }
 }
 
