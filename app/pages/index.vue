@@ -4,7 +4,14 @@ import { usePermissionStore } from '~/stores/permission.js'
 import { useCommonStore } from '~/stores/common.js'
 
 definePageMeta({ layout: 'loginl' })
-
+useSiteHead({
+  title: '聖母農莊管理系統',
+  description: '員工專區',
+  ogTitle: '聖母農莊管理系統',
+  ogDescription: '員工專區',
+  ogImage: 'https://holymotherfarm.netlify.app/images/home/index_og.svg',
+  twitterImage: 'https://holymotherfarm.netlify.app/images/home/index_og.svg'
+})
 const commonStore = useCommonStore()
 const customerStore = useCustomerStore()
 const permissionStore = usePermissionStore()

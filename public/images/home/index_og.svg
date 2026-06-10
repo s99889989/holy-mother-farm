@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1E1E" />
+      <stop offset="100%" stop-color="#121212" />
+    </linearGradient>
+    <linearGradient id="brand-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <filter id="drop-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg-gradient)" />
+  
+  <g transform="translate(90, 180)">
+    <rect width="110" height="32" rx="16" fill="#059669" fill-opacity="0.2" />
+    <text x="55" y="21" fill="#34D399" font-family="Noto Sans TC, sans-serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="1">INTERNAL</text>
+  </g>
+  
+  <text x="90" y="280" fill="#FFFFFF" font-family="Noto Sans TC, sans-serif" font-size="56" font-weight="700" letter-spacing="2">聖母農莊管理系統</text>
+  
+  <text x="90" y="340" fill="#9CA3AF" font-family="Noto Sans TC, sans-serif" font-size="24" font-weight="400" letter-spacing="1">員工專區</text>
+  
+  <text x="90" y="460" fill="#059669" font-family="Noto Sans TC, sans-serif" font-size="18" font-weight="700" letter-spacing="3">PORTAL.MANAGEMENT.SYS</text>
+
+  <g transform="translate(680, -50)" filter="url(#drop-shadow)">
+    <rect x="40" y="180" width="440" height="140" rx="16" fill="#262626" stroke="#404040" stroke-width="1" opacity="0.6" />
+    <rect x="70" y="215" width="12" height="12" rx="3" fill="#34D399" />
+    <rect x="100" y="215" width="180" height="12" rx="6" fill="#404040" />
+    <rect x="100" y="245" width="260" height="12" rx="6" fill="#525252" />
+    <rect x="100" y="275" width="80" height="12" rx="6" fill="#404040" />
+
+    <rect x="0" y="350" width="460" height="200" rx="20" fill="#1F1F1F" stroke="#34D399" stroke-width="1.5" />
+    
+    <rect x="40" y="390" width="48" height="48" rx="12" fill="url(#brand-gradient)" />
+    <path d="M54 414 l6 6 l12 -12" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <rect x="110" y="395" width="120" height="16" rx="8" fill="#FFFFFF" />
+    <rect x="110" y="425" width="220" height="12" rx="6" fill="#6B7280" />
+    
+    <line x1="40" y1="475" x2="420" y2="475" stroke="#333333" stroke-width="1" />
+    <rect x="40" y="500" width="160" height="12" rx="6" fill="#404040" />
+    <circle cx="410" cy="506" r="6" fill="#6B7280" />
+  </g>
+  
+  <path d="M 0,0 L 1200,0" stroke="url(#brand-gradient)" stroke-width="4" opacity="0.8" />
+</svg>
