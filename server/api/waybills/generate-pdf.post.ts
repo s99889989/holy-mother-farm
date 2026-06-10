@@ -3,8 +3,11 @@ import { PDFDocument, rgb } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import fs from 'fs'
 import path from 'path'
-import bwipjs from 'bwip-js'
 import QRCode from 'qrcode'
+
+// ── 全域樣式設定 ─────────────────────────────────────────────
+const BORDER_WIDTH = 0.6   // ← 框線粗細（pt），黑貓原廠約 0.4
+                           //   調粗用 0.6~0.8，調細用 0.2~0.3
 
 // ── 座標系統 ──────────────────────────────────────────────────
 // 黑貓全部用 mm，pdf-lib 用 pt（左下角為原點）
@@ -24,33 +27,57 @@ function py(y: number, rowOffset = 0, by = 0) {
   return PH - m(y + rowOffset + by)
 }
 
-// ── 條碼/QR ──────────────────────────────────────────────────
-// 主條碼（託運單號 12 碼）→ Code 128C（純數字對，掃出來最乾淨）
-async function bc128(text: string, hmm = 10): Promise<Buffer | null> {
-  try {
-    return await bwipjs.toBuffer({
-      bcid: 'code128c', text, scale: 2,
-      height: Math.round(hmm * 3), includetext: false, backgroundcolor: 'FFFFFF'
-    })
-  } catch {
-    // fallback: auto code128（應對非純數字的情況）
-    try {
-      return await bwipjs.toBuffer({
-        bcid: 'code128', text, scale: 2,
-        height: Math.round(hmm * 3), includetext: false, backgroundcolor: 'FFFFFF'
-      })
-    } catch { return null }
+// ── 向量條碼（bwip-js SVG → pdf-lib 矩形，完全向量，等同黑貓原廠品質）────
+// bwip-js toSVG() 輸出 <path stroke-width="N" d="Mx H Lx 0 ..."> 格式
+// 每條線的中心 x = cx，寬度 = stroke-width（SVG 單位）
+// 轉換：按比例縮放到 PDF 目標寬高，直接畫 drawRectangle
+import bwipjs from 'bwip-js'
+
+// barScale: 條的粗細係數，1.0 = 原始寬度，0.8 = 細 20%，1.2 = 粗 20%
+// 條變細時中心位置不變，左右各縮，間距自動增加、不會重疊
+const BAR_SCALE = 0.75  // ← 在這裡調整，0.6~1.0 之間
+
+function drawBarcodeSVG(
+  page: any,
+  svgStr: string,
+  x0: number, y0: number,
+  targetW: number, targetH: number,
+  barScale = BAR_SCALE
+) {
+  const vbMatch = svgStr.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)
+  if (!vbMatch) return
+  const svgW = parseFloat(vbMatch[1])
+  const scaleX = targetW / svgW
+  const black = rgb(0, 0, 0)
+
+  const pathRe = /<path stroke="#000000" stroke-width="([\d.]+)" d="([^"]+)"[^>]*\/>/g
+  let match: RegExpExecArray | null
+  while ((match = pathRe.exec(svgStr)) !== null) {
+    const sw = parseFloat(match[1])
+    const d  = match[2]
+    // 每個片段: M{cx} {h} L{cx} 0
+    const coordRe = /M([\d.]+) [\d.]+L[\d.]+ [\d.]+/g
+    let cm: RegExpExecArray | null
+    while ((cm = coordRe.exec(d)) !== null) {
+      const cx = parseFloat(cm[1])
+      const bw = sw * scaleX * barScale          // 套用粗細係數
+      const bx = x0 + cx * scaleX - bw / 2      // 中心對齊
+      page.drawRectangle({ x: bx, y: y0, width: bw, height: targetH, color: black, borderWidth: 0 })
+    }
   }
 }
-// 小條碼（客代單號 10 碼）→ Interleaved 2 of 5
-// 位數必須是偶數；不需要加 '+' 前綴
-async function bcI25(text: string, hmm = 10): Promise<Buffer | null> {
+
+async function bc128svg(text: string): Promise<string | null> {
+  try {
+    // code39ext 支援完整 ASCII；純數字用 code39 即可
+    return await bwipjs.toSVG({ bcid: 'code39', text, scale: 2, height: 10, includetext: false })
+  } catch { return null }
+}
+
+async function bcI25svg(text: string): Promise<string | null> {
   try {
     const t = text.length % 2 ? '0' + text : text
-    return await bwipjs.toBuffer({
-      bcid: 'interleaved2of5', text: t, scale: 2,
-      height: Math.round(hmm * 3), includetext: false, backgroundcolor: 'FFFFFF'
-    })
+    return await bwipjs.toSVG({ bcid: 'interleaved2of5', text: t, scale: 2, height: 10, includetext: false })
   } catch { return null }
 }
 async function makeQR(data: string): Promise<Buffer | null> {
@@ -146,7 +173,7 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
   const firstDay = `${String(now.getMonth() + 1).padStart(2, '0')}/01`
   const lastDay = `${String(now.getMonth() + 1).padStart(2, '0')}/${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`
   const bk = rgb(0, 0, 0)
-  const lw = 0.4
+  const lw = BORDER_WIDTH
   const spaced = dateLabel.split('').join(' ')
 
   // 原版：pdf.rectangle(x1, y1, x2, y2) → 左上角兩點（mm）
@@ -381,39 +408,204 @@ async function drawData(
       continue
     }
 
-    // ── 條碼 ──
+    // ── 條碼（bwip-js SVG → pdf-lib 向量矩形，等同黑貓原廠品質）──
     if (isB || isB128) {
       const bv = fval(col, w); if (!bv) continue
       const bh  = fh > 0 ? fh : 10
       const bw2 = fw > 0 ? m(fw) : m(50)
-      console.log('[BARCODE POS]', col, { fx, fy: fy+bh, rowOffset, x: px(fx,bx).toFixed(1), y: py(fy+bh,rowOffset,by).toFixed(1), w: bw2.toFixed(1), h: m(bh).toFixed(1) })
-      const buf = col === 'base_customer_postcode_barcode'
-        ? await bcI25(bv, bh)
-        : await bc128(bv, bh)
-      if (buf) {
-        const img = await doc.embedPng(buf)
-        p.drawImage(img, {
-          x: px(fx, bx),
-          y: py(fy - 10 + bh, rowOffset, by),
-          width: bw2, height: m(bh),
-        })
-      }
+      const bx0 = px(fx, bx)
+      const by0 = py(fy - 10 + bh, rowOffset, by)
+      const svg = col === 'base_customer_postcode_barcode'
+        ? await bcI25svg(bv)
+        : await bc128svg(bv)
+      if (svg) drawBarcodeSVG(p, svg, bx0, by0, bw2, m(bh))
       continue
     }
 
 
     // ── 文字 ──
     const v = fval(col, w); if (!v) continue
+    // ── 欄位字體大小微調表 ──────────────────────────────────────
+    // 4個區塊各自設定，正數=放大、負數=縮小（單位 pt），0=維持 DB 設定值
+    // 基準：所有欄位預設 size = DB font_size - 2
+    // 區塊判定：左(x<72) / 右(x>=72)，上模(rowOffset=0) / 下模(rowOffset>0)
+    // key 格式：'區塊:欄位名'，找不到時 fallback 到 '欄位名'
+    type ZoneKey = string
+    const zone = (fx < 72 ? 'L' : 'R') + (rowOffset > 0 ? 'B' : 'T')
+    // zone = 'LT'=左上黏貼聯  'RT'=右上配送聯  'LB'=左下收據聯  'RB'=右下配送聯下半
+
+    const FONT_ADJUST: Record<ZoneKey, number> = {
+      // ════════════════════════════════════════════
+      // LT：左上 黏貼聯
+      // ════════════════════════════════════════════
+      'LT:send_date_dash':               0,  // 收貨日
+      'LT:deliver_date_dash':            0,  // 希望配達日
+      'LT:deliver_time_name':            0,  // 希望配達時段
+      'LT:tracking_no':                  0,  // 託運單號
+      'LT:tracking_no_dash':             0,  // 託運單號（dash）
+      'LT:convert_order_no':             0,  // 客代單號
+      'LT:order_no':                     0,  // 訂單編號
+      'LT:customer_name':                0,  // 收件人姓名
+      'LT:full_customer_name_star':      0,  // 收件人姓名（遮碼）
+      'LT:full_customer_address':        0,  // 收件人地址
+      'LT:full_customer_phone':          0,  // 收件人電話
+      'LT:full_customer_phone_star':     0,  // 收件人電話（遮碼）
+      'LT:customer_postcode':            0,  // 郵遞區號
+      'LT:base_customer_postcode':        0,  // 郵遞區號（地址前）
+      'LT:basename':                     0,  // 郵遞區號前2碼
+      'LT:sender_name':                  0,  // 寄件人姓名
+      'LT:full_sender_address':          0,  // 寄件人地址
+      'LT:full_sender_phone':            0,  // 寄件人電話
+      'LT:production_name':              0,  // 品名
+      'LT:production_kind':              0,  // 品名種類
+      'LT:price_or_not':                 0,  // 代收貨款
+
+      // ════════════════════════════════════════════
+      // RT：右上 配送聯
+      // ════════════════════════════════════════════
+      'RT:send_date_dash':               0,  // 收貨日
+      'RT:deliver_date_dash':            0,  // 希望配達日
+      'RT:deliver_date_dash_mmdd':       0,  // 希望配達日（MM/DD）
+      'RT:deliver_time_name':            0,  // 希望配達時段
+      'RT:tracking_no':                  0,  // 託運單號
+      'RT:tracking_no_dash':             0,  // 託運單號（dash）
+      'RT:convert_order_no':             0,  // 客代單號
+      'RT:order_no':                     0,  // 訂單編號
+      'RT:webservice_login':             0,  // 寄件人代碼
+      'RT:customer_name':                0,  // 收件人姓名
+      'RT:full_customer_address':        0,  // 收件人地址
+      'RT:full_customer_phone':          0,  // 收件人電話
+      'RT:full_customer_phone_star':     0,  // 收件人電話（遮碼）
+      'RT:customer_postcode':            0,  // 郵遞區號
+      'RT:base_customer_postcode':        0,  // 郵遞區號（地址前）
+      'RT:basename':                     0,  // 郵遞區號前2碼
+      'RT:sender_name':                  0,  // 寄件人姓名
+      'RT:full_sender_address':          0,  // 寄件人地址
+      'RT:full_sender_phone':            0,  // 寄件人電話
+      'RT:production_name':              0,  // 品名
+      'RT:production_kind':              0,  // 品名種類
+      'RT:price_or_not':                 0,  // 代收貨款
+      'RT:package_size_name':            0,  // 尺寸
+      'RT:temperature_character_one':    0,  // 溫層第一字
+      'RT:temperature_character_two':    0,  // 溫層第二字
+      'RT:temperature_character_one_big':0,  // 溫層第一字（大）
+      'RT:temperature_character_two_big':0,  // 溫層第二字（大）
+      'RT:ezcat_version':                0,  // EZCAT版本
+      'RT:address_db_version':           0,  // 郵遞區號DB版本
+
+      // ════════════════════════════════════════════
+      // LB：左下 收據聯
+      // ════════════════════════════════════════════
+      'LB:send_date_dash':               0,
+      'LB:deliver_date_dash':            0,
+      'LB:deliver_time_name':            0,
+      'LB:tracking_no':                  0,
+      'LB:tracking_no_dash':             0,
+      'LB:convert_order_no':             0,
+      'LB:order_no':                     0,
+      'LB:customer_name':                0,  // ← 海錦富公司（大字）
+      'LB:full_customer_name_star':      0,
+      'LB:full_customer_address':        0,
+      'LB:full_customer_phone':          0,
+      'LB:full_customer_phone_star':     0,
+      'LB:customer_postcode':             0,
+      'LB:base_customer_postcode':        0,
+      'LB:sender_name':                  0,
+      'LB:full_sender_address':          0,
+      'LB:full_sender_phone':            0,
+      'LB:production_name':              0,
+      'LB:production_kind':              0,
+      'LB:price_or_not':                 0,
+      'LB:comment':                      0,
+
+      // ════════════════════════════════════════════
+      // RB：右下 配送聯（下半）
+      // ════════════════════════════════════════════
+      'RB:send_date_dash':               0,
+      'RB:deliver_date_dash':            0,
+      'RB:deliver_date_dash_mmdd':       0,
+      'RB:deliver_time_name':            0,
+      'RB:tracking_no':                  0,
+      'RB:tracking_no_dash':             0,
+      'RB:convert_order_no':             0,
+      'RB:order_no':                     0,
+      'RB:customer_name':                0,  // ← 海錦富公司（大字）
+      'RB:full_customer_address':        0,
+      'RB:full_customer_phone':          0,
+      'RB:full_customer_phone_star':     0,
+      'RB:customer_postcode':             0,
+      'RB:base_customer_postcode':        0,
+      'RB:sender_name':                  0,
+      'RB:full_sender_address':          0,
+      'RB:full_sender_phone':            0,
+      'RB:production_name':              0,
+      'RB:production_kind':              0,
+      'RB:price_or_not':                 0,
+      'RB:package_size_name':            0,
+      'RB:deliver_time_name':            0,
+      'RB:comment':                      0,
+    }
+    // zone:col 優先，找不到就 fallback 到無區塊的 col
+    const adjust = FONT_ADJUST[`${zone}:${col}`] ?? FONT_ADJUST[col] ?? 0
     const pt = Math.max(sz, 5)
+    const finalSize = Math.max(pt - 2 + adjust, 4)
+    const lineHeight = finalSize * 1.4  // 行距 = 字體大小 * 1.4
+
+    // 需要換行的欄位
+    const WRAP_COLS = new Set([
+      'full_customer_address', 'full_sender_address',
+      'base_customer_postcode',
+    ])
+
     try {
-      p.drawText(v, {
-        x: px(fx + 1, bx),
-        y: py(fy, rowOffset, by) - pt * 0.3,
-        size: pt - 2,
-        font,
-        color: rgb(0, 0, 0),
-        maxWidth: fw > 0 ? m(fw) : undefined,
-      })
+      if (fw > 0 && WRAP_COLS.has(col)) {
+        // 自動換行：把文字切成多行，每行不超過 fw mm
+        // WRAP_WIDTH_REDUCE：各欄位縮減換行寬度（mm），補償欄標籤或邊距佔用的空間
+        const WRAP_WIDTH_REDUCE: Record<string, number> = {
+          'full_customer_address':  10,  // 「收件人」標籤約佔 10mm
+          'full_sender_address':    10,  // 「寄件人」標籤約佔 10mm
+          'base_customer_postcode': 10,
+        }
+        const reduce = WRAP_WIDTH_REDUCE[col] ?? 0
+        const maxW = m(fw - reduce)
+        const words = v.split('')  // 中文逐字切
+        const lines: string[] = []
+        let line = ''
+        for (const ch of words) {
+          const test = line + ch
+          const w2 = font.widthOfTextAtSize(test, finalSize)
+          if (w2 > maxW && line.length > 0) {
+            lines.push(line)
+            line = ch
+          } else {
+            line = test
+          }
+        }
+        if (line) lines.push(line)
+
+        const x0 = px(fx + 1, bx)
+        const y0 = py(fy, rowOffset, by) - finalSize * 0.3
+        lines.forEach((ln, i) => {
+          try {
+            p.drawText(ln, {
+              x: x0,
+              y: y0 - i * lineHeight,
+              size: finalSize,
+              font,
+              color: rgb(0, 0, 0),
+            })
+          } catch { /* 略過 */ }
+        })
+      } else {
+        p.drawText(v, {
+          x: px(fx + 1, bx),
+          y: py(fy, rowOffset, by) - finalSize * 0.3,
+          size: finalSize,
+          font,
+          color: rgb(0, 0, 0),
+          maxWidth: fw > 0 ? m(fw) : undefined,
+        })
+      }
     } catch { /* 略過無法繪製的字元 */ }
 
   }
