@@ -11,7 +11,7 @@ import QRCode from 'qrcode'
 // 黑貓原點在左上角
 // paper_fields 的 x,y 是「頁面絕對座標（mm）」，第二模疊印時加 rowOffset
 const MM = 2.8346
-const m  = (v: number) => v * MM
+const m = (v: number) => v * MM
 const PW = m(210)
 const PH = m(297)
 
@@ -62,8 +62,8 @@ async function makeQR(data: string): Promise<Buffer | null> {
 
 // ── 欄位值轉換 ────────────────────────────────────────────────
 const DT: Record<string, string> = {
-  '1': '13點前', '2': '14-18時', '4': '不指定',
-  '5': '20-21時', '6': '13時', '7': '15時', '8': '17時', '9': '19時'
+  1: '13點前', 2: '14-18時', 4: '不指定',
+  5: '20-21時', 6: '13時', 7: '15時', 8: '17時', 9: '19時'
 }
 const PS: Record<string, string> = {
   '0001': '60cm', '0002': '90cm', '0003': '120cm', '0004': '150cm',
@@ -74,32 +74,32 @@ const TL: Record<string, string> = {
 }
 
 function fval(col: string, w: any): string {
-  const no    = String(w.tracking_no ?? '')
-  const temp  = TL[String(w.temperature ?? '')] ?? ''
+  const no = String(w.tracking_no ?? '')
+  const temp = TL[String(w.temperature ?? '')] ?? ''
   const price = Number(w.price ?? 0)
   switch (col) {
-    case 'tracking_no':               return no
-    case 'tracking_no_dash':          return no.replace(/(\d{4})(\d{4})(\d{4})/, '$1-$2-$3')
-    case 'convert_order_no':          return String(w.order_no ?? '')
-    case 'send_date_dash':            return String(w.send_date ?? '')
-    case 'deliver_date_dash':         return String(w.deliver_date ?? '')
+    case 'tracking_no': return no
+    case 'tracking_no_dash': return no.replace(/(\d{4})(\d{4})(\d{4})/, '$1-$2-$3')
+    case 'convert_order_no': return String(w.order_no ?? '')
+    case 'send_date_dash': return String(w.send_date ?? '')
+    case 'deliver_date_dash': return String(w.deliver_date ?? '')
     case 'deliver_date_dash_mmdd': {
       const d = String(w.deliver_date ?? '')
       return d.length >= 10 ? d.slice(5).replace('-', '/') : d
     }
-    case 'deliver_time_name':         return DT[String(w.deliver_time ?? '')] ?? ''
-    case 'package_size_name':         return PS[String(w.package_size ?? '')] ?? ''
-    case 'production_name':           return String(w.production_name ?? '')
-    case 'production_kind':           return String(w.production_kind ?? '')
-    case 'order_no':                  return String(w.order_no ?? '')
-    case 'comment':                   return String(w.comment ?? '')
-    case 'customer_name':             return String(w.customer_name ?? '')
+    case 'deliver_time_name': return DT[String(w.deliver_time ?? '')] ?? ''
+    case 'package_size_name': return PS[String(w.package_size ?? '')] ?? ''
+    case 'production_name': return String(w.production_name ?? '')
+    case 'production_kind': return String(w.production_kind ?? '')
+    case 'order_no': return String(w.order_no ?? '')
+    case 'comment': return String(w.comment ?? '')
+    case 'customer_name': return String(w.customer_name ?? '')
     case 'full_customer_name_star': {
       const n = String(w.customer_name ?? '')
       return n.length > 2 ? n[0] + '*' + n.slice(2) : n
     }
-    case 'full_customer_address':     return String(w.customer_address ?? '')
-    case 'full_customer_phone':       return String(w.customer_phone ?? w.customer_mobile ?? '')
+    case 'full_customer_address': return String(w.customer_address ?? '')
+    case 'full_customer_phone': return String(w.customer_phone ?? w.customer_mobile ?? '')
     case 'full_customer_phone_star': {
       const p = String(w.customer_phone ?? w.customer_mobile ?? '')
       if (p.length <= 6) return p
@@ -110,21 +110,21 @@ function fval(col: string, w: any): string {
       return p.slice(0, 2) + '****' + p.slice(6)
     }
     case 'customer_postcode':
-    case 'base_customer_postcode':    return String(w.customer_postcode ?? '')
-    case 'sender_name':               return String(w.sender_name ?? '')
-    case 'full_sender_address':       return String(w.sender_address ?? '')
-    case 'full_sender_phone':         return String(w.sender_phone ?? w.sender_mobile ?? '')
-    case 'webservice_login':          return String(w.sender_code ?? '')
-    case 'basename':                  return String(w.customer_postcode ?? '').slice(0, 2)
-    case 'price_or_not':              return price > 0 ? String(price) : '不收款'
+    case 'base_customer_postcode': return String(w.customer_postcode ?? '')
+    case 'sender_name': return String(w.sender_name ?? '')
+    case 'full_sender_address': return String(w.sender_address ?? '')
+    case 'full_sender_phone': return String(w.sender_phone ?? w.sender_mobile ?? '')
+    case 'webservice_login': return String(w.sender_code ?? '')
+    case 'basename': return String(w.customer_postcode ?? '').slice(0, 2)
+    case 'price_or_not': return price > 0 ? String(price) : '不收款'
     case 'temperature_character_one_big':
     case 'temperature_character_one': return temp[0] ?? ''
     case 'temperature_character_two_big':
     case 'temperature_character_two': return temp[1] ?? ''
-    case 'price_character_one':       return price > 0 ? '代' : ''
-    case 'price_character_two':       return price > 0 ? '收' : ''
-    case 'price_character_three':     return price > 0 ? '款' : ''
-    case 'ezcat_version':             return 'EZCATe3.7.0'
+    case 'price_character_one': return price > 0 ? '代' : ''
+    case 'price_character_two': return price > 0 ? '收' : ''
+    case 'price_character_three': return price > 0 ? '款' : ''
+    case 'ezcat_version': return 'EZCATe3.7.0'
     case 'address_db_version': {
       // 郵遞區號DB版本：YYMMDD01（今日日期）
       const now = new Date()
@@ -144,7 +144,7 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
   // 郵碼版本效期：當月第一天 ~ 最後一天
   const now = new Date()
   const firstDay = `${String(now.getMonth() + 1).padStart(2, '0')}/01`
-  const lastDay  = `${String(now.getMonth() + 1).padStart(2, '0')}/${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`
+  const lastDay = `${String(now.getMonth() + 1).padStart(2, '0')}/${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`
   const bk = rgb(0, 0, 0)
   const lw = 0.4
   const spaced = dateLabel.split('').join(' ')
@@ -154,12 +154,12 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
   function rect(x1: number, y1: number, x2: number, y2: number) {
     p.drawRectangle({
       x: px(x1, bx),
-      y: py(y2, rowOffset, by),   // y2 是下緣（數值較大）
+      y: py(y2, rowOffset, by), // y2 是下緣（數值較大）
       width: m(x2 - x1),
       height: m(y2 - y1),
       borderColor: bk,
       borderWidth: lw,
-      color: undefined,
+      color: undefined
     })
   }
 
@@ -173,19 +173,19 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
         y: py(y, rowOffset, by) - pt * 1.3,
         size: pt,
         font,
-        color: bk,
+        color: bk
       })
     } catch { /* 字型不支援時略過 */ }
   }
 
   // ═══ 黏貼聯 ═══
-  txt('包裹查詢號碼', 26, 16, 7)
+  txt('包裹查詢號碼', 27, 13.5, 7)
 
   rect(5, 18, 70, 67)
-  txt(spaced,      5,  21, 10); rect(5,  18, 20, 24)
-  txt('希望配達日',  20, 21,  8); rect(20, 18, 36, 24)
-  txt('希望配達時段', 36, 21,  7); rect(36, 18, 52, 24)
-  txt('發 貨 所',   53, 21, 10); rect(52, 18, 70, 24)
+  txt(spaced, 6, 17.5, 10); rect(5, 18, 20, 24)
+  txt('希望配達日', 21, 18, 8); rect(20, 18, 36, 24)
+  txt('希望配達時段', 37, 18.1, 7); rect(36, 18, 52, 24)
+  txt('發 貨 所', 54, 17.4, 10); rect(52, 18, 70, 24)
 
   rect(5, 24, 20, 29)
   rect(20, 24, 36, 29)
@@ -194,112 +194,115 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
 
   rect(5, 29, 70, 42)
   rect(5, 29, 10, 42)
-  txt('收', 5, 32, 10); txt('件', 5, 36, 10); txt('人', 5, 40, 10)
+  txt('收', 6, 28.1, 10); txt('件', 6, 32.1, 10); txt('人', 6, 36.1, 10)
 
   rect(5, 42, 70, 55)
   rect(5, 42, 10, 55)
-  txt('寄', 5, 45, 10); txt('件', 5, 49, 10); txt('人', 5, 53, 10)
+  txt('寄', 6, 41, 10); txt('件', 6, 45, 10); txt('人', 6, 49, 10)
 
-  txt('品名',    5, 57, 8); rect(5,  55, 70, 67)
-  txt('代收貨款', 37, 57, 8); rect(37, 55, 70, 67)
-  txt('訂單編號', 5, 69, 8)
+  txt('品名', 6, 54, 8); rect(5, 55, 70, 67)
+  txt('代收貨款', 38, 54, 8); rect(37, 55, 70, 67)
+  txt('訂單編號', 6, 65.9, 8)
 
   // ═══ 顧客收執聯 ═══
   rect(5, 84, 70, 143)
 
-  txt('託運單號', 5,  87, 9); rect(5,  84, 20, 89)
-  txt(spaced,    5,  92, 10); rect(5,  89, 20, 94)
-  txt('希望配達日',  20, 92, 8); rect(20, 89, 36, 94)
-  txt('希望配達時段', 36, 92, 7); rect(36, 89, 52, 94)
-  txt('代收貨款',   53, 92, 10); rect(52, 89, 70, 94)
+  txt('託運單號', 6, 83.9, 9); rect(5, 84, 20, 89)
+  txt(spaced, 6, 88, 10); rect(5, 89, 20, 94)
+  txt('希望配達日', 20.8, 89.2, 8); rect(20, 89, 36, 94)
+  txt('希望配達時段', 37, 89, 7); rect(36, 89, 52, 94)
+  txt('代收貨款', 54, 88, 10); rect(52, 89, 70, 94)
 
-  rect(5,  94, 20,  99)
-  rect(20, 94, 36,  99)
-  rect(36, 94, 52,  99)
-  rect(52, 94, 70,  99)
+  rect(5, 94, 20, 99)
+  rect(20, 94, 36, 99)
+  rect(36, 94, 52, 99)
+  rect(52, 94, 70, 99)
 
   rect(5, 99, 70, 113)
   rect(5, 99, 10, 113)
-  txt('收', 5, 102, 10); txt('件', 5, 106, 10); txt('人', 5, 110, 10)
+  txt('收', 6, 99, 10); txt('件', 6, 103, 10); txt('人', 6, 107, 10)
 
   rect(5, 113, 70, 127)
   rect(5, 113, 10, 127)
-  txt('寄', 5, 116, 10); txt('件', 5, 120, 10); txt('人', 5, 124, 10)
+  txt('寄', 6, 113, 10); txt('件', 6, 117, 10); txt('人', 6, 121, 10)
 
-  txt('訂單編號', 5, 130, 8); rect(5, 127, 70, 134)
-  txt('品名',    5, 136, 8)
+  txt('訂單編號', 6, 127.3, 8); rect(5, 127, 70, 134)
+  txt('品名', 6, 133.3, 8)
 
   // ═══ 配送聯右側 ═══
-  txt('希 望 配 達 日', 171, 10, 8); rect(171,  7, 191, 12)
+  txt('希 望 配 達 日', 172.5, 7, 8); rect(171, 7, 191, 12)
   rect(171, 12, 191, 19)
-  txt('希望配達時段', 171, 22, 8);   rect(171, 19, 191, 24)
+  txt('希望配達時段', 172.5, 19, 8); rect(171, 19, 191, 24)
   rect(171, 24, 191, 30)
-  txt('尺           寸', 172, 33, 9); rect(171, 30, 191, 35)
+  txt('尺           寸', 173, 29.2, 9); rect(171, 30, 191, 35)
   rect(171, 35, 191, 41)
 
   // ═══ 配送聯主區 ═══
   rect(75, 19, 171, 35)
-  rect(75, 19,  80, 35)
-  txt('收', 75, 22, 10); txt('件', 75, 26, 10); txt('人', 75, 30, 10)
+  rect(75, 19, 80, 35)
+  txt('收', 76, 20, 10); txt('件', 76, 24, 10); txt('人', 76, 28, 10)
 
   rect(75, 35, 171, 45)
-  rect(75, 35,  80, 45)
-  txt('寄', 75, 37, 8); txt('件', 75, 40, 8); txt('人', 75, 43, 8)
+  rect(75, 35, 80, 45)
+  txt('寄', 76, 34.5, 8); txt('件', 76, 37.5, 8); txt('人', 76, 40.5, 8)
 
   rect(75, 45, 171, 50); rect(75, 45, 82, 50)
-  txt('備註', 75, 48, 8)
+  txt('備註', 76, 44.5, 8)
 
   rect(75, 50, 171, 55); rect(75, 50, 82, 55)
-  txt('品名', 75, 53, 8)
+  txt('品名', 76, 50, 8)
 
   rect(75, 55, 171, 60); rect(75, 55, 88, 60)
-  txt('訂單編號', 75, 58, 8)
+  txt('訂單編號', 76, 55, 8)
 
-  txt(`${dateLabel}:`, 140, 62, 8)
-  txt('客代', 75, 62, 8)
-  txt('單號', 75, 66, 8)
+  txt(`${dateLabel}:`, 141, 59, 8)
+  txt('客代', 76, 59, 8)
+  txt('單號', 76, 63, 8)
 
   rect(140, 64, 191, 81); rect(140, 64, 145, 81)
-  txt('代', 140, 67, 8); txt('收', 140, 71, 8)
-  txt('貨', 140, 75, 8); txt('款', 140, 79, 8)
+  txt('代', 141, 64, 8); txt('收', 141, 68, 8)
+  txt('貨', 141, 72, 8); txt('款', 141, 76, 8)
 
   rect(165, 64, 170, 81)
-  txt('收', 165, 67, 8); txt('件', 165, 70, 8); txt('人', 165, 73, 8)
-  txt('簽', 165, 76, 8); txt('名', 165, 79, 8)
+  txt('收', 166, 64, 8); txt('件', 166, 67, 8); txt('人', 166, 70, 8)
+  txt('簽', 166, 73, 8); txt('名', 166, 76, 8)
 
   // 郵碼版本效期
-  txt('此郵碼版本適用於', 194, 40, 5)
-  txt(firstDay, 192, 72, 8)
-  txt('至',    194, 75, 8)
-  txt(lastDay, 192, 79, 8)
+  const ux = 195
+  txt('此', ux, 36, 10); txt('郵', ux, 40, 10); txt('碼', ux, 44, 10)
+  txt('版', ux, 48, 10); txt('本', ux, 52, 10); txt('適', ux, 56, 10)
+  txt('用', ux, 60, 10); txt('於', ux, 64, 10)
+  txt(firstDay, 193, 68.2, 10)
+  txt('至', ux, 72, 10)
+  txt(lastDay, 193, 76, 10)
 
   // ═══ 會計聯 ═══
   rect(75, 84, 175, 119)
 
-  txt('希望配達日',   175, 87, 8); rect(175, 84, 191,  89)
+  txt('希望配達日', 176, 83.9, 8); rect(175, 84, 191, 89)
   rect(175, 89, 191, 96)
-  txt('希望配達時段', 175, 99, 7); rect(175, 96, 191, 101)
+  txt('希望配達時段', 175.8, 96, 7); rect(175, 96, 191, 101)
   rect(175, 96, 191, 114)
-  txt('尺          寸', 175, 112, 9); rect(175, 109, 191, 114)
+  txt('尺          寸', 176, 108.2, 9); rect(175, 109, 191, 114)
   rect(175, 114, 191, 119)
 
-  txt(spaced,    75,  87, 10); rect(75,  84,  90,  89)
-  txt('發 貨 所', 119, 87, 10); rect(119, 84, 133,  89)
+  txt(spaced, 76, 83, 10); rect(75, 84, 90, 89)
+  txt('發 貨 所', 119.8, 83, 10); rect(119, 84, 133, 89)
 
-  txt('收件人', 75,  92, 9); rect(75,  89, 119, 109)
-  txt('寄件人', 119, 92, 9); rect(119, 89, 175, 109)
+  txt('收件人', 76, 88.2, 9); rect(75, 89, 119, 109)
+  txt('寄件人', 120, 88.2, 9); rect(119, 89, 175, 109)
 
-  txt('訂單編號', 75, 111, 9); rect(75,  109, 175, 114)
-  txt('品名',    75, 116, 9); rect(75,  114, 175, 119)
+  txt('訂單編號', 76, 108.2, 9); rect(75, 109, 175, 114)
+  txt('品名', 76, 113.2, 9); rect(75, 114, 175, 119)
 
-  txt('客代', 75, 122, 8)
-  txt('單號', 75, 126, 8)
+  txt('客代', 76, 119, 8)
+  txt('單號', 76, 123, 8)
 
   rect(135, 120, 155, 143); rect(135, 120, 155, 124)
-  txt('代收貨款', 137, 122, 10)
+  txt('代收貨款', 137, 118.9, 10)
 
   rect(155, 120, 171, 143); rect(155, 120, 171, 124)
-  txt('寄件人簽名', 155, 122, 8)
+  txt('寄件人簽名', 156, 119.2, 8)
 }
 
 // ── 資料疊印 ─────────────────────────────────────────────────
@@ -318,13 +321,13 @@ async function drawData(
   }
 
   for (const f of fields) {
-    const fx  = Number(f.x  ?? 0)
-    const fy  = Number(f.y  ?? 0)
-    const fw  = Number(f.width  || 0)
-    const fh  = Number(f.height || 0)
-    const sz  = Number(f.font_size || 10)
+    const fx = Number(f.x ?? 0)
+    const fy = Number(f.y ?? 0)
+    const fw = Number(f.width || 0)
+    const fh = Number(f.height || 0)
+    const sz = Number(f.font_size || 10)
     const col = String(f.column_name ?? '')
-    const isB    = f.is_barcode    === 't' || f.is_barcode    === 1
+    const isB = f.is_barcode === 't' || f.is_barcode === 1
     const isB128 = f.is_barcode128 === 't' || f.is_barcode128 === 1
 
     // ── 圖片浮水印 ──
@@ -332,12 +335,12 @@ async function drawData(
       let file = ''
       const t = String(w.temperature ?? '')
       if (col === 'tempcold_tag') {
-        if      (t === '0001' || t === '1') file = 'normal.png'
+        if (t === '0001' || t === '1') file = 'normal.png'
         else if (t === '0002' || t === '2') file = 'tempcold.png'
         else if (t === '0003' || t === '3') file = 'tempfreezer.png'
-      } else if (col === 'recpay'        && w.waybilltype === 'N')       file = 'delivepay.png'
-      else if   (col === 'insurance_tag' && Number(w.insurance ?? 0) > 0) file = 'insurance.png'
-      else if   (col === 'collect_tag'   && Number(w.price     ?? 0) > 0) file = 'collect.png'
+      } else if (col === 'recpay' && w.waybilltype === 'N') file = 'delivepay.png'
+      else if (col === 'insurance_tag' && Number(w.insurance ?? 0) > 0) file = 'insurance.png'
+      else if (col === 'collect_tag' && Number(w.price ?? 0) > 0) file = 'collect.png'
       if (file) {
         const img = await embedPng(file)
         if (img) {
@@ -346,7 +349,7 @@ async function drawData(
           p.drawImage(img, {
             x: px(fx, bx),
             y: py(fy + (fh || 24), rowOffset, by),
-            width: iw, height: ih,
+            width: iw, height: ih
           })
         }
       }
@@ -356,15 +359,15 @@ async function drawData(
     // ── QR code ──
     if (col === 'qrcode') {
       const dd = String(w.deliver_date ?? '').replace(/[\/\-]/g, '')
-      const tn = (String(w.temperature  ?? '1').replace(/^0+/, '') || '1').padStart(2, '0')
+      const tn = (String(w.temperature ?? '1').replace(/^0+/, '') || '1').padStart(2, '0')
       const ps = (String(w.package_size ?? '2').replace(/^0+/, '') || '2').padStart(2, '0')
-      const dt = String(w.deliver_time  ?? '4').padStart(2, '0')
+      const dt = String(w.deliver_time ?? '4').padStart(2, '0')
       // 黑貓 QRCode 格式（pipe-separated）：
       // 01|{tracking_no}|10|{order_no+00}|{waybilltype}|0|{deliver_time}|{temperature}||{customer_postcode}|{deliver_date}|{package_size}||0|||||||||||
-      const wt   = String(w.waybilltype   ?? 'N')
-      const on   = String(w.order_no      ?? '').padEnd(10, '0')
-      const pc   = String(w.customer_postcode ?? '')
-      const qd   = `01|${w.tracking_no}|10|${on}00|${wt}|0|${dt}|${tn}||${pc}|${dd}|${ps}||0|||||||||||`
+      const wt = String(w.waybilltype)
+      const on = String(w.sender_code ?? '').padEnd(10, '0')
+      const pc = String(w.customer_postcode ?? '')
+      const qd = `01|${w.tracking_no}|10|${on}00|${wt}|0|${dt}|${tn}||${pc}|${dd}|${ps}||0|||||||||||`
       const buf = await makeQR(qd)
       if (buf) {
         const img = await doc.embedPng(buf)
@@ -372,7 +375,7 @@ async function drawData(
         p.drawImage(img, {
           x: px(fx, bx),
           y: py(fy + (fw || 18), rowOffset, by),
-          width: s, height: s,
+          width: s, height: s
         })
       }
       continue
@@ -380,44 +383,47 @@ async function drawData(
 
     // ── 條碼 ──
     if (isB || isB128) {
-      const v = fval(col, w); if (!v) continue
+      const bv = fval(col, w); if (!bv) continue
       const bh  = fh > 0 ? fh : 10
       const bw2 = fw > 0 ? m(fw) : m(50)
+      console.log('[BARCODE POS]', col, { fx, fy: fy+bh, rowOffset, x: px(fx,bx).toFixed(1), y: py(fy+bh,rowOffset,by).toFixed(1), w: bw2.toFixed(1), h: m(bh).toFixed(1) })
       const buf = col === 'base_customer_postcode_barcode'
-        ? await bcI25(v, bh)
-        : await bc128(v, bh)
+        ? await bcI25(bv, bh)
+        : await bc128(bv, bh)
       if (buf) {
         const img = await doc.embedPng(buf)
         p.drawImage(img, {
           x: px(fx, bx),
-          y: py(fy + bh, rowOffset, by),
+          y: py(fy - 10 + bh, rowOffset, by),
           width: bw2, height: m(bh),
         })
       }
       continue
     }
 
+
     // ── 文字 ──
     const v = fval(col, w); if (!v) continue
     const pt = Math.max(sz, 5)
     try {
       p.drawText(v, {
-        x: px(fx, bx),
+        x: px(fx + 1, bx),
         y: py(fy, rowOffset, by) - pt * 0.3,
-        size: pt,
+        size: pt - 2,
         font,
         color: rgb(0, 0, 0),
         maxWidth: fw > 0 ? m(fw) : undefined,
       })
     } catch { /* 略過無法繪製的字元 */ }
+
   }
 }
 
 // ── 主 handler ───────────────────────────────────────────────
 export default defineEventHandler(async (event) => {
-  const body     = await readBody(event)
-  const ids:     number[] = body.ids ?? []
-  const paperId: number   = Number(body.paper_id ?? 2)  // 預設 A4 二模常溫
+  const body = await readBody(event)
+  const ids: number[] = body.ids ?? []
+  const paperId: number = Number(body.paper_id ?? 2) // 預設 A4 二模常溫
   if (!ids.length) throw createError({ statusCode: 400, statusMessage: '未指定託運單' })
 
   // 讀取託運單
@@ -431,7 +437,9 @@ export default defineEventHandler(async (event) => {
              customer_name, customer_phone, customer_mobile, customer_address, customer_postcode,
              production_kind, production_name, price, insurance,
              deliver_time, temperature, package_size, breakable, precision_instrument,
-             waybilltype, comment
+             waybilltype, comment,
+             cust_kind, close_type, set_close_type,
+             print_invoice, print_donation, invoice_uni, common, donation_common
       FROM waybills WHERE id IN (${ph}) ORDER BY id
     `).all(...ids) as any[]
   } finally { db.close() }
@@ -440,9 +448,9 @@ export default defineEventHandler(async (event) => {
   const pdb = new Database('C:/ezCat/app/db/paper.sqlite3', { readonly: true })
   let fields: any[], paper: any, prows: any[]
   try {
-    paper  = pdb.prepare('SELECT * FROM papers WHERE id = ?').get(paperId) as any
+    paper = pdb.prepare('SELECT * FROM papers WHERE id = ?').get(paperId) as any
     fields = pdb.prepare('SELECT * FROM paper_fields WHERE paper_id = ? ORDER BY id').all(paperId) as any[]
-    prows  = pdb.prepare('SELECT * FROM paper_rows   WHERE paper_id = ? ORDER BY id').all(paperId) as any[]
+    prows = pdb.prepare('SELECT * FROM paper_rows   WHERE paper_id = ? ORDER BY id').all(paperId) as any[]
   } finally { pdb.close() }
 
   const pub = path.join(process.cwd(), 'public')
@@ -464,7 +472,7 @@ export default defineEventHandler(async (event) => {
       const mid = PH / 2
       page.drawLine({
         start: { x: 0, y: mid }, end: { x: PW, y: mid },
-        thickness: 0.3, color: rgb(0.6, 0.6, 0.6), dashArray: [3, 3],
+        thickness: 0.3, color: rgb(0.6, 0.6, 0.6), dashArray: [3, 3]
       })
     }
 
@@ -489,7 +497,7 @@ export default defineEventHandler(async (event) => {
   return new Response(Buffer.from(bytes), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="waybills_${Date.now()}.pdf"`,
-    },
+      'Content-Disposition': `attachment; filename="waybills_${Date.now()}.pdf"`
+    }
   })
 })

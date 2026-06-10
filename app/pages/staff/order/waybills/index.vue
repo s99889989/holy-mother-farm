@@ -2,14 +2,120 @@
   <div class="p-4 max-w-screen-xl mx-auto text-sm text-stone-800 dark:text-stone-200">
 
     <!-- 標題 -->
-    <div class="text-base font-bold text-gray-700 dark:text-stone-300 mb-3">建立託運單 ＞ 建立託運單－單筆</div>
+    <div class="text-base font-bold text-gray-700 dark:text-stone-300 mb-3">黑貓貨單管理</div>
 
-    <div class="flex gap-3 mb-4 items-center">
+    <!-- ════════════════════════ 列表區 ════════════════════════ -->
+
+    <!-- 篩選列 -->
+    <div class="flex gap-3 mb-3 flex-wrap items-center">
+      <span class="text-gray-500 dark:text-stone-400">依收件人姓名/地址/手機/電話過濾單：</span>
+      <input v-model="keyword" type="text" placeholder="姓名 / 電話 / 託運單號"
+             class="border border-stone-300 dark:border-stone-600 rounded px-3 py-1.5 w-60 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200 placeholder:text-stone-400 dark:placeholder:text-stone-500"
+             @keyup.enter="search" />
+      <button @click="search"      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded">過濾</button>
+      <button @click="resetSearch" class="bg-gray-300 dark:bg-zinc-600 hover:bg-gray-400 dark:hover:bg-zinc-500 text-stone-700 dark:text-stone-200 px-4 py-1.5 rounded">取消過濾</button>
+    </div>
+
+    <!-- 分頁資訊 -->
+    <div class="flex gap-2 mb-2 items-center text-sm flex-wrap">
+      <button :disabled="page <= 1" @click="page = 1; refreshList()"
+              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">&lt;&lt; 第一頁</button>
+      <button :disabled="page <= 1" @click="page--; refreshList()"
+              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">&lt; 前一頁</button>
+      <span class="text-stone-600 dark:text-stone-400">第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ listData?.total }} 筆）</span>
+      <button :disabled="page >= totalPages" @click="page++; refreshList()"
+              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">下一頁 &gt;</button>
+      <button :disabled="page >= totalPages" @click="page = totalPages; refreshList()"
+              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">最後一頁 &gt;&gt;</button>
+      <span class="text-gray-400 dark:text-stone-500">每頁</span>
+      <select v-model="limit" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200" @change="page=1; refreshList()">
+        <option :value="10">10</option>
+        <option :value="20">20</option>
+        <option :value="50">50</option>
+      </select>
+      <span class="text-gray-400 dark:text-stone-500">筆</span>
+    </div>
+
+    <!-- 表格 -->
+    <div class="overflow-x-auto rounded-md border p-4 border-stone-200 dark:border-stone-700">
+      <table class="w-full border-collapse text-sm">
+        <thead class="bg-teal-600 dark:bg-teal-800 text-white">
+        <tr>
+          <th class="border border-teal-700 dark:border-teal-900 px-2 py-2 w-8">
+            <input type="checkbox" @change="toggleAll" :checked="allChecked" />
+          </th>
+          <th class="border border-teal-700 dark:border-teal-900 px-2 py-2 w-12 text-center whitespace-nowrap">編輯</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">託運單號</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">收件人</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">地址</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">郵遞區號</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">配送限制</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">手機</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">電話</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">特殊地點</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">偏遠地址</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">品名</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">訂單編號</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">代收貨款</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">收貨日期</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">希望配達時段</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">希望配達日期</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">託運單狀態</th>
+          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">紙張種類</th>
+        </tr>
+        </thead>
+        <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+        <tr v-if="!listData?.rows?.length">
+          <td colspan="18" class="border border-stone-200 dark:border-stone-700 px-4 py-6 text-center text-gray-400 dark:text-stone-500">無資料</td>
+        </tr>
+        <tr
+          v-for="row in listData?.rows"
+          :key="row.id"
+          class="transition-colors bg-white dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-zinc-700"
+          :class="{
+              'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': editingId === row.id,
+              'bg-yellow-50 dark:bg-yellow-900/20': selectedIds.includes(row.id) && editingId !== row.id
+            }"
+        >
+          <td class="border border-stone-200 dark:border-stone-700 px-2 py-1 text-center">
+            <input type="checkbox" :value="row.id" v-model="selectedIds" />
+          </td>
+          <td class="border border-stone-200 dark:border-stone-700 px-2 py-1 text-center">
+            <button @click="loadRowToForm(row)"
+                    class="text-xs px-2 py-0.5 rounded bg-yellow-400 hover:bg-yellow-500 dark:bg-yellow-500 dark:hover:bg-yellow-600 text-white font-bold whitespace-nowrap">
+              ✏️
+            </button>
+          </td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{{ row.tracking_no }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_name }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis" :title="row.customer_address">{{ row.customer_address }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_postcode }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_mobile }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_phone }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis" :title="row.production_name">{{ row.production_name }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.order_no }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.price }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.send_date }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ deliverTimeLabel(row.deliver_time) }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.deliver_date }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.state }}</td>
+          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ paperName(row.paper_id) }}</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex gap-3 mb-4 mt-4 items-center">
       <button @click="resetForm"
               class="border border-stone-300 dark:border-stone-600 px-4 py-1.5 rounded bg-white dark:bg-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-600 text-stone-700 dark:text-stone-200">
         ✚ 清空填寫資料
       </button>
     </div>
+
+    <div class="mb-2 text-gray-600 dark:text-stone-400">目前契客代號：<strong class="text-stone-800 dark:text-stone-200">{{ form.sender_code }}</strong></div>
 
     <!-- ════════════════════════ 託運單表單 ════════════════════════ -->
     <div class="border border-stone-300 dark:border-stone-600 rounded-md overflow-hidden mb-4">
@@ -265,104 +371,9 @@
       </div>
     </div>
 
-    <!-- ════════════════════════ 列表區 ════════════════════════ -->
-    <div class="mb-2 text-gray-600 dark:text-stone-400">目前契客代號：<strong class="text-stone-800 dark:text-stone-200">{{ form.sender_code }}</strong></div>
 
-    <!-- 篩選列 -->
-    <div class="flex gap-3 mb-3 flex-wrap items-center">
-      <span class="text-gray-500 dark:text-stone-400">依收件人姓名/地址/手機/電話過濾單：</span>
-      <input v-model="keyword" type="text" placeholder="姓名 / 電話 / 託運單號"
-             class="border border-stone-300 dark:border-stone-600 rounded px-3 py-1.5 w-60 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200 placeholder:text-stone-400 dark:placeholder:text-stone-500"
-             @keyup.enter="search" />
-      <button @click="search"      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded">過濾</button>
-      <button @click="resetSearch" class="bg-gray-300 dark:bg-zinc-600 hover:bg-gray-400 dark:hover:bg-zinc-500 text-stone-700 dark:text-stone-200 px-4 py-1.5 rounded">取消過濾</button>
-    </div>
 
-    <!-- 分頁資訊 -->
-    <div class="flex gap-2 mb-2 items-center text-sm flex-wrap">
-      <button :disabled="page <= 1" @click="page = 1; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">&lt;&lt; 第一頁</button>
-      <button :disabled="page <= 1" @click="page--; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">&lt; 前一頁</button>
-      <span class="text-stone-600 dark:text-stone-400">第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ listData?.total }} 筆）</span>
-      <button :disabled="page >= totalPages" @click="page++; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">下一頁 &gt;</button>
-      <button :disabled="page >= totalPages" @click="page = totalPages; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">最後一頁 &gt;&gt;</button>
-      <span class="text-gray-400 dark:text-stone-500">每頁</span>
-      <select v-model="limit" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200" @change="page=1; refreshList()">
-        <option :value="10">10</option>
-        <option :value="20">20</option>
-        <option :value="50">50</option>
-      </select>
-      <span class="text-gray-400 dark:text-stone-500">筆</span>
-    </div>
 
-    <!-- 表格 -->
-    <div class="overflow-x-auto rounded-md border border-stone-200 dark:border-stone-700">
-      <table class="w-full border-collapse text-sm">
-        <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-        <tr>
-          <th class="border border-teal-700 dark:border-teal-900 px-2 py-2 w-8">
-            <input type="checkbox" @change="toggleAll" :checked="allChecked" />
-          </th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">託運單號</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">收件人</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">地址</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">郵遞區號</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">配送限制</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">手機</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">電話</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">特殊地點</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">偏遠地址</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">品名</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">訂單編號</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">代收貨款</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">收貨日期</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">希望配達時段</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">希望配達日期</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">託運單狀態</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">紙張種類</th>
-        </tr>
-        </thead>
-        <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-        <tr v-if="!listData?.rows?.length">
-          <td colspan="18" class="border border-stone-200 dark:border-stone-700 px-4 py-6 text-center text-gray-400 dark:text-stone-500">無資料</td>
-        </tr>
-        <tr
-          v-for="row in listData?.rows"
-          :key="row.id"
-          class="cursor-pointer transition-colors bg-white dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-zinc-700"
-          :class="{
-              'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': editingId === row.id,
-              'bg-yellow-50 dark:bg-yellow-900/20': selectedIds.includes(row.id) && editingId !== row.id
-            }"
-          @click="loadRowToForm(row)"
-        >
-          <td class="border border-stone-200 dark:border-stone-700 px-2 py-1 text-center" @click.stop>
-            <input type="checkbox" :value="row.id" v-model="selectedIds" />
-          </td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{{ row.tracking_no }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_name }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis" :title="row.customer_address">{{ row.customer_address }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_postcode }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_mobile }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_phone }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis" :title="row.production_name">{{ row.production_name }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.order_no }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.price }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.send_date }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ deliverTimeLabel(row.deliver_time) }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.deliver_date }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.state }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ paperName(row.paper_id) }}</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
 
   </div>
 </template>
