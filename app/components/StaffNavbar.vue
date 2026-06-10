@@ -464,6 +464,7 @@ const navGroups = [
     label: '🧾 訂單管理',
     items: [
       { to: '/staff/order/soybean-log', icon: '🥛', label: '豆漿訂單', key: 'staff.booking.edit' },
+      { to: '/staff/order/waybills', icon: '🐱', label: '黑貓貨單', key: 'staff.booking.edit' },
       { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
       { to: '/staff/management/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' }
     ]

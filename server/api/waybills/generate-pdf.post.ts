@@ -25,14 +25,25 @@ function py(y: number, rowOffset = 0, by = 0) {
 }
 
 // ── 條碼/QR ──────────────────────────────────────────────────
+// 主條碼（託運單號 12 碼）→ Code 128C（純數字對，掃出來最乾淨）
 async function bc128(text: string, hmm = 10): Promise<Buffer | null> {
   try {
     return await bwipjs.toBuffer({
-      bcid: 'code128', text, scale: 2,
+      bcid: 'code128c', text, scale: 2,
       height: Math.round(hmm * 3), includetext: false, backgroundcolor: 'FFFFFF'
     })
-  } catch { return null }
+  } catch {
+    // fallback: auto code128（應對非純數字的情況）
+    try {
+      return await bwipjs.toBuffer({
+        bcid: 'code128', text, scale: 2,
+        height: Math.round(hmm * 3), includetext: false, backgroundcolor: 'FFFFFF'
+      })
+    } catch { return null }
+  }
 }
+// 小條碼（客代單號 10 碼）→ Interleaved 2 of 5
+// 位數必須是偶數；不需要加 '+' 前綴
 async function bcI25(text: string, hmm = 10): Promise<Buffer | null> {
   try {
     const t = text.length % 2 ? '0' + text : text
@@ -91,7 +102,12 @@ function fval(col: string, w: any): string {
     case 'full_customer_phone':       return String(w.customer_phone ?? w.customer_mobile ?? '')
     case 'full_customer_phone_star': {
       const p = String(w.customer_phone ?? w.customer_mobile ?? '')
-      return p.length > 6 ? p.slice(0, 2) + '****' + p.slice(6) : p
+      if (p.length <= 6) return p
+      const clean = p.replace(/-/g, '')
+      // 手機（10碼，0XXX開頭）：0980-****-1898
+      if (/^09\d{8}$/.test(clean)) return clean.slice(0, 4) + '-****-' + clean.slice(-4)
+      // 固話（07-XXXXXXX 等）：07****9968
+      return p.slice(0, 2) + '****' + p.slice(6)
     }
     case 'customer_postcode':
     case 'base_customer_postcode':    return String(w.customer_postcode ?? '')
@@ -109,7 +125,14 @@ function fval(col: string, w: any): string {
     case 'price_character_two':       return price > 0 ? '收' : ''
     case 'price_character_three':     return price > 0 ? '款' : ''
     case 'ezcat_version':             return 'EZCATe3.7.0'
-    case 'address_db_version':        return '26060901'
+    case 'address_db_version': {
+      // 郵遞區號DB版本：YYMMDD01（今日日期）
+      const now = new Date()
+      const yy = String(now.getFullYear()).slice(-2)
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const dd = String(now.getDate()).padStart(2, '0')
+      return `${yy}${mm}${dd}01`
+    }
     default: return ''
   }
 }
@@ -118,6 +141,10 @@ function fval(col: string, w: any): string {
 // bx/by = paper.x / paper.y（通常都是 0）
 // rowOffset = 這一模的 paper_rows.y（第一模=0, 第二模=148）
 function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number, dateLabel = '收貨日') {
+  // 郵碼版本效期：當月第一天 ~ 最後一天
+  const now = new Date()
+  const firstDay = `${String(now.getMonth() + 1).padStart(2, '0')}/01`
+  const lastDay  = `${String(now.getMonth() + 1).padStart(2, '0')}/${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`
   const bk = rgb(0, 0, 0)
   const lw = 0.4
   const spaced = dateLabel.split('').join(' ')
@@ -143,7 +170,7 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
     try {
       p.drawText(s, {
         x: px(x, bx),
-        y: py(y, rowOffset, by) - pt * 0.7,
+        y: py(y, rowOffset, by) - pt * 1.3,
         size: pt,
         font,
         color: bk,
@@ -242,9 +269,9 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
 
   // 郵碼版本效期
   txt('此郵碼版本適用於', 194, 40, 5)
-  txt('06/01', 192, 72, 8)
+  txt(firstDay, 192, 72, 8)
   txt('至',    194, 75, 8)
-  txt('06/30', 192, 79, 8)
+  txt(lastDay, 192, 79, 8)
 
   // ═══ 會計聯 ═══
   rect(75, 84, 175, 119)
@@ -332,7 +359,12 @@ async function drawData(
       const tn = (String(w.temperature  ?? '1').replace(/^0+/, '') || '1').padStart(2, '0')
       const ps = (String(w.package_size ?? '2').replace(/^0+/, '') || '2').padStart(2, '0')
       const dt = String(w.deliver_time  ?? '4').padStart(2, '0')
-      const qd = `tracking_number=${w.tracking_no}&customer_id=${w.sender_code}&product_price=${w.price ?? 0}&temperature=${tn}&package_size=${ps}&receiver_suda5=${w.customer_postcode ?? ''}&delivery_date=${dd}&delivery_timezone=${dt}`
+      // 黑貓 QRCode 格式（pipe-separated）：
+      // 01|{tracking_no}|10|{order_no+00}|{waybilltype}|0|{deliver_time}|{temperature}||{customer_postcode}|{deliver_date}|{package_size}||0|||||||||||
+      const wt   = String(w.waybilltype   ?? 'N')
+      const on   = String(w.order_no      ?? '').padEnd(10, '0')
+      const pc   = String(w.customer_postcode ?? '')
+      const qd   = `01|${w.tracking_no}|10|${on}00|${wt}|0|${dt}|${tn}||${pc}|${dd}|${ps}||0|||||||||||`
       const buf = await makeQR(qd)
       if (buf) {
         const img = await doc.embedPng(buf)
@@ -352,7 +384,7 @@ async function drawData(
       const bh  = fh > 0 ? fh : 10
       const bw2 = fw > 0 ? m(fw) : m(50)
       const buf = col === 'base_customer_postcode_barcode'
-        ? await bcI25('+' + v, bh)
+        ? await bcI25(v, bh)
         : await bc128(v, bh)
       if (buf) {
         const img = await doc.embedPng(buf)
@@ -371,7 +403,7 @@ async function drawData(
     try {
       p.drawText(v, {
         x: px(fx, bx),
-        y: py(fy, rowOffset, by) - pt * 0.7,
+        y: py(fy, rowOffset, by) - pt * 0.3,
         size: pt,
         font,
         color: rgb(0, 0, 0),
@@ -416,7 +448,7 @@ export default defineEventHandler(async (event) => {
   const pub = path.join(process.cwd(), 'public')
   const doc = await PDFDocument.create()
   doc.registerFontkit(fontkit)
-  const font = await doc.embedFont(fs.readFileSync(path.join(pub, 'fonts', 'kaiu.ttf')))
+  const font = await doc.embedFont(fs.readFileSync(path.join(pub, 'fonts', 'PMingLiU.ttf')))
 
   // paper.x / paper.y → 全頁偏移（通常 0）
   const bx = Number(paper?.x ?? 0)
