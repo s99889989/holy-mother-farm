@@ -104,7 +104,22 @@ const statusClass = (s) => ({
   '已取消': 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500',
 }[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-400')
 
-const pickupLabel = (d) => d === 'tue' ? '週二' : d === 'fri' ? '週五' : d
+// 根據訂單建立時間推算當週的取貨日期（週二=2, 週五=5）
+// 若訂單建立當天已超過取貨日，則取下一週
+const pickupLabel = (order) => {
+  const dayMap = { tue: { label: '週二', dow: 2 }, fri: { label: '週五', dow: 5 } }
+  const info = dayMap[order?.pickupDay]
+  if (!info) return order?.pickupDay ?? ''
+  const base = order?.createdAt ? new Date(order.createdAt) : new Date()
+  const baseDow = base.getDay() // 0=日
+  let diff = info.dow - baseDow
+  if (diff < 0) diff += 7   // 已過，取下週
+  const target = new Date(base)
+  target.setDate(base.getDate() + diff)
+  const m = target.getMonth() + 1
+  const d = target.getDate()
+  return `${info.label} ${m}/${d}`
+}
 
 const STATUSES = ['待確認', '已確認', '已取貨', '已取消']
 
@@ -362,7 +377,7 @@ const saveHints = async () => {
               <td class="px-3 py-2.5">
                   <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
                         :class="o.pickupDay === 'tue' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">
-                    {{ pickupLabel(o.pickupDay) }}
+                    {{ pickupLabel(o) }}
                   </span>
               </td>
               <td class="px-3 py-2.5 text-center">
@@ -414,7 +429,7 @@ const saveHints = async () => {
             </div>
             <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">確認刪除訂單？</h3>
             <p v-if="deleteModal.order" class="text-sm text-stone-500 leading-relaxed mb-5">
-              <strong class="text-stone-700">{{ deleteModal.order.name }}</strong>　{{ pickupLabel(deleteModal.order.pickupDay) }} 取貨<br>
+              <strong class="text-stone-700">{{ deleteModal.order.name }}</strong>　{{ pickupLabel(deleteModal.order) }} 取貨<br>
               <span v-if="deleteModal.order.soymilkQty">豆漿 × {{ deleteModal.order.soymilkQty }} 袋　</span>
               <span v-if="deleteModal.order.tofuQty">豆腐 × {{ deleteModal.order.tofuQty }} 塊</span>
               <br><span class="text-red-400 text-xs">刪除後無法復原</span>
