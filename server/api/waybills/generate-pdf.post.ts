@@ -548,7 +548,7 @@ async function drawData(
     // zone:col 優先，找不到就 fallback 到無區塊的 col
     const adjust = FONT_ADJUST[`${zone}:${col}`] ?? FONT_ADJUST[col] ?? 0
     const pt = Math.max(sz, 5)
-    const finalSize = Math.max(pt - 2 + adjust, 4)
+    const finalSize = Math.max(pt + adjust, 4)
     const lineHeight = finalSize * 1.4  // 行距 = 字體大小 * 1.4
 
     // 需要換行的欄位
