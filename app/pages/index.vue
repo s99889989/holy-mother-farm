@@ -9,8 +9,8 @@ useSiteHead({
   description: '員工專區',
   ogTitle: '聖母農莊管理系統',
   ogDescription: '員工專區',
-  ogImage: 'https://holymotherfarm.netlify.app/images/home/index_og.svg',
-  twitterImage: 'https://holymotherfarm.netlify.app/images/home/index_og.svg'
+  ogImage: 'https://holymotherfarm.netlify.app/images/home/index_og.jpg',
+  twitterImage: 'https://holymotherfarm.netlify.app/images/home/index_og.jpg'
 })
 const commonStore = useCommonStore()
 const customerStore = useCustomerStore()
