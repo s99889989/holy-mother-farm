@@ -5,7 +5,7 @@ const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/booking'
 const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
 const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
-
+const SOYBEAN_BASE = () => commonStore.data.main_url + '/holy/soybean'
 // ── Google Calendar 設定 ──────────────────────────────────────────
 const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
 const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
@@ -18,25 +18,15 @@ const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${today
 
 // ── 快捷方式 ──────────────────────────────────────────────────────
 const shortcuts = [
-  { to: '/staff/task/task-board', icon: '✅', label: '今日工作', color: 'bg-indigo-600', desc: '查看今日工作並打卡' },
-  { to: '/staff/task/task-manager', icon: '📋', label: '工作管理', color: 'bg-teal-700', desc: '管理工作項目與排休' },
-  { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', color: 'bg-green-700', desc: '查看當日訂位與便當' },
-  { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', color: 'bg-emerald-600', desc: '查看每日點鈔結果' },
-  { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', color: 'bg-indigo-600', desc: '查看本月活動與備注' },
+  { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', color: 'bg-green-700', desc: '查看當日訂位' },
   { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', color: 'bg-blue-600', desc: '常用系統與工具連結' },
   { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', color: 'bg-orange-600', desc: '田園餐廳每日菜色' },
-  { to: '/staff/front/news-edit', icon: '📰', label: '消息管理', color: 'bg-sky-600', desc: '活動消息發布管理' },
-  { to: '/staff/front/product-edit', icon: '🛍️', label: '商品管理', color: 'bg-emerald-700', desc: '推薦農產品管理' },
-  { to: '/staff/front/production-edit', icon: '🌾', label: '產品訂購', color: 'bg-lime-700', desc: '產品訂購項目管理' },
-  { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', color: 'bg-indigo-500', desc: '圖片與檔案資源庫' },
-  { to: '/staff/inventory', icon: '📦', label: '庫存管理', color: 'bg-amber-600', desc: '商店與餐廳庫存' },
-  { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', color: 'bg-teal-700', desc: '財產登記與追蹤' },
-  { to: '/staff/customer', icon: '👥', label: '客戶管理', color: 'bg-blue-700', desc: '客戶帳號與資料' }
 ]
 
 const loading = ref(false)
 const bookings = ref([])
 const lunchOrders = ref([])
+const soybeanOrders = ref([])
 const todayEvents = ref([])
 
 // 行事曆類型色
@@ -70,6 +60,9 @@ const bookingVeg = computed(() => bookings.value.reduce((s, b) => s + (Number(b.
 const lunchMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
 const lunchVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.fullVegQty) || 0) + (Number(o.eggVegQty) || 0) + (Number(o.spiceVegQty) || 0), 0))
 
+const soybeanSoymilk = computed(() => soybeanOrders.value.reduce((s, o) => s + (Number(o.soymilkQty) || 0), 0))
+const soybeanTofu = computed(() => soybeanOrders.value.reduce((s, o) => s + (Number(o.tofuQty) || 0), 0))
+
 async function fetchToday() {
   loading.value = true
   try {
@@ -77,7 +70,8 @@ async function fetchToday() {
     const promises = [
       fetch(`${BASE()}/get/${todayStr}`),
       fetch(`${LUNCH_BASE()}/get/${todayStr}`),
-      fetch(`${CAL_BASE()}/list?yearMonth=${ym}`)
+      fetch(`${CAL_BASE()}/list?yearMonth=${ym}`),
+      fetch(`${SOYBEAN_BASE()}/admin/list?month=${ym}`, { credentials: 'include' }).catch(() => null),
     ]
 
     let googlePromise = Promise.resolve(null)
@@ -92,9 +86,17 @@ async function fetchToday() {
     }
     promises.push(googlePromise)
 
-    const [bRes, lRes, cRes, gRes] = await Promise.all(promises)
+    const [bRes, lRes, cRes, sRes, gRes] = await Promise.all(promises)
     bookings.value = bRes.ok ? await bRes.json() : []
     lunchOrders.value = lRes.ok ? await lRes.json() : []
+
+    if (sRes && sRes.ok) {
+      const sData = await sRes.json()
+      // 只取今日取貨的訂單（pickupDay 對應今天星期幾）
+      soybeanOrders.value = (sData.orders ?? []).filter(o => o.status !== '已取消')
+    } else {
+      soybeanOrders.value = []
+    }
 
     const allCal = cRes.ok ? await cRes.json() : []
     const sysEvents = allCal.filter(e => e.date === todayStr)
@@ -185,7 +187,7 @@ onMounted(() => {
             style="font-size:13px"
           >今日概況</span>
           <NuxtLink
-            to="/staff/management/booking-view"
+            to="/staff/order/booking-view"
             class="text-green-700 dark:text-green-400 font-medium"
             style="font-size:12px"
           >
@@ -201,7 +203,7 @@ onMounted(() => {
           載入中...
         </div>
         <div
-          v-else-if="bookings.length === 0 && lunchOrders.length === 0"
+          v-else-if="bookings.length === 0 && lunchOrders.length === 0 && soybeanOrders.length === 0"
           class="px-4 py-6 text-center text-stone-400"
           style="font-size:13px"
         >
@@ -209,7 +211,7 @@ onMounted(() => {
         </div>
         <div
           v-else
-          class="grid grid-cols-2 divide-x divide-stone-100 dark:divide-zinc-700"
+          class="grid grid-cols-3 divide-x divide-stone-100 dark:divide-zinc-700"
         >
           <!-- 訂位 -->
           <div class="px-4 py-3">
@@ -286,6 +288,45 @@ onMounted(() => {
                 </div>
                 <div v-if="lunchVeg > 0">
                   🌿 素 {{ lunchVeg }}
+                </div>
+              </div>
+            </template>
+          </div>
+          <!-- 豆製品 -->
+          <div class="px-4 py-3">
+            <div class="flex items-center gap-1.5 mb-2">
+              <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+              <span
+                class="font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide"
+                style="font-size:10px"
+              >豆製品</span>
+            </div>
+            <div
+              v-if="soybeanOrders.length === 0"
+              class="text-stone-300 dark:text-stone-600"
+              style="font-size:12px"
+            >
+              尚無記錄
+            </div>
+            <template v-else>
+              <p
+                class="text-stone-800 dark:text-stone-100"
+                style="font-size:13px"
+              >
+                <span
+                  class="font-black"
+                  style="font-size:24px"
+                >{{ soybeanOrders.length }}</span> 筆
+              </p>
+              <div
+                class="mt-1 space-y-0.5 text-amber-600 dark:text-amber-400"
+                style="font-size:11px"
+              >
+                <div v-if="soybeanSoymilk > 0">
+                  🥛 豆漿 {{ soybeanSoymilk }} 袋
+                </div>
+                <div v-if="soybeanTofu > 0">
+                  🟨 豆腐 {{ soybeanTofu }} 塊
                 </div>
               </div>
             </template>

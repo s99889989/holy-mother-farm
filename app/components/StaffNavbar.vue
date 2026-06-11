@@ -465,8 +465,9 @@ const navGroups = [
     items: [
       { to: '/staff/order/soybean-log', icon: '🥛', label: '豆漿訂單', key: 'staff.booking.edit' },
       { to: '/staff/order/waybills', icon: '🐱', label: '黑貓貨單', key: 'staff.booking.edit' },
-      { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
-      { to: '/staff/management/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' }
+      { to: '/staff/order/lunch-edit', icon: '🍱', label: '便當訂單', key: 'staff.booking.edit' },
+      { to: '/staff/order/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
+      { to: '/staff/order/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' }
     ]
   },
   {
