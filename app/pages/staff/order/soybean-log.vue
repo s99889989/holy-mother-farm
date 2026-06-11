@@ -220,6 +220,14 @@ const saveHints = async () => {
         </div>
         <h1 class="flex-1 font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:15px">豆製品訂購管理</h1>
         <div class="flex items-center gap-2">
+          <!-- 客戶訂單連結 -->
+          <a href="https://holyfarm.netlify.app/front/order/soybeans?og=20" target="_blank"
+             class="flex items-center gap-1 px-2.5 py-1.5 border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors text-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+            訂購連結
+          </a>
           <!-- 設定按鈕 -->
           <button @click="showHintSettings = !showHintSettings"
                   :class="showHintSettings ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700'"
