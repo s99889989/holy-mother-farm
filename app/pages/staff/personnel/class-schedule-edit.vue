@@ -117,6 +117,7 @@ async function fetchSchedule() {
     lunar.value       = {}
   } finally {
     loading.value = false
+    nextTick(() => updateTableScale())
   }
 }
 
@@ -572,15 +573,38 @@ async function exportExcel() {
   }
 }
 
+// ── 表格容器 ref ──────────────────────────────────────────────
+const tableWrapRef  = ref(null)
+const scalerClipRef = ref(null)
+const tableInnerRef = ref(null)
+const tableScale    = ref(1)
+const tableZoom     = ref(100)   // 使用者手動縮放比例（50–150%）
+
+function updateTableScale() {}
+
+let _tableRO = null
+function mountTableObserver() {}
+function unmountTableObserver() { _tableRO?.disconnect(); _tableRO = null }
+
+// 切回班表 view 時重新計算 scale
+watch(view, (v) => {
+  if (v === 'table') nextTick(() => updateTableScale())
+})
+
 // ── 初始載入 ─────────────────────────────────────────────────
 onMounted(() => {
   fetchSchedule()
   fetchShifts()
+  nextTick(() => mountTableObserver())
+})
+
+onUnmounted(() => {
+  unmountTableObserver()
 })
 </script>
 
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-full flex flex-col bg-stone-50 dark:bg-zinc-900 transition-colors duration-300 overflow-hidden">
     <!-- ── Header ── -->
     <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 sticky top-0 z-30"
             :class="headerCollapsed ? 'py-1' : 'py-3'">
@@ -653,6 +677,35 @@ onMounted(() => {
               {{ tab.label }}
             </button>
           </div>
+
+          <!-- 縮放控制（班表 view 時顯示） -->
+          <div v-if="view === 'table'" class="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+            <button class="p-1 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 text-stone-400 dark:text-stone-500 transition-colors disabled:opacity-30"
+                    :disabled="tableZoom <= 50" @click="tableZoom = Math.max(50, tableZoom - 10)" title="縮小">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+            </button>
+            <span class="text-xs text-stone-500 dark:text-stone-400 min-w-[36px] text-center tabular-nums select-none">{{ tableZoom }}%</span>
+            <button class="p-1 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 text-stone-400 dark:text-stone-500 transition-colors disabled:opacity-30"
+                    :disabled="tableZoom >= 150" @click="tableZoom = Math.min(150, tableZoom + 10)" title="放大">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
+          </div>
+
+          <!-- 下載 Excel（班表 view 時顯示） -->
+          <button v-if="view === 'table'"
+                  class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-60 flex-shrink-0"
+                  :disabled="downloading || loading" @click="exportExcel">
+            <svg v-if="downloading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            {{ downloading ? '產生中…' : '下載 Excel' }}
+          </button>
+
           <!-- 收起按鈕 -->
           <button class="flex-shrink-0 p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors"
                   title="收起標題列"
@@ -711,7 +764,7 @@ onMounted(() => {
     </header>
 
     <!-- ── 主體 ── -->
-    <div class="w-full px-3 sm:px-4 py-4 sm:py-6">
+    <div class="flex flex-col flex-1 min-h-0 w-full px-3 sm:px-4 py-3 sm:py-4">
 
       <!-- 載入中 -->
       <div v-if="loading" class="flex items-center justify-center py-20 gap-3 text-stone-400">
@@ -731,107 +784,93 @@ onMounted(() => {
 
       <!-- ══ 班表 ══ -->
       <div v-else-if="view === 'table'">
-        <!-- 列印工具列 -->
-        <div class="hidden lg:flex justify-end mb-3 gap-2">
-          <button
-            class="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-base font-medium rounded-xl transition-colors disabled:opacity-60"
-            :disabled="downloading || loading" @click="exportExcel">
-            <svg v-if="downloading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            {{ downloading ? '產生中…' : '下載 Excel' }}
-          </button>
-        </div>
-        <!-- 表格（永遠顯示，橫向滾動） -->
-        <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse" style="table-layout:fixed">
-              <colgroup>
-                <col style="width:90px">
-                <col v-for="d in days" :key="d" style="width:32px">
-                <col style="width:32px">
-                <col style="width:32px">
-              </colgroup>
-              <thead>
-              <tr class="bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
-                <th class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 px-2 py-2 text-left text-stone-500 dark:text-stone-400 font-medium whitespace-nowrap border-r border-stone-200 dark:border-stone-700">姓名</th>
-                <th v-for="d in days" :key="d" :class="['px-0 py-2 text-center font-semibold', dayHeaderClass(d)]">{{ d }}</th>
-                <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap border-l border-stone-200 dark:border-stone-700">應</th>
-                <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap">實</th>
-              </tr>
-              <tr class="border-b-2 border-stone-200 dark:border-stone-700">
-                <th class="sticky left-0 z-10 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 px-2 py-1 text-left text-stone-300 dark:text-stone-600 font-normal text-xs">
-                  {{ currentYear }}年{{ currentMonth }}月
-                </th>
-                <th v-for="d in days" :key="d" :class="['py-1 text-center text-xs font-normal', dayHeaderClass(d), dayCellBg(d)]">
-                  {{ WEEKDAY_NAMES[getWeekday(d)] }}
-                  <div v-if="holidays[d]" class="text-[9px] text-pink-400 leading-tight truncate px-0.5">{{ holidays[d] }}</div>
-                </th>
-                <th class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
-              </tr>
-              </thead>
-              <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
-              <tr v-for="emp in currentDeptEmployees" :key="emp.id"
-                  class="hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
-                <td class="sticky left-0 z-10 bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800/40 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap overflow-hidden">
-                  <div class="font-semibold text-stone-800 dark:text-stone-100 text-sm truncate">{{ emp.name }}</div>
-                  <div class="text-xs text-stone-400 dark:text-stone-500 truncate">{{ emp.id }}</div>
-                </td>
-                <td v-for="d in days" :key="d"
-                    :class="['text-center py-1 px-0 cursor-pointer transition-colors', dayCellBg(d), 'hover:ring-1 hover:ring-inset hover:ring-green-400']"
-                    @click="openEdit(emp, d)">
-                  <template v-if="emp.schedule[d]">
-                    <div class="relative inline-flex items-center justify-center">
+        <div ref="tableWrapRef"
+             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-x-auto" style="width: fit-content; max-width: 100%">
+          <div ref="scalerClipRef">
+            <div ref="tableInnerRef" :style="{ zoom: tableZoom / 100 }">
+              <table class="text-sm border-collapse" style="table-layout:fixed">
+                <colgroup>
+                  <col style="width:90px">
+                  <col v-for="d in days" :key="d" style="width:32px">
+                  <col style="width:32px">
+                  <col style="width:32px">
+                </colgroup>
+                <thead>
+                <tr class="bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
+                  <th class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 px-2 py-2 text-left text-stone-500 dark:text-stone-400 font-medium whitespace-nowrap border-r border-stone-200 dark:border-stone-700">姓名</th>
+                  <th v-for="d in days" :key="d" :class="['px-0 py-2 text-center font-semibold', dayHeaderClass(d)]">{{ d }}</th>
+                  <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap border-l border-stone-200 dark:border-stone-700">應</th>
+                  <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap">實</th>
+                </tr>
+                <tr class="border-b-2 border-stone-200 dark:border-stone-700">
+                  <th class="sticky left-0 z-10 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 px-2 py-1 text-left text-stone-300 dark:text-stone-600 font-normal text-xs">
+                    {{ currentYear }}年{{ currentMonth }}月
+                  </th>
+                  <th v-for="d in days" :key="d" :class="['py-1 text-center text-xs font-normal', dayHeaderClass(d), dayCellBg(d)]">
+                    {{ WEEKDAY_NAMES[getWeekday(d)] }}
+                    <div v-if="holidays[d]" class="text-[9px] text-pink-400 leading-tight truncate px-0.5">{{ holidays[d] }}</div>
+                  </th>
+                  <th class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
+                <tr v-for="emp in currentDeptEmployees" :key="emp.id"
+                    class="hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
+                  <td class="sticky left-0 z-10 bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800/40 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap overflow-hidden">
+                    <div class="font-semibold text-stone-800 dark:text-stone-100 text-sm truncate">{{ emp.name }}</div>
+                    <div class="text-xs text-stone-400 dark:text-stone-500 truncate">{{ emp.id }}</div>
+                  </td>
+                  <td v-for="d in days" :key="d"
+                      :class="['text-center py-1 px-0 cursor-pointer transition-colors', dayCellBg(d), 'hover:ring-1 hover:ring-inset hover:ring-green-400']"
+                      @click="openEdit(emp, d)">
+                    <template v-if="emp.schedule[d]">
+                      <div class="relative inline-flex items-center justify-center">
                         <span :class="['inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold', badgeClass(parseCell(emp.schedule[d]).code)]">
                           {{ parseCell(emp.schedule[d]).code }}
                         </span>
-                      <span v-if="parseCell(emp.schedule[d]).extra"
-                            :class="['absolute -top-1 -right-1.5 w-3 h-3 rounded-full flex items-center justify-center text-[9px] font-bold leading-none shadow-sm',
+                        <span v-if="parseCell(emp.schedule[d]).extra"
+                              :class="['absolute -top-1 -right-1.5 w-3 h-3 rounded-full flex items-center justify-center text-[9px] font-bold leading-none shadow-sm',
                                    extraBadgeClass(parseCell(emp.schedule[d]).extra)]">
                           {{ parseCell(emp.schedule[d]).extra }}
                         </span>
-                    </div>
-                  </template>
-                </td>
-                <td class="text-center border-l border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 font-medium py-1 text-xs">{{ emp.expected }}</td>
-                <td class="text-center text-stone-700 dark:text-stone-200 font-semibold py-1 text-xs">{{ countActual(emp) }}</td>
-              </tr>
-              </tbody>
-              <tfoot class="border-t-2 border-stone-200 dark:border-stone-700">
-              <tr class="bg-stone-50 dark:bg-zinc-800">
-                <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap">
-                  <div class="text-xs font-semibold text-stone-600 dark:text-stone-300">每日人力</div>
-                  <div class="text-xs text-stone-400 dark:text-stone-500">共 {{ totalEmployees }} 人</div>
-                </td>
-                <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
+                      </div>
+                    </template>
+                  </td>
+                  <td class="text-center border-l border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 font-medium py-1 text-xs">{{ emp.expected }}</td>
+                  <td class="text-center text-stone-700 dark:text-stone-200 font-semibold py-1 text-xs">{{ countActual(emp) }}</td>
+                </tr>
+                </tbody>
+                <tfoot class="border-t-2 border-stone-200 dark:border-stone-700">
+                <tr class="bg-stone-50 dark:bg-zinc-800">
+                  <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap">
+                    <div class="text-xs font-semibold text-stone-600 dark:text-stone-300">每日人力</div>
+                    <div class="text-xs text-stone-400 dark:text-stone-500">共 {{ totalEmployees }} 人</div>
+                  </td>
+                  <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
                     <span v-if="dailyWorkCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                       {{ dailyWorkCount(d) }}
                     </span>
-                  <span v-else class="text-xs text-stone-300 dark:text-stone-600">—</span>
-                </td>
-                <td class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
-              </tr>
-              <tr class="bg-stone-50/60 dark:bg-zinc-800/60">
-                <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap">
-                  <div class="text-xs font-semibold text-stone-500 dark:text-stone-400">休假人數</div>
-                </td>
-                <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
+                    <span v-else class="text-xs text-stone-300 dark:text-stone-600">—</span>
+                  </td>
+                  <td class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
+                </tr>
+                <tr class="bg-stone-50/60 dark:bg-zinc-800/60">
+                  <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap">
+                    <div class="text-xs font-semibold text-stone-500 dark:text-stone-400">休假人數</div>
+                  </td>
+                  <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
                     <span v-if="dailyOffCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-stone-200 text-stone-500 dark:bg-zinc-700 dark:text-stone-300">
                       {{ dailyOffCount(d) }}
                     </span>
-                  <span v-else class="text-xs text-stone-300 dark:text-stone-600">—</span>
-                </td>
-                <td class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
-              </tr>
-              </tfoot>
-            </table>
+                    <span v-else class="text-xs text-stone-300 dark:text-stone-600">—</span>
+                  </td>
+                  <td class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
+                </tr>
+                </tfoot>
+              </table>
+            </div><!-- end tableInnerRef -->
           </div>
         </div>
         <div v-if="!loading && currentDeptEmployees.length === 0"

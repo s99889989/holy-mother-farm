@@ -93,7 +93,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 py-8 px-4">
+  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 py-8 px-4">
     <div class="max-w-xl mx-auto">
 
       <!-- 頁面標題 -->

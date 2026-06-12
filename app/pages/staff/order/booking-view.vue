@@ -523,7 +523,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
 
     <!-- ── 頂部導覽 ── -->
     <header

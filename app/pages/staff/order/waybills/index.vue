@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 max-w-screen-xl mx-auto text-sm text-stone-800 dark:text-stone-200">
+  <div class="min-h-full p-4 max-w-screen-xl mx-auto text-sm text-stone-800 dark:text-stone-200">
 
     <!-- 標題 -->
     <div class="text-base font-bold text-gray-700 dark:text-stone-300 mb-3">黑貓貨單管理</div>

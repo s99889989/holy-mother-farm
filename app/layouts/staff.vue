@@ -1,7 +1,9 @@
 <template>
-  <div class="min-h-screen bg-stone-100 dark:bg-zinc-950 transition-colors">
+  <div class="h-screen flex flex-col bg-stone-100 dark:bg-zinc-950 transition-colors">
     <StaffNavbar />
-    <slot />
+    <div class="flex-1 overflow-y-auto">
+      <slot />
+    </div>
   </div>
 </template>
 

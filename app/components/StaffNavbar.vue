@@ -296,7 +296,7 @@
     >
       <div
         v-if="mobileOpen"
-        class="lg:hidden mt-2 p-2 border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800 space-y-2"
+        class="lg:hidden mt-2 p-2 border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800 space-y-2 max-h-[70vh] overflow-y-auto"
       >
         <!-- 分類群組 -->
         <div
