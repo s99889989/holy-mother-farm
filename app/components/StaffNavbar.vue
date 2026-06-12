@@ -1,11 +1,11 @@
 <template>
-  <nav class="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-700 px-4 py-2 sticky top-0 z-50">
+  <nav class="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-700 px-3 py-1.5 sticky top-0 z-50">
     <!-- 桌機 -->
-    <div class="hidden sm:flex items-center gap-1">
+    <div class="hidden lg:flex items-center gap-0.5">
       <!-- Logo -->
       <NuxtLink
         to="/staff/home"
-        class="flex items-center gap-1.5 px-2 py-1 mr-1 text-green-700 dark:text-green-400 font-bold text-lg"
+        class="flex items-center gap-1 px-2 py-1 mr-1 text-green-700 dark:text-green-400 font-bold text-sm"
       >
         🏠 首頁
       </NuxtLink>
@@ -17,7 +17,7 @@
         class="relative nav-dropdown-wrap"
       >
         <button
-          class="flex items-center gap-1 px-2.5 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
+          class="flex items-center gap-1 px-2 py-1 rounded text-sm font-medium transition-colors whitespace-nowrap"
           :class="activeGroup?.label === group.label
             ? 'text-green-700 dark:text-green-400'
             : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'"
@@ -58,7 +58,7 @@
               >
                 <NuxtLink
                   :to="item.to"
-                  class="flex items-center gap-2 px-3 py-1.5 rounded text-lg font-medium transition-colors whitespace-nowrap"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap"
                   :class="route.path.startsWith(item.to)
                     ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950'
                     : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'"
@@ -76,7 +76,7 @@
         v-for="item in visibleStandaloneItems"
         :key="item.to"
         :to="item.to"
-        class="flex items-center gap-1 px-2.5 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
+        class="flex items-center gap-1 px-2 py-1 rounded text-sm font-medium transition-colors whitespace-nowrap"
         :class="route.path.startsWith(item.to)
           ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950'
           : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'"
@@ -142,7 +142,7 @@
             >
               {{ customer.name?.charAt(0) || '?' }}
             </div>
-            <span class="text-base font-medium hidden sm:block max-w-[80px] truncate">{{ customer.name }}</span>
+            <span class="text-base font-medium hidden lg:block max-w-[80px] truncate">{{ customer.name }}</span>
             <svg
               class="w-3 h-3 transition-transform"
               :class="menuOpen ? 'rotate-180' : ''"
@@ -253,7 +253,7 @@
     </div>
 
     <!-- 手機 navbar -->
-    <div class="sm:hidden flex items-center justify-between">
+    <div class="lg:hidden flex items-center justify-between">
       <NuxtLink
         to="/staff/home"
         class="flex items-center gap-1.5 text-green-700 dark:text-green-400 font-bold text-sm"
@@ -266,59 +266,20 @@
           :title="isDark ? '切換亮色' : '切換暗色'"
           @click="toggleDark"
         >
-          <svg
-            v-if="isDark"
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"
-            />
+          <svg v-if="isDark" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"/>
           </svg>
-          <svg
-            v-else
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
-            />
+          <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
           </svg>
         </button>
         <button
           class="p-1 rounded text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
           @click="mobileOpen = !mobileOpen"
         >
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              v-if="!mobileOpen"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-            <path
-              v-else
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path v-if="!mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
       </div>
@@ -335,7 +296,7 @@
     >
       <div
         v-if="mobileOpen"
-        class="sm:hidden mt-2 p-2 border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800 space-y-2"
+        class="lg:hidden mt-2 p-2 border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800 space-y-2"
       >
         <!-- 分類群組 -->
         <div
@@ -428,6 +389,7 @@ watch(() => route.path, () => {
   menuOpen.value = false
 })
 
+
 // ── 選單定義 ─────────────────────────────────────────────────────
 const navGroups = [
   {
@@ -489,15 +451,22 @@ const standaloneItems = [
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────
+const permStore = usePermissionStore()
+const permLoaded = computed(() => permStore.loaded)
+
 const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
 
-const visibleGroups = computed(() =>
-  navGroups
+const visibleGroups = computed(() => {
+  if (!permLoaded.value) return []
+  return navGroups
     .map(g => ({ ...g, items: filterItems(g.items) }))
     .filter(g => g.items.length > 0)
-)
+})
 
-const visibleStandaloneItems = computed(() => filterItems(standaloneItems))
+const visibleStandaloneItems = computed(() => {
+  if (!permLoaded.value) return []
+  return filterItems(standaloneItems)
+})
 
 const activeGroup = computed(() =>
   visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))

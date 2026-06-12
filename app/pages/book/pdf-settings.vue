@@ -64,7 +64,7 @@
                   class="flex-1"
                 />
                 <span class="w-10 text-right font-mono text-xs"
-                  :class="settings.fontAdjust[activeZone][f.key] > 0 ? 'text-teal-600' : settings.fontAdjust[activeZone][f.key] < 0 ? 'text-red-500' : 'text-stone-400'"
+                      :class="settings.fontAdjust[activeZone][f.key] > 0 ? 'text-teal-600' : settings.fontAdjust[activeZone][f.key] < 0 ? 'text-red-500' : 'text-stone-400'"
                 >{{ settings.fontAdjust[activeZone][f.key] > 0 ? '+' : '' }}{{ settings.fontAdjust[activeZone][f.key] }}</span>
               </div>
             </div>
@@ -77,7 +77,7 @@
           <div class="bg-stone-100 dark:bg-zinc-700 px-4 py-2 flex items-center justify-between">
             <span class="font-bold text-sm text-stone-700 dark:text-stone-300">產生程式碼</span>
             <button @click="copyCode"
-              class="text-xs px-3 py-1 rounded bg-stone-200 dark:bg-zinc-600 hover:bg-stone-300 dark:hover:bg-zinc-500 text-stone-700 dark:text-stone-200">
+                    class="text-xs px-3 py-1 rounded bg-stone-200 dark:bg-zinc-600 hover:bg-stone-300 dark:hover:bg-zinc-500 text-stone-700 dark:text-stone-200">
               {{ copied ? '✅ 已複製' : '📋 複製' }}
             </button>
           </div>
@@ -92,44 +92,83 @@
           <div class="bg-teal-600 dark:bg-teal-800 text-white px-4 py-2 font-bold text-sm">PDF 預覽</div>
           <div class="p-4 bg-white dark:bg-zinc-800 space-y-3">
 
-            <div class="flex gap-2 flex-wrap items-center">
-              <div class="flex items-center gap-2 flex-1 min-w-48">
-                <label class="text-stone-600 dark:text-stone-400 shrink-0 text-xs">託運單 ID</label>
-                <input
-                  v-model="previewIds"
-                  type="text"
-                  placeholder="如：1,2,3"
-                  class="flex-1 border border-stone-300 dark:border-stone-600 rounded px-2 py-1 text-xs bg-white dark:bg-zinc-700"
-                />
-              </div>
-              <div class="flex items-center gap-2">
-                <label class="text-stone-600 dark:text-stone-400 shrink-0 text-xs">paper_id</label>
-                <input
-                  v-model.number="previewPaperId"
-                  type="number"
-                  class="w-16 border border-stone-300 dark:border-stone-600 rounded px-2 py-1 text-xs bg-white dark:bg-zinc-700"
-                />
+            <!-- 搜尋列表 -->
+            <div class="flex gap-2 items-center">
+              <input
+                v-model="listKeyword"
+                type="text"
+                placeholder="姓名 / 電話 / 託運單號搜尋"
+                class="flex-1 border border-stone-300 dark:border-stone-600 rounded px-2 py-1 text-xs bg-white dark:bg-zinc-700"
+                @keyup.enter="loadWaybills"
+              />
+              <button @click="loadWaybills" class="px-3 py-1 rounded bg-stone-200 dark:bg-zinc-600 hover:bg-stone-300 text-xs text-stone-700 dark:text-stone-200">搜尋</button>
+            </div>
+
+            <!-- 列表 -->
+            <div class="border border-stone-200 dark:border-stone-700 rounded overflow-auto max-h-48">
+              <table class="w-full text-xs">
+                <thead class="bg-stone-100 dark:bg-zinc-700 sticky top-0">
+                <tr>
+                  <th class="px-2 py-1 w-6">
+                    <input type="checkbox" @change="toggleAllWaybills" :checked="allWaybillsChecked" />
+                  </th>
+                  <th class="px-2 py-1 text-left text-stone-600 dark:text-stone-400">ID</th>
+                  <th class="px-2 py-1 text-left text-stone-600 dark:text-stone-400">託運單號</th>
+                  <th class="px-2 py-1 text-left text-stone-600 dark:text-stone-400">收件人</th>
+                  <th class="px-2 py-1 text-left text-stone-600 dark:text-stone-400">紙張</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-if="!waybills.length">
+                  <td colspan="5" class="px-3 py-4 text-center text-stone-400">{{ waybillsLoading ? '載入中...' : '無資料，請先搜尋' }}</td>
+                </tr>
+                <tr v-for="w in waybills" :key="w.id"
+                    class="border-t border-stone-100 dark:border-stone-700 hover:bg-blue-50 dark:hover:bg-zinc-700 cursor-pointer"
+                    :class="{ 'bg-blue-50 dark:bg-zinc-700': selectedWaybillIds.includes(w.id) }"
+                    @click="toggleWaybill(w.id)"
+                >
+                  <td class="px-2 py-1 text-center">
+                    <input type="checkbox" :checked="selectedWaybillIds.includes(w.id)" @click.stop="toggleWaybill(w.id)" />
+                  </td>
+                  <td class="px-2 py-1 text-stone-500">{{ w.id }}</td>
+                  <td class="px-2 py-1 font-mono text-blue-600 dark:text-blue-400">{{ w.tracking_no }}</td>
+                  <td class="px-2 py-1">{{ w.customer_name }}</td>
+                  <td class="px-2 py-1 text-stone-500">{{ w.paper_id }}</td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 預覽控制 -->
+            <div class="flex gap-2 items-center flex-wrap">
+              <span class="text-xs text-stone-500">已選 {{ selectedWaybillIds.length }} 筆</span>
+              <div class="flex items-center gap-1 ml-auto">
+                <label class="text-xs text-stone-500">paper_id</label>
+                <input v-model.number="previewPaperId" type="number"
+                       class="w-14 border border-stone-300 dark:border-stone-600 rounded px-2 py-1 text-xs bg-white dark:bg-zinc-700" />
               </div>
               <button
                 @click="previewPDF"
-                :disabled="previewing"
+                :disabled="previewing || !selectedWaybillIds.length"
                 class="px-4 py-1.5 rounded bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs"
-              >
-                {{ previewing ? '產生中...' : '▶ 預覽' }}
-              </button>
+              >{{ previewing ? '產生中...' : '▶ 預覽' }}</button>
             </div>
 
             <div v-if="previewError" class="text-red-500 text-xs">{{ previewError }}</div>
-            <div v-if="previewUrl" class="text-teal-600 text-xs">✅ 產生成功</div>
 
-            <iframe
-              v-if="previewUrl"
-              :src="previewUrl"
-              class="w-full rounded border border-stone-200 dark:border-stone-700"
-              style="height: 700px;"
-            />
-            <div v-else class="flex items-center justify-center border border-dashed border-stone-300 dark:border-stone-600 rounded text-stone-400 dark:text-stone-500 text-sm" style="height:200px">
-              輸入託運單 ID 後按「預覽」
+            <div v-if="previewUrl" class="space-y-2">
+              <a :href="previewUrl" target="_blank"
+                 class="inline-block text-xs px-3 py-1 rounded bg-stone-200 dark:bg-zinc-600 hover:bg-stone-300 dark:hover:bg-zinc-500 text-stone-700 dark:text-stone-200">
+                ↗ 開新分頁查看（可自由縮放）
+              </a>
+              <iframe
+                :src="previewUrl"
+                class="w-full rounded border border-stone-200 dark:border-stone-700"
+                style="height: calc(100vh - 300px); min-height: 700px;"
+              />
+            </div>
+            <div v-else class="flex items-center justify-center border border-dashed border-stone-300 dark:border-stone-600 rounded text-stone-400 dark:text-stone-500 text-sm" style="height:120px">
+              勾選託運單後按「預覽」
             </div>
 
           </div>
@@ -203,25 +242,52 @@ const settings = reactive({
 })
 
 // ── 預覽 ─────────────────────────────────────────────────────
-const previewIds    = ref('')
-const previewPaperId = ref(2)
-const previewing    = ref(false)
-const previewUrl    = ref('')
-const previewError  = ref('')
+const listKeyword        = ref('')
+const waybills           = ref<any[]>([])
+const waybillsLoading    = ref(false)
+const selectedWaybillIds = ref<number[]>([])
+const previewPaperId     = ref(2)
+const previewing         = ref(false)
+const previewUrl         = ref('')
+const previewError       = ref('')
+
+const allWaybillsChecked = computed(() =>
+  waybills.value.length > 0 && waybills.value.every(w => selectedWaybillIds.value.includes(w.id))
+)
+
+async function loadWaybills() {
+  waybillsLoading.value = true
+  try {
+    const data = await $fetch<any>('/api/waybills', {
+      query: { keyword: listKeyword.value, page: 1, limit: 20 }
+    })
+    waybills.value = data?.rows ?? []
+    selectedWaybillIds.value = []
+  } catch { waybills.value = [] }
+  finally { waybillsLoading.value = false }
+}
+
+function toggleWaybill(id: number) {
+  const idx = selectedWaybillIds.value.indexOf(id)
+  if (idx >= 0) selectedWaybillIds.value.splice(idx, 1)
+  else selectedWaybillIds.value.push(id)
+}
+
+function toggleAllWaybills(e: Event) {
+  const checked = (e.target as HTMLInputElement).checked
+  selectedWaybillIds.value = checked ? waybills.value.map(w => w.id) : []
+}
 
 async function previewPDF() {
-  const ids = previewIds.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0)
-  if (!ids.length) { previewError.value = '請輸入有效的託運單 ID'; return }
-
-  previewing.value  = true
+  if (!selectedWaybillIds.value.length) return
+  previewing.value   = true
   previewError.value = ''
   if (previewUrl.value?.startsWith('blob:')) URL.revokeObjectURL(previewUrl.value)
-  previewUrl.value = ''
-
+  previewUrl.value   = ''
   try {
     const res = await $fetch<Blob>('/api/waybills/generate-pdf', {
       method: 'POST',
-      body: { ids, paper_id: previewPaperId.value },
+      body: { ids: selectedWaybillIds.value, paper_id: previewPaperId.value },
       responseType: 'blob',
     })
     previewUrl.value = URL.createObjectURL(res)

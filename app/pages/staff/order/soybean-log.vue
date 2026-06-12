@@ -153,6 +153,61 @@ const confirmDelete = async () => {
   }
 }
 
+// ── 新增訂單 ──────────────────────────────────────────────────────
+const createModal = ref({show: false, submitting: false})
+const createForm = ref({
+  name: '', contact: '', pickupDay: 'tue',
+  soymilkQty: 0, tofuQty: 0, remark: '', status: '已確認',
+})
+
+const openCreateModal = () => {
+  createForm.value = { name: '', contact: '', pickupDay: 'tue', soymilkQty: 0, tofuQty: 0, remark: '', status: '已確認' }
+  createModal.value = { show: true, submitting: false }
+}
+const closeCreateModal = () => {
+  createModal.value = { show: false, submitting: false }
+}
+
+const adjCreate = (field, delta) => {
+  createForm.value[field] = Math.max(0, createForm.value[field] + delta)
+}
+
+const submitCreate = async () => {
+  const f = createForm.value
+  if (!f.name.trim())    { alert('請輸入姓名'); return }
+  if (!f.contact.trim()) { alert('請輸入聯絡方式'); return }
+  if (f.soymilkQty === 0 && f.tofuQty === 0) { alert('請選擇豆漿或豆腐數量'); return }
+  createModal.value.submitting = true
+  try {
+    const payload = {
+      name: f.name.trim(), contact: f.contact.trim(),
+      pickupDay: f.pickupDay, soymilkQty: f.soymilkQty,
+      tofuQty: f.tofuQty, remark: f.remark.trim(),
+    }
+    const res = await fetch(`${BASE.value}/order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json()
+    if (data.error) { alert('新增失敗：' + data.error); return }
+    // 若選的狀態不是預設的「待確認」，再補一次 PATCH 更新狀態
+    if (f.status !== '待確認' && data.month && data.id) {
+      await fetch(`${BASE.value}/admin/status/${data.month}/${data.id}?status=${encodeURIComponent(f.status)}`, {
+        method: 'PATCH',
+        credentials: 'include',
+      })
+    }
+    closeCreateModal()
+    await fetchData()
+  } catch {
+    alert('新增失敗')
+  } finally {
+    createModal.value.submitting = false
+  }
+}
+
 // ── 提示訊息設定 ──────────────────────────────────────────────────
 const showHintSettings = ref(false)
 const hintSaving = ref(false)
@@ -228,6 +283,14 @@ const saveHints = async () => {
             </svg>
             訂購連結
           </a>
+          <!-- 新增訂單按鈕 -->
+          <button @click="openCreateModal"
+                  class="flex items-center gap-1 px-2.5 py-1.5 border border-emerald-600 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+            </svg>
+            新增訂單
+          </button>
           <!-- 設定按鈕 -->
           <button @click="showHintSettings = !showHintSettings"
                   :class="showHintSettings ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700'"
@@ -421,6 +484,122 @@ const saveHints = async () => {
       </div>
 
     </div>
+
+    <!-- 新增訂單 Modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="createModal.show"
+             class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+             @click.self="closeCreateModal">
+          <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="font-bold text-stone-800 dark:text-stone-100 text-base">新增訂單</h3>
+              <button @click="closeCreateModal" class="text-stone-300 hover:text-stone-500 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="space-y-4">
+              <!-- 姓名 & 聯絡 -->
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1">姓名 <span class="text-red-400">*</span></label>
+                  <input v-model="createForm.name" type="text" placeholder="訂購人姓名"
+                         class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1">聯絡方式 <span class="text-red-400">*</span></label>
+                  <input v-model="createForm.contact" type="text" placeholder="電話或 Line"
+                         class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
+                </div>
+              </div>
+
+              <!-- 取貨日 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1.5">取貨日</label>
+                <div class="flex gap-2">
+                  <button @click="createForm.pickupDay = 'tue'"
+                          :class="createForm.pickupDay === 'tue' ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
+                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
+                    週二
+                  </button>
+                  <button @click="createForm.pickupDay = 'fri'"
+                          :class="createForm.pickupDay === 'fri' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
+                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
+                    週五
+                  </button>
+                </div>
+              </div>
+
+              <!-- 豆漿 & 豆腐 -->
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1.5">豆漿（袋）</label>
+                  <div class="flex items-center gap-2">
+                    <button @click="adjCreate('soymilkQty', -1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">−</button>
+                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ createForm.soymilkQty }}</span>
+                    <button @click="adjCreate('soymilkQty', 1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">＋</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1.5">豆腐（塊）</label>
+                  <div class="flex items-center gap-2">
+                    <button @click="adjCreate('tofuQty', -1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">−</button>
+                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ createForm.tofuQty }}</span>
+                    <button @click="adjCreate('tofuQty', 1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">＋</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 金額小計 -->
+              <div v-if="createForm.soymilkQty > 0 || createForm.tofuQty > 0"
+                   class="bg-stone-50 dark:bg-zinc-800 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm">
+                <span class="text-stone-400">小計</span>
+                <span class="font-bold text-stone-800 dark:text-stone-100">${{ createForm.soymilkQty * 50 + createForm.tofuQty * 50 }}</span>
+              </div>
+
+              <!-- 備註 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1">備註</label>
+                <input v-model="createForm.remark" type="text" placeholder="選填"
+                       class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
+              </div>
+
+              <!-- 訂單狀態 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1.5">訂單狀態</label>
+                <div class="flex flex-wrap gap-2">
+                  <button v-for="s in STATUSES" :key="s"
+                          @click="createForm.status = s"
+                          :class="createForm.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-400 dark:bg-zinc-700 dark:text-stone-500'"
+                          class="transition-all cursor-pointer">
+                    {{ s }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex gap-2 mt-6">
+              <button @click="closeCreateModal" :disabled="createModal.submitting"
+                      class="flex-1 py-2.5 text-sm border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors">
+                取消
+              </button>
+              <button @click="submitCreate" :disabled="createModal.submitting"
+                      class="flex-1 py-2.5 text-sm bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold">
+                <span v-if="createModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                {{ createModal.submitting ? '新增中…' : '確認新增' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 刪除確認 Modal -->
     <Teleport to="body">
