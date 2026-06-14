@@ -273,6 +273,80 @@ const saveHints = async () => {
     hintSaving.value = false
   }
 }
+
+// ── 編輯訂單 ──────────────────────────────────────────────────────
+const editModal = ref({ show: false, submitting: false, orderId: '', orderMonth: '' })
+const editForm = ref({
+  name: '', contact: '', pickupDay: 'tue',
+  soymilkQty: 0, tofuQty: 0, soymilkVolume: 800, soymilkCustomVolume: 0,
+  remark: '', status: '待確認',
+})
+
+const openEditModal = (order) => {
+  const vol = order.soymilkVolume || 0
+  const presetVols = [600, 800, 1000, 1700]
+  editForm.value = {
+    name:               order.name       || '',
+    contact:            order.contact    || '',
+    pickupDay:          order.pickupDay  || 'tue',
+    soymilkQty:         order.soymilkQty || 0,
+    tofuQty:            order.tofuQty    || 0,
+    soymilkVolume:      presetVols.includes(vol) ? vol : (vol > 0 ? -1 : 800),
+    soymilkCustomVolume: presetVols.includes(vol) ? 0 : vol,
+    remark:             order.remark     || '',
+    status:             order.status     || '待確認',
+  }
+  editModal.value = { show: true, submitting: false, orderId: order.id, orderMonth: order.month }
+}
+
+const closeEditModal = () => {
+  editModal.value = { show: false, submitting: false, orderId: '', orderMonth: '' }
+}
+
+const adjEdit = (field, delta) => {
+  editForm.value[field] = Math.max(0, editForm.value[field] + delta)
+}
+
+const submitEdit = async () => {
+  const f = editForm.value
+  if (!f.name.trim())    { alert('請輸入姓名'); return }
+  if (!f.contact.trim()) { alert('請輸入聯絡方式'); return }
+  if (f.soymilkQty === 0 && f.tofuQty === 0) { alert('請選擇豆漿或豆腐數量'); return }
+
+  editModal.value.submitting = true
+  try {
+    const resolvedVolume = f.soymilkVolume === -1 ? (f.soymilkCustomVolume || 0) : (f.soymilkVolume || 0)
+    const payload = {
+      name:          f.name.trim(),
+      contact:       f.contact.trim(),
+      pickupDay:     f.pickupDay,
+      soymilkQty:    f.soymilkQty,
+      tofuQty:       f.tofuQty,
+      soymilkVolume: resolvedVolume,
+      remark:        f.remark.trim(),
+      status:        f.status,
+    }
+    const res = await fetch(
+      `${BASE.value}/admin/order/${editModal.value.orderMonth}/${editModal.value.orderId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      }
+    )
+    const data = await res.json()
+    if (data.error) { alert('編輯失敗：' + data.error); return }
+    // 直接更新本地資料，不需重新 fetch
+    const target = orders.value.find(o => o.id === editModal.value.orderId)
+    if (target) Object.assign(target, payload)
+    closeEditModal()
+  } catch {
+    alert('編輯失敗')
+  } finally {
+    editModal.value.submitting = false
+  }
+}
 </script>
 
 <template>
@@ -491,6 +565,10 @@ const saveHints = async () => {
                   <td class="px-3 py-2.5"><span :class="statusClass(o.status)">{{ o.status }}</span></td>
                   <td class="px-3 py-2.5">
                     <div class="flex gap-1 flex-wrap">
+                      <button :disabled="updatingId === o.id" @click="openEditModal(o)"
+                              class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-white dark:bg-zinc-700 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
+                        編輯
+                      </button>
                       <button v-for="s in STATUSES.filter(s => s !== o.status)" :key="s"
                               :disabled="updatingId === o.id" @click="updateStatus(o, s)"
                               class="px-2 py-0.5 text-xs border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-600 dark:text-stone-300 hover:bg-green-700 hover:text-white hover:border-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
@@ -647,6 +725,148 @@ const saveHints = async () => {
                       class="flex-1 py-2.5 text-sm bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold">
                 <span v-if="createModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
                 {{ createModal.submitting ? '新增中…' : '確認新增' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 編輯訂單 Modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="editModal.show"
+             class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
+             @click.self="closeEditModal">
+          <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-md p-6 my-auto">
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="font-bold text-stone-800 dark:text-stone-100 text-base">編輯訂單</h3>
+              <button @click="closeEditModal" class="text-stone-300 hover:text-stone-500 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="space-y-4">
+              <!-- 姓名 & 聯絡 -->
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1">姓名 <span class="text-red-400">*</span></label>
+                  <input v-model="editForm.name" type="text" placeholder="訂購人姓名"
+                         class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-500"/>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1">聯絡方式 <span class="text-red-400">*</span></label>
+                  <input v-model="editForm.contact" type="text" placeholder="電話或 Line"
+                         class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-500"/>
+                </div>
+              </div>
+
+              <!-- 取貨日 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1.5">取貨日</label>
+                <div class="flex gap-2">
+                  <button @click="editForm.pickupDay = 'tue'"
+                          :class="editForm.pickupDay === 'tue' ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
+                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
+                    週二
+                  </button>
+                  <button @click="editForm.pickupDay = 'fri'"
+                          :class="editForm.pickupDay === 'fri' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
+                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
+                    週五
+                  </button>
+                </div>
+              </div>
+
+              <!-- 豆漿容量 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1.5">豆漿容量（ml／袋）</label>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <button v-for="v in [600, 800, 1000, 1700]" :key="v"
+                          @click="editForm.soymilkVolume = v"
+                          :class="editForm.soymilkVolume === v
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
+                          class="flex-1 py-1.5 text-xs border rounded-xl transition-colors font-medium">
+                    {{ v }} ml
+                  </button>
+                  <button @click="editForm.soymilkVolume = -1"
+                          :class="editForm.soymilkVolume === -1
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
+                          class="flex-1 py-1.5 text-xs border rounded-xl transition-colors font-medium">
+                    自訂
+                  </button>
+                </div>
+                <input v-if="editForm.soymilkVolume === -1"
+                       v-model.number="editForm.soymilkCustomVolume"
+                       type="number" min="0" placeholder="輸入 ml 數量"
+                       class="mt-2 w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+
+              <!-- 豆漿 & 豆腐 -->
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1.5">豆漿（袋）</label>
+                  <div class="flex items-center gap-2">
+                    <button @click="adjEdit('soymilkQty', -1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">−</button>
+                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ editForm.soymilkQty }}</span>
+                    <button @click="adjEdit('soymilkQty', 1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">＋</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-stone-500 mb-1.5">豆腐（塊）</label>
+                  <div class="flex items-center gap-2">
+                    <button @click="adjEdit('tofuQty', -1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">−</button>
+                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ editForm.tofuQty }}</span>
+                    <button @click="adjEdit('tofuQty', 1)"
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">＋</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 金額小計 -->
+              <div v-if="editForm.soymilkQty > 0 || editForm.tofuQty > 0"
+                   class="bg-stone-50 dark:bg-zinc-800 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm">
+                <span class="text-stone-400">小計</span>
+                <span class="font-bold text-stone-800 dark:text-stone-100">${{ editForm.soymilkQty * 50 + editForm.tofuQty * 50 }}</span>
+              </div>
+
+              <!-- 備註 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1">備註</label>
+                <input v-model="editForm.remark" type="text" placeholder="選填"
+                       class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+
+              <!-- 訂單狀態 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1.5">訂單狀態</label>
+                <div class="flex flex-wrap gap-2">
+                  <button v-for="s in STATUSES" :key="s"
+                          @click="editForm.status = s"
+                          :class="editForm.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-400 dark:bg-zinc-700 dark:text-stone-500'"
+                          class="transition-all cursor-pointer">
+                    {{ s }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex gap-2 mt-6">
+              <button @click="closeEditModal" :disabled="editModal.submitting"
+                      class="flex-1 py-2.5 text-sm border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors">
+                取消
+              </button>
+              <button @click="submitEdit" :disabled="editModal.submitting"
+                      class="flex-1 py-2.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold">
+                <span v-if="editModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                {{ editModal.submitting ? '儲存中…' : '確認儲存' }}
               </button>
             </div>
           </div>
