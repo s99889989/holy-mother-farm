@@ -578,7 +578,33 @@ const tableWrapRef  = ref(null)
 const scalerClipRef = ref(null)
 const tableInnerRef = ref(null)
 const tableScale    = ref(1)
-const tableZoom     = ref(100)   // 使用者手動縮放比例（50–150%）
+
+// 縮放比例：從 localStorage 讀取，預設 100，範圍 50–150
+const ZOOM_KEY = 'class-schedule-tableZoom'
+const tableZoom = ref((() => {
+  try {
+    const v = Number(localStorage.getItem(ZOOM_KEY))
+    return v >= 50 && v <= 150 ? v : 100
+  } catch { return 100 }
+})())
+watch(tableZoom, (v) => {
+  try { localStorage.setItem(ZOOM_KEY, String(v)) } catch {}
+})
+
+// ── 班表人員篩選 ──────────────────────────────────────────────
+const tableVisibleIds = ref([])   // 空陣列 = 全部顯示
+
+// 部門切換時重置篩選
+watch(selectedDept, () => { tableVisibleIds.value = [] })
+
+const tableFilteredEmps = computed(() =>
+  tableVisibleIds.value.length
+    ? currentDeptEmployees.value.filter(e => tableVisibleIds.value.includes(e.id))
+    : currentDeptEmployees.value
+)
+
+// ── 欄 hover 高亮（hover 時顯示星期列）────────────────────────
+const hoveredDay = ref(null)
 
 function updateTableScale() {}
 
@@ -784,6 +810,23 @@ onUnmounted(() => {
 
       <!-- ══ 班表 ══ -->
       <div v-else-if="view === 'table'">
+        <!-- 人員篩選 -->
+        <div v-if="currentDeptEmployees.length > 0"
+             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-3 sm:px-4 py-2.5 mb-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span class="text-sm text-stone-400 dark:text-stone-500 font-medium flex-shrink-0">顯示人員：</span>
+          <label v-for="emp in currentDeptEmployees" :key="emp.id" class="flex items-center gap-1 cursor-pointer select-none">
+            <input v-model="tableVisibleIds" type="checkbox" :value="emp.id" class="rounded accent-green-600">
+            <span :class="['text-sm px-1.5 py-0.5 rounded-full transition-colors',
+                           tableVisibleIds.includes(emp.id) ? 'bg-green-700 text-white' : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300']">
+              {{ emp.name }}
+            </span>
+          </label>
+          <button v-if="tableVisibleIds.length > 0"
+                  class="ml-auto text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 px-2 py-0.5 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0"
+                  @click="tableVisibleIds = []">
+            顯示全部
+          </button>
+        </div>
         <div ref="tableWrapRef"
              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-x-auto" style="width: fit-content; max-width: 100%">
           <div ref="scalerClipRef">
@@ -798,7 +841,9 @@ onUnmounted(() => {
                 <thead>
                 <tr class="bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
                   <th class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 px-2 py-2 text-left text-stone-500 dark:text-stone-400 font-medium whitespace-nowrap border-r border-stone-200 dark:border-stone-700">姓名</th>
-                  <th v-for="d in days" :key="d" :class="['px-0 py-2 text-center font-semibold', dayHeaderClass(d)]">{{ d }}</th>
+                  <th v-for="d in days" :key="d"
+                      :class="['px-0 py-2 text-center font-semibold transition-colors', dayHeaderClass(d)]"
+                  >{{ d }}</th>
                   <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap border-l border-stone-200 dark:border-stone-700">應</th>
                   <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap">實</th>
                 </tr>
@@ -806,22 +851,27 @@ onUnmounted(() => {
                   <th class="sticky left-0 z-10 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 px-2 py-1 text-left text-stone-300 dark:text-stone-600 font-normal text-xs">
                     {{ currentYear }}年{{ currentMonth }}月
                   </th>
-                  <th v-for="d in days" :key="d" :class="['py-1 text-center text-xs font-normal', dayHeaderClass(d), dayCellBg(d)]">
-                    {{ WEEKDAY_NAMES[getWeekday(d)] }}
+                  <th v-for="d in days" :key="d"
+                      :class="['py-1 text-center text-xs font-normal transition-colors', dayHeaderClass(d), dayCellBg(d),
+                               hoveredDay === d ? '!text-green-600 dark:!text-green-400 font-bold bg-green-500/15 dark:bg-green-400/15' : '']">
+                    <span :class="hoveredDay === d ? 'font-black' : ''">{{ WEEKDAY_NAMES[getWeekday(d)] }}</span>
                     <div v-if="holidays[d]" class="text-[9px] text-pink-400 leading-tight truncate px-0.5">{{ holidays[d] }}</div>
                   </th>
                   <th class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
-                <tr v-for="emp in currentDeptEmployees" :key="emp.id"
+                <tr v-for="emp in tableFilteredEmps" :key="emp.id"
                     class="hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
                   <td class="sticky left-0 z-10 bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800/40 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap overflow-hidden">
                     <div class="font-semibold text-stone-800 dark:text-stone-100 text-sm truncate">{{ emp.name }}</div>
                     <div class="text-xs text-stone-400 dark:text-stone-500 truncate">{{ emp.id }}</div>
                   </td>
                   <td v-for="d in days" :key="d"
-                      :class="['text-center py-1 px-0 cursor-pointer transition-colors', dayCellBg(d), 'hover:ring-1 hover:ring-inset hover:ring-green-400']"
+                      :class="['text-center py-1 px-0 cursor-pointer transition-colors', dayCellBg(d),
+                               hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '', 'hover:ring-1 hover:ring-inset hover:ring-green-400']"
+                      @mouseenter="hoveredDay = d"
+                      @mouseleave="hoveredDay = null"
                       @click="openEdit(emp, d)">
                     <template v-if="emp.schedule[d]">
                       <div class="relative inline-flex items-center justify-center">
@@ -846,7 +896,9 @@ onUnmounted(() => {
                     <div class="text-xs font-semibold text-stone-600 dark:text-stone-300">每日人力</div>
                     <div class="text-xs text-stone-400 dark:text-stone-500">共 {{ totalEmployees }} 人</div>
                   </td>
-                  <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
+                  <td v-for="d in days" :key="d"
+                      :class="['text-center py-1 px-0 transition-colors', dayCellBg(d),
+                               hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '']">
                     <span v-if="dailyWorkCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                       {{ dailyWorkCount(d) }}
