@@ -37,11 +37,11 @@ import bwipjs from 'bwip-js'
 const BAR_SCALE = 0.75  // ← 在這裡調整，0.6~1.0 之間
 
 function drawBarcodeSVG(
-  page: any,
-  svgStr: string,
-  x0: number, y0: number,
-  targetW: number, targetH: number,
-  barScale = BAR_SCALE
+    page: any,
+    svgStr: string,
+    x0: number, y0: number,
+    targetW: number, targetH: number,
+    barScale = BAR_SCALE
 ) {
   const vbMatch = svgStr.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)
   if (!vbMatch) return
@@ -333,10 +333,10 @@ function drawImage2(p: any, font: any, bx: number, by: number, rowOffset: number
 
 // ── 資料疊印 ─────────────────────────────────────────────────
 async function drawData(
-  p: any, doc: PDFDocument, font: any,
-  w: any, fields: any[],
-  bx: number, by: number, rowOffset: number,
-  pub: string
+    p: any, doc: PDFDocument, font: any,
+    w: any, fields: any[],
+    bx: number, by: number, rowOffset: number,
+    pub: string
 ) {
   const embedPng = async (file: string) => {
     try {
@@ -415,8 +415,8 @@ async function drawData(
       const bx0 = px(fx, bx)
       const by0 = py(fy - 10 + bh, rowOffset, by)
       const svg = col === 'base_customer_postcode_barcode'
-        ? await bcI25svg(bv)
-        : await bc128svg(bv)
+          ? await bcI25svg(bv)
+          : await bc128svg(bv)
       if (svg) drawBarcodeSVG(p, svg, bx0, by0, bw2, m(bh))
       continue
     }
@@ -617,32 +617,23 @@ export default defineEventHandler(async (event) => {
   const paperId: number = Number(body.paper_id ?? 2) // 預設 A4 二模常溫
   if (!ids.length) throw createError({ statusCode: 400, statusMessage: '未指定託運單' })
 
-  // 讀取託運單
-  const db = openDevDb(true)
-  let waybills: any[]
-  try {
-    const ph = ids.map(() => '?').join(',')
-    waybills = db.prepare(`
-      SELECT id, tracking_no, order_no, send_date, deliver_date,
-             sender_code, sender_name, sender_phone, sender_mobile, sender_address, sender_postcode,
-             customer_name, customer_phone, customer_mobile, customer_address, customer_postcode,
-             production_kind, production_name, price, insurance,
-             deliver_time, temperature, package_size, breakable, precision_instrument,
-             waybilltype, comment,
-             cust_kind, close_type, set_close_type,
-             print_invoice, print_donation, invoice_uni, common, donation_common
-      FROM waybills WHERE id IN (${ph}) ORDER BY id
-    `).all(...ids) as any[]
-  } finally { db.close() }
+  const config = useRuntimeConfig()
+  const BASE = config.public.apiBase + '/holy/t-cat'
 
-  // 讀取 paper 設定
-  const pdb = openPaperDb(true)
-  let fields: any[], paper: any, prows: any[]
-  try {
-    paper = pdb.prepare('SELECT * FROM papers WHERE id = ?').get(paperId) as any
-    fields = pdb.prepare('SELECT * FROM paper_fields WHERE paper_id = ? ORDER BY id').all(paperId) as any[]
-    prows = pdb.prepare('SELECT * FROM paper_rows   WHERE paper_id = ? ORDER BY id').all(paperId) as any[]
-  } finally { pdb.close() }
+  // 讀取託運單（從 Spring Boot）
+  const listRes = await $fetch<any>(`${BASE}/waybills/by-ids`, {
+    method: 'POST',
+    body: { ids }
+  })
+  const waybills: any[] = listRes ?? []
+
+  // 讀取 paper 設定（從 Spring Boot）
+  const paperRes = await $fetch<any>(`${BASE}/paper-config`, {
+    params: { paper_id: paperId }
+  })
+  const paper  = paperRes?.paper  ?? {}
+  const fields = paperRes?.fields ?? []
+  const prows  = paperRes?.rows   ?? []
 
   const pub = path.join(process.cwd(), 'public')
   const doc = await PDFDocument.create()
