@@ -569,11 +569,6 @@ const submitEdit = async () => {
                               class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-white dark:bg-zinc-700 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
                         編輯
                       </button>
-                      <button v-for="s in STATUSES.filter(s => s !== o.status)" :key="s"
-                              :disabled="updatingId === o.id" @click="updateStatus(o, s)"
-                              class="px-2 py-0.5 text-xs border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-600 dark:text-stone-300 hover:bg-green-700 hover:text-white hover:border-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
-                        {{ s }}
-                      </button>
                       <button :disabled="updatingId === o.id" @click="openDeleteModal(o)"
                               class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-white dark:bg-zinc-700 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
                         刪除
