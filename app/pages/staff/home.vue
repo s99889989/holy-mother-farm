@@ -1,11 +1,10 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.home' })
+definePageMeta({layout: 'staff', requiredPermission: 'staff.home'})
 
 const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/booking'
-const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
+const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
 const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
-const SOYBEAN_BASE = () => commonStore.data.main_url + '/holy/soybean'
+
 // ── Google Calendar 設定 ──────────────────────────────────────────
 const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
 const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
@@ -18,23 +17,44 @@ const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${today
 
 // ── 快捷方式 ──────────────────────────────────────────────────────
 const shortcuts = [
-  { to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', color: 'bg-green-700', desc: '查看當日訂位' },
-  { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', color: 'bg-blue-600', desc: '常用系統與工具連結' },
-  { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', color: 'bg-orange-600', desc: '田園餐廳每日菜色' },
+  {to: '/staff/management/booking-view', icon: '🪑', label: '訂位管理', color: 'bg-green-700', desc: '查看當日訂位'},
+  {
+    to: '/staff/system/quick-links-view',
+    icon: '🔗',
+    label: '常用網址',
+    color: 'bg-blue-600',
+    desc: '常用系統與工具連結'
+  },
+  {to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', color: 'bg-orange-600', desc: '田園餐廳每日菜色'},
 ]
 
 const loading = ref(false)
-const bookings = ref([])
-const lunchOrders = ref([])
-const soybeanOrders = ref([])
+
+// ── 今日概況（來自 /holy/home/today）─────────────────────────────
+const todaySummary = ref(null)
+
+const bookings = computed(() => todaySummary.value?.booking?.items ?? [])
+const lunchOrders = computed(() => todaySummary.value?.lunch?.items ?? [])
+const soybeanOrders = computed(() => todaySummary.value?.soybean?.items ?? [])
+
+const bookingTotal = computed(() => todaySummary.value?.booking?.total ?? 0)
+const bookingMeat = computed(() => todaySummary.value?.booking?.meat ?? 0)
+const bookingVeg = computed(() => todaySummary.value?.booking?.veg ?? 0)
+const lunchTotal = computed(() => todaySummary.value?.lunch?.total ?? 0)
+const lunchMeat = computed(() => todaySummary.value?.lunch?.meat ?? 0)
+const lunchVeg = computed(() => todaySummary.value?.lunch?.veg ?? 0)
+const soybeanSoymilk = computed(() => todaySummary.value?.soybean?.soymilk ?? 0)
+const soybeanTofu = computed(() => todaySummary.value?.soybean?.tofu ?? 0)
+
+// ── 行事曆 ────────────────────────────────────────────────────────
 const todayEvents = ref([])
 
 // 行事曆類型色
-const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb' }
+const calTypeColor = {醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb'}
 
 function calChipBg(ev) {
   if (ev.source === 'google') return '#dbeafe'
-  return { 醫院: '#fee2e2', 園區: '#dcfce7', 芳心: '#fce7f3' }[ev.type] || '#f0f0f0'
+  return {醫院: '#fee2e2', 園區: '#dcfce7', 芳心: '#fce7f3'}[ev.type] || '#f0f0f0'
 }
 
 function calChipText(ev) {
@@ -51,27 +71,15 @@ function calBadgeLabel(ev) {
   return ev.source === 'google' ? 'Google' : ev.type
 }
 
-const bookingTotal = computed(() => bookings.value.reduce((s, b) =>
-  s + (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
-const lunchTotal = computed(() => lunchOrders.value.reduce((s, o) =>
-  s + (Number(o.meatQty) || 0) + (Number(o.fullVegQty) || 0) + (Number(o.eggVegQty) || 0) + (Number(o.spiceVegQty) || 0), 0))
-const bookingMeat = computed(() => bookings.value.reduce((s, b) => s + (Number(b.meatQty) || 0), 0))
-const bookingVeg = computed(() => bookings.value.reduce((s, b) => s + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
-const lunchMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
-const lunchVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.fullVegQty) || 0) + (Number(o.eggVegQty) || 0) + (Number(o.spiceVegQty) || 0), 0))
-
-const soybeanSoymilk = computed(() => soybeanOrders.value.reduce((s, o) => s + (Number(o.soymilkQty) || 0), 0))
-const soybeanTofu = computed(() => soybeanOrders.value.reduce((s, o) => s + (Number(o.tofuQty) || 0), 0))
-
 async function fetchToday() {
   loading.value = true
   try {
     const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+
+    // 一次拿今日概況 + 行事曆（同時送出）
     const promises = [
-      fetch(`${BASE()}/get/${todayStr}`),
-      fetch(`${LUNCH_BASE()}/get/${todayStr}`),
+      fetch(`${HOME_BASE()}/today`, {credentials: 'include'}),
       fetch(`${CAL_BASE()}/list?yearMonth=${ym}`),
-      fetch(`${SOYBEAN_BASE()}/admin/list?month=${ym}`, { credentials: 'include' }).catch(() => null),
     ]
 
     let googlePromise = Promise.resolve(null)
@@ -86,21 +94,18 @@ async function fetchToday() {
     }
     promises.push(googlePromise)
 
-    const [bRes, lRes, cRes, sRes, gRes] = await Promise.all(promises)
-    bookings.value = bRes.ok ? await bRes.json() : []
-    lunchOrders.value = lRes.ok ? await lRes.json() : []
+    const [homeRes, cRes, gRes] = await Promise.all(promises)
 
-    if (sRes && sRes.ok) {
-      const sData = await sRes.json()
-      // 只取今日取貨的訂單（pickupDay 對應今天星期幾）
-      soybeanOrders.value = (sData.orders ?? []).filter(o => o.status !== '已取消')
-    } else {
-      soybeanOrders.value = []
+    // 今日概況
+    if (homeRes && homeRes.ok) {
+      todaySummary.value = await homeRes.json()
     }
 
+    // 系統行事曆
     const allCal = cRes.ok ? await cRes.json() : []
     const sysEvents = allCal.filter(e => e.date === todayStr)
 
+    // Google 行事曆
     let gEvents = []
     if (gRes && gRes.ok) {
       const gData = await gRes.json()
@@ -216,7 +221,7 @@ onMounted(() => {
           <!-- 訂位 -->
           <div class="px-4 py-3">
             <div class="flex items-center gap-1.5 mb-2">
-              <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+              <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
               <span
                 class="font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide"
                 style="font-size:10px"
@@ -256,7 +261,7 @@ onMounted(() => {
           <!-- 便當 -->
           <div class="px-4 py-3">
             <div class="flex items-center gap-1.5 mb-2">
-              <span class="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+              <span class="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0"/>
               <span
                 class="font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide"
                 style="font-size:10px"
@@ -295,7 +300,7 @@ onMounted(() => {
           <!-- 豆製品 -->
           <div class="px-4 py-3">
             <div class="flex items-center gap-1.5 mb-2">
-              <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+              <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"/>
               <span
                 class="font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide"
                 style="font-size:10px"

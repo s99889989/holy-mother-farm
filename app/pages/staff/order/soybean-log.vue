@@ -45,7 +45,7 @@ const fetchData = async () => {
     totalTofu.value = data.totalTofu ?? 0
     orders.value = data.orders ?? []
     const now = new Date()
-    lastUpdated.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
+    lastUpdated.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
   } catch {
     orders.value = []
   } finally {
@@ -78,7 +78,22 @@ const filteredSoymilk = computed(() =>
 const filteredTofu = computed(() =>
   filteredOrders.value.reduce((s, o) => s + (o.tofuQty || 0), 0))
 
-// ── 狀態更新 ──────────────────────────────────────────────────────
+// ── 按日期分組 ────────────────────────────────────────────────────
+const groupedOrders = computed(() => {
+  const map = new Map()
+  for (const o of filteredOrders.value) {
+    const dateStr = o.createdAt?.substring(0, 10) ?? ''
+    if (!map.has(dateStr)) map.set(dateStr, [])
+    map.get(dateStr).push(o)
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, orders]) => {
+      const [y, m, d] = date.split('-')
+      const weekDay = ['日', '一', '二', '三', '四', '五', '六'][new Date(date).getDay()]
+      return {date, dateLabel: `${m}/${d}（週${weekDay}）`, orders}
+    })
+})
 const updatingId = ref('')
 
 const updateStatus = async (order, newStatus) => {
@@ -107,7 +122,7 @@ const statusClass = (s) => ({
 // 根據訂單建立時間推算當週的取貨日期（週二=2, 週五=5）
 // 若訂單建立當天已超過取貨日，則取下一週
 const pickupLabel = (order) => {
-  const dayMap = { tue: { label: '週二', dow: 2 }, fri: { label: '週五', dow: 5 } }
+  const dayMap = {tue: {label: '週二', dow: 2}, fri: {label: '週五', dow: 5}}
   const info = dayMap[order?.pickupDay]
   if (!info) return order?.pickupDay ?? ''
   const base = order?.createdAt ? new Date(order.createdAt) : new Date()
@@ -143,7 +158,10 @@ const confirmDelete = async () => {
       credentials: 'include',
     })
     const data = await res.json()
-    if (data.error) { alert('刪除失敗：' + data.error); return }
+    if (data.error) {
+      alert('刪除失敗：' + data.error);
+      return
+    }
     orders.value = orders.value.filter(o => o.id !== order.id)
     closeDeleteModal()
   } catch {
@@ -157,15 +175,24 @@ const confirmDelete = async () => {
 const createModal = ref({show: false, submitting: false})
 const createForm = ref({
   name: '', contact: '', pickupDay: 'tue',
-  soymilkQty: 0, tofuQty: 0, remark: '', status: '已確認',
+  soymilkQty: 0, tofuQty: 0, soymilkVolume: 0, remark: '', status: '已確認',
 })
 
 const openCreateModal = () => {
-  createForm.value = { name: '', contact: '', pickupDay: 'tue', soymilkQty: 0, tofuQty: 0, remark: '', status: '已確認' }
-  createModal.value = { show: true, submitting: false }
+  createForm.value = {
+    name: '',
+    contact: '',
+    pickupDay: 'tue',
+    soymilkQty: 0,
+    tofuQty: 0,
+    soymilkVolume: 0,
+    remark: '',
+    status: '已確認'
+  }
+  createModal.value = {show: true, submitting: false}
 }
 const closeCreateModal = () => {
-  createModal.value = { show: false, submitting: false }
+  createModal.value = {show: false, submitting: false}
 }
 
 const adjCreate = (field, delta) => {
@@ -174,24 +201,37 @@ const adjCreate = (field, delta) => {
 
 const submitCreate = async () => {
   const f = createForm.value
-  if (!f.name.trim())    { alert('請輸入姓名'); return }
-  if (!f.contact.trim()) { alert('請輸入聯絡方式'); return }
-  if (f.soymilkQty === 0 && f.tofuQty === 0) { alert('請選擇豆漿或豆腐數量'); return }
+  if (!f.name.trim()) {
+    alert('請輸入姓名');
+    return
+  }
+  if (!f.contact.trim()) {
+    alert('請輸入聯絡方式');
+    return
+  }
+  if (f.soymilkQty === 0 && f.tofuQty === 0) {
+    alert('請選擇豆漿或豆腐數量');
+    return
+  }
   createModal.value.submitting = true
   try {
     const payload = {
       name: f.name.trim(), contact: f.contact.trim(),
       pickupDay: f.pickupDay, soymilkQty: f.soymilkQty,
-      tofuQty: f.tofuQty, remark: f.remark.trim(),
+      tofuQty: f.tofuQty, soymilkVolume: f.soymilkVolume || 0,
+      remark: f.remark.trim(),
     }
     const res = await fetch(`${BASE.value}/order`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
       body: JSON.stringify(payload),
     })
     const data = await res.json()
-    if (data.error) { alert('新增失敗：' + data.error); return }
+    if (data.error) {
+      alert('新增失敗：' + data.error);
+      return
+    }
     // 若選的狀態不是預設的「待確認」，再補一次 PATCH 更新狀態
     if (f.status !== '待確認' && data.month && data.id) {
       await fetch(`${BASE.value}/admin/status/${data.month}/${data.id}?status=${encodeURIComponent(f.status)}`, {
@@ -211,7 +251,7 @@ const submitCreate = async () => {
 // ── 提示訊息設定 ──────────────────────────────────────────────────
 const showHintSettings = ref(false)
 const hintSaving = ref(false)
-const hintSaved  = ref(false)
+const hintSaved = ref(false)
 
 const HINT_STATUSES = ['待確認', '已確認', '已取貨', '已取消']
 const hintBadgeClass = (s) => ({
@@ -230,24 +270,28 @@ const hints = ref({
 
 const fetchHints = async () => {
   try {
-    const res  = await fetch(`${BASE.value}/settings/hints`, {credentials: 'include'})
+    const res = await fetch(`${BASE.value}/settings/hints`, {credentials: 'include'})
     const data = await res.json()
     if (!data.error) Object.assign(hints.value, data)
-  } catch {}
+  } catch {
+  }
 }
 
 const saveHints = async () => {
   hintSaving.value = true
-  hintSaved.value  = false
+  hintSaved.value = false
   try {
-    const res  = await fetch(`${BASE.value}/settings/hints`, {
+    const res = await fetch(`${BASE.value}/settings/hints`, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       credentials: 'include',
       body: JSON.stringify(hints.value),
     })
     const data = await res.json()
-    if (data.error) { alert('儲存失敗：' + data.error); return }
+    if (data.error) {
+      alert('儲存失敗：' + data.error);
+      return
+    }
     hintSaved.value = true
     setTimeout(() => hintSaved.value = false, 2500)
   } catch {
@@ -262,10 +306,12 @@ const saveHints = async () => {
   <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-14 z-20">
+    <header
+      class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-14 z-20">
       <div class="max-w-6xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               class="w-4 h-4">
             <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
             <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
             <line x1="6" y1="1" x2="6" y2="4"/>
@@ -273,13 +319,15 @@ const saveHints = async () => {
             <line x1="14" y1="1" x2="14" y2="4"/>
           </svg>
         </div>
-        <h1 class="flex-1 font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:15px">豆製品訂購管理</h1>
+        <h1 class="flex-1 font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:15px">
+          豆製品訂購管理</h1>
         <div class="flex items-center gap-2">
           <!-- 客戶訂單連結 -->
           <a href="https://holyfarm.netlify.app/front/order/soybeans?og=20" target="_blank"
              class="flex items-center gap-1 px-2.5 py-1.5 border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors text-xs">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
             </svg>
             訂購連結
           </a>
@@ -296,7 +344,8 @@ const saveHints = async () => {
                   :class="showHintSettings ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700'"
                   class="flex items-center gap-1 px-2.5 py-1.5 border rounded-lg transition-colors text-xs">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
             設定
@@ -308,11 +357,13 @@ const saveHints = async () => {
           <button @click="fetchData" :disabled="loading"
                   class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
                   style="font-size:13px">
-            <svg v-if="loading" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg v-if="loading" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5">
               <circle cx="12" cy="12" r="10"/>
             </svg>
             <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
             {{ loading ? '載入中…' : '重新整理' }}
           </button>
@@ -330,7 +381,8 @@ const saveHints = async () => {
           <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100 dark:border-stone-700">
             <div class="flex items-center gap-2">
               <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
               </svg>
               <span class="text-sm font-semibold text-stone-700 dark:text-stone-200">前台提示訊息設定</span>
               <span class="text-xs text-stone-400">（客戶在「我的紀錄」看到的說明文字）</span>
@@ -344,7 +396,9 @@ const saveHints = async () => {
           <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div v-for="s in HINT_STATUSES" :key="s">
               <label class="flex items-center gap-2 mb-1.5">
-                <span :class="['inline-block px-2 py-0.5 rounded-full text-xs font-semibold', hintBadgeClass(s)]">{{ s }}</span>
+                <span :class="['inline-block px-2 py-0.5 rounded-full text-xs font-semibold', hintBadgeClass(s)]">{{
+                    s
+                  }}</span>
                 <span class="text-xs text-stone-400">顯示訊息</span>
               </label>
               <textarea
@@ -358,12 +412,16 @@ const saveHints = async () => {
           <div class="px-4 pb-4 flex items-center gap-3">
             <button @click="saveHints" :disabled="hintSaving"
                     class="flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors">
-              <svg v-if="hintSaving" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg>
+              <svg v-if="hintSaving" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
               {{ hintSaving ? '儲存中…' : '儲存設定' }}
             </button>
             <Transition name="fade">
               <span v-if="hintSaved" class="text-sm text-emerald-600 flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12"/></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline
+                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12"/></svg>
                 已儲存
               </span>
             </Transition>
@@ -371,33 +429,32 @@ const saveHints = async () => {
         </div>
       </Transition>
 
-      <!-- 彙總卡片 -->
-      <div class="grid grid-cols-3 gap-3 mb-4">
-        <div class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl p-4 shadow-sm flex flex-col gap-1">
-          <div class="text-xs text-stone-400">本月訂單</div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-2xl font-extrabold text-stone-800 dark:text-stone-100">{{ orders.length }}</span>
-            <span class="text-xs text-stone-400">筆</span>
-          </div>
+      <!-- 彙總卡片（compact 橫排） -->
+      <div
+        class="flex items-center gap-2 mb-3 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 shadow-sm flex-wrap">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-stone-400">本月訂單</span>
+          <span class="text-base font-extrabold text-stone-800 dark:text-stone-100">{{ orders.length }}</span>
+          <span class="text-xs text-stone-400">筆</span>
         </div>
-        <div class="bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-900/50 rounded-2xl p-4 shadow-sm flex flex-col gap-1" style="background:rgb(240,253,244)">
-          <div class="text-xs text-green-600">豆漿（本月）</div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-2xl font-extrabold text-green-700">{{ totalSoymilk }}</span>
-            <span class="text-xs text-green-500">袋</span>
-          </div>
+        <div class="w-px h-4 bg-stone-200 dark:bg-stone-600 mx-1"></div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-green-600">豆漿</span>
+          <span class="text-base font-extrabold text-green-700">{{ totalSoymilk }}</span>
+          <span class="text-xs text-green-500">袋</span>
         </div>
-        <div class="bg-white dark:bg-zinc-800 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 shadow-sm flex flex-col gap-1" style="background:rgb(255,251,235)">
-          <div class="text-xs text-amber-600">豆腐（本月）</div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-2xl font-extrabold text-amber-600">{{ totalTofu }}</span>
-            <span class="text-xs text-amber-500">塊</span>
-          </div>
+        <div class="w-px h-4 bg-stone-200 dark:bg-stone-600 mx-1"></div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-amber-600">豆腐</span>
+          <span class="text-base font-extrabold text-amber-600">{{ totalTofu }}</span>
+          <span class="text-xs text-amber-500">塊</span>
         </div>
+        <div v-if="lastUpdated" class="ml-auto text-xs text-stone-300 whitespace-nowrap">更新 {{ lastUpdated }}</div>
       </div>
 
       <!-- 篩選列 -->
-      <div class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
+      <div
+        class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-stone-400 whitespace-nowrap">取貨日</span>
           <button @click="filterDay = ''" :class="['filter-chip', { active: filterDay === '' }]">全部</button>
@@ -407,81 +464,137 @@ const saveHints = async () => {
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-stone-400 whitespace-nowrap">狀態</span>
           <button @click="filterStatus = ''" :class="['filter-chip', { active: filterStatus === '' }]">全部</button>
-          <button v-for="s in STATUSES" :key="s" @click="filterStatus = s" :class="['filter-chip', { active: filterStatus === s }]">{{ s }}</button>
+          <button v-for="s in STATUSES" :key="s" @click="filterStatus = s"
+                  :class="['filter-chip', { active: filterStatus === s }]">{{ s }}
+          </button>
         </div>
-        <div v-if="filterDay || filterStatus" class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap">
-          篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong> 塊（{{ filteredOrders.length }} 筆）
+        <div v-if="filterDay || filterStatus"
+             class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap">
+          篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong>
+          塊（{{ filteredOrders.length }} 筆）
         </div>
-        <div v-if="lastUpdated" class="ml-auto text-xs text-stone-300 whitespace-nowrap">更新 {{ lastUpdated }}</div>
       </div>
 
-      <!-- 訂單列表 -->
+      <!-- 訂單列表（按日期分組） -->
       <div v-if="loading && orders.length === 0" class="text-center py-16 text-stone-400 text-sm">載入中…</div>
       <div v-else-if="filteredOrders.length === 0"
            class="text-center py-16 text-stone-400 text-sm border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-2xl">
         本月尚無訂購紀錄
       </div>
-      <div v-else class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-stone-50 dark:bg-zinc-700/50 border-b border-stone-200 dark:border-stone-700">
-            <tr>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">訂購時間</th>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">姓名</th>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">聯絡</th>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">取貨日</th>
-              <th class="px-3 py-2.5 text-center font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">豆漿</th>
-              <th class="px-3 py-2.5 text-center font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">豆腐</th>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">金額</th>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">備註</th>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">狀態</th>
-              <th class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">操作</th>
-            </tr>
-            </thead>
-            <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
-            <tr v-for="o in filteredOrders" :key="o.id"
-                class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors"
-                :class="{ 'opacity-40': o.status === '已取消' }">
-              <td class="px-3 py-2.5 text-xs text-stone-400 whitespace-nowrap">{{ o.createdAt?.substring(0, 16) }}</td>
-              <td class="px-3 py-2.5 font-semibold text-stone-800 dark:text-stone-100 whitespace-nowrap">{{ o.name }}</td>
-              <td class="px-3 py-2.5 text-xs text-stone-500 dark:text-stone-400">{{ o.contact }}</td>
-              <td class="px-3 py-2.5">
-                  <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                        :class="o.pickupDay === 'tue' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">
-                    {{ pickupLabel(o) }}
-                  </span>
-              </td>
-              <td class="px-3 py-2.5 text-center">
-                <span v-if="o.soymilkQty" class="font-semibold text-green-700 text-xs">{{ o.soymilkQty }} 袋</span>
-                <span v-else class="text-stone-300 text-xs">—</span>
-              </td>
-              <td class="px-3 py-2.5 text-center">
-                <span v-if="o.tofuQty" class="font-semibold text-amber-600 text-xs">{{ o.tofuQty }} 塊</span>
-                <span v-else class="text-stone-300 text-xs">—</span>
-              </td>
-              <td class="px-3 py-2.5 font-semibold text-stone-800 dark:text-stone-100 text-xs whitespace-nowrap">
-                ${{ (o.soymilkQty || 0) * 50 + (o.tofuQty || 0) * 50 }}
-              </td>
-              <td class="px-3 py-2.5 text-xs text-stone-400 max-w-[100px] truncate">{{ o.remark || '—' }}</td>
-              <td class="px-3 py-2.5"><span :class="statusClass(o.status)">{{ o.status }}</span></td>
-              <td class="px-3 py-2.5">
-                <div class="flex gap-1 flex-wrap">
-                  <button v-for="s in STATUSES.filter(s => s !== o.status)" :key="s"
-                          :disabled="updatingId === o.id" @click="updateStatus(o, s)"
-                          class="px-2 py-0.5 text-xs border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-600 dark:text-stone-300 hover:bg-green-700 hover:text-white hover:border-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
-                    {{ s }}
-                  </button>
-                  <button :disabled="updatingId === o.id" @click="openDeleteModal(o)"
-                          class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-white dark:bg-zinc-700 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
-                    刪除
-                  </button>
-                </div>
-              </td>
-            </tr>
-            </tbody>
-          </table>
+      <template v-else>
+        <div v-for="group in groupedOrders" :key="group.date" class="mb-4">
+          <!-- 日期分隔標題 -->
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-bold text-stone-500 dark:text-stone-400 whitespace-nowrap">{{
+                group.dateLabel
+              }}</span>
+            <div class="flex-1 h-px bg-stone-200 dark:bg-stone-700"></div>
+            <span class="text-xs text-stone-400 whitespace-nowrap">{{ group.orders.length }} 筆</span>
+          </div>
+          <!-- 該日訂單表格 -->
+          <div
+            class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-stone-50 dark:bg-zinc-700/50 border-b border-stone-200 dark:border-stone-700">
+                <tr>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    訂購時間
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    姓名
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    聯絡
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    取貨日
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-center font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    豆漿
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-center font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    豆腐
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    金額
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    備註
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    狀態
+                  </th>
+                  <th
+                    class="px-3 py-2.5 text-left font-semibold text-stone-600 dark:text-stone-300 whitespace-nowrap text-xs">
+                    操作
+                  </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+                <tr v-for="o in group.orders" :key="o.id"
+                    class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors"
+                    :class="{ 'opacity-40': o.status === '已取消' }">
+                  <td class="px-3 py-2.5 text-xs text-stone-400 whitespace-nowrap">{{
+                      o.createdAt?.substring(11, 16)
+                    }}
+                  </td>
+                  <td class="px-3 py-2.5 font-semibold text-stone-800 dark:text-stone-100 whitespace-nowrap">{{
+                      o.name
+                    }}
+                  </td>
+                  <td class="px-3 py-2.5 text-xs text-stone-500 dark:text-stone-400">{{ o.contact }}</td>
+                  <td class="px-3 py-2.5">
+                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                          :class="o.pickupDay === 'tue' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">
+                      {{ pickupLabel(o) }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-2.5 text-center">
+                    <span v-if="o.soymilkQty" class="font-semibold text-green-700 text-xs">
+                      {{ o.soymilkQty }} 袋
+                      <span v-if="o.soymilkVolume" class="text-stone-400 font-normal">{{ o.soymilkVolume }}ml</span>
+                    </span>
+                    <span v-else class="text-stone-300 text-xs">—</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-center">
+                    <span v-if="o.tofuQty" class="font-semibold text-amber-600 text-xs">{{ o.tofuQty }} 塊</span>
+                    <span v-else class="text-stone-300 text-xs">—</span>
+                  </td>
+                  <td class="px-3 py-2.5 font-semibold text-stone-800 dark:text-stone-100 text-xs whitespace-nowrap">
+                    ${{ (o.soymilkQty || 0) * 50 + (o.tofuQty || 0) * 50 }}
+                  </td>
+                  <td class="px-3 py-2.5 text-xs text-stone-400 max-w-[100px] truncate">{{ o.remark || '—' }}</td>
+                  <td class="px-3 py-2.5"><span :class="statusClass(o.status)">{{ o.status }}</span></td>
+                  <td class="px-3 py-2.5">
+                    <div class="flex gap-1 flex-wrap">
+                      <button v-for="s in STATUSES.filter(s => s !== o.status)" :key="s"
+                              :disabled="updatingId === o.id" @click="updateStatus(o, s)"
+                              class="px-2 py-0.5 text-xs border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-600 dark:text-stone-300 hover:bg-green-700 hover:text-white hover:border-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
+                        {{ s }}
+                      </button>
+                      <button :disabled="updatingId === o.id" @click="openDeleteModal(o)"
+                              class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-white dark:bg-zinc-700 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
+                        刪除
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      </template>
 
     </div>
 
@@ -510,7 +623,8 @@ const saveHints = async () => {
                          class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-stone-500 mb-1">聯絡方式 <span class="text-red-400">*</span></label>
+                  <label class="block text-xs font-medium text-stone-500 mb-1">聯絡方式 <span
+                    class="text-red-400">*</span></label>
                   <input v-model="createForm.contact" type="text" placeholder="電話或 Line"
                          class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
                 </div>
@@ -539,20 +653,49 @@ const saveHints = async () => {
                   <label class="block text-xs font-medium text-stone-500 mb-1.5">豆漿（袋）</label>
                   <div class="flex items-center gap-2">
                     <button @click="adjCreate('soymilkQty', -1)"
-                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">−</button>
-                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ createForm.soymilkQty }}</span>
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">
+                      −
+                    </button>
+                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{
+                        createForm.soymilkQty
+                      }}</span>
                     <button @click="adjCreate('soymilkQty', 1)"
-                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">＋</button>
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">
+                      ＋
+                    </button>
+                  </div>
+                  <!-- 自訂容量 -->
+                  <div v-if="createForm.soymilkQty > 0" class="mt-2">
+                    <label class="block text-xs text-stone-400 mb-1">每袋容量（ml，選填）</label>
+                    <div class="flex items-center gap-1.5">
+                      <button v-for="v in [600, 800, 1000, 1700]" :key="v"
+                              @click="createForm.soymilkVolume = createForm.soymilkVolume === v ? 0 : v"
+                              :class="createForm.soymilkVolume === v ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-500 border-stone-200 dark:border-stone-600'"
+                              class="px-2 py-0.5 text-xs border rounded-lg transition-colors">
+                        {{ v }}
+                      </button>
+                    </div>
+                    <input
+                      v-if="![0,600,800,1000,1700].includes(createForm.soymilkVolume) || createForm.soymilkVolume === 0"
+                      v-model.number="createForm.soymilkVolume"
+                      type="number" min="0" placeholder="或輸入自訂 ml"
+                      class="mt-1.5 w-full px-3 py-1.5 text-xs border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
                   </div>
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-stone-500 mb-1.5">豆腐（塊）</label>
                   <div class="flex items-center gap-2">
                     <button @click="adjCreate('tofuQty', -1)"
-                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">−</button>
-                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ createForm.tofuQty }}</span>
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">
+                      −
+                    </button>
+                    <span class="w-10 text-center font-semibold text-stone-800 dark:text-stone-100 text-sm">{{
+                        createForm.tofuQty
+                      }}</span>
                     <button @click="adjCreate('tofuQty', 1)"
-                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">＋</button>
+                            class="w-8 h-8 border border-stone-200 dark:border-stone-600 rounded-lg bg-white dark:bg-zinc-700 text-stone-500 hover:bg-stone-100 transition-colors flex items-center justify-center text-lg">
+                      ＋
+                    </button>
                   </div>
                 </div>
               </div>
@@ -561,7 +704,9 @@ const saveHints = async () => {
               <div v-if="createForm.soymilkQty > 0 || createForm.tofuQty > 0"
                    class="bg-stone-50 dark:bg-zinc-800 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm">
                 <span class="text-stone-400">小計</span>
-                <span class="font-bold text-stone-800 dark:text-stone-100">${{ createForm.soymilkQty * 50 + createForm.tofuQty * 50 }}</span>
+                <span class="font-bold text-stone-800 dark:text-stone-100">${{
+                    createForm.soymilkQty * 50 + createForm.tofuQty * 50
+                  }}</span>
               </div>
 
               <!-- 備註 -->
@@ -592,7 +737,8 @@ const saveHints = async () => {
               </button>
               <button @click="submitCreate" :disabled="createModal.submitting"
                       class="flex-1 py-2.5 text-sm bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold">
-                <span v-if="createModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                <span v-if="createModal.submitting"
+                      class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
                 {{ createModal.submitting ? '新增中…' : '確認新增' }}
               </button>
             </div>
@@ -616,7 +762,8 @@ const saveHints = async () => {
             </div>
             <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">確認刪除訂單？</h3>
             <p v-if="deleteModal.order" class="text-sm text-stone-500 leading-relaxed mb-5">
-              <strong class="text-stone-700">{{ deleteModal.order.name }}</strong>　{{ pickupLabel(deleteModal.order) }} 取貨<br>
+              <strong class="text-stone-700">{{ deleteModal.order.name }}</strong>　{{ pickupLabel(deleteModal.order) }}
+              取貨<br>
               <span v-if="deleteModal.order.soymilkQty">豆漿 × {{ deleteModal.order.soymilkQty }} 袋　</span>
               <span v-if="deleteModal.order.tofuQty">豆腐 × {{ deleteModal.order.tofuQty }} 塊</span>
               <br><span class="text-red-400 text-xs">刪除後無法復原</span>
@@ -628,7 +775,8 @@ const saveHints = async () => {
               </button>
               <button @click="confirmDelete" :disabled="deleteModal.submitting"
                       class="flex-1 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
-                <span v-if="deleteModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                <span v-if="deleteModal.submitting"
+                      class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
                 {{ deleteModal.submitting ? '刪除中…' : '確認刪除' }}
               </button>
             </div>
@@ -653,12 +801,33 @@ const saveHints = async () => {
   transition: all 0.12s;
   white-space: nowrap;
 }
-.dark .filter-chip { border-color: #52525b; background: #3f3f46; color: #d6d3d1; }
-.filter-chip.active { background: #15803d; color: white; border-color: #15803d; }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.dark .filter-chip {
+  border-color: #52525b;
+  background: #3f3f46;
+  color: #d6d3d1;
+}
 
-.hint-panel-enter-active, .hint-panel-leave-active { transition: opacity 0.2s, transform 0.2s; }
-.hint-panel-enter-from, .hint-panel-leave-to { opacity: 0; transform: translateY(-6px); }
+.filter-chip.active {
+  background: #15803d;
+  color: white;
+  border-color: #15803d;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.hint-panel-enter-active, .hint-panel-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.hint-panel-enter-from, .hint-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
 </style>
