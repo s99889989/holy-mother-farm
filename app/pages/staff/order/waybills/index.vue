@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-full p-4 max-w-screen-xl mx-auto text-sm text-stone-800 dark:text-stone-200">
+  <div class="p-4 max-w-screen-xl mx-auto text-sm text-stone-800 dark:text-stone-200">
 
     <!-- 標題 -->
     <div class="text-base font-bold text-gray-700 dark:text-stone-300 mb-3">黑貓貨單管理</div>
@@ -381,11 +381,28 @@
 <script setup lang="ts">
 definePageMeta({layout: 'staff'})
 
-// ── 下拉資料（依序 await 確保 papers 有值） ───────────────────
-const { data: accounts }     = await useFetch<any[]>('/api/webservice-accounts')
-const { data: senders }      = await useFetch<any[]>('/api/senders')
-const { data: papers }       = await useFetch<any[]>('/api/papers')
-const { data: productnames } = await useFetch<any[]>('/api/productnames')
+const commonStore = useCommonStore()
+const BASE = () => commonStore.data.main_url + '/holy/t-cat'
+
+// ── 下拉資料 ───────────────────────────────────────────────────
+const accounts     = ref<any[]>([])
+const senders      = ref<any[]>([])
+const papers       = ref<any[]>([])
+const productnames = ref<any[]>([])
+
+async function loadMeta() {
+  const b = BASE()
+  const [acc, sen, pap, prd] = await Promise.all([
+    $fetch<any[]>(`${b}/meta`, { params: { type: 'accounts' } }),
+    $fetch<any[]>(`${b}/meta`, { params: { type: 'senders' } }),
+    $fetch<any[]>(`${b}/meta`, { params: { type: 'papers' } }),
+    $fetch<any[]>(`${b}/meta`, { params: { type: 'productnames' } }),
+  ])
+  accounts.value     = acc ?? []
+  senders.value      = sen ?? []
+  papers.value       = pap ?? []
+  productnames.value = prd ?? []
+}
 
 // ── 靜態選項 ──────────────────────────────────────────
 const deliverTimes = [
@@ -511,7 +528,7 @@ async function submitForm() {
 
   submitting.value = true
   try {
-    const res = await $fetch<any>('/api/waybills', { method: 'POST', body: { ...form } })
+    const res = await $fetch<any>(`${BASE()}/waybills`, { method: 'POST', body: { ...form } })
     formSuccess.value = `✅ 建立成功！託運單號：${res.tracking_no}`
     resetForm()
     await refreshList()
@@ -533,7 +550,7 @@ async function updateForm() {
 
   submitting.value = true
   try {
-    await $fetch(`/api/waybills/${editingId.value}`, { method: 'PATCH', body: { ...form } })
+    await $fetch(`${BASE()}/waybills/${editingId.value}`, { method: 'PATCH', body: { ...form } })
     formSuccess.value = `✅ 更新成功！託運單號：${form.tracking_no}`
     resetForm()
     await refreshList()
@@ -581,9 +598,21 @@ const page        = ref(1)
 const limit       = ref(10)
 const selectedIds = ref<number[]>([])
 
-const { data: listData, refresh: refreshList } = await useFetch<any>('/api/waybills', {
-  query: { keyword, start_date: startDate, end_date: endDate, page, limit }
-})
+const listData = ref<any>(null)
+
+async function refreshList() {
+  try {
+    listData.value = await $fetch<any>(`${BASE()}/waybills`, {
+      params: {
+        keyword: keyword.value,
+        start_date: startDate.value,
+        end_date: endDate.value,
+        page: page.value,
+        limit: limit.value,
+      }
+    })
+  } catch { listData.value = null }
+}
 
 const totalPages = computed(() => Math.ceil((listData.value?.total || 0) / limit.value))
 
@@ -614,7 +643,7 @@ async function deleteSelected() {
   if (!selectedIds.value.length) return alert('請先勾選要刪除的託運單')
   if (!confirm(`確定刪除選取的 ${selectedIds.value.length} 筆託運單？`)) return
   try {
-    await $fetch('/api/waybills/bulk-delete', {
+    await $fetch(`${BASE()}/waybills/bulk-delete`, {
       method: 'POST',
       body: { ids: selectedIds.value }
     })
@@ -660,4 +689,8 @@ function printAll() {
   const ids = listData.value?.rows?.map((r: any) => r.id) ?? []
   doPrint(ids)
 }
+onMounted(async () => {
+  await loadMeta()
+  await refreshList()
+})
 </script>
