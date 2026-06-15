@@ -78,22 +78,38 @@ const filteredSoymilk = computed(() =>
 const filteredTofu = computed(() =>
   filteredOrders.value.reduce((s, o) => s + (o.tofuQty || 0), 0))
 
-// ── 按日期分組 ────────────────────────────────────────────────────
+// ── 按取貨日分組 ──────────────────────────────────────────────────
 const groupedOrders = computed(() => {
+  const withPickup = filteredOrders.value.map(o => ({
+    ...o,
+    _pickupDate: resolvePickupDate(o.pickupDay, o.createdAt)
+  }))
+
   const map = new Map()
-  for (const o of filteredOrders.value) {
-    const dateStr = o.createdAt?.substring(0, 10) ?? ''
-    if (!map.has(dateStr)) map.set(dateStr, [])
-    map.get(dateStr).push(o)
+  for (const o of withPickup) {
+    if (!map.has(o._pickupDate)) map.set(o._pickupDate, [])
+    map.get(o._pickupDate).push(o)
   }
+
   return Array.from(map.entries())
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([date, orders]) => {
-      const [y, m, d] = date.split('-')
-      const weekDay = ['日','一','二','三','四','五','六'][new Date(date).getDay()]
-      return { date, dateLabel: `${m}/${d}（週${weekDay}）`, orders }
+      const weekDay = ['日','一','二','三','四','五','六'][new Date(date + 'T00:00:00').getDay()]
+      const [, m, d] = date.split('-')
+      return { date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders }
     })
 })
+
+// 從訂單建立時間往後找最近的週二(tue)或週五(fri)
+function resolvePickupDate(pickupDay, createdAt) {
+  if (!createdAt) return '9999-99-99'
+  const targetDow = pickupDay === 'tue' ? 2 : 5
+  const base = new Date(createdAt.replace(' ', 'T'))
+  const diff = (targetDow - base.getDay() + 7) % 7
+  const result = new Date(base)
+  result.setDate(base.getDate() + diff)
+  return `${result.getFullYear()}-${String(result.getMonth()+1).padStart(2,'0')}-${String(result.getDate()).padStart(2,'0')}`
+}
 const updatingId = ref('')
 
 const updateStatus = async (order, newStatus) => {
@@ -364,15 +380,20 @@ const submitEdit = async () => {
             <line x1="14" y1="1" x2="14" y2="4"/>
           </svg>
         </div>
-        <h1 class="flex-1 font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:15px">豆製品訂購管理</h1>
-        <div class="flex items-center gap-2">
+        <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">豆製品訂購管理</h1>
+        <div class="flex items-center gap-1.5 sm:gap-2 ml-auto flex-wrap justify-end">
+          <!-- 月份選擇 -->
+          <select v-model="selectedMonth" @change="fetchData"
+                  class="px-2 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500 text-xs sm:text-sm">
+            <option v-for="o in monthOptions" :key="o.val" :value="o.val">{{ o.label }}</option>
+          </select>
           <!-- 客戶訂單連結 -->
           <a href="https://holyfarm.netlify.app/front/order/soybeans?og=20" target="_blank"
-             class="flex items-center gap-1 px-2.5 py-1.5 border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors text-xs">
+             class="flex items-center gap-1 px-2 py-1.5 border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors text-xs">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
             </svg>
-            訂購連結
+            <span class="hidden sm:inline">訂購連結</span>
           </a>
           <!-- 新增訂單按鈕 -->
           <button @click="openCreateModal"
@@ -385,27 +406,20 @@ const submitEdit = async () => {
           <!-- 設定按鈕 -->
           <button @click="showHintSettings = !showHintSettings"
                   :class="showHintSettings ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700'"
-                  class="flex items-center gap-1 px-2.5 py-1.5 border rounded-lg transition-colors text-xs">
+                  class="flex items-center gap-1 px-2 py-1.5 border rounded-lg transition-colors text-xs">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
-            設定
+            <span class="hidden sm:inline">設定</span>
           </button>
-          <select v-model="selectedMonth" @change="fetchData"
-                  class="px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500 text-sm">
-            <option v-for="o in monthOptions" :key="o.val" :value="o.val">{{ o.label }}</option>
-          </select>
+          <!-- 重新整理 -->
           <button @click="fetchData" :disabled="loading"
-                  class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
-                  style="font-size:13px">
-            <svg v-if="loading" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10"/>
-            </svg>
-            <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  class="flex items-center gap-1 px-2 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors text-xs">
+            <svg :class="['w-3.5 h-3.5', loading && 'animate-spin']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
-            {{ loading ? '載入中…' : '重新整理' }}
+            <span class="hidden sm:inline">{{ loading ? '載入中…' : '重新整理' }}</span>
           </button>
         </div>
       </div>
@@ -516,8 +530,58 @@ const submitEdit = async () => {
             <div class="flex-1 h-px bg-stone-200 dark:bg-stone-700"></div>
             <span class="text-xs text-stone-400 whitespace-nowrap">{{ group.orders.length }} 筆</span>
           </div>
-          <!-- 該日訂單表格 -->
-          <div class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+
+          <!-- 手機：卡片列表 -->
+          <div class="flex flex-col gap-2 sm:hidden">
+            <div v-for="o in group.orders" :key="o.id"
+                 class="bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3 shadow-sm"
+                 :class="{ 'opacity-40': o.status === '已取消' }">
+              <!-- 頂行：姓名 + 狀態 + 操作 -->
+              <div class="flex items-center gap-2 mb-2">
+                <span class="font-bold text-stone-800 dark:text-stone-100 text-sm flex-1">{{ o.name }}</span>
+                <span :class="statusClass(o.status)">{{ o.status }}</span>
+                <button @click="openEditModal(o)" :disabled="updatingId === o.id"
+                        class="p-1.5 rounded-lg border border-blue-200 dark:border-blue-900 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <button @click="openDeleteModal(o)" :disabled="updatingId === o.id"
+                        class="p-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+              <!-- 中間：品項資訊 -->
+              <div class="flex items-center gap-3 mb-2 flex-wrap">
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                      :class="o.pickupDay === 'tue' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">
+                  {{ pickupLabel(o) }}
+                </span>
+                <span v-if="o.soymilkQty" class="text-sm font-semibold text-green-700">
+                  豆漿 {{ o.soymilkQty }} 袋
+                  <span v-if="o.soymilkVolume" class="text-xs text-stone-400 font-normal">{{ o.soymilkVolume }}ml</span>
+                </span>
+                <span v-if="o.tofuQty" class="text-sm font-semibold text-amber-600">
+                  豆腐 {{ o.tofuQty }} 塊
+                </span>
+                <span class="text-sm font-bold text-stone-700 dark:text-stone-200 ml-auto">
+                  ${{ (o.soymilkQty || 0) * 50 + (o.tofuQty || 0) * 50 }}
+                </span>
+              </div>
+              <!-- 底行：聯絡 + 備註 + 時間 -->
+              <div class="flex items-center gap-2 text-xs text-stone-400 flex-wrap">
+                <span>{{ o.contact }}</span>
+                <span v-if="o.remark" class="text-stone-300">｜</span>
+                <span v-if="o.remark" class="text-stone-400 truncate max-w-[120px]">{{ o.remark }}</span>
+                <span class="ml-auto text-stone-300">{{ o.createdAt?.substring(11, 16) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 桌機：表格 -->
+          <div class="hidden sm:block bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead class="bg-stone-50 dark:bg-zinc-700/50 border-b border-stone-200 dark:border-stone-700">
