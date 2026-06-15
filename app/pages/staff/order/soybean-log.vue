@@ -76,7 +76,8 @@ const filteredOrders = computed(() => {
 
 const filteredSoymilk = computed(() =>
   filteredOrders.value.reduce((s, o) => {
-    if (Array.isArray(o.soymilkItems)) return s + o.soymilkItems.reduce((a, i) => a + (i.qty || 0), 0)
+    if (Array.isArray(o.soymilkItems) && o.soymilkItems.length > 0)
+      return s + o.soymilkItems.reduce((a, i) => a + (i.qty || 0), 0)
     return s + (o.soymilkQty || 0)
   }, 0))
 const filteredTofu = computed(() =>
@@ -114,7 +115,6 @@ function normalizeSoymilkItems(order) {
   }
   return []
 }
-
 // 計算總豆漿袋數
 function totalSoymilkQty(items) {
   return items.reduce((s, i) => s + (i.qty || 0), 0)
@@ -129,10 +129,13 @@ function soymilkItemsLabel(order) {
 
 // 計算金額（豆漿 $50/袋）
 function calcTotal(order) {
-  const sm = Array.isArray(order.soymilkItems)
-    ? order.soymilkItems.reduce((s, i) => s + (i.qty || 0), 0)
-    : (order.soymilkQty || 0)
-  return sm * 50 + (order.tofuQty || 0) * 50
+  let smQty = 0
+  if (Array.isArray(order.soymilkItems) && order.soymilkItems.length > 0) {
+    smQty = order.soymilkItems.reduce((s, i) => s + (i.qty || 0), 0)
+  } else {
+    smQty = order.soymilkQty || 0
+  }
+  return smQty * 50 + (order.tofuQty || 0) * 50
 }
 
 // 新建一個空豆漿項目
@@ -1255,7 +1258,6 @@ const submitEdit = async () => {
   transition: all 0.12s;
   white-space: nowrap;
 }
-
 .dark .filter-chip { border-color: #52525b; background: #3f3f46; color: #d6d3d1; }
 .filter-chip.active { background: #15803d; color: white; border-color: #15803d; }
 
