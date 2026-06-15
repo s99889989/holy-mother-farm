@@ -1255,6 +1255,7 @@ const submitEdit = async () => {
   transition: all 0.12s;
   white-space: nowrap;
 }
+
 .dark .filter-chip { border-color: #52525b; background: #3f3f46; color: #d6d3d1; }
 .filter-chip.active { background: #15803d; color: white; border-color: #15803d; }
 
