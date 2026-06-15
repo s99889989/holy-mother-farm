@@ -186,18 +186,11 @@ onMounted(() => {
       <div
         class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden"
       >
-        <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-stone-100 dark:border-stone-700">
+        <div class="px-4 pt-3 pb-2 border-b border-stone-100 dark:border-stone-700">
           <span
             class="font-semibold text-stone-700 dark:text-stone-100"
             style="font-size:13px"
           >今日概況</span>
-          <NuxtLink
-            to="/staff/order/booking-view"
-            class="text-green-700 dark:text-green-400 font-medium"
-            style="font-size:12px"
-          >
-            查看詳情 →
-          </NuxtLink>
         </div>
 
         <div
