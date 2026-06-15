@@ -465,6 +465,40 @@ function formatClosedDate(dateStr) {
 function isClosedDate(dateStr) {
   return closedDates.value.includes(dateStr)
 }
+// ── 新增訂單姓名自動完成 ──────────────────────────────────────────
+const createNameSuggest = ref([])
+const showCreateSuggest = ref(false)
+
+// 從現有訂單建立姓名→聯絡對照表（去重，最新訂單優先）
+const knownCustomers = computed(() => {
+  const map = new Map()
+  const sorted = [...orders.value].sort((a, b) =>
+    (b.createdAt || '').localeCompare(a.createdAt || ''))
+  for (const o of sorted) {
+    if (o.name && !map.has(o.name)) {
+      map.set(o.name, o.contact || '')
+    }
+  }
+  return map
+})
+
+function onCreateNameInput() {
+  const val = createForm.value.name.trim()
+  if (!val) { showCreateSuggest.value = false; return }
+  const matches = [...knownCustomers.value.keys()]
+    .filter(n => n.includes(val) && n !== val)
+    .slice(0, 6)
+  createNameSuggest.value = matches
+  showCreateSuggest.value = matches.length > 0
+}
+
+function pickCreateCustomer(name) {
+  createForm.value.name    = name
+  createForm.value.contact = knownCustomers.value.get(name) || createForm.value.contact
+  showCreateSuggest.value  = false
+}
+
+// ── 編輯訂單 ──────────────────────────────────────────────────────
 const editModal = ref({ show: false, submitting: false, orderId: '', orderMonth: '' })
 const editForm = ref({
   name: '', contact: '', pickupDay: 'tue',
@@ -908,8 +942,24 @@ const submitEdit = async () => {
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-medium text-stone-500 mb-1">姓名 <span class="text-red-400">*</span></label>
-                  <input v-model="createForm.name" type="text" placeholder="訂購人姓名"
-                         class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
+                  <div class="relative">
+                    <input v-model="createForm.name" type="text" placeholder="訂購人姓名"
+                           autocomplete="off"
+                           @input="onCreateNameInput"
+                           @blur="setTimeout(() => showCreateSuggest = false, 150)"
+                           @focus="onCreateNameInput"
+                           class="w-full px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500"/>
+                    <!-- 建議下拉 -->
+                    <div v-if="showCreateSuggest"
+                         class="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-600 rounded-xl shadow-lg z-50 overflow-hidden">
+                      <button v-for="n in createNameSuggest" :key="n"
+                              @mousedown.prevent="pickCreateCustomer(n)"
+                              class="w-full text-left px-3 py-2 text-sm text-stone-700 dark:text-stone-200 hover:bg-green-50 dark:hover:bg-zinc-700 flex items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-700 last:border-0">
+                        <span class="font-medium">{{ n }}</span>
+                        <span class="text-xs text-stone-400 truncate max-w-[80px]">{{ knownCustomers.get(n) }}</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-stone-500 mb-1">聯絡方式 <span class="text-red-400">*</span></label>
