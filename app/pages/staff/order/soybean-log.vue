@@ -110,6 +110,18 @@ function resolvePickupDate(pickupDay, createdAt) {
   result.setDate(base.getDate() + diff)
   return `${result.getFullYear()}-${String(result.getMonth()+1).padStart(2,'0')}-${String(result.getDate()).padStart(2,'0')}`
 }
+
+// ── 格式化訂購時間 ────────────────────────────────────────────────
+function formatCreatedAt(createdAt) {
+  if (!createdAt) return ''
+  const d = new Date(createdAt.replace(' ', 'T'))
+  const weekDay = ['日','一','二','三','四','五','六'][d.getDay()]
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${mm}/${dd}（週${weekDay}）${hh}:${min}`
+}
 const updatingId = ref('')
 
 const updateStatus = async (order, newStatus) => {
@@ -369,7 +381,7 @@ const submitEdit = async () => {
   <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-14 z-20">
+    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3">
       <div class="max-w-6xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
@@ -575,7 +587,7 @@ const submitEdit = async () => {
                 <span>{{ o.contact }}</span>
                 <span v-if="o.remark" class="text-stone-300">｜</span>
                 <span v-if="o.remark" class="text-stone-400 truncate max-w-[120px]">{{ o.remark }}</span>
-                <span class="ml-auto text-stone-300">{{ o.createdAt?.substring(11, 16) }}</span>
+                <span class="ml-auto text-stone-300">{{ formatCreatedAt(o.createdAt) }}</span>
               </div>
             </div>
           </div>
@@ -602,7 +614,7 @@ const submitEdit = async () => {
                 <tr v-for="o in group.orders" :key="o.id"
                     class="hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors"
                     :class="{ 'opacity-40': o.status === '已取消' }">
-                  <td class="px-3 py-2.5 text-xs text-stone-400 whitespace-nowrap">{{ o.createdAt?.substring(11, 16) }}</td>
+                  <td class="px-3 py-2.5 text-xs text-stone-400 whitespace-nowrap">{{ formatCreatedAt(o.createdAt) }}</td>
                   <td class="px-3 py-2.5 font-semibold text-stone-800 dark:text-stone-100 whitespace-nowrap">{{ o.name }}</td>
                   <td class="px-3 py-2.5 text-xs text-stone-500 dark:text-stone-400">{{ o.contact }}</td>
                   <td class="px-3 py-2.5">
