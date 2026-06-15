@@ -105,17 +105,13 @@
       </div>
 
       <template v-else>
-        <!-- 星期標頭 -->
-        <div class="calendar-grid mb-1">
+        <!-- 星期標頭 + 日期格子 同一個 grid，確保欄寬完全對齊 -->
+        <div class="calendar-grid gap-1">
           <div v-for="d in weekdays" :key="d"
                :class="['text-center text-xs font-semibold py-2 tracking-wide',
               d === '日' ? 'text-red-400' : d === '六' ? 'text-blue-400' : 'text-stone-400 dark:text-stone-500']">
             {{ d }}
           </div>
-        </div>
-
-        <!-- 日期格子 -->
-        <div class="calendar-grid gap-1">
           <div v-for="(cell, idx) in calendarCells" :key="idx"
                :class="['cal-cell', {
               'opacity-0 pointer-events-none': !cell.day,
@@ -360,6 +356,63 @@
       </div>
     </div>
 
+    <!-- ══ Modal: Google 活動詳細 ══ -->
+    <div v-if="googleDetailModal.show && googleDetailModal.ev"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+         @click.self="googleDetailModal.show = false">
+      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 rounded-sm bg-blue-500 flex-shrink-0"></div>
+            <h3 class="font-bold text-stone-800 dark:text-stone-100 text-sm">Google 日曆活動</h3>
+          </div>
+          <button @click="googleDetailModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <!-- 內容 -->
+        <div class="px-5 py-4 space-y-3">
+          <!-- 標題 -->
+          <p class="text-base font-bold text-stone-800 dark:text-stone-100 leading-snug">{{ googleDetailModal.ev.title }}</p>
+          <!-- 日期 / 時間 -->
+          <div class="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span>{{ googleDetailModal.ev.date }}<span v-if="googleDetailModal.ev.time" class="ml-2">{{ googleDetailModal.ev.time }}</span></span>
+          </div>
+          <!-- 地點 -->
+          <div v-if="googleDetailModal.ev.room" class="flex items-start gap-2 text-sm text-stone-500 dark:text-stone-400">
+            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>{{ googleDetailModal.ev.room }}</span>
+          </div>
+          <!-- 主辦人 -->
+          <div v-if="googleDetailModal.ev.owner" class="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <span>{{ googleDetailModal.ev.owner }}</span>
+          </div>
+          <!-- 說明 -->
+          <div v-if="googleDetailModal.ev.description"
+               class="bg-stone-50 dark:bg-zinc-800 rounded-xl p-3 text-sm text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
+            {{ googleDetailModal.ev.description }}
+          </div>
+        </div>
+        <!-- Footer -->
+        <div class="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-zinc-900">
+          <button @click="googleDetailModal.show = false"
+                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+            關閉
+          </button>
+          <a v-if="googleDetailModal.ev.googleLink"
+             :href="googleDetailModal.ev.googleLink"
+             target="_blank" rel="noopener"
+             class="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            在 Google 日曆開啟
+          </a>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Modal: TXT 匯入 ══ -->
     <div v-if="showTxtModal"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
@@ -467,54 +520,58 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.calendar' })
+definePageMeta({layout: 'staff', requiredPermission: 'staff.calendar.edit'})
 const perm = usePermission()
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
 
-const TYPES    = ['醫院', '園區', '芳心']
+const TYPES = ['醫院', '園區', '芳心']
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
 // ── Google Calendar 設定 ──────────────────────────────────────────
 const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
-const GOOGLE_API_KEY     = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
+const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
 
-const googleEvents  = ref([])
+const googleEvents = ref([])
 const googleLoading = ref(false)
 
 // ── 顏色工具 ─────────────────────────────────────────────────────
 function typeColorClass(type) {
   if (type === 'Google') return 'google'
-  return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[type] || 'park'
+  return {醫院: 'hospital', 園區: 'park', 芳心: 'fragrant'}[type] || 'park'
 }
+
 function typeChipClass(type) {
   if (type === 'Google') return 'chip-google'
-  return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[type] || 'chip-park'
+  return {醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant'}[type] || 'chip-park'
 }
+
 function chipClass(ev) {
   if (ev.source === 'google') return 'chip-google'
   return typeChipClass(ev.type)
 }
+
 function typeBarClass(type) {
   if (type === 'Google') return 'bg-blue-500'
-  return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[type] || 'bg-emerald-500'
+  return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
 }
+
 function legendDotClass(type) {
-  return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[type] || 'bg-emerald-500'
+  return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
 }
 
 // ── 月份狀態 ──────────────────────────────────────────────────────
-const today        = new Date()
-const currentYear  = ref(today.getFullYear())
+const today = new Date()
+const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth() + 1)  // 1-based
 
 // ── 篩選狀態 ──────────────────────────────────────────────────────
-const filterType     = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
+const filterType = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
 const filterLocation = ref('')       // 空字串 = 全部地點
 
 function setFilterType(t) {
-  filterType.value     = t
+  filterType.value = t
   filterLocation.value = ''
 }
 
@@ -526,47 +583,53 @@ function extractLocation(room) {
 
 // 依目前 filterType 動態產生可選地點（去重、排序）
 const availableLocations = computed(() => {
-  const ym   = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  let   base = allEvents.value.filter(e => e.date?.startsWith(ym))
+  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  let base = allEvents.value.filter(e => e.date?.startsWith(ym))
   if (filterType.value !== '全部' && filterType.value !== 'Google') base = base.filter(e => e.type === filterType.value)
   if (filterType.value === 'Google') base = base.filter(e => e.source === 'google')
   return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 })
 
 function prevMonth() {
-  if (currentMonth.value === 1) { currentMonth.value = 12; currentYear.value-- }
-  else currentMonth.value--
+  if (currentMonth.value === 1) {
+    currentMonth.value = 12;
+    currentYear.value--
+  } else currentMonth.value--
 }
+
 function nextMonth() {
-  if (currentMonth.value === 12) { currentMonth.value = 1; currentYear.value++ }
-  else currentMonth.value++
+  if (currentMonth.value === 12) {
+    currentMonth.value = 1;
+    currentYear.value++
+  } else currentMonth.value++
 }
+
 function goToday() {
-  currentYear.value  = today.getFullYear()
+  currentYear.value = today.getFullYear()
   currentMonth.value = today.getMonth() + 1
 }
 
 // ── 月曆格子計算 ─────────────────────────────────────────────────
 const calendarCells = computed(() => {
-  const year  = currentYear.value
+  const year = currentYear.value
   const month = currentMonth.value
   const firstWeekday = new Date(year, month - 1, 1).getDay()   // 0=Sun
-  const daysInMonth  = new Date(year, month, 0).getDate()
+  const daysInMonth = new Date(year, month, 0).getDate()
 
   const cells = []
 
   // 填充前空格
   for (let i = 0; i < firstWeekday; i++) {
-    cells.push({ day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i })
+    cells.push({day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i})
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr    = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
     const weekdayIdx = (firstWeekday + d - 1) % 7
-    const isToday    = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
-    const isWeekend  = weekdayIdx === 0 || weekdayIdx === 6
-    const dayEvents  = eventsOnDate(dateStr)
-    cells.push({ day: d, dateStr, events: dayEvents, isToday, isWeekend, weekdayIdx })
+    const isToday = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
+    const isWeekend = weekdayIdx === 0 || weekdayIdx === 6
+    const dayEvents = eventsOnDate(dateStr)
+    cells.push({day: d, dateStr, events: dayEvents, isToday, isWeekend, weekdayIdx})
   }
 
   return cells
@@ -586,7 +649,7 @@ const monthEventCount = computed(() => {
 // 類型統計（當月）
 const typeCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const counts = { 醫院: 0, 園區: 0, 芳心: 0, Google: 0 }
+  const counts = {醫院: 0, 園區: 0, 芳心: 0, Google: 0}
   events.value.filter(e => e.date?.startsWith(ym)).forEach(e => {
     if (counts[e.type] !== undefined) counts[e.type]++
   })
@@ -607,10 +670,10 @@ function eventsOnDate(dateStr) {
 }
 
 // ── 主資料狀態 ────────────────────────────────────────────────────
-const events  = ref([])
+const events = ref([])
 const loading = ref(false)
-const saving  = ref(false)
-const toast   = reactive({ show: false, message: '' })
+const saving = ref(false)
+const toast = reactive({show: false, message: ''})
 
 // 系統活動 + Google 活動合併
 const allEvents = computed(() => [...events.value, ...googleEvents.value])
@@ -632,9 +695,9 @@ async function fetchEvents() {
 async function fetchGoogleEvents() {
   if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
   googleLoading.value = true
-  googleEvents.value  = []
+  googleEvents.value = []
   try {
-    const year  = currentYear.value
+    const year = currentYear.value
     const month = currentMonth.value
     const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
     const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
@@ -642,30 +705,30 @@ async function fetchGoogleEvents() {
       + `?key=${GOOGLE_API_KEY}`
       + `&timeMin=${timeMin}&timeMax=${timeMax}`
       + `&singleEvents=true&orderBy=startTime&maxResults=250`
-    const res  = await fetch(url)
+    const res = await fetch(url)
     const data = res.ok ? await res.json() : {}
     googleEvents.value = (data.items || []).map(item => {
       const isAllDay = !!item.start?.date
       const startRaw = isAllDay ? item.start.date : item.start?.dateTime
-      const endRaw   = isAllDay ? item.end?.date   : item.end?.dateTime
-      const date     = startRaw ? startRaw.slice(0, 10) : ''
+      const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
+      const date = startRaw ? startRaw.slice(0, 10) : ''
       let time = ''
       if (!isAllDay && startRaw) {
         const s = new Date(startRaw)
         const e = endRaw ? new Date(endRaw) : null
-        const fmt = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
         time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
       }
       return {
-        id:          item.id,
+        id: item.id,
         date,
         time,
-        title:       item.summary || '（無標題）',
-        owner:       item.organizer?.displayName || '',
-        room:        item.location || '',
-        type:        'Google',
-        source:      'google',
-        googleLink:  item.htmlLink || '',
+        title: item.summary || '（無標題）',
+        owner: item.organizer?.displayName || '',
+        room: item.location || '',
+        type: 'Google',
+        source: 'google',
+        googleLink: item.htmlLink || '',
         description: item.description || ''
       }
     })
@@ -677,53 +740,64 @@ async function fetchGoogleEvents() {
 }
 
 // ── 日面板（點 +N 展開當日所有活動）──────────────────────────────
-const dayPanel = reactive({ show: false, dateStr: '', events: [] })
+const dayPanel = reactive({show: false, dateStr: '', events: []})
 
 function openDayPanel(cell) {
   dayPanel.dateStr = cell.dateStr
-  dayPanel.events  = cell.events
-  dayPanel.show    = true
+  dayPanel.events = cell.events
+  dayPanel.show = true
 }
 
 // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
-const formModal = reactive({ show: false, isNew: true, id: null })
-const form      = reactive({ date: '', time: '', title: '', owner: '', room: '', type: '醫院' })
+const formModal = reactive({show: false, isNew: true, id: null})
+const form = reactive({date: '', time: '', title: '', owner: '', room: '', type: '醫院'})
 const formError = ref('')
 
 // 從日曆格子點 + 新增，自動帶入日期
 function openAddOnDate(dateStr) {
   formModal.isNew = true
-  formModal.id    = null
+  formModal.id = null
   Object.assign(form, {
     date: dateStr || '',
     time: '', title: '', owner: '', room: '', type: '醫院'
   })
   formError.value = ''
-  formModal.show  = true
+  formModal.show = true
+}
+
+// ── Google 活動詳細 Modal ──────────────────────────────────────────
+const googleDetailModal = reactive({show: false, ev: null})
+
+function openGoogleDetail(ev) {
+  googleDetailModal.ev = ev
+  googleDetailModal.show = true
 }
 
 function openEdit(ev) {
-  // Google 活動直接開啟 Google 連結，不走編輯 Modal
+  // Google 活動顯示詳細面板，不直接跳轉
   if (ev.source === 'google') {
-    if (ev.googleLink) window.open(ev.googleLink, '_blank', 'noopener')
+    openGoogleDetail(ev)
     return
   }
   formModal.isNew = false
-  formModal.id    = ev.id
-  Object.assign(form, { date: ev.date, time: ev.time, title: ev.title, owner: ev.owner, room: ev.room, type: ev.type })
+  formModal.id = ev.id
+  Object.assign(form, {date: ev.date, time: ev.time, title: ev.title, owner: ev.owner, room: ev.room, type: ev.type})
   formError.value = ''
-  formModal.show  = true
+  formModal.show = true
 }
 
 async function saveForm() {
-  if (!form.date || !form.title.trim()) { formError.value = '日期和標題為必填'; return }
-  saving.value    = true
+  if (!form.date || !form.title.trim()) {
+    formError.value = '日期和標題為必填';
+    return
+  }
+  saving.value = true
   formError.value = ''
   try {
-    const payload = { ...form, id: formModal.isNew ? null : formModal.id }
+    const payload = {...form, id: formModal.isNew ? null : formModal.id}
     const res = await fetch(`${BASE.value}/save`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
     })
     if (!res.ok) throw new Error('儲存失敗')
@@ -752,7 +826,7 @@ async function saveForm() {
 async function deleteEvent(ev) {
   if (!confirm(`確定要刪除「${ev.title}」？`)) return
   try {
-    const res = await fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' })
+    const res = await fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'})
     if (!res.ok) throw new Error()
     events.value = events.value.filter(e => e.id !== ev.id)
     // 同步更新側板
@@ -765,19 +839,19 @@ async function deleteEvent(ev) {
 
 // ── TXT 解析 ──────────────────────────────────────────────────────
 const showTxtModal = ref(false)
-const txtInput     = ref('')
-const txtResult    = ref(null)
+const txtInput = ref('')
+const txtResult = ref(null)
 
 function closeTxtModal() {
   showTxtModal.value = false
-  txtInput.value     = ''
-  txtResult.value    = null
+  txtInput.value = ''
+  txtResult.value = null
 }
 
 // 回傳 { events: [], notes: [] }
 function parseTxtContent(raw) {
-  const lines   = raw.split('\n').map(l => l.trim()).filter(Boolean)
-  const evList  = []
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+  const evList = []
   const noteList = []
   let year = null, month = null, day = null
   let inNotes = false
@@ -785,10 +859,18 @@ function parseTxtContent(raw) {
   for (const line of lines) {
     // 年月行
     const ym = line.match(/^(\d{4})年(\d{1,2})月/)
-    if (ym) { year = +ym[1]; month = +ym[2]; inNotes = false; continue }
+    if (ym) {
+      year = +ym[1];
+      month = +ym[2];
+      inNotes = false;
+      continue
+    }
 
     // 備注區塊起始：「備 註 :」「備註：」等變體
-    if (/^備\s*[註注]\s*[:：]/.test(line)) { inNotes = true; continue }
+    if (/^備\s*[註注]\s*[:：]/.test(line)) {
+      inNotes = true;
+      continue
+    }
 
     // ── 備注區 ──
     if (inNotes) {
@@ -797,7 +879,7 @@ function parseTxtContent(raw) {
       const m = line.match(/^\d+\.\s*(\([^)]*\))?\s*(.+)$/)
       if (m) {
         const prefix = m[1] ? m[1] + ' ' : ''
-        const text   = m[2].trim()
+        const text = m[2].trim()
         if (text) noteList.push(prefix + text)
       } else if (line && !/^備/.test(line)) {
         noteList.push(line)
@@ -807,7 +889,8 @@ function parseTxtContent(raw) {
 
     // ── 活動區 ──
     if (/^\d{1,2}$/.test(line) && +line >= 1 && +line <= 31) {
-      day = +line; continue
+      day = +line;
+      continue
     }
 
     if (!year || !month || !day) continue
@@ -815,32 +898,37 @@ function parseTxtContent(raw) {
     const ev = line.match(/^(\d{2}:\d{2}-\d{2}:\d{2})\s+(.+?)\s*\(([^)]*)\)(醫院|園區|芳心)$/)
     if (!ev) continue
 
-    const time  = ev[1]
+    const time = ev[1]
     const title = ev[2].replace(/\s*\.\.\s*$/, '').trim()
-    const type  = ev[4]
+    const type = ev[4]
     const parts = ev[3].trim().split(/\s+/).filter(Boolean)
     const owner = parts[0] || ''
-    const room  = parts.slice(1).join(' ')
-    const date  = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const room = parts.slice(1).join(' ')
+    const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 
-    evList.push({ date, time, title, owner, room, type })
+    evList.push({date, time, title, owner, room, type})
   }
-  return { events: evList, notes: noteList }
+  return {events: evList, notes: noteList}
 }
 
-function eventKey(e) { return `${e.date}|${e.time}|${e.title}|${e.owner}` }
+function eventKey(e) {
+  return `${e.date}|${e.time}|${e.title}|${e.owner}|${e.room}`
+}
 
 function parseTxt() {
-  const { events: parsed, notes: parsedNotes } = parseTxtContent(txtInput.value)
+  const {events: parsed, notes: parsedNotes} = parseTxtContent(txtInput.value)
   const existing = new Set(events.value.map(eventKey))
-  const added = [], skipped = { count: 0 }
+  const added = [], skipped = {count: 0}
 
   for (const ev of parsed) {
-    if (existing.has(eventKey(ev))) { skipped.count++; continue }
+    if (existing.has(eventKey(ev))) {
+      skipped.count++;
+      continue
+    }
     existing.add(eventKey(ev))
     added.push(ev)
   }
-  txtResult.value = { total: parsed.length, added, skipped: skipped.count, notes: parsedNotes }
+  txtResult.value = {total: parsed.length, added, skipped: skipped.count, notes: parsedNotes}
 }
 
 async function confirmImportTxt() {
@@ -851,7 +939,7 @@ async function confirmImportTxt() {
     if (txtResult.value.added.length > 0) {
       const res = await fetch(`${BASE.value}/batch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(txtResult.value.added)
       })
       if (!res.ok) throw new Error('活動匯入失敗')
@@ -871,14 +959,15 @@ async function confirmImportTxt() {
       try {
         const r = await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`)
         if (r.ok) existing = await r.json()
-      } catch {}
+      } catch {
+      }
       const merged = [...existing]
       for (const n of txtResult.value.notes) {
         if (!merged.includes(n)) merged.push(n)
       }
       await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(merged)
       })
       // 若當前月份就是 targetYm，同步更新畫面
@@ -890,11 +979,11 @@ async function confirmImportTxt() {
     // ③ 跳至第一筆活動的月份
     if (txtResult.value.added.length > 0) {
       const firstDate = txtResult.value.added[0].date
-      currentYear.value  = +firstDate.slice(0, 4)
+      currentYear.value = +firstDate.slice(0, 4)
       currentMonth.value = +firstDate.slice(5, 7)
     }
 
-    const evCount   = txtResult.value.added.length
+    const evCount = txtResult.value.added.length
     const noteCount = txtResult.value.notes.length
     showToast(`匯入 ${evCount} 筆活動、${noteCount} 條備注`)
     closeTxtModal()
@@ -908,9 +997,9 @@ async function confirmImportTxt() {
 // ── 備注 ──────────────────────────────────────────────────────────
 // GET  /holy/calendar/notes?yearMonth=2026-04  → String[]
 // POST /holy/calendar/notes?yearMonth=2026-04  body: String[]
-const notes        = ref([])      // 當月備注陣列
-const notesSaving  = ref(false)
-const noteEditIdx  = ref(-1)      // 正在編輯的備注 index，-1 表示無
+const notes = ref([])      // 當月備注陣列
+const notesSaving = ref(false)
+const noteEditIdx = ref(-1)      // 正在編輯的備注 index，-1 表示無
 const noteEditValue = ref('')
 
 const currentYearMonth = computed(() =>
@@ -921,8 +1010,8 @@ const currentYearMonth = computed(() =>
 watch(currentYearMonth, () => {
   fetchNotes()
   fetchGoogleEvents()
-  noteEditIdx.value    = -1
-  filterType.value     = '全部'
+  noteEditIdx.value = -1
+  filterType.value = '全部'
   filterLocation.value = ''
 })
 
@@ -940,7 +1029,7 @@ async function saveNotes() {
   try {
     await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(notes.value)
     })
   } catch {
@@ -952,12 +1041,12 @@ async function saveNotes() {
 
 function addNote() {
   notes.value.push('')
-  noteEditIdx.value   = notes.value.length - 1
+  noteEditIdx.value = notes.value.length - 1
   noteEditValue.value = ''
 }
 
 function startEditNote(idx) {
-  noteEditIdx.value   = idx
+  noteEditIdx.value = idx
   noteEditValue.value = notes.value[idx]
 }
 
@@ -989,8 +1078,10 @@ async function deleteNote(idx) {
 // ── Toast ─────────────────────────────────────────────────────────
 function showToast(msg) {
   toast.message = msg
-  toast.show    = true
-  setTimeout(() => { toast.show = false }, 2500)
+  toast.show = true
+  setTimeout(() => {
+    toast.show = false
+  }, 2500)
 }
 
 onMounted(() => {
@@ -1004,7 +1095,8 @@ onMounted(() => {
 /* ── 月曆格線 ── */
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  width: 100%;
 }
 
 /* ── 日期格子 ── */
@@ -1017,14 +1109,34 @@ onMounted(() => {
   transition: box-shadow 0.15s, background 0.1s;
   position: relative;
 }
-.cal-cell:hover { box-shadow: 0 0 0 2px #6366f1; }
-.cal-cell:hover .cal-add-btn { opacity: 1 !important; }
 
-:root.dark .cal-cell { background: #27272a; }
-.cal-cell.weekend  { background: #faf6f2; }
-:root.dark .cal-cell.weekend { background: #232325; }
-.cal-cell.today    { box-shadow: 0 0 0 2px #6366f1; }
-.cal-cell.has-events { box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.cal-cell:hover {
+  box-shadow: 0 0 0 2px #6366f1;
+}
+
+.cal-cell:hover .cal-add-btn {
+  opacity: 1 !important;
+}
+
+:root.dark .cal-cell {
+  background: #27272a;
+}
+
+.cal-cell.weekend {
+  background: #faf6f2;
+}
+
+:root.dark .cal-cell.weekend {
+  background: #232325;
+}
+
+.cal-cell.today {
+  box-shadow: 0 0 0 2px #6366f1;
+}
+
+.cal-cell.has-events {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
+}
 
 /* ── 日期數字 ── */
 .cal-day-num {
@@ -1032,6 +1144,7 @@ onMounted(() => {
   font-weight: 600;
   line-height: 1;
 }
+
 .today-num {
   display: inline-flex;
   align-items: center;
@@ -1045,7 +1158,10 @@ onMounted(() => {
 }
 
 /* ── 快速新增按鈕 ── */
-.cal-add-btn { opacity: 0; transition: opacity 0.15s; }
+.cal-add-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
 
 /* ── 活動 chip ── */
 .cal-chip {
@@ -1059,7 +1175,11 @@ onMounted(() => {
   transition: opacity 0.1s, filter 0.1s;
   font-size: 10px;
 }
-.cal-chip:hover { opacity: 0.8; filter: brightness(0.95); }
+
+.cal-chip:hover {
+  opacity: 0.8;
+  filter: brightness(0.95);
+}
 
 .chip-time {
   font-size: 9px;
@@ -1068,6 +1188,7 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
   opacity: 0.7;
 }
+
 .chip-title {
   white-space: nowrap;
   overflow: hidden;
@@ -1078,14 +1199,45 @@ onMounted(() => {
 }
 
 /* chip 顏色 */
-.chip-hospital { background: #fee2e2; color: #c0392b; }
-.chip-park     { background: #d1fae5; color: #065f46; }
-.chip-fragrant { background: #fce7f3; color: #9d4f78; }
-.chip-google   { background: #dbeafe; color: #1d4ed8; }
-:root.dark .chip-hospital { background: #4d2323; color: #fca5a5; }
-:root.dark .chip-park     { background: #1a3a26; color: #6ee7b7; }
-:root.dark .chip-fragrant { background: #3b1a2e; color: #f0abfc; }
-:root.dark .chip-google   { background: #1e3a5f; color: #93c5fd; }
+.chip-hospital {
+  background: #fee2e2;
+  color: #c0392b;
+}
+
+.chip-park {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.chip-fragrant {
+  background: #fce7f3;
+  color: #9d4f78;
+}
+
+.chip-google {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+:root.dark .chip-hospital {
+  background: #4d2323;
+  color: #fca5a5;
+}
+
+:root.dark .chip-park {
+  background: #1a3a26;
+  color: #6ee7b7;
+}
+
+:root.dark .chip-fragrant {
+  background: #3b1a2e;
+  color: #f0abfc;
+}
+
+:root.dark .chip-google {
+  background: #1e3a5f;
+  color: #93c5fd;
+}
 
 /* ── 類型 badge ── */
 .type-badge {
@@ -1096,45 +1248,152 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: 10px;
 }
-.type-badge.hospital { background: #fee2e2; color: #c0392b; }
-.type-badge.park     { background: #d1fae5; color: #065f46; }
-.type-badge.fragrant { background: #fce7f3; color: #9d4f78; }
-.type-badge.google   { background: #dbeafe; color: #1d4ed8; }
-:root.dark .type-badge.hospital { background: #4d2323; color: #f87171; }
-:root.dark .type-badge.park     { background: #1a3a26; color: #4ade80; }
-:root.dark .type-badge.fragrant { background: #3b1a2e; color: #f0abfc; }
-:root.dark .type-badge.google   { background: #1e3a5f; color: #93c5fd; }
+
+.type-badge.hospital {
+  background: #fee2e2;
+  color: #c0392b;
+}
+
+.type-badge.park {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.type-badge.fragrant {
+  background: #fce7f3;
+  color: #9d4f78;
+}
+
+.type-badge.google {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+:root.dark .type-badge.hospital {
+  background: #4d2323;
+  color: #f87171;
+}
+
+:root.dark .type-badge.park {
+  background: #1a3a26;
+  color: #4ade80;
+}
+
+:root.dark .type-badge.fragrant {
+  background: #3b1a2e;
+  color: #f0abfc;
+}
+
+:root.dark .type-badge.google {
+  background: #1e3a5f;
+  color: #93c5fd;
+}
 
 /* ── 篩選按鈕：類型 ── */
 .filter-type-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
-  border: 1.5px solid #e2ddd8; background: transparent; cursor: pointer;
-  color: #78716c; transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1.5px solid #e2ddd8;
+  background: transparent;
+  cursor: pointer;
+  color: #78716c;
+  transition: all .15s;
 }
-:root.dark .filter-type-btn { border-color: #3f3f46; color: #a1a1aa; }
+
+:root.dark .filter-type-btn {
+  border-color: #3f3f46;
+  color: #a1a1aa;
+}
+
 .filter-count {
-  font-size: 10px; opacity: .7; background: rgba(0,0,0,.06);
-  border-radius: 8px; padding: 0 4px; min-width: 16px; text-align: center;
+  font-size: 10px;
+  opacity: .7;
+  background: rgba(0, 0, 0, .06);
+  border-radius: 8px;
+  padding: 0 4px;
+  min-width: 16px;
+  text-align: center;
 }
-.filter-type-btn.active.all      { background: #1c1917; color: #fff; border-color: #1c1917; }
-.filter-type-btn.active.hospital { background: #e0534a; color: #fff; border-color: #e0534a; }
-.filter-type-btn.active.park     { background: #3d6b52; color: #fff; border-color: #3d6b52; }
-.filter-type-btn.active.fragrant { background: #a06080; color: #fff; border-color: #a06080; }
-.filter-type-btn.google          { border-color: #bfdbfe; color: #2563eb; }
-:root.dark .filter-type-btn.google { border-color: #1e3a5f; color: #93c5fd; }
-.filter-type-btn.active.google   { background: #2563eb; color: #fff; border-color: #2563eb; }
-.filter-type-btn:not(.active):hover { border-color: #6366f1; color: #6366f1; }
+
+.filter-type-btn.active.all {
+  background: #1c1917;
+  color: #fff;
+  border-color: #1c1917;
+}
+
+.filter-type-btn.active.hospital {
+  background: #e0534a;
+  color: #fff;
+  border-color: #e0534a;
+}
+
+.filter-type-btn.active.park {
+  background: #3d6b52;
+  color: #fff;
+  border-color: #3d6b52;
+}
+
+.filter-type-btn.active.fragrant {
+  background: #a06080;
+  color: #fff;
+  border-color: #a06080;
+}
+
+.filter-type-btn.google {
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+:root.dark .filter-type-btn.google {
+  border-color: #1e3a5f;
+  color: #93c5fd;
+}
+
+.filter-type-btn.active.google {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.filter-type-btn:not(.active):hover {
+  border-color: #6366f1;
+  color: #6366f1;
+}
 
 /* ── 篩選按鈕：地點 ── */
 .filter-loc-btn {
-  padding: 3px 10px; border-radius: 14px; font-size: 11px; font-weight: 500;
-  border: 1.5px solid #e2ddd8; background: transparent; cursor: pointer;
-  color: #78716c; transition: all .15s; white-space: nowrap;
+  padding: 3px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1.5px solid #e2ddd8;
+  background: transparent;
+  cursor: pointer;
+  color: #78716c;
+  transition: all .15s;
+  white-space: nowrap;
 }
-:root.dark .filter-loc-btn { border-color: #3f3f46; color: #a1a1aa; }
-.filter-loc-btn.active      { background: #6366f1; color: #fff; border-color: #6366f1; }
-.filter-loc-btn:not(.active):hover { border-color: #6366f1; color: #6366f1; }
+
+:root.dark .filter-loc-btn {
+  border-color: #3f3f46;
+  color: #a1a1aa;
+}
+
+.filter-loc-btn.active {
+  background: #6366f1;
+  color: #fff;
+  border-color: #6366f1;
+}
+
+.filter-loc-btn:not(.active):hover {
+  border-color: #6366f1;
+  color: #6366f1;
+}
 
 /* ── 表單欄位 ── */
 .field-label {
@@ -1144,7 +1403,11 @@ onMounted(() => {
   color: #57534e;
   margin-bottom: 4px;
 }
-:root.dark .field-label { color: #a8a29e; }
+
+:root.dark .field-label {
+  color: #a8a29e;
+}
+
 .field-input {
   width: 100%;
   padding: 8px 12px;
@@ -1156,24 +1419,62 @@ onMounted(() => {
   outline: none;
   transition: border 0.15s, box-shadow 0.15s;
 }
-:root.dark .field-input { background: #3f3f46; border-color: #52525b; color: #f5f5f4; }
-.field-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+
+:root.dark .field-input {
+  background: #3f3f46;
+  border-color: #52525b;
+  color: #f5f5f4;
+}
+
+.field-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+}
 
 /* ── 側板動畫 ── */
-.slide-right-enter-active, .slide-right-leave-active { transition: opacity 0.2s; }
-.slide-right-enter-active > div, .slide-right-leave-active > div { transition: transform 0.25s cubic-bezier(.32,.72,0,1); }
-.slide-right-enter-from { opacity: 0; }
-.slide-right-enter-from > div { transform: translateX(100%); }
-.slide-right-leave-to { opacity: 0; }
-.slide-right-leave-to > div { transform: translateX(100%); }
+.slide-right-enter-active, .slide-right-leave-active {
+  transition: opacity 0.2s;
+}
+
+.slide-right-enter-active > div, .slide-right-leave-active > div {
+  transition: transform 0.25s cubic-bezier(.32, .72, 0, 1);
+}
+
+.slide-right-enter-from {
+  opacity: 0;
+}
+
+.slide-right-enter-from > div {
+  transform: translateX(100%);
+}
+
+.slide-right-leave-to {
+  opacity: 0;
+}
+
+.slide-right-leave-to > div {
+  transform: translateX(100%);
+}
 
 /* ── Toast ── */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 
 /* ── RWD ── */
 @media (max-width: 640px) {
-  .cal-cell { min-height: 72px; padding: 3px 2px; }
-  .cal-chip  { padding: 1px 3px; }
+  .cal-cell {
+    min-height: 72px;
+    padding: 3px 2px;
+  }
+
+  .cal-chip {
+    padding: 1px 3px;
+  }
 }
 </style>
