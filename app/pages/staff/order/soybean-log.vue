@@ -159,7 +159,13 @@ const groupedOrders = computed(() => {
     .map(([date, orders]) => {
       const weekDay = ['日','一','二','三','四','五','六'][new Date(date + 'T00:00:00').getDay()]
       const [, m, d] = date.split('-')
-      return { date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders }
+      const active = orders.filter(o => o.status !== '已取消')
+      const soymilk = active.reduce((s, o) => {
+        const items = normalizeSoymilkItems(o)
+        return s + items.reduce((a, i) => a + (i.qty || 0), 0)
+      }, 0)
+      const tofu = active.reduce((s, o) => s + (o.tofuQty || 0), 0)
+      return { date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk, tofu }
     })
 })
 
@@ -754,7 +760,12 @@ const submitEdit = async () => {
               休息日
             </span>
             <div class="flex-1 h-px bg-stone-200 dark:bg-stone-700"></div>
-            <span class="text-xs text-stone-400 whitespace-nowrap">{{ group.orders.length }} 筆</span>
+            <div class="flex items-center gap-2 text-xs whitespace-nowrap">
+              <span v-if="group.soymilk" class="text-green-700 font-semibold">豆漿 {{ group.soymilk }} 袋</span>
+              <span v-if="group.soymilk && group.tofu" class="text-stone-300">／</span>
+              <span v-if="group.tofu" class="text-amber-600 font-semibold">豆腐 {{ group.tofu }} 塊</span>
+              <span class="text-stone-400">{{ group.orders.length }} 筆</span>
+            </div>
           </div>
 
           <!-- 手機：卡片列表 -->
