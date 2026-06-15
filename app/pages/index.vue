@@ -28,8 +28,10 @@ onMounted(async () => {
     }
   }
 
+  // 先嘗試自動登入（cookie 還在的話直接進去）
   await fetchMe()
 
+  // 載入 Google GSI script
   if (!document.getElementById('google-gsi-script')) {
     const script = document.createElement('script')
     script.id = 'google-gsi-script'
@@ -38,13 +40,19 @@ onMounted(async () => {
     script.defer = true
     script.onload = () => initGoogle()
     document.head.appendChild(script)
-  } else if (window.google) {
+  } else {
+    // script 已存在，直接 poll 等 window.google ready
     initGoogle()
   }
 })
 
-const initGoogle = () => {
-  if (!window.google || !GOOGLE_CLIENT_ID.value) return
+// 帶 retry poll，網路慢時 window.google 可能還沒好
+const initGoogle = (attempt = 0) => {
+  if (!window.google) {
+    if (attempt < 20) setTimeout(() => initGoogle(attempt + 1), 300)
+    return
+  }
+  if (!GOOGLE_CLIENT_ID.value) return
   window.google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID.value,
     callback: handleCredential,
@@ -69,37 +77,57 @@ const handleCredential = async (response) => {
   loading.value = true
   error.value = ''
   try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
+
     const res = await fetch(`${BASE.value}/google-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
+      signal: controller.signal,
       body: JSON.stringify({ credential: response.credential }),
     })
+    clearTimeout(timer)
+
     const data = await res.json()
     if (!data.error) {
       customerStore.setCustomer(data)
       await permissionStore.load(data.id, commonStore.data.main_url)
       navigateTo('/staff/home')
     } else {
-      error.value = '登入失敗，請再試一次'
+      error.value = data.error === 'Google token 驗證失敗'
+        ? 'Google 驗證失敗，請重新登入'
+        : '登入失敗，請再試一次'
     }
-  } catch {
-    error.value = '連線失敗，請確認網路後再試'
+  } catch (e) {
+    error.value = e.name === 'AbortError'
+      ? '連線逾時（15秒），請確認網路後再試'
+      : '連線失敗，請確認網路後再試'
   } finally {
     loading.value = false
   }
 }
 
+// fetchMe：讀 cookie 自動登入，失敗就靜默留在頁面
 const fetchMe = async () => {
   try {
-    const data = await (await fetch(`${BASE.value}/me`, { credentials: 'include' })).json()
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10000)
+
+    const res = await fetch(`${BASE.value}/me`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+
+    const data = await res.json()
     if (!data.error) {
       customerStore.setCustomer(data)
       await permissionStore.load(data.id, commonStore.data.main_url)
       navigateTo('/staff/home')
     }
   } catch {
-    // 未登入，留在頁面
+    // 未登入或網路問題，靜默留在登入頁
   }
 }
 </script>
