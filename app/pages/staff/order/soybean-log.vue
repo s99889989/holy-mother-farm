@@ -7,6 +7,73 @@ definePageMeta({layout: 'staff'})
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/soybean')
 
+// ── 營業日設定（取代寫死的週二/週五）─────────────────────────────
+// ISO 星期數字：1=一 2=二 3=三 4=四 5=五 6=六 7=日
+const DOW_CODE  = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun' }
+const DOW_LABEL = { 1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六', 7: '週日' }
+const DOW_COLORS = [
+  { bg: 'bg-green-100 text-green-700', active: 'bg-green-700 text-white border-green-700', filterActiveBorder: 'border-green-700' },
+  { bg: 'bg-blue-100 text-blue-700',   active: 'bg-blue-600 text-white border-blue-600',   filterActiveBorder: 'border-blue-600' },
+  { bg: 'bg-amber-100 text-amber-700', active: 'bg-amber-600 text-white border-amber-600', filterActiveBorder: 'border-amber-600' },
+  { bg: 'bg-purple-100 text-purple-700', active: 'bg-purple-600 text-white border-purple-600', filterActiveBorder: 'border-purple-600' },
+]
+
+const businessDays = ref([2, 5]) // 預設二五，實際以後端設定為準
+const businessDaysInput = ref('') // 設定面板用的多選暫存
+const businessDaysSaving = ref(false)
+const businessDaysSaved = ref(false)
+
+const businessDayOptions = computed(() =>
+  businessDays.value.map((dow, idx) => ({
+    dow,
+    code: DOW_CODE[dow] || 'tue',
+    label: DOW_LABEL[dow] || '',
+    color: DOW_COLORS[idx % DOW_COLORS.length],
+  }))
+)
+
+function dowToCode(dow) { return DOW_CODE[dow] || 'tue' }
+function codeToDow(code) {
+  const found = Object.entries(DOW_CODE).find(([, c]) => c === code)
+  return found ? Number(found[0]) : 2
+}
+function colorForCode(code) {
+  const idx = businessDays.value.indexOf(codeToDow(code))
+  return DOW_COLORS[idx >= 0 ? idx % DOW_COLORS.length : 0]
+}
+
+const fetchBusinessDays = async () => {
+  try {
+    const res = await fetch(`${BASE.value}/settings/business-days`, { credentials: 'include' })
+    const data = await res.json()
+    if (Array.isArray(data.businessDays) && data.businessDays.length > 0) {
+      businessDays.value = data.businessDays
+    }
+  } catch {}
+}
+
+const saveBusinessDays = async (days) => {
+  businessDaysSaving.value = true
+  businessDaysSaved.value = false
+  try {
+    const res = await fetch(`${BASE.value}/admin/settings/business-days`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ businessDays: days }),
+    })
+    const data = await res.json()
+    if (data.error) { alert('儲存失敗：' + data.error); return }
+    businessDays.value = data.businessDays
+    businessDaysSaved.value = true
+    setTimeout(() => businessDaysSaved.value = false, 2000)
+  } catch {
+    alert('儲存失敗')
+  } finally {
+    businessDaysSaving.value = false
+  }
+}
+
 // ── 月份選擇 ──────────────────────────────────────────────────────
 function thisMonth() {
   const d = new Date()
@@ -58,6 +125,7 @@ onMounted(() => {
   fetchData()
   fetchHints()
   fetchClosedDates()
+  fetchBusinessDays()
   autoRefreshTimer = setInterval(fetchData, 30000)
 })
 onUnmounted(() => clearInterval(autoRefreshTimer))
@@ -85,7 +153,7 @@ const filteredTofu = computed(() =>
 
 // ── 從現在起算下一個取貨日 ───────────────────────────────────────
 function nextPickupDateFromNow(pickupDay) {
-  const targetDow = pickupDay === 'tue' ? 2 : 5
+  const targetDow = codeToDow(pickupDay)
   const now = new Date()
   // 用本地時間避免 UTC 時差問題
   const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -169,11 +237,11 @@ const groupedOrders = computed(() => {
     })
 })
 
-// 從訂單建立時間往後找最近的週二(tue)或週五(fri)；有 pickupDate 欄位則直接用
+// 從訂單建立時間往後找最近的營業日；有 pickupDate 欄位則直接用
 function resolvePickupDate(pickupDay, createdAt, pickupDate) {
   if (pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) return pickupDate
   if (!createdAt) return '9999-99-99'
-  const targetDow = pickupDay === 'tue' ? 2 : 5
+  const targetDow = codeToDow(pickupDay)
   const base = new Date(createdAt.replace(' ', 'T'))
   const diff = (targetDow - base.getDay() + 7) % 7
   const result = new Date(base)
@@ -217,21 +285,28 @@ const statusClass = (s) => ({
   '已取消': 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500',
 }[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-400')
 
-// 根據訂單建立時間推算當週的取貨日期（週二=2, 週五=5）
-// 若訂單建立當天已超過取貨日，則取下一週
+// 根據訂單的取貨日資訊產生顯示文字：有 pickupDate 就直接用，否則用 createdAt 推算當週的營業日
+// （若訂單建立當天已超過取貨日，則取下一週）
 const pickupLabel = (order) => {
-  const dayMap = { tue: { label: '週二', dow: 2 }, fri: { label: '週五', dow: 5 } }
-  const info = dayMap[order?.pickupDay]
-  if (!info) return order?.pickupDay ?? ''
+  const dow = codeToDow(order?.pickupDay)
+  const label = DOW_LABEL[dow]
+  if (!label) return order?.pickupDay ?? ''
+
+  // 優先使用明確指定的 pickupDate，避免與 createdAt 推算結果不一致
+  if (order?.pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(order.pickupDate)) {
+    const d = new Date(order.pickupDate + 'T00:00:00')
+    return `${label} ${d.getMonth() + 1}/${d.getDate()}`
+  }
+
   const base = order?.createdAt ? new Date(order.createdAt) : new Date()
   const baseDow = base.getDay() // 0=日
-  let diff = info.dow - baseDow
+  let diff = dow - baseDow
   if (diff < 0) diff += 7   // 已過，取下週
   const target = new Date(base)
   target.setDate(base.getDate() + diff)
   const m = target.getMonth() + 1
   const d = target.getDate()
-  return `${info.label} ${m}/${d}`
+  return `${label} ${m}/${d}`
 }
 
 const STATUSES = ['待確認', '已確認', '已取貨', '已取消']
@@ -492,8 +567,8 @@ function onCreateNameInput() {
 function onPickupDateChange() {
   const d = createForm.value.pickupDate
   if (!d) return
-  const dow = new Date(d + 'T00:00:00').getDay() // 0=日
-  createForm.value.pickupDay = dow === 2 ? 'tue' : 'fri'
+  const dow = new Date(d + 'T00:00:00').getDay() === 0 ? 7 : new Date(d + 'T00:00:00').getDay() // 0=日→7
+  createForm.value.pickupDay = dowToCode(dow)
 }
 
 function pickCreateCustomer(name) {
@@ -502,10 +577,18 @@ function pickCreateCustomer(name) {
   showCreateSuggest.value  = false
 }
 
+function onEditPickupDateChange() {
+  const d = editForm.value.pickupDate
+  if (!d) return
+  const dow0 = new Date(d + 'T00:00:00').getDay()
+  const dow = dow0 === 0 ? 7 : dow0
+  editForm.value.pickupDay = dowToCode(dow)
+}
+
 // ── 編輯訂單 ──────────────────────────────────────────────────────
 const editModal = ref({ show: false, submitting: false, orderId: '', orderMonth: '' })
 const editForm = ref({
-  name: '', contact: '', pickupDay: 'tue',
+  name: '', contact: '', pickupDay: 'tue', pickupDate: '',
   soymilkItems: [newSoymilkItem()], tofuQty: 0,
   remark: '', status: '待確認',
 })
@@ -523,6 +606,7 @@ const openEditModal = (order) => {
     name:         order.name      || '',
     contact:      order.contact   || '',
     pickupDay:    order.pickupDay || 'tue',
+    pickupDate:   order.pickupDate || '',
     soymilkItems,
     tofuQty:      order.tofuQty  || 0,
     remark:       order.remark   || '',
@@ -557,6 +641,7 @@ const submitEdit = async () => {
       tofuQty:       f.tofuQty,
       remark:        f.remark.trim(),
       status:        f.status,
+      pickupDate:    f.pickupDate || '',
     }
     const res = await fetch(
       `${BASE.value}/admin/order/${editModal.value.orderMonth}/${editModal.value.orderId}`,
@@ -740,6 +825,40 @@ const submitEdit = async () => {
           </div>
         </div>
       </Transition>
+      <!-- ── 營業日設定面板 ── -->
+      <Transition name="hint-panel">
+        <div v-if="showHintSettings"
+             class="mb-4 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+          <div class="flex items-center gap-2 px-4 py-3 border-b border-stone-100 dark:border-stone-700">
+            <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span class="text-sm font-semibold text-stone-700 dark:text-stone-200">營業日設定</span>
+            <span class="text-xs text-stone-400">（決定每週固定接單的星期，目前：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button v-for="dow in [1,2,3,4,5,6,7]" :key="dow"
+                      @click="businessDays.includes(dow)
+                        ? saveBusinessDays(businessDays.filter(d => d !== dow))
+                        : saveBusinessDays([...businessDays, dow].sort())"
+                      :disabled="businessDaysSaving"
+                      :class="businessDays.includes(dow)
+                        ? 'bg-stone-700 text-white border-stone-700'
+                        : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-600'"
+                      class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50">
+                {{ DOW_LABEL[dow] }}
+              </button>
+            </div>
+            <Transition name="fade">
+              <p v-if="businessDaysSaved" class="mt-2 text-xs text-emerald-600 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12"/></svg>
+                已更新
+              </p>
+            </Transition>
+          </div>
+        </div>
+      </Transition>
       <div class="flex items-center gap-2 mb-3 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 shadow-sm flex-wrap">
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-stone-400">本月訂單</span>
@@ -766,8 +885,10 @@ const submitEdit = async () => {
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-stone-400 whitespace-nowrap">取貨日</span>
           <button @click="filterDay = ''" :class="['filter-chip', { active: filterDay === '' }]">全部</button>
-          <button @click="filterDay = 'tue'" :class="['filter-chip', { active: filterDay === 'tue' }]">週二</button>
-          <button @click="filterDay = 'fri'" :class="['filter-chip', { active: filterDay === 'fri' }]">週五</button>
+          <button v-for="opt in businessDayOptions" :key="opt.code"
+                  @click="filterDay = opt.code" :class="['filter-chip', { active: filterDay === opt.code }]">
+            {{ opt.label }}
+          </button>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-stone-400 whitespace-nowrap">狀態</span>
@@ -831,7 +952,7 @@ const submitEdit = async () => {
               <!-- 中間：品項資訊 -->
               <div class="flex items-center gap-3 mb-2 flex-wrap">
                 <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                      :class="o.pickupDay === 'tue' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">
+                      :class="colorForCode(o.pickupDay).bg">
                   {{ pickupLabel(o) }}
                 </span>
                 <span v-if="normalizeSoymilkItems(o).length" class="text-sm font-semibold text-green-700">
@@ -882,7 +1003,7 @@ const submitEdit = async () => {
                   <td class="px-3 py-2.5 text-xs text-stone-500 dark:text-stone-400">{{ o.contact }}</td>
                   <td class="px-3 py-2.5">
                     <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                          :class="o.pickupDay === 'tue' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">
+                          :class="colorForCode(o.pickupDay).bg">
                       {{ pickupLabel(o) }}
                     </span>
                   </td>
@@ -979,36 +1100,21 @@ const submitEdit = async () => {
                   <span v-if="createForm.pickupDate" class="text-stone-300 font-normal">（由自訂日期決定）</span>
                 </label>
                 <div class="flex gap-2">
-                  <button @click="!createForm.pickupDate && (createForm.pickupDay = 'tue')"
-                          :disabled="!!createForm.pickupDate || isClosedDate(nextPickupDateFromNow('tue'))"
+                  <button v-for="opt in businessDayOptions" :key="opt.code"
+                          @click="!createForm.pickupDate && (createForm.pickupDay = opt.code)"
+                          :disabled="!!createForm.pickupDate || isClosedDate(nextPickupDateFromNow(opt.code))"
                           :class="[
                             createForm.pickupDate
                               ? 'opacity-40 cursor-not-allowed bg-white dark:bg-zinc-800 text-stone-400 border-stone-200 dark:border-stone-600'
-                              : isClosedDate(nextPickupDateFromNow('tue'))
+                              : isClosedDate(nextPickupDateFromNow(opt.code))
                                 ? 'opacity-40 cursor-not-allowed bg-white dark:bg-zinc-800 text-stone-400 border-stone-200 dark:border-stone-600'
-                                : createForm.pickupDay === 'tue'
-                                  ? 'bg-green-700 text-white border-green-700'
+                                : createForm.pickupDay === opt.code
+                                  ? opt.color.active
                                   : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'
                           ]"
                           class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium relative">
-                    <div>{{ pickupDateLabel('tue') }}</div>
-                    <span v-if="isClosedDate(nextPickupDateFromNow('tue'))"
-                          class="text-xs font-normal text-red-400">休息日</span>
-                  </button>
-                  <button @click="!createForm.pickupDate && (createForm.pickupDay = 'fri')"
-                          :disabled="!!createForm.pickupDate || isClosedDate(nextPickupDateFromNow('fri'))"
-                          :class="[
-                            createForm.pickupDate
-                              ? 'opacity-40 cursor-not-allowed bg-white dark:bg-zinc-800 text-stone-400 border-stone-200 dark:border-stone-600'
-                              : isClosedDate(nextPickupDateFromNow('fri'))
-                                ? 'opacity-40 cursor-not-allowed bg-white dark:bg-zinc-800 text-stone-400 border-stone-200 dark:border-stone-600'
-                                : createForm.pickupDay === 'fri'
-                                  ? 'bg-blue-600 text-white border-blue-600'
-                                  : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'
-                          ]"
-                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium relative">
-                    <div>{{ pickupDateLabel('fri') }}</div>
-                    <span v-if="isClosedDate(nextPickupDateFromNow('fri'))"
+                    <div>{{ pickupDateLabel(opt.code) }}</div>
+                    <span v-if="isClosedDate(nextPickupDateFromNow(opt.code))"
                           class="text-xs font-normal text-red-400">休息日</span>
                   </button>
                 </div>
@@ -1018,7 +1124,7 @@ const submitEdit = async () => {
               <div>
                 <label class="block text-xs font-medium text-stone-500 mb-1">
                   自訂取貨日期
-                  <span class="text-stone-300 font-normal">（不填則自動取當週週二或週五）</span>
+                  <span class="text-stone-300 font-normal">（不填則自動取當週設定的營業日）</span>
                 </label>
                 <input v-model="createForm.pickupDate" type="date"
                        @change="onPickupDateChange"
@@ -1166,17 +1272,40 @@ const submitEdit = async () => {
 
               <!-- 取貨日 -->
               <div>
-                <label class="block text-xs font-medium text-stone-500 mb-1.5">取貨日</label>
+                <label class="block text-xs font-medium text-stone-500 mb-1.5">
+                  取貨日
+                  <span v-if="editForm.pickupDate" class="text-stone-300 font-normal">（由自訂日期決定）</span>
+                </label>
                 <div class="flex gap-2">
-                  <button @click="editForm.pickupDay = 'tue'"
-                          :class="editForm.pickupDay === 'tue' ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
+                  <button v-for="opt in businessDayOptions" :key="opt.code"
+                          @click="!editForm.pickupDate && (editForm.pickupDay = opt.code)"
+                          :disabled="!!editForm.pickupDate"
+                          :class="[
+                            editForm.pickupDate
+                              ? 'opacity-40 cursor-not-allowed bg-white dark:bg-zinc-800 text-stone-400 border-stone-200 dark:border-stone-600'
+                              : editForm.pickupDay === opt.code
+                                ? opt.color.active
+                                : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'
+                          ]"
                           class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
-                    週二
+                    {{ opt.label }}
                   </button>
-                  <button @click="editForm.pickupDay = 'fri'"
-                          :class="editForm.pickupDay === 'fri' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'"
-                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
-                    週五
+                </div>
+              </div>
+
+              <!-- 自訂取貨日期 -->
+              <div>
+                <label class="block text-xs font-medium text-stone-500 mb-1">
+                  自訂取貨日期
+                  <span class="text-stone-300 font-normal">（不填則沿用上方週次標籤）</span>
+                </label>
+                <div class="flex gap-2">
+                  <input v-model="editForm.pickupDate" type="date"
+                         @change="onEditPickupDateChange"
+                         class="flex-1 px-3 py-2 text-sm border border-stone-200 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-500"/>
+                  <button v-if="editForm.pickupDate" @click="editForm.pickupDate = ''"
+                          class="px-3 py-2 text-xs text-stone-400 hover:text-stone-600 border border-stone-200 dark:border-stone-600 rounded-xl transition-colors">
+                    清除
                   </button>
                 </div>
               </div>
