@@ -30,6 +30,15 @@ export default defineNuxtConfig({
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
       }
+    },
+    // ── API 反向代理 ─────────────────────────────────────────────
+    // 把 /api/holy/** 在伺服器端轉發到家中主機，瀏覽器端只看到
+    // Netlify 同網域請求，cookie 變成「第一方 cookie」。
+    // 這是為了解決 iOS Safari / iOS Chrome（皆為 WebKit 引擎）的
+    // ITP 機制會限制或擋掉跨站第三方 cookie，導致手機上登入態
+    // 無法保持（開新頁面後 /holy/customer/me 讀不到 cookie）的問題。
+    '/api/holy/**': {
+      proxy: 'https://madustrialtd.asuscomm.com:8080/holy/**'
     }
   },
   app: {
