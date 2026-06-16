@@ -5,7 +5,7 @@
       <!-- Logo -->
       <NuxtLink
         to="/staff/home"
-        class="flex items-center gap-1 px-2 py-1 mr-1 text-green-700 dark:text-green-400 font-bold text-sm"
+        class="flex items-center gap-1 px-2 py-1 mr-1 text-green-700 dark:text-green-400 font-bold text-base"
       >
         🏠 首頁
       </NuxtLink>
@@ -17,7 +17,7 @@
         class="relative nav-dropdown-wrap"
       >
         <button
-          class="flex items-center gap-1 px-2 py-1 rounded text-sm font-medium transition-colors whitespace-nowrap"
+          class="flex items-center gap-1 px-2 py-1 rounded text-base font-medium transition-colors whitespace-nowrap"
           :class="activeGroup?.label === group.label
             ? 'text-green-700 dark:text-green-400'
             : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'"
@@ -58,7 +58,7 @@
               >
                 <NuxtLink
                   :to="item.to"
-                  class="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded text-base font-medium transition-colors whitespace-nowrap"
                   :class="route.path.startsWith(item.to)
                     ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950'
                     : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'"
@@ -76,7 +76,7 @@
         v-for="item in visibleStandaloneItems"
         :key="item.to"
         :to="item.to"
-        class="flex items-center gap-1 px-2 py-1 rounded text-sm font-medium transition-colors whitespace-nowrap"
+        class="flex items-center gap-1 px-2 py-1 rounded text-base font-medium transition-colors whitespace-nowrap"
         :class="route.path.startsWith(item.to)
           ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950'
           : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'"
@@ -142,7 +142,7 @@
             >
               {{ customer.name?.charAt(0) || '?' }}
             </div>
-            <span class="text-base font-medium hidden lg:block max-w-[80px] truncate">{{ customer.name }}</span>
+            <span class="text-lg font-medium hidden lg:block max-w-[80px] truncate">{{ customer.name }}</span>
             <svg
               class="w-3 h-3 transition-transform"
               :class="menuOpen ? 'rotate-180' : ''"
@@ -172,17 +172,17 @@
               @click.stop
             >
               <div class="px-3 py-2 border-b border-stone-100 dark:border-stone-700">
-                <p class="text-xs font-semibold text-stone-800 dark:text-stone-100 truncate">
+                <p class="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
                   {{ customer.name }}
                 </p>
-                <p class="text-xs text-stone-400 truncate">
+                <p class="text-sm text-stone-400 truncate">
                   {{ customer.email }}
                 </p>
               </div>
               <ul class="py-1">
                 <li>
                   <button
-                    class="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
                     @click="goProfile"
                   >
                     <svg
@@ -205,7 +205,7 @@
                   <a
                     href="https://holyfarm.netlify.app"
                     target="_blank"
-                    class="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
                     @click="menuOpen = false"
                   >
                     <svg
@@ -226,7 +226,7 @@
                 </li>
                 <li class="border-t border-stone-100 dark:border-stone-700 mt-1 pt-1">
                   <button
-                    class="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     @click="logout"
                   >
                     <svg

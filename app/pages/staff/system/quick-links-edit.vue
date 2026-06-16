@@ -19,7 +19,7 @@
 
     <!-- 分類 Tab 列 -->
     <div v-if="categories.length > 0"
-         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-[calc(3.5rem+39px)] z-10">
+         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-0 z-10">
       <div class="max-w-2xl mx-auto">
         <div class="tab-scroll flex gap-1 px-3 py-1.5 overflow-x-auto">
           <button

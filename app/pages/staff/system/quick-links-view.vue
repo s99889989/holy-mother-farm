@@ -2,7 +2,7 @@
   <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-14 z-20">
+    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-20">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🔗</div>
         <div>
@@ -13,7 +13,7 @@
 
     <!-- 分類 Tab 列 -->
     <div v-if="categories.length > 0"
-         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-[calc(3.5rem+49px)] z-10">
+         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-0 z-10">
       <div class="max-w-2xl mx-auto">
         <div class="tab-scroll flex gap-1 px-3 py-2 overflow-x-auto">
           <button

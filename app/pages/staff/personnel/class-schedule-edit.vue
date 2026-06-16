@@ -786,6 +786,23 @@ onUnmounted(() => {
           <span class="text-stone-400 dark:text-stone-500">{{ e.label }}</span>
         </span>
         </div>
+        <!-- 人員篩選（班表 view 時顯示） -->
+        <div v-if="view === 'table' && currentDeptEmployees.length > 0"
+             class="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+          <span class="text-sm text-stone-400 dark:text-stone-500 font-medium flex-shrink-0">顯示人員：</span>
+          <label v-for="emp in currentDeptEmployees" :key="emp.id" class="flex items-center gap-1 cursor-pointer select-none">
+            <input v-model="tableVisibleIds" type="checkbox" :value="emp.id" class="rounded accent-green-600">
+            <span :class="['text-sm px-1.5 py-0.5 rounded-full transition-colors',
+                           tableVisibleIds.includes(emp.id) ? 'bg-green-700 text-white' : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300']">
+              {{ emp.name }}
+            </span>
+          </label>
+          <button v-if="tableVisibleIds.length > 0"
+                  class="ml-auto text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 px-2 py-0.5 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0"
+                  @click="tableVisibleIds = []">
+            顯示全部
+          </button>
+        </div>
       </template><!-- end v-else (headerCollapsed) -->
     </header>
 
@@ -810,23 +827,6 @@ onUnmounted(() => {
 
       <!-- ══ 班表 ══ -->
       <div v-else-if="view === 'table'">
-        <!-- 人員篩選 -->
-        <div v-if="currentDeptEmployees.length > 0"
-             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-3 sm:px-4 py-2.5 mb-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span class="text-sm text-stone-400 dark:text-stone-500 font-medium flex-shrink-0">顯示人員：</span>
-          <label v-for="emp in currentDeptEmployees" :key="emp.id" class="flex items-center gap-1 cursor-pointer select-none">
-            <input v-model="tableVisibleIds" type="checkbox" :value="emp.id" class="rounded accent-green-600">
-            <span :class="['text-sm px-1.5 py-0.5 rounded-full transition-colors',
-                           tableVisibleIds.includes(emp.id) ? 'bg-green-700 text-white' : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300']">
-              {{ emp.name }}
-            </span>
-          </label>
-          <button v-if="tableVisibleIds.length > 0"
-                  class="ml-auto text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 px-2 py-0.5 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0"
-                  @click="tableVisibleIds = []">
-            顯示全部
-          </button>
-        </div>
         <div ref="tableWrapRef"
              class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-x-auto" style="width: fit-content; max-width: 100%">
           <div ref="scalerClipRef">
