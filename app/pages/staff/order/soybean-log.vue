@@ -228,12 +228,16 @@ const groupedOrders = computed(() => {
       const weekDay = ['日','一','二','三','四','五','六'][new Date(date + 'T00:00:00').getDay()]
       const [, m, d] = date.split('-')
       const active = orders.filter(o => o.status !== '已取消')
-      const soymilk = active.reduce((s, o) => {
+      const soymilkQty = active.reduce((s, o) => {
         const items = normalizeSoymilkItems(o)
         return s + items.reduce((a, i) => a + (i.qty || 0), 0)
       }, 0)
+      const soymilkMl = active.reduce((s, o) => {
+        const items = normalizeSoymilkItems(o)
+        return s + items.reduce((a, i) => a + (i.volume || 0) * (i.qty || 0), 0)
+      }, 0)
       const tofu = active.reduce((s, o) => s + (o.tofuQty || 0), 0)
-      return { date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk, tofu }
+      return { date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk: soymilkQty, soymilkMl, tofu }
     })
 })
 
@@ -585,6 +589,19 @@ function onEditPickupDateChange() {
   editForm.value.pickupDay = dowToCode(dow)
 }
 
+// 編輯表單取貨日按鈕顯示用：以目前已知的取貨日期為基準，算出按鈕對應的星期幾日期
+function editPickupDateLabel(code) {
+  const targetDow = codeToDow(code)
+  const baseDateStr = editForm.value.pickupDate || nextPickupDateFromNow(editForm.value.pickupDay)
+  const base = new Date(baseDateStr + 'T00:00:00')
+  const baseDow0 = base.getDay()
+  const baseDow = baseDow0 === 0 ? 7 : baseDow0
+  const diff = targetDow - baseDow
+  const result = new Date(base)
+  result.setDate(base.getDate() + diff)
+  return `${result.getMonth() + 1}/${result.getDate()}`
+}
+
 // ── 編輯訂單 ──────────────────────────────────────────────────────
 const editModal = ref({ show: false, submitting: false, orderId: '', orderMonth: '' })
 const editForm = ref({
@@ -920,7 +937,7 @@ const submitEdit = async () => {
             </span>
             <div class="flex-1 h-px bg-stone-200 dark:bg-stone-700"></div>
             <div class="flex items-center gap-2 text-xs whitespace-nowrap">
-              <span v-if="group.soymilk" class="text-green-700 font-semibold">豆漿 {{ group.soymilk }} 袋</span>
+              <span v-if="group.soymilk" class="text-green-700 font-semibold">豆漿 {{ group.soymilkMl }}ml<span class="text-stone-300 font-normal text-xs">（{{ group.soymilk }} 袋）</span></span>
               <span v-if="group.soymilk && group.tofu" class="text-stone-300">／</span>
               <span v-if="group.tofu" class="text-amber-600 font-semibold">豆腐 {{ group.tofu }} 塊</span>
               <span class="text-stone-400">{{ group.orders.length }} 筆</span>
@@ -1288,7 +1305,7 @@ const submitEdit = async () => {
                                 : 'bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600'
                           ]"
                           class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
-                    {{ opt.label }}
+                    <div>{{ opt.label }} {{ editPickupDateLabel(opt.code) }}</div>
                   </button>
                 </div>
               </div>
