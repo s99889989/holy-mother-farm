@@ -2,16 +2,16 @@
   <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-14 z-20">
+    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-2 sticky top-0 z-20">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🔗</div>
+        <div class="w-6 h-6 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:12px">🔗</div>
         <div class="flex-1">
-          <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:15px">常用網址</h1>
+          <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:14px">常用網址</h1>
         </div>
         <button @click="openCatModal(null)"
-                class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
-                style="font-size:13px">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                class="flex items-center gap-1.5 px-2.5 py-1 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
+                style="font-size:12px">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           新增分類
         </button>
       </div>
@@ -19,9 +19,9 @@
 
     <!-- 分類 Tab 列 -->
     <div v-if="categories.length > 0"
-         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-[calc(3.5rem+49px)] z-10">
+         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-[calc(3.5rem+39px)] z-10">
       <div class="max-w-2xl mx-auto">
-        <div class="tab-scroll flex gap-1 px-3 py-2 overflow-x-auto">
+        <div class="tab-scroll flex gap-1 px-3 py-1.5 overflow-x-auto">
           <button
             v-for="(cat, catIdx) in categories" :key="cat.id"
             class="tab-btn group flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"

@@ -2,7 +2,7 @@
   <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-14 z-20">
+    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-20">
       <div class="max-w-6xl mx-auto flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:15px">📞</div>
         <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:16px">聖母分機查詢</h1>
