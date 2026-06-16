@@ -72,15 +72,22 @@ const handleCredential = async (response) => {
 
     const res = await fetch(`${BASE.value}/google-login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
       signal: controller.signal,
-      body: JSON.stringify({ credential: response.credential }),
+      body: JSON.stringify({credential: response.credential}),
     })
     clearTimeout(timer)
 
     const data = await res.json()
     if (!data.error) {
+      const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN']
+      if (!allowedRoles.includes(data.role)) {
+        error.value = '此帳號非員工帳號，無法登入員工後台'
+        // 確保未授權帳號不會留下登入態
+        await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
+        return
+      }
       customerStore.setCustomer(data)
       await permissionStore.load(data.id, commonStore.data.main_url)
       navigateTo('/staff/home')
@@ -109,6 +116,8 @@ const fetchMe = async () => {
     clearTimeout(timer)
     const data = await res.json()
     if (!data.error) {
+      const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN']
+      if (!allowedRoles.includes(data.role)) return
       customerStore.setCustomer(data)
       await permissionStore.load(data.id, commonStore.data.main_url)
       navigateTo('/staff/home')
@@ -143,7 +152,7 @@ const fetchMe = async () => {
       <div class="login-card-wrap">
 
         <!-- 卡片頂部色帶（簽名元素） -->
-        <div class="login-accent-bar" />
+        <div class="login-accent-bar"/>
 
         <div class="login-card">
           <!-- 標題區 -->
@@ -163,16 +172,18 @@ const fetchMe = async () => {
           <!-- 按鈕區 -->
           <div class="login-btn-area">
             <div v-if="loading" class="login-loading">
-              <span class="login-spinner" />
+              <span class="login-spinner"/>
               <span>登入中…</span>
             </div>
-            <div v-show="!loading" id="google-signin-btn" />
+            <div v-show="!loading" id="google-signin-btn"/>
           </div>
 
           <!-- 錯誤訊息 -->
           <p v-if="error" class="login-error">
             <svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              <path fill-rule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clip-rule="evenodd"/>
             </svg>
             {{ error }}
           </p>
@@ -189,27 +200,27 @@ const fetchMe = async () => {
 <style scoped>
 /* ── CSS 變數：深色模式 ─────────────────────────────────── */
 .login-root {
-  --bg:           #1a1f1b;
-  --nav-bg:       #212720;
-  --nav-border:   #2e352e;
-  --card-bg:      #252b25;
-  --card-border:  #323832;
-  --card-shadow:  0 2px 20px 0 rgba(0,0,0,0.35);
-  --accent-1:     #52b788;
-  --accent-2:     #2d6a4f;
-  --accent-3:     #1b4332;
-  --badge-bg:     #52b788;
-  --badge-text:   #1a2e1e;
-  --title:        #e8ede8;
-  --subtitle:     #7a8a7a;
-  --desc:         #909a90;
-  --footer:       #4a524a;
-  --error-bg:     #2d1515;
+  --bg: #1a1f1b;
+  --nav-bg: #212720;
+  --nav-border: #2e352e;
+  --card-bg: #252b25;
+  --card-border: #323832;
+  --card-shadow: 0 2px 20px 0 rgba(0, 0, 0, 0.35);
+  --accent-1: #52b788;
+  --accent-2: #2d6a4f;
+  --accent-3: #1b4332;
+  --badge-bg: #52b788;
+  --badge-text: #1a2e1e;
+  --title: #e8ede8;
+  --subtitle: #7a8a7a;
+  --desc: #909a90;
+  --footer: #4a524a;
+  --error-bg: #2d1515;
   --error-border: #7f1d1d;
-  --error-text:   #fca5a5;
-  --spinner:      #52b788;
-  --nav-name:     #c8d4c8;
-  --nav-sub:      #5a6a5a;
+  --error-text: #fca5a5;
+  --spinner: #52b788;
+  --nav-name: #c8d4c8;
+  --nav-sub: #5a6a5a;
 
   min-height: 100dvh;
   background: var(--bg);
@@ -224,6 +235,7 @@ const fetchMe = async () => {
   padding: 0 1.25rem;
   height: 52px;
 }
+
 .login-nav-inner {
   max-width: 480px;
   margin: 0 auto;
@@ -232,26 +244,31 @@ const fetchMe = async () => {
   align-items: center;
   justify-content: space-between;
 }
+
 .login-nav-brand {
   display: flex;
   align-items: center;
   gap: 0.6rem;
 }
+
 .login-logo {
   height: 28px;
   width: auto;
 }
+
 .login-nav-titles {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
+
 .login-nav-name {
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--nav-name);
   line-height: 1;
 }
+
 .login-nav-sub {
   font-size: 0.65rem;
   color: var(--nav-sub);
@@ -267,6 +284,7 @@ const fetchMe = async () => {
   justify-content: center;
   padding: 2.5rem 1rem;
 }
+
 .login-card-wrap {
   width: 100%;
   max-width: 360px;
@@ -301,6 +319,7 @@ const fetchMe = async () => {
   gap: 0.75rem;
   margin-bottom: 1.25rem;
 }
+
 .login-badge {
   width: 36px;
   height: 36px;
@@ -314,6 +333,7 @@ const fetchMe = async () => {
   justify-content: center;
   flex-shrink: 0;
 }
+
 .login-title {
   font-size: 1rem;
   font-weight: 700;
@@ -321,6 +341,7 @@ const fetchMe = async () => {
   line-height: 1.1;
   margin: 0;
 }
+
 .login-subtitle {
   font-size: 0.7rem;
   color: var(--subtitle);
@@ -343,6 +364,7 @@ const fetchMe = async () => {
   justify-content: center;
   min-height: 44px;
 }
+
 .login-loading {
   display: flex;
   align-items: center;
@@ -350,6 +372,7 @@ const fetchMe = async () => {
   font-size: 0.82rem;
   color: var(--desc);
 }
+
 .login-spinner {
   width: 16px;
   height: 16px;
@@ -358,7 +381,12 @@ const fetchMe = async () => {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg) } }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg)
+  }
+}
 
 /* ── 錯誤訊息 ────────────────────────────────────────── */
 .login-error {
@@ -374,6 +402,7 @@ const fetchMe = async () => {
   color: var(--error-text);
   line-height: 1.4;
 }
+
 .error-icon {
   width: 15px;
   height: 15px;
