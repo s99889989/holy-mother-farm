@@ -839,22 +839,15 @@ async function fetchGoogleEvents() {
       + `&singleEvents=true&orderBy=startTime&maxResults=250`
     const res = await fetch(url)
     const data = res.ok ? await res.json() : {}
-    googleEvents.value = (data.items || []).map(item => {
+    const expanded = []
+    for (const item of data.items || []) {
       const isAllDay = !!item.start?.date
       const startRaw = isAllDay ? item.start.date : item.start?.dateTime
       const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
-      const date = startRaw ? startRaw.slice(0, 10) : ''
-      let time = ''
-      if (!isAllDay && startRaw) {
-        const s = new Date(startRaw)
-        const e = endRaw ? new Date(endRaw) : null
-        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-        time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
-      }
-      return {
+      if (!startRaw) continue
+
+      const base = {
         id: item.id,
-        date,
-        time,
         title: item.summary || '（無標題）',
         owner: item.organizer?.displayName || '',
         room: item.location || '',
@@ -863,7 +856,39 @@ async function fetchGoogleEvents() {
         googleLink: item.htmlLink || '',
         description: item.description || ''
       }
-    })
+
+      if (!isAllDay) {
+        // 一般有時間的活動：維持原本單筆、單日的處理方式
+        const s = new Date(startRaw)
+        const e = endRaw ? new Date(endRaw) : null
+        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+        expanded.push({
+          ...base,
+          date: startRaw.slice(0, 10),
+          time: e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+        })
+        continue
+      }
+
+      // all-day 活動：Google 的 end.date 是「不含」的下一天，逐天展開到實際結束日（含）
+      // 每天各自一筆，id 加上日期後綴避免重複 key；保留 googleEventId 供需要時對應回原始活動
+      const startDate = new Date(`${startRaw}T00:00:00`)
+      const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(startDate)
+      for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const dateStr = `${y}-${m}-${day}`
+        expanded.push({
+          ...base,
+          id: `${item.id}_${dateStr}`,
+          googleEventId: item.id,
+          date: dateStr,
+          time: ''
+        })
+      }
+    }
+    googleEvents.value = expanded
   } catch (e) {
     console.warn('Google 日曆載入失敗', e)
   } finally {
