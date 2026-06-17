@@ -108,7 +108,7 @@
         <!-- 星期標頭 + 日期格子 同一個 grid，確保欄寬完全對齊 -->
         <div class="calendar-grid gap-1">
           <div v-for="d in weekdays" :key="d"
-               :class="['text-center text-xs font-semibold py-2 tracking-wide',
+               :class="['text-center text-sm font-semibold py-2 tracking-wide',
               d === '日' ? 'text-red-400' : d === '六' ? 'text-blue-400' : 'text-stone-400 dark:text-stone-500']">
             {{ d }}
           </div>
@@ -144,6 +144,7 @@
                   v-for="ev in cell.events.slice(0, 3)"
                   :key="ev.id"
                   :class="['cal-chip', chipClass(ev)]"
+                  :title="chipTooltip(ev)"
                   @click.stop="openEdit(ev)"
                 >
                   <span class="chip-time hidden sm:inline">{{ ev.time?.split('-')[0] }}</span>
@@ -152,7 +153,7 @@
                 <!-- 超出顯示 +N -->
                 <div
                   v-if="cell.events.length > 3"
-                  class="text-[10px] text-stone-400 dark:text-stone-500 px-1 cursor-pointer hover:text-indigo-500 transition-colors"
+                  class="text-xs text-stone-400 dark:text-stone-500 px-1 cursor-pointer hover:text-indigo-500 transition-colors"
                   @click.stop="openDayPanel(cell)"
                 >
                   +{{ cell.events.length - 3 }} 更多
@@ -550,6 +551,16 @@ function typeChipClass(type) {
 function chipClass(ev) {
   if (ev.source === 'google') return 'chip-google'
   return typeChipClass(ev.type)
+}
+
+// hover 顯示完整內容（時間、地點、主辦人、說明），Google 活動額外多顯示一行說明
+function chipTooltip(ev) {
+  const lines = [ev.title]
+  if (ev.time) lines.push(ev.time)
+  if (ev.room) lines.push(`📍 ${ev.room}`)
+  if (ev.owner) lines.push(`👤 ${ev.owner}`)
+  if (ev.source === 'google' && ev.description) lines.push(ev.description)
+  return lines.join('\n')
 }
 
 function typeBarClass(type) {
@@ -1140,7 +1151,7 @@ onMounted(() => {
 
 /* ── 日期數字 ── */
 .cal-day-num {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1;
 }
@@ -1173,7 +1184,7 @@ onMounted(() => {
   cursor: pointer;
   overflow: hidden;
   transition: opacity 0.1s, filter 0.1s;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .cal-chip:hover {
@@ -1182,7 +1193,7 @@ onMounted(() => {
 }
 
 .chip-time {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
