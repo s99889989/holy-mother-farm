@@ -1,47 +1,20 @@
 <template>
   <div class="min-h-full bg-stone-50 dark:bg-[#15171c] transition-colors">
 
-    <!-- ── Header ── -->
-    <header class="bg-white dark:bg-[#15171c] border-b border-stone-200 dark:border-[#2a2e37] px-6 py-4 sticky top-0 z-30">
-      <div class="max-w-7xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">曆</div>
-          <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-lg sm:text-xl">行事曆管理</h1>
-            <p class="text-sm text-stone-400 mt-1 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <button v-if="perm.can('staff.calendar.edit')" @click="showTxtModal = true"
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-lg bg-white dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            <span class="hidden sm:inline">貼上 TXT</span>
-            <span class="sm:hidden">TXT</span>
-          </button>
-          <button v-if="perm.can('staff.calendar.edit')" @click="openAddOnDate(null)"
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            新增
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- ── 月份導覽 ── -->
-    <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-6 py-4">
+    <!-- ── 精簡列（永遠顯示）── -->
+    <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-6 py-3 sticky top-0 z-30">
       <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        <!-- 月份切換 -->
         <div class="flex items-center gap-4">
           <button @click="prevMonth"
-                  class="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
+                  class="w-9 h-9 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
           </button>
           <h2 class="text-xl font-bold text-stone-800 dark:text-stone-100 min-w-[130px] text-center">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
           <button @click="nextMonth"
-                  class="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
+                  class="w-9 h-9 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
           </button>
           <button @click="goToday"
                   class="px-4 py-1.5 text-sm border border-stone-200 dark:border-[#2a2e37] text-stone-500 dark:text-stone-400 rounded-lg hover:bg-stone-50 dark:hover:bg-[#1c1f26] transition-colors">
@@ -49,49 +22,99 @@
           </button>
         </div>
 
-        <!-- 類型圖例 -->
-        <div class="hidden sm:flex items-center gap-4">
-          <div v-for="t in TYPES" :key="t" class="flex items-center gap-2">
-            <div :class="['w-3 h-3 rounded-sm', legendDotClass(t)]"></div>
-            <span class="text-sm text-stone-500 dark:text-stone-400">{{ t }}</span>
+        <button @click="panelExpanded = !panelExpanded"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-stone-50 dark:hover:bg-[#1c1f26] transition-colors">
+          <span class="hidden sm:inline">{{ panelExpanded ? '收合' : '展開' }}</span>
+          <svg class="w-4 h-4 transition-transform" :class="{'rotate-180': panelExpanded}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── 可收合區塊：Header / 圖例 / 篩選列 ── -->
+    <Transition name="collapse">
+      <div v-if="panelExpanded" class="overflow-hidden">
+
+        <!-- ── Header ── -->
+        <header class="bg-white dark:bg-[#15171c] border-b border-stone-200 dark:border-[#2a2e37] px-6 py-4">
+          <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">曆</div>
+              <div>
+                <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-lg sm:text-xl">行事曆管理</h1>
+                <p class="text-sm text-stone-400 mt-1 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button v-if="perm.can('staff.calendar.edit')" @click="openClearMonthModal"
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-white dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span class="hidden sm:inline">清空當月</span>
+              </button>
+              <button v-if="perm.can('staff.calendar.edit')" @click="showTxtModal = true"
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-lg bg-white dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span class="hidden sm:inline">貼上 TXT</span>
+                <span class="sm:hidden">TXT</span>
+              </button>
+              <button v-if="perm.can('staff.calendar.edit')" @click="openAddOnDate(null)"
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                新增
+              </button>
+            </div>
           </div>
-          <span class="text-sm text-stone-400 ml-1">{{ monthEventCount }} 筆</span>
+        </header>
+
+        <!-- ── 類型圖例 ── -->
+        <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-6 py-3">
+          <div class="max-w-7xl mx-auto flex items-center justify-end gap-4">
+            <div v-for="t in TYPES" :key="t" class="flex items-center gap-2">
+              <div :class="['w-3 h-3 rounded-sm', legendDotClass(t)]"></div>
+              <span class="text-sm text-stone-500 dark:text-stone-400">{{ t }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-sm bg-blue-500"></div>
+              <span class="text-sm text-stone-500 dark:text-stone-400">Google</span>
+            </div>
+            <span class="text-sm text-stone-400 ml-1">{{ monthEventCount }} 筆</span>
+          </div>
         </div>
+
+        <!-- ── 篩選列 ── -->
+        <div class="border-b border-stone-100 dark:border-[#22252c] bg-white dark:bg-[#15171c] px-6 py-3.5">
+          <div class="max-w-7xl mx-auto filter-bar">
+
+            <!-- 類型 -->
+            <div class="filter-select-group">
+              <label class="filter-label">類型</label>
+              <select
+                class="filter-select"
+                :value="filterType"
+                @change="setFilterType($event.target.value)"
+              >
+                <option value="全部">全部 {{ monthEventCount }}</option>
+                <option v-for="t in TYPES" :key="t" :value="t">{{ t }} {{ typeCount[t] || 0 }}</option>
+                <option value="Google">Google {{ typeCount['Google'] || 0 }}</option>
+              </select>
+              <span v-if="googleLoading" class="filter-sync-hint">
+                <span class="filter-sync-dot"></span>Google 同步中
+              </span>
+            </div>
+
+            <!-- 地點 -->
+            <div v-if="availableLocations.length" class="filter-select-group">
+              <label class="filter-label">地點</label>
+              <select class="filter-select" v-model="filterLocation">
+                <option value="">全部</option>
+                <option v-for="loc in availableLocations" :key="loc" :value="loc">{{ loc }}</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+
       </div>
-    </div>
-
-    <!-- ── 篩選列 ── -->
-    <div class="border-b border-stone-100 dark:border-[#22252c] bg-white dark:bg-[#15171c] px-6 py-3.5">
-      <div class="max-w-7xl mx-auto filter-bar">
-
-        <!-- 類型 -->
-        <div class="filter-select-group">
-          <label class="filter-label">類型</label>
-          <select
-            class="filter-select"
-            :value="filterType"
-            @change="setFilterType($event.target.value)"
-          >
-            <option value="全部">全部 {{ monthEventCount }}</option>
-            <option v-for="t in TYPES" :key="t" :value="t">{{ t }} {{ typeCount[t] || 0 }}</option>
-            <option value="Google">Google {{ typeCount['Google'] || 0 }}</option>
-          </select>
-          <span v-if="googleLoading" class="filter-sync-hint">
-            <span class="filter-sync-dot"></span>Google 同步中
-          </span>
-        </div>
-
-        <!-- 地點 -->
-        <div v-if="availableLocations.length" class="filter-select-group">
-          <label class="filter-label">地點</label>
-          <select class="filter-select" v-model="filterLocation">
-            <option value="">全部</option>
-            <option v-for="loc in availableLocations" :key="loc" :value="loc">{{ loc }}</option>
-          </select>
-        </div>
-
-      </div>
-    </div>
+    </Transition>
 
     <!-- ── 月曆主體 ── -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -350,6 +373,48 @@
                   class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors flex items-center gap-1.5">
             <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             {{ formModal.isNew ? '新增' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Modal: 清空當月確認 ══ -->
+    <div v-if="clearMonthModal.show"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+         @click.self="closeClearMonthModal">
+      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+
+        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between">
+          <h3 class="font-bold text-red-500 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+            清空當月內容
+          </h3>
+          <button @click="closeClearMonthModal" class="text-stone-400 hover:text-stone-600 p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="px-5 py-4 space-y-3">
+          <p class="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
+            即將刪除 <strong class="text-stone-800 dark:text-stone-100">{{ currentYear }} 年 {{ currentMonth }} 月</strong> 的全部系統活動（{{ clearableEventCount }} 筆）與備注（{{ notes.length }} 條）。
+          </p>
+          <p class="text-xs text-stone-400">此操作無法復原。Google 日曆同步的活動不受影響，請另至 Google 日曆刪除。</p>
+          <div>
+            <label class="field-label">請輸入「{{ currentMonth }}」以確認刪除</label>
+            <input v-model="clearMonthConfirmText" type="text" class="field-input" :placeholder="String(currentMonth)" />
+          </div>
+          <p v-if="clearMonthError" class="text-xs text-red-500">{{ clearMonthError }}</p>
+        </div>
+
+        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end">
+          <button @click="closeClearMonthModal"
+                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+            取消
+          </button>
+          <button @click="confirmClearMonth" :disabled="clearingMonth || clearMonthConfirmText !== String(currentMonth)"
+                  class="px-4 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:bg-red-200 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5">
+            <div v-if="clearingMonth" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            確認刪除
           </button>
         </div>
       </div>
@@ -622,6 +687,17 @@ const today = new Date()
 const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth() + 1)  // 1-based
 
+// ── 上方資訊區收合狀態（記住使用者上次的選擇）──────────────────────
+const PANEL_EXPANDED_KEY = 'calendar_panel_expanded'
+const panelExpanded = ref(true)
+if (import.meta.client) {
+  const saved = localStorage.getItem(PANEL_EXPANDED_KEY)
+  if (saved !== null) panelExpanded.value = saved === '1'
+}
+watch(panelExpanded, (v) => {
+  if (import.meta.client) localStorage.setItem(PANEL_EXPANDED_KEY, v ? '1' : '0')
+})
+
 // ── 篩選狀態 ──────────────────────────────────────────────────────
 const filterType = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
 const filterLocation = ref('')       // 空字串 = 全部地點
@@ -890,6 +966,70 @@ async function deleteEvent(ev) {
     showToast('已刪除')
   } catch {
     showToast('刪除失敗')
+  }
+}
+
+// ── 清空當月（活動 + 備注，不含 Google 同步活動）──────────────────
+const clearMonthModal = reactive({show: false})
+const clearMonthConfirmText = ref('')
+const clearMonthError = ref('')
+const clearingMonth = ref(false)
+
+// 當月可清空的系統活動（排除 Google 來源）
+const clearableMonthEvents = computed(() => {
+  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  return events.value.filter(e => e.date?.startsWith(ym))
+})
+const clearableEventCount = computed(() => clearableMonthEvents.value.length)
+
+function openClearMonthModal() {
+  clearMonthConfirmText.value = ''
+  clearMonthError.value = ''
+  clearMonthModal.show = true
+}
+
+function closeClearMonthModal() {
+  clearMonthModal.show = false
+}
+
+async function confirmClearMonth() {
+  if (clearMonthConfirmText.value !== String(currentMonth.value)) return
+  clearingMonth.value = true
+  clearMonthError.value = ''
+  try {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    const targets = clearableMonthEvents.value
+    // 逐筆刪除系統活動（後端僅提供單筆 DELETE，沒有批次清空 API）
+    const results = await Promise.allSettled(
+      targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'}))
+    )
+    const failedCount = results.filter(r => r.status === 'rejected' || !r.value?.ok).length
+    const deletedIds = new Set(
+      targets.filter((_, i) => results[i].status === 'fulfilled' && results[i].value?.ok).map(ev => ev.id)
+    )
+    events.value = events.value.filter(e => !deletedIds.has(e.id))
+
+    // 清空當月備注
+    await fetch(`${BASE.value}/notes?yearMonth=${ym}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify([])
+    })
+    notes.value = []
+
+    // 同步更新側板
+    if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+
+    clearMonthModal.show = false
+    if (failedCount > 0) {
+      showToast(`已清空，但有 ${failedCount} 筆活動刪除失敗`)
+    } else {
+      showToast(`已清空 ${currentYear.value} 年 ${currentMonth.value} 月內容`)
+    }
+  } catch (e) {
+    clearMonthError.value = '清空失敗，請稍後再試'
+  } finally {
+    clearingMonth.value = false
   }
 }
 
@@ -1526,6 +1666,21 @@ onMounted(() => {
 .field-input:focus {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+}
+
+/* ── 收合區塊動畫 ── */
+.collapse-enter-active, .collapse-leave-active {
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.collapse-enter-from, .collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.collapse-enter-to, .collapse-leave-from {
+  max-height: 500px;
+  opacity: 1;
 }
 
 /* ── 側板動畫 ── */
