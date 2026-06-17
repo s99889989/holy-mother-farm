@@ -22,19 +22,19 @@ const SopCard = {
     const bc = {
       green: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
       orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-      gray: 'bg-stone-100 text-stone-500 dark:bg-zinc-700 dark:text-stone-300'
+      gray: 'bg-surface2 text-hint-c dark:text-hint-c'
     }
-    return () => h('div', {class: 'bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm mb-3 overflow-hidden'}, [
+    return () => h('div', {class: 'bg-surface rounded-2xl border border-light-c shadow-sm mb-3 overflow-hidden'}, [
       h('div', {
-        class: 'flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-stone-50 dark:hover:bg-zinc-800/60 transition-colors select-none border-b border-stone-100 dark:border-stone-800',
+        class: 'flex items-center gap-3 px-4 py-3 cursor-pointer hover-surface2/60 transition-colors select-none border-b border-light-c',
         onClick: () => {
           open.value = !open.value
         }
       }, [
-        h('span', {class: 'flex-1 font-semibold text-stone-800 dark:text-stone-100 text-sm'}, props.title),
+        h('span', {class: 'flex-1 font-semibold text-base-c text-sm'}, props.title),
         props.badge ? h('span', {class: `text-xs font-medium px-2 py-0.5 rounded-full ${bc[props.badgeType] || bc.gray}`}, props.badge) : null,
         h('svg', {
-          class: `w-4 h-4 text-stone-400 transition-transform duration-200 ${open.value ? 'rotate-180' : ''}`,
+          class: `w-4 h-4 text-hint-c transition-transform duration-200 ${open.value ? 'rotate-180' : ''}`,
           fill: 'none',
           stroke: 'currentColor',
           viewBox: '0 0 24 24'
@@ -573,11 +573,11 @@ function showToast(msg) {
 </script>
 
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-full bg-surface2 transition-colors duration-300">
 
     <!-- Header -->
     <header
-      class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+      class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <div
@@ -585,8 +585,8 @@ function showToast(msg) {
             📋
           </div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">SOP 手冊</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">聖母健康農莊</p>
+            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">SOP 手冊</h1>
+            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">聖母健康農莊</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -608,9 +608,9 @@ function showToast(msg) {
           <!-- Edit Mode toggle -->
           <button @click="editMode = !editMode"
                   :class="['flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all',
-                           editMode
-                             ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
-                             : 'bg-stone-100 dark:bg-zinc-800 border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400']">
+ editMode
+ ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+ : 'bg-surface2 border-light-c text-hint-c']">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -622,7 +622,7 @@ function showToast(msg) {
     </header>
 
     <!-- Loading overlay -->
-    <div v-if="loading" class="flex items-center justify-center py-32 text-stone-400 gap-3">
+    <div v-if="loading" class="flex items-center justify-center py-32 text-hint-c gap-3">
       <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
@@ -635,26 +635,26 @@ function showToast(msg) {
       <!-- ── Sidebar ── -->
       <nav class="w-48 flex-shrink-0 hidden md:block sticky top-20">
         <div
-          class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+          class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
           <div v-for="(group, gIdx) in sopData.groups" :key="group.id">
             <!-- Group header -->
             <div class="flex items-center gap-1 px-3 pt-3 pb-1">
               <template v-if="editMode && editingLabelId === group.id">
                 <input :id="'label-input-'+group.id" v-model="editingLabelVal"
                        @blur="commitLabel(group)" @keyup.enter="commitLabel(group)"
-                       class="flex-1 text-[10px] font-semibold uppercase tracking-wider bg-stone-100 dark:bg-zinc-700 rounded px-1 py-0.5 outline-none text-stone-600 dark:text-stone-300 w-full"/>
+                       class="flex-1 text-[10px] font-semibold uppercase tracking-wider bg-surface2 rounded px-1 py-0.5 outline-none text-muted-c w-full"/>
               </template>
               <template v-else>
-                <span :class="['flex-1 text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500 truncate',
-                               editMode ? 'cursor-pointer hover:text-stone-600 dark:hover:text-stone-300' : '']"
+                <span :class="['flex-1 text-[10px] font-semibold uppercase tracking-wider text-hint-c truncate',
+ editMode ? 'cursor-pointer hover-text-muted' : '']"
                       @click="editMode && startEditLabel(group.id, group.label)">{{ group.label }}</span>
               </template>
               <template v-if="editMode">
                 <button @click="moveGroup(gIdx, -1)"
-                        class="text-stone-300 dark:text-stone-600 hover:text-stone-500 text-xs px-0.5" title="上移">↑
+                        class="text-hint-c hover:text-hint-c text-xs px-0.5" title="上移">↑
                 </button>
                 <button @click="moveGroup(gIdx, 1)"
-                        class="text-stone-300 dark:text-stone-600 hover:text-stone-500 text-xs px-0.5" title="下移">↓
+                        class="text-hint-c hover:text-hint-c text-xs px-0.5" title="下移">↓
                 </button>
                 <button @click="deleteGroup(gIdx)"
                         class="text-red-300 dark:text-red-700 hover:text-red-500 text-xs px-0.5" title="刪除分類">×
@@ -666,9 +666,9 @@ function showToast(msg) {
             <div v-for="(page, pIdx) in group.pages" :key="page.id"
                  class="flex items-center group/page">
               <a :class="['flex-1 flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors border-l-2 min-w-0',
-                          activePageId === page.id
-                            ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-medium'
-                            : 'border-transparent text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-800']"
+ activePageId === page.id
+ ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-medium'
+ : 'border-transparent text-muted-c hover-surface2']"
                  @click="activePageId = page.id">
                 <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2">
@@ -677,7 +677,7 @@ function showToast(msg) {
                 <template v-if="editMode && editingLabelId === page.id">
                   <input :id="'label-input-'+page.id" v-model="editingLabelVal"
                          @blur="commitLabel(page)" @keyup.enter="commitLabel(page)"
-                         class="flex-1 min-w-0 text-xs bg-stone-100 dark:bg-zinc-700 rounded px-1 py-0.5 outline-none"/>
+                         class="flex-1 min-w-0 text-xs bg-surface2 rounded px-1 py-0.5 outline-none"/>
                 </template>
                 <template v-else>
                   <span class="truncate text-xs"
@@ -687,10 +687,10 @@ function showToast(msg) {
               <template v-if="editMode">
                 <div class="flex flex-col pr-1 opacity-0 group-hover/page:opacity-100 transition-opacity">
                   <button @click="movePage(group, pIdx, -1)"
-                          class="text-stone-300 hover:text-stone-500 text-[10px] leading-none">↑
+                          class="text-hint-c hover:text-hint-c text-[10px] leading-none">↑
                   </button>
                   <button @click="movePage(group, pIdx, 1)"
-                          class="text-stone-300 hover:text-stone-500 text-[10px] leading-none">↓
+                          class="text-hint-c hover:text-hint-c text-[10px] leading-none">↓
                   </button>
                 </div>
                 <button @click="deletePage(group, pIdx)"
@@ -703,16 +703,16 @@ function showToast(msg) {
             <!-- Add page -->
             <div v-if="editMode" class="px-3 pb-2 pt-1">
               <button @click="addPage(group)"
-                      class="w-full text-[11px] text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 border border-dashed border-stone-200 dark:border-stone-700 rounded-lg py-1 transition-colors">
+                      class="w-full text-[11px] text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
                 ＋ 新增頁面
               </button>
             </div>
           </div>
 
           <!-- Add group -->
-          <div v-if="editMode" class="px-3 py-2 border-t border-stone-100 dark:border-stone-800">
+          <div v-if="editMode" class="px-3 py-2 border-t border-light-c">
             <button @click="addGroup"
-                    class="w-full text-[11px] text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 border border-dashed border-stone-200 dark:border-stone-700 rounded-lg py-1 transition-colors">
+                    class="w-full text-[11px] text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
               ＋ 新增分類
             </button>
           </div>
@@ -722,7 +722,7 @@ function showToast(msg) {
       <!-- Mobile nav -->
       <div class="md:hidden w-full mb-2">
         <select v-model="activePageId"
-                class="w-full text-sm border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none">
+                class="w-full text-sm border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none">
           <optgroup v-for="g in sopData.groups" :key="g.id" :label="g.label">
             <option v-for="p in g.pages" :key="p.id" :value="p.id">{{ p.label }}</option>
           </optgroup>
@@ -736,13 +736,13 @@ function showToast(msg) {
           <!-- Page header -->
           <div class="mb-4 flex items-start justify-between gap-2">
             <div>
-              <h2 class="text-base font-bold text-stone-800 dark:text-stone-100">{{ activePage.label }}</h2>
+              <h2 class="text-base font-bold text-base-c">{{ activePage.label }}</h2>
             </div>
           </div>
 
           <!-- Empty state -->
           <div v-if="activePage.blocks.length === 0"
-               class="flex flex-col items-center justify-center py-16 text-stone-300 dark:text-stone-600">
+               class="flex flex-col items-center justify-center py-16 text-hint-c">
             <svg class="w-10 h-10 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                     d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -756,14 +756,14 @@ function showToast(msg) {
 
             <!-- Block edit controls -->
             <div v-if="editMode"
-                 class="absolute -top-2 -right-2 z-10 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity bg-white dark:bg-zinc-800 rounded-xl border border-stone-200 dark:border-stone-700 shadow-sm px-1.5 py-1">
-              <button @click="moveBlock(activePage, bIdx, -1)" class="text-stone-400 hover:text-stone-600 text-xs px-1"
+                 class="absolute -top-2 -right-2 z-10 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity bg-surface rounded-xl border border-light-c shadow-sm px-1.5 py-1">
+              <button @click="moveBlock(activePage, bIdx, -1)" class="text-hint-c hover:text-muted-c text-xs px-1"
                       title="上移">↑
               </button>
-              <button @click="moveBlock(activePage, bIdx, 1)" class="text-stone-400 hover:text-stone-600 text-xs px-1"
+              <button @click="moveBlock(activePage, bIdx, 1)" class="text-hint-c hover:text-muted-c text-xs px-1"
                       title="下移">↓
               </button>
-              <span class="text-stone-200 dark:text-stone-700">|</span>
+              <span class="text-base-c dark:text-muted-c">|</span>
               <button @click="deleteBlock(activePage, bIdx)" class="text-red-400 hover:text-red-600 text-xs px-1"
                       title="刪除">🗑
               </button>
@@ -774,23 +774,23 @@ function showToast(msg) {
               <SopCard :title="block.title" :badge="block.badge" :badge-type="block.badgeType">
                 <div v-if="editMode" class="flex gap-2 mb-3 flex-wrap">
                   <input v-model="block.title" placeholder="標題"
-                         class="flex-1 min-w-0 px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                         class="flex-1 min-w-0 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <input v-model="block.badge" placeholder="標籤"
-                         class="w-24 px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                         class="w-24 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <select v-model="block.badgeType"
-                          class="px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none">
+                          class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
                     <option value="green">綠</option>
                     <option value="orange">橙</option>
                     <option value="gray">灰</option>
                   </select>
                 </div>
-                <ul class="divide-y divide-stone-100 dark:divide-stone-800">
+                <ul class="divide-y divide-base">
                   <li v-for="(item, iIdx) in block.items" :key="item.id"
                       class="flex items-start gap-3 py-2.5 group/item">
                     <div @click="!editMode && (item.done = !item.done)"
                          :class="['mt-0.5 w-4 h-4 flex-shrink-0 rounded border-2 transition-all flex items-center justify-center',
-                                  !editMode ? 'cursor-pointer' : '',
-                                  item.done ? 'bg-green-600 border-green-600' : 'border-stone-300 dark:border-stone-600']">
+ !editMode ? 'cursor-pointer' : '',
+ item.done ? 'bg-green-600 border-green-600' : 'border-base']">
                       <svg v-if="item.done" class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor"
                            viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
@@ -798,13 +798,13 @@ function showToast(msg) {
                     </div>
                     <template v-if="editMode">
                       <input v-model="item.text"
-                             class="flex-1 min-w-0 px-2 py-0.5 text-sm border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                             class="flex-1 min-w-0 px-2 py-0.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                       <div class="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0">
                         <button @click="moveCheckItem(block, iIdx, -1)"
-                                class="text-stone-300 hover:text-stone-500 text-xs px-0.5">↑
+                                class="text-hint-c hover:text-hint-c text-xs px-0.5">↑
                         </button>
                         <button @click="moveCheckItem(block, iIdx, 1)"
-                                class="text-stone-300 hover:text-stone-500 text-xs px-0.5">↓
+                                class="text-hint-c hover:text-hint-c text-xs px-0.5">↓
                         </button>
                         <button @click="deleteCheckItem(block, iIdx)"
                                 class="text-red-300 hover:text-red-500 text-xs px-0.5">×
@@ -812,7 +812,7 @@ function showToast(msg) {
                       </div>
                     </template>
                     <span v-else
-                          :class="['flex-1 text-sm leading-relaxed', item.done ? 'line-through text-stone-400 dark:text-stone-500' : 'text-stone-700 dark:text-stone-200']">{{
+                          :class="['flex-1 text-sm leading-relaxed', item.done ? 'line-through text-hint-c' : 'text-base-c']">{{
                         item.text
                       }}</span>
                   </li>
@@ -823,7 +823,7 @@ function showToast(msg) {
                   </button>
                   <div v-else/>
                   <button @click="block.items.forEach(i => i.done = false)"
-                          class="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors">
+                          class="text-xs text-hint-c hover-text-muted px-2 py-1 rounded-lg hover-surface2 transition-colors">
                     ↺ 重置
                   </button>
                 </div>
@@ -835,11 +835,11 @@ function showToast(msg) {
               <SopCard :title="block.title" :badge="block.badge" :badge-type="block.badgeType">
                 <div v-if="editMode" class="flex gap-2 mb-3 flex-wrap">
                   <input v-model="block.title" placeholder="標題"
-                         class="flex-1 min-w-0 px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                         class="flex-1 min-w-0 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <input v-model="block.badge" placeholder="標籤"
-                         class="w-24 px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                         class="w-24 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <select v-model="block.badgeType"
-                          class="px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none">
+                          class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
                     <option value="green">綠</option>
                     <option value="orange">橙</option>
                     <option value="gray">灰</option>
@@ -854,14 +854,14 @@ function showToast(msg) {
                     <div class="flex-1 min-w-0">
                       <template v-if="editMode">
                         <input v-model="item.title" placeholder="步驟標題"
-                               class="w-full px-2 py-1 text-sm border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none mb-1"/>
+                               class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-1"/>
                         <textarea v-model="item.desc" placeholder="步驟說明（選填）" rows="2"
-                                  class="w-full px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-300 outline-none resize-none"/>
+                                  class="w-full px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none"/>
                       </template>
                       <template v-else>
-                        <p class="text-sm font-medium text-stone-800 dark:text-stone-100">{{ item.title }}</p>
+                        <p class="text-sm font-medium text-base-c">{{ item.title }}</p>
                         <p v-if="item.desc"
-                           class="text-xs text-stone-500 dark:text-stone-400 mt-0.5 whitespace-pre-line">{{
+                           class="text-xs text-hint-c mt-0.5 whitespace-pre-line">{{
                             item.desc
                           }}</p>
                       </template>
@@ -869,10 +869,10 @@ function showToast(msg) {
                     <div v-if="editMode"
                          class="flex gap-0.5 opacity-0 group-hover/step:opacity-100 transition-opacity flex-shrink-0 pt-1">
                       <button @click="moveStepItem(block, iIdx, -1)"
-                              class="text-stone-300 hover:text-stone-500 text-xs px-0.5">↑
+                              class="text-hint-c hover:text-hint-c text-xs px-0.5">↑
                       </button>
                       <button @click="moveStepItem(block, iIdx, 1)"
-                              class="text-stone-300 hover:text-stone-500 text-xs px-0.5">↓
+                              class="text-hint-c hover:text-hint-c text-xs px-0.5">↓
                       </button>
                       <button @click="deleteStepItem(block, iIdx)"
                               class="text-red-300 hover:text-red-500 text-xs px-0.5">×
@@ -889,32 +889,32 @@ function showToast(msg) {
             <!-- ── Note block ── -->
             <template v-else-if="block.type === 'note'">
               <div :class="['rounded-2xl px-4 py-3 mb-3 border',
-                            block.variant==='warn'  ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' :
-                            block.variant==='info'  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' :
-                                                       'bg-stone-50 dark:bg-zinc-800 border-stone-200 dark:border-stone-700']">
+ block.variant==='warn' ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' :
+ block.variant==='info' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' :
+ 'bg-surface2 border-light-c']">
                 <template v-if="editMode">
                   <div class="flex gap-2 mb-2 flex-wrap">
                     <input v-model="block.title" placeholder="標題"
-                           class="flex-1 min-w-0 px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 outline-none font-semibold"/>
+                           class="flex-1 min-w-0 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface text-base-c outline-none font-semibold"/>
                     <select v-model="block.variant"
-                            class="px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-200 outline-none">
+                            class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface text-base-c outline-none">
                       <option value="info">藍色</option>
                       <option value="warn">橙色</option>
                       <option value="default">灰色</option>
                     </select>
                   </div>
                   <textarea v-model="block.content" placeholder="內容（換行用 Enter）" rows="3"
-                            class="w-full px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 outline-none resize-none"/>
+                            class="w-full px-2 py-1 text-xs border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-none"/>
                 </template>
                 <template v-else>
                   <p :class="['text-sm font-semibold mb-1',
-                              block.variant==='warn' ? 'text-orange-700 dark:text-orange-300' :
-                              block.variant==='info' ? 'text-blue-700 dark:text-blue-300' : 'text-stone-700 dark:text-stone-200']">
+ block.variant==='warn' ? 'text-orange-700 dark:text-orange-300' :
+ block.variant==='info' ? 'text-blue-700 dark:text-blue-300' : 'text-base-c']">
                     {{ block.title }}
                   </p>
                   <p :class="['text-xs leading-relaxed whitespace-pre-line',
-                              block.variant==='warn' ? 'text-orange-600 dark:text-orange-400' :
-                              block.variant==='info' ? 'text-blue-600 dark:text-blue-400' : 'text-stone-500 dark:text-stone-400']">
+ block.variant==='warn' ? 'text-orange-600 dark:text-orange-400' :
+ block.variant==='info' ? 'text-blue-600 dark:text-blue-400' : 'text-hint-c']">
                     {{ block.content }}
                   </p>
                 </template>
@@ -924,13 +924,13 @@ function showToast(msg) {
             <!-- ── Image block ── -->
             <template v-else-if="block.type === 'image'">
               <div
-                class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm mb-3 overflow-hidden">
-                <div class="flex items-center gap-3 px-4 py-3 border-b border-stone-100 dark:border-stone-800">
+                class="bg-surface rounded-2xl border border-light-c shadow-sm mb-3 overflow-hidden">
+                <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c">
                   <template v-if="editMode">
                     <input v-model="block.title" placeholder="標題"
-                           class="flex-1 px-2 py-1 text-sm font-semibold border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                           class="flex-1 px-2 py-1 text-sm font-semibold border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   </template>
-                  <span v-else class="flex-1 font-semibold text-stone-800 dark:text-stone-100 text-sm">{{
+                  <span v-else class="flex-1 font-semibold text-base-c text-sm">{{
                       block.title || '圖片'
                     }}</span>
                   <button v-if="editMode"
@@ -946,7 +946,7 @@ function showToast(msg) {
                 <div class="p-3">
                   <!-- Empty -->
                   <div v-if="!block.images || block.images.length === 0"
-                       class="flex flex-col items-center justify-center py-8 text-stone-300 dark:text-stone-600 border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
+                       class="flex flex-col items-center justify-center py-8 text-hint-c border-2 border-dashed border-light-c rounded-xl">
                     <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -956,7 +956,7 @@ function showToast(msg) {
                   <!-- Grid -->
                   <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     <div v-for="(img, iIdx) in block.images" :key="iIdx"
-                         class="relative group/img rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800">
+                         class="relative group/img rounded-xl overflow-hidden border border-light-c bg-surface2">
                       <!-- Thumbnail -->
                       <a :href="img.url" target="_blank" rel="noopener">
                         <img :src="img.thumbUrl || img.url"
@@ -967,9 +967,9 @@ function showToast(msg) {
                       <div class="px-2 py-1.5">
                         <template v-if="editMode">
                           <input v-model="img.caption" placeholder="說明文字（選填）"
-                                 class="w-full text-[11px] bg-transparent outline-none text-stone-500 dark:text-stone-400"/>
+                                 class="w-full text-[11px] bg-transparent outline-none text-hint-c"/>
                         </template>
-                        <p v-else-if="img.caption" class="text-[11px] text-stone-500 dark:text-stone-400 truncate">
+                        <p v-else-if="img.caption" class="text-[11px] text-hint-c truncate">
                           {{ img.caption }}</p>
                       </div>
                       <!-- Edit controls -->
@@ -997,24 +997,24 @@ function showToast(msg) {
             <!-- ── Flowchart block ── -->
             <template v-else-if="block.type === 'flowchart'">
               <div
-                class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm mb-3 overflow-hidden">
-                <div class="flex items-center gap-3 px-4 py-3 border-b border-stone-100 dark:border-stone-800">
-                  <span class="flex-1 font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ block.title }}</span>
+                class="bg-surface rounded-2xl border border-light-c shadow-sm mb-3 overflow-hidden">
+                <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c">
+                  <span class="flex-1 font-semibold text-base-c text-sm">{{ block.title }}</span>
                   <template v-if="editMode">
                     <input v-model="block.title"
-                           class="text-xs px-2 py-1 border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none w-32"
+                           class="text-xs px-2 py-1 border border-light-c rounded-lg bg-surface2 text-base-c outline-none w-32"
                            placeholder="流程圖名稱"/>
                   </template>
                   <!-- tab pills -->
-                  <div class="flex items-center gap-0.5 bg-stone-100 dark:bg-zinc-800 rounded-xl p-0.5">
+                  <div class="flex items-center gap-0.5 bg-surface2 rounded-xl p-0.5">
                     <button @click="getFc(block).tab='view'"
                             :class="['px-3 py-1 text-xs font-medium rounded-lg transition-colors',
-                                     getFc(block).tab==='view' ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm' : 'text-stone-500 hover:text-stone-700']">
+ getFc(block).tab==='view' ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c hover:text-muted-c']">
                       📋 檢視
                     </button>
                     <button @click="getFc(block).tab='edit'"
                             :class="['px-3 py-1 text-xs font-medium rounded-lg transition-colors',
-                                     getFc(block).tab==='edit' ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm' : 'text-stone-500 hover:text-stone-700']">
+ getFc(block).tab==='edit' ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c hover:text-muted-c']">
                       ✏️ 編輯
                     </button>
                   </div>
@@ -1022,7 +1022,7 @@ function showToast(msg) {
 
                 <div class="p-3">
                   <!-- View -->
-                  <div v-if="getFc(block).tab==='view'" class="bg-zinc-900 rounded-xl overflow-auto p-3">
+                  <div v-if="getFc(block).tab==='view'" class="rounded-xl overflow-auto p-3">
                     <svg :viewBox="fcViewBox(block)" width="100%" style="min-width:400px;display:block;">
                       <defs>
                         <marker id="va" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6"
@@ -1074,29 +1074,29 @@ function showToast(msg) {
                   <div v-else>
                     <div class="flex flex-wrap gap-2 mb-3">
                       <button @click="fcAddNode(block)"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-light-c bg-surface text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
                         ＋ 新增節點
                       </button>
                       <button @click="fcDeleteSelected(block)"
                               :disabled="!getFc(block).selected && !getFc(block).selectedEdgeId"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-red-600 dark:text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40">
+                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-light-c bg-surface text-red-600 dark:text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40">
                         🗑 刪除選取
                       </button>
                       <button
                         @click="getFc(block).addingEdge = getFc(block).addingEdge ? null : { fromId: getFc(block).selected }"
                         :disabled="!getFc(block).selected"
                         :class="['px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors disabled:opacity-40',
-                                       getFc(block).addingEdge ? 'bg-green-700 border-green-700 text-white' : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-600 dark:text-stone-300']">
+ getFc(block).addingEdge ? 'bg-green-700 border-green-700 text-white' : 'border-light-c bg-surface text-muted-c']">
                         {{ getFc(block).addingEdge ? '點選目標節點…' : '↗ 連線' }}
                       </button>
                       <button @click="e => fcExport(block, e.currentTarget.closest('.fc-editor').querySelector('svg'))"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-500 hover:bg-stone-50 transition-colors ml-auto">
+                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-light-c bg-surface text-hint-c hover:bg-surface2 transition-colors ml-auto">
                         ⬇ 匯出
                       </button>
                     </div>
 
                     <div class="fc-editor flex gap-3 items-start">
-                      <div class="flex-1 bg-zinc-900 rounded-xl overflow-auto">
+                      <div class="flex-1 rounded-xl overflow-auto">
                         <svg :viewBox="fcViewBox(block)" width="100%"
                              style="min-width:400px;display:block;"
                              :style="{cursor: getFc(block).addingEdge ? 'crosshair' : 'default'}"
@@ -1165,23 +1165,23 @@ function showToast(msg) {
                       <!-- Property panel -->
                       <div class="w-48 flex-shrink-0">
                         <div v-if="getFc(block).selected && block.nodes.find(n=>n.id===getFc(block).selected)"
-                             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-3 text-xs">
-                          <p class="text-[10px] font-semibold text-stone-400 uppercase tracking-wide mb-2">節點屬性</p>
-                          <label class="block text-stone-500 mb-1">文字</label>
+                             class="bg-surface rounded-2xl border border-light-c p-3 text-xs">
+                          <p class="text-[10px] font-semibold text-hint-c uppercase tracking-wide mb-2">節點屬性</p>
+                          <label class="block text-hint-c mb-1">文字</label>
                           <input v-model="block.nodes.find(n=>n.id===getFc(block).selected).label"
-                                 class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none mb-2"/>
-                          <label class="block text-stone-500 mb-1">副標題</label>
+                                 class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2"/>
+                          <label class="block text-hint-c mb-1">副標題</label>
                           <input v-model="block.nodes.find(n=>n.id===getFc(block).selected).sub" placeholder="（選填）"
-                                 class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none mb-2"/>
-                          <label class="block text-stone-500 mb-1">形狀</label>
+                                 class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2"/>
+                          <label class="block text-hint-c mb-1">形狀</label>
                           <select v-model="block.nodes.find(n=>n.id===getFc(block).selected).type"
-                                  class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none mb-2">
+                                  class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2">
                             <option value="rect">矩形</option>
                             <option value="diamond">菱形（判斷）</option>
                           </select>
-                          <label class="block text-stone-500 mb-1">顏色</label>
+                          <label class="block text-hint-c mb-1">顏色</label>
                           <select v-model="block.nodes.find(n=>n.id===getFc(block).selected).palette"
-                                  class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none mb-2">
+                                  class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2">
                             <option value="customer">顧客（綠）</option>
                             <option value="order">訂單（紫）</option>
                             <option value="payment">付款（橙）</option>
@@ -1190,22 +1190,22 @@ function showToast(msg) {
                             <option value="neutral">其他（灰）</option>
                           </select>
                           <div class="grid grid-cols-2 gap-1.5">
-                            <div><label class="block text-stone-500 mb-1">寬</label>
+                            <div><label class="block text-hint-c mb-1">寬</label>
                               <input type="number" v-model.number="block.nodes.find(n=>n.id===getFc(block).selected).w"
-                                     class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                                     class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                             </div>
-                            <div><label class="block text-stone-500 mb-1">高</label>
+                            <div><label class="block text-hint-c mb-1">高</label>
                               <input type="number" v-model.number="block.nodes.find(n=>n.id===getFc(block).selected).h"
-                                     class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none"/>
+                                     class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                             </div>
                           </div>
                         </div>
 
                         <div
                           v-else-if="getFc(block).selectedEdgeId && block.edges.find(e=>e.id===getFc(block).selectedEdgeId)"
-                          class="bg-white dark:bg-zinc-900 rounded-2xl border border-blue-200 dark:border-blue-800 p-3 text-xs">
+                          class="bg-surface rounded-2xl border border-blue-200 dark:border-blue-800 p-3 text-xs">
                           <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide mb-2">連線屬性</p>
-                          <div class="text-[11px] text-stone-500 mb-2">
+                          <div class="text-[11px] text-hint-c mb-2">
                             {{
                               (block.nodes.find(n => n.id === block.edges.find(e => e.id === getFc(block).selectedEdgeId)?.from) || {label: '?'}).label
                             }}
@@ -1214,12 +1214,12 @@ function showToast(msg) {
                               (block.nodes.find(n => n.id === block.edges.find(e => e.id === getFc(block).selectedEdgeId)?.to) || {label: '?'}).label
                             }}
                           </div>
-                          <label class="block text-stone-500 mb-1">標籤</label>
+                          <label class="block text-hint-c mb-1">標籤</label>
                           <input v-model="block.edges.find(e=>e.id===getFc(block).selectedEdgeId).label"
                                  placeholder="是 / 否"
-                                 class="w-full px-2 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none mb-3"/>
+                                 class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-3"/>
                           <button @click="fcResetEdgeMid(block, getFc(block).selectedEdgeId)"
-                                  class="w-full px-2 py-1.5 text-[11px] border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-zinc-800 text-stone-500 hover:bg-stone-100 transition-colors mb-2">
+                                  class="w-full px-2 py-1.5 text-[11px] border border-light-c rounded-lg bg-surface2 text-hint-c hover:bg-surface2 transition-colors mb-2">
                             ↺ 重置折點
                           </button>
                           <button @click="fcDeleteEdge(block, getFc(block).selectedEdgeId)"
@@ -1229,7 +1229,7 @@ function showToast(msg) {
                         </div>
 
                         <div v-else
-                             class="bg-stone-50 dark:bg-zinc-800/50 rounded-2xl border border-dashed border-stone-200 dark:border-stone-700 p-4 text-center text-xs text-stone-400 dark:text-stone-500">
+                             class="bg-surface2/50 rounded-2xl border border-dashed border-light-c p-4 text-center text-xs text-hint-c">
                           點選節點或連線<br>查看屬性
                         </div>
                       </div>
@@ -1245,7 +1245,7 @@ function showToast(msg) {
           <div v-if="editMode" class="mt-2">
             <div v-if="!blockPickerOpen">
               <button @click="blockPickerOpen = true"
-                      class="w-full py-2.5 text-sm text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-2xl transition-colors flex items-center justify-center gap-2">
+                      class="w-full py-2.5 text-sm text-hint-c hover:text-green-600 dark:hover:text-green-400 border-2 border-dashed border-light-c rounded-2xl transition-colors flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -1253,8 +1253,8 @@ function showToast(msg) {
               </button>
             </div>
             <div v-else
-                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
-              <p class="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-3">選擇區塊類型</p>
+                 class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
+              <p class="text-xs font-semibold text-hint-c mb-3">選擇區塊類型</p>
               <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <button v-for="bt in [
                   { type:'checklist', icon:'☑️', label:'Checklist', desc:'可打勾的清單' },
@@ -1264,14 +1264,14 @@ function showToast(msg) {
                   { type:'flowchart', icon:'🔀', label:'流程圖',   desc:'可編輯的流程圖' },
                 ]" :key="bt.type"
                         @click="addBlock(activePage, bt.type)"
-                        class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-stone-200 dark:border-stone-700 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all cursor-pointer text-center">
+                        class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-light-c hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all cursor-pointer text-center">
                   <span class="text-2xl">{{ bt.icon }}</span>
-                  <span class="text-xs font-semibold text-stone-700 dark:text-stone-200">{{ bt.label }}</span>
-                  <span class="text-[10px] text-stone-400 dark:text-stone-500">{{ bt.desc }}</span>
+                  <span class="text-xs font-semibold text-base-c">{{ bt.label }}</span>
+                  <span class="text-[10px] text-hint-c">{{ bt.desc }}</span>
                 </button>
               </div>
               <button @click="blockPickerOpen = false"
-                      class="mt-3 text-xs text-stone-400 hover:text-stone-600 w-full text-center">取消
+                      class="mt-3 text-xs text-hint-c hover:text-muted-c w-full text-center">取消
               </button>
             </div>
           </div>
@@ -1279,7 +1279,7 @@ function showToast(msg) {
         </template>
 
         <!-- No page selected -->
-        <div v-else class="flex flex-col items-center justify-center py-24 text-stone-300 dark:text-stone-600">
+        <div v-else class="flex flex-col items-center justify-center py-24 text-hint-c">
           <p class="text-sm">請從左側選擇頁面</p>
         </div>
       </div>
@@ -1288,7 +1288,7 @@ function showToast(msg) {
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 right-6 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+           class="fixed bottom-6 right-6 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
         <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
@@ -1302,20 +1302,20 @@ function showToast(msg) {
            class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
            @click.self="imgLibOpen = false">
         <div
-          class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+          class="bg-surface rounded-2xl border border-light-c shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
 
           <!-- Modal header -->
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-stone-100 dark:border-stone-800 flex-shrink-0">
+          <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c flex-shrink-0">
             <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            <span class="font-semibold text-stone-800 dark:text-stone-100 flex-1 text-sm">選取圖片</span>
+            <span class="font-semibold text-base-c flex-1 text-sm">選取圖片</span>
             <!-- Upload button -->
             <label :class="['flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer',
-                            imgUploading
-                              ? 'border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-zinc-800 text-stone-400 cursor-not-allowed'
-                              : 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100']">
+ imgUploading
+ ? 'border-light-c bg-surface2 text-hint-c cursor-not-allowed'
+ : 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100']">
               <svg v-if="!imgUploading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
@@ -1330,16 +1330,16 @@ function showToast(msg) {
             </label>
             <!-- Search -->
             <input v-model="imgLibSearch" placeholder="搜尋…"
-                   class="w-36 px-3 py-1.5 text-xs border border-stone-200 dark:border-stone-700 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none"/>
+                   class="w-36 px-3 py-1.5 text-xs border border-light-c rounded-xl bg-surface2 text-base-c outline-none"/>
             <button @click="imgLibOpen = false"
-                    class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 text-xl leading-none ml-1 flex-shrink-0">
+                    class="text-hint-c hover:text-muted-c text-xl leading-none ml-1 flex-shrink-0">
               ×
             </button>
           </div>
 
           <!-- Image grid -->
           <div class="flex-1 overflow-y-auto p-4">
-            <div v-if="imgLibLoading" class="flex items-center justify-center py-16 text-stone-400 gap-2">
+            <div v-if="imgLibLoading" class="flex items-center justify-center py-16 text-hint-c gap-2">
               <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
@@ -1347,7 +1347,7 @@ function showToast(msg) {
               <span class="text-sm">載入中…</span>
             </div>
             <div v-else-if="imgLibFiltered.length === 0"
-                 class="flex flex-col items-center justify-center py-16 text-stone-300 dark:text-stone-600">
+                 class="flex flex-col items-center justify-center py-16 text-hint-c">
               <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -1356,7 +1356,7 @@ function showToast(msg) {
             </div>
             <div v-else class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
               <div v-for="img in imgLibFiltered" :key="img.url"
-                   class="group/imgsel relative rounded-xl overflow-hidden border-2 border-transparent hover:border-green-500 transition-all aspect-square bg-stone-100 dark:bg-zinc-800">
+                   class="group/imgsel relative rounded-xl overflow-hidden border-2 border-transparent hover:border-green-500 transition-all aspect-square bg-surface2">
                 <!-- Select click -->
                 <button class="w-full h-full" @click="selectImg(img)">
                   <img :src="img.thumbUrl || img.url"
@@ -1378,10 +1378,10 @@ function showToast(msg) {
 
           <!-- Modal footer -->
           <div
-            class="px-4 py-2.5 border-t border-stone-100 dark:border-stone-800 flex-shrink-0 flex items-center justify-between">
-            <span class="text-xs text-stone-400">共 {{ imgLibFiltered.length }} 張圖片・點擊圖片即可插入</span>
+            class="px-4 py-2.5 border-t border-light-c flex-shrink-0 flex items-center justify-between">
+            <span class="text-xs text-hint-c">共 {{ imgLibFiltered.length }} 張圖片・點擊圖片即可插入</span>
             <button @click="imgLibOpen = false"
-                    class="px-3 py-1.5 text-xs rounded-xl border border-stone-200 dark:border-stone-700 text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors">
+                    class="px-3 py-1.5 text-xs rounded-xl border border-light-c text-hint-c hover-surface2 transition-colors">
               關閉
             </button>
           </div>

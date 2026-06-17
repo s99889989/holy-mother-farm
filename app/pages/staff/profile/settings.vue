@@ -93,22 +93,22 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 py-8 px-4">
+  <div class="min-h-full bg-surface2 py-8 px-4">
     <div class="max-w-xl mx-auto">
 
       <!-- 頁面標題 -->
       <div class="mb-6">
-        <h1 class="text-lg font-bold text-stone-800 dark:text-stone-100">個人設定</h1>
-        <p class="text-xs text-stone-400 mt-0.5">管理您的聯絡資訊與偏好設定</p>
+        <h1 class="text-lg font-bold text-base-c">個人設定</h1>
+        <p class="text-xs text-hint-c mt-0.5">管理您的聯絡資訊與偏好設定</p>
       </div>
 
       <!-- 未登入 -->
       <div
         v-if="!customer"
-        class="bg-white dark:bg-zinc-800 rounded-2xl border border-dashed border-stone-300 dark:border-stone-600 p-12 text-center"
+        class="bg-surface rounded-2xl border border-dashed border-base p-12 text-center"
       >
         <div class="text-4xl mb-3">🔒</div>
-        <p class="text-sm text-stone-500 dark:text-stone-400">請先登入 Google 帳號</p>
+        <p class="text-sm text-hint-c">請先登入 Google 帳號</p>
         <button
           class="mt-4 px-5 py-2 text-sm font-medium rounded-xl bg-green-700 text-white hover:bg-green-800 transition-colors"
           @click="navigateTo('/login')"
@@ -119,7 +119,7 @@ onMounted(() => {
       <template v-else>
 
         <!-- Google 帳號資訊卡 -->
-        <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-4 mb-4 flex items-center gap-3">
+        <div class="bg-surface rounded-2xl border border-light-c p-4 mb-4 flex items-center gap-3">
           <img
             v-if="customer.picture"
             :src="customer.picture"
@@ -132,8 +132,8 @@ onMounted(() => {
             {{ customer.name?.charAt(0) || '?' }}
           </div>
           <div class="min-w-0">
-            <p class="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">{{ customer.name }}</p>
-            <p class="text-xs text-stone-400 truncate">{{ customer.email }}</p>
+            <p class="text-sm font-semibold text-base-c truncate">{{ customer.name }}</p>
+            <p class="text-xs text-hint-c truncate">{{ customer.email }}</p>
             <span class="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
               {{ customer.role || 'CUSTOMER' }}
             </span>
@@ -141,13 +141,13 @@ onMounted(() => {
         </div>
 
         <!-- 表單卡 -->
-        <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 overflow-hidden">
-          <div class="px-5 py-3.5 border-b border-stone-100 dark:border-zinc-700">
-            <h2 class="text-sm font-semibold text-stone-700 dark:text-stone-200">聯絡資訊</h2>
+        <div class="bg-surface rounded-2xl border border-light-c overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-light-c dark:border-base">
+            <h2 class="text-sm font-semibold text-base-c">聯絡資訊</h2>
           </div>
 
           <!-- 載入中 -->
-          <div v-if="loading" class="flex items-center justify-center py-16 text-stone-400 text-sm gap-2">
+          <div v-if="loading" class="flex items-center justify-center py-16 text-hint-c text-sm gap-2">
             <div class="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
             載入中…
           </div>
@@ -157,15 +157,15 @@ onMounted(() => {
 
             <!-- 手機 -->
             <div>
-              <label class="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-1.5">手機號碼</label>
+              <label class="block text-xs font-semibold text-muted-c mb-1.5">手機號碼</label>
               <input
                 v-model="form.mobile"
                 type="tel"
                 placeholder="09xx-xxx-xxx"
-                class="w-full px-4 py-2.5 rounded-xl border text-sm text-stone-800 dark:text-stone-100 dark:bg-zinc-700 outline-none transition-all"
+                class="w-full px-4 py-2.5 rounded-xl border text-sm text-base-c outline-none transition-all"
                 :class="mobileError
-                  ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
-                  : 'border-stone-200 dark:border-stone-600 focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30'"
+ ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
+ : 'border-light-c focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30'"
                 @input="onMobileInput"
               >
               <p v-if="mobileError" class="text-xs text-red-500 mt-1">{{ mobileError }}</p>
@@ -173,15 +173,15 @@ onMounted(() => {
 
             <!-- 市話 -->
             <div>
-              <label class="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-1.5">市話</label>
+              <label class="block text-xs font-semibold text-muted-c mb-1.5">市話</label>
               <input
                 v-model="form.landline"
                 type="tel"
                 placeholder="02-xxxxxxxx 或 07-xxxxxxx"
-                class="w-full px-4 py-2.5 rounded-xl border text-sm text-stone-800 dark:text-stone-100 dark:bg-zinc-700 outline-none transition-all"
+                class="w-full px-4 py-2.5 rounded-xl border text-sm text-base-c outline-none transition-all"
                 :class="landlineError
-                  ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
-                  : 'border-stone-200 dark:border-stone-600 focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30'"
+ ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
+ : 'border-light-c focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30'"
                 @input="onLandlineInput"
               >
               <p v-if="landlineError" class="text-xs text-red-500 mt-1">{{ landlineError }}</p>
@@ -189,33 +189,33 @@ onMounted(() => {
 
             <!-- 地址 -->
             <div>
-              <label class="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-1.5">地址</label>
+              <label class="block text-xs font-semibold text-muted-c mb-1.5">地址</label>
               <input
                 v-model="form.address"
                 type="text"
                 placeholder="縣市 + 詳細地址"
-                class="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 text-sm text-stone-800 dark:text-stone-100 dark:bg-zinc-700 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30 transition-all"
+                class="w-full px-4 py-2.5 rounded-xl border border-light-c text-sm text-base-c outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30 transition-all"
               >
             </div>
 
             <!-- 生日 -->
             <div>
-              <label class="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-1.5">生日</label>
+              <label class="block text-xs font-semibold text-muted-c mb-1.5">生日</label>
               <input
                 v-model="form.birthday"
                 type="date"
-                class="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 text-sm text-stone-800 dark:text-stone-100 dark:bg-zinc-700 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30 transition-all"
+                class="w-full px-4 py-2.5 rounded-xl border border-light-c text-sm text-base-c outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30 transition-all"
               >
             </div>
 
             <!-- 備註 -->
             <div>
-              <label class="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-1.5">其他備註</label>
+              <label class="block text-xs font-semibold text-muted-c mb-1.5">其他備註</label>
               <textarea
                 v-model="form.note"
                 rows="3"
                 placeholder="過敏食材、特殊飲食需求…"
-                class="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 text-sm text-stone-800 dark:text-stone-100 dark:bg-zinc-700 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30 transition-all resize-none"
+                class="w-full px-4 py-2.5 rounded-xl border border-light-c text-sm text-base-c outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:focus:ring-green-900/30 transition-all resize-none"
               />
             </div>
 
@@ -230,8 +230,8 @@ onMounted(() => {
                 :disabled="saving"
                 class="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60 flex items-center gap-2"
                 :class="saved
-                  ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : 'bg-green-700 hover:bg-green-800'"
+ ? 'bg-emerald-600 hover:bg-emerald-700'
+ : 'bg-green-700 hover:bg-green-800'"
                 @click="saveProfile"
               >
                 <div v-if="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -247,7 +247,7 @@ onMounted(() => {
         <!-- 回員工首頁 -->
         <div class="mt-5 text-center">
           <button
-            class="text-sm text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            class="text-sm text-hint-c hover:text-green-600 dark:hover:text-green-400 transition-colors"
             @click="navigateTo('/staff/home')"
           >
             ← 回到員工首頁

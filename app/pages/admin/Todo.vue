@@ -1,15 +1,15 @@
 <template>
-  <div class="min-h-screen bg-[#F5F2ED] dark:bg-zinc-900 font-['Noto_Serif_TC',serif]">
+  <div class="min-h-screen bg-[#F5F2ED] font-['Noto_Serif_TC',serif]">
     <AdminNavbar />
 
     <!-- ══ Header ══ -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="max-w-2xl mx-auto flex items-center justify-between mb-2">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-stone-800 dark:bg-zinc-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">✦</div>
+          <div class="w-8 h-8 rounded-lg bg-accent-solid flex items-center justify-center text-white text-sm font-bold flex-shrink-0">✦</div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">工作待辦清單</h1>
-            <p class="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
+            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">工作待辦清單</h1>
+            <p class="text-xs text-hint-c mt-0.5">
               <template v-if="activeTab === 'todo'">{{ pendingCount }} 項待完成 · {{ doneCount }} 項已完成</template>
               <template v-else>{{ dailyTasks.length }} 項例行任務</template>
             </p>
@@ -23,10 +23,10 @@
       <!-- Tab 切換 -->
       <div class="max-w-2xl mx-auto flex gap-1">
         <button @click="activeTab = 'todo'"
-                :class="activeTab === 'todo' ? 'bg-stone-800 dark:bg-zinc-600 text-white' : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-zinc-700'"
+                :class="activeTab === 'todo' ? 'bg-accent-solid text-white' : 'bg-surface2 text-muted-c hover-surface2'"
                 class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">待辦</button>
         <button @click="switchToDaily"
-                :class="activeTab === 'daily' ? 'bg-stone-800 dark:bg-zinc-600 text-white' : 'bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-zinc-700'"
+                :class="activeTab === 'daily' ? 'bg-accent-solid text-white' : 'bg-surface2 text-muted-c hover-surface2'"
                 class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">例行任務</button>
       </div>
     </header>
@@ -35,11 +35,11 @@
 
       <!-- ══════════════ TAB: 待辦 ══════════════ -->
       <template v-if="activeTab === 'todo'">
-        <div class="flex h-1.5 rounded-full overflow-hidden bg-stone-200 dark:bg-zinc-700 mb-5">
+        <div class="flex h-1.5 rounded-full overflow-hidden bg-surface2 mb-5">
           <div class="bg-red-400 transition-all duration-500"   :style="{width: statWidth('high')}"></div>
           <div class="bg-amber-400 transition-all duration-500" :style="{width: statWidth('mid')}"></div>
           <div class="bg-teal-500 transition-all duration-500"  :style="{width: statWidth('low')}"></div>
-          <div class="bg-stone-300 transition-all duration-500" :style="{width: statWidth('done')}"></div>
+          <div class="bg-surface2 transition-all duration-500" :style="{width: statWidth('done')}"></div>
         </div>
 
         <!-- ── 篩選列 ── -->
@@ -48,13 +48,13 @@
           <button v-for="cat in ['全部', ...categories]" :key="cat"
                   @click="filterCat = (cat === '全部') ? null : cat"
                   :class="(filterCat === null && cat === '全部') || filterCat === cat
-                  ? 'bg-stone-800 text-white'
-                  : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-700 border border-stone-200 dark:border-stone-600'"
+ ? 'bg-accent-solid text-white'
+ : 'bg-surface text-hint-c dark:text-hint-c hover-surface2 border border-light-c'"
                   class="px-3 py-1 rounded-full text-xs font-medium transition-all">
             {{ cat }}
           </button>
           <button @click="showCatManager = true"
-                  class="px-3 py-1 rounded-full text-xs text-stone-400 dark:text-stone-500 border border-dashed border-stone-300 dark:border-stone-600 hover:border-stone-500 dark:hover:border-stone-400 transition-colors">
+                  class="px-3 py-1 rounded-full text-xs text-hint-c border border-dashed border-base hover-border dark:hover-border transition-colors">
             ＋ 分類
           </button>
         </div>
@@ -62,59 +62,59 @@
           <!-- 優先度 -->
           <button v-for="p in priorities" :key="p.key"
                   @click="filterPri = filterPri === p.key ? null : p.key"
-                  :class="filterPri === p.key ? p.activeCls : 'bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-600 text-stone-500 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-700'"
+                  :class="filterPri === p.key ? p.activeCls : 'bg-surface border border-light-c text-hint-c dark:text-hint-c hover-surface2'"
                   class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border">
             <span :class="p.dot" class="w-1.5 h-1.5 rounded-full flex-shrink-0"></span>{{ p.label }}
           </button>
           <button @click="showDone = !showDone"
-                  :class="showDone ? 'bg-stone-700 text-white border-stone-700' : 'bg-white dark:bg-zinc-800 text-stone-400 dark:text-stone-500 border-stone-200 dark:border-stone-600'"
+                  :class="showDone ? 'bg-accent-solid text-white' : 'bg-surface text-hint-c border-light-c'"
                   class="ml-auto px-3 py-1 rounded-full text-xs font-medium transition-all border">
             {{ showDone ? '隱藏' : '顯示' }}已完成
           </button>
         </div>
 
         <!-- ── 新增區 ── -->
-        <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden mb-5">
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-stone-100 dark:border-stone-700">
-            <span class="text-stone-300 dark:text-stone-600 text-xl select-none leading-none">+</span>
+        <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden mb-5">
+          <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c">
+            <span class="text-hint-c text-xl select-none leading-none">+</span>
             <input v-model="newTitle" @keydown.enter="addTodo"
                    placeholder="新增待辦事項… (Enter 快速新增)"
-                   class="flex-1 text-sm text-stone-700 dark:text-stone-200 placeholder-stone-300 dark:placeholder-stone-600 outline-none bg-transparent" />
+                   class="flex-1 text-sm text-base-c placeholder-hint outline-none bg-transparent" />
           </div>
           <div class="flex items-center gap-2 px-4 py-2.5 flex-wrap">
             <select v-model="newPri"
-                    class="text-xs rounded-lg px-2 py-1.5 border border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 outline-none cursor-pointer">
+                    class="text-xs rounded-lg px-2 py-1.5 border border-light-c bg-surface2 text-muted-c outline-none cursor-pointer">
               <option value="high">🔴 高優先</option>
               <option value="mid">🟡 中優先</option>
               <option value="low">🟢 低優先</option>
             </select>
             <select v-model="newCat"
-                    class="text-xs rounded-lg px-2 py-1.5 border border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 outline-none cursor-pointer">
+                    class="text-xs rounded-lg px-2 py-1.5 border border-light-c bg-surface2 text-muted-c outline-none cursor-pointer">
               <option value="">無分類</option>
               <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
             </select>
             <input v-model="newDue" type="date"
-                   class="text-xs rounded-lg px-2 py-1.5 border border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 outline-none" />
+                   class="text-xs rounded-lg px-2 py-1.5 border border-light-c bg-surface2 text-muted-c outline-none" />
             <button @click="addTodo" :disabled="!newTitle.trim() || saving"
-                    class="ml-auto px-4 py-1.5 bg-stone-800 dark:bg-zinc-600 text-white text-xs rounded-lg hover:bg-stone-700 dark:hover:bg-zinc-500 disabled:opacity-30 transition-all">
+                    class="ml-auto px-4 py-1.5 bg-accent-solid text-white text-xs rounded-lg hover-accent-solid disabled:opacity-30 transition-all">
               {{ saving ? '…' : '新增' }}
             </button>
           </div>
         </div>
 
         <!-- ── 清單 ── -->
-        <div v-if="loading" class="text-center py-16 text-stone-300 dark:text-stone-600 text-sm">載入中…</div>
+        <div v-if="loading" class="text-center py-16 text-hint-c text-sm">載入中…</div>
 
         <div v-else class="space-y-2">
           <template v-for="todo in filteredTodos" :key="todo.id">
-            <div :class="['bg-white dark:bg-zinc-800 rounded-2xl border shadow-sm overflow-hidden transition-all duration-200',
-               todo.done ? 'opacity-50 border-stone-100 dark:border-zinc-700' : priorityBorder(todo.priority)]">
+            <div :class="['bg-surface rounded-2xl border shadow-sm overflow-hidden transition-all duration-200',
+ todo.done ? 'opacity-50 border-light-c dark:border-base' : priorityBorder(todo.priority)]">
 
               <!-- 主列 -->
               <div class="flex items-start gap-3 px-4 py-3.5">
                 <!-- 完成圓鈕 -->
                 <button @click="toggleDone(todo)"
-                        :class="todo.done ? 'bg-teal-500 border-teal-500' : 'border-stone-300 dark:border-stone-600 hover:border-teal-400'"
+                        :class="todo.done ? 'bg-teal-500 border-teal-500' : 'border-base hover:border-teal-400'"
                         class="mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all">
                   <svg v-if="todo.done" class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
@@ -128,7 +128,7 @@
                       <!-- 標題（雙擊編輯） -->
                       <p v-if="editingId !== todo.id"
                          @dblclick="startEdit(todo)"
-                         :class="todo.done ? 'line-through text-stone-400 dark:text-stone-600' : 'text-stone-800 dark:text-stone-100'"
+                         :class="todo.done ? 'line-through text-hint-c dark:text-muted-c' : 'text-base-c'"
                          class="text-sm font-medium leading-snug cursor-text select-none"
                          title="雙擊編輯">{{ todo.title }}</p>
                       <input v-else
@@ -137,27 +137,27 @@
                              @keydown.escape="editingId = null"
                              @blur="saveEdit(todo)"
                              ref="editInputEl"
-                             class="text-sm font-medium text-stone-800 dark:text-stone-100 w-full outline-none border-b-2 border-teal-400 bg-transparent pb-0.5" />
+                             class="text-sm font-medium text-base-c w-full outline-none border-b-2 border-teal-400 bg-transparent pb-0.5" />
 
                       <!-- 標籤列 -->
                       <div class="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span v-if="todo.category"
-                            class="text-xs px-2 py-0.5 rounded-full bg-stone-100 dark:bg-zinc-700 text-stone-500 dark:text-stone-400">{{ todo.category }}</span>
+                            class="text-xs px-2 py-0.5 rounded-full bg-surface2 text-hint-c">{{ todo.category }}</span>
                         <span :class="priorityBadge(todo.priority).cls"
                               class="text-xs px-2 py-0.5 rounded-full font-medium">{{ priorityBadge(todo.priority).label }}</span>
                         <span v-if="todo.dueDate"
-                              :class="isDueWarning(todo) ? 'text-red-500 font-semibold' : 'text-stone-400'"
+                              :class="isDueWarning(todo) ? 'text-red-500 font-semibold' : 'text-hint-c'"
                               class="text-xs flex items-center gap-0.5">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                         </svg>
                         {{ todo.dueDate }}{{ isDueWarning(todo) ? ' ⚠' : '' }}
                       </span>
-                        <span v-if="todo.subtasks?.length" class="text-xs text-stone-400 dark:text-stone-500">
+                        <span v-if="todo.subtasks?.length" class="text-xs text-hint-c">
                         ✓ {{ todo.subtasks.filter(s => s.done).length }}/{{ todo.subtasks.length }}
                       </span>
                         <!-- 附件指示器 -->
-                        <span v-if="todo.note" class="text-xs text-stone-400 dark:text-stone-500 flex items-center gap-0.5">
+                        <span v-if="todo.note" class="text-xs text-hint-c flex items-center gap-0.5">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         備註
                       </span>
@@ -176,18 +176,18 @@
                     <div class="flex items-center gap-0.5 flex-shrink-0">
                       <!-- 詳情按鈕 -->
                       <button @click="openDetailModal(todo)"
-                              class="p-1.5 text-stone-300 dark:text-stone-600 hover:text-blue-500 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                              class="p-1.5 text-hint-c hover:text-blue-500 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                       </button>
                       <button @click="toggleExpand(todo.id)"
-                              class="p-1.5 text-stone-300 dark:text-stone-600 hover:text-stone-600 dark:hover:text-stone-300 transition-colors rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-700">
+                              class="p-1.5 text-hint-c hover-text-muted transition-colors rounded-lg hover-surface2">
                         <svg :class="expanded.includes(todo.id) ? 'rotate-180' : ''"
                              class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                       </button>
                       <button @click="confirmDelete(todo)"
-                              class="p-1.5 text-stone-300 dark:text-stone-600 hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
+                              class="p-1.5 text-hint-c hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                         </svg>
@@ -199,35 +199,35 @@
 
               <!-- 子任務展開區 -->
               <div v-if="expanded.includes(todo.id)"
-                   class="border-t border-stone-100 dark:border-stone-700 px-4 py-3 bg-stone-50/60 dark:bg-zinc-900/40">
-                <p class="text-xs text-stone-400 dark:text-stone-500 font-semibold uppercase tracking-widest mb-2.5">子任務</p>
+                   class="border-t border-light-c px-4 py-3 bg-surface2/60 /40">
+                <p class="text-xs text-hint-c font-semibold uppercase tracking-widest mb-2.5">子任務</p>
 
                 <div class="space-y-2 mb-3">
                   <div v-for="sub in todo.subtasks" :key="sub.id" class="flex items-center gap-2">
                     <button @click="toggleSubDone(todo, sub)"
-                            :class="sub.done ? 'bg-teal-400 border-teal-400' : 'border-stone-300 dark:border-stone-600 hover:border-teal-400'"
+                            :class="sub.done ? 'bg-teal-400 border-teal-400' : 'border-base hover:border-teal-400'"
                             class="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all">
                       <svg v-if="sub.done" class="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
                       </svg>
                     </button>
-                    <span :class="sub.done ? 'line-through text-stone-400 dark:text-stone-600' : 'text-stone-600 dark:text-stone-300'"
+                    <span :class="sub.done ? 'line-through text-hint-c dark:text-muted-c' : 'text-muted-c'"
                           class="text-xs flex-1 leading-snug">{{ sub.title }}</span>
                     <button @click="deleteSubtask(todo, sub.id)"
-                            class="text-stone-300 dark:text-stone-600 hover:text-red-400 transition-colors p-0.5">
+                            class="text-hint-c hover:text-red-400 transition-colors p-0.5">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                       </svg>
                     </button>
                   </div>
-                  <p v-if="!todo.subtasks?.length" class="text-xs text-stone-300 dark:text-stone-600 italic">尚無子任務</p>
+                  <p v-if="!todo.subtasks?.length" class="text-xs text-hint-c italic">尚無子任務</p>
                 </div>
 
-                <div class="flex items-center gap-2 pt-2 border-t border-stone-100 dark:border-stone-700">
+                <div class="flex items-center gap-2 pt-2 border-t border-light-c">
                   <input v-model="subInputs[todo.id]"
                          @keydown.enter="addSubtask(todo)"
                          placeholder="輸入子任務… (Enter)"
-                         class="flex-1 text-xs text-stone-600 dark:text-stone-300 placeholder-stone-300 dark:placeholder-stone-600 outline-none bg-transparent border-b border-stone-200 dark:border-stone-700 pb-0.5 focus:border-teal-400 transition-colors" />
+                         class="flex-1 text-xs text-muted-c placeholder-hint outline-none bg-transparent border-b border-light-c pb-0.5 focus:border-teal-400 transition-colors" />
                   <button @click="addSubtask(todo)"
                           class="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 font-medium transition-colors">新增</button>
                 </div>
@@ -237,7 +237,7 @@
           </template>
 
           <div v-if="filteredTodos.length === 0 && !loading"
-               class="text-center py-16 text-stone-300 dark:text-stone-600 text-sm">
+               class="text-center py-16 text-hint-c text-sm">
             <p class="text-3xl mb-3">✦</p>
             <p>沒有符合的待辦事項</p>
           </div>
@@ -251,48 +251,48 @@
         <div class="mb-5">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-sm">今日例行任務</h2>
-              <p class="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{{ todayStr }} · 完成 {{ todayDoneCount }}/{{ dailyTasks.length }}</p>
+              <h2 class="font-semibold text-muted-c text-sm">今日例行任務</h2>
+              <p class="text-xs text-hint-c mt-0.5">{{ todayStr }} · 完成 {{ todayDoneCount }}/{{ dailyTasks.length }}</p>
             </div>
             <button @click="showDailyManager = true"
-                    class="flex items-center gap-1 px-3 py-1.5 bg-stone-800 dark:bg-zinc-600 text-white text-xs rounded-lg hover:bg-stone-700 dark:hover:bg-zinc-500 transition-colors">
+                    class="flex items-center gap-1 px-3 py-1.5 bg-accent-solid text-white text-xs rounded-lg hover-accent-solid transition-colors">
               <span class="text-sm leading-none">⚙</span> 管理任務
             </button>
           </div>
 
           <!-- 今日進度條 -->
-          <div class="h-1.5 rounded-full overflow-hidden bg-stone-200 dark:bg-zinc-700 mb-4">
+          <div class="h-1.5 rounded-full overflow-hidden bg-surface2 mb-4">
             <div class="h-full bg-teal-500 transition-all duration-500 rounded-full"
                  :style="{width: dailyTasks.length ? (todayDoneCount / dailyTasks.length * 100) + '%' : '0%'}"></div>
           </div>
 
           <!-- 分群顯示 -->
-          <div v-if="dailyTaskGroups.length === 0" class="text-center py-12 text-stone-300 dark:text-stone-600 text-sm">
+          <div v-if="dailyTaskGroups.length === 0" class="text-center py-12 text-hint-c text-sm">
             <p class="text-3xl mb-3">☀</p><p>尚未建立例行任務</p>
           </div>
 
           <div v-for="group in dailyTaskGroups" :key="group.name" class="mb-4">
             <!-- 群組標題 -->
-            <p v-if="group.name" class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">{{ group.name }}</p>
+            <p v-if="group.name" class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">{{ group.name }}</p>
             <div class="space-y-2">
               <div v-for="task in group.tasks" :key="task.id"
                    :class="['flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all duration-200 cursor-pointer',
-                     isTodayDone(task.id)
-                       ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800/50'
-                       : 'bg-white dark:bg-zinc-800 border-stone-200 dark:border-stone-700']"
+ isTodayDone(task.id)
+ ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800/50'
+ : 'bg-surface border-light-c']"
                    @click="toggleDailyDone(task.id)">
                 <!-- 勾選圓鈕 -->
                 <div :class="['w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
-                       isTodayDone(task.id) ? 'bg-teal-500 border-teal-500' : 'border-stone-300 dark:border-stone-600']">
+ isTodayDone(task.id) ? 'bg-teal-500 border-teal-500' : 'border-base']">
                   <svg v-if="isTodayDone(task.id)" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
                   </svg>
                 </div>
                 <!-- 任務名稱 -->
-                <span :class="isTodayDone(task.id) ? 'line-through text-stone-400 dark:text-stone-600' : 'text-stone-700 dark:text-stone-200'"
+                <span :class="isTodayDone(task.id) ? 'line-through text-hint-c dark:text-muted-c' : 'text-base-c'"
                       class="text-sm font-medium flex-1 select-none">{{ task.title }}</span>
                 <!-- 本月完成率 -->
-                <span class="text-xs text-stone-400 dark:text-stone-500 flex-shrink-0">
+                <span class="text-xs text-hint-c flex-shrink-0">
                   {{ monthRate(task.id) }}%
                 </span>
               </div>
@@ -301,49 +301,49 @@
         </div>
 
         <!-- ── 月曆歷史 ── -->
-        <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100 dark:border-stone-700">
-            <button @click="dailyPrevMonth" class="p-1 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-              <svg class="w-4 h-4 text-stone-500 dark:text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-light-c">
+            <button @click="dailyPrevMonth" class="p-1 hover-surface2 rounded-lg transition-colors">
+              <svg class="w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
               </svg>
             </button>
-            <span class="text-sm font-semibold text-stone-700 dark:text-stone-100">{{ dailyCalYear }}年 {{ dailyCalMonth }}月 完成記錄</span>
-            <button @click="dailyNextMonth" class="p-1 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-              <svg class="w-4 h-4 text-stone-500 dark:text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span class="text-sm font-semibold text-muted-c">{{ dailyCalYear }}年 {{ dailyCalMonth }}月 完成記錄</span>
+            <button @click="dailyNextMonth" class="p-1 hover-surface2 rounded-lg transition-colors">
+              <svg class="w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
             </button>
           </div>
 
           <!-- 星期標頭 -->
-          <div class="grid grid-cols-7 border-b border-stone-100 dark:border-stone-700">
+          <div class="grid grid-cols-7 border-b border-light-c">
             <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
-                 :class="w==='日'?'text-red-400':w==='六'?'text-blue-400':'text-stone-400 dark:text-stone-500'"
+                 :class="w==='日'?'text-red-400':w==='六'?'text-blue-400':'text-hint-c'"
                  class="py-2 text-center text-xs font-medium">{{ w }}</div>
           </div>
 
           <!-- 月曆格 -->
           <div class="grid grid-cols-7">
             <div v-for="i in dailyFirstDay" :key="'pad'+i"
-                 class="border-b border-r border-stone-50 dark:border-zinc-700/50 min-h-14"></div>
+                 class="border-b border-r border-light-c dark:border-base/50 min-h-14"></div>
             <div v-for="day in dailyCalDays" :key="day.date"
-                 :class="['border-b border-r border-stone-50 dark:border-zinc-700/50 min-h-14 p-1.5 flex flex-col items-center',
-                   day.isToday ? 'bg-teal-50 dark:bg-teal-900/20' : '',
-                   day.dow===0||day.dow===6 ? 'bg-stone-50/50 dark:bg-zinc-800/30' : '']">
+                 :class="['border-b border-r border-light-c dark:border-base/50 min-h-14 p-1.5 flex flex-col items-center',
+ day.isToday ? 'bg-teal-50 dark:bg-teal-900/20' : '',
+ day.dow===0||day.dow===6 ? 'bg-surface2/50 /30' : '']">
               <!-- 日期 -->
               <span :class="['text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full mb-1',
-                day.isToday ? 'bg-teal-600 text-white' :
-                day.dow===0 ? 'text-red-400' : day.dow===6 ? 'text-blue-400' : 'text-stone-500 dark:text-stone-400']">
+ day.isToday ? 'bg-teal-600 text-white' :
+ day.dow===0 ? 'text-red-400' : day.dow===6 ? 'text-blue-400' : 'text-hint-c']">
                 {{ day.d }}
               </span>
               <!-- 完成率圓圈 -->
               <template v-if="day.rate !== null">
                 <div :class="['w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold',
-                  day.rate === 100 ? 'bg-teal-500 text-white' :
-                  day.rate >= 50  ? 'bg-amber-400 text-white' :
-                  day.rate > 0    ? 'bg-stone-300 dark:bg-zinc-600 text-stone-700 dark:text-stone-300' :
-                                    'bg-stone-100 dark:bg-zinc-700 text-stone-300 dark:text-stone-600']"
+ day.rate === 100 ? 'bg-teal-500 text-white' :
+ day.rate >= 50 ? 'bg-amber-400 text-white' :
+ day.rate > 0 ? 'bg-surface2 text-muted-c' :
+ 'bg-surface2 text-hint-c']"
                      :title="`完成 ${day.doneCnt}/${dailyTasks.length} 項`">
                   {{ day.rate === 100 ? '✓' : day.doneCnt }}
                 </div>
@@ -352,15 +352,15 @@
           </div>
 
           <!-- 圖例 -->
-          <div class="flex items-center gap-4 px-4 py-2.5 border-t border-stone-100 dark:border-stone-700">
-            <div class="flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-500">
+          <div class="flex items-center gap-4 px-4 py-2.5 border-t border-light-c">
+            <div class="flex items-center gap-1.5 text-xs text-hint-c">
               <span class="w-4 h-4 rounded-full bg-teal-500 flex items-center justify-center text-white text-xs">✓</span> 全部完成
             </div>
-            <div class="flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-500">
+            <div class="flex items-center gap-1.5 text-xs text-hint-c">
               <span class="w-4 h-4 rounded-full bg-amber-400"></span> 部分完成
             </div>
-            <div class="flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-500">
-              <span class="w-4 h-4 rounded-full bg-stone-200 dark:bg-zinc-600"></span> 少量完成
+            <div class="flex items-center gap-1.5 text-xs text-hint-c">
+              <span class="w-4 h-4 rounded-full bg-surface2"></span> 少量完成
             </div>
           </div>
         </div>
@@ -370,10 +370,10 @@
 
     <!-- ══ 分類管理 Modal ══ -->
     <div v-if="showCatManager" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">管理分類</h3>
-          <button @click="showCatManager = false" class="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 p-1">
+          <h3 class="font-bold text-base-c">管理分類</h3>
+          <button @click="showCatManager = false" class="text-hint-c hover-text-muted p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -381,36 +381,36 @@
         </div>
         <div class="space-y-2 mb-4 max-h-52 overflow-y-auto">
           <div v-for="cat in categories" :key="cat"
-               class="flex items-center justify-between px-3 py-2 bg-stone-50 dark:bg-zinc-700 rounded-xl">
-            <span class="text-sm text-stone-700 dark:text-stone-200">{{ cat }}</span>
-            <button @click="deleteCategory(cat)" class="text-stone-300 dark:text-stone-500 hover:text-red-400 transition-colors p-1">
+               class="flex items-center justify-between px-3 py-2 bg-surface2 rounded-xl">
+            <span class="text-sm text-base-c">{{ cat }}</span>
+            <button @click="deleteCategory(cat)" class="text-hint-c dark:text-hint-c hover:text-red-400 transition-colors p-1">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
-          <p v-if="!categories.length" class="text-xs text-stone-400 dark:text-stone-500 text-center py-2 italic">尚未建立分類</p>
+          <p v-if="!categories.length" class="text-xs text-hint-c text-center py-2 italic">尚未建立分類</p>
         </div>
         <div class="flex gap-2">
           <input v-model="newCatInput" @keydown.enter="addCategory" placeholder="新分類名稱…"
-                 class="flex-1 text-sm px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-200 outline-none focus:border-teal-400 transition-colors" />
+                 class="flex-1 text-sm px-3 py-2 rounded-xl border border-light-c bg-surface text-base-c outline-none focus:border-teal-400 transition-colors" />
           <button @click="addCategory"
-                  class="px-4 py-2 bg-stone-800 dark:bg-zinc-600 text-white text-sm rounded-xl hover:bg-stone-700 dark:hover:bg-zinc-500 transition-colors">新增</button>
+                  class="px-4 py-2 bg-accent-solid text-white text-sm rounded-xl hover-accent-solid transition-colors">新增</button>
         </div>
       </div>
     </div>
 
     <!-- ══ 待辦詳情 Modal ══ -->
     <div v-if="detailModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] flex flex-col">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] flex flex-col">
 
         <!-- Modal Header -->
-        <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-stone-100 dark:border-stone-700 flex-shrink-0">
+        <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-light-c flex-shrink-0">
           <div class="flex-1 min-w-0 pr-3">
-            <p class="text-xs text-stone-400 dark:text-stone-500 mb-0.5">{{ detailModal.todo?.category || '無分類' }}</p>
-            <h3 class="font-bold text-stone-800 dark:text-stone-100 leading-snug">{{ detailModal.todo?.title }}</h3>
+            <p class="text-xs text-hint-c mb-0.5">{{ detailModal.todo?.category || '無分類' }}</p>
+            <h3 class="font-bold text-base-c leading-snug">{{ detailModal.todo?.title }}</h3>
           </div>
-          <button @click="detailModal.show = false" class="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 p-1 flex-shrink-0">
+          <button @click="detailModal.show = false" class="text-hint-c hover-text-muted p-1 flex-shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -420,17 +420,17 @@
 
           <!-- 備註 -->
           <div>
-            <p class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">備註</p>
+            <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">備註</p>
             <textarea v-model="detailModal.note" rows="4" placeholder="輸入詳細說明、備忘事項…"
-                      class="w-full text-sm px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-zinc-700 text-stone-700 dark:text-stone-200 placeholder-stone-300 dark:placeholder-stone-600 outline-none focus:border-teal-400 transition-colors resize-none"></textarea>
+                      class="w-full text-sm px-3 py-2.5 rounded-xl border border-light-c bg-surface2 text-base-c placeholder-hint outline-none focus:border-teal-400 transition-colors resize-none"></textarea>
           </div>
 
           <!-- 連結 -->
           <div>
-            <p class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">連結 URL</p>
+            <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">連結 URL</p>
             <div class="flex gap-2">
               <input v-model="detailModal.linkUrl" placeholder="https://…"
-                     class="flex-1 text-sm px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-zinc-700 text-stone-700 dark:text-stone-200 placeholder-stone-300 dark:placeholder-stone-600 outline-none focus:border-teal-400 transition-colors" />
+                     class="flex-1 text-sm px-3 py-2 rounded-xl border border-light-c bg-surface2 text-base-c placeholder-hint outline-none focus:border-teal-400 transition-colors" />
               <a v-if="detailModal.linkUrl" :href="detailModal.linkUrl" target="_blank"
                  class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors text-xs font-medium flex items-center gap-1">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -441,20 +441,20 @@
 
           <!-- 圖片 -->
           <div>
-            <p class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">圖片</p>
+            <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">圖片</p>
             <div class="grid grid-cols-3 gap-2 mb-2">
               <div v-for="img in detailModal.images" :key="img.name" class="relative group aspect-square">
                 <img :src="attachUrl(detailModal.todo?.id, img.name)" :alt="img.name"
-                     class="w-full h-full object-cover rounded-xl border border-stone-200 dark:border-stone-600 cursor-pointer"
+                     class="w-full h-full object-cover rounded-xl border border-light-c cursor-pointer"
                      @click="previewImage(attachUrl(detailModal.todo?.id, img.name))" />
                 <button @click="deleteAttachment(img.name, 'image')"
                         class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center transition-all">
                   <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
-              <label class="aspect-square rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-600 flex flex-col items-center justify-center cursor-pointer hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors">
-                <svg class="w-5 h-5 text-stone-300 dark:text-stone-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                <span class="text-xs text-stone-300 dark:text-stone-600">上傳</span>
+              <label class="aspect-square rounded-xl border-2 border-dashed border-light-c flex flex-col items-center justify-center cursor-pointer hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors">
+                <svg class="w-5 h-5 text-hint-c mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span class="text-xs text-hint-c">上傳</span>
                 <input type="file" accept="image/*" multiple class="hidden" @change="uploadFiles($event, 'image')" :disabled="uploading" />
               </label>
             </div>
@@ -462,24 +462,24 @@
 
           <!-- 文件 -->
           <div>
-            <p class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">文件</p>
+            <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">文件</p>
             <div class="space-y-1.5 mb-2">
               <div v-for="doc in detailModal.docs" :key="doc.name"
-                   class="flex items-center gap-2 px-3 py-2 bg-stone-50 dark:bg-zinc-700 rounded-xl">
-                <svg class="w-4 h-4 text-stone-400 dark:text-stone-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                <span class="text-xs text-stone-600 dark:text-stone-300 flex-1 truncate">{{ doc.name }}</span>
+                   class="flex items-center gap-2 px-3 py-2 bg-surface2 rounded-xl">
+                <svg class="w-4 h-4 text-hint-c flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span class="text-xs text-muted-c flex-1 truncate">{{ doc.name }}</span>
                 <a :href="attachUrl(detailModal.todo?.id, doc.name)" :download="doc.name"
                    class="text-xs text-blue-500 hover:underline flex-shrink-0">下載</a>
                 <button @click="deleteAttachment(doc.name, 'doc')"
-                        class="text-stone-300 dark:text-stone-600 hover:text-red-400 transition-colors flex-shrink-0">
+                        class="text-hint-c hover:text-red-400 transition-colors flex-shrink-0">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
-              <p v-if="!detailModal.docs.length" class="text-xs text-stone-300 dark:text-stone-600 italic">尚無文件</p>
+              <p v-if="!detailModal.docs.length" class="text-xs text-hint-c italic">尚無文件</p>
             </div>
-            <label class="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-stone-200 dark:border-stone-600 cursor-pointer hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors">
-              <svg class="w-4 h-4 text-stone-300 dark:text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              <span class="text-xs text-stone-400 dark:text-stone-500">上傳文件</span>
+            <label class="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-light-c cursor-pointer hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors">
+              <svg class="w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span class="text-xs text-hint-c">上傳文件</span>
               <input type="file" multiple class="hidden" @change="uploadFiles($event, 'doc')" :disabled="uploading" />
             </label>
           </div>
@@ -489,11 +489,11 @@
         </div>
 
         <!-- Modal Footer -->
-        <div class="flex gap-2 px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex-shrink-0">
+        <div class="flex gap-2 px-5 py-4 border-t border-light-c flex-shrink-0">
           <button @click="detailModal.show = false"
-                  class="flex-1 px-4 py-2.5 text-sm border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-700 transition-colors">取消</button>
+                  class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors">取消</button>
           <button @click="saveDetail"
-                  class="flex-1 px-4 py-2.5 text-sm bg-stone-800 dark:bg-zinc-600 text-white rounded-xl hover:bg-stone-700 dark:hover:bg-zinc-500 transition-colors">儲存備註 &amp; 連結</button>
+                  class="flex-1 px-4 py-2.5 text-sm bg-accent-solid text-white rounded-xl hover-accent-solid transition-colors">儲存備註 &amp; 連結</button>
         </div>
       </div>
     </div>
@@ -506,10 +506,10 @@
 
     <!-- ══ 例行任務管理 Modal ══ -->
     <div v-if="showDailyManager" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[85vh] flex flex-col">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[85vh] flex flex-col">
         <div class="flex items-center justify-between mb-4 flex-shrink-0">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">管理例行任務</h3>
-          <button @click="showDailyManager = false" class="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 p-1">
+          <h3 class="font-bold text-base-c">管理例行任務</h3>
+          <button @click="showDailyManager = false" class="text-hint-c hover-text-muted p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -519,30 +519,30 @@
         <!-- 現有任務列表 -->
         <div class="flex-1 overflow-y-auto space-y-2 mb-4">
           <div v-for="task in dailyTasks" :key="task.id"
-               class="flex items-center gap-2 px-3 py-2 bg-stone-50 dark:bg-zinc-700 rounded-xl">
+               class="flex items-center gap-2 px-3 py-2 bg-surface2 rounded-xl">
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-stone-700 dark:text-stone-200 font-medium">{{ task.title }}</p>
-              <p v-if="task.group" class="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{{ task.group }}</p>
+              <p class="text-sm text-base-c font-medium">{{ task.title }}</p>
+              <p v-if="task.group" class="text-xs text-hint-c mt-0.5">{{ task.group }}</p>
             </div>
             <button @click="deleteDailyTask(task.id)"
-                    class="text-stone-300 dark:text-stone-500 hover:text-red-400 transition-colors p-1 flex-shrink-0">
+                    class="text-hint-c dark:text-hint-c hover:text-red-400 transition-colors p-1 flex-shrink-0">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
-          <p v-if="!dailyTasks.length" class="text-xs text-stone-400 dark:text-stone-500 text-center py-4 italic">尚未建立例行任務</p>
+          <p v-if="!dailyTasks.length" class="text-xs text-hint-c text-center py-4 italic">尚未建立例行任務</p>
         </div>
 
         <!-- 新增表單 -->
-        <div class="border-t border-stone-100 dark:border-stone-700 pt-4 flex-shrink-0 space-y-2">
+        <div class="border-t border-light-c pt-4 flex-shrink-0 space-y-2">
           <input v-model="newDailyTitle" @keydown.enter="addDailyTask" placeholder="任務名稱… (Enter)"
-                 class="w-full text-sm px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-200 outline-none focus:border-teal-400 transition-colors" />
+                 class="w-full text-sm px-3 py-2 rounded-xl border border-light-c bg-surface text-base-c outline-none focus:border-teal-400 transition-colors" />
           <div class="flex gap-2">
             <input v-model="newDailyGroup" placeholder="群組（選填，如：清潔、健康）"
-                   class="flex-1 text-sm px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-600 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-200 outline-none focus:border-teal-400 transition-colors" />
+                   class="flex-1 text-sm px-3 py-2 rounded-xl border border-light-c bg-surface text-base-c outline-none focus:border-teal-400 transition-colors" />
             <button @click="addDailyTask" :disabled="!newDailyTitle.trim()"
-                    class="px-4 py-2 bg-stone-800 dark:bg-zinc-600 text-white text-sm rounded-xl hover:bg-stone-700 dark:hover:bg-zinc-500 disabled:opacity-30 transition-colors">新增</button>
+                    class="px-4 py-2 bg-accent-solid text-white text-sm rounded-xl hover-accent-solid disabled:opacity-30 transition-colors">新增</button>
           </div>
         </div>
       </div>
@@ -551,7 +551,7 @@
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50 whitespace-nowrap flex items-center gap-2">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-accent-solid text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50 whitespace-nowrap flex items-center gap-2">
         <svg class="w-4 h-4 text-teal-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
@@ -718,8 +718,8 @@ const dailyCalDays = computed(() => {
 const priorityBorder = (p) => ({
   high: 'border-red-200 dark:border-red-900/50',
   mid: 'border-amber-200 dark:border-amber-900/50',
-  low: 'border-stone-200 dark:border-stone-600'
-}[p] || 'border-stone-200 dark:border-stone-600')
+  low: 'border-light-c'
+}[p] || 'border-light-c')
 const priorityBadge = (p) => ({
   high: {label: '高優先', cls: 'bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400'},
   mid: {label: '中優先', cls: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'},

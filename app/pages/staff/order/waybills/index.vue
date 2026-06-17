@@ -1,43 +1,43 @@
 <template>
-  <div class="p-4 max-w-screen-xl mx-auto text-sm text-stone-800 dark:text-stone-200">
+  <div class="p-4 max-w-screen-xl mx-auto text-sm text-base-c">
 
     <!-- 標題 -->
-    <div class="text-base font-bold text-gray-700 dark:text-stone-300 mb-3">黑貓貨單管理</div>
+    <div class="text-base font-bold text-muted-c dark:text-hint-c mb-3">黑貓貨單管理</div>
 
     <!-- ════════════════════════ 列表區 ════════════════════════ -->
 
     <!-- 篩選列 -->
     <div class="flex gap-3 mb-3 flex-wrap items-center">
-      <span class="text-gray-500 dark:text-stone-400">依收件人姓名/地址/手機/電話過濾單：</span>
+      <span class="text-hint-c dark:text-hint-c">依收件人姓名/地址/手機/電話過濾單：</span>
       <input v-model="keyword" type="text" placeholder="姓名 / 電話 / 託運單號"
-             class="border border-stone-300 dark:border-stone-600 rounded px-3 py-1.5 w-60 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200 placeholder:text-stone-400 dark:placeholder:text-stone-500"
+             class="border border-base rounded px-3 py-1.5 w-60 bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c"
              @keyup.enter="search" />
       <button @click="search"      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded">過濾</button>
-      <button @click="resetSearch" class="bg-gray-300 dark:bg-zinc-600 hover:bg-gray-400 dark:hover:bg-zinc-500 text-stone-700 dark:text-stone-200 px-4 py-1.5 rounded">取消過濾</button>
+      <button @click="resetSearch" class="bg-surface2 hover-border text-base-c px-4 py-1.5 rounded">取消過濾</button>
     </div>
 
     <!-- 分頁資訊 -->
     <div class="flex gap-2 mb-2 items-center text-sm flex-wrap">
       <button :disabled="page <= 1" @click="page = 1; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">&lt;&lt; 第一頁</button>
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2">&lt;&lt; 第一頁</button>
       <button :disabled="page <= 1" @click="page--; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">&lt; 前一頁</button>
-      <span class="text-stone-600 dark:text-stone-400">第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ listData?.total }} 筆）</span>
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2">&lt; 前一頁</button>
+      <span class="text-muted-c">第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ listData?.total }} 筆）</span>
       <button :disabled="page >= totalPages" @click="page++; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">下一頁 &gt;</button>
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2">下一頁 &gt;</button>
       <button :disabled="page >= totalPages" @click="page = totalPages; refreshList()"
-              class="border border-stone-300 dark:border-stone-600 px-3 py-1 rounded disabled:opacity-40 bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-600">最後一頁 &gt;&gt;</button>
-      <span class="text-gray-400 dark:text-stone-500">每頁</span>
-      <select v-model="limit" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200" @change="page=1; refreshList()">
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2">最後一頁 &gt;&gt;</button>
+      <span class="text-hint-c dark:text-hint-c">每頁</span>
+      <select v-model="limit" class="border border-base rounded px-2 py-1 bg-surface text-base-c" @change="page=1; refreshList()">
         <option :value="10">10</option>
         <option :value="20">20</option>
         <option :value="50">50</option>
       </select>
-      <span class="text-gray-400 dark:text-stone-500">筆</span>
+      <span class="text-hint-c dark:text-hint-c">筆</span>
     </div>
 
     <!-- 表格 -->
-    <div class="overflow-x-auto rounded-md border p-4 border-stone-200 dark:border-stone-700">
+    <div class="overflow-x-auto rounded-md border p-4 border-light-c">
       <table class="w-full border-collapse text-sm">
         <thead class="bg-teal-600 dark:bg-teal-800 text-white">
         <tr>
@@ -64,45 +64,45 @@
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">紙張種類</th>
         </tr>
         </thead>
-        <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+        <tbody class="divide-y divide-base">
         <tr v-if="!listData?.rows?.length">
-          <td colspan="18" class="border border-stone-200 dark:border-stone-700 px-4 py-6 text-center text-gray-400 dark:text-stone-500">無資料</td>
+          <td colspan="18" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">無資料</td>
         </tr>
         <tr
           v-for="row in listData?.rows"
           :key="row.id"
-          class="transition-colors bg-white dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-zinc-700"
+          class="transition-colors bg-surface hover:bg-blue-50"
           :class="{
-              'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': editingId === row.id,
-              'bg-yellow-50 dark:bg-yellow-900/20': selectedIds.includes(row.id) && editingId !== row.id
-            }"
+ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': editingId === row.id,
+ 'bg-yellow-50 dark:bg-yellow-900/20': selectedIds.includes(row.id) && editingId !== row.id
+ }"
         >
-          <td class="border border-stone-200 dark:border-stone-700 px-2 py-1 text-center">
+          <td class="border border-light-c px-2 py-1 text-center">
             <input type="checkbox" :value="row.id" v-model="selectedIds" />
           </td>
-          <td class="border border-stone-200 dark:border-stone-700 px-2 py-1 text-center">
+          <td class="border border-light-c px-2 py-1 text-center">
             <button @click="loadRowToForm(row)"
                     class="text-xs px-2 py-0.5 rounded bg-yellow-400 hover:bg-yellow-500 dark:bg-yellow-500 dark:hover:bg-yellow-600 text-white font-bold whitespace-nowrap">
               ✏️
             </button>
           </td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{{ row.tracking_no }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_name }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis" :title="row.customer_address">{{ row.customer_address }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_postcode }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_mobile }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.customer_phone }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1"></td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis" :title="row.production_name">{{ row.production_name }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.order_no }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.price }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.send_date }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ deliverTimeLabel(row.deliver_time) }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.deliver_date }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ row.state }}</td>
-          <td class="border border-stone-200 dark:border-stone-700 px-3 py-1 whitespace-nowrap">{{ paperName(row.paper_id) }}</td>
+          <td class="border border-light-c px-3 py-1 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{{ row.tracking_no }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_name }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis" :title="row.customer_address">{{ row.customer_address }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_postcode }}</td>
+          <td class="border border-light-c px-3 py-1"></td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_mobile }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_phone }}</td>
+          <td class="border border-light-c px-3 py-1"></td>
+          <td class="border border-light-c px-3 py-1"></td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis" :title="row.production_name">{{ row.production_name }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.order_no }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.price }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.send_date }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ deliverTimeLabel(row.deliver_time) }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.deliver_date }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.state }}</td>
+          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ paperName(row.paper_id) }}</td>
         </tr>
         </tbody>
       </table>
@@ -110,40 +110,40 @@
 
     <div class="flex gap-3 mb-4 mt-4 items-center">
       <button @click="resetForm"
-              class="border border-stone-300 dark:border-stone-600 px-4 py-1.5 rounded bg-white dark:bg-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-600 text-stone-700 dark:text-stone-200">
+              class="border border-base px-4 py-1.5 rounded bg-surface hover-surface2 text-base-c">
         ✚ 清空填寫資料
       </button>
     </div>
 
-    <div class="mb-2 text-gray-600 dark:text-stone-400">目前契客代號：<strong class="text-stone-800 dark:text-stone-200">{{ form.sender_code }}</strong></div>
+    <div class="mb-2 text-muted-c dark:text-hint-c">目前契客代號：<strong class="text-base-c">{{ form.sender_code }}</strong></div>
 
     <!-- ════════════════════════ 託運單表單 ════════════════════════ -->
-    <div class="border border-stone-300 dark:border-stone-600 rounded-md overflow-hidden mb-4">
+    <div class="border border-base rounded-md overflow-hidden mb-4">
       <div class="bg-teal-500 dark:bg-teal-700 text-white px-4 py-2 font-bold">託運單資料</div>
-      <div class="p-4 bg-pink-50 dark:bg-zinc-800 space-y-4">
+      <div class="p-4 bg-pink-50 space-y-4">
 
         <!-- Header：契客 / 寄件人 / 紙張 / 單號 -->
         <div class="flex flex-wrap gap-3 items-center">
-          <label class="text-gray-600 dark:text-stone-400">契客代號</label>
-          <select v-model="form.sender_code" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200">
+          <label class="text-muted-c dark:text-hint-c">契客代號</label>
+          <select v-model="form.sender_code" class="border border-base rounded px-2 py-1 bg-surface text-base-c">
             <option v-for="a in (accounts as any[])" :key="a.login" :value="a.login">{{ a.login }}</option>
           </select>
 
-          <label class="text-gray-600 dark:text-stone-400">寄件人</label>
-          <select v-model="form.sender_id" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200" @change="onSenderChange">
+          <label class="text-muted-c dark:text-hint-c">寄件人</label>
+          <select v-model="form.sender_id" class="border border-base rounded px-2 py-1 bg-surface text-base-c" @change="onSenderChange">
             <option v-for="s in (senders as any[])" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
 
-          <label class="text-gray-600 dark:text-stone-400">紙張種類</label>
-          <select v-model="form.paper_id" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-200">
+          <label class="text-muted-c dark:text-hint-c">紙張種類</label>
+          <select v-model="form.paper_id" class="border border-base rounded px-2 py-1 bg-surface text-base-c">
             <option v-for="p in (papers as any[])" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
 
-          <label class="text-gray-600 dark:text-stone-400">託運單號</label>
+          <label class="text-muted-c dark:text-hint-c">託運單號</label>
           <input type="text"
                  :value="editingId ? form.tracking_no : '（儲存後自動產生）'"
                  readonly
-                 class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 bg-gray-100 dark:bg-zinc-600 text-gray-500 dark:text-stone-400 w-44" />
+                 class="border border-base rounded px-2 py-1 bg-surface2 text-hint-c dark:text-hint-c w-44" />
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -152,35 +152,35 @@
           <div class="space-y-4">
 
             <!-- 收件人 -->
-            <fieldset class="border border-stone-300 dark:border-stone-600 rounded p-3 bg-white dark:bg-zinc-700">
+            <fieldset class="border border-base rounded p-3 bg-surface">
               <legend class="font-bold text-pink-700 dark:text-pink-400 px-1">收件人</legend>
               <div class="grid grid-cols-3 gap-2 mt-2">
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">代號</label>
-                  <input v-model="form.customer_code" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <label class="text-hint-c dark:text-hint-c block">代號</label>
+                  <input v-model="form.customer_code" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                 </div>
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">電話</label>
-                  <input v-model="form.customer_phone" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <label class="text-hint-c dark:text-hint-c block">電話</label>
+                  <input v-model="form.customer_phone" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                 </div>
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">手機(ex:0912-345-678)</label>
-                  <input v-model="form.customer_mobile" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <label class="text-hint-c dark:text-hint-c block">手機(ex:0912-345-678)</label>
+                  <input v-model="form.customer_mobile" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                 </div>
               </div>
               <div class="mt-2">
-                <label class="text-gray-500 dark:text-stone-400 block">地址</label>
-                <input v-model="form.customer_address" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                <label class="text-hint-c dark:text-hint-c block">地址</label>
+                <input v-model="form.customer_address" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
               </div>
               <div class="mt-2">
-                <label class="text-gray-500 dark:text-stone-400 block">姓名</label>
-                <input v-model="form.customer_name" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-1/2 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                <label class="text-hint-c dark:text-hint-c block">姓名</label>
+                <input v-model="form.customer_name" type="text" class="border border-base rounded px-2 py-1 w-1/2 bg-surface text-base-c" />
               </div>
             </fieldset>
 
             <!-- 設定寄件人 -->
-            <fieldset class="border border-stone-300 dark:border-stone-600 rounded p-3 bg-white dark:bg-zinc-700">
-              <legend class="px-1 text-stone-700 dark:text-stone-300">
+            <fieldset class="border border-base rounded p-3 bg-surface">
+              <legend class="px-1 text-muted-c">
                 <label class="flex items-center gap-1 cursor-pointer">
                   <input type="checkbox" v-model="form.default_sender" />
                   <span>設定寄件人（不勾選會使用預設值）</span>
@@ -189,49 +189,49 @@
               <div v-if="form.default_sender" class="space-y-2 mt-2">
                 <div class="grid grid-cols-3 gap-2">
                   <div>
-                    <label class="text-gray-500 dark:text-stone-400 block">代號</label>
-                    <input v-model="form.sender_no" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                    <label class="text-hint-c dark:text-hint-c block">代號</label>
+                    <input v-model="form.sender_no" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                   </div>
                   <div>
-                    <label class="text-gray-500 dark:text-stone-400 block">電話</label>
-                    <input v-model="form.sender_phone" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                    <label class="text-hint-c dark:text-hint-c block">電話</label>
+                    <input v-model="form.sender_phone" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                   </div>
                   <div>
-                    <label class="text-gray-500 dark:text-stone-400 block">手機(ex:0912-345-678)</label>
-                    <input v-model="form.sender_mobile" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                    <label class="text-hint-c dark:text-hint-c block">手機(ex:0912-345-678)</label>
+                    <input v-model="form.sender_mobile" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                   </div>
                 </div>
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">地址</label>
-                  <input v-model="form.sender_address" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <label class="text-hint-c dark:text-hint-c block">地址</label>
+                  <input v-model="form.sender_address" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                 </div>
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">姓名</label>
-                  <input v-model="form.sender_name" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-1/2 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <label class="text-hint-c dark:text-hint-c block">姓名</label>
+                  <input v-model="form.sender_name" type="text" class="border border-base rounded px-2 py-1 w-1/2 bg-surface text-base-c" />
                 </div>
               </div>
             </fieldset>
 
             <!-- 品名 / 訂單 / 備註 -->
-            <fieldset class="border border-stone-300 dark:border-stone-600 rounded p-3 bg-white dark:bg-zinc-700">
+            <fieldset class="border border-base rounded p-3 bg-surface">
               <div>
-                <label class="text-gray-500 dark:text-stone-400 block">品名（A4-2模、A4-3模10個字；熱轉印7個字，超過換行）</label>
+                <label class="text-hint-c dark:text-hint-c block">品名（A4-2模、A4-3模10個字；熱轉印7個字，超過換行）</label>
                 <div class="flex gap-2 mt-1">
-                  <select v-model="form.production_kind" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-36 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200">
+                  <select v-model="form.production_kind" class="border border-base rounded px-2 py-1 w-36 bg-surface text-base-c">
                     <option v-for="p in (productnames as any[])" :key="p.product_id" :value="p.product_name">{{ p.product_name }}</option>
                   </select>
-                  <input v-model="form.production_name" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 flex-1 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <input v-model="form.production_name" type="text" class="border border-base rounded px-2 py-1 flex-1 bg-surface text-base-c" />
                 </div>
                 <p class="text-red-500 dark:text-red-400 text-xs mt-1">※品名內容不得為文件、標單、明信片、郵簡、信函、資料、發票、訴訟文件、公文、身分證明文件、報名表、申請書、帳單、訂單、報價單、繳費單、通知單、保險單、文書、檢體</p>
               </div>
               <div class="grid grid-cols-2 gap-2 mt-2">
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">訂單編號</label>
-                  <input v-model="form.order_no" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <label class="text-hint-c dark:text-hint-c block">訂單編號</label>
+                  <input v-model="form.order_no" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                 </div>
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">備註</label>
-                  <input v-model="form.comment" type="text" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
+                  <label class="text-hint-c dark:text-hint-c block">備註</label>
+                  <input v-model="form.comment" type="text" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c" />
                 </div>
               </div>
             </fieldset>
@@ -242,53 +242,53 @@
           <div class="space-y-4">
 
             <!-- 配送選項 -->
-            <fieldset class="border border-stone-300 dark:border-stone-600 rounded p-3 bg-white dark:bg-zinc-700">
+            <fieldset class="border border-base rounded p-3 bg-surface">
               <legend class="font-bold text-pink-700 dark:text-pink-400 px-1">配送選項</legend>
               <div class="grid grid-cols-2 gap-3 mt-2">
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">收貨日期</label>
-                  <input v-model="form.send_date" type="text" placeholder="YYYY/MM/DD" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200 placeholder:text-stone-400 dark:placeholder:text-stone-500" />
+                  <label class="text-hint-c dark:text-hint-c block">收貨日期</label>
+                  <input v-model="form.send_date" type="text" placeholder="YYYY/MM/DD" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c" />
                 </div>
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">希望配達日期（週日不配送）</label>
-                  <input v-model="form.deliver_date" type="text" placeholder="YYYY/MM/DD" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-full bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200 placeholder:text-stone-400 dark:placeholder:text-stone-500" />
+                  <label class="text-hint-c dark:text-hint-c block">希望配達日期（週日不配送）</label>
+                  <input v-model="form.deliver_date" type="text" placeholder="YYYY/MM/DD" class="border border-base rounded px-2 py-1 w-full bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c" />
                 </div>
               </div>
 
               <div class="mt-3">
-                <label class="text-gray-500 dark:text-stone-400 block mb-1">希望配達時段</label>
+                <label class="text-hint-c dark:text-hint-c block mb-1">希望配達時段</label>
                 <div class="flex gap-4">
-                  <label v-for="t in deliverTimes" :key="t.value" class="flex items-center gap-1 cursor-pointer text-stone-700 dark:text-stone-300">
+                  <label v-for="t in deliverTimes" :key="t.value" class="flex items-center gap-1 cursor-pointer text-muted-c">
                     <input type="radio" v-model="form.deliver_time" :value="t.value" />{{ t.label }}
                   </label>
                 </div>
               </div>
 
               <div class="mt-3">
-                <label class="text-gray-500 dark:text-stone-400 block mb-1">溫層</label>
+                <label class="text-hint-c dark:text-hint-c block mb-1">溫層</label>
                 <div class="flex gap-4">
-                  <label v-for="t in temperatures" :key="t.value" class="flex items-center gap-1 cursor-pointer text-stone-700 dark:text-stone-300">
+                  <label v-for="t in temperatures" :key="t.value" class="flex items-center gap-1 cursor-pointer text-muted-c">
                     <input type="radio" v-model="form.temperature" :value="t.value" />{{ t.label }}
                   </label>
                 </div>
               </div>
 
               <div class="mt-3">
-                <label class="text-gray-500 dark:text-stone-400 block mb-1">尺寸</label>
+                <label class="text-hint-c dark:text-hint-c block mb-1">尺寸</label>
                 <div class="flex gap-4">
-                  <label v-for="s in packageSizes" :key="s.value" class="flex items-center gap-1 cursor-pointer text-stone-700 dark:text-stone-300">
+                  <label v-for="s in packageSizes" :key="s.value" class="flex items-center gap-1 cursor-pointer text-muted-c">
                     <input type="radio" v-model="form.package_size" :value="s.value" />{{ s.label }}
                   </label>
                 </div>
               </div>
 
               <div class="mt-3">
-                <label class="text-gray-500 dark:text-stone-400 block mb-1">注意事項</label>
+                <label class="text-hint-c dark:text-hint-c block mb-1">注意事項</label>
                 <div class="flex gap-4">
-                  <label class="flex items-center gap-1 cursor-pointer text-stone-700 dark:text-stone-300">
+                  <label class="flex items-center gap-1 cursor-pointer text-muted-c">
                     <input type="checkbox" v-model="form.breakable" true-value="yes" false-value="no" />易碎物品
                   </label>
-                  <label class="flex items-center gap-1 cursor-pointer text-stone-700 dark:text-stone-300">
+                  <label class="flex items-center gap-1 cursor-pointer text-muted-c">
                     <input type="checkbox" v-model="form.precision_instrument" true-value="yes" false-value="no" />精密儀器
                   </label>
                 </div>
@@ -296,34 +296,34 @@
             </fieldset>
 
             <!-- 單據類型 + 代收 -->
-            <fieldset class="border border-stone-300 dark:border-stone-600 rounded p-3 bg-white dark:bg-zinc-700">
+            <fieldset class="border border-base rounded p-3 bg-surface">
               <div class="flex gap-4 mb-3">
-                <label v-for="t in waybillTypes" :key="t.value" class="flex items-center gap-1 cursor-pointer text-stone-700 dark:text-stone-300">
+                <label v-for="t in waybillTypes" :key="t.value" class="flex items-center gap-1 cursor-pointer text-muted-c">
                   <input type="radio" v-model="form.waybilltype" :value="t.value" />{{ t.label }}
                 </label>
               </div>
               <div class="space-y-2">
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">
+                  <label class="text-hint-c dark:text-hint-c block">
                     {{ form.waybilltype === 'N' ? '收件人付運費' : form.waybilltype === 'B' ? '代收金額' : '非代收貨款託運單' }}
                   </label>
                   <input v-model.number="form.price" type="number" min="0"
                          :disabled="form.waybilltype === 'A'"
-                         class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-40 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200"
-                         :class="{ 'bg-gray-100 dark:bg-zinc-600': form.waybilltype === 'A' }" />
+                         class="border border-base rounded px-2 py-1 w-40 bg-surface text-base-c"
+                         :class="{ 'bg-surface2': form.waybilltype === 'A' }" />
                 </div>
                 <div>
-                  <label class="text-gray-500 dark:text-stone-400 block">商品報值金額（若要附加服務請直接輸入金額）</label>
-                  <input v-model.number="form.insurance" type="number" min="0" class="border border-stone-300 dark:border-stone-600 rounded px-2 py-1 w-40 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-200" />
-                  <span class="text-gray-400 dark:text-stone-500 text-xs ml-2">（非必選填、選填時會加價）</span>
+                  <label class="text-hint-c dark:text-hint-c block">商品報值金額（若要附加服務請直接輸入金額）</label>
+                  <input v-model.number="form.insurance" type="number" min="0" class="border border-base rounded px-2 py-1 w-40 bg-surface text-base-c" />
+                  <span class="text-hint-c dark:text-hint-c text-xs ml-2">（非必選填、選填時會加價）</span>
                 </div>
               </div>
             </fieldset>
 
             <!-- 設定發票（停用） -->
-            <fieldset class="border border-stone-300 dark:border-stone-600 rounded p-3 bg-white dark:bg-zinc-700 opacity-50">
+            <fieldset class="border border-base rounded p-3 bg-surface opacity-50">
               <legend class="px-1">
-                <label class="flex items-center gap-1 text-gray-400 dark:text-stone-500">
+                <label class="flex items-center gap-1 text-hint-c dark:text-hint-c">
                   <input type="checkbox" disabled />
                   設定發票資訊（不勾選會使用預設值）
                 </label>

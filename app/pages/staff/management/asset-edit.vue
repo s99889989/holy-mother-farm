@@ -1,20 +1,20 @@
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-full bg-surface2 transition-colors duration-300">
 
     <!-- ── Header ── -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-teal-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">財</div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">財產登記系統</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Asset Registry</p>
+            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">財產登記系統</h1>
+            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Asset Registry</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
           <!-- 黑暗模式切換 -->
           <button :title="darkStore.data.display_name"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
                   @click="toggleDark">
             <svg v-if="!isDark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
@@ -24,9 +24,9 @@
             </svg>
           </button>
           <!-- 桌機顯示方式切換 -->
-          <div class="hidden md:flex bg-stone-100 dark:bg-zinc-800 rounded-lg p-0.5 gap-0.5">
+          <div class="hidden md:flex bg-surface2 rounded-lg p-0.5 gap-0.5">
             <button :title="'表格'"
-                    :class="desktopView === 'table' ? 'bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-100 shadow-sm' : 'text-stone-400 dark:text-stone-500'"
+                    :class="desktopView === 'table' ? 'bg-surface text-muted-c shadow-sm' : 'text-hint-c'"
                     class="w-7 h-7 flex items-center justify-center rounded-md transition-all"
                     @click="desktopView = 'table'">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@
               </svg>
             </button>
             <button :title="'卡片'"
-                    :class="desktopView === 'card' ? 'bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-100 shadow-sm' : 'text-stone-400 dark:text-stone-500'"
+                    :class="desktopView === 'card' ? 'bg-surface text-muted-c shadow-sm' : 'text-hint-c'"
                     class="w-7 h-7 flex items-center justify-center rounded-md transition-all"
                     @click="desktopView = 'card'">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,8 +44,8 @@
           </div>
           <!-- 欄位顯示設定 -->
           <div ref="colSettingsRef" class="relative">
-            <button :class="showColSettings ? 'bg-stone-100 dark:bg-zinc-800' : ''"
-                    class="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors"
+            <button :class="showColSettings ? 'bg-surface2' : ''"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
                     title="欄位設定"
                     @click="showColSettings = !showColSettings">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,19 +54,19 @@
               </svg>
             </button>
             <div v-if="showColSettings"
-                 class="fixed right-4 top-14 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-xl z-40 w-56 p-3">
-              <p class="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-2 px-1">顯示欄位</p>
+                 class="fixed right-4 top-14 bg-surface border border-light-c rounded-2xl shadow-xl z-40 w-56 p-3">
+              <p class="text-xs font-semibold text-hint-c mb-2 px-1">顯示欄位</p>
               <div class="space-y-0.5 max-h-72 overflow-y-auto">
                 <label v-for="col in COL_DEFS" :key="col.key"
-                       class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 cursor-pointer">
+                       class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover-surface2 cursor-pointer">
                   <input type="checkbox" :checked="visibleCols[col.key]"
                          class="w-3.5 h-3.5 accent-teal-600 cursor-pointer"
                          @change="toggleCol(col.key)">
-                  <span class="text-sm text-stone-700 dark:text-stone-200">{{ col.label }}</span>
+                  <span class="text-sm text-base-c">{{ col.label }}</span>
                 </label>
               </div>
-              <div class="mt-2 pt-2 border-t border-stone-100 dark:border-stone-700 flex gap-1.5">
-                <button class="flex-1 py-1 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 transition-colors" @click="resetCols">重設</button>
+              <div class="mt-2 pt-2 border-t border-light-c flex gap-1.5">
+                <button class="flex-1 py-1 text-xs text-hint-c hover:text-muted-c transition-colors" @click="resetCols">重設</button>
                 <button class="flex-1 py-1 text-xs bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors" @click="showColSettings = false">完成</button>
               </div>
             </div>
@@ -83,7 +83,7 @@
           <!-- 匯入 Excel -->
           <button v-if="perm.can('staff.inventory.edit')"
                   title="匯入 Excel"
-                  class="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-3 sm:py-1.5 text-xs font-medium text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors"
+                  class="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-3 sm:py-1.5 text-xs font-medium text-muted-c border border-base rounded-lg hover-surface2 transition-colors"
                   @click="triggerImport">
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4 4l4-4m0 0l4 4m-4-4V4"/>
@@ -107,49 +107,49 @@
       <!-- 搜尋 + 篩選 -->
       <div class="flex flex-wrap gap-2">
         <input v-model="searchText" placeholder="搜尋財產名稱、型號…"
-               class="flex-1 min-w-40 px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+               class="flex-1 min-w-40 px-3 py-1.5 text-sm rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
         <select v-model="filterOrg"
-                class="px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-teal-400">
+                class="px-3 py-1.5 text-sm rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           <option value="">全部機構</option>
           <option v-for="o in orgOptions" :key="o" :value="o">{{ o }}</option>
         </select>
         <select v-model="filterUnit"
-                class="px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-teal-400">
+                class="px-3 py-1.5 text-sm rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           <option value="">全部單位</option>
           <option v-for="u in managedUnitOptions" :key="u" :value="u">{{ u }}</option>
         </select>
         <select v-model="filterLocation"
-                class="px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-teal-400">
+                class="px-3 py-1.5 text-sm rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           <option value="">全部位置</option>
           <option v-for="l in managedLocationOptions" :key="l" :value="l">{{ l }}</option>
         </select>
         <select v-model="filterListed"
-                class="px-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-teal-400">
+                class="px-3 py-1.5 text-sm rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           <option value="">全部財產</option>
           <option value="true">列入財產</option>
           <option value="false">不列入財產</option>
         </select>
-        <span class="text-xs text-stone-400 self-center">共 {{ filtered.length }} 筆</span>
+        <span class="text-xs text-hint-c self-center">共 {{ filtered.length }} 筆</span>
       </div>
     </header>
 
     <div class="max-w-full px-3 sm:px-4 py-4">
 
       <!-- 載入中 -->
-      <div v-if="loading" class="flex items-center justify-center py-16 text-stone-400 gap-2">
+      <div v-if="loading" class="flex items-center justify-center py-16 text-hint-c gap-2">
         <div class="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"/>
         載入中…
       </div>
 
       <!-- 無資料 -->
-      <div v-else-if="filtered.length === 0" class="text-center py-16 text-stone-400 text-sm">
+      <div v-else-if="filtered.length === 0" class="text-center py-16 text-hint-c text-sm">
         {{ assets.length === 0 ? '尚無財產資料，點擊「新增財產」開始登記' : '找不到符合條件的財產' }}
       </div>
 
       <!-- ── 桌機表格（含拖曳排序）── -->
       <div v-else-if="desktopView === 'table'"
-           class="hidden md:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-        <div class="px-4 py-2 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500 select-none">
+           class="hidden md:block bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+        <div class="px-4 py-2 border-b border-light-c flex items-center gap-2 text-xs text-hint-c select-none">
           <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
             <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
             <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
@@ -162,7 +162,7 @@
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm whitespace-nowrap">
-            <thead class="bg-stone-50 dark:bg-zinc-800 text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wide">
+            <thead class="bg-surface2 text-xs text-hint-c uppercase tracking-wide">
             <tr>
               <th class="w-8 px-2 py-3"/>
               <th class="px-3 py-3 text-left">圖片</th>
@@ -186,20 +186,20 @@
               <th class="px-3 py-3 text-center">操作</th>
             </tr>
             </thead>
-            <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+            <tbody class="divide-y divide-base">
             <tr v-for="(asset, index) in filtered" :key="asset.id"
                 :class="[
-                    'hover:bg-stone-50 dark:hover:bg-zinc-700/30 transition-colors',
-                    draggingIndex === index ? 'opacity-40' : '',
-                    dragOverIndex === index ? 'bg-teal-50 dark:bg-teal-900/20' : ''
-                  ]"
+ 'hover-surface2/30 transition-colors',
+ draggingIndex === index ? 'opacity-40' : '',
+ dragOverIndex === index ? 'bg-teal-50 dark:bg-teal-900/20' : ''
+ ]"
                 draggable="true"
                 @dragstart="onDragStart(index, $event)"
                 @dragover.prevent="onDragOver(index)"
                 @dragleave="onDragLeave"
                 @dragend="onDragEnd"
                 @drop.prevent="onDrop(index)">
-              <td class="px-2 py-2.5 cursor-grab active:cursor-grabbing text-stone-300 dark:text-stone-600">
+              <td class="px-2 py-2.5 cursor-grab active:cursor-grabbing text-hint-c">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
                   <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
@@ -208,44 +208,44 @@
               </td>
               <td class="px-3 py-2.5">
                 <img v-if="asset.image" :src="imgUrl(asset.thumbUrl) || imgUrl(asset.image)" :alt="asset.name"
-                     loading="lazy" class="w-10 h-10 rounded-lg object-cover border border-stone-200 dark:border-stone-700 cursor-pointer"
+                     loading="lazy" class="w-10 h-10 rounded-lg object-cover border border-light-c cursor-pointer"
                      @click="openPreview(asset.image)">
-                <div v-else class="w-10 h-10 rounded-lg bg-stone-100 dark:bg-zinc-800 flex items-center justify-center text-stone-300">
+                <div v-else class="w-10 h-10 rounded-lg bg-surface2 flex items-center justify-center text-hint-c">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                   </svg>
                 </div>
               </td>
-              <td class="px-3 py-2.5 font-medium text-stone-800 dark:text-stone-100 max-w-40">
+              <td class="px-3 py-2.5 font-medium text-base-c max-w-40">
                 <div class="truncate" :title="asset.name">{{ asset.name }}</div>
               </td>
               <td v-if="visibleCols.listed" class="px-3 py-2.5 text-center">
-                  <span :class="asset.listed ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' : 'bg-stone-100 text-stone-400 dark:bg-zinc-800'"
+                  <span :class="asset.listed ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' : 'bg-surface2 text-hint-c'"
                         class="px-2 py-0.5 rounded-full text-xs">{{ asset.listed ? '✓ 列入' : '不列入' }}</span>
               </td>
-              <td v-if="visibleCols.spec" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.spec }}</td>
-              <td v-if="visibleCols.brand" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.brand }}</td>
-              <td v-if="visibleCols.keeper" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.keeper }}</td>
+              <td v-if="visibleCols.spec" class="px-3 py-2.5 text-muted-c">{{ asset.spec }}</td>
+              <td v-if="visibleCols.brand" class="px-3 py-2.5 text-muted-c">{{ asset.brand }}</td>
+              <td v-if="visibleCols.keeper" class="px-3 py-2.5 text-muted-c">{{ asset.keeper }}</td>
               <td v-if="visibleCols.org" class="px-3 py-2.5">
                 <span class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">{{ asset.org }}</span>
               </td>
-              <td v-if="visibleCols.unit" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.unit }}</td>
-              <td v-if="visibleCols.location" class="px-3 py-2.5 text-stone-600 dark:text-stone-300 max-w-36">
+              <td v-if="visibleCols.unit" class="px-3 py-2.5 text-muted-c">{{ asset.unit }}</td>
+              <td v-if="visibleCols.location" class="px-3 py-2.5 text-muted-c max-w-36">
                 <div class="truncate" :title="asset.location">{{ asset.location }}</div>
               </td>
-              <td v-if="visibleCols.usage" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.usage }}</td>
-              <td v-if="visibleCols.issuer" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.issuer }}</td>
-              <td v-if="visibleCols.quantity" class="px-3 py-2.5 text-center text-stone-700 dark:text-stone-200 font-medium">{{ asset.quantity }}</td>
-              <td v-if="visibleCols.note" class="px-3 py-2.5 text-stone-500 dark:text-stone-400 max-w-32">
+              <td v-if="visibleCols.usage" class="px-3 py-2.5 text-muted-c">{{ asset.usage }}</td>
+              <td v-if="visibleCols.issuer" class="px-3 py-2.5 text-muted-c">{{ asset.issuer }}</td>
+              <td v-if="visibleCols.quantity" class="px-3 py-2.5 text-center text-base-c font-medium">{{ asset.quantity }}</td>
+              <td v-if="visibleCols.note" class="px-3 py-2.5 text-hint-c max-w-32">
                 <div class="truncate" :title="asset.note">{{ asset.note }}</div>
               </td>
-              <td v-if="visibleCols.purchaseDate" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.purchaseDate }}</td>
-              <td v-if="visibleCols.price" class="px-3 py-2.5 text-right text-stone-700 dark:text-stone-200 font-medium">
+              <td v-if="visibleCols.purchaseDate" class="px-3 py-2.5 text-muted-c">{{ asset.purchaseDate }}</td>
+              <td v-if="visibleCols.price" class="px-3 py-2.5 text-right text-base-c font-medium">
                 {{ asset.price ? asset.price.toLocaleString() : '—' }}
               </td>
-              <td v-if="visibleCols.lifespan" class="px-3 py-2.5 text-center text-stone-600 dark:text-stone-300">{{ asset.lifespan }}</td>
-              <td v-if="visibleCols.planName" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.planName }}</td>
-              <td v-if="visibleCols.plateNo" class="px-3 py-2.5 text-stone-600 dark:text-stone-300">{{ asset.plateNo }}</td>
+              <td v-if="visibleCols.lifespan" class="px-3 py-2.5 text-center text-muted-c">{{ asset.lifespan }}</td>
+              <td v-if="visibleCols.planName" class="px-3 py-2.5 text-muted-c">{{ asset.planName }}</td>
+              <td v-if="visibleCols.plateNo" class="px-3 py-2.5 text-muted-c">{{ asset.plateNo }}</td>
               <td class="px-3 py-2.5">
                 <div class="flex items-center gap-1 justify-center">
                   <button v-if="perm.can('staff.inventory.edit')" @click="openModal(asset)"
@@ -264,42 +264,42 @@
       <div v-else-if="desktopView === 'card'"
            class="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         <div v-for="asset in filtered" :key="asset.id"
-             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-          <div class="relative w-full h-44 bg-stone-100 dark:bg-zinc-800 overflow-hidden">
+             class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+          <div class="relative w-full h-44 bg-surface2 overflow-hidden">
             <img v-if="asset.image"
                  :src="imgUrl(asset.thumbLgUrl) || imgUrl(asset.image)"
                  :alt="asset.name"
                  loading="lazy"
                  class="w-full h-full object-cover cursor-pointer"
                  @click="openPreview(asset.image)">
-            <div v-else class="w-full h-full flex items-center justify-center text-stone-200 dark:text-stone-700">
+            <div v-else class="w-full h-full flex items-center justify-center text-base-c dark:text-muted-c">
               <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
             </div>
             <span v-if="visibleCols.listed"
-                  :class="asset.listed ? 'bg-teal-600/90 text-white' : 'bg-stone-500/80 text-white'"
+                  :class="asset.listed ? 'bg-teal-600/90 text-white' : 'bg-muted-overlay text-white'"
                   class="absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs">
               {{ asset.listed ? '✓ 列入' : '不列入' }}
             </span>
           </div>
           <div class="p-3">
-            <p class="font-semibold text-stone-800 dark:text-stone-100 leading-tight mb-1 truncate" :title="asset.name">{{ asset.name }}</p>
+            <p class="font-semibold text-base-c leading-tight mb-1 truncate" :title="asset.name">{{ asset.name }}</p>
             <div class="flex items-center gap-1.5 mb-2 flex-wrap">
               <span v-if="visibleCols.org && asset.org" class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">{{ asset.org }}</span>
-              <span v-if="visibleCols.brand && asset.brand" class="text-xs text-stone-400">{{ asset.brand }}</span>
+              <span v-if="visibleCols.brand && asset.brand" class="text-xs text-hint-c">{{ asset.brand }}</span>
             </div>
-            <div class="text-xs text-stone-500 dark:text-stone-400 space-y-0.5 mb-3">
-              <div v-if="visibleCols.spec && asset.spec" class="truncate"><span class="text-stone-400">規格：</span>{{ asset.spec }}</div>
-              <div v-if="visibleCols.keeper && asset.keeper" class="truncate"><span class="text-stone-400">保管人：</span>{{ asset.keeper }}</div>
-              <div v-if="visibleCols.unit && asset.unit" class="truncate"><span class="text-stone-400">單位：</span>{{ asset.unit }}</div>
-              <div v-if="visibleCols.location && asset.location" class="truncate"><span class="text-stone-400">位置：</span>{{ asset.location }}</div>
-              <div v-if="visibleCols.price && asset.price" class="truncate"><span class="text-stone-400">單價：</span>{{ asset.price.toLocaleString() }}</div>
-              <div v-if="visibleCols.purchaseDate && asset.purchaseDate" class="truncate"><span class="text-stone-400">購置：</span>{{ asset.purchaseDate }}</div>
-              <div v-if="visibleCols.planName && asset.planName" class="truncate"><span class="text-stone-400">計畫：</span>{{ asset.planName }}</div>
-              <div v-if="visibleCols.plateNo && asset.plateNo" class="truncate"><span class="text-stone-400">車號：</span>{{ asset.plateNo }}</div>
+            <div class="text-xs text-hint-c space-y-0.5 mb-3">
+              <div v-if="visibleCols.spec && asset.spec" class="truncate"><span class="text-hint-c">規格：</span>{{ asset.spec }}</div>
+              <div v-if="visibleCols.keeper && asset.keeper" class="truncate"><span class="text-hint-c">保管人：</span>{{ asset.keeper }}</div>
+              <div v-if="visibleCols.unit && asset.unit" class="truncate"><span class="text-hint-c">單位：</span>{{ asset.unit }}</div>
+              <div v-if="visibleCols.location && asset.location" class="truncate"><span class="text-hint-c">位置：</span>{{ asset.location }}</div>
+              <div v-if="visibleCols.price && asset.price" class="truncate"><span class="text-hint-c">單價：</span>{{ asset.price.toLocaleString() }}</div>
+              <div v-if="visibleCols.purchaseDate && asset.purchaseDate" class="truncate"><span class="text-hint-c">購置：</span>{{ asset.purchaseDate }}</div>
+              <div v-if="visibleCols.planName && asset.planName" class="truncate"><span class="text-hint-c">計畫：</span>{{ asset.planName }}</div>
+              <div v-if="visibleCols.plateNo && asset.plateNo" class="truncate"><span class="text-hint-c">車號：</span>{{ asset.plateNo }}</div>
             </div>
-            <p v-if="visibleCols.note && asset.note" class="text-xs text-stone-400 italic mb-3 truncate">{{ asset.note }}</p>
+            <p v-if="visibleCols.note && asset.note" class="text-xs text-hint-c italic mb-3 truncate">{{ asset.note }}</p>
             <div class="flex gap-2">
               <button v-if="perm.can('staff.inventory.edit')" @click="openModal(asset)"
                       class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">編輯</button>
@@ -313,15 +313,15 @@
       <!-- 手機卡片 -->
       <div class="md:hidden space-y-3">
         <div v-for="asset in filtered" :key="asset.id"
-             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4">
+             class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
           <div class="flex items-start gap-3 mb-3">
             <img v-if="asset.image" :src="imgUrl(asset.thumbUrl) || imgUrl(asset.image)" :alt="asset.name"
-                 loading="lazy" class="w-16 h-16 rounded-xl object-cover border border-stone-200 dark:border-stone-700 flex-shrink-0 cursor-pointer"
+                 loading="lazy" class="w-16 h-16 rounded-xl object-cover border border-light-c flex-shrink-0 cursor-pointer"
                  @click="openPreview(asset.image)">
             <div class="flex-1 min-w-0 flex items-start justify-between gap-2">
               <div>
-                <p class="font-semibold text-stone-800 dark:text-stone-100 leading-tight">{{ asset.name }}</p>
-                <p v-if="visibleCols.spec || visibleCols.brand" class="text-xs text-stone-400 mt-0.5">
+                <p class="font-semibold text-base-c leading-tight">{{ asset.name }}</p>
+                <p v-if="visibleCols.spec || visibleCols.brand" class="text-xs text-hint-c mt-0.5">
                   {{ visibleCols.spec ? asset.spec : '' }}{{ (visibleCols.spec && visibleCols.brand && asset.spec && asset.brand) ? ' · ' : '' }}{{ visibleCols.brand ? asset.brand : '' }}
                 </p>
               </div>
@@ -329,20 +329,20 @@
                     class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 flex-shrink-0">{{ asset.org }}</span>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-stone-600 dark:text-stone-300 mb-3">
-            <div v-if="visibleCols.keeper"><span class="text-stone-400">保管人：</span>{{ asset.keeper || '—' }}</div>
-            <div v-if="visibleCols.unit"><span class="text-stone-400">保管單位：</span>{{ asset.unit || '—' }}</div>
-            <div v-if="visibleCols.location"><span class="text-stone-400">位置：</span>{{ asset.location || '—' }}</div>
-            <div v-if="visibleCols.usage"><span class="text-stone-400">用途：</span>{{ asset.usage || '—' }}</div>
-            <div v-if="visibleCols.issuer"><span class="text-stone-400">撥發單位：</span>{{ asset.issuer || '—' }}</div>
-            <div v-if="visibleCols.quantity"><span class="text-stone-400">數量：</span>{{ asset.quantity }}</div>
-            <div v-if="visibleCols.purchaseDate"><span class="text-stone-400">購置：</span>{{ asset.purchaseDate || '—' }}</div>
-            <div v-if="visibleCols.price"><span class="text-stone-400">單價：</span>{{ asset.price ? asset.price.toLocaleString() : '—' }}</div>
-            <div v-if="visibleCols.lifespan"><span class="text-stone-400">年限：</span>{{ asset.lifespan ? asset.lifespan + ' 年' : '—' }}</div>
-            <div v-if="visibleCols.planName"><span class="text-stone-400">計畫：</span>{{ asset.planName || '—' }}</div>
-            <div v-if="visibleCols.plateNo"><span class="text-stone-400">車號：</span>{{ asset.plateNo || '—' }}</div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-c mb-3">
+            <div v-if="visibleCols.keeper"><span class="text-hint-c">保管人：</span>{{ asset.keeper || '—' }}</div>
+            <div v-if="visibleCols.unit"><span class="text-hint-c">保管單位：</span>{{ asset.unit || '—' }}</div>
+            <div v-if="visibleCols.location"><span class="text-hint-c">位置：</span>{{ asset.location || '—' }}</div>
+            <div v-if="visibleCols.usage"><span class="text-hint-c">用途：</span>{{ asset.usage || '—' }}</div>
+            <div v-if="visibleCols.issuer"><span class="text-hint-c">撥發單位：</span>{{ asset.issuer || '—' }}</div>
+            <div v-if="visibleCols.quantity"><span class="text-hint-c">數量：</span>{{ asset.quantity }}</div>
+            <div v-if="visibleCols.purchaseDate"><span class="text-hint-c">購置：</span>{{ asset.purchaseDate || '—' }}</div>
+            <div v-if="visibleCols.price"><span class="text-hint-c">單價：</span>{{ asset.price ? asset.price.toLocaleString() : '—' }}</div>
+            <div v-if="visibleCols.lifespan"><span class="text-hint-c">年限：</span>{{ asset.lifespan ? asset.lifespan + ' 年' : '—' }}</div>
+            <div v-if="visibleCols.planName"><span class="text-hint-c">計畫：</span>{{ asset.planName || '—' }}</div>
+            <div v-if="visibleCols.plateNo"><span class="text-hint-c">車號：</span>{{ asset.plateNo || '—' }}</div>
           </div>
-          <p v-if="visibleCols.note" class="text-xs text-stone-400 italic mb-3">{{ asset.note || '—' }}</p>
+          <p v-if="visibleCols.note" class="text-xs text-hint-c italic mb-3">{{ asset.note || '—' }}</p>
           <div class="flex gap-2">
             <button v-if="perm.can('staff.inventory.edit')" @click="openModal(asset)"
                     class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 transition-colors">編輯</button>
@@ -355,20 +355,20 @@
 
     <!-- ════════ 新增/編輯 Modal ════════ -->
     <div v-if="modal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto">
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+        <div class="px-5 py-4 border-b border-light-c flex items-center justify-between sticky top-0 bg-surface z-10">
           <div class="flex items-center gap-3">
-            <h3 class="font-bold text-stone-800 dark:text-stone-100 text-base">{{ modal.isNew ? '新增財產' : '編輯財產' }}</h3>
-            <div class="flex bg-stone-100 dark:bg-zinc-800 rounded-lg p-0.5 gap-0.5">
+            <h3 class="font-bold text-base-c text-base">{{ modal.isNew ? '新增財產' : '編輯財產' }}</h3>
+            <div class="flex bg-surface2 rounded-lg p-0.5 gap-0.5">
               <button @click="modal.simple = true"
-                      :class="modal.simple ? 'bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-100 shadow-sm' : 'text-stone-400 dark:text-stone-500'"
+                      :class="modal.simple ? 'bg-surface text-muted-c shadow-sm' : 'text-hint-c'"
                       class="px-3 py-1 rounded-md text-xs font-medium transition-all">簡易</button>
               <button @click="modal.simple = false"
-                      :class="!modal.simple ? 'bg-white dark:bg-zinc-700 text-stone-700 dark:text-stone-100 shadow-sm' : 'text-stone-400 dark:text-stone-500'"
+                      :class="!modal.simple ? 'bg-surface text-muted-c shadow-sm' : 'text-hint-c'"
                       class="px-3 py-1 rounded-md text-xs font-medium transition-all">完整</button>
             </div>
           </div>
-          <button @click="modal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <button @click="modal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -378,12 +378,12 @@
         <div class="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- 圖片上傳 -->
           <div class="sm:col-span-2">
-            <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">圖片</label>
+            <label class="text-xs font-medium text-muted-c block mb-1">圖片</label>
             <div class="flex gap-3 items-start">
-              <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 border-dashed border-stone-200 dark:border-stone-700 relative bg-stone-50 dark:bg-zinc-800 cursor-pointer"
+              <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 border-dashed border-light-c relative bg-surface2 cursor-pointer"
                    @click="triggerImageUpload">
                 <img v-if="modal.data.image" :src="imgUrl(modal.data.image)" class="w-full h-full object-cover">
-                <div v-else class="w-full h-full flex flex-col items-center justify-center text-stone-300 gap-1">
+                <div v-else class="w-full h-full flex flex-col items-center justify-center text-hint-c gap-1">
                   <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                   </svg>
@@ -394,7 +394,7 @@
               <div class="flex-1 space-y-1.5">
                 <button v-if="modal.data.image" @click="deleteImage"
                         class="text-xs text-red-400 hover:text-red-500 transition-colors">移除圖片</button>
-                <p class="text-xs text-stone-400">點擊左側縮圖上傳圖片</p>
+                <p class="text-xs text-hint-c">點擊左側縮圖上傳圖片</p>
                 <p v-if="uploadingImage" class="text-xs text-teal-600 flex items-center gap-1">
                   <span class="w-3 h-3 border-2 border-teal-600 border-t-transparent rounded-full animate-spin inline-block"/>上傳中…
                 </p>
@@ -404,18 +404,18 @@
 
           <!-- 財產名稱/型號 -->
           <div class="sm:col-span-2">
-            <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">財產名稱／型號 <span class="text-red-400">*</span></label>
+            <label class="text-xs font-medium text-muted-c block mb-1">財產名稱／型號 <span class="text-red-400">*</span></label>
             <input v-model="modal.data.name" placeholder="例：OA-150木紋辦公桌"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           </div>
           <div>
-            <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">規格</label>
+            <label class="text-xs font-medium text-muted-c block mb-1">規格</label>
             <input v-model="modal.data.spec" placeholder="規格"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           </div>
           <!-- 保管單位 -->
           <div>
-            <label class="text-xs font-medium text-stone-600 dark:text-stone-300 mb-1 flex items-center justify-between">
+            <label class="text-xs font-medium text-muted-c mb-1 flex items-center justify-between">
               保管單位
               <button type="button" @click="showUnitManager = true"
                       class="text-teal-600 dark:text-teal-400 hover:text-teal-700 font-normal text-xs flex items-center gap-0.5">
@@ -425,14 +425,14 @@
               </button>
             </label>
             <select v-model="modal.data.unit"
-                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
               <option value="">— 請選擇 —</option>
               <option v-for="u in managedUnitOptions" :key="u" :value="u">{{ u }}</option>
             </select>
           </div>
           <!-- 放置位置（簡易模式也顯示） -->
           <div class="sm:col-span-2">
-            <label class="text-xs font-medium text-stone-600 dark:text-stone-300 mb-1 flex items-center justify-between">
+            <label class="text-xs font-medium text-muted-c mb-1 flex items-center justify-between">
               放置位置
               <button type="button" @click="showLocationManager = true"
                       class="text-teal-600 dark:text-teal-400 hover:text-teal-700 font-normal text-xs flex items-center gap-0.5">
@@ -442,7 +442,7 @@
               </button>
             </label>
             <select v-model="modal.data.location"
-                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
               <option value="">— 請選擇 —</option>
               <option v-for="l in managedLocationOptions" :key="l" :value="l">{{ l }}</option>
             </select>
@@ -452,87 +452,87 @@
             <label class="flex items-center gap-3 cursor-pointer select-none">
               <div class="relative">
                 <input v-model="modal.data.listed" type="checkbox" class="sr-only">
-                <div :class="modal.data.listed ? 'bg-teal-600' : 'bg-stone-200 dark:bg-zinc-700'"
+                <div :class="modal.data.listed ? 'bg-teal-600' : 'bg-surface2'"
                      class="w-10 h-6 rounded-full transition-colors duration-200"/>
                 <div :class="modal.data.listed ? 'translate-x-4' : 'translate-x-0'"
-                     class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"/>
+                     class="absolute top-1 left-1 w-4 h-4 bg-surface rounded-full shadow transition-transform duration-200"/>
               </div>
               <div>
-                <p class="text-sm font-medium text-stone-700 dark:text-stone-200">列入財產</p>
-                <p class="text-xs text-stone-400">取消勾選表示不列入正式財產清單</p>
+                <p class="text-sm font-medium text-base-c">列入財產</p>
+                <p class="text-xs text-hint-c">取消勾選表示不列入正式財產清單</p>
               </div>
             </label>
           </div>
           <template v-if="!modal.simple">
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">廠牌</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">廠牌</label>
               <input v-model="modal.data.brand" placeholder="廠牌"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">保管人員</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">保管人員</label>
               <input v-model="modal.data.keeper" placeholder="輸入姓名"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">機構</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">機構</label>
               <input v-model="modal.data.org" placeholder="例：法人" list="org-list"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
               <datalist id="org-list">
                 <option v-for="o in orgOptions" :key="o" :value="o"/>
               </datalist>
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">用途</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">用途</label>
               <input v-model="modal.data.usage" placeholder="例：辦公"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">撥發單位</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">撥發單位</label>
               <input v-model="modal.data.issuer" placeholder="請參閱查詢"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">撥發數量</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">撥發數量</label>
               <input v-model.number="modal.data.quantity" type="number" min="1" placeholder="1"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">購置日期</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">購置日期</label>
               <input v-model="modal.data.purchaseDate" type="date"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">單價（元）</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">單價（元）</label>
               <input v-model.number="modal.data.price" type="number" min="0" placeholder="0"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">使用年限（年）</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">使用年限（年）</label>
               <input v-model.number="modal.data.lifespan" type="number" min="0" placeholder="0"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">計畫名稱（編號）</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">計畫名稱（編號）</label>
               <input v-model="modal.data.planName" placeholder="請參閱查詢，填編號"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div>
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">車號</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">車號</label>
               <input v-model="modal.data.plateNo" placeholder="車號"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
             </div>
             <div class="sm:col-span-2">
-              <label class="text-xs font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
+              <label class="text-xs font-medium text-muted-c block mb-1">備註</label>
               <textarea v-model="modal.data.note" rows="2" placeholder="備註"
-                        class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400 resize-none"/>
+                        class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400 resize-none"/>
             </div>
           </template>
         </div>
 
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex gap-2 justify-end">
+        <div class="px-5 py-4 border-t border-light-c flex gap-2 justify-end">
           <button @click="modal.show = false"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">取消</button>
+                  class="px-4 py-2 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">取消</button>
           <button @click="saveAsset"
                   class="px-4 py-2 text-sm bg-teal-700 text-white rounded-xl hover:bg-teal-800 transition-colors">
             {{ modal.isNew ? '新增' : '儲存' }}
@@ -559,10 +559,10 @@
 
     <!-- 單位管理 Modal -->
     <div v-if="showUnitManager" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70]">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-5">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">管理保管單位選項</h3>
-          <button @click="showUnitManager = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <h3 class="font-bold text-base-c">管理保管單位選項</h3>
+          <button @click="showUnitManager = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -571,15 +571,15 @@
         <div class="flex gap-2 mb-3">
           <input v-model="newUnitInput" placeholder="新增保管單位…"
                  @keydown.enter.prevent="addUnitOption"
-                 class="flex-1 px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                 class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           <button @click="addUnitOption" class="px-3 py-2 text-sm bg-teal-700 text-white rounded-xl hover:bg-teal-800 transition-colors">新增</button>
         </div>
         <div class="space-y-1.5 max-h-64 overflow-y-auto">
-          <div v-if="managedUnitOptions.length === 0" class="text-center py-6 text-stone-400 text-sm">尚無選項</div>
+          <div v-if="managedUnitOptions.length === 0" class="text-center py-6 text-hint-c text-sm">尚無選項</div>
           <div v-for="(u, idx) in managedUnitOptions" :key="u"
-               class="flex items-center justify-between px-3 py-2 bg-stone-50 dark:bg-zinc-800 rounded-xl">
-            <span class="text-sm text-stone-700 dark:text-stone-200">{{ u }}</span>
-            <button @click="removeUnitOption(idx)" class="text-stone-300 hover:text-red-400 transition-colors p-0.5">
+               class="flex items-center justify-between px-3 py-2 bg-surface2 rounded-xl">
+            <span class="text-sm text-base-c">{{ u }}</span>
+            <button @click="removeUnitOption(idx)" class="text-hint-c hover:text-red-400 transition-colors p-0.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -587,16 +587,16 @@
           </div>
         </div>
         <button @click="showUnitManager = false"
-                class="mt-4 w-full py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">完成</button>
+                class="mt-4 w-full py-2 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">完成</button>
       </div>
     </div>
 
     <!-- 放置位置管理 Modal -->
     <div v-if="showLocationManager" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70]">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-5">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">管理放置位置選項</h3>
-          <button @click="showLocationManager = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <h3 class="font-bold text-base-c">管理放置位置選項</h3>
+          <button @click="showLocationManager = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -605,16 +605,16 @@
         <div class="flex gap-2 mb-3">
           <input v-model="newLocationInput" placeholder="新增放置位置…"
                  @keydown.enter.prevent="addLocationOption"
-                 class="flex-1 px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                 class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
           <button @click="addLocationOption" class="px-3 py-2 text-sm bg-teal-700 text-white rounded-xl hover:bg-teal-800 transition-colors">新增</button>
         </div>
         <div class="space-y-1.5 max-h-64 overflow-y-auto">
-          <div v-if="managedLocationOptions.length === 0" class="text-center py-6 text-stone-400 text-sm">尚無選項</div>
+          <div v-if="managedLocationOptions.length === 0" class="text-center py-6 text-hint-c text-sm">尚無選項</div>
           <div v-for="l in managedLocationOptions" :key="l"
-               class="flex items-center justify-between px-3 py-2 bg-stone-50 dark:bg-zinc-800 rounded-xl">
-            <span class="text-sm text-stone-700 dark:text-stone-200">{{ l }}</span>
-            <span v-if="assetLocationOptions.includes(l)" class="text-xs text-stone-300 dark:text-stone-600">資料已有</span>
-            <button v-else @click="removeLocationOption(l)" class="text-stone-300 hover:text-red-400 transition-colors p-0.5">
+               class="flex items-center justify-between px-3 py-2 bg-surface2 rounded-xl">
+            <span class="text-sm text-base-c">{{ l }}</span>
+            <span v-if="assetLocationOptions.includes(l)" class="text-xs text-hint-c">資料已有</span>
+            <button v-else @click="removeLocationOption(l)" class="text-hint-c hover:text-red-400 transition-colors p-0.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -622,19 +622,19 @@
           </div>
         </div>
         <button @click="showLocationManager = false"
-                class="mt-4 w-full py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">完成</button>
+                class="mt-4 w-full py-2 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">完成</button>
       </div>
     </div>
 
     <!-- 匯入進度 Modal -->
     <div v-if="importState.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80]">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
         <div v-if="importState.done">
           <svg class="w-12 h-12 text-teal-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <p class="font-bold text-stone-800 dark:text-stone-100 mb-1">匯入完成</p>
-          <p class="text-sm text-stone-500 dark:text-stone-400 mb-1">成功 {{ importState.success }} 筆</p>
+          <p class="font-bold text-base-c mb-1">匯入完成</p>
+          <p class="text-sm text-hint-c mb-1">成功 {{ importState.success }} 筆</p>
           <p v-if="importState.fail > 0" class="text-sm text-red-400 mb-4">失敗 {{ importState.fail }} 筆</p>
           <p v-else class="mb-4"/>
           <button @click="importState.show = false"
@@ -642,9 +642,9 @@
         </div>
         <div v-else>
           <div class="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"/>
-          <p class="font-bold text-stone-800 dark:text-stone-100 mb-1">匯入中…</p>
-          <p class="text-sm text-stone-500 dark:text-stone-400 mb-3">{{ importState.current }} / {{ importState.total }} 筆</p>
-          <div class="w-full bg-stone-100 dark:bg-zinc-800 rounded-full h-2">
+          <p class="font-bold text-base-c mb-1">匯入中…</p>
+          <p class="text-sm text-hint-c mb-3">{{ importState.current }} / {{ importState.total }} 筆</p>
+          <div class="w-full bg-surface2 rounded-full h-2">
             <div class="bg-teal-600 h-2 rounded-full transition-all duration-300"
                  :style="{ width: importState.total ? (importState.current / importState.total * 100) + '%' : '0%' }"/>
           </div>
@@ -655,7 +655,7 @@
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>

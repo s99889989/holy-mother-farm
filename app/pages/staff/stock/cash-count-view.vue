@@ -32,7 +32,7 @@ const dayClass = (day) => {
   if (!day.date) return 'cursor-default'
   if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
   if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200 dark:hover:bg-green-800/40'
-  return 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'
+  return 'text-base-c hover-surface2'
 }
 
 function prevMonth() {
@@ -248,16 +248,16 @@ onUnmounted(() => {
 
 
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-full bg-surface2 transition-colors duration-300">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">💵</div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">點鈔作業</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Cash Count</p>
+            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">點鈔作業</h1>
+            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Cash Count</p>
           </div>
         </div>
         <button @click="openForm"
@@ -273,19 +273,19 @@ onUnmounted(() => {
 
         <!-- 左側日曆 -->
         <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 lg:sticky lg:top-20">
+          <div class="bg-surface rounded-2xl border border-light-c shadow-sm p-4 lg:sticky lg:top-20">
             <div class="flex items-center justify-between mb-3">
-              <button @click="prevMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              <button @click="prevMonth" class="p-1.5 hover-surface2 rounded-lg transition-colors">
+                <svg class="w-5 h-5 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
               </button>
-              <span class="text-base font-semibold text-stone-700 dark:text-stone-100">{{ calYear }}年 {{ calMonth }}月</span>
-              <button @click="nextMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="text-base font-semibold text-muted-c">{{ calYear }}年 {{ calMonth }}月</span>
+              <button @click="nextMonth" class="p-1.5 hover-surface2 rounded-lg transition-colors">
+                <svg class="w-5 h-5 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </button>
             </div>
             <div class="grid grid-cols-7 mb-1">
               <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
-                   class="text-center text-sm text-stone-400 dark:text-stone-500 font-medium py-1">{{ w }}</div>
+                   class="text-center text-sm text-hint-c font-medium py-1">{{ w }}</div>
             </div>
             <div class="grid grid-cols-7 gap-1">
               <div v-for="(day, idx) in calendarDays" :key="idx"
@@ -295,12 +295,12 @@ onUnmounted(() => {
                 <span>{{ day.label }}</span>
                 <span v-if="day.date && recordDates.has(day.date)"
                       class="absolute bottom-1 w-1.5 h-1.5 rounded-full"
-                      :class="day.date === selectedDate ? 'bg-white' : 'bg-green-500'">
+                      :class="day.date === selectedDate ? 'bg-surface' : 'bg-green-500'">
                 </span>
               </div>
             </div>
-            <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100 dark:border-stone-700">
-              <span class="text-sm text-stone-700 dark:text-stone-200 font-medium">{{ selectedDate || '請選擇日期' }}</span>
+            <div class="flex items-center justify-between mt-3 pt-3 border-t border-light-c">
+              <span class="text-sm text-base-c font-medium">{{ selectedDate || '請選擇日期' }}</span>
               <button @click="selectDate(todayStr)" class="text-sm text-green-700 dark:text-green-400 hover:text-green-800 font-medium">今天</button>
             </div>
           </div>
@@ -309,21 +309,21 @@ onUnmounted(() => {
         <!-- 右側明細 -->
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-base sm:text-lg">
+            <h2 class="font-semibold text-muted-c text-base sm:text-lg">
               {{ selectedDate }} 點鈔記錄
             </h2>
           </div>
 
-          <div v-if="loading" class="text-sm text-stone-400 py-8 text-center">載入中...</div>
+          <div v-if="loading" class="text-sm text-hint-c py-8 text-center">載入中...</div>
 
           <div v-else-if="selectedRecords.length === 0"
-               class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 px-4 py-12 text-center text-stone-400 text-sm shadow-sm">
+               class="bg-surface rounded-2xl border border-light-c px-4 py-12 text-center text-hint-c text-sm shadow-sm">
             今天還沒有點鈔記錄
           </div>
 
           <div v-else class="space-y-3">
             <div v-for="r in selectedRecords" :key="r.id"
-                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+                 class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
               <div class="flex items-stretch">
                 <div class="w-20 flex-shrink-0 bg-green-50 dark:bg-green-900/20 flex flex-col items-center justify-center border-r border-green-100 dark:border-green-800/30 py-3 px-1">
                   <span class="text-xs text-green-600 dark:text-green-400 uppercase tracking-wide mb-0.5">總計</span>
@@ -333,19 +333,19 @@ onUnmounted(() => {
                   <div class="flex items-start justify-between gap-2">
                     <div class="flex-1 min-w-0">
                       <div v-if="r.note" class="mb-1.5">
-                        <span class="text-xs bg-stone-100 dark:bg-zinc-700 text-stone-500 dark:text-stone-300 rounded-full px-2 py-0.5">{{ r.note }}</span>
+                        <span class="text-xs bg-surface2 text-hint-c dark:text-hint-c rounded-full px-2 py-0.5">{{ r.note }}</span>
                       </div>
                       <div class="flex flex-wrap gap-1.5">
                         <template v-for="d in allDenoms" :key="d.value">
                           <span v-if="r.items && Number(r.items[d.value]) > 0"
-                                class="text-xs bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 rounded px-2 py-0.5">
+                                class="text-xs bg-surface2 text-muted-c rounded px-2 py-0.5">
                             {{ d.label }} × {{ r.items[d.value] }}
                           </span>
                         </template>
                       </div>
                       <img v-if="r.photoPath" :src="`${BASE()}/photo/${r.photoPath}`"
-                           class="mt-2 max-h-40 rounded-lg object-contain border border-stone-100 dark:border-stone-700" />
-                      <div class="flex items-center gap-2 mt-2 text-xs text-stone-300 dark:text-stone-600">
+                           class="mt-2 max-h-40 rounded-lg object-contain border border-light-c" />
+                      <div class="flex items-center gap-2 mt-2 text-xs text-hint-c">
                         <span v-if="r.createdAt">建立 {{ r.createdAt }}</span>
                         <span v-if="r.updatedAt && r.updatedAt !== r.createdAt"> · 更新 {{ r.updatedAt }}</span>
                       </div>
@@ -367,10 +367,10 @@ onUnmounted(() => {
 
     <!-- 新增/編輯 Modal -->
     <div v-if="showForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 max-h-[90vh] overflow-y-auto">
 
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ isEdit ? '編輯點鈔記錄' : '新增點鈔記錄' }}</h3>
+          <h3 class="font-bold text-base-c">{{ isEdit ? '編輯點鈔記錄' : '新增點鈔記錄' }}</h3>
           <!-- 草稿提示 -->
           <div v-if="hasDraft && !isEdit" class="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -381,81 +381,81 @@ onUnmounted(() => {
         <!-- 日期 + 備註（上下排列） -->
         <div class="space-y-3 mb-4">
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">日期</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">日期</label>
             <input type="date" v-model="form.date"
-                   class="w-full border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400" />
+                   class="w-full border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400" />
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">備註</label>
             <input type="text" v-model="form.note" placeholder="班別等"
-                   class="w-full border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 placeholder-stone-300 outline-none focus:ring-2 focus:ring-green-400" />
+                   class="w-full border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c placeholder-hint outline-none focus:ring-2 focus:ring-green-400" />
           </div>
         </div>
 
         <!-- 面額輸入 -->
-        <div class="rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden mb-4">
+        <div class="rounded-xl border border-light-c overflow-hidden mb-4">
           <table class="w-full text-sm">
             <thead>
-            <tr class="bg-stone-50 dark:bg-zinc-800">
-              <th class="text-left px-4 py-2 text-stone-400 font-normal">面額</th>
-              <th class="text-right px-4 py-2 text-stone-400 font-normal">數量</th>
-              <th class="text-right px-4 py-2 text-stone-400 font-normal">小計</th>
+            <tr class="bg-surface2">
+              <th class="text-left px-4 py-2 text-hint-c font-normal">面額</th>
+              <th class="text-right px-4 py-2 text-hint-c font-normal">數量</th>
+              <th class="text-right px-4 py-2 text-hint-c font-normal">小計</th>
             </tr>
             </thead>
             <tbody>
             <template v-for="(group, gi) in denomGroups" :key="gi">
-              <tr v-if="gi > 0"><td colspan="3" class="border-t-2 border-dashed border-stone-100 dark:border-stone-700"></td></tr>
-              <tr v-for="d in group" :key="d.value" class="border-t border-stone-50 dark:border-stone-700/50">
+              <tr v-if="gi > 0"><td colspan="3" class="border-t-2 border-dashed border-light-c"></td></tr>
+              <tr v-for="d in group" :key="d.value" class="border-t border-light-c /50">
                 <td class="px-4 py-2">
-                  <span class="inline-block bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 rounded px-2 py-0.5 text-xs font-medium">{{ d.label }}</span>
+                  <span class="inline-block bg-surface2 text-muted-c rounded px-2 py-0.5 text-xs font-medium">{{ d.label }}</span>
                 </td>
                 <td class="px-4 py-2 text-right">
                   <div class="flex items-center justify-end gap-1">
                     <button type="button"
                             @click="form.items[d.value] = Math.max(0, (Number(form.items[d.value]) || 0) - 1)"
-                            class="w-7 h-7 flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-600 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 transition-colors text-base leading-none select-none">−</button>
+                            class="w-7 h-7 flex items-center justify-center rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors text-base leading-none select-none">−</button>
                     <input type="number" min="0" v-model.number="form.items[d.value]"
-                           class="w-14 text-center border border-stone-200 dark:border-stone-600 rounded-lg px-1 py-1 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"
+                           class="w-14 text-center border border-light-c rounded-lg px-1 py-1 bg-surface text-muted-c outline-none focus:ring-2 focus:ring-green-400"
                            placeholder="0" />
                     <button type="button"
                             @click="form.items[d.value] = (Number(form.items[d.value]) || 0) + 1"
-                            class="w-7 h-7 flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-600 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 transition-colors text-base leading-none select-none">+</button>
+                            class="w-7 h-7 flex items-center justify-center rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors text-base leading-none select-none">+</button>
                   </div>
                 </td>
                 <td class="px-4 py-2 text-right font-medium"
-                    :class="subtotal(d.value) > 0 ? 'text-stone-800 dark:text-stone-100' : 'text-stone-300 dark:text-stone-600'">
+                    :class="subtotal(d.value) > 0 ? 'text-base-c' : 'text-hint-c'">
                   {{ subtotal(d.value) > 0 ? subtotal(d.value).toLocaleString() : '—' }}
                 </td>
               </tr>
             </template>
             </tbody>
           </table>
-          <div class="flex items-center justify-between px-4 py-3 bg-stone-50 dark:bg-zinc-800 border-t border-stone-100 dark:border-stone-700">
-            <span class="text-sm text-stone-500">總金額</span>
-            <span class="text-xl font-semibold text-stone-800 dark:text-stone-100">${{ total.toLocaleString() }}</span>
+          <div class="flex items-center justify-between px-4 py-3 bg-surface2 border-t border-light-c">
+            <span class="text-sm text-hint-c">總金額</span>
+            <span class="text-xl font-semibold text-base-c">${{ total.toLocaleString() }}</span>
           </div>
         </div>
 
         <!-- 照片上傳 -->
         <div class="mb-4">
-          <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">收銀機照片（選填）</label>
+          <label class="text-sm font-medium text-muted-c block mb-1">收銀機照片（選填）</label>
           <ClientOnly>
             <div
-              class="border border-dashed border-stone-200 dark:border-stone-600 rounded-xl p-4 text-center cursor-pointer hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors"
+              class="border border-dashed border-light-c rounded-xl p-4 text-center cursor-pointer hover-surface2/40 transition-colors"
               @click="triggerPhotoInput">
-              <div v-if="!photoPreview" class="text-sm text-stone-400">點擊上傳</div>
+              <div v-if="!photoPreview" class="text-sm text-hint-c">點擊上傳</div>
               <img v-else :src="photoPreview" class="mx-auto max-h-36 rounded-lg object-contain" />
             </div>
             <input ref="photoInputRef" type="file" accept="image/*" class="hidden" @change="handlePhotoSelect" />
             <button v-if="photoPreview" @click="clearPhoto"
-                    class="mt-1 text-xs text-stone-400 hover:text-red-400 transition-colors w-full text-center">移除照片</button>
+                    class="mt-1 text-xs text-hint-c hover:text-red-400 transition-colors w-full text-center">移除照片</button>
           </ClientOnly>
         </div>
 
         <!-- 按鈕 -->
         <div class="flex gap-2">
           <button @click="cancelForm"
-                  class="flex-1 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">取消</button>
+                  class="flex-1 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors">取消</button>
           <button @click="save" :disabled="saving"
                   class="flex-1 py-2.5 text-sm bg-green-700 hover:bg-green-800 disabled:bg-green-300 text-white rounded-xl font-medium transition-colors">
             {{ saving ? '儲存中...' : (isEdit ? '更新' : '儲存') }}
@@ -467,7 +467,7 @@ onUnmounted(() => {
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {{ toast.message }}
       </div>

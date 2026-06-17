@@ -1,14 +1,14 @@
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-full bg-surface2 transition-colors duration-300">
 
     <!-- ── Header ── -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-teal-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">產</div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">產品訂購管理</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Production Items</p>
+            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">產品訂購管理</h1>
+            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Production Items</p>
           </div>
         </div>
         <button v-if="perm.can('staff.product.edit')" @click="openModal(null)"
@@ -24,28 +24,28 @@
     <div class="max-w-7xl mx-auto px-3 sm:px-6 py-4">
 
       <!-- 載入中 -->
-      <div v-if="loading" class="flex items-center justify-center py-16 text-stone-400 gap-2">
+      <div v-if="loading" class="flex items-center justify-center py-16 text-hint-c gap-2">
         <div class="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
         載入中…
       </div>
 
       <!-- 無資料 -->
       <div v-else-if="itemList.length === 0"
-           class="text-center py-16 text-stone-400 text-sm">
+           class="text-center py-16 text-hint-c text-sm">
         尚無產品，點擊「新增產品」開始新增
       </div>
 
       <!-- 產品列表 -->
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <div v-for="item in itemList" :key="item.id"
-             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden flex gap-4 items-start p-4">
+             class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden flex gap-4 items-start p-4">
 
           <!-- 封面圖 -->
-          <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden bg-stone-100 dark:bg-zinc-800">
+          <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden bg-surface2">
             <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" :alt="item.name"
                  class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
                  @click="previewUrl = apiUrl(item.coverUrl)" />
-            <div v-else class="w-full h-full flex items-center justify-center text-stone-300">
+            <div v-else class="w-full h-full flex items-center justify-center text-hint-c">
               <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -56,13 +56,13 @@
           <!-- 內容 -->
           <div class="flex-1 min-w-0 flex flex-col gap-2">
             <div>
-              <p class="font-bold text-sm text-stone-800 dark:text-stone-100 truncate">{{ item.name }}</p>
-              <p class="text-xs text-stone-400 mt-0.5">排序：{{ item.sort }}</p>
+              <p class="font-bold text-sm text-base-c truncate">{{ item.name }}</p>
+              <p class="text-xs text-hint-c mt-0.5">排序：{{ item.sort }}</p>
               <a v-if="item.link" :href="item.link" target="_blank"
                  class="text-xs text-teal-600 dark:text-teal-400 mt-1 truncate block hover:underline">
                 🔗 {{ item.link }}
               </a>
-              <p v-else class="text-xs text-stone-300 mt-1">— 無連結</p>
+              <p v-else class="text-xs text-hint-c mt-1">— 無連結</p>
             </div>
             <div class="flex gap-1.5 mt-auto">
               <button @click="openModal(item)"
@@ -82,13 +82,13 @@
     <!-- ════════ 新增/編輯 Modal ════════ -->
     <div v-if="modal.show"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-b-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-screen sm:max-h-[92vh] overflow-y-auto">
+      <div class="bg-surface rounded-b-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-screen sm:max-h-[92vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">
+        <div class="px-5 py-4 border-b border-light-c flex items-center justify-between sticky top-0 bg-surface z-10">
+          <h3 class="font-bold text-base-c">
             {{ modal.isNew ? '新增產品' : '編輯產品' }}
           </h3>
-          <button @click="modal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <button @click="modal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -99,46 +99,46 @@
 
           <!-- 名稱 -->
           <div>
-            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">名稱 *</label>
+            <label class="text-xs font-semibold text-muted-c block mb-1">名稱 *</label>
             <input v-model="form.name" placeholder="產品名稱"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400" />
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400" />
           </div>
 
           <!-- 連結 + 排序 -->
           <div class="grid grid-cols-2 gap-3">
             <div class="col-span-2">
-              <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">連結（點擊另開新分頁）</label>
+              <label class="text-xs font-semibold text-muted-c block mb-1">連結（點擊另開新分頁）</label>
               <input v-model="form.link" placeholder="https://..."
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400" />
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400" />
             </div>
             <div>
-              <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">排序（小的排前面）</label>
+              <label class="text-xs font-semibold text-muted-c block mb-1">排序（小的排前面）</label>
               <input v-model.number="form.sort" type="number" min="0" placeholder="0"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400" />
+                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400" />
             </div>
           </div>
 
           <!-- 封面圖 -->
           <div>
-            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">封面圖</label>
+            <label class="text-xs font-semibold text-muted-c block mb-1">封面圖</label>
             <div v-if="form.coverPreview || form.coverUrl"
-                 class="relative w-full h-48 rounded-xl overflow-hidden mb-2 border border-stone-200 dark:border-stone-700 bg-stone-50">
+                 class="relative w-full h-48 rounded-xl overflow-hidden mb-2 border border-light-c bg-surface2">
               <img :src="form.coverPreview || apiUrl(form.coverUrl)" class="w-full h-full object-cover" />
               <button @click="removeCover"
                       class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">×</button>
             </div>
             <div @click="coverInputRef?.click()"
-                 class="border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 transition-colors">
-              <p class="text-sm text-stone-400">點擊上傳封面圖</p>
+                 class="border-2 border-dashed border-base rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 transition-colors">
+              <p class="text-sm text-hint-c">點擊上傳封面圖</p>
               <input ref="coverInputRef" type="file" accept="image/*" class="hidden" @change="handleCoverSelect" />
             </div>
           </div>
 
         </div>
 
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-zinc-900">
+        <div class="px-5 py-4 border-t border-light-c flex gap-2 justify-end sticky bottom-0 bg-surface">
           <button @click="modal.show = false"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             取消
           </button>
           <button @click="save" :disabled="saving"
@@ -159,7 +159,7 @@
     <!-- Toast -->
     <Transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>

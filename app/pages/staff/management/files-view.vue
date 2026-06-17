@@ -1,16 +1,16 @@
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900" @keydown.esc="exitSelectMode" tabindex="-1">
+  <div class="min-h-full bg-surface2" @keydown.esc="exitSelectMode" tabindex="-1">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3">
+    <header class="bg-surface border-b border-light-c px-4 py-3">
       <div class="flex items-center gap-3">
-        <button @click="sidebarOpen = !sidebarOpen" class="sm:hidden p-1.5 text-stone-500 hover:text-indigo-600 transition-colors flex-shrink-0">
+        <button @click="sidebarOpen = !sidebarOpen" class="sm:hidden p-1.5 text-hint-c hover:text-indigo-600 transition-colors flex-shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
         </button>
         <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">圖</div>
         <div class="flex-1 min-w-0">
-          <h1 class="font-bold text-stone-800 dark:text-stone-100 text-sm sm:text-base leading-none">資源管理庫</h1>
-          <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Resource Library</p>
+          <h1 class="font-bold text-base-c text-sm sm:text-base leading-none">資源管理庫</h1>
+          <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Resource Library</p>
         </div>
         <span :class="apiOnline ? 'text-green-600' : 'text-red-500'" class="text-xs flex items-center gap-1.5 font-medium">
           <span :class="apiOnline ? 'bg-green-500' : 'bg-red-400'" class="w-2 h-2 rounded-full"></span>
@@ -24,18 +24,18 @@
       <div v-if="sidebarOpen" class="fixed inset-0 bg-black/40 z-20 sm:hidden" @click="sidebarOpen = false"></div>
 
       <!-- 左側欄 -->
-      <aside :class="['flex-shrink-0 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 flex flex-col z-30 transition-transform duration-300',
-        'fixed top-0 bottom-0 left-0 w-64 sm:static sm:w-52 sm:translate-x-0',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0']">
+      <aside :class="['flex-shrink-0 bg-surface border-r border-light-c flex flex-col z-30 transition-transform duration-300',
+ 'fixed top-0 bottom-0 left-0 w-64 sm:static sm:w-52 sm:translate-x-0',
+ sidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0']">
         <div class="px-3 pt-3 pb-2 flex items-center justify-between">
-          <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">資料夾</span>
-          <button @click="openAddFolder(null)" class="p-1 text-stone-400 hover:text-indigo-600 transition-colors">
+          <span class="text-xs font-semibold text-hint-c uppercase tracking-wide">資料夾</span>
+          <button @click="openAddFolder(null)" class="p-1 text-hint-c hover:text-indigo-600 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           </button>
         </div>
         <div class="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
           <button @click="selectFolder('全部')"
-                  :class="selectedPath === '全部' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium' : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-zinc-800'"
+                  :class="selectedPath === '全部' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium' : 'text-muted-c hover-surface2'"
                   class="w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center gap-2 mb-0.5">
             <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
             全部
@@ -52,24 +52,24 @@
       <main class="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         <!-- 工具列 -->
-        <div class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-2.5 flex items-center gap-3 flex-wrap">
+        <div class="bg-surface border-b border-light-c px-4 py-2.5 flex items-center gap-3 flex-wrap">
           <div class="relative flex-1 min-w-40 max-w-xs">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
-            <input v-model="searchText" placeholder="搜尋檔案…" class="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-indigo-400" />
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+            <input v-model="searchText" placeholder="搜尋檔案…" class="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
-          <div class="flex bg-stone-100 dark:bg-zinc-800 rounded-lg p-0.5 gap-0.5">
-            <button @click="viewMode='grid'" :class="viewMode==='grid'?'bg-white dark:bg-zinc-700 shadow-sm text-stone-700 dark:text-stone-100':'text-stone-400'" class="p-1.5 rounded-md transition-all">
+          <div class="flex bg-surface2 rounded-lg p-0.5 gap-0.5">
+            <button @click="viewMode='grid'" :class="viewMode==='grid'?'bg-surface shadow-sm text-muted-c':'text-hint-c'" class="p-1.5 rounded-md transition-all">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
             </button>
-            <button @click="viewMode='list'" :class="viewMode==='list'?'bg-white dark:bg-zinc-700 shadow-sm text-stone-700 dark:text-stone-100':'text-stone-400'" class="p-1.5 rounded-md transition-all">
+            <button @click="viewMode='list'" :class="viewMode==='list'?'bg-surface shadow-sm text-muted-c':'text-hint-c'" class="p-1.5 rounded-md transition-all">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
             </button>
           </div>
-          <div class="text-xs text-stone-400 hidden sm:block">
+          <div class="text-xs text-hint-c hidden sm:block">
             {{ selectedPath === '全部' ? '全部' : String(selectedPath).replace(/\//g, ' / ') }} · {{ filteredImages.length }} 個
           </div>
           <button @click="toggleSelectMode"
-                  :class="selectMode ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-300' : 'text-stone-500 border-stone-200 dark:border-stone-700'"
+                  :class="selectMode ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-300' : 'text-hint-c border-light-c'"
                   class="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             多選
@@ -89,12 +89,12 @@
           <span class="text-xs text-indigo-600 dark:text-indigo-400 font-medium">已選 {{ selTick >= 0 && selected.size }} 個</span>
           <div class="flex gap-2 ml-auto flex-wrap">
             <button @click="batchDownload" :disabled="selected.size === 0"
-                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 disabled:opacity-40 transition-colors">
+                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface border border-light-c text-muted-c rounded-lg hover:bg-surface2 disabled:opacity-40 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               下載
             </button>
             <button v-if="perm.can('staff.image.edit')" @click="batchMove" :disabled="selected.size === 0"
-                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 disabled:opacity-40 transition-colors">
+                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface border border-light-c text-muted-c rounded-lg hover:bg-surface2 disabled:opacity-40 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
               移動
             </button>
@@ -103,7 +103,7 @@
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               刪除{{ selected.size > 0 ? ' ' + selected.size + ' 個' : '' }}
             </button>
-            <button @click="exitSelectMode" class="text-xs text-stone-400 hover:text-stone-600 px-2">取消</button>
+            <button @click="exitSelectMode" class="text-xs text-hint-c hover:text-muted-c px-2">取消</button>
           </div>
         </div>
 
@@ -125,10 +125,10 @@
             <p class="text-indigo-600 dark:text-indigo-400 font-semibold">放開以上傳到「{{ selectedPath === '全部' ? '未分類' : selectedPath }}」</p>
           </div>
 
-          <div v-if="loading" class="flex items-center justify-center py-16 text-stone-400 gap-2">
+          <div v-if="loading" class="flex items-center justify-center py-16 text-hint-c gap-2">
             <div class="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div> 載入中…
           </div>
-          <div v-else-if="filteredImages.length === 0" class="flex flex-col items-center justify-center py-20 text-stone-400">
+          <div v-else-if="filteredImages.length === 0" class="flex flex-col items-center justify-center py-20 text-hint-c">
             <svg class="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             <p class="text-sm">{{ searchText ? '找不到符合的檔案' : '這裡還沒有檔案' }}</p>
           </div>
@@ -146,11 +146,11 @@
 
             <div v-for="img in filteredImages" :key="imgKey(img)"
                  :data-key="imgKey(img)"
-                 :class="['group relative bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden border shadow-sm transition-all',
-                selTick >= 0 && isSelected(img)
-                  ? 'border-indigo-500 ring-2 ring-indigo-400'
-                  : 'border-stone-200 dark:border-stone-700 hover:shadow-md hover:-translate-y-0.5',
-                selectMode ? 'cursor-pointer' : 'cursor-pointer']"
+                 :class="['group relative bg-surface rounded-2xl overflow-hidden border shadow-sm transition-all',
+ selTick >= 0 && isSelected(img)
+ ? 'border-indigo-500 ring-2 ring-indigo-400'
+ : 'border-light-c hover:shadow-md hover:-translate-y-0.5',
+ selectMode ? 'cursor-pointer' : 'cursor-pointer']"
                  draggable="true"
                  @dragstart="!selectMode && onDragStart(img)"
                  @dragend="dragging = null"
@@ -160,39 +160,39 @@
               <!-- 勾選圈（多選模式 or 已選） -->
               <div v-if="selectMode" class="absolute top-2 left-2 z-10" @click.stop="toggleSelect(img)">
                 <div :class="['w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all',
-                  selTick >= 0 && isSelected(img) ? 'bg-indigo-600 border-indigo-600' : 'bg-white/80 border-stone-300']">
+ selTick >= 0 && isSelected(img) ? 'bg-indigo-600 border-indigo-600' : 'bg-surface/80 border-base']">
                   <svg v-if="selTick >= 0 && isSelected(img)" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                 </div>
               </div>
 
-              <div class="aspect-square overflow-hidden bg-stone-100 dark:bg-zinc-700 flex items-center justify-center">
+              <div class="aspect-square overflow-hidden bg-surface2 flex items-center justify-center">
                 <img v-if="isImage(img.fileName)" :src="imgUrl(img.thumbUrl || img.url)" :alt="img.originalName" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                 <img v-else-if="img.coverUrl" :src="imgUrl(img.coverUrl)" :alt="img.originalName" class="w-full h-full object-cover" loading="lazy" />
                 <div v-else class="flex flex-col items-center gap-2 p-4">
                   <span class="text-4xl">{{ fileEmoji(img.fileName) }}</span>
-                  <span class="text-xs font-bold uppercase text-stone-500">{{ fileExt(img.fileName) }}</span>
+                  <span class="text-xs font-bold uppercase text-hint-c">{{ fileExt(img.fileName) }}</span>
                 </div>
               </div>
               <div class="px-2 py-1.5">
-                <p class="text-xs text-stone-600 dark:text-stone-300 truncate font-medium">{{ img.displayName || img.originalName }}</p>
-                <p v-if="img.displayName" class="text-xs text-stone-400 truncate">{{ img.originalName }}</p>
-                <p class="text-xs text-stone-400 mt-0.5">{{ formatSize(img.size) }}</p>
+                <p class="text-xs text-muted-c truncate font-medium">{{ img.displayName || img.originalName }}</p>
+                <p v-if="img.displayName" class="text-xs text-hint-c truncate">{{ img.originalName }}</p>
+                <p class="text-xs text-hint-c mt-0.5">{{ formatSize(img.size) }}</p>
               </div>
               <!-- 桌機 hover 操作（非多選模式） -->
               <div v-if="!selectMode" class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all rounded-2xl items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 hidden sm:flex">
-                <button @click.stop="copyUrl(img)" class="p-2 bg-white/90 hover:bg-white rounded-xl text-stone-700 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
-                <a :href="imgUrl(img.url)" :download="img.originalName" @click.stop class="p-2 bg-white/90 hover:bg-indigo-50 rounded-xl text-indigo-600 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></a>
-                <button @click.stop="openMoveModal(img)" class="p-2 bg-white/90 hover:bg-indigo-50 rounded-xl text-indigo-500 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></button>
-                <button @click.stop="openEditModal(img)" class="p-2 bg-white/90 hover:bg-amber-50 rounded-xl text-amber-600 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                <button @click.stop="confirmDelete(img)" class="p-2 bg-white/90 hover:bg-red-50 rounded-xl text-red-500 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                <button @click.stop="copyUrl(img)" class="p-2 bg-surface/90 hover:bg-surface rounded-xl text-muted-c transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+                <a :href="imgUrl(img.url)" :download="img.originalName" @click.stop class="p-2 bg-surface/90 hover:bg-indigo-50 rounded-xl text-indigo-600 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></a>
+                <button @click.stop="openMoveModal(img)" class="p-2 bg-surface/90 hover:bg-indigo-50 rounded-xl text-indigo-500 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></button>
+                <button @click.stop="openEditModal(img)" class="p-2 bg-surface/90 hover:bg-amber-50 rounded-xl text-amber-600 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                <button @click.stop="confirmDelete(img)" class="p-2 bg-surface/90 hover:bg-red-50 rounded-xl text-red-500 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
               </div>
             </div>
           </div>
 
           <!-- 列表 -->
-          <div v-else class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 overflow-hidden shadow-sm">
+          <div v-else class="bg-surface rounded-2xl border border-light-c overflow-hidden shadow-sm">
             <table class="w-full text-sm">
-              <thead class="bg-stone-50 dark:bg-zinc-800 text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wide">
+              <thead class="bg-surface2 text-xs text-hint-c uppercase tracking-wide">
               <tr>
                 <th class="px-3 py-3 w-10">
                   <input v-if="selectMode" type="checkbox"
@@ -206,9 +206,9 @@
                 <th v-if="!selectMode" class="px-4 py-3 text-center">操作</th>
               </tr>
               </thead>
-              <tbody class="divide-y divide-stone-100 dark:divide-stone-700">
+              <tbody class="divide-y divide-base">
               <tr v-for="img in filteredImages" :key="imgKey(img)"
-                  :class="['transition-colors cursor-pointer', selTick >= 0 && isSelected(img) ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-stone-50 dark:hover:bg-zinc-700/30']"
+                  :class="['transition-colors cursor-pointer', selTick >= 0 && isSelected(img) ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover-surface2/30']"
                   @click="selectMode ? toggleSelect(img) : null">
                 <td class="px-3 py-2">
                   <input type="checkbox" :checked="selTick >= 0 && isSelected(img)"
@@ -217,25 +217,25 @@
                          :class="selectMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'" />
                 </td>
                 <td class="px-4 py-2">
-                  <div class="w-12 h-12 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden flex items-center justify-center bg-stone-100 dark:bg-zinc-800 cursor-pointer" @click.stop="!selectMode && (previewImg = img)">
+                  <div class="w-12 h-12 rounded-xl border border-light-c overflow-hidden flex items-center justify-center bg-surface2 cursor-pointer" @click.stop="!selectMode && (previewImg = img)">
                     <img v-if="isImage(img.fileName)" :src="imgUrl(img.thumbUrl || img.url)" :alt="img.originalName" class="w-full h-full object-cover" loading="lazy" />
                     <img v-else-if="img.coverUrl" :src="imgUrl(img.coverUrl)" class="w-full h-full object-cover" loading="lazy" />
                     <span v-else class="text-2xl">{{ fileEmoji(img.fileName) }}</span>
                   </div>
                 </td>
                 <td class="px-4 py-2">
-                  <p class="font-medium text-stone-800 dark:text-stone-100 truncate max-w-48">{{ img.displayName || img.originalName }}</p>
-                  <p v-if="img.displayName" class="text-xs text-stone-400 truncate max-w-48">{{ img.originalName }}</p>
+                  <p class="font-medium text-base-c truncate max-w-48">{{ img.displayName || img.originalName }}</p>
+                  <p v-if="img.displayName" class="text-xs text-hint-c truncate max-w-48">{{ img.originalName }}</p>
                 </td>
                 <td class="px-4 py-2 hidden sm:table-cell"><span class="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">{{ img.folder }}</span></td>
-                <td class="px-4 py-2 text-center text-stone-500 hidden md:table-cell">{{ formatSize(img.size) }}</td>
+                <td class="px-4 py-2 text-center text-hint-c hidden md:table-cell">{{ formatSize(img.size) }}</td>
                 <td v-if="!selectMode" class="px-4 py-2">
                   <div class="flex items-center justify-center gap-1">
-                    <button @click.stop="copyUrl(img)" class="p-1.5 text-stone-400 hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
-                    <a :href="imgUrl(img.url)" :download="img.originalName" class="p-1.5 text-stone-400 hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></a>
-                    <button @click.stop="openMoveModal(img)" class="p-1.5 text-stone-400 hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></button>
-                    <button @click.stop="openEditModal(img)" class="p-1.5 text-stone-400 hover:text-amber-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                    <button @click.stop="confirmDelete(img)" class="p-1.5 text-stone-300 hover:text-red-400 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                    <button @click.stop="copyUrl(img)" class="p-1.5 text-hint-c hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+                    <a :href="imgUrl(img.url)" :download="img.originalName" class="p-1.5 text-hint-c hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></a>
+                    <button @click.stop="openMoveModal(img)" class="p-1.5 text-hint-c hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></button>
+                    <button @click.stop="openEditModal(img)" class="p-1.5 text-hint-c hover:text-amber-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                    <button @click.stop="confirmDelete(img)" class="p-1.5 text-hint-c hover:text-red-400 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                   </div>
                 </td>
               </tr>
@@ -248,23 +248,23 @@
 
     <!-- 大圖預覽 -->
     <div v-if="previewImg" class="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4" @click.self="previewImg = null">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-stone-200 dark:border-stone-700">
+      <div class="bg-surface rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-light-c">
           <div class="flex-1 min-w-0">
-            <p class="font-semibold text-stone-800 dark:text-stone-100 truncate">{{ previewImg.displayName || previewImg.originalName }}</p>
-            <p class="text-xs text-stone-400 mt-0.5">{{ previewImg.folder }} · {{ formatSize(previewImg.size) }}</p>
+            <p class="font-semibold text-base-c truncate">{{ previewImg.displayName || previewImg.originalName }}</p>
+            <p class="text-xs text-hint-c mt-0.5">{{ previewImg.folder }} · {{ formatSize(previewImg.size) }}</p>
           </div>
           <div class="flex items-center gap-2 ml-4">
             <button @click="copyUrl(previewImg)" class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>複製連結
             </button>
-            <a :href="imgUrl(previewImg.url)" :download="previewImg.originalName" class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-stone-100 dark:bg-zinc-700 text-stone-700 dark:text-stone-200 rounded-lg hover:bg-stone-200 transition-colors">
+            <a :href="imgUrl(previewImg.url)" :download="previewImg.originalName" class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface2 text-base-c rounded-lg hover:bg-surface2 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>下載
             </a>
-            <button @click="previewImg = null" class="p-1.5 text-stone-400 hover:text-stone-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            <button @click="previewImg = null" class="p-1.5 text-hint-c hover:text-muted-c"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
           </div>
         </div>
-        <div class="flex-1 overflow-auto p-4 flex items-center justify-center bg-stone-50 dark:bg-zinc-800">
+        <div class="flex-1 overflow-auto p-4 flex items-center justify-center bg-surface2">
           <img v-if="isImage(previewImg.fileName)" :src="imgUrl(previewImg.url)" :alt="previewImg.originalName" class="max-w-full max-h-[60vh] object-contain rounded-xl" />
           <div v-else-if="previewImg.coverUrl" class="flex flex-col items-center gap-4">
             <img :src="imgUrl(previewImg.coverUrl)" class="max-w-full max-h-[55vh] object-contain rounded-xl shadow-md" />
@@ -275,13 +275,13 @@
             <a :href="imgUrl(previewImg.url)" :download="previewImg.originalName" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">下載檔案</a>
           </div>
         </div>
-        <div class="px-4 py-3 border-t border-stone-200 dark:border-stone-700 flex items-center gap-2">
-          <input :value="fullUrl(previewImg.url)" readonly class="flex-1 text-xs font-mono bg-stone-100 dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-2 text-stone-600 dark:text-stone-300 outline-none" />
-          <button @click="copyUrl(previewImg)" class="px-3 py-2 text-xs bg-stone-200 dark:bg-zinc-700 text-stone-700 dark:text-stone-200 rounded-lg hover:bg-stone-300 flex-shrink-0">{{ copied ? '✓ 已複製' : '複製' }}</button>
+        <div class="px-4 py-3 border-t border-light-c flex items-center gap-2">
+          <input :value="fullUrl(previewImg.url)" readonly class="flex-1 text-xs font-mono bg-surface2 border border-light-c rounded-lg px-3 py-2 text-muted-c outline-none" />
+          <button @click="copyUrl(previewImg)" class="px-3 py-2 text-xs bg-surface2 text-base-c rounded-lg hover:bg-surface2 flex-shrink-0">{{ copied ? '✓ 已複製' : '複製' }}</button>
         </div>
         <!-- 手機操作列 -->
-        <div class="sm:hidden px-4 py-3 border-t border-stone-200 dark:border-stone-700 flex items-center justify-around">
-          <button @click="openMoveModal(previewImg); previewImg = null" class="flex flex-col items-center gap-1 text-xs text-stone-500 px-3 py-2">
+        <div class="sm:hidden px-4 py-3 border-t border-light-c flex items-center justify-around">
+          <button @click="openMoveModal(previewImg); previewImg = null" class="flex flex-col items-center gap-1 text-xs text-hint-c px-3 py-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>移動
           </button>
           <button @click="openEditModal(previewImg); previewImg = null" class="flex flex-col items-center gap-1 text-xs text-amber-600 px-3 py-2">
@@ -296,27 +296,27 @@
 
     <!-- 編輯 Modal -->
     <div v-if="editModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-5">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">編輯檔案</h3>
-          <button @click="editModal.show = false" class="text-stone-400 hover:text-stone-600 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          <h3 class="font-bold text-base-c">編輯檔案</h3>
+          <button @click="editModal.show = false" class="text-hint-c hover:text-muted-c p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
         </div>
-        <p class="text-xs text-stone-400 mb-3 truncate">原始檔名：{{ editModal.img?.originalName }}</p>
+        <p class="text-xs text-hint-c mb-3 truncate">原始檔名：{{ editModal.img?.originalName }}</p>
         <div class="mb-4">
-          <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">顯示名稱</label>
+          <label class="text-sm font-medium text-muted-c block mb-1">顯示名稱</label>
           <input v-model="editModal.displayName" :placeholder="editModal.img?.originalName"
-                 class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400" />
-          <p class="text-xs text-stone-400 mt-1">留空則使用原始檔名</p>
+                 class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-amber-400" />
+          <p class="text-xs text-hint-c mt-1">留空則使用原始檔名</p>
         </div>
         <div v-if="editModal.img && !isImage(editModal.img.fileName)" class="mb-4">
-          <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-2">封面圖</label>
+          <label class="text-sm font-medium text-muted-c block mb-2">封面圖</label>
           <div class="flex items-start gap-3">
-            <div class="w-20 h-20 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-700 overflow-hidden flex items-center justify-center bg-stone-50 dark:bg-zinc-800 flex-shrink-0">
+            <div class="w-20 h-20 rounded-xl border-2 border-dashed border-light-c overflow-hidden flex items-center justify-center bg-surface2 flex-shrink-0">
               <img v-if="editModal.coverPreview || (editModal.img?.coverUrl && !editModal.removeCover)" :src="editModal.coverPreview || imgUrl(editModal.img.coverUrl)" class="w-full h-full object-cover" />
               <span v-else class="text-3xl">{{ fileEmoji(editModal.img?.fileName) }}</span>
             </div>
             <div class="flex-1 space-y-2">
-              <label class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-lg cursor-pointer w-fit">
+              <label class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface2 text-muted-c rounded-lg cursor-pointer w-fit">
                 選擇封面圖 <input type="file" accept="image/*" class="hidden" @change="onCoverSelect" />
               </label>
               <button v-if="(editModal.img?.coverUrl && !editModal.removeCover) || editModal.coverPreview"
@@ -326,7 +326,7 @@
           </div>
         </div>
         <div class="flex gap-2">
-          <button @click="editModal.show = false" class="flex-1 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50">取消</button>
+          <button @click="editModal.show = false" class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2">取消</button>
           <button @click="saveEdit" class="flex-1 py-2 text-sm bg-amber-500 text-white rounded-xl hover:bg-amber-600">儲存</button>
         </div>
       </div>
@@ -334,13 +334,13 @@
 
     <!-- 重新命名資料夾 Modal -->
     <div v-if="renameFolderModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-5">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-1">重新命名資料夾</h3>
-        <p class="text-xs text-stone-400 mb-4">原名稱：{{ renameFolderModal.oldName }}</p>
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-5">
+        <h3 class="font-bold text-base-c mb-1">重新命名資料夾</h3>
+        <p class="text-xs text-hint-c mb-4">原名稱：{{ renameFolderModal.oldName }}</p>
         <input v-model="renameFolderModal.newName" placeholder="新名稱" @keydown.enter="doRenameFolder"
-               class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-400 mb-4" />
+               class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-amber-400 mb-4" />
         <div class="flex gap-2">
-          <button @click="renameFolderModal.show = false" class="flex-1 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 rounded-xl hover:bg-stone-50">取消</button>
+          <button @click="renameFolderModal.show = false" class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2">取消</button>
           <button @click="doRenameFolder" :disabled="!renameFolderModal.newName.trim()" class="flex-1 py-2 text-sm bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-50">重新命名</button>
         </div>
       </div>
@@ -348,12 +348,12 @@
 
     <!-- 新增資料夾 Modal -->
     <div v-if="addFolderModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-5">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-4">{{ addFolderModal.parent ? `在「${addFolderModal.parent}」下新增子資料夾` : '新增資料夾' }}</h3>
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-5">
+        <h3 class="font-bold text-base-c mb-4">{{ addFolderModal.parent ? `在「${addFolderModal.parent}」下新增子資料夾` : '新增資料夾' }}</h3>
         <input v-model="addFolderModal.name" placeholder="資料夾名稱" @keydown.enter="addFolder"
-               class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-indigo-400 mb-4" />
+               class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-indigo-400 mb-4" />
         <div class="flex gap-2">
-          <button @click="addFolderModal.show = false" class="flex-1 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 rounded-xl hover:bg-stone-50">取消</button>
+          <button @click="addFolderModal.show = false" class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2">取消</button>
           <button @click="addFolder" :disabled="!addFolderModal.name.trim()" class="flex-1 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">建立</button>
         </div>
       </div>
@@ -361,23 +361,23 @@
 
     <!-- 移動 Modal（單個 + 批次共用） -->
     <div v-if="moveModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-5">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-5">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ moveModal.isBatch ? `移動 ${selected.size} 個檔案` : '移動檔案' }}</h3>
-          <button @click="moveModal.show = false" class="text-stone-400 hover:text-stone-600 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          <h3 class="font-bold text-base-c">{{ moveModal.isBatch ? `移動 ${selected.size} 個檔案` : '移動檔案' }}</h3>
+          <button @click="moveModal.show = false" class="text-hint-c hover:text-muted-c p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
         </div>
-        <p v-if="!moveModal.isBatch" class="text-sm text-stone-500 mb-4 truncate">{{ moveModal.img?.originalName }}</p>
+        <p v-if="!moveModal.isBatch" class="text-sm text-hint-c mb-4 truncate">{{ moveModal.img?.originalName }}</p>
         <div class="space-y-1 max-h-56 overflow-y-auto mb-4">
           <button v-for="path in allFolderPaths" :key="path"
                   @click="moveModal.target = path"
-                  :class="moveModal.target === path ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 text-indigo-700' : 'border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-zinc-800'"
+                  :class="moveModal.target === path ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 text-indigo-700' : 'border-light-c text-base-c hover-surface2'"
                   class="w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-colors text-left">
             <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
             {{ path }}
           </button>
         </div>
         <div class="flex gap-2">
-          <button @click="moveModal.show = false" class="flex-1 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 rounded-xl hover:bg-stone-50">取消</button>
+          <button @click="moveModal.show = false" class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2">取消</button>
           <button @click="doMove" :disabled="!moveModal.target" class="flex-1 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">移動</button>
         </div>
       </div>
@@ -385,7 +385,7 @@
 
     <!-- Toast -->
     <transition name="fade">
-      <div v-if="toast.show" class="fixed bottom-6 right-6 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+      <div v-if="toast.show" class="fixed bottom-6 right-6 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {{ toast.message }}
       </div>

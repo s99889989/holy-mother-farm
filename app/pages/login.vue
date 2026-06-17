@@ -58,86 +58,72 @@
 </script>
 
 <template>
-  <div class="min-h-screen bg-stone-100 dark:bg-zinc-950 transition-colors flex flex-col">
+  <div class="login-wrapper">
     <!-- Navbar -->
-    <nav class="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-700 px-4 py-2">
-      <div class="flex items-center gap-2">
+    <nav class="login-nav">
+      <div class="login-nav-inner">
         <img
           src="/images/global/healthfarm_logo.png"
           alt="台東聖母健康農莊"
           class="h-7 w-auto dark:brightness-90"
         >
-        <span class="font-bold text-stone-700 dark:text-stone-200 text-sm">台東聖母健康農莊</span>
-        <span class="text-stone-300 dark:text-stone-600 text-sm ml-1">系統登入</span>
+        <span class="login-nav-title">台東聖母健康農莊</span>
+        <span class="login-nav-sub">系統登入</span>
       </div>
     </nav>
 
     <!-- 主體 -->
-    <div v-if="!loggedIn" class="flex-1 flex items-center justify-center px-4 py-12">
-      <div class="w-full max-w-sm">
+    <div v-if="!loggedIn" class="login-main">
+      <div class="login-card-wrap">
         <!-- 卡片 -->
-        <div
-          class="bg-white dark:bg-stone-900 rounded-xl shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden"
-        >
-          <div class="p-8">
-            <div class="flex items-center gap-2 mb-6">
-              <div
-                class="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-              >
+        <div class="login-card">
+          <div class="login-card-body">
+            <div class="login-card-header">
+              <div class="login-avatar">
                 管
               </div>
               <div>
-                <h2 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm">
+                <h2 class="login-title">
                   管理員登入
                 </h2>
-                <p class="text-xs text-stone-400 mt-0.5">
+                <p class="login-subtitle">
                   Admin Login
                 </p>
               </div>
             </div>
 
-            <div class="space-y-4">
+            <div class="login-form">
               <div>
-                <label class="block text-sm font-medium text-stone-600 dark:text-stone-300 mb-1.5">帳號</label>
+                <label class="login-label">帳號</label>
                 <input
                   v-model="username"
                   type="text"
                   placeholder="請輸入帳號"
-                  class="w-full px-4 py-2.5 rounded-lg border text-sm text-stone-800 dark:text-stone-100 dark:bg-stone-800 outline-none transition-all"
-                  :class="error
-                    ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
-                    : 'border-stone-200 dark:border-stone-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30'"
+                  class="login-input"
+                  :class="{ 'login-input-error': error }"
                   @keydown.enter="login"
                 >
               </div>
               <div>
-                <label class="block text-sm font-medium text-stone-600 dark:text-stone-300 mb-1.5">密碼</label>
+                <label class="login-label">密碼</label>
                 <input
                   v-model="password"
                   type="password"
                   placeholder="請輸入密碼"
-                  class="w-full px-4 py-2.5 rounded-lg border text-sm text-stone-800 dark:text-stone-100 dark:bg-stone-800 outline-none transition-all"
-                  :class="error
-                    ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
-                    : 'border-stone-200 dark:border-stone-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30'"
+                  class="login-input"
+                  :class="{ 'login-input-error': error }"
                   @keydown.enter="login"
                 >
               </div>
-              <p
-                v-if="error"
-                class="text-sm text-red-500 dark:text-red-400 text-center"
-              >
+              <p v-if="error" class="login-error">
                 {{ error }}
               </p>
               <button
                 :disabled="loading"
-                class="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                class="login-btn"
                 @click="login"
               >
-                <div
-                  v-if="loading"
-                  class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
-                />
+                <div v-if="loading" class="login-spinner" />
                 {{ loading ? '登入中…' : '登入' }}
               </button>
             </div>
@@ -145,12 +131,8 @@
         </div>
 
         <!-- 回前台 -->
-        <div class="text-center mt-5">
-          <NuxtLink
-            to="/"
-            :prefetch="false"
-            class="text-sm text-stone-400 dark:text-stone-500 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-          >
+        <div class="login-back">
+          <NuxtLink to="/" :prefetch="false" class="login-back-link">
             ← 回到農莊網站
           </NuxtLink>
         </div>
@@ -158,3 +140,199 @@
     </div>
   </div>
 </template>
+
+<style scoped>
+.login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.login-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-light);
+  padding: 8px 16px;
+}
+
+.login-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-nav-title {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.login-nav-sub {
+  color: var(--text-hint);
+  font-size: 14px;
+  margin-left: 4px;
+}
+
+.login-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.login-card-wrap {
+  width: 100%;
+  max-width: 384px;
+}
+
+.login-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.login-card-body {
+  padding: 32px;
+}
+
+.login-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.login-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.login-title {
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  font-size: 14px;
+  margin: 0;
+}
+
+.login-subtitle {
+  font-size: 12px;
+  color: var(--text-hint);
+  margin: 2px 0 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.login-input {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.login-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.login-input-error {
+  border-color: #f87171;
+  background: #fef2f2;
+}
+
+html.dark .login-input-error {
+  border-color: #b91c1c;
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.login-error {
+  font-size: 14px;
+  color: #ef4444;
+  text-align: center;
+  margin: 0;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.login-btn:hover {
+  opacity: 0.9;
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.login-back {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.login-back-link {
+  font-size: 14px;
+  color: var(--text-hint);
+  transition: color 0.2s;
+}
+
+.login-back-link:hover {
+  color: var(--accent);
+}
+</style>

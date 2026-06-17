@@ -90,7 +90,7 @@ const changePassword = async () => {
 </script>
 
 <template>
-  <div class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+  <div class="bg-surface border-b border-light-c px-4 py-2">
     <div class="flex items-center gap-2">
 
       <!-- 導覽連結 -->
@@ -101,15 +101,15 @@ const changePassword = async () => {
           :to="item.to"
           class="px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap"
           :class="route.path.startsWith(item.to)
-            ? 'bg-blue-700 text-white dark:bg-transparent dark:text-blue-400'
-            : 'text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white'"
+ ? 'bg-blue-700 text-white dark:bg-transparent dark:text-blue-400'
+ : 'text-muted-c dark:text-hint-c hover-surface2 dark:hover:text-white'"
         >
           {{ item.label }}
         </NuxtLink>
       </nav>
       <!-- 開燈 / 關燈 -->
       <button
-        class="p-1.5 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
+        class="p-1.5 rounded text-hint-c hover-surface2 transition-colors"
         :title="isDark ? '開燈' : '關燈'"
         @click="toggleDark"
       >
@@ -141,14 +141,14 @@ const changePassword = async () => {
         >
           <div
             v-if="menuOpen"
-            class="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg w-36"
+            class="absolute right-0 top-full mt-1 z-50 bg-surface border border-light-c rounded-lg shadow-lg w-36"
           >
             <ul class="p-1">
               <li>
                 <a
                   href="/"
                   target="_blank"
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-muted-c hover-surface2 transition-colors"
                   @click="closeMenu"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,7 +162,7 @@ const changePassword = async () => {
                 <a
                   href="/staff/home"
                   target="_blank"
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-muted-c hover-surface2 transition-colors"
                   @click="closeMenu"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,9 +172,9 @@ const changePassword = async () => {
                   員工專區
                 </a>
               </li>
-              <li class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
+              <li class="border-t border-light-c mt-1 pt-1">
                 <button
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-muted-c hover-surface2 transition-colors"
                   @click="openPwModal"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -208,10 +208,10 @@ const changePassword = async () => {
     v-if="pwModal"
     class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
   >
-    <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
+    <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6">
       <div class="flex items-center justify-between mb-5">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100">修改密碼</h3>
-        <button class="text-stone-400 hover:text-stone-600 p-1" @click="pwModal = false">
+        <h3 class="font-bold text-base-c">修改密碼</h3>
+        <button class="text-hint-c hover:text-muted-c p-1" @click="pwModal = false">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -223,25 +223,25 @@ const changePassword = async () => {
       </div>
       <div v-else class="space-y-4">
         <div>
-          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">舊密碼</label>
+          <label class="text-xs font-semibold text-muted-c block mb-1">舊密碼</label>
           <input v-model="pwForm.oldPassword" type="password" placeholder="請輸入舊密碼"
-                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
         </div>
         <div>
-          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">新密碼</label>
+          <label class="text-xs font-semibold text-muted-c block mb-1">新密碼</label>
           <input v-model="pwForm.newPassword" type="password" placeholder="請輸入新密碼"
-                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400">
+                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400">
         </div>
         <div>
-          <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">確認新密碼</label>
+          <label class="text-xs font-semibold text-muted-c block mb-1">確認新密碼</label>
           <input v-model="pwForm.confirm" type="password" placeholder="再次輸入新密碼"
-                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-teal-400"
+                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400"
                  @keydown.enter="changePassword">
         </div>
         <p v-if="pwError" class="text-xs text-red-500">{{ pwError }}</p>
         <div class="flex gap-2 pt-1">
           <button
-            class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors"
+            class="flex-1 py-2.5 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors"
             @click="pwModal = false"
           >取消
           </button>

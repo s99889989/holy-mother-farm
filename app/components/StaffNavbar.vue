@@ -1,11 +1,11 @@
 <template>
-  <nav class="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-700 px-3 py-1.5 sticky top-0 z-50">
+  <nav class="staff-nav">
     <!-- 桌機 -->
     <div class="hidden lg:flex items-center gap-0.5">
       <!-- Logo -->
       <NuxtLink
         to="/staff/home"
-        class="flex items-center gap-1 px-2 py-1 mr-1 text-green-700 dark:text-green-400 font-bold text-lg"
+        class="nav-logo flex items-center gap-1 px-2 py-1 mr-1 font-bold text-lg"
       >
         🏠 首頁
       </NuxtLink>
@@ -17,10 +17,8 @@
         class="relative nav-dropdown-wrap"
       >
         <button
-          class="flex items-center gap-1 px-2 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
-          :class="activeGroup?.label === group.label
-            ? 'text-green-700 dark:text-green-400'
-            : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'"
+          class="nav-item flex items-center gap-1 px-2 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
+          :class="activeGroup?.label === group.label ? 'nav-item-active' : 'nav-item-inactive'"
           @click.stop="toggleDrop(group.label)"
         >
           {{ group.label }}
@@ -49,7 +47,7 @@
         >
           <div
             v-if="dropOpen[group.label]"
-            class="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg min-w-[140px]"
+            class="nav-dropdown absolute top-full left-0 mt-1 z-50 rounded-lg min-w-[140px]"
           >
             <ul class="p-1.5">
               <li
@@ -58,10 +56,8 @@
               >
                 <NuxtLink
                   :to="item.to"
-                  class="flex items-center gap-2 px-3 py-1.5 rounded text-lg font-medium transition-colors whitespace-nowrap"
-                  :class="route.path.startsWith(item.to)
-                    ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950'
-                    : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'"
+                  class="nav-item flex items-center gap-2 px-3 py-1.5 rounded text-lg font-medium transition-colors whitespace-nowrap"
+                  :class="route.path.startsWith(item.to) ? 'nav-item-active nav-item-active-bg' : 'nav-item-inactive'"
                 >
                   <span v-if="item.icon">{{ item.icon }}</span>{{ item.label }}
                 </NuxtLink>
@@ -76,10 +72,8 @@
         v-for="item in visibleStandaloneItems"
         :key="item.to"
         :to="item.to"
-        class="flex items-center gap-1 px-2 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
-        :class="route.path.startsWith(item.to)
-          ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950'
-          : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'"
+        class="nav-item flex items-center gap-1 px-2 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
+        :class="route.path.startsWith(item.to) ? 'nav-item-active nav-item-active-bg' : 'nav-item-inactive'"
       >
         <span v-if="item.icon">{{ item.icon }}</span>{{ item.label }}
       </NuxtLink>
@@ -88,7 +82,7 @@
       <div class="ml-auto flex items-center gap-1">
         <!-- 暗模式 -->
         <button
-          class="p-1.5 rounded text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          class="nav-icon-btn p-1.5 rounded transition-colors"
           :title="isDark ? '切換亮色' : '切換暗色'"
           @click="toggleDark"
         >
@@ -128,7 +122,7 @@
           class="relative nav-dropdown-wrap"
         >
           <button
-            class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+            class="nav-icon-btn flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors"
             @click.stop="menuOpen = !menuOpen"
           >
             <img
@@ -138,7 +132,7 @@
             >
             <div
               v-else
-              class="w-6 h-6 rounded-full bg-green-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0"
+              class="user-avatar w-6 h-6 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0"
             >
               {{ customer.name?.charAt(0) || '?' }}
             </div>
@@ -168,21 +162,21 @@
           >
             <div
               v-if="menuOpen"
-              class="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-stone-800 rounded-xl shadow-lg border border-stone-200 dark:border-stone-700 z-50 overflow-hidden"
+              class="nav-dropdown absolute right-0 top-full mt-1 w-44 rounded-xl z-50 overflow-hidden"
               @click.stop
             >
-              <div class="px-3 py-2 border-b border-stone-100 dark:border-stone-700">
-                <p class="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+              <div class="nav-dropdown-head px-3 py-2">
+                <p class="text-sm font-semibold truncate" style="color: var(--text)">
                   {{ customer.name }}
                 </p>
-                <p class="text-sm text-stone-400 truncate">
+                <p class="text-sm truncate" style="color: var(--text-hint)">
                   {{ customer.email }}
                 </p>
               </div>
               <ul class="py-1">
                 <li>
                   <button
-                    class="w-full flex items-center gap-2 px-3 py-2 text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+                    class="nav-dropdown-item w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
                     @click="goProfile"
                   >
                     <svg
@@ -205,7 +199,7 @@
                   <a
                     href="https://holyfarm.netlify.app"
                     target="_blank"
-                    class="w-full flex items-center gap-2 px-3 py-2 text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+                    class="nav-dropdown-item w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
                     @click="menuOpen = false"
                   >
                     <svg
@@ -224,7 +218,7 @@
                     首頁
                   </a>
                 </li>
-                <li class="border-t border-stone-100 dark:border-stone-700 mt-1 pt-1">
+                <li class="nav-dropdown-divider mt-1 pt-1">
                   <button
                     class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     @click="logout"
@@ -256,13 +250,13 @@
     <div class="lg:hidden flex items-center justify-between">
       <NuxtLink
         to="/staff/home"
-        class="flex items-center gap-1.5 text-green-700 dark:text-green-400 font-bold text-sm"
+        class="nav-logo flex items-center gap-1.5 font-bold text-sm"
       >
         🏠 首頁
       </NuxtLink>
       <div class="flex items-center gap-1">
         <button
-          class="p-1 rounded text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          class="nav-icon-btn p-1 rounded transition-colors"
           :title="isDark ? '切換亮色' : '切換暗色'"
           @click="toggleDark"
         >
@@ -274,7 +268,7 @@
           </svg>
         </button>
         <button
-          class="p-1 rounded text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          class="nav-icon-btn p-1 rounded transition-colors"
           @click="mobileOpen = !mobileOpen"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,14 +290,14 @@
     >
       <div
         v-if="mobileOpen"
-        class="lg:hidden mt-2 p-2 border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800 space-y-2 max-h-[70vh] overflow-y-auto"
+        class="nav-mobile-menu lg:hidden mt-2 p-2 rounded-lg space-y-2 max-h-[70vh] overflow-y-auto"
       >
         <!-- 分類群組 -->
         <div
           v-for="group in visibleGroups"
           :key="group.label"
         >
-          <p class="text-xs text-stone-400 dark:text-stone-500 font-semibold px-1 mb-1">
+          <p class="text-xs font-semibold px-1 mb-1" style="color: var(--text-hint)">
             {{ group.label }}
           </p>
           <div class="grid grid-cols-3 gap-1">
@@ -312,9 +306,7 @@
               :key="item.to"
               :to="item.to"
               class="px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
-              :class="route.path.startsWith(item.to)
-                ? 'text-white bg-green-700'
-                : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'"
+              :class="route.path.startsWith(item.to) ? 'nav-mobile-active' : 'nav-item-inactive'"
             >{{ item.label }}</NuxtLink>
           </div>
         </div>
@@ -329,16 +321,14 @@
             :key="item.to"
             :to="item.to"
             class="px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
-            :class="route.path.startsWith(item.to)
-              ? 'text-white bg-green-700'
-              : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'"
+            :class="route.path.startsWith(item.to) ? 'nav-mobile-active' : 'nav-item-inactive'"
           >{{ item.label }}</NuxtLink>
         </div>
 
         <!-- 個人設定 / 首頁 -->
-        <div class="border-t border-stone-200 dark:border-stone-700 pt-2 grid grid-cols-2 gap-1">
+        <div class="nav-dropdown-divider pt-2 grid grid-cols-2 gap-1">
           <button
-            class="px-2 py-1.5 rounded text-sm font-medium text-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+            class="nav-item-inactive px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
             @click="mobileOpen = false; goProfile()"
           >
             個人設定
@@ -346,7 +336,7 @@
           <a
             href="https://holyfarm.netlify.app"
             target="_blank"
-            class="px-2 py-1.5 rounded text-sm font-medium text-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
+            class="nav-item-inactive px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
             @click="mobileOpen = false"
           >
             首頁
@@ -354,7 +344,7 @@
         </div>
 
         <!-- 登出 -->
-        <div class="border-t border-stone-200 dark:border-stone-700 pt-2">
+        <div class="nav-dropdown-divider pt-2">
           <button
             class="w-full text-left px-2 py-1.5 rounded text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             @click="logout"
@@ -517,3 +507,78 @@ const logout = async () => {
   navigateTo('/')
 }
 </script>
+
+<style scoped>
+.staff-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-light);
+  padding: 6px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.nav-logo {
+  color: var(--accent);
+}
+
+.nav-item-inactive {
+  color: var(--text-muted);
+}
+
+.nav-item-inactive:hover {
+  background: var(--surface2);
+}
+
+.nav-item-active {
+  color: var(--accent);
+}
+
+.nav-item-active-bg {
+  background: var(--accent-light);
+}
+
+.nav-icon-btn {
+  color: var(--text-hint);
+}
+
+.nav-icon-btn:hover {
+  background: var(--surface2);
+}
+
+.user-avatar {
+  background: var(--accent);
+}
+
+.nav-dropdown {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow);
+}
+
+.nav-dropdown-head {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.nav-dropdown-item {
+  color: var(--text-muted);
+}
+
+.nav-dropdown-item:hover {
+  background: var(--surface2);
+}
+
+.nav-dropdown-divider {
+  border-top: 1px solid var(--border-light);
+}
+
+.nav-mobile-menu {
+  background: var(--surface2);
+  border: 1px solid var(--border-light);
+}
+
+.nav-mobile-active {
+  color: white;
+  background: var(--accent);
+}
+</style>

@@ -1,11 +1,11 @@
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
+  <div class="min-h-full bg-surface2 transition-colors">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-20">
+    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-20">
       <div class="max-w-6xl mx-auto flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:15px">📞</div>
-        <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:16px">聖母分機查詢</h1>
+        <h1 class="font-bold text-base-c leading-none" style="font-size:16px">聖母分機查詢</h1>
 
         <!-- 機構 Tab（桌機版整合進 header 列） -->
         <div class="hidden lg:flex items-center gap-1 ml-2">
@@ -13,8 +13,8 @@
             v-for="org in orgs" :key="org.id"
             class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
             :class="activeOrg === org.id
-              ? 'bg-blue-700 text-white font-semibold'
-              : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-zinc-600'"
+ ? 'bg-blue-700 text-white font-semibold'
+ : 'bg-surface2 text-muted-c hover-surface2'"
             style="font-size:14px"
             @click="activeOrg = org.id; activeDept = null; searchQuery = ''"
           >{{ org.name }}</button>
@@ -23,15 +23,15 @@
         <!-- 搜尋列（桌機版整合進 header） -->
         <div class="hidden lg:block flex-1 max-w-xs ml-auto">
           <div class="relative">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
             </svg>
             <input
               v-model="searchQuery"
               placeholder="搜尋姓名或分機..."
-              class="w-full pl-9 pr-8 py-1.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full pl-9 pr-8 py-1.5 text-sm rounded-xl border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+            <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-hint-c hover:text-muted-c">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
@@ -40,14 +40,14 @@
     </header>
 
     <!-- 機構 Tab（手機版，獨立列） -->
-    <div class="lg:hidden bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-[calc(3.5rem+49px)] z-10">
+    <div class="lg:hidden bg-surface border-b border-light-c sticky top-[calc(3.5rem+49px)] z-10">
       <div class="tab-scroll flex gap-1 px-3 py-2 overflow-x-auto">
         <button
           v-for="org in orgs" :key="org.id"
           class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
           :class="activeOrg === org.id
-            ? 'bg-blue-700 text-white font-semibold'
-            : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-zinc-600'"
+ ? 'bg-blue-700 text-white font-semibold'
+ : 'bg-surface2 text-muted-c hover-surface2'"
           style="font-size:14px"
           @click="activeOrg = org.id; activeDept = null; searchQuery = ''"
         >{{ org.name }}</button>
@@ -57,15 +57,15 @@
     <!-- 搜尋列（手機版） -->
     <div class="lg:hidden max-w-2xl mx-auto px-3 sm:px-4 pt-3">
       <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
         </svg>
         <input
           v-model="searchQuery"
           placeholder="搜尋姓名或分機號碼..."
-          class="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+        <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-hint-c hover:text-muted-c">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -74,17 +74,17 @@
     <!-- ── 搜尋結果模式 ── -->
     <template v-if="searchQuery.trim()">
       <div class="max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 py-3">
-        <p class="text-stone-400 mb-2" style="font-size:13px">找到 {{ searchResults.length }} 筆結果</p>
-        <div v-if="searchResults.length === 0" class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 px-4 py-10 text-center text-stone-400 shadow-sm" style="font-size:14px">
+        <p class="text-hint-c mb-2" style="font-size:13px">找到 {{ searchResults.length }} 筆結果</p>
+        <div v-if="searchResults.length === 0" class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm" style="font-size:14px">
           找不到符合的分機
         </div>
         <!-- 搜尋結果：桌機多欄 grid -->
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
           <div v-for="item in searchResults" :key="item._key"
-               class="bg-white dark:bg-zinc-800 rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-3 flex items-center justify-between shadow-sm">
+               class="bg-surface rounded-xl border border-light-c px-4 py-3 flex items-center justify-between shadow-sm">
             <div>
-              <p class="font-semibold text-stone-800 dark:text-stone-100" style="font-size:14px">{{ item.name || '—' }}</p>
-              <p class="text-stone-400" style="font-size:12px">{{ item._dept }} · {{ item._org }}</p>
+              <p class="font-semibold text-base-c" style="font-size:14px">{{ item.name || '—' }}</p>
+              <p class="text-hint-c" style="font-size:12px">{{ item._dept }} · {{ item._org }}</p>
             </div>
             <a :href="`tel:${item.ext}`" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex-shrink-0 ml-2" style="font-size:14px">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 7V5z"/></svg>
@@ -104,8 +104,8 @@
           <button
             class="flex-shrink-0 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
             :class="activeDept === null
-              ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold'
-              : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 hover:bg-stone-200'"
+ ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold'
+ : 'bg-surface2 text-muted-c hover:bg-surface2'"
             style="font-size:13px"
             @click="activeDept = null"
           >全部</button>
@@ -113,8 +113,8 @@
             v-for="dept in currentDepts" :key="dept.name"
             class="flex-shrink-0 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
             :class="activeDept === dept.name
-              ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold'
-              : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 hover:bg-stone-200'"
+ ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold'
+ : 'bg-surface2 text-muted-c hover:bg-surface2'"
             style="font-size:13px"
             @click="activeDept = dept.name"
           >{{ dept.name }}</button>
@@ -124,8 +124,8 @@
             <p class="font-semibold text-blue-800 dark:text-blue-300 mb-2" style="font-size:13px">外線代表號</p>
             <div class="flex flex-wrap gap-2">
               <a v-for="line in currentOrgData.mainLines" :key="line.label" :href="`tel:${line.number}`"
-                 class="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-blue-200 dark:border-blue-700 rounded-xl hover:bg-blue-50 transition-colors">
-                <span class="text-stone-500 dark:text-stone-400" style="font-size:12px">{{ line.label }}</span>
+                 class="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-blue-200 dark:border-blue-700 rounded-xl hover:bg-blue-50 transition-colors">
+                <span class="text-hint-c" style="font-size:12px">{{ line.label }}</span>
                 <span class="font-bold text-blue-700 dark:text-blue-300" style="font-size:14px">{{ line.number }}</span>
               </a>
             </div>
@@ -133,14 +133,14 @@
         </template>
         <div class="space-y-3">
           <div v-for="dept in filteredDepts" :key="dept.name"
-               class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-            <div class="flex items-center gap-2 px-4 py-2.5 bg-stone-100 dark:bg-zinc-700 border-b border-stone-200 dark:border-zinc-600">
-              <span class="font-semibold text-stone-800 dark:text-stone-50" style="font-size:14px">{{ dept.name }}</span>
+               class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+            <div class="flex items-center gap-2 px-4 py-2.5 bg-surface2 border-b border-light-c">
+              <span class="font-semibold text-base-c" style="font-size:14px">{{ dept.name }}</span>
             </div>
-            <div class="divide-y divide-stone-100 dark:divide-zinc-700">
+            <div class="divide-y divide-base">
               <div v-for="(entry, idx) in dept.entries" :key="idx"
-                   class="flex items-center justify-between px-4 py-2.5 hover:bg-stone-50 dark:hover:bg-zinc-750 transition-colors">
-                <span class="text-stone-700 dark:text-stone-300" style="font-size:14px">{{ entry.name || '—' }}</span>
+                   class="flex items-center justify-between px-4 py-2.5 hover:bg-surface2 transition-colors">
+                <span class="text-muted-c" style="font-size:14px">{{ entry.name || '—' }}</span>
                 <a :href="`tel:${entry.ext}`" class="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-mono font-semibold hover:text-blue-900 transition-colors" style="font-size:14px">
                   <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 7V5z"/></svg>
                   {{ entry.ext }}
@@ -154,8 +154,8 @@
             <p class="font-semibold text-amber-800 dark:text-amber-300 mb-2" style="font-size:13px">快速撥號</p>
             <div class="flex flex-wrap gap-2">
               <a v-for="b in currentOrgData.broadcast" :key="b.label" :href="`tel:${b.number}`"
-                 class="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-200 dark:border-amber-700 rounded-xl hover:bg-amber-50 transition-colors">
-                <span class="text-stone-500 dark:text-stone-400" style="font-size:12px">{{ b.label }}</span>
+                 class="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-amber-200 dark:border-amber-700 rounded-xl hover:bg-amber-50 transition-colors">
+                <span class="text-hint-c" style="font-size:12px">{{ b.label }}</span>
                 <span class="font-bold text-amber-700 dark:text-amber-300" style="font-size:14px">{{ b.number }}</span>
               </a>
             </div>
@@ -175,8 +175,8 @@
               <p class="font-semibold text-blue-800 dark:text-blue-300 mb-2" style="font-size:12px">外線代表號</p>
               <div class="flex flex-col gap-1.5">
                 <a v-for="line in currentOrgData.mainLines" :key="line.label" :href="`tel:${line.number}`"
-                   class="flex items-center justify-between px-2.5 py-1.5 bg-white dark:bg-zinc-800 border border-blue-200 dark:border-blue-700 rounded-xl hover:bg-blue-50 transition-colors">
-                  <span class="text-stone-500 dark:text-stone-400" style="font-size:12px">{{ line.label }}</span>
+                   class="flex items-center justify-between px-2.5 py-1.5 bg-surface border border-blue-200 dark:border-blue-700 rounded-xl hover:bg-blue-50 transition-colors">
+                  <span class="text-hint-c" style="font-size:12px">{{ line.label }}</span>
                   <span class="font-bold text-blue-700 dark:text-blue-300" style="font-size:13px">{{ line.number }}</span>
                 </a>
               </div>
@@ -189,8 +189,8 @@
               <p class="font-semibold text-amber-800 dark:text-amber-300 mb-2" style="font-size:12px">快速撥號</p>
               <div class="flex flex-col gap-1.5">
                 <a v-for="b in currentOrgData.broadcast" :key="b.label" :href="`tel:${b.number}`"
-                   class="flex items-center justify-between px-2.5 py-1.5 bg-white dark:bg-zinc-800 border border-amber-200 dark:border-amber-700 rounded-xl hover:bg-amber-50 transition-colors">
-                  <span class="text-stone-500 dark:text-stone-400" style="font-size:12px">{{ b.label }}</span>
+                   class="flex items-center justify-between px-2.5 py-1.5 bg-surface border border-amber-200 dark:border-amber-700 rounded-xl hover:bg-amber-50 transition-colors">
+                  <span class="text-hint-c" style="font-size:12px">{{ b.label }}</span>
                   <span class="font-bold text-amber-700 dark:text-amber-300" style="font-size:13px">{{ b.number }}</span>
                 </a>
               </div>
@@ -198,16 +198,16 @@
           </template>
 
           <!-- 部門篩選 -->
-          <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden flex-shrink-0">
-            <div class="px-3 py-2 border-b border-stone-100 dark:border-stone-700">
-              <p class="font-semibold text-stone-500 dark:text-stone-400" style="font-size:12px">部門篩選</p>
+          <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden flex-shrink-0">
+            <div class="px-3 py-2 border-b border-light-c">
+              <p class="font-semibold text-hint-c" style="font-size:12px">部門篩選</p>
             </div>
             <div class="py-1">
               <button
                 class="w-full text-left px-3 py-1.5 transition-colors"
                 :class="activeDept === null
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold'
-                  : 'text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-750'"
+ ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold'
+ : 'text-muted-c hover:bg-surface2'"
                 style="font-size:13px"
                 @click="activeDept = null"
               >全部部門</button>
@@ -215,8 +215,8 @@
                 v-for="dept in currentDepts" :key="dept.name"
                 class="w-full text-left px-3 py-1.5 transition-colors truncate"
                 :class="activeDept === dept.name
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold'
-                  : 'text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-zinc-750'"
+ ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold'
+ : 'text-muted-c hover:bg-surface2'"
                 style="font-size:13px"
                 @click="activeDept = dept.name"
               >{{ dept.name }}</button>
@@ -229,16 +229,16 @@
           <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <div
               v-for="dept in filteredDepts" :key="dept.name"
-              class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden"
+              class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
             >
-              <div class="flex items-center gap-2 px-4 py-2.5 bg-stone-100 dark:bg-zinc-700 border-b border-stone-200 dark:border-zinc-600">
-                <span class="font-semibold text-stone-800 dark:text-stone-50" style="font-size:14px">{{ dept.name }}</span>
-                <span class="ml-auto text-stone-500 dark:text-zinc-400" style="font-size:12px">{{ dept.entries.length }} 支</span>
+              <div class="flex items-center gap-2 px-4 py-2.5 bg-surface2 border-b border-light-c">
+                <span class="font-semibold text-base-c" style="font-size:14px">{{ dept.name }}</span>
+                <span class="ml-auto text-hint-c dark:text-hint-c" style="font-size:12px">{{ dept.entries.length }} 支</span>
               </div>
-              <div class="divide-y divide-stone-100 dark:divide-zinc-700">
+              <div class="divide-y divide-base">
                 <div v-for="(entry, idx) in dept.entries" :key="idx"
-                     class="flex items-center justify-between px-4 py-2 hover:bg-stone-50 dark:hover:bg-zinc-750 transition-colors">
-                  <span class="text-stone-700 dark:text-stone-300" style="font-size:14px">{{ entry.name || '—' }}</span>
+                     class="flex items-center justify-between px-4 py-2 hover:bg-surface2 transition-colors">
+                  <span class="text-muted-c" style="font-size:14px">{{ entry.name || '—' }}</span>
                   <a :href="`tel:${entry.ext}`" class="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-mono font-semibold hover:text-blue-900 transition-colors" style="font-size:14px">
                     <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 7V5z"/></svg>
                     {{ entry.ext }}

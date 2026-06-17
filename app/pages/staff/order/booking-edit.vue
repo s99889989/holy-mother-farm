@@ -32,7 +32,7 @@ const dayClass = (day) => {
   if (!day.date) return 'cursor-default'
   if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
   if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
-  return 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-zinc-700'
+  return 'text-base-c hover-surface2'
 }
 
 const prevMonth = () => {
@@ -339,18 +339,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-full bg-surface2 transition-colors duration-300">
 
     <!-- ── 頂部導覽 ── -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-green-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             田
           </div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">田園餐廳 · 訂位管理</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Holy Mother Farm</p>
+            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">田園餐廳 · 訂位管理</h1>
+            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Holy Mother Farm</p>
           </div>
         </div>
         <span :class="apiOnline ? 'text-green-600' : 'text-red-500'" class="text-xs flex items-center gap-1.5 font-medium">
@@ -365,23 +365,23 @@ onMounted(async () => {
 
         <!-- ── 左欄：日曆（常駐）── -->
         <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 lg:sticky lg:top-20">
+          <div class="bg-surface rounded-2xl border border-light-c shadow-sm p-4 lg:sticky lg:top-20">
             <div class="flex items-center justify-between mb-3">
-              <button @click="prevMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button @click="prevMonth" class="p-1.5 hover-surface2 rounded-lg transition-colors">
+                <svg class="w-5 h-5 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
               </button>
-              <span class="text-base font-semibold text-stone-700 dark:text-stone-100">{{ calendarLabel }}</span>
-              <button @click="nextMonth" class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span class="text-base font-semibold text-muted-c">{{ calendarLabel }}</span>
+              <button @click="nextMonth" class="p-1.5 hover-surface2 rounded-lg transition-colors">
+                <svg class="w-5 h-5 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
               </button>
             </div>
             <div class="grid grid-cols-7 mb-1">
               <div v-for="w in ['日','一','二','三','四','五','六']" :key="w"
-                   class="text-center text-sm text-stone-400 dark:text-stone-500 font-medium py-1">{{ w }}</div>
+                   class="text-center text-sm text-hint-c font-medium py-1">{{ w }}</div>
             </div>
             <div class="grid grid-cols-7 gap-1">
               <div v-for="(day, idx) in calendarDays" :key="idx"
@@ -394,9 +394,9 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
-            <div class="flex items-center justify-between mt-3 pt-3 border-t border-stone-100 dark:border-stone-700">
-              <span class="text-sm text-stone-500 dark:text-stone-400">
-                <span v-if="selectedDate" class="text-stone-700 dark:text-stone-200 font-medium">{{ selectedDate }}</span>
+            <div class="flex items-center justify-between mt-3 pt-3 border-t border-light-c">
+              <span class="text-sm text-hint-c">
+                <span v-if="selectedDate" class="text-base-c font-medium">{{ selectedDate }}</span>
                 <span v-else>請選擇日期</span>
               </span>
               <button @click="selectDate(todayStr)" class="text-sm text-green-700 dark:text-green-400 hover:text-green-800 font-medium">今天</button>
@@ -426,13 +426,13 @@ onMounted(async () => {
         <div class="flex-1 min-w-0">
           <template v-if="selectedDate">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="font-semibold text-stone-700 dark:text-stone-100 text-base sm:text-lg">{{ selectedDate }} 訂位明細</h2>
+              <h2 class="font-semibold text-muted-c text-base sm:text-lg">{{ selectedDate }} 訂位明細</h2>
             </div>
 
             <!-- ── 訂位列表 ── -->
             <div class="mb-5">
               <div class="flex items-center justify-between mb-2">
-                <p class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest flex items-center gap-1.5">
+                <p class="text-xs font-semibold text-hint-c uppercase tracking-widest flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full bg-green-500"></span> 訂位
                   <span v-if="bookings.length > 0 || recurBookingGuests > 0" class="text-green-600 dark:text-green-400 normal-case font-normal flex flex-wrap gap-x-2">
                     <span v-if="bookingMeat + recurBookingMeat > 0">🍖 {{ bookingMeat + recurBookingMeat }}</span>
@@ -448,33 +448,33 @@ onMounted(async () => {
               </div>
               <div class="space-y-2">
                 <div v-if="bookings.length === 0"
-                     class="bg-white dark:bg-zinc-900 rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-3 text-center text-stone-400 text-sm">
+                     class="bg-surface rounded-xl border border-light-c px-4 py-3 text-center text-hint-c text-sm">
                   今天還沒有訂位
                 </div>
                 <div v-for="booking in bookings" :key="booking.id"
-                     class="bg-white dark:bg-zinc-900 rounded-xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+                     class="bg-surface rounded-xl border border-light-c shadow-sm overflow-hidden">
                   <div class="flex items-stretch">
-                    <div class="w-16 flex-shrink-0 bg-stone-50 dark:bg-zinc-800 flex flex-col items-center justify-center border-r border-stone-200 dark:border-stone-700 py-3">
-                      <span class="text-xs text-stone-400 uppercase tracking-wide">TIME</span>
-                      <span class="text-lg font-black text-stone-700 dark:text-stone-100 leading-tight mt-0.5">{{ booking.time }}</span>
+                    <div class="w-16 flex-shrink-0 bg-surface2 flex flex-col items-center justify-center border-r border-light-c py-3">
+                      <span class="text-xs text-hint-c uppercase tracking-wide">TIME</span>
+                      <span class="text-lg font-black text-muted-c leading-tight mt-0.5">{{ booking.time }}</span>
                     </div>
                     <div class="flex-1 px-3 py-2.5 flex items-center justify-between gap-2">
                       <div>
                         <div class="flex items-center gap-2 flex-wrap">
-                          <span class="font-bold text-stone-800 dark:text-stone-100">{{ booking.name }}</span>
+                          <span class="font-bold text-base-c">{{ booking.name }}</span>
                           <button @click="toggleBookingStatus(booking)"
                                   :class="bookingStatusClass(booking.status)"
                                   class="px-2 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-colors">
                             {{ booking.status }}
                           </button>
                         </div>
-                        <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-stone-500 dark:text-stone-400">
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-hint-c">
                           <span v-if="booking.meatQty > 0" class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-medium">🍖 葷 {{ booking.meatQty }}</span>
                           <span v-if="booking.fullVegQty > 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🌿 全素 {{ booking.fullVegQty }}</span>
                           <span v-if="booking.eggVegQty > 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🥚 蛋奶素 {{ booking.eggVegQty }}</span>
                           <span v-if="booking.spiceVegQty > 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🧄 五辛素 {{ booking.spiceVegQty }}</span>
                         </div>
-                        <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-stone-400 dark:text-stone-500">
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-hint-c">
                           <span>📞 {{ booking.phone }}</span>
                           <span v-if="booking.note">💬 {{ booking.note }}</span>
                         </div>
@@ -492,17 +492,17 @@ onMounted(async () => {
             </div>
           </template>
 
-          <div v-else class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 p-12 text-center text-stone-400 text-sm shadow-sm">
+          <div v-else class="bg-surface rounded-2xl border border-light-c p-12 text-center text-hint-c text-sm shadow-sm">
             請從左側日曆選擇日期
           </div>
 
           <!-- ── 當月預定 ── -->
           <div class="mt-5">
             <div class="flex items-center justify-between mb-2">
-              <p class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest flex items-center gap-1.5">
+              <p class="text-xs font-semibold text-hint-c uppercase tracking-widest flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
                 當月預定
-                <span class="text-stone-400 dark:text-stone-500 normal-case font-normal">{{ calYear }}年{{ calMonth }}月</span>
+                <span class="text-hint-c normal-case font-normal">{{ calYear }}年{{ calMonth }}月</span>
               </p>
               <button @click="openRecurModal(null)"
                       class="flex items-center gap-1 px-3 py-1 bg-green-800 text-white text-xs rounded-lg hover:bg-green-900 transition-colors">
@@ -511,11 +511,11 @@ onMounted(async () => {
             </div>
             <div class="space-y-2">
               <div v-if="recurringRules.length === 0"
-                   class="bg-white dark:bg-zinc-900 rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-3 text-center text-stone-400 text-sm">
+                   class="bg-surface rounded-xl border border-light-c px-4 py-3 text-center text-hint-c text-sm">
                 本月尚無預定
               </div>
               <div v-for="rule in recurringRules" :key="rule.id"
-                   class="bg-white dark:bg-zinc-900 rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm overflow-hidden">
+                   class="bg-surface rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm overflow-hidden">
                 <div class="flex items-stretch">
                   <div class="w-16 flex-shrink-0 bg-indigo-50 dark:bg-indigo-900/20 flex flex-col items-center justify-center border-r border-indigo-100 dark:border-indigo-800/30 py-3">
                     <span class="text-xs text-indigo-400 uppercase tracking-wide">包月</span>
@@ -524,11 +524,11 @@ onMounted(async () => {
                   <div class="flex-1 px-3 py-2.5 flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 flex-wrap mb-1">
-                        <span class="font-bold text-stone-800 dark:text-stone-100">{{ rule.name }}</span>
+                        <span class="font-bold text-base-c">{{ rule.name }}</span>
                         <span :class="rule.type === 'lunch' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
                               class="px-2 py-0.5 rounded-full text-xs font-medium">{{ rule.type === 'lunch' ? '便當' : '訂位' }}</span>
                       </div>
-                      <div class="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-xs text-stone-500 dark:text-stone-400">
+                      <div class="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-xs text-hint-c">
                         <span v-if="rule.meatQty > 0" class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-medium">🍖 葷 {{ rule.meatQty }}</span>
                         <span v-if="rule.fullVegQty > 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🌿 全素 {{ rule.fullVegQty }}</span>
                         <span v-if="rule.eggVegQty > 0" class="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">🥚 蛋奶素 {{ rule.eggVegQty }}</span>
@@ -536,11 +536,11 @@ onMounted(async () => {
                         <span v-if="rule.weekdays && rule.weekdays.length > 0" class="flex items-center gap-0.5">
                           <span v-for="dow in [0,1,2,3,4,5,6]" :key="dow"
                                 :class="rule.weekdays.includes(dow)
-                                  ? (dow === 0 || dow === 6 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400')
-                                  : 'text-stone-200 dark:text-stone-700'"
+ ? (dow === 0 || dow === 6 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400')
+ : 'text-base-c dark:text-muted-c'"
                                 class="w-5 h-5 rounded text-center leading-5 font-medium">{{ ['日','一','二','三','四','五','六'][dow] }}</span>
                         </span>
-                        <span v-else class="text-stone-300 dark:text-stone-600 italic">每天</span>
+                        <span v-else class="text-hint-c italic">每天</span>
                         <span v-if="rule.note" class="italic">{{ rule.note }}</span>
                       </div>
                     </div>
@@ -561,10 +561,10 @@ onMounted(async () => {
     <!-- ════════ 訂位 Modal ════════ -->
     <div v-if="bookingModal.show"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ bookingModal.isNew ? '新增訂位' : '編輯訂位' }}</h3>
-          <button @click="bookingModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <h3 class="font-bold text-base-c">{{ bookingModal.isNew ? '新增訂位' : '編輯訂位' }}</h3>
+          <button @click="bookingModal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -572,65 +572,65 @@ onMounted(async () => {
         </div>
         <div class="space-y-3">
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">姓名 *</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">姓名 *</label>
             <input v-model="bForm.name" placeholder="訂位人姓名"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"/>
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">電話</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">電話</label>
             <input v-model="bForm.phone" placeholder="聯絡電話" type="tel"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"/>
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">用餐時段</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">用餐時段</label>
             <select v-model="bForm.time"
-                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400">
+                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
               <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
             </select>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">葷素數量</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
             <div class="grid grid-cols-2 gap-2">
               <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-2.5 border border-red-200 dark:border-red-800/30">
                 <label class="text-xs font-medium text-red-700 dark:text-red-400 block mb-1">🍖 葷食</label>
                 <input v-model.number="bForm.meatQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-red-200 dark:border-red-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"/>
               </div>
               <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
                 <input v-model.number="bForm.fullVegQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
               </div>
               <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
                 <input v-model.number="bForm.eggVegQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
               </div>
               <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
                 <input v-model.number="bForm.spiceVegQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
               </div>
             </div>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">狀態</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">狀態</label>
             <div class="flex flex-wrap gap-2">
               <button v-for="s in BOOKING_STATUSES" :key="s" type="button"
                       @click="bForm.status = s"
-                      :class="bForm.status === s ? bookingStatusClass(s) + ' ring-2 ring-offset-1 ring-green-400' : 'bg-stone-100 dark:bg-zinc-800 text-stone-500 dark:text-stone-400'"
+                      :class="bForm.status === s ? bookingStatusClass(s) + 'ring-2 ring-offset-1 ring-green-400' : 'bg-surface2 text-hint-c'"
                       class="px-2.5 py-1 rounded-full text-xs font-medium transition-all">{{ s }}</button>
             </div>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">備註</label>
             <textarea v-model="bForm.note" rows="2" placeholder="特殊要求"
-                      class="w-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"/>
+                      class="w-full border border-light-c bg-surface text-base-c rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"/>
           </div>
         </div>
         <div class="flex gap-2 mt-5">
           <button @click="bookingModal.show = false"
-                  class="flex-1 px-4 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">取消</button>
+                  class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors">取消</button>
           <button @click="saveBooking" :disabled="!bForm.name"
                   class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors">
             {{ bookingModal.isNew ? '新增' : '儲存' }}
@@ -642,13 +642,13 @@ onMounted(async () => {
     <!-- ════════ 當月預定 Modal ════════ -->
     <div v-if="recurModal.show"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ recurModal.isNew ? '新增當月預定' : '編輯當月預定' }}</h3>
-            <p class="text-xs text-stone-400 mt-0.5">{{ calYear }}年{{ calMonth }}月</p>
+            <h3 class="font-bold text-base-c">{{ recurModal.isNew ? '新增當月預定' : '編輯當月預定' }}</h3>
+            <p class="text-xs text-hint-c mt-0.5">{{ calYear }}年{{ calMonth }}月</p>
           </div>
-          <button @click="recurModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <button @click="recurModal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -656,76 +656,76 @@ onMounted(async () => {
         </div>
         <div class="space-y-3">
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">名稱 / 機構 *</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">名稱 / 機構 *</label>
             <input v-model="recurForm.name" placeholder="員工餐、康樂區…"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"/>
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">類型</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">類型</label>
             <div class="flex gap-2">
               <button @click="recurForm.type = 'booking'"
-                      :class="recurForm.type === 'booking' ? 'bg-green-700 text-white' : 'bg-stone-100 dark:bg-zinc-800 text-stone-500 dark:text-stone-400'"
+                      :class="recurForm.type === 'booking' ? 'bg-green-700 text-white' : 'bg-surface2 text-hint-c'"
                       class="flex-1 py-2 rounded-xl text-sm font-medium transition-colors">訂位</button>
               <button @click="recurForm.type = 'lunch'"
-                      :class="recurForm.type === 'lunch' ? 'bg-orange-500 text-white' : 'bg-stone-100 dark:bg-zinc-800 text-stone-500 dark:text-stone-400'"
+                      :class="recurForm.type === 'lunch' ? 'bg-orange-500 text-white' : 'bg-surface2 text-hint-c'"
                       class="flex-1 py-2 rounded-xl text-sm font-medium transition-colors">便當</button>
             </div>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">用餐時段</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">用餐時段</label>
             <select v-model="recurForm.time"
-                    class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400">
+                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
               <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
             </select>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">葷素數量</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
             <div class="grid grid-cols-2 gap-2">
               <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-2.5 border border-red-200 dark:border-red-800/30">
                 <label class="text-xs font-medium text-red-700 dark:text-red-400 block mb-1">🍖 葷食</label>
                 <input v-model.number="recurForm.meatQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-red-200 dark:border-red-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"/>
               </div>
               <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
                 <input v-model.number="recurForm.fullVegQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
               </div>
               <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
                 <input v-model.number="recurForm.eggVegQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
               </div>
               <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
                 <input v-model.number="recurForm.spiceVegQty" type="number" min="0"
-                       class="w-full bg-white dark:bg-zinc-800 border border-green-200 dark:border-green-800/50 text-stone-800 dark:text-stone-100 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
+                       class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"/>
               </div>
             </div>
-            <p class="text-xs text-stone-400 mt-1.5">合計：{{ (recurForm.meatQty||0)+(recurForm.fullVegQty||0)+(recurForm.eggVegQty||0)+(recurForm.spiceVegQty||0) }} 人</p>
+            <p class="text-xs text-hint-c mt-1.5">合計：{{ (recurForm.meatQty||0)+(recurForm.fullVegQty||0)+(recurForm.eggVegQty||0)+(recurForm.spiceVegQty||0) }} 人</p>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">備註</label>
             <input v-model="recurForm.note" placeholder="特殊需求、注意事項…"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-400"/>
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">
-              適用星期 <span class="text-xs text-stone-400 font-normal ml-1">（不選代表每天）</span>
+            <label class="text-sm font-medium text-muted-c block mb-1">
+              適用星期 <span class="text-xs text-hint-c font-normal ml-1">（不選代表每天）</span>
             </label>
             <div class="flex gap-1.5">
               <button v-for="(label, dow) in ['日','一','二','三','四','五','六']" :key="dow" type="button"
                       @click="recurForm.weekdays.includes(dow) ? recurForm.weekdays.splice(recurForm.weekdays.indexOf(dow),1) : recurForm.weekdays.push(dow)"
                       :class="recurForm.weekdays.includes(dow)
-                        ? (dow === 0 || dow === 6 ? 'bg-red-500 text-white border-red-500' : 'bg-green-700 text-white border-green-700')
-                        : 'bg-white dark:bg-zinc-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700'"
+ ? (dow === 0 || dow === 6 ? 'bg-red-500 text-white border-red-500' : 'bg-green-700 text-white border-green-700')
+ : 'bg-surface text-hint-c border-light-c'"
                       class="flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors">{{ label }}</button>
             </div>
           </div>
         </div>
         <div class="flex gap-2 mt-5">
           <button @click="recurModal.show = false"
-                  class="flex-1 px-4 py-2.5 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">取消</button>
+                  class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors">取消</button>
           <button @click="saveRecurring" :disabled="!recurForm.name"
                   class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors">儲存</button>
         </div>
@@ -735,7 +735,7 @@ onMounted(async () => {
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>

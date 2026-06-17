@@ -149,14 +149,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors">
+  <div class="min-h-screen bg-surface2 transition-colors">
     <!--    <div style="background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;white-space:pre-wrap;word-break:break-all"> -->
     <!--      loaded: {{ permissionStore.loaded }} -->
     <!--      loadedId: {{ permissionStore.loadedId }} -->
     <!--      perms: {{ JSON.stringify(permissionStore.perms, null, 2) }} -->
     <!--    </div> -->
 
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3">
+    <header class="bg-surface border-b border-light-c px-4 py-3">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
         <div
           class="w-8 h-8 rounded-lg bg-green-800 flex items-center justify-center text-white flex-shrink-0"
@@ -166,13 +166,13 @@ onMounted(() => {
         </div>
         <div>
           <h1
-            class="font-bold text-stone-800 dark:text-stone-100 leading-none"
+            class="font-bold text-base-c leading-none"
             style="font-size:15px"
           >
             員工專區
           </h1>
           <p
-            class="text-stone-400 mt-0.5"
+            class="text-hint-c mt-0.5"
             style="font-size:11px"
           >
             {{ todayLabel }}
@@ -184,52 +184,52 @@ onMounted(() => {
     <div class="max-w-2xl mx-auto px-3 sm:px-4 py-4 space-y-4">
       <!-- ── 今日概況 ── -->
       <div
-        class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden"
+        class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
       >
-        <div class="px-4 pt-3 pb-2 border-b border-stone-100 dark:border-stone-700">
+        <div class="px-4 pt-3 pb-2 border-b border-light-c">
           <span
-            class="font-semibold text-stone-700 dark:text-stone-100"
+            class="font-semibold text-muted-c"
             style="font-size:13px"
           >今日概況</span>
         </div>
 
         <div
           v-if="loading"
-          class="px-4 py-6 text-center text-stone-400"
+          class="px-4 py-6 text-center text-hint-c"
           style="font-size:13px"
         >
           載入中...
         </div>
         <div
           v-else-if="bookings.length === 0 && lunchOrders.length === 0 && soybeanOrders.length === 0"
-          class="px-4 py-6 text-center text-stone-400"
+          class="px-4 py-6 text-center text-hint-c"
           style="font-size:13px"
         >
           今天尚無訂位或便當記錄
         </div>
         <div
           v-else
-          class="grid grid-cols-3 divide-x divide-stone-100 dark:divide-zinc-700"
+          class="grid grid-cols-3 divide-x divide-base"
         >
           <!-- 訂位 -->
           <div class="px-4 py-3">
             <div class="flex items-center gap-1.5 mb-2">
               <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
               <span
-                class="font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide"
+                class="font-semibold text-hint-c uppercase tracking-wide"
                 style="font-size:10px"
               >訂位</span>
             </div>
             <div
               v-if="bookings.length === 0"
-              class="text-stone-300 dark:text-stone-600"
+              class="text-hint-c"
               style="font-size:12px"
             >
               尚無記錄
             </div>
             <template v-else>
               <p
-                class="text-stone-800 dark:text-stone-100"
+                class="text-base-c"
                 style="font-size:13px"
               >
                 <span
@@ -256,20 +256,20 @@ onMounted(() => {
             <div class="flex items-center gap-1.5 mb-2">
               <span class="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0"/>
               <span
-                class="font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide"
+                class="font-semibold text-hint-c uppercase tracking-wide"
                 style="font-size:10px"
               >便當</span>
             </div>
             <div
               v-if="lunchOrders.length === 0"
-              class="text-stone-300 dark:text-stone-600"
+              class="text-hint-c"
               style="font-size:12px"
             >
               尚無記錄
             </div>
             <template v-else>
               <p
-                class="text-stone-800 dark:text-stone-100"
+                class="text-base-c"
                 style="font-size:13px"
               >
                 <span
@@ -295,20 +295,20 @@ onMounted(() => {
             <div class="flex items-center gap-1.5 mb-2">
               <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"/>
               <span
-                class="font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide"
+                class="font-semibold text-hint-c uppercase tracking-wide"
                 style="font-size:10px"
               >豆製品</span>
             </div>
             <div
               v-if="soybeanOrders.length === 0"
-              class="text-stone-300 dark:text-stone-600"
+              class="text-hint-c"
               style="font-size:12px"
             >
               尚無記錄
             </div>
             <template v-else>
               <p
-                class="text-stone-800 dark:text-stone-100"
+                class="text-base-c"
                 style="font-size:13px"
               >
                 <span
@@ -334,11 +334,11 @@ onMounted(() => {
 
       <!-- ── 今日行事曆 ── -->
       <div
-        class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden"
+        class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
       >
-        <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-stone-100 dark:border-stone-700">
+        <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-light-c">
           <span
-            class="font-semibold text-stone-700 dark:text-stone-100"
+            class="font-semibold text-muted-c"
             style="font-size:13px"
           >今日行事曆</span>
           <NuxtLink
@@ -351,21 +351,21 @@ onMounted(() => {
         </div>
         <div
           v-if="loading"
-          class="px-4 py-5 text-center text-stone-400"
+          class="px-4 py-5 text-center text-hint-c"
           style="font-size:13px"
         >
           載入中...
         </div>
         <div
           v-else-if="todayEvents.length === 0"
-          class="px-4 py-5 text-center text-stone-400"
+          class="px-4 py-5 text-center text-hint-c"
           style="font-size:13px"
         >
           今天沒有排定的活動
         </div>
         <div
           v-else
-          class="divide-y divide-stone-100 dark:divide-zinc-700"
+          class="divide-y divide-base"
         >
           <div
             v-for="(ev, i) in todayEvents"
@@ -377,7 +377,7 @@ onMounted(() => {
               style="min-width:42px"
             >
               <span
-                class="font-mono font-semibold text-stone-500 dark:text-stone-400"
+                class="font-mono font-semibold text-hint-c"
                 style="font-size:11px"
               >
                 {{ ev.time ? ev.time.split('-')[0] : '' }}
@@ -389,7 +389,7 @@ onMounted(() => {
             />
             <div class="flex-1 min-w-0">
               <p
-                class="font-semibold text-stone-800 dark:text-stone-100 leading-snug"
+                class="font-semibold text-base-c leading-snug"
                 style="font-size:13px"
               >
                 {{ ev.title }}
@@ -397,12 +397,12 @@ onMounted(() => {
               <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                 <span
                   v-if="ev.owner"
-                  class="text-stone-400"
+                  class="text-hint-c"
                   style="font-size:11px"
                 >👤 {{ ev.owner }}</span>
                 <span
                   v-if="ev.room"
-                  class="text-stone-400 truncate"
+                  class="text-hint-c truncate"
                   style="font-size:11px"
                 >
                   📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
@@ -423,7 +423,7 @@ onMounted(() => {
       <!-- ── 快捷功能 ── -->
       <div>
         <p
-          class="text-stone-400 dark:text-stone-500 font-semibold uppercase tracking-widest px-1 mb-2"
+          class="text-hint-c font-semibold uppercase tracking-widest px-1 mb-2"
           style="font-size:10px"
         >
           功能
@@ -433,7 +433,7 @@ onMounted(() => {
             v-for="s in shortcuts"
             :key="s.to"
             :to="s.to"
-            class="shortcut-card bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-sm"
+            class="shortcut-card bg-surface border border-light-c rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-sm"
           >
             <div
               :class="s.color"
@@ -444,16 +444,16 @@ onMounted(() => {
             </div>
             <div class="flex-1 min-w-0">
               <p
-                class="font-semibold text-stone-800 dark:text-stone-100"
+                class="font-semibold text-base-c"
                 style="font-size:14px"
               >{{ s.label }}</p>
               <p
-                class="text-stone-400 dark:text-stone-500 mt-0.5"
+                class="text-hint-c mt-0.5"
                 style="font-size:11px"
               >{{ s.desc }}</p>
             </div>
             <svg
-              class="w-4 h-4 text-stone-300 dark:text-zinc-600 flex-shrink-0"
+              class="w-4 h-4 text-hint-c flex-shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

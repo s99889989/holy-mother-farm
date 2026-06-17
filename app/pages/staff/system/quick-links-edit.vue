@@ -1,12 +1,12 @@
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
+  <div class="min-h-full bg-surface2 transition-colors">
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-2 sticky top-0 z-20">
+    <header class="bg-surface border-b border-light-c px-4 py-2 sticky top-0 z-20">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
         <div class="w-6 h-6 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:12px">🔗</div>
         <div class="flex-1">
-          <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none" style="font-size:14px">常用網址</h1>
+          <h1 class="font-bold text-base-c leading-none" style="font-size:14px">常用網址</h1>
         </div>
         <button @click="openCatModal(null)"
                 class="flex items-center gap-1.5 px-2.5 py-1 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
@@ -19,15 +19,15 @@
 
     <!-- 分類 Tab 列 -->
     <div v-if="categories.length > 0"
-         class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 sticky top-0 z-10">
+         class="bg-surface border-b border-light-c sticky top-0 z-10">
       <div class="max-w-2xl mx-auto">
         <div class="tab-scroll flex gap-1 px-3 py-1.5 overflow-x-auto">
           <button
             v-for="(cat, catIdx) in categories" :key="cat.id"
             class="tab-btn group flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
             :class="activeId === cat.id
-              ? 'bg-green-700 text-white font-semibold'
-              : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-zinc-600'"
+ ? 'bg-green-700 text-white font-semibold'
+ : 'bg-surface2 text-muted-c hover-surface2'"
             style="font-size:13px"
             @click="activeId = cat.id"
           >
@@ -42,13 +42,13 @@
     <div class="max-w-2xl mx-auto px-3 sm:px-4 py-4">
 
       <!-- 載入中 -->
-      <div v-if="loading" class="text-center py-8 text-stone-400" style="font-size:13px">載入中...</div>
+      <div v-if="loading" class="text-center py-8 text-hint-c" style="font-size:13px">載入中...</div>
 
       <template v-else>
 
         <!-- 空狀態 -->
         <div v-if="categories.length === 0"
-             class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 px-4 py-10 text-center text-stone-400 shadow-sm">
+             class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
           <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
                   d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
@@ -64,15 +64,15 @@
               <!-- 分類排序 -->
               <div class="flex gap-1">
                 <button @click="moveCat(activeCatIdx, -1)" :disabled="activeCatIdx === 0"
-                        class="p-1 rounded-lg bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-700 disabled:opacity-20 transition-colors">
+                        class="p-1 rounded-lg bg-surface border border-light-c text-hint-c hover:text-muted-c disabled:opacity-20 transition-colors">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <button @click="moveCat(activeCatIdx, 1)" :disabled="activeCatIdx === categories.length - 1"
-                        class="p-1 rounded-lg bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-700 disabled:opacity-20 transition-colors">
+                        class="p-1 rounded-lg bg-surface border border-light-c text-hint-c hover:text-muted-c disabled:opacity-20 transition-colors">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
               </div>
-              <span class="text-stone-500 dark:text-stone-300 font-semibold" style="font-size:13px">{{ activeCat.name }}</span>
+              <span class="text-hint-c dark:text-hint-c font-semibold" style="font-size:13px">{{ activeCat.name }}</span>
             </div>
             <div class="flex items-center gap-1.5">
               <button @click="openLinkModal(activeCat.id, null)"
@@ -82,11 +82,11 @@
                 新增網址
               </button>
               <button @click="openCatModal(activeCat)"
-                      class="p-1.5 text-stone-400 hover:text-green-700 transition-colors" title="編輯分類">
+                      class="p-1.5 text-hint-c hover:text-green-700 transition-colors" title="編輯分類">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </button>
               <button @click="deleteCategory(activeCat)"
-                      class="p-1.5 text-stone-300 hover:text-red-400 transition-colors" title="刪除分類">
+                      class="p-1.5 text-hint-c hover:text-red-400 transition-colors" title="刪除分類">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
             </div>
@@ -94,7 +94,7 @@
 
           <!-- 此分類無連結 -->
           <div v-if="activeCat.links.length === 0"
-               class="bg-white dark:bg-zinc-800 rounded-2xl border border-stone-200 dark:border-stone-700 px-4 py-10 text-center text-stone-400 shadow-sm"
+               class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm"
                style="font-size:13px">
             此分類尚無網址，點「新增網址」加入連結
           </div>
@@ -103,16 +103,16 @@
           <div v-else class="link-grid">
             <div
               v-for="(link, linkIdx) in activeCat.links" :key="link.id"
-              class="link-card bg-white dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-2xl p-3 flex flex-col gap-2 shadow-sm relative group"
+              class="link-card bg-surface border border-light-c rounded-2xl p-3 flex flex-col gap-2 shadow-sm relative group"
             >
               <!-- 排序按鈕 -->
               <div class="absolute top-2 left-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <button @click="moveLink(activeCat, linkIdx, -1)" :disabled="linkIdx === 0"
-                        class="p-0.5 bg-white/90 dark:bg-zinc-700/90 rounded text-stone-400 hover:text-stone-700 disabled:opacity-20 shadow-sm transition-colors">
+                        class="p-0.5 bg-surface/90 /90 rounded text-hint-c hover:text-muted-c disabled:opacity-20 shadow-sm transition-colors">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <button @click="moveLink(activeCat, linkIdx, 1)" :disabled="linkIdx === activeCat.links.length - 1"
-                        class="p-0.5 bg-white/90 dark:bg-zinc-700/90 rounded text-stone-400 hover:text-stone-700 disabled:opacity-20 shadow-sm transition-colors">
+                        class="p-0.5 bg-surface/90 /90 rounded text-hint-c hover:text-muted-c disabled:opacity-20 shadow-sm transition-colors">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
               </div>
@@ -120,11 +120,11 @@
               <!-- 操作按鈕（右上角） -->
               <div class="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <button @click.prevent="openLinkModal(activeCat.id, link)"
-                        class="p-1 bg-white/90 dark:bg-zinc-700/90 rounded text-stone-400 hover:text-amber-500 shadow-sm transition-colors" title="編輯">
+                        class="p-1 bg-surface/90 /90 rounded text-hint-c hover:text-amber-500 shadow-sm transition-colors" title="編輯">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
                 <button @click.prevent="deleteLink(activeCat, link)"
-                        class="p-1 bg-white/90 dark:bg-zinc-700/90 rounded text-stone-300 hover:text-red-400 shadow-sm transition-colors" title="刪除">
+                        class="p-1 bg-surface/90 /90 rounded text-hint-c hover:text-red-400 shadow-sm transition-colors" title="刪除">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
@@ -132,23 +132,23 @@
               <!-- 點擊開啟連結 -->
               <a :href="link.url" target="_blank" rel="noopener" class="flex flex-col gap-2 min-h-0">
                 <div class="flex items-start justify-between">
-                  <div class="w-10 h-10 rounded-xl bg-stone-100 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <div class="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <img
                       :src="`https://www.google.com/s2/favicons?domain=${getDomain(link.url)}&sz=64`"
                       class="w-6 h-6 rounded"
                       @error="onFaviconError($event, link.name)"
                     />
                   </div>
-                  <svg class="w-3 h-3 text-stone-300 dark:text-stone-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3 h-3 text-hint-c flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                           d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                   </svg>
                 </div>
                 <div>
-                  <p class="font-semibold text-stone-800 dark:text-stone-100 leading-snug line-clamp-2" style="font-size:13px">
+                  <p class="font-semibold text-base-c leading-snug line-clamp-2" style="font-size:13px">
                     {{ link.name }}
                   </p>
-                  <p v-if="link.note" class="text-stone-400 dark:text-stone-500 mt-0.5 line-clamp-1" style="font-size:11px">
+                  <p v-if="link.note" class="text-hint-c mt-0.5 line-clamp-1" style="font-size:11px">
                     {{ link.note }}
                   </p>
                 </div>
@@ -162,13 +162,13 @@
 
     <!-- 分類 Modal -->
     <div v-if="catModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-5">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-4">{{ catModal.isNew ? '新增分類' : '編輯分類' }}</h3>
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-5">
+        <h3 class="font-bold text-base-c mb-4">{{ catModal.isNew ? '新增分類' : '編輯分類' }}</h3>
         <input v-model="catModal.name" placeholder="分類名稱" @keydown.enter="saveCategory"
-               class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500 mb-4" />
+               class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500 mb-4" />
         <div class="flex gap-2">
           <button @click="catModal.show = false"
-                  class="flex-1 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">取消</button>
+                  class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors">取消</button>
           <button @click="saveCategory" :disabled="!catModal.name.trim()"
                   class="flex-1 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors">儲存</button>
         </div>
@@ -177,28 +177,28 @@
 
     <!-- 網址 Modal -->
     <div v-if="linkModal.show" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-4">{{ linkModal.isNew ? '新增網址' : '編輯網址' }}</h3>
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5">
+        <h3 class="font-bold text-base-c mb-4">{{ linkModal.isNew ? '新增網址' : '編輯網址' }}</h3>
         <div class="space-y-3">
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">名稱 *</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">名稱 *</label>
             <input v-model="linkModal.name" placeholder="Google、公司系統…"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500" />
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">網址 *</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">網址 *</label>
             <input v-model="linkModal.url" placeholder="https://…" type="url"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500" />
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <div>
-            <label class="text-sm font-medium text-stone-600 dark:text-stone-300 block mb-1">備註</label>
+            <label class="text-sm font-medium text-muted-c block mb-1">備註</label>
             <input v-model="linkModal.note" placeholder="簡短說明（選填）"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-green-500" />
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500" />
           </div>
         </div>
         <div class="flex gap-2 mt-4">
           <button @click="linkModal.show = false"
-                  class="flex-1 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">取消</button>
+                  class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors">取消</button>
           <button @click="saveLink" :disabled="!linkModal.name.trim() || !linkModal.url.trim()"
                   class="flex-1 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors">儲存</button>
         </div>
@@ -207,7 +207,7 @@
 
     <!-- Toast -->
     <transition name="fade">
-      <div v-if="toast.show" class="fixed bottom-6 right-6 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+      <div v-if="toast.show" class="fixed bottom-6 right-6 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {{ toast.message }}
       </div>

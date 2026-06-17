@@ -48,9 +48,9 @@
                class="absolute flex items-center justify-center"
                :style="nodeStyle(node)">
             <div :class="[
-              'px-5 py-1.5 rounded-full text-xs font-bold border-2 shadow-sm',
-              dark ? 'bg-zinc-800 border-amber-600 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'
-            ]">開始</div>
+ 'px-5 py-1.5 rounded-full text-xs font-bold border-2 shadow-sm',
+ dark ? 'border-amber-600 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'
+ ]">開始</div>
           </div>
 
           <!-- 結束節點 -->
@@ -58,9 +58,9 @@
                class="absolute flex items-center justify-center"
                :style="nodeStyle(node)">
             <div :class="[
-              'px-5 py-1.5 rounded-full text-xs font-bold border-2 shadow-sm',
-              dark ? 'bg-zinc-800 border-stone-600 text-stone-400' : 'bg-stone-100 border-stone-400 text-stone-600'
-            ]">結束</div>
+ 'px-5 py-1.5 rounded-full text-xs font-bold border-2 shadow-sm',
+ 'bg-surface2 border-base text-muted-c'
+ ]">結束</div>
           </div>
 
           <!-- 普通步驟 -->
@@ -68,36 +68,36 @@
                class="absolute"
                :style="nodeStyle(node)">
             <div :class="[
-              'rounded-xl border shadow-sm overflow-hidden transition-shadow',
-              dark ? 'bg-zinc-800 border-zinc-700 hover:border-amber-700' : 'bg-white border-stone-200 hover:border-amber-300',
-              editingId === node.id ? (dark ? 'border-amber-600 shadow-amber-900/30' : 'border-amber-400 shadow-amber-100') : ''
-            ]" :style="{ width: NODE_W + 'px' }">
+ 'rounded-xl border shadow-sm overflow-hidden transition-shadow',
+ dark ? 'border-base hover:border-amber-700' : 'bg-surface border-light-c hover:border-amber-300',
+ editingId === node.id ? (dark ? 'border-amber-600 shadow-amber-900/30' : 'border-amber-400 shadow-amber-100') : ''
+ ]" :style="{ width: NODE_W + 'px' }">
               <!-- 色條 + 序號 -->
               <div :class="[
-                'flex items-center gap-2 px-3 py-1.5 border-b',
-                dark ? 'border-zinc-700 bg-zinc-900/40' : 'border-stone-100 bg-stone-50'
-              ]">
+ 'flex items-center gap-2 px-3 py-1.5 border-b',
+ dark ? 'border-base /40' : 'border-light-c bg-surface2'
+ ]">
                 <span :class="[
-                  'w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0',
-                  dark ? 'bg-amber-900/50 text-amber-400' : 'bg-amber-100 text-amber-700'
-                ]">{{ node.stepNum }}</span>
-                <span :class="['text-xs', dark ? 'text-stone-500' : 'text-stone-400']">一般步驟</span>
+ 'w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0',
+ dark ? 'bg-amber-900/50 text-amber-400' : 'bg-amber-100 text-amber-700'
+ ]">{{ node.stepNum }}</span>
+                <span :class="['text-xs', dark ? 'text-hint-c' : 'text-hint-c']">一般步驟</span>
                 <!-- 操作按鈕 -->
                 <div class="ml-auto flex items-center gap-1">
                   <button @click="moveStep(node.stepIdx, -1)"
                           :disabled="node.stepIdx === 0"
-                          :class="['p-0.5 rounded transition-colors disabled:opacity-30', dark ? 'text-stone-500 hover:text-stone-300' : 'text-stone-300 hover:text-stone-500']"
+                          :class="['p-0.5 rounded transition-colors disabled:opacity-30', dark ? 'text-hint-c hover:text-hint-c' : 'text-hint-c hover:text-hint-c']"
                           title="上移">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
                   </button>
                   <button @click="moveStep(node.stepIdx, 1)"
                           :disabled="node.stepIdx === steps.length - 1"
-                          :class="['p-0.5 rounded transition-colors disabled:opacity-30', dark ? 'text-stone-500 hover:text-stone-300' : 'text-stone-300 hover:text-stone-500']"
+                          :class="['p-0.5 rounded transition-colors disabled:opacity-30', dark ? 'text-hint-c hover:text-hint-c' : 'text-hint-c hover:text-hint-c']"
                           title="下移">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                   </button>
                   <button @click="removeStep(node.stepIdx)"
-                          :class="['p-0.5 rounded transition-colors', dark ? 'text-stone-600 hover:text-red-400' : 'text-stone-300 hover:text-red-400']"
+                          :class="['p-0.5 rounded transition-colors', dark ? 'text-muted-c hover:text-red-400' : 'text-hint-c hover:text-red-400']"
                           title="刪除">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
@@ -112,16 +112,16 @@
                   @focus="editingId = node.id"
                   @blur="editingId = ''"
                   :class="[
-                    'w-full text-xs leading-relaxed resize-none outline-none bg-transparent',
-                    dark ? 'text-stone-200 placeholder-stone-600' : 'text-stone-700 placeholder-stone-300'
-                  ]"
+ 'w-full text-xs leading-relaxed resize-none outline-none bg-transparent',
+ dark ? 'text-base-c placeholder-hint' : 'text-muted-c placeholder-hint'
+ ]"
                 />
                 <!-- 轉換成分支 -->
                 <button @click="convertToBranch(node.stepIdx)"
                         :class="[
-                          'text-xs flex items-center gap-0.5 mt-0.5 transition-colors',
-                          dark ? 'text-stone-600 hover:text-amber-500' : 'text-stone-300 hover:text-amber-500'
-                        ]">
+ 'text-xs flex items-center gap-0.5 mt-0.5 transition-colors',
+ dark ? 'text-muted-c hover:text-amber-500' : 'text-hint-c hover:text-amber-500'
+ ]">
                   <span class="text-amber-400">⬦</span> 轉為判斷分支
                 </button>
               </div>
@@ -150,9 +150,9 @@
                   @focus="editingId = node.id"
                   @blur="editingId = ''"
                   :class="[
-                    'w-full text-center text-xs font-semibold bg-transparent outline-none',
-                    dark ? 'text-amber-300 placeholder-amber-900' : 'text-amber-800 placeholder-amber-300'
-                  ]"
+ 'w-full text-center text-xs font-semibold bg-transparent outline-none',
+ dark ? 'text-amber-300 placeholder-amber-900' : 'text-amber-800 placeholder-amber-300'
+ ]"
                 />
               </div>
               <!-- 右上角操作 -->
@@ -160,18 +160,18 @@
                 <button @click="moveStep(node.stepIdx, -1)"
                         :disabled="node.stepIdx === 0"
                         :class="['w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-sm border transition-colors disabled:opacity-30',
-                          dark ? 'bg-zinc-800 border-zinc-700 text-stone-400 hover:text-stone-200' : 'bg-white border-stone-200 text-stone-400 hover:text-stone-600']">
+ dark ? 'border-base text-hint-c hover:text-base-c' : 'bg-surface border-light-c text-hint-c hover:text-muted-c']">
                   <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
                 </button>
                 <button @click="moveStep(node.stepIdx, 1)"
                         :disabled="node.stepIdx === steps.length - 1"
                         :class="['w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-sm border transition-colors disabled:opacity-30',
-                          dark ? 'bg-zinc-800 border-zinc-700 text-stone-400 hover:text-stone-200' : 'bg-white border-stone-200 text-stone-400 hover:text-stone-600']">
+ dark ? 'border-base text-hint-c hover:text-base-c' : 'bg-surface border-light-c text-hint-c hover:text-muted-c']">
                   <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <button @click="removeStep(node.stepIdx)"
                         :class="['w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-sm border transition-colors',
-                          dark ? 'bg-zinc-800 border-red-900 text-red-500 hover:bg-red-900/30' : 'bg-white border-red-200 text-red-400 hover:bg-red-50']">
+ dark ? 'border-red-900 text-red-500 hover:bg-red-900/30' : 'bg-surface border-red-200 text-red-400 hover:bg-red-50']">
                   <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -183,25 +183,25 @@
                class="absolute flex items-center justify-center"
                :style="nodeStyle(node)">
             <div :class="[
-              'flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-medium',
-              node.branchIdx === 0
-                ? (dark ? 'bg-teal-900/20 border-teal-700 text-teal-400' : 'bg-teal-50 border-teal-300 text-teal-700')
-                : node.branchIdx === 1
-                  ? (dark ? 'bg-red-900/20 border-red-800 text-red-400' : 'bg-red-50 border-red-300 text-red-600')
-                  : (dark ? 'bg-zinc-800 border-zinc-700 text-stone-400' : 'bg-stone-100 border-stone-300 text-stone-600')
-            ]">
+ 'flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-medium',
+ node.branchIdx === 0
+ ? (dark ? 'bg-teal-900/20 border-teal-700 text-teal-400' : 'bg-teal-50 border-teal-300 text-teal-700')
+ : node.branchIdx === 1
+ ? (dark ? 'bg-red-900/20 border-red-800 text-red-400' : 'bg-red-50 border-red-300 text-red-600')
+ : (dark ? 'border-base text-hint-c' : 'bg-surface2 border-base text-muted-c')
+ ]">
               <input
                 v-model="steps[node.stepIdx].branches[node.branchIdx].label"
                 :placeholder="node.branchIdx === 0 ? '是' : '否'"
                 :class="[
-                  'text-xs font-medium bg-transparent outline-none w-16 text-center',
-                  node.branchIdx === 0 ? (dark ? 'text-teal-400' : 'text-teal-700') :
-                  node.branchIdx === 1 ? (dark ? 'text-red-400' : 'text-red-600') : (dark ? 'text-stone-400' : 'text-stone-600')
-                ]"
+ 'text-xs font-medium bg-transparent outline-none w-16 text-center',
+ node.branchIdx === 0 ? (dark ? 'text-teal-400' : 'text-teal-700') :
+ node.branchIdx === 1 ? (dark ? 'text-red-400' : 'text-red-600') : (dark ? 'text-hint-c' : 'text-muted-c')
+ ]"
               />
               <!-- 刪除分支 -->
               <button @click="removeBranch(node.stepIdx, node.branchIdx)"
-                      :class="['transition-colors', dark ? 'text-stone-600 hover:text-red-400' : 'text-stone-300 hover:text-red-400']">
+                      :class="['transition-colors', dark ? 'text-muted-c hover:text-red-400' : 'text-hint-c hover:text-red-400']">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
@@ -212,30 +212,30 @@
                class="absolute"
                :style="nodeStyle(node)">
             <div :class="[
-              'rounded-lg border overflow-hidden',
-              node.branchIdx === 0
-                ? (dark ? 'border-teal-800 bg-teal-900/10' : 'border-teal-200 bg-teal-50/40')
-                : node.branchIdx === 1
-                  ? (dark ? 'border-red-900 bg-red-900/10' : 'border-red-200 bg-red-50/40')
-                  : (dark ? 'border-zinc-700 bg-zinc-800/50' : 'border-stone-200 bg-stone-50')
-            ]" :style="{ width: SUB_W + 'px' }">
+ 'rounded-lg border overflow-hidden',
+ node.branchIdx === 0
+ ? (dark ? 'border-teal-800 bg-teal-900/10' : 'border-teal-200 bg-teal-50/40')
+ : node.branchIdx === 1
+ ? (dark ? 'border-red-900 bg-red-900/10' : 'border-red-200 bg-red-50/40')
+ : (dark ? 'border-base /50' : 'border-light-c bg-surface2')
+ ]" :style="{ width: SUB_W + 'px' }">
               <div class="flex items-center gap-1.5 px-2 py-1">
                 <span :class="[
-                  'w-4 h-4 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 text-white',
-                  node.branchIdx === 0 ? 'bg-teal-500' : node.branchIdx === 1 ? 'bg-red-400' : 'bg-stone-400'
-                ]">{{ node.subNum }}</span>
+ 'w-4 h-4 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 text-white',
+ node.branchIdx === 0 ? 'bg-teal-500' : node.branchIdx === 1 ? 'bg-red-400' : 'bg-stone-400'
+ ]">{{ node.subNum }}</span>
                 <input
                   v-model="steps[node.stepIdx].branches[node.branchIdx].steps[node.subIdx].text"
                   :placeholder="`子步驟 ${node.subNum}`"
                   @focus="editingId = node.id"
                   @blur="editingId = ''"
                   :class="[
-                    'flex-1 text-xs bg-transparent outline-none min-w-0',
-                    dark ? 'text-stone-300 placeholder-stone-600' : 'text-stone-600 placeholder-stone-300'
-                  ]"
+ 'flex-1 text-xs bg-transparent outline-none min-w-0',
+ dark ? 'text-hint-c placeholder-hint' : 'text-muted-c placeholder-hint'
+ ]"
                 />
                 <button @click="removeSubStep(node.stepIdx, node.branchIdx, node.subIdx)"
-                        :class="['transition-colors flex-shrink-0', dark ? 'text-stone-600 hover:text-red-400' : 'text-stone-300 hover:text-red-400']">
+                        :class="['transition-colors flex-shrink-0', dark ? 'text-muted-c hover:text-red-400' : 'text-hint-c hover:text-red-400']">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -248,13 +248,13 @@
                :style="nodeStyle(node)">
             <button @click="addSubStep(node.stepIdx, node.branchIdx)"
                     :class="[
-                      'flex items-center gap-1 px-2 py-1 rounded-lg border border-dashed text-xs transition-colors',
-                      node.branchIdx === 0
-                        ? (dark ? 'border-teal-800 text-teal-600 hover:border-teal-600 hover:text-teal-400' : 'border-teal-300 text-teal-500 hover:border-teal-400 hover:text-teal-600')
-                        : node.branchIdx === 1
-                          ? (dark ? 'border-red-900 text-red-700 hover:border-red-700 hover:text-red-500' : 'border-red-300 text-red-400 hover:border-red-400 hover:text-red-500')
-                          : (dark ? 'border-zinc-700 text-stone-600 hover:border-stone-500 hover:text-stone-400' : 'border-stone-300 text-stone-400 hover:border-stone-400')
-                    ]"
+ 'flex items-center gap-1 px-2 py-1 rounded-lg border border-dashed text-xs transition-colors',
+ node.branchIdx === 0
+ ? (dark ? 'border-teal-800 text-teal-600 hover:border-teal-600 hover:text-teal-400' : 'border-teal-300 text-teal-500 hover:border-teal-400 hover:text-teal-600')
+ : node.branchIdx === 1
+ ? (dark ? 'border-red-900 text-red-700 hover:border-red-700 hover:text-red-500' : 'border-red-300 text-red-400 hover:border-red-400 hover:text-red-500')
+ : (dark ? 'border-base text-muted-c hover-border hover:text-hint-c' : 'border-base text-hint-c hover-border')
+ ]"
                     :style="{ width: SUB_W + 'px' }">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
               加入子步驟
@@ -267,9 +267,9 @@
                :style="nodeStyle(node)">
             <button @click="addBranch(node.stepIdx)"
                     :class="[
-                      'flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed text-xs transition-colors',
-                      dark ? 'border-amber-900 text-amber-700 hover:border-amber-700 hover:text-amber-500' : 'border-amber-300 text-amber-500 hover:border-amber-400 hover:text-amber-600'
-                    ]">
+ 'flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed text-xs transition-colors',
+ dark ? 'border-amber-900 text-amber-700 hover:border-amber-700 hover:text-amber-500' : 'border-amber-300 text-amber-500 hover:border-amber-400 hover:text-amber-600'
+ ]">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
               新增分支
             </button>
@@ -281,17 +281,17 @@
                :style="nodeStyle(node)">
             <button @click="insertStep(node.afterIdx, 'normal')"
                     :class="[
-                      'flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors shadow-sm',
-                      dark ? 'bg-zinc-900 border-zinc-700 text-stone-400 hover:border-amber-700 hover:text-amber-400' : 'bg-white border-stone-200 text-stone-500 hover:border-amber-400 hover:text-amber-600'
-                    ]">
+ 'flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors shadow-sm',
+ dark ? 'border-base text-hint-c hover:border-amber-700 hover:text-amber-400' : 'bg-surface border-light-c text-hint-c hover:border-amber-400 hover:text-amber-600'
+ ]">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
               步驟
             </button>
             <button @click="insertStep(node.afterIdx, 'branch')"
                     :class="[
-                      'flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors shadow-sm',
-                      dark ? 'bg-zinc-900 border-amber-900 text-amber-600 hover:border-amber-700 hover:text-amber-400' : 'bg-white border-amber-200 text-amber-500 hover:border-amber-400 hover:text-amber-600'
-                    ]">
+ 'flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors shadow-sm',
+ dark ? 'border-amber-900 text-amber-600 hover:border-amber-700 hover:text-amber-400' : 'bg-surface border-amber-200 text-amber-500 hover:border-amber-400 hover:text-amber-600'
+ ]">
               <span class="text-amber-400">⬦</span>
               分支
             </button>

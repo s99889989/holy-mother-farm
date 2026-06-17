@@ -1,14 +1,14 @@
 <template>
-  <div class="min-h-screen bg-stone-50 dark:bg-zinc-900 transition-colors duration-300">
+  <div class="min-h-screen bg-surface2 transition-colors duration-300">
     <AdminNavbar />
 
     <!-- Header -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">權</div>
         <div>
-          <h1 class="font-bold text-stone-800 dark:text-stone-100 text-sm sm:text-base leading-none">權限管理</h1>
-          <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Permission Management</p>
+          <h1 class="font-bold text-base-c text-sm sm:text-base leading-none">權限管理</h1>
+          <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Permission Management</p>
         </div>
       </div>
 
@@ -19,7 +19,7 @@
       <!-- ══ 權限組管理 ══ -->
       <div>
         <div class="flex items-center justify-between mb-3">
-          <p class="text-xs text-stone-400">
+          <p class="text-xs text-hint-c">
             共 {{ groups.length }} 個群組，預設：
             <span class="font-semibold text-violet-600">{{ defaultGroup }}</span>
           </p>
@@ -31,22 +31,22 @@
           </button>
         </div>
 
-        <div v-if="loadingGroups" class="flex items-center justify-center py-16 text-stone-400 gap-2">
+        <div v-if="loadingGroups" class="flex items-center justify-center py-16 text-hint-c gap-2">
           <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />載入中…
         </div>
 
         <div v-else class="space-y-3">
           <div
             v-for="g in groups" :key="g.id"
-            class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden"
+            class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
           >
             <!-- 群組標頭 -->
-            <div class="flex items-center justify-between px-4 py-3 border-b border-stone-100 dark:border-stone-700">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-light-c">
               <div class="flex items-center gap-2">
                 <span class="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 text-xs font-bold">{{ g.label?.charAt(0) }}</span>
                 <div>
-                  <p class="font-semibold text-stone-800 dark:text-stone-100 text-sm">{{ g.label }}</p>
-                  <p class="text-xs text-stone-400">ID: {{ g.id }}</p>
+                  <p class="font-semibold text-base-c text-sm">{{ g.label }}</p>
+                  <p class="text-xs text-hint-c">ID: {{ g.id }}</p>
                 </div>
                 <span v-if="g.id === defaultGroup" class="px-2 py-0.5 text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 rounded-full font-medium ml-1">預設</span>
               </div>
@@ -55,7 +55,7 @@
                         class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 transition-colors"
                         @click="setAsDefault(g.id)">設為預設</button>
                 <button
-                  class="px-2 py-1 text-xs border border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors"
+                  class="px-2 py-1 text-xs border border-light-c text-muted-c rounded-lg hover-surface2 transition-colors"
                   @click="openEditGroup(g)">編輯</button>
                 <button v-if="g.id !== defaultGroup"
                         class="px-2 py-1 text-xs border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -65,11 +65,11 @@
 
             <!-- 權限預覽 -->
             <div class="px-4 py-3">
-              <p class="text-xs text-stone-400 mb-2">{{ countAllowed(g.permissions) }} / {{ allKeys.length }} 項已開啟</p>
+              <p class="text-xs text-hint-c mb-2">{{ countAllowed(g.permissions) }} / {{ allKeys.length }} 項已開啟</p>
               <div class="flex flex-wrap gap-1.5">
                 <span
                   v-for="key in allKeys" :key="key"
-                  :class="g.permissions[key] ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-stone-100 text-stone-400 dark:bg-zinc-800 dark:text-stone-500'"
+                  :class="g.permissions[key] ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-surface2 text-hint-c dark:text-hint-c'"
                   class="px-2 py-0.5 text-xs rounded-full"
                 >{{ KEY_LABELS[key] ?? key }}</span>
               </div>
@@ -82,12 +82,12 @@
 
     <!-- ══ 新增/編輯群組 Modal ══ -->
     <div v-if="groupModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-2xl p-6 my-auto">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-2xl p-6 my-auto">
         <div class="flex items-center justify-between mb-5">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">
+          <h3 class="font-bold text-base-c">
             {{ groupModal.isCreate ? '新增權限組' : '編輯權限組：' + groupModal.data.label }}
           </h3>
-          <button class="text-stone-400 hover:text-stone-600 p-1" @click="groupModal.open = false">
+          <button class="text-hint-c hover:text-muted-c p-1" @click="groupModal.open = false">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -95,33 +95,33 @@
         <div class="space-y-4">
           <!-- ID（新增時才顯示） -->
           <div v-if="groupModal.isCreate">
-            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">群組 ID <span class="text-stone-400 font-normal">（英數字，建立後不能更改）</span></label>
+            <label class="text-xs font-semibold text-muted-c block mb-1">群組 ID <span class="text-hint-c font-normal">（英數字，建立後不能更改）</span></label>
             <input v-model="groupModal.data.id" placeholder="例如：senior、manager"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400">
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400">
           </div>
 
           <!-- 名稱 -->
           <div>
-            <label class="text-xs font-semibold text-stone-600 dark:text-stone-300 block mb-1">顯示名稱</label>
+            <label class="text-xs font-semibold text-muted-c block mb-1">顯示名稱</label>
             <input v-model="groupModal.data.label" placeholder="例如：資深員工、主管"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 outline-none focus:ring-2 focus:ring-violet-400">
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400">
           </div>
 
           <!-- 權限設定 -->
           <div>
             <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-semibold text-stone-600 dark:text-stone-300">權限設定</label>
+              <label class="text-xs font-semibold text-muted-c">權限設定</label>
               <div class="flex gap-2">
                 <button class="text-xs text-green-600 hover:underline" @click="setAllPerms(true)">全部開啟</button>
-                <span class="text-stone-300">|</span>
+                <span class="text-hint-c">|</span>
                 <button class="text-xs text-red-500 hover:underline" @click="setAllPerms(false)">全部關閉</button>
               </div>
             </div>
 
             <div v-for="section in permSections" :key="section.prefix" class="mb-4">
               <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">{{ section.label }}</span>
-                <div class="flex-1 h-px bg-stone-100 dark:bg-stone-700" />
+                <span class="text-xs font-semibold text-hint-c uppercase tracking-wide">{{ section.label }}</span>
+                <div class="flex-1 h-px bg-surface2 dark:bg-surface2" />
                 <button class="text-xs text-green-600 hover:underline" @click="setSectionPerms(section.prefix, true)">全開</button>
                 <button class="text-xs text-red-500 hover:underline" @click="setSectionPerms(section.prefix, false)">全關</button>
               </div>
@@ -130,15 +130,15 @@
                   v-for="key in section.keys" :key="key"
                   class="flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors"
                   :class="groupModal.data.permissions[key]
-                    ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
-                    : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-zinc-800'"
+ ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
+ : 'border-light-c hover-surface2'"
                 >
                   <input type="checkbox" :checked="groupModal.data.permissions[key]"
                          class="accent-violet-600 w-3.5 h-3.5 flex-shrink-0"
                          @change="groupModal.data.permissions[key] = $event.target.checked">
                   <div class="min-w-0">
-                    <p class="text-xs font-medium text-stone-700 dark:text-stone-200">{{ KEY_LABELS[key] ?? key }}</p>
-                    <p class="text-xs text-stone-400">{{ key }}</p>
+                    <p class="text-xs font-medium text-base-c">{{ KEY_LABELS[key] ?? key }}</p>
+                    <p class="text-xs text-hint-c">{{ key }}</p>
                   </div>
                 </label>
               </div>
@@ -148,7 +148,7 @@
           <p v-if="groupModal.error" class="text-xs text-red-500">{{ groupModal.error }}</p>
 
           <div class="flex gap-2 pt-1">
-            <button class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors" @click="groupModal.open = false">取消</button>
+            <button class="flex-1 py-2.5 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors" @click="groupModal.open = false">取消</button>
             <button :disabled="saving"
                     class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                     @click="saveGroup">
@@ -162,14 +162,14 @@
 
     <!-- ══ 刪除群組確認 ══ -->
     <div v-if="deleteGroupTarget" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">確認刪除群組</h3>
-        <p class="text-sm text-stone-500 dark:text-stone-400 mb-5">
-          確定要刪除「<span class="font-semibold text-stone-800 dark:text-stone-100">{{ deleteGroupTarget.label }}</span>」嗎？<br>
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <h3 class="font-bold text-base-c mb-2">確認刪除群組</h3>
+        <p class="text-sm text-hint-c mb-5">
+          確定要刪除「<span class="font-semibold text-base-c">{{ deleteGroupTarget.label }}</span>」嗎？<br>
           已套用此群組的用戶將改為預設群組。
         </p>
         <div class="flex gap-2">
-          <button class="flex-1 py-2.5 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 rounded-xl hover:bg-stone-200 transition-colors" @click="deleteGroupTarget = null">取消</button>
+          <button class="flex-1 py-2.5 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors" @click="deleteGroupTarget = null">取消</button>
           <button :disabled="saving"
                   class="flex-1 py-2.5 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                   @click="doDeleteGroup">
@@ -183,7 +183,7 @@
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>

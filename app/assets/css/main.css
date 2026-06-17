@@ -1,18 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
 @import "tailwindcss";
 @import "@nuxt/ui";
 
 @theme static {
-  --font-sans: 'Public Sans', sans-serif;
-
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
-  --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
+  --font-sans: 'Noto Sans TC', 'Public Sans', sans-serif;
 }
+
+/* ============================================================
+   色彩變數系統（比照 nuxt-test 風格）
+   - 中性色／表面／文字／邊框／accent／warn 全部走變數
+   - Nuxt UI 元件改走 app.config.ts 設定的 primary 色階，
+     這裡的變數主要給「手刻 Tailwind class」的後台/員工頁面用
+   ============================================================ */
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface2: #f7fafc;
+  --text: #2d3748;
+  --text-muted: #555555;
+  --text-hint: #888888;
+  --border: #cccccc;
+  --border-light: #e2e8f0;
+  --accent: #667eea;
+  --accent-light: #e8f4fd;
+  --warn: #f97316;
+  --warn-light: #fff7ed;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  color-scheme: light;
+}
+
+html.dark {
+  --bg: #181b20;
+  --surface: #232730;
+  --surface2: #2b2f3a;
+  --text: #e6e8eb;
+  --text-muted: #aab0bb;
+  --text-hint: #7d8493;
+  --border: #3a3f4b;
+  --border-light: #353a45;
+  --accent: #7c8cf0;
+  --accent-light: #2a3354;
+  --warn: #f97316;
+  --warn-light: #3a2a1a;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* ============================================================
+   語意化 utility classes
+   - 後台/員工頁面大量用 Tailwind 內建色（stone/zinc）直接寫 class，
+     這裡提供對應的變數驅動 class，取代中性色 class，
+     讓亮/暗模式都集中由上面的 CSS 變數控制。
+   - 語意色（green 品牌主色、red 警示、各種分類用色）不在此列，
+     維持原 Tailwind class 不變，以保留功能性的顏色區分。
+   ============================================================ */
+
+/* 背景 */
+.bg-page { background-color: var(--bg); }
+.bg-surface { background-color: var(--surface); }
+.bg-surface2 { background-color: var(--surface2); }
+
+/* 文字 */
+.text-base-c { color: var(--text); }
+.text-muted-c { color: var(--text-muted); }
+.text-hint-c { color: var(--text-hint); }
+
+/* 邊框 */
+.border-base { border-color: var(--border); }
+.border-light-c { border-color: var(--border-light); }
+.divide-base > * + * { border-color: var(--border-light); }
+
+/* placeholder */
+.placeholder-hint::placeholder { color: var(--text-hint); }
+
+/* hover 狀態（用於原本 hover:bg-stone-XXX 之類的互動回饋）*/
+.hover-surface2:hover { background-color: var(--surface2); }
+.hover-bg:hover { background-color: var(--bg); }
+.hover-text-muted:hover { color: var(--text-muted); }
+.hover-border:hover { border-color: var(--border); }
+
+/* 強調色實心按鈕（原本是 bg-stone-800 dark:bg-zinc-600 text-white 的深色主按鈕）*/
+.bg-accent-solid { background-color: var(--accent); }
+.hover-accent-solid:hover { background-color: var(--accent); filter: brightness(0.9); }
+
+/* 半透明灰底 overlay（原本是 bg-stone-500/80 之類，用於圖片上疊加的狀態標籤）*/
+.bg-muted-overlay { background-color: var(--text-hint); opacity: 0.85; }

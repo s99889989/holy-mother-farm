@@ -1,5 +1,5 @@
 <template>
-  <div class="h-screen flex flex-col bg-stone-100 dark:bg-zinc-950 transition-colors">
+  <div class="h-screen flex flex-col bg-page transition-colors">
     <StaffNavbar />
     <div class="flex-1 overflow-y-auto">
       <slot />

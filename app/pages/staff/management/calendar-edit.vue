@@ -1,29 +1,29 @@
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-[#15171c] transition-colors">
+  <div class="min-h-full bg-surface2 dark:bg-[#15171c] transition-colors">
 
     <!-- ── 精簡列（永遠顯示）── -->
-    <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-6 py-3 sticky top-0 z-30">
+    <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3 sticky top-0 z-30">
       <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <div class="flex items-center gap-4">
           <button @click="prevMonth"
-                  class="w-9 h-9 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+                  class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
             <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <h2 class="text-xl font-bold text-stone-800 dark:text-stone-100 min-w-[130px] text-center">
+          <h2 class="text-xl font-bold text-base-c min-w-[130px] text-center">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
           <button @click="nextMonth"
-                  class="w-9 h-9 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+                  class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
             <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
           </button>
           <button @click="goToday"
-                  class="px-4 py-1.5 text-sm border border-stone-200 dark:border-[#2a2e37] text-stone-500 dark:text-stone-400 rounded-lg hover:bg-stone-50 dark:hover:bg-[#1c1f26] transition-colors">
+                  class="px-4 py-1.5 text-sm border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors">
             今天
           </button>
         </div>
 
         <button @click="panelExpanded = !panelExpanded"
-                class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-stone-50 dark:hover:bg-[#1c1f26] transition-colors">
+                class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors">
           <span class="hidden sm:inline">{{ panelExpanded ? '收合' : '展開' }}</span>
           <svg class="w-4 h-4 transition-transform" :class="{'rotate-180': panelExpanded}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
         </button>
@@ -35,23 +35,23 @@
       <div v-if="panelExpanded" class="overflow-hidden">
 
         <!-- ── Header ── -->
-        <header class="bg-white dark:bg-[#15171c] border-b border-stone-200 dark:border-[#2a2e37] px-6 py-4">
+        <header class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#2a2e37] px-6 py-4">
           <div class="max-w-7xl mx-auto flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">曆</div>
               <div>
-                <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-lg sm:text-xl">行事曆管理</h1>
-                <p class="text-sm text-stone-400 mt-1 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
+                <h1 class="font-bold text-base-c leading-none text-lg sm:text-xl">行事曆管理</h1>
+                <p class="text-sm text-hint-c mt-1 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
               </div>
             </div>
             <div class="flex items-center gap-3">
               <button v-if="perm.can('staff.calendar.edit')" @click="openClearMonthModal"
-                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-white dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 <span class="hidden sm:inline">清空當月</span>
               </button>
               <button v-if="perm.can('staff.calendar.edit')" @click="showTxtModal = true"
-                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-lg bg-white dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 <span class="hidden sm:inline">貼上 TXT</span>
                 <span class="sm:hidden">TXT</span>
@@ -66,22 +66,22 @@
         </header>
 
         <!-- ── 類型圖例 ── -->
-        <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-6 py-3">
+        <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3">
           <div class="max-w-7xl mx-auto flex items-center justify-end gap-4">
             <div v-for="t in TYPES" :key="t" class="flex items-center gap-2">
               <div :class="['w-3 h-3 rounded-sm', legendDotClass(t)]"></div>
-              <span class="text-sm text-stone-500 dark:text-stone-400">{{ t }}</span>
+              <span class="text-sm text-hint-c">{{ t }}</span>
             </div>
             <div class="flex items-center gap-2">
               <div class="w-3 h-3 rounded-sm bg-blue-500"></div>
-              <span class="text-sm text-stone-500 dark:text-stone-400">Google</span>
+              <span class="text-sm text-hint-c">Google</span>
             </div>
-            <span class="text-sm text-stone-400 ml-1">{{ monthEventCount }} 筆</span>
+            <span class="text-sm text-hint-c ml-1">{{ monthEventCount }} 筆</span>
           </div>
         </div>
 
         <!-- ── 篩選列 ── -->
-        <div class="border-b border-stone-100 dark:border-[#22252c] bg-white dark:bg-[#15171c] px-6 py-3.5">
+        <div class="border-b border-light-c dark:border-[#22252c] bg-surface dark:bg-[#15171c] px-6 py-3.5">
           <div class="max-w-7xl mx-auto filter-bar">
 
             <!-- 類型 -->
@@ -119,7 +119,7 @@
     <!-- ── 月曆主體 ── -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
-      <div v-if="loading" class="flex items-center justify-center py-24 text-stone-400 gap-2">
+      <div v-if="loading" class="flex items-center justify-center py-24 text-hint-c gap-2">
         <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         載入中…
       </div>
@@ -133,22 +133,22 @@
           </div>
           <div v-for="(cell, idx) in calendarCells" :key="idx"
                :class="['cal-cell', {
-              'opacity-0 pointer-events-none': !cell.day,
-              'today': cell.isToday,
-              'weekend': cell.isWeekend,
-              'has-events': cell.events.length > 0
-            }]"
+ 'opacity-0 pointer-events-none': !cell.day,
+ 'today': cell.isToday,
+ 'weekend': cell.isWeekend,
+ 'has-events': cell.events.length > 0
+ }]"
                @click="cell.day && openAddOnDate(cell.dateStr)"
           >
             <template v-if="cell.day">
               <!-- 日期數字 -->
               <div class="flex items-center justify-between mb-1 px-0.5">
                 <span :class="['cal-day-num', {
-                  'today-num': cell.isToday,
-                  'text-red-400 dark:text-red-400': cell.isWeekend && cell.weekdayIdx === 0,
-                  'text-blue-400 dark:text-blue-400': cell.isWeekend && cell.weekdayIdx === 6,
-                  'text-stone-600 dark:text-stone-300': !cell.isToday && !cell.isWeekend
-                }]">{{ cell.day }}</span>
+ 'today-num': cell.isToday,
+ 'text-red-400 dark:text-red-400': cell.isWeekend && cell.weekdayIdx === 0,
+ 'text-blue-400 dark:text-blue-400': cell.isWeekend && cell.weekdayIdx === 6,
+ 'text-muted-c': !cell.isToday && !cell.isWeekend
+ }]">{{ cell.day }}</span>
                 <!-- 快速新增按鈕：hover 才顯示 -->
                 <button
                   @click.stop="openAddOnDate(cell.dateStr)"
@@ -174,7 +174,7 @@
                 <!-- 超出顯示 +N -->
                 <div
                   v-if="cell.events.length > 3"
-                  class="text-xs text-stone-400 dark:text-stone-500 px-1 cursor-pointer hover:text-indigo-500 transition-colors"
+                  class="text-xs text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
                   @click.stop="openDayPanel(cell)"
                 >
                   +{{ cell.events.length - 3 }} 更多
@@ -219,7 +219,7 @@
               <!-- 文字（點擊編輯） -->
               <div class="flex-1 min-w-0">
                 <div v-if="noteEditIdx !== idx"
-                     class="text-sm text-stone-700 dark:text-stone-300 leading-relaxed cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors break-words"
+                     class="text-sm text-muted-c leading-relaxed cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors break-words"
                      @click="startEditNote(idx)">
                   {{ note || '（點擊編輯）' }}
                 </div>
@@ -227,7 +227,7 @@
                   <textarea
                     v-model="noteEditValue"
                     rows="2"
-                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-white dark:bg-[#1c1f26] text-stone-800 dark:text-stone-100 resize-none outline-none focus:ring-2 focus:ring-indigo-400"
+                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-surface dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400"
                     @keydown.enter.ctrl="confirmEditNote(idx)"
                     @keydown.esc="cancelEditNote"
                     autofocus
@@ -238,7 +238,7 @@
                       確認
                     </button>
                     <button @click="cancelEditNote"
-                            class="px-2.5 py-1 text-xs border border-stone-200 dark:border-[#2a2e37] text-stone-500 rounded-lg hover:bg-stone-50 transition-colors">
+                            class="px-2.5 py-1 text-xs border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 transition-colors">
                       取消
                     </button>
                   </div>
@@ -247,7 +247,7 @@
               <!-- 刪除 -->
               <button v-if="noteEditIdx !== idx"
                       @click="deleteNote(idx)"
-                      class="flex-shrink-0 p-1 text-stone-300 dark:text-stone-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all mt-0.5" title="刪除">
+                      class="flex-shrink-0 p-1 text-hint-c hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all mt-0.5" title="刪除">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
@@ -261,12 +261,12 @@
       <div v-if="dayPanel.show"
            class="fixed inset-0 z-40 flex justify-end"
            @click.self="dayPanel.show = false">
-        <div class="w-full sm:w-96 bg-white dark:bg-[#15171c] h-full shadow-2xl overflow-y-auto flex flex-col">
+        <div class="w-full sm:w-96 bg-surface dark:bg-[#15171c] h-full shadow-2xl overflow-y-auto flex flex-col">
           <!-- 側板 Header -->
-          <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
+          <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
             <div>
-              <p class="font-bold text-stone-800 dark:text-stone-100">{{ dayPanel.dateStr }}</p>
-              <p class="text-xs text-stone-400 mt-0.5">{{ dayPanel.events.length }} 個活動</p>
+              <p class="font-bold text-base-c">{{ dayPanel.dateStr }}</p>
+              <p class="text-xs text-hint-c mt-0.5">{{ dayPanel.events.length }} 個活動</p>
             </div>
             <div class="flex items-center gap-2">
               <button @click="openAddOnDate(dayPanel.dateStr)"
@@ -274,7 +274,7 @@
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 新增
               </button>
-              <button @click="dayPanel.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+              <button @click="dayPanel.show = false" class="text-hint-c hover:text-muted-c p-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
@@ -282,21 +282,21 @@
 
           <!-- 側板活動列表 -->
           <div class="flex-1 px-4 py-3 space-y-2">
-            <div v-if="dayPanel.events.length === 0" class="text-center py-12 text-stone-400 text-sm">此日無活動</div>
+            <div v-if="dayPanel.events.length === 0" class="text-center py-12 text-hint-c text-sm">此日無活動</div>
             <div
               v-for="ev in dayPanel.events"
               :key="ev.id"
-              class="group flex items-start gap-3 p-3 rounded-xl border border-stone-100 dark:border-[#2a2e37] hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
+              class="group flex items-start gap-3 p-3 rounded-xl border border-light-c dark:border-[#2a2e37] hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
             >
               <!-- 類型色條 -->
               <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev.type)]"></div>
               <!-- 內容 -->
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-semibold text-stone-800 dark:text-stone-100 leading-tight">{{ ev.title }}</p>
-                <p class="text-xs text-stone-400 mt-0.5">{{ ev.time }}</p>
-                <p v-if="ev.owner" class="text-xs text-stone-400">👤 {{ ev.owner }}</p>
-                <p v-if="ev.room"  class="text-xs text-stone-400 truncate">📍 {{ ev.room }}</p>
-                <p v-if="ev.description" class="text-xs text-stone-400 mt-1 line-clamp-2">📝 {{ ev.description }}</p>
+                <p class="text-sm font-semibold text-base-c leading-tight">{{ ev.title }}</p>
+                <p class="text-xs text-hint-c mt-0.5">{{ ev.time }}</p>
+                <p v-if="ev.owner" class="text-xs text-hint-c">👤 {{ ev.owner }}</p>
+                <p v-if="ev.room"  class="text-xs text-hint-c truncate">📍 {{ ev.room }}</p>
+                <p v-if="ev.description" class="text-xs text-hint-c mt-1 line-clamp-2">📝 {{ ev.description }}</p>
                 <a v-if="ev.source === 'google' && ev.googleLink" :href="ev.googleLink" target="_blank" rel="noopener"
                    class="text-xs text-blue-500 underline mt-1 inline-block" @click.stop>在 Google 日曆開啟</a>
                 <span :class="['type-badge mt-1.5', typeColorClass(ev.type)]">{{ ev.type }}</span>
@@ -304,11 +304,11 @@
               <!-- 操作 -->
               <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <button @click="openEdit(ev)"
-                        class="p-1.5 text-stone-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="編輯">
+                        class="p-1.5 text-hint-c hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="編輯">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
                 <button v-if="perm.can('staff.calendar.edit')" @click="deleteEvent(ev)"
-                        class="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="刪除">
+                        class="p-1.5 text-hint-c hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="刪除">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
@@ -321,11 +321,11 @@
     <!-- ══ Modal: 新增 / 編輯 ══ -->
     <div v-if="formModal.show"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ formModal.isNew ? '新增活動' : '編輯活動' }}</h3>
-          <button @click="formModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
+          <h3 class="font-bold text-base-c">{{ formModal.isNew ? '新增活動' : '編輯活動' }}</h3>
+          <button @click="formModal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -364,9 +364,9 @@
           <p v-if="formError" class="text-xs text-red-500">{{ formError }}</p>
         </div>
 
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-[#15171c]">
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button @click="formModal.show = false"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             取消
           </button>
           <button @click="saveForm" :disabled="saving"
@@ -382,23 +382,23 @@
     <div v-if="clearMonthModal.show"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
          @click.self="closeClearMonthModal">
-      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between">
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between">
           <h3 class="font-bold text-red-500 flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
             清空當月內容
           </h3>
-          <button @click="closeClearMonthModal" class="text-stone-400 hover:text-stone-600 p-1">
+          <button @click="closeClearMonthModal" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
         <div class="px-5 py-4 space-y-3">
-          <p class="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-            即將刪除 <strong class="text-stone-800 dark:text-stone-100">{{ currentYear }} 年 {{ currentMonth }} 月</strong> 的全部系統活動（{{ clearableEventCount }} 筆）與備注（{{ notes.length }} 條）。
+          <p class="text-sm text-muted-c leading-relaxed">
+            即將刪除 <strong class="text-base-c">{{ currentYear }} 年 {{ currentMonth }} 月</strong> 的全部系統活動（{{ clearableEventCount }} 筆）與備注（{{ notes.length }} 條）。
           </p>
-          <p class="text-xs text-stone-400">此操作無法復原。Google 日曆同步的活動不受影響，請另至 Google 日曆刪除。</p>
+          <p class="text-xs text-hint-c">此操作無法復原。Google 日曆同步的活動不受影響，請另至 Google 日曆刪除。</p>
           <div>
             <label class="field-label">請輸入「{{ currentMonth }}」以確認刪除</label>
             <input v-model="clearMonthConfirmText" type="text" class="field-input" :placeholder="String(currentMonth)" />
@@ -406,9 +406,9 @@
           <p v-if="clearMonthError" class="text-xs text-red-500">{{ clearMonthError }}</p>
         </div>
 
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end">
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end">
           <button @click="closeClearMonthModal"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             取消
           </button>
           <button @click="confirmClearMonth" :disabled="clearingMonth || clearMonthConfirmText !== String(currentMonth)"
@@ -424,46 +424,46 @@
     <div v-if="googleDetailModal.show && googleDetailModal.ev"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
          @click.self="googleDetailModal.show = false">
-      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-sm bg-blue-500 flex-shrink-0"></div>
-            <h3 class="font-bold text-stone-800 dark:text-stone-100 text-sm">Google 日曆活動</h3>
+            <h3 class="font-bold text-base-c text-sm">Google 日曆活動</h3>
           </div>
-          <button @click="googleDetailModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <button @click="googleDetailModal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <!-- 內容 -->
         <div class="px-5 py-4 space-y-3">
           <!-- 標題 -->
-          <p class="text-base font-bold text-stone-800 dark:text-stone-100 leading-snug">{{ googleDetailModal.ev.title }}</p>
+          <p class="text-base font-bold text-base-c leading-snug">{{ googleDetailModal.ev.title }}</p>
           <!-- 日期 / 時間 -->
-          <div class="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+          <div class="flex items-center gap-2 text-sm text-hint-c">
             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             <span>{{ googleDetailModal.ev.date }}<span v-if="googleDetailModal.ev.time" class="ml-2">{{ googleDetailModal.ev.time }}</span></span>
           </div>
           <!-- 地點 -->
-          <div v-if="googleDetailModal.ev.room" class="flex items-start gap-2 text-sm text-stone-500 dark:text-stone-400">
+          <div v-if="googleDetailModal.ev.room" class="flex items-start gap-2 text-sm text-hint-c">
             <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <span>{{ googleDetailModal.ev.room }}</span>
           </div>
           <!-- 主辦人 -->
-          <div v-if="googleDetailModal.ev.owner" class="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+          <div v-if="googleDetailModal.ev.owner" class="flex items-center gap-2 text-sm text-hint-c">
             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             <span>{{ googleDetailModal.ev.owner }}</span>
           </div>
           <!-- 說明 -->
           <div v-if="googleDetailModal.ev.description"
-               class="bg-stone-50 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
+               class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c whitespace-pre-wrap leading-relaxed">
             {{ googleDetailModal.ev.description }}
           </div>
         </div>
         <!-- Footer -->
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-[#15171c]">
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button @click="googleDetailModal.show = false"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             關閉
           </button>
           <a v-if="googleDetailModal.ev.googleLink"
@@ -480,19 +480,19 @@
     <!-- ══ Modal: TXT 匯入 ══ -->
     <div v-if="showTxtModal"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">貼上 TXT 行事曆</h3>
-          <button @click="closeTxtModal" class="text-stone-400 hover:text-stone-600 p-1">
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
+          <h3 class="font-bold text-base-c">貼上 TXT 行事曆</h3>
+          <button @click="closeTxtModal" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
         <div class="px-5 py-4 space-y-3">
-          <div class="bg-stone-50 dark:bg-[#1c1f26] border border-stone-200 dark:border-[#2a2e37] rounded-xl p-3">
-            <p class="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5">支援格式（原始行事曆 TXT）：</p>
-            <pre class="text-xs text-stone-400 dark:text-stone-500 font-mono leading-relaxed overflow-x-auto">2026年4月
+          <div class="bg-surface2 dark:bg-[#1c1f26] border border-light-c dark:border-[#2a2e37] rounded-xl p-3">
+            <p class="text-xs font-semibold text-hint-c mb-1.5">支援格式（原始行事曆 TXT）：</p>
+            <pre class="text-xs text-hint-c font-mono leading-relaxed overflow-x-auto">2026年4月
 1
 08:00-10:00 新進人員報到 (高儀玟 H0A10404 四樓會議室 )醫院
 10:00-17:00 慈濟大學參訪 (賈德蘭 P0A30102 簡報室)園區</pre>
@@ -501,26 +501,26 @@
           <textarea v-model="txtInput" rows="10"
                     placeholder="請貼上行事曆 TXT 內容…"
                     :disabled="!!txtResult"
-                    class="w-full p-3 text-sm font-mono border border-stone-200 dark:border-[#2a2e37] rounded-xl bg-stone-50 dark:bg-[#1c1f26] text-stone-800 dark:text-stone-100 resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
+                    class="w-full p-3 text-sm font-mono border border-light-c dark:border-[#2a2e37] rounded-xl bg-surface2 dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
           </textarea>
 
           <div v-if="txtResult" class="space-y-2">
             <!-- 活動統計 + 列表 -->
-            <div class="rounded-xl border border-stone-200 dark:border-[#2a2e37] overflow-hidden">
-              <div class="px-4 py-3 bg-stone-50 dark:bg-[#1c1f26] flex flex-wrap gap-4 text-sm">
-                <span class="text-stone-500 dark:text-stone-400">活動：解析 <strong class="text-stone-700 dark:text-stone-200">{{ txtResult.total }}</strong> 筆</span>
+            <div class="rounded-xl border border-light-c dark:border-[#2a2e37] overflow-hidden">
+              <div class="px-4 py-3 bg-surface2 dark:bg-[#1c1f26] flex flex-wrap gap-4 text-sm">
+                <span class="text-hint-c">活動：解析 <strong class="text-base-c">{{ txtResult.total }}</strong> 筆</span>
                 <span class="text-green-600 dark:text-green-400">✓ 可新增 <strong>{{ txtResult.added.length }}</strong> 筆</span>
                 <span class="text-amber-500 dark:text-amber-400">⊘ 重複跳過 <strong>{{ txtResult.skipped }}</strong> 筆</span>
               </div>
-              <div v-if="txtResult.added.length > 0" class="divide-y divide-stone-100 dark:divide-stone-800 max-h-44 overflow-y-auto">
+              <div v-if="txtResult.added.length > 0" class="divide-y divide-base max-h-44 overflow-y-auto">
                 <div v-for="(ev, i) in txtResult.added" :key="i" class="flex items-center gap-3 px-4 py-2 text-xs">
                   <span class="font-mono text-indigo-500 flex-shrink-0 tabular-nums">{{ ev.date }}</span>
-                  <span class="text-stone-600 dark:text-stone-300 truncate flex-1">{{ ev.title }}</span>
-                  <span class="text-stone-400 flex-shrink-0 hidden sm:block">{{ ev.owner }}</span>
+                  <span class="text-muted-c truncate flex-1">{{ ev.title }}</span>
+                  <span class="text-hint-c flex-shrink-0 hidden sm:block">{{ ev.owner }}</span>
                   <span :class="['type-badge flex-shrink-0', typeColorClass(ev.type)]">{{ ev.type }}</span>
                 </div>
               </div>
-              <div v-else class="px-4 py-4 text-center text-sm text-stone-400">沒有新活動可匯入（全部都是重複）</div>
+              <div v-else class="px-4 py-4 text-center text-sm text-hint-c">沒有新活動可匯入（全部都是重複）</div>
             </div>
 
             <!-- 備注預覽 -->
@@ -533,19 +533,19 @@
               </div>
               <div class="divide-y divide-amber-100 dark:divide-amber-900/30 max-h-36 overflow-y-auto">
                 <div v-for="(n, i) in txtResult.notes" :key="i"
-                     class="flex items-start gap-2 px-4 py-2 text-xs text-stone-600 dark:text-stone-300">
+                     class="flex items-start gap-2 px-4 py-2 text-xs text-muted-c">
                   <span class="flex-shrink-0 text-amber-400 font-bold mt-0.5">{{ i + 1 }}.</span>
                   <span class="break-words">{{ n }}</span>
                 </div>
               </div>
             </div>
-            <div v-else class="text-xs text-stone-400 px-1">本次 TXT 未包含備注</div>
+            <div v-else class="text-xs text-hint-c px-1">本次 TXT 未包含備注</div>
           </div>
         </div>
 
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-[#15171c]">
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button @click="closeTxtModal"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             取消
           </button>
           <template v-if="!txtResult">
@@ -556,7 +556,7 @@
           </template>
           <template v-else>
             <button @click="txtResult = null"
-                    class="px-4 py-2 text-sm border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">
+                    class="px-4 py-2 text-sm border border-light-c dark:border-[#2a2e37] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
               重新解析
             </button>
             <button @click="confirmImportTxt"
@@ -573,7 +573,7 @@
     <!-- Toast -->
     <Transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-stone-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
+           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
         <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>

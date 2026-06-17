@@ -41,11 +41,11 @@ function parseCell(val) {
 function badgeClass(codeOrVal) {
   const code = typeof codeOrVal === 'string' ? codeOrVal : codeOrVal?.code ?? ''
   return LEGENDS.find(l => l.code === code)?.color
-    ?? 'bg-stone-100 text-stone-600 dark:bg-zinc-700 dark:text-stone-300'
+    ?? 'bg-surface2 text-muted-c'
 }
 
 function extraBadgeClass(extra) {
-  return EXTRA_OPTIONS.find(e => e.code === extra)?.color ?? 'bg-stone-400 text-white'
+  return EXTRA_OPTIONS.find(e => e.code === extra)?.color ?? 'bg-accent-solid text-white'
 }
 
 // ── 日期 ──────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ function dayHeaderClass(day) {
   if (isSunday(day))   return 'text-red-500'
   if (isSaturday(day)) return 'text-blue-500'
   if (isHoliday(day))  return 'text-pink-500'
-  return 'text-stone-400 dark:text-stone-500'
+  return 'text-hint-c'
 }
 function dayCellBg(day) {
   if (isSunday(day))   return 'bg-red-50 dark:bg-red-900/10'
@@ -630,34 +630,34 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-full flex flex-col bg-stone-50 dark:bg-zinc-900 transition-colors duration-300 overflow-hidden">
+  <div class="min-h-full flex flex-col bg-surface2 transition-colors duration-300 overflow-hidden">
     <!-- ── Header ── -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 sticky top-0 z-30"
+    <header class="bg-surface border-b border-light-c px-4 sticky top-0 z-30"
             :class="headerCollapsed ? 'py-1' : 'py-3'">
 
       <!-- 收起狀態：只顯示月份 + 頁籤 + 展開按鈕 -->
       <div v-if="headerCollapsed" class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-1 bg-stone-100 dark:bg-zinc-800 rounded-lg px-1 py-0.5 flex-shrink-0">
-          <button class="p-1 hover:bg-stone-200 dark:hover:bg-zinc-700 rounded-md transition-colors" :disabled="loading" @click="changeMonth(-1)">
-            <svg class="w-3.5 h-3.5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        <div class="flex items-center gap-1 bg-surface2 rounded-lg px-1 py-0.5 flex-shrink-0">
+          <button class="p-1 hover-surface2 rounded-md transition-colors" :disabled="loading" @click="changeMonth(-1)">
+            <svg class="w-3.5 h-3.5 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
           </button>
-          <span class="text-sm font-semibold text-stone-700 dark:text-stone-200 min-w-[60px] text-center">
+          <span class="text-sm font-semibold text-base-c min-w-[60px] text-center">
             {{ currentYear }}/{{ String(currentMonth).padStart(2, '0') }}
           </span>
-          <button class="p-1 hover:bg-stone-200 dark:hover:bg-zinc-700 rounded-md transition-colors" :disabled="loading" @click="changeMonth(1)">
-            <svg class="w-3.5 h-3.5 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <button class="p-1 hover-surface2 rounded-md transition-colors" :disabled="loading" @click="changeMonth(1)">
+            <svg class="w-3.5 h-3.5 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
           </button>
         </div>
-        <div class="flex items-center gap-0.5 bg-stone-100 dark:bg-zinc-800 rounded-lg p-0.5 flex-shrink-0">
+        <div class="flex items-center gap-0.5 bg-surface2 rounded-lg p-0.5 flex-shrink-0">
           <button v-for="tab in [{ key: 'table', label: '班表' }, { key: 'calendar', label: '日曆' }, { key: 'staff', label: '人員' }]"
                   :key="tab.key"
                   :class="['px-2 py-1 text-xs font-medium rounded-md transition-colors',
-                     view === tab.key ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm' : 'text-stone-500 dark:text-stone-400']"
+ view === tab.key ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c']"
                   @click="view = tab.key">
             {{ tab.label }}
           </button>
         </div>
-        <button class="ml-auto flex items-center gap-1 text-xs text-stone-400 dark:text-stone-500 px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0"
+        <button class="ml-auto flex items-center gap-1 text-xs text-hint-c px-2 py-1 rounded-lg hover-surface2 transition-colors flex-shrink-0"
                 @click="headerCollapsed = false">
           展開
           <svg class="w-3 h-3 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -670,35 +670,35 @@ onUnmounted(() => {
           <div class="flex items-center gap-2 min-w-0 flex-1">
             <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">📋</div>
             <div class="min-w-0">
-              <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-lg sm:text-lg truncate">員工排假班表</h1>
-              <p class="text-lg text-stone-400 mt-0.5 hidden md:block">Shift Schedule</p>
+              <h1 class="font-bold text-base-c leading-none text-lg sm:text-lg truncate">員工排假班表</h1>
+              <p class="text-lg text-hint-c mt-0.5 hidden md:block">Shift Schedule</p>
             </div>
           </div>
 
           <!-- 月份切換 -->
-          <div class="flex items-center gap-1 bg-stone-100 dark:bg-zinc-800 rounded-lg px-1 py-0.5 flex-shrink-0">
-            <button class="p-1.5 hover:bg-stone-200 dark:hover:bg-zinc-700 rounded-md transition-colors" :disabled="loading" @click="changeMonth(-1)">
-              <svg class="w-4 h-4 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <div class="flex items-center gap-1 bg-surface2 rounded-lg px-1 py-0.5 flex-shrink-0">
+            <button class="p-1.5 hover-surface2 rounded-md transition-colors" :disabled="loading" @click="changeMonth(-1)">
+              <svg class="w-4 h-4 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             </button>
-            <span class="text-lg font-semibold text-stone-700 dark:text-stone-200 min-w-[72px] text-center">
+            <span class="text-lg font-semibold text-base-c min-w-[72px] text-center">
             {{ currentYear }}/{{ String(currentMonth).padStart(2, '0') }}
           </span>
-            <button class="p-1.5 hover:bg-stone-200 dark:hover:bg-zinc-700 rounded-md transition-colors" :disabled="loading" @click="changeMonth(1)">
-              <svg class="w-4 h-4 text-stone-500 dark:text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <button class="p-1.5 hover-surface2 rounded-md transition-colors" :disabled="loading" @click="changeMonth(1)">
+              <svg class="w-4 h-4 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </button>
           </div>
 
           <!-- 頁籤 -->
-          <div class="flex items-center gap-0.5 bg-stone-100 dark:bg-zinc-800 rounded-lg p-0.5 flex-shrink-0">
+          <div class="flex items-center gap-0.5 bg-surface2 rounded-lg p-0.5 flex-shrink-0">
             <button v-for="tab in [
               { key: 'table',    label: '班表' },
               { key: 'calendar', label: '日曆' },
               { key: 'staff',    label: '人員' },
             ]" :key="tab.key"
                     :class="['px-2.5 py-1.5 text-lg font-medium rounded-md transition-colors relative',
-                     view === tab.key
-                       ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm'
-                       : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200']"
+ view === tab.key
+ ? 'bg-surface text-base-c shadow-sm'
+ : 'text-hint-c hover-text-muted']"
                     @click="view = tab.key">
               {{ tab.label }}
             </button>
@@ -706,12 +706,12 @@ onUnmounted(() => {
 
           <!-- 縮放控制（班表 view 時顯示） -->
           <div v-if="view === 'table'" class="hidden sm:flex items-center gap-1.5 flex-shrink-0">
-            <button class="p-1 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 text-stone-400 dark:text-stone-500 transition-colors disabled:opacity-30"
+            <button class="p-1 rounded hover-surface2 text-hint-c transition-colors disabled:opacity-30"
                     :disabled="tableZoom <= 50" @click="tableZoom = Math.max(50, tableZoom - 10)" title="縮小">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
             </button>
-            <span class="text-xs text-stone-500 dark:text-stone-400 min-w-[36px] text-center tabular-nums select-none">{{ tableZoom }}%</span>
-            <button class="p-1 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 text-stone-400 dark:text-stone-500 transition-colors disabled:opacity-30"
+            <span class="text-xs text-hint-c min-w-[36px] text-center tabular-nums select-none">{{ tableZoom }}%</span>
+            <button class="p-1 rounded hover-surface2 text-hint-c transition-colors disabled:opacity-30"
                     :disabled="tableZoom >= 150" @click="tableZoom = Math.min(150, tableZoom + 10)" title="放大">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             </button>
@@ -733,7 +733,7 @@ onUnmounted(() => {
           </button>
 
           <!-- 收起按鈕 -->
-          <button class="flex-shrink-0 p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors"
+          <button class="flex-shrink-0 p-1.5 rounded-lg text-hint-c hover-surface2 transition-colors"
                   title="收起標題列"
                   @click="headerCollapsed = true">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
@@ -741,9 +741,9 @@ onUnmounted(() => {
         </div>
 
         <!-- 部門 + 圖例（班表/日曆） -->
-        <div v-if="view === 'table' || view === 'calendar'" class="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-stone-100 dark:border-stone-800">
+        <div v-if="view === 'table' || view === 'calendar'" class="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-light-c">
           <select v-model="selectedDept"
-                  class="text-lg border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400 flex-shrink-0">
+                  class="text-lg border border-light-c rounded-lg px-2 py-1.5 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400 flex-shrink-0">
             <option v-for="d in departments" :key="d.name" :value="d.name">{{ d.name }}</option>
           </select>
           <!-- 桌機：僅顯示色塊，hover 顯示標籤 tooltip -->
@@ -753,21 +753,21 @@ onUnmounted(() => {
                 :class="['inline-flex items-center justify-center w-6 h-6 rounded text-lg font-bold cursor-default', l.color]">
             {{ l.code }}
           </span>
-            <span class="inline-block w-px h-4 bg-stone-200 dark:bg-stone-700 mx-1"/>
+            <span class="inline-block w-px h-4 bg-surface2 dark:bg-surface2 mx-1"/>
             <span v-for="e in EXTRA_OPTIONS" :key="'ex'+e.code"
                   :title="e.label"
                   :class="['inline-flex items-center justify-center w-6 h-6 rounded-full text-lg font-bold cursor-default', e.color]">
             {{ e.code }}
           </span>
             <!-- 展開完整圖例按鈕 -->
-            <button class="ml-1 flex items-center gap-1 text-lg text-stone-400 dark:text-stone-500 px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors"
+            <button class="ml-1 flex items-center gap-1 text-lg text-hint-c px-2 py-1 rounded-lg hover-surface2 transition-colors"
                     @click="legendOpen = !legendOpen">
               {{ legendOpen ? '收起' : '圖例' }}
               <svg :class="['w-3 h-3 transition-transform', legendOpen ? 'rotate-180' : '']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
           </div>
           <!-- 手機：圖例按鈕 -->
-          <button class="lg:hidden ml-auto flex items-center gap-1 text-lg text-stone-400 dark:text-stone-500 px-2 py-1.5 rounded-lg bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 transition-colors flex-shrink-0"
+          <button class="lg:hidden ml-auto flex items-center gap-1 text-lg text-hint-c px-2 py-1.5 rounded-lg bg-surface2 hover-surface2 transition-colors flex-shrink-0"
                   @click="legendOpen = !legendOpen">
             圖例
             <svg :class="['w-3 h-3 transition-transform', legendOpen ? 'rotate-180' : '']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -777,28 +777,28 @@ onUnmounted(() => {
         <div v-if="legendOpen && (view === 'table' || view === 'calendar')" class="mt-2 pb-1 flex flex-wrap gap-x-4 gap-y-1.5">
         <span v-for="l in LEGENDS" :key="l.code" class="inline-flex items-center gap-1 text-lg">
           <span :class="['inline-flex items-center justify-center w-5 h-5 rounded text-lg font-bold', l.color]">{{ l.code }}</span>
-          <span class="text-stone-400 dark:text-stone-500">{{ l.label }}</span>
+          <span class="text-hint-c">{{ l.label }}</span>
         </span>
-          <span class="w-full h-px bg-stone-100 dark:bg-stone-800 my-0.5"/>
-          <span class="text-lg text-stone-300 dark:text-stone-600 self-center">附加：</span>
+          <span class="w-full h-px bg-surface2 my-0.5"/>
+          <span class="text-lg text-hint-c self-center">附加：</span>
           <span v-for="e in EXTRA_OPTIONS" :key="'ex'+e.code" class="inline-flex items-center gap-1 text-lg">
           <span :class="['inline-flex items-center justify-center w-5 h-5 rounded-full text-lg font-bold', e.color]">{{ e.code }}</span>
-          <span class="text-stone-400 dark:text-stone-500">{{ e.label }}</span>
+          <span class="text-hint-c">{{ e.label }}</span>
         </span>
         </div>
         <!-- 人員篩選（班表 view 時顯示） -->
         <div v-if="view === 'table' && currentDeptEmployees.length > 0"
-             class="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 pt-2 border-t border-stone-100 dark:border-stone-800">
-          <span class="text-sm text-stone-400 dark:text-stone-500 font-medium flex-shrink-0">顯示人員：</span>
+             class="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 pt-2 border-t border-light-c">
+          <span class="text-sm text-hint-c font-medium flex-shrink-0">顯示人員：</span>
           <label v-for="emp in currentDeptEmployees" :key="emp.id" class="flex items-center gap-1 cursor-pointer select-none">
             <input v-model="tableVisibleIds" type="checkbox" :value="emp.id" class="rounded accent-green-600">
             <span :class="['text-sm px-1.5 py-0.5 rounded-full transition-colors',
-                           tableVisibleIds.includes(emp.id) ? 'bg-green-700 text-white' : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300']">
+ tableVisibleIds.includes(emp.id) ? 'bg-green-700 text-white' : 'bg-surface2 text-muted-c']">
               {{ emp.name }}
             </span>
           </label>
           <button v-if="tableVisibleIds.length > 0"
-                  class="ml-auto text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 px-2 py-0.5 rounded hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0"
+                  class="ml-auto text-xs text-hint-c hover-text-muted px-2 py-0.5 rounded hover-surface2 transition-colors flex-shrink-0"
                   @click="tableVisibleIds = []">
             顯示全部
           </button>
@@ -810,7 +810,7 @@ onUnmounted(() => {
     <div class="flex flex-col flex-1 min-h-0 w-full px-3 sm:px-4 py-3 sm:py-4">
 
       <!-- 載入中 -->
-      <div v-if="loading" class="flex items-center justify-center py-20 gap-3 text-stone-400">
+      <div v-if="loading" class="flex items-center justify-center py-20 gap-3 text-hint-c">
         <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
@@ -828,7 +828,7 @@ onUnmounted(() => {
       <!-- ══ 班表 ══ -->
       <div v-else-if="view === 'table'">
         <div ref="tableWrapRef"
-             class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-x-auto" style="width: fit-content; max-width: 100%">
+             class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-x-auto" style="width: fit-content; max-width: 100%">
           <div ref="scalerClipRef">
             <div ref="tableInnerRef" :style="{ zoom: tableZoom / 100 }">
               <table class="text-sm border-collapse" style="table-layout:fixed">
@@ -839,37 +839,37 @@ onUnmounted(() => {
                   <col style="width:32px">
                 </colgroup>
                 <thead>
-                <tr class="bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
-                  <th class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 px-2 py-2 text-left text-stone-500 dark:text-stone-400 font-medium whitespace-nowrap border-r border-stone-200 dark:border-stone-700">姓名</th>
+                <tr class="bg-surface2 border-b border-light-c">
+                  <th class="sticky left-0 z-10 bg-surface2 px-2 py-2 text-left text-hint-c font-medium whitespace-nowrap border-r border-light-c">姓名</th>
                   <th v-for="d in days" :key="d"
                       :class="['px-0 py-2 text-center font-semibold transition-colors', dayHeaderClass(d)]"
                   >{{ d }}</th>
-                  <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap border-l border-stone-200 dark:border-stone-700">應</th>
-                  <th class="px-0 py-2 text-center text-stone-400 dark:text-stone-500 font-medium whitespace-nowrap">實</th>
+                  <th class="px-0 py-2 text-center text-hint-c font-medium whitespace-nowrap border-l border-light-c">應</th>
+                  <th class="px-0 py-2 text-center text-hint-c font-medium whitespace-nowrap">實</th>
                 </tr>
-                <tr class="border-b-2 border-stone-200 dark:border-stone-700">
-                  <th class="sticky left-0 z-10 bg-white dark:bg-zinc-900 border-r border-stone-200 dark:border-stone-700 px-2 py-1 text-left text-stone-300 dark:text-stone-600 font-normal text-xs">
+                <tr class="border-b-2 border-light-c">
+                  <th class="sticky left-0 z-10 bg-surface border-r border-light-c px-2 py-1 text-left text-hint-c font-normal text-xs">
                     {{ currentYear }}年{{ currentMonth }}月
                   </th>
                   <th v-for="d in days" :key="d"
                       :class="['py-1 text-center text-xs font-normal transition-colors', dayHeaderClass(d), dayCellBg(d),
-                               hoveredDay === d ? '!text-green-600 dark:!text-green-400 font-bold bg-green-500/15 dark:bg-green-400/15' : '']">
+ hoveredDay === d ? '!text-green-600 dark:!text-green-400 font-bold bg-green-500/15 dark:bg-green-400/15' : '']">
                     <span :class="hoveredDay === d ? 'font-black' : ''">{{ WEEKDAY_NAMES[getWeekday(d)] }}</span>
                     <div v-if="holidays[d]" class="text-[9px] text-pink-400 leading-tight truncate px-0.5">{{ holidays[d] }}</div>
                   </th>
-                  <th class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
+                  <th class="border-l border-light-c" colspan="3"/>
                 </tr>
                 </thead>
-                <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
+                <tbody class="divide-y divide-base">
                 <tr v-for="emp in tableFilteredEmps" :key="emp.id"
-                    class="hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
-                  <td class="sticky left-0 z-10 bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800/40 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap overflow-hidden">
-                    <div class="font-semibold text-stone-800 dark:text-stone-100 text-sm truncate">{{ emp.name }}</div>
-                    <div class="text-xs text-stone-400 dark:text-stone-500 truncate">{{ emp.id }}</div>
+                    class="hover-surface2/40 transition-colors">
+                  <td class="sticky left-0 z-10 bg-surface hover-surface2/40 border-r border-light-c px-2 py-1.5 whitespace-nowrap overflow-hidden">
+                    <div class="font-semibold text-base-c text-sm truncate">{{ emp.name }}</div>
+                    <div class="text-xs text-hint-c truncate">{{ emp.id }}</div>
                   </td>
                   <td v-for="d in days" :key="d"
                       :class="['text-center py-1 px-0 cursor-pointer transition-colors', dayCellBg(d),
-                               hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '', 'hover:ring-1 hover:ring-inset hover:ring-green-400']"
+ hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '', 'hover:ring-1 hover:ring-inset hover:ring-green-400']"
                       @mouseenter="hoveredDay = d"
                       @mouseleave="hoveredDay = null"
                       @click="openEdit(emp, d)">
@@ -880,45 +880,45 @@ onUnmounted(() => {
                         </span>
                         <span v-if="parseCell(emp.schedule[d]).extra"
                               :class="['absolute -top-1 -right-1.5 w-3 h-3 rounded-full flex items-center justify-center text-[9px] font-bold leading-none shadow-sm',
-                                   extraBadgeClass(parseCell(emp.schedule[d]).extra)]">
+ extraBadgeClass(parseCell(emp.schedule[d]).extra)]">
                           {{ parseCell(emp.schedule[d]).extra }}
                         </span>
                       </div>
                     </template>
                   </td>
-                  <td class="text-center border-l border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 font-medium py-1 text-xs">{{ emp.expected }}</td>
-                  <td class="text-center text-stone-700 dark:text-stone-200 font-semibold py-1 text-xs">{{ countActual(emp) }}</td>
+                  <td class="text-center border-l border-light-c text-hint-c font-medium py-1 text-xs">{{ emp.expected }}</td>
+                  <td class="text-center text-base-c font-semibold py-1 text-xs">{{ countActual(emp) }}</td>
                 </tr>
                 </tbody>
-                <tfoot class="border-t-2 border-stone-200 dark:border-stone-700">
-                <tr class="bg-stone-50 dark:bg-zinc-800">
-                  <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap">
-                    <div class="text-xs font-semibold text-stone-600 dark:text-stone-300">每日人力</div>
-                    <div class="text-xs text-stone-400 dark:text-stone-500">共 {{ totalEmployees }} 人</div>
+                <tfoot class="border-t-2 border-light-c">
+                <tr class="bg-surface2">
+                  <td class="sticky left-0 z-10 bg-surface2 border-r border-light-c px-2 py-1.5 whitespace-nowrap">
+                    <div class="text-xs font-semibold text-muted-c">每日人力</div>
+                    <div class="text-xs text-hint-c">共 {{ totalEmployees }} 人</div>
                   </td>
                   <td v-for="d in days" :key="d"
                       :class="['text-center py-1 px-0 transition-colors', dayCellBg(d),
-                               hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '']">
+ hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '']">
                     <span v-if="dailyWorkCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                       {{ dailyWorkCount(d) }}
                     </span>
-                    <span v-else class="text-xs text-stone-300 dark:text-stone-600">—</span>
+                    <span v-else class="text-xs text-hint-c">—</span>
                   </td>
-                  <td class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
+                  <td class="border-l border-light-c" colspan="3"/>
                 </tr>
-                <tr class="bg-stone-50/60 dark:bg-zinc-800/60">
-                  <td class="sticky left-0 z-10 bg-stone-50 dark:bg-zinc-800 border-r border-stone-200 dark:border-stone-700 px-2 py-1.5 whitespace-nowrap">
-                    <div class="text-xs font-semibold text-stone-500 dark:text-stone-400">休假人數</div>
+                <tr class="bg-surface2/60 /60">
+                  <td class="sticky left-0 z-10 bg-surface2 border-r border-light-c px-2 py-1.5 whitespace-nowrap">
+                    <div class="text-xs font-semibold text-hint-c">休假人數</div>
                   </td>
                   <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
                     <span v-if="dailyOffCount(d) > 0"
-                          class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-stone-200 text-stone-500 dark:bg-zinc-700 dark:text-stone-300">
+                          class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-surface2 text-hint-c dark:text-hint-c">
                       {{ dailyOffCount(d) }}
                     </span>
-                    <span v-else class="text-xs text-stone-300 dark:text-stone-600">—</span>
+                    <span v-else class="text-xs text-hint-c">—</span>
                   </td>
-                  <td class="border-l border-stone-200 dark:border-stone-700" colspan="3"/>
+                  <td class="border-l border-light-c" colspan="3"/>
                 </tr>
                 </tfoot>
               </table>
@@ -926,36 +926,36 @@ onUnmounted(() => {
           </div>
         </div>
         <div v-if="!loading && currentDeptEmployees.length === 0"
-             class="hidden lg:block bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 px-4 py-12 text-center text-stone-400 text-lg shadow-sm mt-3">
+             class="hidden lg:block bg-surface rounded-2xl border border-light-c px-4 py-12 text-center text-hint-c text-lg shadow-sm mt-3">
           此部門暫無員工資料
         </div>
       </div>
 
       <!-- ══ 日曆 ══ -->
       <div v-else-if="view === 'calendar'">
-        <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-3 sm:px-4 py-3 mb-3">
+        <div class="bg-surface rounded-2xl border border-light-c shadow-sm px-3 sm:px-4 py-3 mb-3">
           <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span class="text-lg text-stone-400 dark:text-stone-500 font-medium w-full sm:w-auto">顯示員工：</span>
+            <span class="text-lg text-hint-c font-medium w-full sm:w-auto">顯示員工：</span>
             <label v-for="emp in currentDeptEmployees" :key="emp.id" class="flex items-center gap-1 cursor-pointer select-none">
               <input v-model="calSelectedIds" type="checkbox" :value="emp.id" class="rounded accent-green-600">
               <span :class="['text-lg px-1.5 py-0.5 rounded-full transition-colors',
-                             calSelectedIds.includes(emp.id) ? 'bg-green-700 text-white' : 'bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300']">
+ calSelectedIds.includes(emp.id) ? 'bg-green-700 text-white' : 'bg-surface2 text-muted-c']">
                 {{ emp.name }}
               </span>
             </label>
           </div>
         </div>
-        <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-          <div class="grid grid-cols-7 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-zinc-800">
+        <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+          <div class="grid grid-cols-7 border-b border-light-c bg-surface2">
             <div v-for="(w, wi) in WEEKDAY_NAMES" :key="w"
                  :class="['text-center font-semibold py-1.5 sm:py-2 text-lg sm:text-lg',
-                       wi === 0 ? 'text-red-500' : wi === 6 ? 'text-blue-500' : 'text-stone-500 dark:text-stone-400']">
+ wi === 0 ? 'text-red-500' : wi === 6 ? 'text-blue-500' : 'text-hint-c']">
               <span class="sm:hidden">{{ w }}</span>
               <span class="hidden sm:inline">星期{{ w }}</span>
             </div>
           </div>
-          <div class="grid grid-cols-7 divide-x divide-y divide-stone-100 dark:divide-stone-800">
-            <div v-for="n in calLeadingBlanks" :key="'blank'+n" class="min-h-[70px] sm:min-h-[100px] bg-stone-50/50 dark:bg-zinc-800/30"/>
+          <div class="grid grid-cols-7 divide-x divide-y divide-base">
+            <div v-for="n in calLeadingBlanks" :key="'blank'+n" class="min-h-[70px] sm:min-h-[100px] bg-surface2/50 /30"/>
             <div v-for="d in days" :key="d" :class="['min-h-[70px] sm:min-h-[100px] p-1 sm:p-1.5 transition-colors', dayCellBg(d)]">
               <div class="flex items-start justify-between gap-0.5 mb-0.5 sm:mb-1">
                 <div class="flex items-center gap-0.5 sm:gap-1">
@@ -963,13 +963,13 @@ onUnmounted(() => {
                   <span v-if="holidays[d]" class="hidden sm:inline text-lg bg-pink-100 dark:bg-pink-900/30 text-pink-500 rounded px-1 py-0.5 leading-none">{{ holidays[d] }}</span>
                   <span v-if="holidays[d]" class="sm:hidden w-1.5 h-1.5 rounded-full bg-pink-400 flex-shrink-0 mt-0.5"/>
                 </div>
-                <span v-if="lunar[d]" class="text-lg sm:text-lg text-stone-300 dark:text-stone-600 leading-none mt-0.5">{{ lunar[d] }}</span>
+                <span v-if="lunar[d]" class="text-lg sm:text-lg text-hint-c leading-none mt-0.5">{{ lunar[d] }}</span>
               </div>
               <div class="flex flex-col gap-0.5">
                 <template v-for="emp in calFilteredEmps" :key="emp.id">
                   <button v-if="emp.schedule[d]"
                           :class="['flex items-center justify-between gap-0.5 sm:gap-1 w-full rounded transition-opacity hover:opacity-80 active:scale-95 px-1 py-0.5 sm:px-1.5',
-                             badgeClass(parseCell(emp.schedule[d]).code)]"
+ badgeClass(parseCell(emp.schedule[d]).code)]"
                           @click="openEdit(emp, d)">
                     <span class="sm:hidden text-lg font-semibold leading-tight truncate flex-1 text-left">{{ emp.name.slice(0, 1) }}</span>
                     <span class="hidden sm:flex flex-col items-start min-w-0 flex-1">
@@ -980,7 +980,7 @@ onUnmounted(() => {
                       <span class="font-bold text-lg sm:text-lg">{{ parseCell(emp.schedule[d]).code }}</span>
                       <span v-if="parseCell(emp.schedule[d]).extra"
                             :class="['w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center text-lg sm:text-lg font-bold leading-none shadow-sm',
-                                 extraBadgeClass(parseCell(emp.schedule[d]).extra)]">
+ extraBadgeClass(parseCell(emp.schedule[d]).extra)]">
                         {{ parseCell(emp.schedule[d]).extra }}
                       </span>
                     </span>
@@ -996,12 +996,12 @@ onUnmounted(() => {
       <div v-else-if="view === 'staff'">
 
         <!-- 子頁籤 -->
-        <div class="flex items-center gap-0.5 bg-stone-100 dark:bg-zinc-800 rounded-xl p-0.5 w-fit mb-4">
+        <div class="flex items-center gap-0.5 bg-surface2 rounded-xl p-0.5 w-fit mb-4">
           <button v-for="t in [{key:'dept',label:'組別設定'},{key:'shift',label:'班別設定'}]" :key="t.key"
                   :class="['px-4 py-1.5 text-sm font-medium rounded-lg transition-colors',
-                     staffTab === t.key
-                       ? 'bg-white dark:bg-zinc-700 text-stone-800 dark:text-stone-100 shadow-sm'
-                       : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200']"
+ staffTab === t.key
+ ? 'bg-surface text-base-c shadow-sm'
+ : 'text-hint-c hover-text-muted']"
                   @click="staffTab = t.key">
             {{ t.label }}
           </button>
@@ -1010,8 +1010,8 @@ onUnmounted(() => {
         <!-- ── 組別設定 tab ── -->
         <div v-if="staffTab === 'dept'">
           <div class="flex items-center gap-2 mb-4">
-            <h2 class="text-lg font-bold text-stone-800 dark:text-stone-100 flex-1">人員設定</h2>
-            <button class="flex items-center gap-1.5 px-3 py-1.5 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-base font-medium rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="openAddDept">
+            <h2 class="text-lg font-bold text-base-c flex-1">人員設定</h2>
+            <button class="flex items-center gap-1.5 px-3 py-1.5 border border-light-c text-muted-c text-base font-medium rounded-lg hover-surface2 transition-colors" @click="openAddDept">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
               新增組別
             </button>
@@ -1022,40 +1022,40 @@ onUnmounted(() => {
           </div>
           <div class="space-y-4">
             <div v-for="dept in departments" :key="dept.name"
-                 class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-              <div class="flex items-center justify-between px-4 py-3 bg-stone-50 dark:bg-zinc-800 border-b border-stone-200 dark:border-stone-700">
+                 class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-3 bg-surface2 border-b border-light-c">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="font-semibold text-stone-800 dark:text-stone-100 text-base">{{ dept.name }}</span>
-                  <span class="text-base text-stone-400 dark:text-stone-500">{{ dept.employees.length }} 人</span>
+                  <span class="font-semibold text-base-c text-base">{{ dept.name }}</span>
+                  <span class="text-base text-hint-c">{{ dept.employees.length }} 人</span>
                 </div>
                 <div class="flex gap-1 flex-shrink-0">
-                  <button class="text-base px-2 py-1 text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                  <button class="text-base px-2 py-1 text-hint-c hover:text-muted-c hover-surface2 rounded-lg transition-colors"
                           @click="openRenameDept(dept.name)">改名</button>
                   <button class="text-base px-2 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           @click="confirmDeleteDept(dept.name)">刪除</button>
                 </div>
               </div>
-              <div v-if="dept.employees.length === 0" class="px-4 py-6 text-center text-stone-400 text-lg">此部門暫無員工</div>
-              <div v-else class="divide-y divide-stone-100 dark:divide-stone-800">
+              <div v-if="dept.employees.length === 0" class="px-4 py-6 text-center text-hint-c text-lg">此部門暫無員工</div>
+              <div v-else class="divide-y divide-base">
                 <div v-for="emp in dept.employees" :key="emp.id"
-                     class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
+                     class="flex items-center gap-3 px-4 py-3 hover-surface2/40 transition-colors">
                   <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-lg flex-shrink-0">
                     {{ emp.name.slice(0, 1) }}
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-stone-800 dark:text-stone-100 text-lg">{{ emp.name }}</div>
-                    <div class="flex items-center gap-2 text-sm text-stone-400 dark:text-stone-500 mt-0.5">
+                    <div class="font-semibold text-base-c text-lg">{{ emp.name }}</div>
+                    <div class="flex items-center gap-2 text-sm text-hint-c mt-0.5">
                       <span>{{ emp.id }}</span>
-                      <span class="text-stone-200 dark:text-stone-700">·</span>
+                      <span class="text-base-c dark:text-muted-c">·</span>
                       <span>預計休假 {{ emp.expected }} 天</span>
                       <template v-if="emp.shiftCode">
-                        <span class="text-stone-200 dark:text-stone-700">·</span>
-                        <span class="px-1.5 py-0.5 bg-stone-100 dark:bg-zinc-700 text-stone-600 dark:text-stone-300 rounded font-medium text-xs">{{ emp.shiftCode }}</span>
+                        <span class="text-base-c dark:text-muted-c">·</span>
+                        <span class="px-1.5 py-0.5 bg-surface2 text-muted-c rounded font-medium text-xs">{{ emp.shiftCode }}</span>
                       </template>
                     </div>
                   </div>
                   <div class="flex gap-1.5 flex-shrink-0">
-                    <button class="text-lg px-2.5 py-1 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                    <button class="text-lg px-2.5 py-1 text-hint-c hover-surface2 rounded-lg transition-colors"
                             @click="openEditStaff(emp, dept.name)">編輯</button>
                     <button class="text-lg px-2.5 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             @click="confirmDeleteStaff(emp.id)">刪除</button>
@@ -1069,35 +1069,35 @@ onUnmounted(() => {
         <!-- ── 班別設定 tab ── -->
         <div v-else-if="staffTab === 'shift'">
           <div class="flex items-center gap-2 mb-4">
-            <h2 class="text-lg font-bold text-stone-800 dark:text-stone-100 flex-1">班別設定</h2>
+            <h2 class="text-lg font-bold text-base-c flex-1">班別設定</h2>
             <button class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-base font-medium rounded-lg transition-colors"
                     @click="openAddShift">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
               新增班別
             </button>
           </div>
-          <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-            <div v-if="shifts.length === 0" class="px-4 py-8 text-center text-stone-400 text-base">尚未設定任何班別</div>
-            <div v-else class="divide-y divide-stone-100 dark:divide-stone-800">
+          <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+            <div v-if="shifts.length === 0" class="px-4 py-8 text-center text-hint-c text-base">尚未設定任何班別</div>
+            <div v-else class="divide-y divide-base">
               <div v-for="(shift, idx) in shifts" :key="idx"
-                   class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 dark:hover:bg-zinc-800/40 transition-colors">
-                <div class="w-10 h-10 rounded-xl bg-stone-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                  <span class="font-bold text-base text-stone-700 dark:text-stone-200">{{ shift.code }}</span>
+                   class="flex items-center gap-3 px-4 py-3 hover-surface2/40 transition-colors">
+                <div class="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0">
+                  <span class="font-bold text-base text-base-c">{{ shift.code }}</span>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="font-semibold text-stone-800 dark:text-stone-100 text-base">
-                    {{ shift.code }}<span v-if="shift.label" class="text-stone-400 dark:text-stone-500 font-normal ml-1.5 text-sm">{{ shift.label }}</span>
+                  <div class="font-semibold text-base-c text-base">
+                    {{ shift.code }}<span v-if="shift.label" class="text-hint-c font-normal ml-1.5 text-sm">{{ shift.label }}</span>
                   </div>
-                  <div class="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
+                  <div class="text-sm text-hint-c mt-0.5">
                     {{ shift.start }} ~ {{ shift.end }}
-                    <span class="mx-1 text-stone-200 dark:text-stone-700">·</span>
+                    <span class="mx-1 text-base-c dark:text-muted-c">·</span>
                     休息 {{ shift.breakMinutes >= 60 ? Math.floor(shift.breakMinutes / 60) + 'H' + (shift.breakMinutes % 60 ? shift.breakMinutes % 60 + 'M' : '') : shift.breakMinutes + 'M' }}
-                    <span class="mx-1 text-stone-200 dark:text-stone-700">·</span>
+                    <span class="mx-1 text-base-c dark:text-muted-c">·</span>
                     實際 <span class="text-green-700 dark:text-green-400 font-medium">{{ calcWorkHours(shift) }}</span>
                   </div>
                 </div>
                 <div class="flex gap-1 flex-shrink-0">
-                  <button class="text-sm px-2.5 py-1 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                  <button class="text-sm px-2.5 py-1 text-hint-c hover-surface2 rounded-lg transition-colors"
                           @click="openEditShift(idx)">編輯</button>
                   <button class="text-sm px-2.5 py-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           @click="deleteShift(idx)">刪除</button>
@@ -1111,64 +1111,64 @@ onUnmounted(() => {
 
     <!-- ══ Modal：班別新增/編輯 ══ -->
     <div v-if="showShiftForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" @click.self="showShiftForm = false">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ shiftEditIdx === null ? '新增班別' : '編輯班別' }}</h3>
-          <button class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-stone-400" @click="showShiftForm = false">
+          <h3 class="font-bold text-base-c">{{ shiftEditIdx === null ? '新增班別' : '編輯班別' }}</h3>
+          <button class="p-1.5 hover-surface2 rounded-lg transition-colors text-hint-c" @click="showShiftForm = false">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="space-y-3 mb-5">
           <div class="flex gap-3">
             <div class="flex-1">
-              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">班別代碼</label>
+              <label class="text-xs font-semibold text-hint-c uppercase tracking-wide block mb-1">班別代碼</label>
               <input v-model="shiftForm.code" type="text" placeholder="e.g. C3"
-                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                     class="w-full text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
             </div>
             <div class="flex-[2]">
-              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">說明（選填）</label>
+              <label class="text-xs font-semibold text-hint-c uppercase tracking-wide block mb-1">說明（選填）</label>
               <input v-model="shiftForm.label" type="text" placeholder="e.g. 早班"
-                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                     class="w-full text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
             </div>
           </div>
           <div class="flex gap-3">
             <div class="flex-1">
-              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">上班時間</label>
+              <label class="text-xs font-semibold text-hint-c uppercase tracking-wide block mb-1">上班時間</label>
               <input v-model="shiftForm.start" type="time"
-                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                     class="w-full text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
             </div>
             <div class="flex-1">
-              <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">下班時間</label>
+              <label class="text-xs font-semibold text-hint-c uppercase tracking-wide block mb-1">下班時間</label>
               <input v-model="shiftForm.end" type="time"
-                     class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                     class="w-full text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
             </div>
           </div>
           <div>
-            <label class="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">休息時間（分鐘）</label>
+            <label class="text-xs font-semibold text-hint-c uppercase tracking-wide block mb-1">休息時間（分鐘）</label>
             <div class="flex items-center gap-2">
               <input v-model.number="shiftForm.breakMinutes" type="number" min="0" step="30"
-                     class="w-28 text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                     class="w-28 text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
               <div class="flex gap-1">
                 <button v-for="m in [30, 60, 90]" :key="m"
                         :class="['px-2.5 py-1.5 text-xs rounded-lg border transition-colors',
-                           shiftForm.breakMinutes === m
-                             ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                             : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-zinc-800']"
+ shiftForm.breakMinutes === m
+ ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+ : 'border-light-c text-hint-c hover-surface2']"
                         @click="shiftForm.breakMinutes = m">{{ m }}M</button>
               </div>
             </div>
           </div>
           <!-- 預覽工時 -->
           <div v-if="shiftForm.start && shiftForm.end"
-               class="px-3 py-2 bg-stone-50 dark:bg-zinc-800 rounded-xl text-sm text-stone-500 dark:text-stone-400 flex items-center gap-2">
+               class="px-3 py-2 bg-surface2 rounded-xl text-sm text-hint-c flex items-center gap-2">
             <span>實際工時：</span>
             <span class="font-semibold text-green-700 dark:text-green-400">{{ calcWorkHours(shiftForm) || '—' }}</span>
-            <span class="text-stone-300 dark:text-stone-600 mx-1">·</span>
+            <span class="text-hint-c mx-1">·</span>
             <span>{{ shiftForm.start }} ~ {{ shiftForm.end }}，休息 {{ shiftForm.breakMinutes }}M</span>
           </div>
         </div>
         <div class="flex gap-2">
-          <button class="flex-1 py-2.5 text-base border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors"
+          <button class="flex-1 py-2.5 text-base border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors"
                   @click="showShiftForm = false">取消</button>
           <button class="flex-1 py-2.5 text-base bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                   :disabled="shiftsSaving || !shiftForm.code.trim() || !shiftForm.start || !shiftForm.end"
@@ -1180,81 +1180,81 @@ onUnmounted(() => {
       </div>
     </div>
     <div v-if="showForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" @click.self="showForm = false">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="font-bold text-stone-800 dark:text-stone-100">編輯排休</h3>
-            <p class="text-lg text-stone-400 mt-0.5">
+            <h3 class="font-bold text-base-c">編輯排休</h3>
+            <p class="text-lg text-hint-c mt-0.5">
               {{ editEmp?.name }}
-              <span class="text-stone-300 dark:text-stone-600">{{ editEmp?.id }}</span>
+              <span class="text-hint-c">{{ editEmp?.id }}</span>
               · {{ currentMonth }}/{{ editDay }} {{ editWeekday }}
             </p>
           </div>
-          <button class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-stone-400" @click="showForm = false">
+          <button class="p-1.5 hover-surface2 rounded-lg transition-colors text-hint-c" @click="showForm = false">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <!-- 當日同事狀況 -->
-        <div v-if="editDayTotalOthers > 0" class="mb-4 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden">
-          <div class="flex items-center justify-between px-3 py-1.5 bg-stone-50 dark:bg-zinc-800">
-            <span class="text-lg font-medium text-stone-500 dark:text-stone-400">當日同事出勤</span>
+        <div v-if="editDayTotalOthers > 0" class="mb-4 rounded-xl border border-light-c overflow-hidden">
+          <div class="flex items-center justify-between px-3 py-1.5 bg-surface2">
+            <span class="text-lg font-medium text-hint-c">當日同事出勤</span>
             <span :class="['text-lg font-semibold px-2 py-0.5 rounded-full',
-              editDayOffCount >= 2 ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' :
-              editDayOffCount === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' :
-              'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400']">
+ editDayOffCount >= 2 ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' :
+ editDayOffCount === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' :
+ 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400']">
               休假 {{ editDayOffCount }} / {{ editDayTotalOthers }} 人
             </span>
           </div>
           <div class="flex flex-wrap gap-1.5 px-3 py-2">
             <div v-for="c in editDayColleagues" :key="c.id"
-                 class="flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-50 dark:bg-zinc-800 border border-stone-100 dark:border-stone-700">
-              <span class="text-lg text-stone-600 dark:text-stone-300 font-medium">{{ c.name }}</span>
+                 class="flex items-center gap-1 px-2 py-1 rounded-lg bg-surface2 border border-light-c">
+              <span class="text-lg text-muted-c font-medium">{{ c.name }}</span>
               <span v-if="c.code"
                     :class="['inline-flex items-center justify-center w-5 h-5 rounded text-lg font-bold flex-shrink-0', badgeClass(c.code)]">
                 {{ c.code }}
               </span>
-              <span v-else class="text-lg text-stone-300 dark:text-stone-600">上班</span>
+              <span v-else class="text-lg text-hint-c">上班</span>
             </div>
           </div>
         </div>
-        <p class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide mb-2">主狀態</p>
+        <p class="text-lg font-semibold text-hint-c uppercase tracking-wide mb-2">主狀態</p>
         <div class="grid grid-cols-4 gap-2 mb-4">
           <button v-for="opt in EDIT_OPTIONS" :key="opt.code"
                   :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
-                     editCode === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
+ editCode === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
                   @click="editCode = opt.code">
             <span :class="['w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold', opt.color]">{{ opt.code }}</span>
-            <span class="text-lg text-stone-500 dark:text-stone-400">{{ opt.label }}</span>
+            <span class="text-lg text-hint-c">{{ opt.label }}</span>
           </button>
           <button
             :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
-                     editCode === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
+ editCode === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
             @click="editCode = ''; editExtra = ''">
-            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold bg-stone-100 dark:bg-zinc-700 text-stone-400">—</span>
-            <span class="text-lg text-stone-500 dark:text-stone-400">清除</span>
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold bg-surface2 text-hint-c">—</span>
+            <span class="text-lg text-hint-c">清除</span>
           </button>
         </div>
         <transition name="fade">
           <div v-if="canSetExtra" class="mb-4">
-            <p class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide mb-2">
-              附加工作 <span class="text-stone-300 dark:text-stone-600 normal-case font-normal">（休假期間）</span>
+            <p class="text-lg font-semibold text-hint-c uppercase tracking-wide mb-2">
+              附加工作 <span class="text-hint-c normal-case font-normal">（休假期間）</span>
             </p>
             <div class="flex gap-2">
-              <button :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800' : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']" @click="editExtra = ''">
-                <span class="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold bg-stone-100 dark:bg-zinc-700 text-stone-400">—</span>
-                <span class="text-lg text-stone-500 dark:text-stone-400">無</span>
+              <button :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800' : 'border-transparent hover-border']" @click="editExtra = ''">
+                <span class="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold bg-surface2 text-hint-c">—</span>
+                <span class="text-lg text-hint-c">無</span>
               </button>
               <button v-for="opt in EXTRA_OPTIONS" :key="opt.code"
-                      :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover:border-stone-200 dark:hover:border-stone-600']"
+                      :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
                       @click="editExtra = opt.code">
                 <span :class="['w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold', opt.color]">{{ opt.code }}</span>
-                <span class="text-lg text-stone-500 dark:text-stone-400">{{ opt.label }}</span>
+                <span class="text-lg text-hint-c">{{ opt.label }}</span>
               </button>
             </div>
           </div>
         </transition>
-        <div v-if="editCode" class="mb-4 px-3 py-2 bg-stone-50 dark:bg-zinc-800 rounded-xl flex items-center gap-2 text-lg text-stone-500 dark:text-stone-400">
-          <span class="text-stone-400">預覽：</span>
+        <div v-if="editCode" class="mb-4 px-3 py-2 bg-surface2 rounded-xl flex items-center gap-2 text-lg text-hint-c">
+          <span class="text-hint-c">預覽：</span>
           <div class="relative inline-flex items-center justify-center">
             <span :class="['inline-flex items-center justify-center w-7 h-7 rounded-lg text-lg font-bold', badgeClass(editCode)]">{{ editCode }}</span>
             <span v-if="editExtra" :class="['absolute -top-1 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-lg font-bold leading-none shadow-sm', extraBadgeClass(editExtra)]">{{ editExtra }}</span>
@@ -1265,7 +1265,7 @@ onUnmounted(() => {
           </span>
         </div>
         <div class="flex gap-2">
-          <button class="flex-1 py-2.5 text-lg border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="showForm = false">取消</button>
+          <button class="flex-1 py-2.5 text-lg border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors" @click="showForm = false">取消</button>
           <button class="flex-1 py-2.5 text-lg bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                   :disabled="saving" @click="saveEdit">
             <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
@@ -1277,41 +1277,41 @@ onUnmounted(() => {
 
     <!-- ══ Modal：人員新增/編輯 ══ -->
     <div v-if="showStaffForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" @click.self="showStaffForm = false">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ staffFormMode === 'add' ? '新增員工' : '編輯員工' }}</h3>
-          <button class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-stone-400" @click="showStaffForm = false">
+          <h3 class="font-bold text-base-c">{{ staffFormMode === 'add' ? '新增員工' : '編輯員工' }}</h3>
+          <button class="p-1.5 hover-surface2 rounded-lg transition-colors text-hint-c" @click="showStaffForm = false">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="space-y-3 mb-5">
           <div>
-            <label class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">員工 ID</label>
+            <label class="text-lg font-semibold text-hint-c uppercase tracking-wide block mb-1">員工 ID</label>
             <input v-model="staffForm.id" type="text" placeholder="e.g. F00001"
                    :disabled="staffFormMode === 'edit'"
-                   class="w-full text-lg border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed"/>
+                   class="w-full text-lg border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed"/>
           </div>
           <div>
-            <label class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">姓名</label>
+            <label class="text-lg font-semibold text-hint-c uppercase tracking-wide block mb-1">姓名</label>
             <input v-model="staffForm.name" type="text" placeholder="員工姓名"
-                   class="w-full text-lg border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                   class="w-full text-lg border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
-            <label class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">部門</label>
+            <label class="text-lg font-semibold text-hint-c uppercase tracking-wide block mb-1">部門</label>
             <select v-model="staffForm.department"
-                    class="w-full text-lg border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400">
+                    class="w-full text-lg border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
               <option v-for="d in deptNames" :key="d" :value="d">{{ d }}</option>
             </select>
           </div>
           <div>
-            <label class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">預計休假天數（當月）</label>
+            <label class="text-lg font-semibold text-hint-c uppercase tracking-wide block mb-1">預計休假天數（當月）</label>
             <input v-model.number="staffForm.expectedLeave" type="number" min="0" max="31"
-                   class="w-full text-lg border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                   class="w-full text-lg border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
-            <label class="text-lg font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1">班別（當月）</label>
+            <label class="text-lg font-semibold text-hint-c uppercase tracking-wide block mb-1">班別（當月）</label>
             <select v-model="staffForm.shiftCode"
-                    class="w-full text-lg border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400">
+                    class="w-full text-lg border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
               <option value="">— 未指定 —</option>
               <option v-for="s in shifts" :key="s.code" :value="s.code">
                 {{ s.code }}{{ s.label ? '　' + s.label : '' }}　{{ s.start }}~{{ s.end }}
@@ -1320,7 +1320,7 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="flex gap-2">
-          <button class="flex-1 py-2.5 text-lg border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="showStaffForm = false">取消</button>
+          <button class="flex-1 py-2.5 text-lg border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors" @click="showStaffForm = false">取消</button>
           <button class="flex-1 py-2.5 text-lg bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                   :disabled="staffSaving" @click="saveStaff">
             <svg v-if="staffSaving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
@@ -1332,17 +1332,17 @@ onUnmounted(() => {
 
     <!-- ══ Modal：刪除確認 ══ -->
     <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" @click.self="showDeleteConfirm = false">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-xs p-5 mx-4">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">確認刪除</h3>
-        <p class="text-lg text-stone-500 dark:text-stone-400 mb-5">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-xs p-5 mx-4">
+        <h3 class="font-bold text-base-c mb-2">確認刪除</h3>
+        <p class="text-lg text-hint-c mb-5">
           確定要刪除員工
-          <span class="font-semibold text-stone-800 dark:text-stone-100">
+          <span class="font-semibold text-base-c">
             {{ allEmployeesFlat.find(e => e.id === staffDeleteId)?.name }}
           </span>
           嗎？此操作無法復原。
         </p>
         <div class="flex gap-2">
-          <button class="flex-1 py-2.5 text-lg border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="showDeleteConfirm = false">取消</button>
+          <button class="flex-1 py-2.5 text-lg border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors" @click="showDeleteConfirm = false">取消</button>
           <button class="flex-1 py-2.5 text-lg bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors" @click="deleteStaff">刪除</button>
         </div>
       </div>
@@ -1350,20 +1350,20 @@ onUnmounted(() => {
 
     <!-- ══ Modal：組別新增/改名 ══ -->
     <div v-if="showDeptForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" @click.self="showDeptForm = false">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-xs p-5 mx-4">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-xs p-5 mx-4">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ deptFormMode === 'add' ? '新增組別' : '組別改名' }}</h3>
-          <button class="p-1.5 hover:bg-stone-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-stone-400" @click="showDeptForm = false">
+          <h3 class="font-bold text-base-c">{{ deptFormMode === 'add' ? '新增組別' : '組別改名' }}</h3>
+          <button class="p-1.5 hover-surface2 rounded-lg transition-colors text-hint-c" @click="showDeptForm = false">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="mb-5">
-          <label class="text-base font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wide block mb-1.5">組別名稱</label>
+          <label class="text-base font-semibold text-hint-c uppercase tracking-wide block mb-1.5">組別名稱</label>
           <input v-model="deptFormName" type="text" placeholder="e.g. 田園餐廳"
-                 class="w-full text-base border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 bg-white dark:bg-zinc-800 text-stone-700 dark:text-stone-200 outline-none focus:ring-2 focus:ring-green-400"/>
+                 class="w-full text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
         </div>
         <div class="flex gap-2">
-          <button class="flex-1 py-2.5 text-base border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="showDeptForm = false">取消</button>
+          <button class="flex-1 py-2.5 text-base border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors" @click="showDeptForm = false">取消</button>
           <button class="flex-1 py-2.5 text-base bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                   :disabled="deptSaving" @click="saveDept">
             <svg v-if="deptSaving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
@@ -1375,15 +1375,15 @@ onUnmounted(() => {
 
     <!-- ══ Modal：刪除組別確認 ══ -->
     <div v-if="showDeptDelete" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" @click.self="showDeptDelete = false">
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-xs p-5 mx-4">
-        <h3 class="font-bold text-stone-800 dark:text-stone-100 mb-2">確認刪除組別</h3>
-        <p class="text-base text-stone-500 dark:text-stone-400 mb-5">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-xs p-5 mx-4">
+        <h3 class="font-bold text-base-c mb-2">確認刪除組別</h3>
+        <p class="text-base text-hint-c mb-5">
           確定要刪除組別
-          <span class="font-semibold text-stone-800 dark:text-stone-100">{{ deptDeleteTarget }}</span>
+          <span class="font-semibold text-base-c">{{ deptDeleteTarget }}</span>
           嗎？組別內必須無在職員工才能刪除。
         </p>
         <div class="flex gap-2">
-          <button class="flex-1 py-2.5 text-base border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors" @click="showDeptDelete = false">取消</button>
+          <button class="flex-1 py-2.5 text-base border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors" @click="showDeptDelete = false">取消</button>
           <button class="flex-1 py-2.5 text-base bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors" @click="deleteDept">刪除</button>
         </div>
       </div>
@@ -1393,7 +1393,7 @@ onUnmounted(() => {
     <transition name="fade">
       <div v-if="toast.show"
            :class="['fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 text-white text-lg px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap',
-                 toast.error ? 'bg-red-700' : 'bg-stone-800']">
+ toast.error ? 'bg-red-700' : 'bg-accent-solid']">
         <svg v-if="!toast.error" class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         <svg v-else class="w-4 h-4 text-red-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         {{ toast.message }}
