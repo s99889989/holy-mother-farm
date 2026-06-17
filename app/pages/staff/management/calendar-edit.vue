@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-full bg-stone-50 dark:bg-zinc-900 transition-colors">
+  <div class="min-h-full bg-stone-50 dark:bg-[#15171c] transition-colors">
 
     <!-- ── Header ── -->
-    <header class="bg-white dark:bg-zinc-900 border-b border-stone-200 dark:border-stone-700 px-4 py-3 sticky top-0 z-30">
+    <header class="bg-white dark:bg-[#15171c] border-b border-stone-200 dark:border-[#2a2e37] px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">曆</div>
@@ -13,7 +13,7 @@
         </div>
         <div class="flex items-center gap-2">
           <button v-if="perm.can('staff.calendar.edit')" @click="showTxtModal = true"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-lg bg-white dark:bg-zinc-800 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-lg bg-white dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             <span class="hidden sm:inline">貼上 TXT</span>
             <span class="sm:hidden">TXT</span>
@@ -28,23 +28,23 @@
     </header>
 
     <!-- ── 月份導覽 ── -->
-    <div class="bg-white dark:bg-zinc-900 border-b border-stone-100 dark:border-stone-800 px-4 py-3">
+    <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-4 py-3">
       <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
         <!-- 月份切換 -->
         <div class="flex items-center gap-3">
           <button @click="prevMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-stone-700 text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+                  class="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
           </button>
           <h2 class="text-base font-bold text-stone-800 dark:text-stone-100 min-w-[100px] text-center">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
           <button @click="nextMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-stone-700 text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+                  class="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
           </button>
           <button @click="goToday"
-                  class="px-3 py-1 text-xs border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors">
+                  class="px-3 py-1 text-xs border border-stone-200 dark:border-[#2a2e37] text-stone-500 dark:text-stone-400 rounded-lg hover:bg-stone-50 dark:hover:bg-[#1c1f26] transition-colors">
             今天
           </button>
         </div>
@@ -61,7 +61,7 @@
     </div>
 
     <!-- ── 篩選列 ── -->
-    <div class="border-b border-stone-100 dark:border-stone-800 bg-white dark:bg-zinc-900 px-4 py-2.5 space-y-2">
+    <div class="border-b border-stone-100 dark:border-[#22252c] bg-white dark:bg-[#15171c] px-4 py-2.5 space-y-2">
       <div class="max-w-5xl mx-auto space-y-2">
 
         <!-- 類型 -->
@@ -107,9 +107,8 @@
       <template v-else>
         <!-- 星期標頭 + 日期格子 同一個 grid，確保欄寬完全對齊 -->
         <div class="calendar-grid gap-1">
-          <div v-for="d in weekdays" :key="d"
-               :class="['text-center text-sm font-semibold py-2 tracking-wide',
-              d === '日' ? 'text-red-400' : d === '六' ? 'text-blue-400' : 'text-stone-400 dark:text-stone-500']">
+          <div v-for="(d, wIdx) in weekdays" :key="d"
+               :class="['cal-weekday', {sun: wIdx === 0, sat: wIdx === 6}]">
             {{ d }}
           </div>
           <div v-for="(cell, idx) in calendarCells" :key="idx"
@@ -144,8 +143,10 @@
                   v-for="ev in cell.events.slice(0, 3)"
                   :key="ev.id"
                   :class="['cal-chip', chipClass(ev)]"
-                  :title="chipTooltip(ev)"
                   @click.stop="openEdit(ev)"
+                  @mouseenter="showTooltip(ev, $event)"
+                  @mousemove="moveTooltip($event)"
+                  @mouseleave="hideTooltip"
                 >
                   <span class="chip-time hidden sm:inline">{{ ev.time?.split('-')[0] }}</span>
                   <span class="chip-title">{{ ev.title }}</span>
@@ -164,7 +165,7 @@
         </div>
 
         <!-- ── 備注區 ── -->
-        <div class="mt-5 bg-amber-50 dark:bg-zinc-800/60 border border-amber-200 dark:border-amber-900/50 rounded-2xl overflow-hidden">
+        <div class="mt-5 bg-amber-50 dark:bg-[#3a2a1a]/60 border border-amber-200 dark:border-amber-900/50 rounded-2xl overflow-hidden">
           <!-- 備注標題列 -->
           <div class="flex items-center justify-between px-4 py-3 border-b border-amber-100 dark:border-amber-900/40">
             <div class="flex items-center gap-2">
@@ -206,7 +207,7 @@
                   <textarea
                     v-model="noteEditValue"
                     rows="2"
-                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-white dark:bg-zinc-800 text-stone-800 dark:text-stone-100 resize-none outline-none focus:ring-2 focus:ring-indigo-400"
+                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-white dark:bg-[#1c1f26] text-stone-800 dark:text-stone-100 resize-none outline-none focus:ring-2 focus:ring-indigo-400"
                     @keydown.enter.ctrl="confirmEditNote(idx)"
                     @keydown.esc="cancelEditNote"
                     autofocus
@@ -217,7 +218,7 @@
                       確認
                     </button>
                     <button @click="cancelEditNote"
-                            class="px-2.5 py-1 text-xs border border-stone-200 dark:border-stone-700 text-stone-500 rounded-lg hover:bg-stone-50 transition-colors">
+                            class="px-2.5 py-1 text-xs border border-stone-200 dark:border-[#2a2e37] text-stone-500 rounded-lg hover:bg-stone-50 transition-colors">
                       取消
                     </button>
                   </div>
@@ -240,9 +241,9 @@
       <div v-if="dayPanel.show"
            class="fixed inset-0 z-40 flex justify-end"
            @click.self="dayPanel.show = false">
-        <div class="w-full sm:w-96 bg-white dark:bg-zinc-900 h-full shadow-2xl overflow-y-auto flex flex-col">
+        <div class="w-full sm:w-96 bg-white dark:bg-[#15171c] h-full shadow-2xl overflow-y-auto flex flex-col">
           <!-- 側板 Header -->
-          <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
+          <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
             <div>
               <p class="font-bold text-stone-800 dark:text-stone-100">{{ dayPanel.dateStr }}</p>
               <p class="text-xs text-stone-400 mt-0.5">{{ dayPanel.events.length }} 個活動</p>
@@ -265,7 +266,7 @@
             <div
               v-for="ev in dayPanel.events"
               :key="ev.id"
-              class="group flex items-start gap-3 p-3 rounded-xl border border-stone-100 dark:border-stone-700 hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
+              class="group flex items-start gap-3 p-3 rounded-xl border border-stone-100 dark:border-[#2a2e37] hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
             >
               <!-- 類型色條 -->
               <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev.type)]"></div>
@@ -300,9 +301,9 @@
     <!-- ══ Modal: 新增 / 編輯 ══ -->
     <div v-if="formModal.show"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
+        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-stone-800 dark:text-stone-100">{{ formModal.isNew ? '新增活動' : '編輯活動' }}</h3>
           <button @click="formModal.show = false" class="text-stone-400 hover:text-stone-600 p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -343,9 +344,9 @@
           <p v-if="formError" class="text-xs text-red-500">{{ formError }}</p>
         </div>
 
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-zinc-900">
+        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-[#15171c]">
           <button @click="formModal.show = false"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
             取消
           </button>
           <button @click="saveForm" :disabled="saving"
@@ -361,9 +362,9 @@
     <div v-if="googleDetailModal.show && googleDetailModal.ev"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
          @click.self="googleDetailModal.show = false">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
+        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-sm bg-blue-500 flex-shrink-0"></div>
             <h3 class="font-bold text-stone-800 dark:text-stone-100 text-sm">Google 日曆活動</h3>
@@ -393,14 +394,14 @@
           </div>
           <!-- 說明 -->
           <div v-if="googleDetailModal.ev.description"
-               class="bg-stone-50 dark:bg-zinc-800 rounded-xl p-3 text-sm text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
+               class="bg-stone-50 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
             {{ googleDetailModal.ev.description }}
           </div>
         </div>
         <!-- Footer -->
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-zinc-900">
+        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-[#15171c]">
           <button @click="googleDetailModal.show = false"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
             關閉
           </button>
           <a v-if="googleDetailModal.ev.googleLink"
@@ -417,9 +418,9 @@
     <!-- ══ Modal: TXT 匯入 ══ -->
     <div v-if="showTxtModal"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="bg-white dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-stone-100 dark:border-stone-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-900 z-10">
+        <div class="px-5 py-4 border-b border-stone-100 dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-white dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-stone-800 dark:text-stone-100">貼上 TXT 行事曆</h3>
           <button @click="closeTxtModal" class="text-stone-400 hover:text-stone-600 p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -427,7 +428,7 @@
         </div>
 
         <div class="px-5 py-4 space-y-3">
-          <div class="bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3">
+          <div class="bg-stone-50 dark:bg-[#1c1f26] border border-stone-200 dark:border-[#2a2e37] rounded-xl p-3">
             <p class="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5">支援格式（原始行事曆 TXT）：</p>
             <pre class="text-xs text-stone-400 dark:text-stone-500 font-mono leading-relaxed overflow-x-auto">2026年4月
 1
@@ -438,13 +439,13 @@
           <textarea v-model="txtInput" rows="10"
                     placeholder="請貼上行事曆 TXT 內容…"
                     :disabled="!!txtResult"
-                    class="w-full p-3 text-sm font-mono border border-stone-200 dark:border-stone-700 rounded-xl bg-stone-50 dark:bg-zinc-800 text-stone-800 dark:text-stone-100 resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
+                    class="w-full p-3 text-sm font-mono border border-stone-200 dark:border-[#2a2e37] rounded-xl bg-stone-50 dark:bg-[#1c1f26] text-stone-800 dark:text-stone-100 resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
           </textarea>
 
           <div v-if="txtResult" class="space-y-2">
             <!-- 活動統計 + 列表 -->
-            <div class="rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden">
-              <div class="px-4 py-3 bg-stone-50 dark:bg-zinc-800 flex flex-wrap gap-4 text-sm">
+            <div class="rounded-xl border border-stone-200 dark:border-[#2a2e37] overflow-hidden">
+              <div class="px-4 py-3 bg-stone-50 dark:bg-[#1c1f26] flex flex-wrap gap-4 text-sm">
                 <span class="text-stone-500 dark:text-stone-400">活動：解析 <strong class="text-stone-700 dark:text-stone-200">{{ txtResult.total }}</strong> 筆</span>
                 <span class="text-green-600 dark:text-green-400">✓ 可新增 <strong>{{ txtResult.added.length }}</strong> 筆</span>
                 <span class="text-amber-500 dark:text-amber-400">⊘ 重複跳過 <strong>{{ txtResult.skipped }}</strong> 筆</span>
@@ -480,9 +481,9 @@
           </div>
         </div>
 
-        <div class="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-zinc-900">
+        <div class="px-5 py-4 border-t border-stone-100 dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-white dark:bg-[#15171c]">
           <button @click="closeTxtModal"
-                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-zinc-800 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
+                  class="px-4 py-2 text-sm bg-stone-100 dark:bg-[#1c1f26] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-200 transition-colors">
             取消
           </button>
           <template v-if="!txtResult">
@@ -493,7 +494,7 @@
           </template>
           <template v-else>
             <button @click="txtResult = null"
-                    class="px-4 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">
+                    class="px-4 py-2 text-sm border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-xl hover:bg-stone-50 transition-colors">
               重新解析
             </button>
             <button @click="confirmImportTxt"
@@ -517,6 +518,22 @@
         {{ toast.message }}
       </div>
     </Transition>
+
+    <!-- 滑鼠移上活動 chip 顯示詳細內容（跟隨游標） -->
+    <Teleport to="body">
+      <div
+        v-if="tooltipEvent"
+        class="event-tooltip"
+        :style="tooltipStyle"
+      >
+        <div class="tooltip-title">{{ tooltipEvent.title }}</div>
+        <div v-if="tooltipEvent.time" class="tooltip-row">🕐 {{ tooltipEvent.time }}</div>
+        <div v-if="tooltipEvent.room" class="tooltip-row">📍 {{ tooltipEvent.room }}</div>
+        <div v-if="tooltipEvent.owner" class="tooltip-row">👤 {{ tooltipEvent.owner }}</div>
+        <div v-if="tooltipEvent.description" class="tooltip-row">📝 {{ tooltipEvent.description }}</div>
+        <div v-if="tooltipEvent.source === 'google'" class="tooltip-hint">🔗 點擊查看 Google 詳細資訊</div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -553,14 +570,45 @@ function chipClass(ev) {
   return typeChipClass(ev.type)
 }
 
-// hover 顯示完整內容（時間、地點、主辦人、說明），Google 活動額外多顯示一行說明
-function chipTooltip(ev) {
-  const lines = [ev.title]
-  if (ev.time) lines.push(ev.time)
-  if (ev.room) lines.push(`📍 ${ev.room}`)
-  if (ev.owner) lines.push(`👤 ${ev.owner}`)
-  if (ev.source === 'google' && ev.description) lines.push(ev.description)
-  return lines.join('\n')
+// ── 跟隨游標的活動提示框 ─────────────────────────────────────────
+const tooltipEvent = ref(null)
+const tooltipPos = reactive({x: 0, y: 0})
+const TOOLTIP_OFFSET = 18
+const TOOLTIP_WIDTH = 280
+const TOOLTIP_MAX_HEIGHT = 220
+
+const tooltipStyle = computed(() => {
+  if (!import.meta.client) return {}
+  let left = tooltipPos.x + TOOLTIP_OFFSET
+  let top = tooltipPos.y + TOOLTIP_OFFSET
+
+  // 靠右邊界時翻到游標左側
+  if (left + TOOLTIP_WIDTH > window.innerWidth - 8) {
+    left = tooltipPos.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET
+  }
+  // 靠下邊界時翻到游標上方
+  if (top + TOOLTIP_MAX_HEIGHT > window.innerHeight - 8) {
+    top = tooltipPos.y - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET
+  }
+  if (left < 8) left = 8
+  if (top < 8) top = 8
+
+  return {left: `${left}px`, top: `${top}px`}
+})
+
+function showTooltip(ev, e) {
+  tooltipEvent.value = ev
+  tooltipPos.x = e.clientX
+  tooltipPos.y = e.clientY
+}
+
+function moveTooltip(e) {
+  tooltipPos.x = e.clientX
+  tooltipPos.y = e.clientY
+}
+
+function hideTooltip() {
+  tooltipEvent.value = null
 }
 
 function typeBarClass(type) {
@@ -1110,18 +1158,53 @@ onMounted(() => {
   width: 100%;
 }
 
+:root.dark .calendar-grid {
+  gap: 0 !important;
+}
+
+:root.dark .cal-cell {
+  margin: 0 -1px -1px 0;
+}
+
+/* ── 星期標頭：深色底白字 ── */
+.cal-weekday {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  padding: 8px 0;
+  background: #495969;
+  color: #fff;
+  border-radius: 6px;
+}
+
+.cal-weekday.sun {
+  color: #fca5a5;
+}
+
+.cal-weekday.sat {
+  color: #93c5fd;
+}
+
+:root.dark .cal-weekday {
+  background: #38404c;
+  border-radius: 0;
+}
+
 /* ── 日期格子 ── */
 .cal-cell {
   min-height: 110px;
   background: #fff;
+  border: 1px solid #ece7e2;
   border-radius: 8px;
   padding: 6px 5px 5px;
   cursor: pointer;
-  transition: box-shadow 0.15s, background 0.1s;
+  transition: box-shadow 0.15s, background 0.1s, border-color 0.15s;
   position: relative;
 }
 
 .cal-cell:hover {
+  border-color: #6366f1;
   box-shadow: 0 0 0 2px #6366f1;
 }
 
@@ -1130,7 +1213,9 @@ onMounted(() => {
 }
 
 :root.dark .cal-cell {
-  background: #27272a;
+  background: #15171c;
+  border: 1px solid #2a2e37;
+  border-radius: 0;
 }
 
 .cal-cell.weekend {
@@ -1138,15 +1223,26 @@ onMounted(() => {
 }
 
 :root.dark .cal-cell.weekend {
-  background: #232325;
+  background: #15171c;
 }
 
 .cal-cell.today {
+  border-color: #6366f1;
   box-shadow: 0 0 0 2px #6366f1;
+}
+
+:root.dark .cal-cell.today {
+  background: #2d3250;
+  border-color: #5b6bb8;
+  box-shadow: none;
 }
 
 .cal-cell.has-events {
   box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
+}
+
+:root.dark .cal-cell.has-events {
+  box-shadow: none;
 }
 
 /* ── 日期數字 ── */
@@ -1168,6 +1264,11 @@ onMounted(() => {
   font-weight: 700;
 }
 
+:root.dark .today-num {
+  background: transparent;
+  color: #c7d2fe;
+}
+
 /* ── 快速新增按鈕 ── */
 .cal-add-btn {
   opacity: 0;
@@ -1180,7 +1281,8 @@ onMounted(() => {
   align-items: baseline;
   gap: 3px;
   border-radius: 4px;
-  padding: 1px 4px;
+  border-left: 3px solid transparent;
+  padding: 1px 4px 1px 5px;
   cursor: pointer;
   overflow: hidden;
   transition: opacity 0.1s, filter 0.1s;
@@ -1188,8 +1290,8 @@ onMounted(() => {
 }
 
 .cal-chip:hover {
-  opacity: 0.8;
-  filter: brightness(0.95);
+  opacity: 0.85;
+  filter: brightness(0.97);
 }
 
 .chip-time {
@@ -1213,41 +1315,54 @@ onMounted(() => {
 .chip-hospital {
   background: #fee2e2;
   color: #c0392b;
+  border-left-color: #e0534a;
 }
 
 .chip-park {
   background: #d1fae5;
   color: #065f46;
+  border-left-color: #3d6b52;
 }
 
 .chip-fragrant {
   background: #fce7f3;
   color: #9d4f78;
+  border-left-color: #a06080;
 }
 
 .chip-google {
   background: #dbeafe;
   color: #1d4ed8;
+  border-left-color: #2563eb;
+}
+
+:root.dark .cal-chip {
+  border-left-width: 0;
+  padding: 2px 6px;
 }
 
 :root.dark .chip-hospital {
-  background: #4d2323;
-  color: #fca5a5;
+  background: #c0392b;
+  color: #fff;
 }
 
 :root.dark .chip-park {
-  background: #1a3a26;
-  color: #6ee7b7;
+  background: #15803d;
+  color: #fff;
 }
 
 :root.dark .chip-fragrant {
-  background: #3b1a2e;
-  color: #f0abfc;
+  background: #a06080;
+  color: #fff;
 }
 
 :root.dark .chip-google {
-  background: #1e3a5f;
-  color: #93c5fd;
+  background: #2563eb;
+  color: #fff;
+}
+
+:root.dark .chip-time {
+  opacity: 0.85;
 }
 
 /* ── 類型 badge ── */
@@ -1317,7 +1432,7 @@ onMounted(() => {
 }
 
 :root.dark .filter-type-btn {
-  border-color: #3f3f46;
+  border-color: #2a2e37;
   color: #a1a1aa;
 }
 
@@ -1391,7 +1506,7 @@ onMounted(() => {
 }
 
 :root.dark .filter-loc-btn {
-  border-color: #3f3f46;
+  border-color: #2a2e37;
   color: #a1a1aa;
 }
 
@@ -1432,8 +1547,8 @@ onMounted(() => {
 }
 
 :root.dark .field-input {
-  background: #3f3f46;
-  border-color: #52525b;
+  background: #1c1f26;
+  border-color: #2a2e37;
   color: #f5f5f4;
 }
 
@@ -1475,6 +1590,56 @@ onMounted(() => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+/* ── 跟隨游標的活動提示框 ── */
+.event-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
+  background: #fff;
+  color: #1c1917;
+  border: 1px solid #e2ddd8;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
+
+:root.dark .event-tooltip {
+  background: #1c1f26;
+  color: #f5f5f4;
+  border-color: #2a2e37;
+}
+
+.tooltip-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.tooltip-row {
+  color: #78716c;
+  word-break: break-word;
+}
+
+:root.dark .tooltip-row {
+  color: #a1a1aa;
+}
+
+.tooltip-hint {
+  margin-top: 8px;
+  color: #6366f1;
+  font-size: 12px;
+}
+
+:root.dark .tooltip-hint {
+  color: #818cf8;
 }
 
 /* ── RWD ── */
