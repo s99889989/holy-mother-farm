@@ -6,7 +6,7 @@
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">曆</div>
+          <div class="w-8 h-8 rounded-lg bg-accent-solid flex items-center justify-center text-white text-sm font-bold flex-shrink-0">曆</div>
           <div>
             <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">行事曆管理</h1>
             <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
@@ -14,13 +14,13 @@
         </div>
         <div class="flex items-center gap-2">
           <button @click="showTxtModal = true"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-light-c text-muted-c rounded-lg bg-surface hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-light-c text-muted-c rounded-lg bg-surface hover-border-accent hover-text-accent transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             <span class="hidden sm:inline">貼上 TXT</span>
             <span class="sm:hidden">TXT</span>
           </button>
           <button @click="openAddOnDate(null)"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent-solid text-white rounded-lg hover-accent-solid transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             新增
           </button>
@@ -34,14 +34,14 @@
         <!-- 月份切換 -->
         <div class="flex items-center gap-3">
           <button @click="prevMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+                  class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c text-hint-c hover-bg-accent-light hover-border-accent hover-text-accent transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
           </button>
           <h2 class="text-base font-bold text-base-c min-w-[100px] text-center">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
           <button @click="nextMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+                  class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c text-hint-c hover-bg-accent-light hover-border-accent hover-text-accent transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
           </button>
           <button @click="goToday"
@@ -101,7 +101,7 @@
     <div class="max-w-5xl mx-auto px-3 sm:px-4 py-4">
 
       <div v-if="loading" class="flex items-center justify-center py-24 text-hint-c gap-2">
-        <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div class="w-5 h-5 border-2 border-accent-c border-t-transparent rounded-full animate-spin"></div>
         載入中…
       </div>
 
@@ -138,7 +138,7 @@
                 <!-- 快速新增按鈕：hover 才顯示 -->
                 <button
                   @click.stop="openAddOnDate(cell.dateStr)"
-                  class="cal-add-btn opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
+                  class="cal-add-btn opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-accent-light-c text-accent-c flex items-center justify-center hover-bg-accent hover:text-white transition-all">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                 </button>
               </div>
@@ -157,7 +157,7 @@
                 <!-- 超出顯示 +N -->
                 <div
                   v-if="cell.events.length > 3"
-                  class="text-[10px] text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
+                  class="text-[10px] text-hint-c px-1 cursor-pointer hover-text-accent transition-colors"
                   @click.stop="openDayPanel(cell)"
                 >
                   +{{ cell.events.length - 3 }} 更多
@@ -202,7 +202,7 @@
               <!-- 文字（點擊編輯） -->
               <div class="flex-1 min-w-0">
                 <div v-if="noteEditIdx !== idx"
-                     class="text-sm text-muted-c leading-relaxed cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors break-words"
+                     class="text-sm text-muted-c leading-relaxed cursor-pointer hover-text-accent transition-colors break-words"
                      @click="startEditNote(idx)">
                   {{ note || '（點擊編輯）' }}
                 </div>
@@ -210,14 +210,14 @@
                   <textarea
                     v-model="noteEditValue"
                     rows="2"
-                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-surface text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400"
+                    class="flex-1 p-2 text-sm border border-accent-c rounded-lg bg-surface text-base-c resize-none outline-none focus-ring-accent"
                     @keydown.enter.ctrl="confirmEditNote(idx)"
                     @keydown.esc="cancelEditNote"
                     autofocus
                   ></textarea>
                   <div class="flex flex-col gap-1 flex-shrink-0">
                     <button @click="confirmEditNote(idx)"
-                            class="px-2.5 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                            class="px-2.5 py-1 text-xs bg-accent-solid text-white rounded-lg hover-accent-solid transition-colors">
                       確認
                     </button>
                     <button @click="cancelEditNote"
@@ -253,7 +253,7 @@
             </div>
             <div class="flex items-center gap-2">
               <button @click="openAddOnDate(dayPanel.dateStr)"
-                      class="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                      class="flex items-center gap-1 px-3 py-1.5 text-xs bg-accent-solid text-white rounded-lg hover-accent-solid transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 新增
               </button>
@@ -269,7 +269,7 @@
             <div
               v-for="ev in dayPanel.events"
               :key="ev.id"
-              class="group flex items-start gap-3 p-3 rounded-xl border border-light-c hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
+              class="group flex items-start gap-3 p-3 rounded-xl border border-light-c hover-border-accent hover-bg-accent-light transition-colors"
             >
               <!-- 類型色條 -->
               <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev.type)]"></div>
@@ -350,7 +350,7 @@
             取消
           </button>
           <button @click="saveForm" :disabled="saving"
-                  class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors flex items-center gap-1.5">
+                  class="px-4 py-2 text-sm bg-accent-solid text-white rounded-xl hover-accent-solid disabled:opacity-50 transition-colors flex items-center gap-1.5">
             <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             {{ formModal.isNew ? '新增' : '儲存' }}
           </button>
@@ -382,7 +382,7 @@
           <textarea v-model="txtInput" rows="10"
                     placeholder="請貼上行事曆 TXT 內容…"
                     :disabled="!!txtResult"
-                    class="w-full p-3 text-sm font-mono border border-light-c rounded-xl bg-surface2 text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
+                    class="w-full p-3 text-sm font-mono border border-light-c rounded-xl bg-surface2 text-base-c resize-none outline-none focus-ring-accent disabled:opacity-60">
           </textarea>
 
           <div v-if="txtResult" class="space-y-2">
@@ -395,7 +395,7 @@
               </div>
               <div v-if="txtResult.added.length > 0" class="divide-y divide-base max-h-44 overflow-y-auto">
                 <div v-for="(ev, i) in txtResult.added" :key="i" class="flex items-center gap-3 px-4 py-2 text-xs">
-                  <span class="font-mono text-indigo-500 flex-shrink-0 tabular-nums">{{ ev.date }}</span>
+                  <span class="font-mono text-accent-c flex-shrink-0 tabular-nums">{{ ev.date }}</span>
                   <span class="text-muted-c truncate flex-1">{{ ev.title }}</span>
                   <span class="text-hint-c flex-shrink-0 hidden sm:block">{{ ev.owner }}</span>
                   <span :class="['type-badge flex-shrink-0', typeColorClass(ev.type)]">{{ ev.type }}</span>
@@ -431,7 +431,7 @@
           </button>
           <template v-if="!txtResult">
             <button @click="parseTxt" :disabled="!txtInput.trim()"
-                    class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                    class="px-4 py-2 text-sm bg-accent-solid text-white rounded-xl hover-accent-solid disabled:opacity-50 transition-colors">
               解析預覽
             </button>
           </template>
@@ -442,7 +442,7 @@
             </button>
             <button @click="confirmImportTxt"
                     :disabled="(txtResult.added.length === 0 && txtResult.notes.length === 0) || saving"
-                    class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+                    class="px-4 py-2 text-sm bg-accent-solid text-white rounded-xl hover-accent-solid disabled:opacity-50 transition-colors flex items-center gap-1.5">
               <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               匯入{{ txtResult.added.length > 0 ? ` ${txtResult.added.length} 筆活動` : '' }}{{ txtResult.notes.length > 0 ? ` ${txtResult.notes.length} 條備注` : '' }}
             </button>
@@ -931,21 +931,19 @@ onMounted(() => {
 /* ── 日期格子 ── */
 .cal-cell {
   min-height: 110px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   padding: 6px 5px 5px;
   cursor: pointer;
   transition: box-shadow 0.15s, background 0.1s;
   position: relative;
 }
-.cal-cell:hover { box-shadow: 0 0 0 2px #6366f1; }
+.cal-cell:hover { box-shadow: 0 0 0 2px var(--accent); }
 .cal-cell:hover .cal-add-btn { opacity: 1 !important; }
 
-:root.dark .cal-cell { background: #27272a; }
-.cal-cell.weekend  { background: #faf6f2; }
-:root.dark .cal-cell.weekend { background: #232325; }
-.cal-cell.today    { box-shadow: 0 0 0 2px #6366f1; }
-.cal-cell.has-events { box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.cal-cell.weekend  { background: var(--surface2); }
+.cal-cell.today    { box-shadow: 0 0 0 2px var(--accent); }
+.cal-cell.has-events { box-shadow: var(--shadow); }
 
 /* ── 日期數字 ── */
 .cal-day-num {
@@ -959,7 +957,7 @@ onMounted(() => {
   justify-content: center;
   width: 22px;
   height: 22px;
-  background: #6366f1;
+  background: var(--accent);
   color: #fff;
   border-radius: 50%;
   font-weight: 700;
@@ -998,13 +996,14 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* chip 顏色 */
+/* chip 顏色（業務分類色，維持固定色碼，不隨 accent 變動，
+   以保留「醫院／園區／芳心」的視覺辨識度）*/
 .chip-hospital { background: #fee2e2; color: #c0392b; }
 .chip-park     { background: #d1fae5; color: #065f46; }
 .chip-fragrant { background: #fce7f3; color: #9d4f78; }
-:root.dark .chip-hospital { background: #4d2323; color: #fca5a5; }
-:root.dark .chip-park     { background: #1a3a26; color: #6ee7b7; }
-:root.dark .chip-fragrant { background: #3b1a2e; color: #f0abfc; }
+html.dark .chip-hospital { background: #4d2323; color: #fca5a5; }
+html.dark .chip-park     { background: #1a3a26; color: #6ee7b7; }
+html.dark .chip-fragrant { background: #3b1a2e; color: #f0abfc; }
 
 /* ── 類型 badge ── */
 .type-badge {
@@ -1018,60 +1017,56 @@ onMounted(() => {
 .type-badge.hospital { background: #fee2e2; color: #c0392b; }
 .type-badge.park     { background: #d1fae5; color: #065f46; }
 .type-badge.fragrant { background: #fce7f3; color: #9d4f78; }
-:root.dark .type-badge.hospital { background: #4d2323; color: #f87171; }
-:root.dark .type-badge.park     { background: #1a3a26; color: #4ade80; }
-:root.dark .type-badge.fragrant { background: #3b1a2e; color: #f0abfc; }
+html.dark .type-badge.hospital { background: #4d2323; color: #f87171; }
+html.dark .type-badge.park     { background: #1a3a26; color: #4ade80; }
+html.dark .type-badge.fragrant { background: #3b1a2e; color: #f0abfc; }
 
 /* ── 篩選按鈕：類型 ── */
 .filter-type-btn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
-  border: 1.5px solid #e2ddd8; background: transparent; cursor: pointer;
-  color: #78716c; transition: all .15s;
+  border: 1.5px solid var(--border-light); background: transparent; cursor: pointer;
+  color: var(--text-hint); transition: all .15s;
 }
-:root.dark .filter-type-btn { border-color: #3f3f46; color: #a1a1aa; }
 .filter-count {
   font-size: 10px; opacity: .7; background: rgba(0,0,0,.06);
   border-radius: 8px; padding: 0 4px; min-width: 16px; text-align: center;
 }
-.filter-type-btn.active.all      { background: #1c1917; color: #fff; border-color: #1c1917; }
+.filter-type-btn.active.all      { background: var(--accent); color: #fff; border-color: var(--accent); }
 .filter-type-btn.active.hospital { background: #e0534a; color: #fff; border-color: #e0534a; }
 .filter-type-btn.active.park     { background: #3d6b52; color: #fff; border-color: #3d6b52; }
 .filter-type-btn.active.fragrant { background: #a06080; color: #fff; border-color: #a06080; }
-.filter-type-btn:not(.active):hover { border-color: #6366f1; color: #6366f1; }
+.filter-type-btn:not(.active):hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── 篩選按鈕：地點 ── */
 .filter-loc-btn {
   padding: 3px 10px; border-radius: 14px; font-size: 11px; font-weight: 500;
-  border: 1.5px solid #e2ddd8; background: transparent; cursor: pointer;
-  color: #78716c; transition: all .15s; white-space: nowrap;
+  border: 1.5px solid var(--border-light); background: transparent; cursor: pointer;
+  color: var(--text-hint); transition: all .15s; white-space: nowrap;
 }
-:root.dark .filter-loc-btn { border-color: #3f3f46; color: #a1a1aa; }
-.filter-loc-btn.active      { background: #6366f1; color: #fff; border-color: #6366f1; }
-.filter-loc-btn:not(.active):hover { border-color: #6366f1; color: #6366f1; }
+.filter-loc-btn.active      { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-loc-btn:not(.active):hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── 表單欄位 ── */
 .field-label {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #57534e;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
-:root.dark .field-label { color: #a8a29e; }
 .field-input {
   width: 100%;
   padding: 8px 12px;
   font-size: 13px;
-  border: 1px solid #e2ddd8;
+  border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: #fff;
-  color: #1c1917;
+  background: var(--surface);
+  color: var(--text);
   outline: none;
   transition: border 0.15s, box-shadow 0.15s;
 }
-:root.dark .field-input { background: #3f3f46; border-color: #52525b; color: #f5f5f4; }
-.field-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+.field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
 
 /* ── 側板動畫 ── */
 .slide-right-enter-active, .slide-right-leave-active { transition: opacity 0.2s; }

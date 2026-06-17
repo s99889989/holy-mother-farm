@@ -101,3 +101,21 @@ body {
 
 /* 半透明灰底 overlay（原本是 bg-stone-500/80 之類，用於圖片上疊加的狀態標籤）*/
 .bg-muted-overlay { background-color: var(--text-hint); opacity: 0.85; }
+
+/* ============================================================
+   Accent 強調色完整工具集
+   - 用於取代頁面中直接寫死的 indigo-XXX / #6366f1 等強調色，
+     讓「主要操作按鈕、focus 框、選中態」統一走 --accent 變數，
+     跟 nuxt-test 的紫藍色調一致。
+   ============================================================ */
+.text-accent-c { color: var(--accent); }
+.border-accent-c { border-color: var(--accent); }
+.bg-accent-light-c { background-color: var(--accent-light); }
+.text-on-accent-light { color: var(--accent); }
+
+.hover-bg-accent:hover { background-color: var(--accent); }
+.hover-text-accent:hover { color: var(--accent); }
+.hover-border-accent:hover { border-color: var(--accent); }
+.hover-bg-accent-light:hover { background-color: var(--accent-light); }
+
+.focus-ring-accent:focus { box-shadow: 0 0 0 2px var(--accent-light); border-color: var(--accent); }
