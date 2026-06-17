@@ -2,25 +2,25 @@
   <div class="min-h-full bg-stone-50 dark:bg-[#15171c] transition-colors">
 
     <!-- ── Header ── -->
-    <header class="bg-white dark:bg-[#15171c] border-b border-stone-200 dark:border-[#2a2e37] px-4 py-3 sticky top-0 z-30">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">曆</div>
+    <header class="bg-white dark:bg-[#15171c] border-b border-stone-200 dark:border-[#2a2e37] px-6 py-4 sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">曆</div>
           <div>
-            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-sm sm:text-base">行事曆管理</h1>
-            <p class="text-xs text-stone-400 mt-0.5 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
+            <h1 class="font-bold text-stone-800 dark:text-stone-100 leading-none text-lg sm:text-xl">行事曆管理</h1>
+            <p class="text-sm text-stone-400 mt-1 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
           <button v-if="perm.can('staff.calendar.edit')" @click="showTxtModal = true"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-lg bg-white dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-stone-200 dark:border-[#2a2e37] text-stone-600 dark:text-stone-300 rounded-lg bg-white dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             <span class="hidden sm:inline">貼上 TXT</span>
             <span class="sm:hidden">TXT</span>
           </button>
           <button v-if="perm.can('staff.calendar.edit')" @click="openAddOnDate(null)"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             新增
           </button>
         </div>
@@ -28,76 +28,73 @@
     </header>
 
     <!-- ── 月份導覽 ── -->
-    <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-4 py-3">
-      <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
+    <div class="bg-white dark:bg-[#15171c] border-b border-stone-100 dark:border-[#22252c] px-6 py-4">
+      <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <!-- 月份切換 -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-4">
           <button @click="prevMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
+                  class="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <h2 class="text-base font-bold text-stone-800 dark:text-stone-100 min-w-[100px] text-center">
+          <h2 class="text-xl font-bold text-stone-800 dark:text-stone-100 min-w-[130px] text-center">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
           <button @click="nextMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
+                  class="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-[#2a2e37] text-stone-500 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
           </button>
           <button @click="goToday"
-                  class="px-3 py-1 text-xs border border-stone-200 dark:border-[#2a2e37] text-stone-500 dark:text-stone-400 rounded-lg hover:bg-stone-50 dark:hover:bg-[#1c1f26] transition-colors">
+                  class="px-4 py-1.5 text-sm border border-stone-200 dark:border-[#2a2e37] text-stone-500 dark:text-stone-400 rounded-lg hover:bg-stone-50 dark:hover:bg-[#1c1f26] transition-colors">
             今天
           </button>
         </div>
 
         <!-- 類型圖例 -->
-        <div class="hidden sm:flex items-center gap-3">
-          <div v-for="t in TYPES" :key="t" class="flex items-center gap-1.5">
-            <div :class="['w-2.5 h-2.5 rounded-sm', legendDotClass(t)]"></div>
-            <span class="text-xs text-stone-500 dark:text-stone-400">{{ t }}</span>
+        <div class="hidden sm:flex items-center gap-4">
+          <div v-for="t in TYPES" :key="t" class="flex items-center gap-2">
+            <div :class="['w-3 h-3 rounded-sm', legendDotClass(t)]"></div>
+            <span class="text-sm text-stone-500 dark:text-stone-400">{{ t }}</span>
           </div>
-          <span class="text-xs text-stone-400 ml-1">{{ monthEventCount }} 筆</span>
+          <span class="text-sm text-stone-400 ml-1">{{ monthEventCount }} 筆</span>
         </div>
       </div>
     </div>
 
     <!-- ── 篩選列 ── -->
-    <div class="border-b border-stone-100 dark:border-[#22252c] bg-white dark:bg-[#15171c] px-4 py-2.5 space-y-2">
-      <div class="max-w-5xl mx-auto space-y-2">
+    <div class="border-b border-stone-100 dark:border-[#22252c] bg-white dark:bg-[#15171c] px-6 py-3.5">
+      <div class="max-w-7xl mx-auto filter-bar">
 
         <!-- 類型 -->
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="text-xs text-stone-400 mr-1 flex-shrink-0">類型</span>
-          <button
-            v-for="t in ['全部', ...TYPES, 'Google']" :key="t"
-            @click="setFilterType(t)"
-            :class="['filter-type-btn', t === '全部' ? 'all' : t === 'Google' ? 'google' : typeColorClass(t), filterType === t ? 'active' : '']"
+        <div class="filter-select-group">
+          <label class="filter-label">類型</label>
+          <select
+            class="filter-select"
+            :value="filterType"
+            @change="setFilterType($event.target.value)"
           >
-            {{ t }}
-            <span class="filter-count">
-              {{ t === '全部' ? monthEventCount : (typeCount[t] || 0) }}<span v-if="t === 'Google' && googleLoading" class="ml-1 inline-block w-2 h-2 border border-blue-400 border-t-transparent rounded-full animate-spin"></span>
-            </span>
-          </button>
+            <option value="全部">全部 {{ monthEventCount }}</option>
+            <option v-for="t in TYPES" :key="t" :value="t">{{ t }} {{ typeCount[t] || 0 }}</option>
+            <option value="Google">Google {{ typeCount['Google'] || 0 }}</option>
+          </select>
+          <span v-if="googleLoading" class="filter-sync-hint">
+            <span class="filter-sync-dot"></span>Google 同步中
+          </span>
         </div>
 
         <!-- 地點 -->
-        <div v-if="availableLocations.length" class="flex flex-wrap items-center gap-1.5">
-          <span class="text-xs text-stone-400 mr-1 flex-shrink-0">地點</span>
-          <button
-            :class="['filter-loc-btn', filterLocation === '' ? 'active' : '']"
-            @click="filterLocation = ''"
-          >全部</button>
-          <button
-            v-for="loc in availableLocations" :key="loc"
-            :class="['filter-loc-btn', filterLocation === loc ? 'active' : '']"
-            @click="filterLocation = loc"
-          >{{ loc }}</button>
+        <div v-if="availableLocations.length" class="filter-select-group">
+          <label class="filter-label">地點</label>
+          <select class="filter-select" v-model="filterLocation">
+            <option value="">全部</option>
+            <option v-for="loc in availableLocations" :key="loc" :value="loc">{{ loc }}</option>
+          </select>
         </div>
 
       </div>
     </div>
 
     <!-- ── 月曆主體 ── -->
-    <div class="max-w-5xl mx-auto px-3 sm:px-4 py-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
       <div v-if="loading" class="flex items-center justify-center py-24 text-stone-400 gap-2">
         <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -106,7 +103,7 @@
 
       <template v-else>
         <!-- 星期標頭 + 日期格子 同一個 grid，確保欄寬完全對齊 -->
-        <div class="calendar-grid gap-1">
+        <div class="calendar-grid gap-1.5">
           <div v-for="(d, wIdx) in weekdays" :key="d"
                :class="['cal-weekday', {sun: wIdx === 0, sat: wIdx === 6}]">
             {{ d }}
@@ -1169,10 +1166,10 @@ onMounted(() => {
 /* ── 星期標頭：深色底白字 ── */
 .cal-weekday {
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: .03em;
-  padding: 8px 0;
+  padding: 10px 0;
   background: #495969;
   color: #fff;
   border-radius: 6px;
@@ -1193,11 +1190,11 @@ onMounted(() => {
 
 /* ── 日期格子 ── */
 .cal-cell {
-  min-height: 110px;
+  min-height: 140px;
   background: #fff;
   border: 1px solid #ece7e2;
   border-radius: 8px;
-  padding: 6px 5px 5px;
+  padding: 8px 7px 7px;
   cursor: pointer;
   transition: box-shadow 0.15s, background 0.1s, border-color 0.15s;
   position: relative;
@@ -1247,7 +1244,7 @@ onMounted(() => {
 
 /* ── 日期數字 ── */
 .cal-day-num {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1;
 }
@@ -1256,8 +1253,8 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 25px;
+  height: 25px;
   background: #6366f1;
   color: #fff;
   border-radius: 50%;
@@ -1279,14 +1276,14 @@ onMounted(() => {
 .cal-chip {
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  gap: 4px;
   border-radius: 4px;
   border-left: 3px solid transparent;
-  padding: 1px 4px 1px 5px;
+  padding: 2px 5px 2px 6px;
   cursor: pointer;
   overflow: hidden;
   transition: opacity 0.1s, filter 0.1s;
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .cal-chip:hover {
@@ -1295,7 +1292,7 @@ onMounted(() => {
 }
 
 .chip-time {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
@@ -1415,113 +1412,87 @@ onMounted(() => {
   color: #93c5fd;
 }
 
-/* ── 篩選按鈕：類型 ── */
-.filter-type-btn {
+/* ── 篩選列：下拉選單 ── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.filter-select-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a8a29e;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filter-select {
+  padding: 7px 12px;
+  border: 1.5px solid #e2ddd8;
+  border-radius: 8px;
+  background: #fff;
+  color: #1c1917;
+  font-size: 13.5px;
+  max-width: 220px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+
+.filter-select:hover {
+  border-color: #6366f1;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+}
+
+:root.dark .filter-select {
+  background: #1c1f26;
+  border-color: #2a2e37;
+  color: #f5f5f4;
+}
+
+.filter-sync-hint {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 500;
-  border: 1.5px solid #e2ddd8;
-  background: transparent;
-  cursor: pointer;
-  color: #78716c;
-  transition: all .15s;
-}
-
-:root.dark .filter-type-btn {
-  border-color: #2a2e37;
-  color: #a1a1aa;
-}
-
-.filter-count {
-  font-size: 10px;
-  opacity: .7;
-  background: rgba(0, 0, 0, .06);
-  border-radius: 8px;
-  padding: 0 4px;
-  min-width: 16px;
-  text-align: center;
-}
-
-.filter-type-btn.active.all {
-  background: #1c1917;
-  color: #fff;
-  border-color: #1c1917;
-}
-
-.filter-type-btn.active.hospital {
-  background: #e0534a;
-  color: #fff;
-  border-color: #e0534a;
-}
-
-.filter-type-btn.active.park {
-  background: #3d6b52;
-  color: #fff;
-  border-color: #3d6b52;
-}
-
-.filter-type-btn.active.fragrant {
-  background: #a06080;
-  color: #fff;
-  border-color: #a06080;
-}
-
-.filter-type-btn.google {
-  border-color: #bfdbfe;
+  font-size: 11px;
   color: #2563eb;
 }
 
-:root.dark .filter-type-btn.google {
-  border-color: #1e3a5f;
+:root.dark .filter-sync-hint {
   color: #93c5fd;
 }
 
-.filter-type-btn.active.google {
+.filter-sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
+  animation: filter-sync-pulse 1s infinite;
 }
 
-.filter-type-btn:not(.active):hover {
-  border-color: #6366f1;
-  color: #6366f1;
+:root.dark .filter-sync-dot {
+  background: #93c5fd;
 }
 
-/* ── 篩選按鈕：地點 ── */
-.filter-loc-btn {
-  padding: 3px 10px;
-  border-radius: 14px;
-  font-size: 11px;
-  font-weight: 500;
-  border: 1.5px solid #e2ddd8;
-  background: transparent;
-  cursor: pointer;
-  color: #78716c;
-  transition: all .15s;
-  white-space: nowrap;
-}
-
-:root.dark .filter-loc-btn {
-  border-color: #2a2e37;
-  color: #a1a1aa;
-}
-
-.filter-loc-btn.active {
-  background: #6366f1;
-  color: #fff;
-  border-color: #6366f1;
-}
-
-.filter-loc-btn:not(.active):hover {
-  border-color: #6366f1;
-  color: #6366f1;
+@keyframes filter-sync-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* ── 表單欄位 ── */
+
 .field-label {
   display: block;
   font-size: 12px;
