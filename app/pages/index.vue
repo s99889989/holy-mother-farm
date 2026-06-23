@@ -1,9 +1,9 @@
 <script setup>
-import {useCustomerStore} from '~/stores/customer.js'
-import {usePermissionStore} from '~/stores/permission.js'
-import {useCommonStore} from '~/stores/common.js'
+import { useCustomerStore } from '~/stores/customer.js'
+import { usePermissionStore } from '~/stores/permission.js'
+import { useCommonStore } from '~/stores/common.js'
 
-definePageMeta({layout: 'loginl'})
+definePageMeta({ layout: 'loginl' })
 useSiteHead({
   title: '聖母農莊管理系統',
   description: '員工專區',
@@ -88,7 +88,7 @@ const initGoogle = (attempt = 0) => {
   window.google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID.value,
     ux_mode: 'redirect',
-    login_uri: `${commonStore.data.main_url}/holy/customer/google-login-redirect`,
+    login_uri: 'https://holymotherfarm.netlify.app/api/holy/customer/google-login-redirect',
     auto_select: false,
   })
   const el = document.getElementById('google-signin-btn')
@@ -118,8 +118,8 @@ function checkErrorParam() {
   if (!err) return
   const msgs = {
     'login_failed': '登入失敗，請再試一次',
-    'not_staff': '此帳號非員工帳號，無法登入員工後台',
-    'blocked': '此帳號已被停用，請聯絡管理員',
+    'not_staff':    '此帳號非員工帳號，無法登入員工後台',
+    'blocked':      '此帳號已被停用，請聯絡管理員',
   }
   error.value = msgs[err] ?? '登入失敗，請再試一次'
   // 清掉 URL 上的 error param，避免重新整理再跳一次
@@ -196,8 +196,7 @@ const fetchMe = async () => {
           <div class="login-btn-area">
             <!-- Android in-app browser fallback（intent 跳轉失敗才會看到） -->
             <div v-if="isAndroidWebView" class="webview-warning">
-              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                   stroke-linecap="round" stroke-linejoin="round">
+              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
