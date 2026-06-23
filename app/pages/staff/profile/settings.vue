@@ -1,45 +1,51 @@
 <script setup>
-definePageMeta({layout: 'staff'})
+definePageMeta({ layout: 'staff' })
 
-const commonStore = useCommonStore()
+const commonStore   = useCommonStore()
 const customerStore = useCustomerStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
-const customer = computed(() => customerStore.customer)
+const BASE          = computed(() => commonStore.data.main_url + '/holy/customer')
+const customer      = computed(() => customerStore.customer)
+
+// group 中文對照（與 permissions.yml 的 group id 一致）
+const GROUP_LABELS = {
+  guest:   '一般訪客',
+  member:  '一般會員',
+  staff:   '基本員工',
+  senior:  '資深員工',
+  manager: '主管',
+}
+const groupLabel = computed(() =>
+  GROUP_LABELS[customer.value?.group] ?? customer.value?.group ?? customer.value?.role ?? ''
+)
 
 // ── 表單 ─────────────────────────────────────────────────────────
-const form = reactive({mobile: '', landline: '', address: '', birthday: '', note: ''})
-const saving = ref(false)
-const saved = ref(false)
-const error = ref('')
-const mobileError = ref('')
+const form = reactive({ mobile: '', landline: '', address: '', birthday: '', note: '' })
+const saving       = ref(false)
+const saved        = ref(false)
+const error        = ref('')
+const mobileError  = ref('')
 const landlineError = ref('')
 
 // ── 電話驗證 ─────────────────────────────────────────────────────
-const validateMobile = (c) => /^09\d{8}$/.test(c)
+const validateMobile   = (c) => /^09\d{8}$/.test(c)
 const validateLandline = (c) => {
-  if (/^02\d{8}$/.test(c)) return true
+  if (/^02\d{8}$/.test(c))   return true
   if (/^0[3-8]\d{7,8}$/.test(c)) return true
-  if (/^037\d{6}$/.test(c)) return true
-  if (/^049\d{6}$/.test(c)) return true
-  if (/^089\d{6}$/.test(c)) return true
+  if (/^037\d{6}$/.test(c))  return true
+  if (/^049\d{6}$/.test(c))  return true
+  if (/^089\d{6}$/.test(c))  return true
   if (/^082[36]\d{6}$/.test(c)) return true
   if (/^0836\d{6}$/.test(c)) return true
   return false
 }
 
 const onMobileInput = () => {
-  if (!form.mobile) {
-    mobileError.value = '';
-    return
-  }
+  if (!form.mobile) { mobileError.value = ''; return }
   const c = form.mobile.replace(/[-\s]/g, '')
   mobileError.value = validateMobile(c) ? '' : '請輸入正確的手機號碼（09xxxxxxxx）'
 }
 const onLandlineInput = () => {
-  if (!form.landline) {
-    landlineError.value = '';
-    return
-  }
+  if (!form.landline) { landlineError.value = ''; return }
   const c = form.landline.replace(/[-\s]/g, '')
   landlineError.value = validateLandline(c) ? '' : '請輸入正確的市話（如 02-12345678、07-1234567）'
 }
@@ -48,11 +54,11 @@ const onLandlineInput = () => {
 // 登入時 /holy/customer/me 或 /google-login 已把完整資料存入 store
 const initForm = () => {
   if (!customer.value) return
-  form.mobile = customer.value.mobile || ''
+  form.mobile   = customer.value.mobile   || ''
   form.landline = customer.value.landline || ''
-  form.address = customer.value.address || ''
+  form.address  = customer.value.address  || ''
   form.birthday = customer.value.birthday || ''
-  form.note = customer.value.note || ''
+  form.note     = customer.value.note     || ''
 }
 
 // ── 儲存：PUT /holy/customer/profile（後端用 cookie 驗身份）──────
@@ -60,24 +66,20 @@ const saveProfile = async () => {
   if (form.mobile) {
     const c = form.mobile.replace(/[-\s]/g, '')
     mobileError.value = validateMobile(c) ? '' : '請輸入正確的手機號碼（09xxxxxxxx）'
-  } else {
-    mobileError.value = ''
-  }
+  } else { mobileError.value = '' }
   if (form.landline) {
     const c = form.landline.replace(/[-\s]/g, '')
     landlineError.value = validateLandline(c) ? '' : '請輸入正確的市話（如 02-12345678、07-1234567）'
-  } else {
-    landlineError.value = ''
-  }
+  } else { landlineError.value = '' }
   if (mobileError.value || landlineError.value) return
 
   saving.value = true
-  saved.value = false
-  error.value = ''
+  saved.value  = false
+  error.value  = ''
   try {
     const res = await fetch(`${BASE.value}/profile`, {
       method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(form),
     })
@@ -85,7 +87,7 @@ const saveProfile = async () => {
     if (data.error) throw new Error(data.error)
 
     // 更新 store，讓 navbar 等地方也同步
-    customerStore.setCustomer({...customer.value, ...form})
+    customerStore.setCustomer({ ...customer.value, ...form })
     saved.value = true
     setTimeout(() => saved.value = false, 3000)
   } catch (e) {
@@ -120,8 +122,7 @@ onMounted(() => {
         <button
           class="mt-4 px-5 py-2 text-sm font-medium rounded-xl bg-green-700 text-white hover:bg-green-800 transition-colors"
           @click="navigateTo('/login')"
-        >前往登入
-        </button>
+        >前往登入</button>
       </div>
 
       <!-- 已登入 -->
@@ -143,9 +144,8 @@ onMounted(() => {
           <div class="min-w-0">
             <p class="text-sm font-semibold text-base-c truncate">{{ customer.name }}</p>
             <p class="text-xs text-hint-c truncate">{{ customer.email }}</p>
-            <span
-              class="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-              {{ customer.role || 'CUSTOMER' }}
+            <span class="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+              {{ groupLabel }}
             </span>
           </div>
         </div>
@@ -238,8 +238,7 @@ onMounted(() => {
  : 'bg-green-700 hover:bg-green-800'"
                 @click="saveProfile"
               >
-                <div v-if="saving"
-                     class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                <div v-if="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 <span v-if="saving">儲存中…</span>
                 <span v-else-if="saved">✓ 已儲存</span>
                 <span v-else>儲存設定</span>
