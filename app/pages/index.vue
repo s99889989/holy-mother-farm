@@ -20,39 +20,50 @@ const permissionStore = usePermissionStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 
-// ── WebView 偵測 ─────────────────────────────────────────────────
-// Google OAuth / GSI 禁止在 in-app browser（LINE、FB、IG 等）內使用，
-// 偵測到 WebView 時顯示提示，引導使用者改用外部瀏覽器。
-const isWebView = ref(false)
+// ── Android WebView 偵測 ────────────────────────────────────────
+// iOS 的 LINE / FB 等 App 內建瀏覽器會自動用 Safari 開啟，Google 登入正常。
+// Android 的 in-app browser 才會卡住，用 intent:// 自動跳到系統瀏覽器。
+const isAndroidWebView = ref(false)
+const intentFired = ref(false)
 
-function detectWebView() {
+function detectAndroidWebView() {
   if (!import.meta.client) return false
   const ua = navigator.userAgent
+  if (!/Android/i.test(ua)) return false
 
-  // LINE
-  if (/Line\//i.test(ua)) return true
-  // Facebook (FBAN / FBAV / FB_IAB)
-  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return true
-  // Instagram
-  if (/Instagram/i.test(ua)) return true
-  // WeChat
-  if (/MicroMessenger/i.test(ua)) return true
-  // Android WebView（Chrome with wv flag）
-  if (/Android/.test(ua) && /wv\b/.test(ua)) return true
-  // iOS 上非 Safari（無 Safari/ token，但有 AppleWebKit）
-  if (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true
+  if (/Line\//i.test(ua)) return true           // LINE Android
+  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return true // Facebook Android
+  if (/Instagram/i.test(ua)) return true         // Instagram Android
+  if (/MicroMessenger/i.test(ua)) return true    // WeChat Android
+  if (/wv\b/.test(ua)) return true               // 通用 Android WebView flag
 
   return false
 }
 
+// intent:// scheme：跳到 Chrome，Chrome 沒裝則 fallback 到系統瀏覽器
+function openInAndroidBrowser() {
+  if (intentFired.value) return
+  intentFired.value = true
+
+  const url = window.location.href
+  const stripped = url.replace(/^https?:\/\//, '')
+  const intentUrl = `intent://${stripped}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`
+  window.location.href = intentUrl
+}
+
 // ── 初始化 ──────────────────────────────────────────────────────
 onMounted(async () => {
-  isWebView.value = detectWebView()
+  isAndroidWebView.value = detectAndroidWebView()
+
+  // Android in-app browser → 自動跳外部瀏覽器，不繼續執行
+  if (isAndroidWebView.value) {
+    openInAndroidBrowser()
+    return
+  }
 
   await fetchMe()
 
-  // WebView 內不載入 GSI，避免出現 Google disallowed_useragent 錯誤
-  if (isWebView.value) return
+  // 以下正常載入 GSI（iOS 已由系統自動用 Safari 開啟，不需額外處理）
 
   if (!document.getElementById('google-gsi-script')) {
     const script = document.createElement('script')
@@ -202,21 +213,21 @@ const fetchMe = async () => {
 
           <!-- 按鈕區 -->
           <div class="login-btn-area">
-            <!-- WebView 提示（LINE / FB / IG 等 in-app browser） -->
-            <div v-if="isWebView" class="webview-warning">
+            <!-- Android in-app browser fallback（intent 跳轉失敗才會看到） -->
+            <div v-if="isAndroidWebView" class="webview-warning">
               <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              <p class="webview-title">請用外部瀏覽器開啟</p>
+              <p class="webview-title">正在開啟外部瀏覽器…</p>
               <p class="webview-hint">
-                目前在 App 內建瀏覽器中，Google 登入無法使用。<br>
-                請點選右上角選單，選擇「在瀏覽器中開啟」後再登入。
+                若瀏覽器未自動開啟，請點選右上角選單，<br>
+                選擇「在外部瀏覽器開啟」後再登入。
               </p>
             </div>
 
-            <!-- 正常登入按鈕 -->
+            <!-- 正常登入按鈕（含 iOS，iOS in-app browser 已由系統自動跳 Safari） -->
             <template v-else>
               <div v-if="loading" class="login-loading">
                 <span class="login-spinner"/>
