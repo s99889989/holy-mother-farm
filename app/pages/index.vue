@@ -20,9 +20,39 @@ const permissionStore = usePermissionStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 
+// ── WebView 偵測 ─────────────────────────────────────────────────
+// Google OAuth / GSI 禁止在 in-app browser（LINE、FB、IG 等）內使用，
+// 偵測到 WebView 時顯示提示，引導使用者改用外部瀏覽器。
+const isWebView = ref(false)
+
+function detectWebView() {
+  if (!import.meta.client) return false
+  const ua = navigator.userAgent
+
+  // LINE
+  if (/Line\//i.test(ua)) return true
+  // Facebook (FBAN / FBAV / FB_IAB)
+  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return true
+  // Instagram
+  if (/Instagram/i.test(ua)) return true
+  // WeChat
+  if (/MicroMessenger/i.test(ua)) return true
+  // Android WebView（Chrome with wv flag）
+  if (/Android/.test(ua) && /wv\b/.test(ua)) return true
+  // iOS 上非 Safari（無 Safari/ token，但有 AppleWebKit）
+  if (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true
+
+  return false
+}
+
 // ── 初始化 ──────────────────────────────────────────────────────
 onMounted(async () => {
+  isWebView.value = detectWebView()
+
   await fetchMe()
+
+  // WebView 內不載入 GSI，避免出現 Google disallowed_useragent 錯誤
+  if (isWebView.value) return
 
   if (!document.getElementById('google-gsi-script')) {
     const script = document.createElement('script')
@@ -81,7 +111,7 @@ const handleCredential = async (response) => {
 
     const data = await res.json()
     if (!data.error) {
-      console.log('權限'+data.role)
+      console.log('權限' + data.role)
       const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN', 'CUSTOMER']
       if (!allowedRoles.includes(data.role)) {
         error.value = '此帳號非員工帳號，無法登入員工後台'
@@ -172,11 +202,28 @@ const fetchMe = async () => {
 
           <!-- 按鈕區 -->
           <div class="login-btn-area">
-            <div v-if="loading" class="login-loading">
-              <span class="login-spinner"/>
-              <span>登入中…</span>
+            <!-- WebView 提示（LINE / FB / IG 等 in-app browser） -->
+            <div v-if="isWebView" class="webview-warning">
+              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p class="webview-title">請用外部瀏覽器開啟</p>
+              <p class="webview-hint">
+                目前在 App 內建瀏覽器中，Google 登入無法使用。<br>
+                請點選右上角選單，選擇「在瀏覽器中開啟」後再登入。
+              </p>
             </div>
-            <div v-show="!loading" id="google-signin-btn"/>
+
+            <!-- 正常登入按鈕 -->
+            <template v-else>
+              <div v-if="loading" class="login-loading">
+                <span class="login-spinner"/>
+                <span>登入中…</span>
+              </div>
+              <div v-show="!loading" id="google-signin-btn"/>
+            </template>
           </div>
 
           <!-- 錯誤訊息 -->
@@ -222,6 +269,11 @@ const fetchMe = async () => {
   --spinner: #52b788;
   --nav-name: #c8d4c8;
   --nav-sub: #5a6a5a;
+  --webview-bg: #1e2d2a;
+  --webview-border: #2a4a3e;
+  --webview-icon: #52b788;
+  --webview-title: #d4e8d4;
+  --webview-hint: #7a9a7a;
 
   min-height: 100dvh;
   background: var(--bg);
@@ -387,6 +439,41 @@ const fetchMe = async () => {
   to {
     transform: rotate(360deg)
   }
+}
+
+/* ── WebView 提示 ────────────────────────────────────── */
+.webview-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  background: var(--webview-bg);
+  border: 1px solid var(--webview-border);
+  text-align: center;
+  width: 100%;
+}
+
+.webview-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--webview-icon);
+  flex-shrink: 0;
+}
+
+.webview-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--webview-title);
+  margin: 0;
+}
+
+.webview-hint {
+  font-size: 0.75rem;
+  color: var(--webview-hint);
+  margin: 0;
+  line-height: 1.6;
 }
 
 /* ── 錯誤訊息 ────────────────────────────────────────── */
