@@ -92,7 +92,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     permissionStore.load(customerId, commonStore.data.main_url, true)
   }
 
-  if (!permissionStore.can(requiredKey)) {
-    return navigateTo('/')
-  }
+  // if (!permissionStore.can(requiredKey)) {
+  //   return navigateTo('/')
+  // }
 })
