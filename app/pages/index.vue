@@ -18,6 +18,8 @@ const customerStore = useCustomerStore()
 const permissionStore = usePermissionStore()
 
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
+// redirect mode 回來後 cookie 在 netlify domain，fetchMe 必須走同源 proxy
+const PROXY_BASE = '/api/holy/customer'
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 
 // ── Android WebView 偵測 ────────────────────────────────────────
@@ -132,7 +134,7 @@ const fetchMe = async () => {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 10000)
-    const res = await fetch(`${BASE.value}/me`, {
+    const res = await fetch(`${PROXY_BASE}/me`, {
       credentials: 'include',
       signal: controller.signal,
     })
