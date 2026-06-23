@@ -81,8 +81,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (!requiredKey) return
 
-  return
-
   const permissionStore = usePermissionStore()
   const commonStore = useCommonStore()
 
