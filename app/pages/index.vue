@@ -1,9 +1,9 @@
 <script setup>
-import { useCustomerStore } from '~/stores/customer.js'
-import { usePermissionStore } from '~/stores/permission.js'
-import { useCommonStore } from '~/stores/common.js'
+import {useCustomerStore} from '~/stores/customer.js'
+import {usePermissionStore} from '~/stores/permission.js'
+import {useCommonStore} from '~/stores/common.js'
 
-definePageMeta({ layout: 'loginl' })
+definePageMeta({layout: 'loginl'})
 useSiteHead({
   title: '聖母農莊管理系統',
   description: '員工專區',
@@ -61,6 +61,7 @@ onMounted(async () => {
     return
   }
 
+  checkErrorParam()
   await fetchMe()
 
   // 以下正常載入 GSI（iOS 已由系統自動用 Safari 開啟，不需額外處理）
@@ -86,7 +87,8 @@ const initGoogle = (attempt = 0) => {
   if (!GOOGLE_CLIENT_ID.value) return
   window.google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID.value,
-    callback: handleCredential,
+    ux_mode: 'redirect',
+    login_uri: `${commonStore.data.main_url}/holy/customer/google-login-redirect`,
     auto_select: false,
   })
   const el = document.getElementById('google-signin-btn')
@@ -104,47 +106,26 @@ const initGoogle = (attempt = 0) => {
 const loading = ref(false)
 const error = ref('')
 
-const handleCredential = async (response) => {
-  loading.value = true
-  error.value = ''
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 15000)
+// redirect mode 不需要 handleCredential，
+// Google 登入完成後直接 POST 到後端 /google-login-redirect，
+// 後端驗證完設 cookie 後 redirect 回 /staff/home 或 /?error=xxx
 
-    const res = await fetch(`${BASE.value}/google-login`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      signal: controller.signal,
-      body: JSON.stringify({credential: response.credential}),
-    })
-    clearTimeout(timer)
-
-    const data = await res.json()
-    if (!data.error) {
-      console.log('權限' + data.role)
-      const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN', 'CUSTOMER']
-      if (!allowedRoles.includes(data.role)) {
-        error.value = '此帳號非員工帳號，無法登入員工後台'
-        // 確保未授權帳號不會留下登入態
-        await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
-        return
-      }
-      customerStore.setCustomer(data)
-      await permissionStore.load(data.id, commonStore.data.main_url)
-      navigateTo('/staff/home')
-    } else {
-      error.value = data.error === 'Google token 驗證失敗'
-        ? 'Google 驗證失敗，請重新登入'
-        : '登入失敗，請再試一次'
-    }
-  } catch (e) {
-    error.value = e.name === 'AbortError'
-      ? '連線逾時（15秒），請確認網路後再試'
-      : '連線失敗，請確認網路後再試'
-  } finally {
-    loading.value = false
+// 處理後端 redirect 回來時帶的 error query param
+function checkErrorParam() {
+  if (!import.meta.client) return
+  const params = new URLSearchParams(window.location.search)
+  const err = params.get('error')
+  if (!err) return
+  const msgs = {
+    'login_failed': '登入失敗，請再試一次',
+    'not_staff': '此帳號非員工帳號，無法登入員工後台',
+    'blocked': '此帳號已被停用，請聯絡管理員',
   }
+  error.value = msgs[err] ?? '登入失敗，請再試一次'
+  // 清掉 URL 上的 error param，避免重新整理再跳一次
+  const url = new URL(window.location.href)
+  url.searchParams.delete('error')
+  window.history.replaceState({}, '', url.toString())
 }
 
 const fetchMe = async () => {
@@ -215,7 +196,8 @@ const fetchMe = async () => {
           <div class="login-btn-area">
             <!-- Android in-app browser fallback（intent 跳轉失敗才會看到） -->
             <div v-if="isAndroidWebView" class="webview-warning">
-              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
