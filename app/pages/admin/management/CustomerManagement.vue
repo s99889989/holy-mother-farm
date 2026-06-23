@@ -305,9 +305,9 @@
                     </span>
                   </p>
                 </div>
-                <select :value="permModal.overrides[key] ?? 'inherit'"
-                        class="text-xs px-2 py-1 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-1 focus:ring-violet-400"
-                        @change="permModal.overrides[key] = $event.target.value">
+                <!-- 修正：改用 v-model 搭配計算的 getter/setter，確保響應式正確 -->
+                <select v-model="permModal.overrides[key]"
+                        class="text-xs px-2 py-1 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-1 focus:ring-violet-400">
                   <option value="inherit">繼承群組</option>
                   <option value="allow">覆蓋：開啟</option>
                   <option value="deny">覆蓋：關閉</option>
@@ -316,6 +316,9 @@
             </div>
           </div>
         </div>
+
+        <!-- 錯誤提示 -->
+        <p v-if="permError" class="text-xs text-red-500 mb-3">{{ permError }}</p>
 
         <div class="flex gap-2 pt-3 border-t border-light-c mt-4">
           <button @click="permModal.open = false"
@@ -380,6 +383,7 @@ const filterStatus = ref('')
 const filterGroup  = ref('')
 const deleteTarget = ref(null)
 const editError    = ref('')
+const permError    = ref('')
 const toast        = reactive({ show: false, message: '' })
 
 // ── 權限相關狀態 ──────────────────────────────────────────────────
@@ -390,12 +394,15 @@ const userPermMap  = ref({})   // { customerId: { group, permissions } }
 const editModal = reactive({ open: false, customer: null })
 const editForm  = reactive({ name: '', mobile: '', landline: '', address: '', birthday: '', note: '' })
 
+// 修正：overrides 用 ref({}) 而非放在 reactive() 裡，
+// 避免整個物件重新指派時 Vue 追蹤斷裂。
+// 每個 key 初始值為 'inherit'，這樣 v-model 一定有東西可以綁。
 const permModal = reactive({
   open: false,
   customer: null,
   group: 'guest',
-  overrides: {}  // { key: 'inherit' | 'allow' | 'deny' }
 })
+const permOverrides = ref({})  // { key: 'inherit' | 'allow' | 'deny' }
 
 // ── Permission Key 中文對照 ──────────────────────────────────────
 const KEY_LABELS = {
@@ -428,6 +435,8 @@ const KEY_LABELS = {
   'staff.customer':             '客戶管理（查看）',
   'staff.customer.edit':        '客戶管理（編輯）',
 }
+
+const ALL_KEYS = Object.keys(KEY_LABELS)
 
 const permSections = [
   { prefix: 'front',     label: '前台',      keys: ['front.view', 'profile.view'] },
@@ -480,17 +489,26 @@ const openEdit = (c) => {
 }
 
 // ── 開啟用戶權限 Modal ────────────────────────────────────────────
+// 修正：所有 key 都預先初始化為 'inherit'，
+// 再把後端已有的覆蓋蓋上去，確保 v-model 有初始值可以綁定。
 const openPermModal = (c) => {
+  permError.value = ''
   const perm = userPermMap.value[c.id]
   permModal.customer = c
   permModal.group = perm?.group ?? defaultGroup.value
-  const overrides = {}
+
+  // 所有 key 先設為 'inherit'
+  const fresh = {}
+  for (const key of ALL_KEYS) fresh[key] = 'inherit'
+
+  // 套上後端已有的覆蓋
   if (perm?.permissions) {
     Object.entries(perm.permissions).forEach(([key, allow]) => {
-      overrides[key] = allow ? 'allow' : 'deny'
+      fresh[key] = allow ? 'allow' : 'deny'
     })
   }
-  permModal.overrides = overrides
+
+  permOverrides.value = fresh
   permModal.open = true
 }
 
@@ -526,7 +544,9 @@ const fetchUserPerms = async () => {
         fetch(`${PERM_BASE.value}/user/${c.id}`).then(r => r.json())
       )
     )
-    perms.forEach(p => { if (p.customerId) userPermMap.value[p.customerId] = p })
+    const map = {}
+    perms.forEach(p => { if (p.customerId) map[p.customerId] = p })
+    userPermMap.value = map
   } catch (e) { console.error(e) }
 }
 
@@ -556,41 +576,56 @@ const saveEdit = async () => {
 }
 
 // ── API：儲存用戶權限 ─────────────────────────────────────────────
+// 修正重點：
+// 1. 每個步驟的 API 回傳值都檢查是否有 error，有的話拋出讓 catch 接住
+// 2. DELETE 改用 query string（?key=...），避免 DELETE with body 被 filter 吞掉
+// 3. 儲存完後重新拉全部用戶權限，確保列表資料同步
 const savePerm = async () => {
+  permError.value = ''
   saving.value = true
   const customerId = permModal.customer.id
   try {
     // 1. 儲存群組
-    await fetch(`${PERM_BASE.value}/user/${customerId}/group`, {
+    const groupRes = await fetch(`${PERM_BASE.value}/user/${customerId}/group`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ group: permModal.group })
     })
+    const groupData = await groupRes.json()
+    if (groupData.error) throw new Error('群組儲存失敗：' + groupData.error)
 
     // 2. 儲存個人覆蓋
-    for (const [key, val] of Object.entries(permModal.overrides)) {
+    for (const [key, val] of Object.entries(permOverrides.value)) {
       if (val === 'inherit') {
-        await fetch(`${PERM_BASE.value}/user/${customerId}/perm`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key })
-        })
+        // 修正：DELETE 用 query string，不帶 body
+        const delRes = await fetch(
+          `${PERM_BASE.value}/user/${customerId}/perm?key=${encodeURIComponent(key)}`,
+          { method: 'DELETE' }
+        )
+        const delData = await delRes.json()
+        if (delData.error) throw new Error(`清除 ${key} 失敗：` + delData.error)
       } else {
-        await fetch(`${PERM_BASE.value}/user/${customerId}/perm`, {
+        const putRes = await fetch(`${PERM_BASE.value}/user/${customerId}/perm`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key, allow: val === 'allow' })
         })
+        const putData = await putRes.json()
+        if (putData.error) throw new Error(`設定 ${key} 失敗：` + putData.error)
       }
     }
 
-    // 3. 重新拉最新資料
-    const res = await fetch(`${PERM_BASE.value}/user/${customerId}`)
-    userPermMap.value[customerId] = await res.json()
+    // 3. 重新拉全部用戶權限，確保列表群組顯示同步
+    await fetchUserPerms()
 
     permModal.open = false
     showToast('用戶權限已更新')
-  } catch (e) { console.error(e) } finally { saving.value = false }
+  } catch (e) {
+    permError.value = e.message || '儲存失敗，請再試一次'
+    console.error(e)
+  } finally {
+    saving.value = false
+  }
 }
 
 // ── API：封鎖/解鎖 ─────────────────────────────────────────────────
