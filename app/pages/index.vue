@@ -82,7 +82,7 @@ const handleCredential = async (response) => {
     const data = await res.json()
     if (!data.error) {
       console.log('權限'+data.role)
-      const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN']
+      const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN', 'CUSTOMER']
       if (!allowedRoles.includes(data.role)) {
         error.value = '此帳號非員工帳號，無法登入員工後台'
         // 確保未授權帳號不會留下登入態

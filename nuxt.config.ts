@@ -31,6 +31,17 @@ export default defineNuxtConfig({
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
       }
     },
+    // ── 登入頁面不可設 COOP ──────────────────────────────────────
+    // Google GSI（Google Sign-In）按鈕透過 cross-origin iframe 的
+    // postMessage 把 credential 傳回頁面。
+    // same-origin-allow-popups 只放行「由本頁 open 的 popup」，
+    // 無法放行 iframe postMessage，導致 console 出現 COOP 警告。
+    // unsafe-none 等同瀏覽器預設（不限制），讓 GSI 正常運作。
+    '/': {
+      headers: {
+        'Cross-Origin-Opener-Policy': 'unsafe-none'
+      }
+    },
     // ── API 反向代理 ─────────────────────────────────────────────
     // 把 /api/holy/** 在伺服器端轉發到家中主機，瀏覽器端只看到
     // Netlify 同網域請求，cookie 變成「第一方 cookie」。
