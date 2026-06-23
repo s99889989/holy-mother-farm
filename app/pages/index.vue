@@ -20,24 +20,37 @@ const permissionStore = usePermissionStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 
-// ── Android WebView 偵測 ────────────────────────────────────────
-// iOS 的 LINE / FB 等 App 內建瀏覽器會自動用 Safari 開啟，Google 登入正常。
-// Android 的 in-app browser 才會卡住，用 intent:// 自動跳到系統瀏覽器。
+// ── WebView 偵測 ────────────────────────────────────────────────
+// Android：用 intent:// 自動跳到系統瀏覽器，失敗才顯示提示。
+// iOS：無法自動跳轉，直接顯示提示請用戶手動操作。
 const isAndroidWebView = ref(false)
+const isIosWebView = ref(false)
 const intentFired = ref(false)
 
-function detectAndroidWebView() {
-  if (!import.meta.client) return false
+function detectWebViews() {
+  if (!import.meta.client) return
   const ua = navigator.userAgent
-  if (!/Android/i.test(ua)) return false
+  const isAndroid = /Android/i.test(ua)
+  const isIos = /iPhone|iPad|iPod/i.test(ua)
 
-  if (/Line\//i.test(ua)) return true           // LINE Android
-  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return true // Facebook Android
-  if (/Instagram/i.test(ua)) return true         // Instagram Android
-  if (/MicroMessenger/i.test(ua)) return true    // WeChat Android
-  if (/wv\b/.test(ua)) return true               // 通用 Android WebView flag
+  const inAppPatterns = [
+    /Line\//i,           // LINE
+    /FBAN|FBAV|FB_IAB/i, // Facebook
+    /Instagram/i,         // Instagram
+    /MicroMessenger/i,    // WeChat
+  ]
 
-  return false
+  if (isAndroid) {
+    const isInApp = inAppPatterns.some(p => p.test(ua)) || /wv\b/.test(ua)
+    isAndroidWebView.value = isInApp
+  }
+
+  if (isIos) {
+    // iOS in-app browser：有 AppleWebKit 但沒有 Safari/ token
+    const isInApp = inAppPatterns.some(p => p.test(ua))
+      || (/AppleWebKit/i.test(ua) && !/Safari\//i.test(ua))
+    isIosWebView.value = isInApp
+  }
 }
 
 // intent:// scheme：跳到 Chrome，Chrome 沒裝則 fallback 到系統瀏覽器
@@ -53,17 +66,22 @@ function openInAndroidBrowser() {
 
 // ── 初始化 ──────────────────────────────────────────────────────
 onMounted(async () => {
-  isAndroidWebView.value = detectAndroidWebView()
+  detectWebViews()
 
-  // Android in-app browser → 自動跳外部瀏覽器，不繼續執行
+  // Android in-app browser → 自動觸發跳外部瀏覽器
   if (isAndroidWebView.value) {
     openInAndroidBrowser()
+    return  // 顯示 Android fallback 提示，不載入 GSI
+  }
+
+  // iOS in-app browser → 顯示提示，不載入 GSI
+  if (isIosWebView.value) {
     return
   }
 
   await fetchMe()
 
-  // 以下正常載入 GSI（iOS 已由系統自動用 Safari 開啟，不需額外處理）
+  // 正常瀏覽器環境，載入 GSI
 
   if (!document.getElementById('google-gsi-script')) {
     const script = document.createElement('script')
@@ -211,7 +229,7 @@ const fetchMe = async () => {
 
           <!-- 按鈕區 -->
           <div class="login-btn-area">
-            <!-- Android in-app browser fallback（intent 跳轉失敗才會看到） -->
+            <!-- Android in-app browser（intent 跳轉失敗 fallback） -->
             <div v-if="isAndroidWebView" class="webview-warning">
               <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/>
@@ -220,12 +238,26 @@ const fetchMe = async () => {
               </svg>
               <p class="webview-title">正在開啟外部瀏覽器…</p>
               <p class="webview-hint">
-                若瀏覽器未自動開啟，請點選右上角選單，<br>
+                若瀏覽器未自動開啟，請點選選單按鈕，<br>
                 選擇「在外部瀏覽器開啟」後再登入。
               </p>
             </div>
 
-            <!-- 正常登入按鈕（含 iOS，iOS in-app browser 已由系統自動跳 Safari） -->
+            <!-- iOS in-app browser（無法自動跳轉，顯示手動提示） -->
+            <div v-else-if="isIosWebView" class="webview-warning">
+              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p class="webview-title">請用外部瀏覽器開啟</p>
+              <p class="webview-hint">
+                目前在 App 內建瀏覽器中，Google 登入無法使用。<br>
+                請點選選單或分享按鈕，選擇「在瀏覽器中開啟」後再登入。
+              </p>
+            </div>
+
+            <!-- 正常瀏覽器，顯示 Google 登入按鈕 -->
             <template v-else>
               <div v-if="loading" class="login-loading">
                 <span class="login-spinner"/>
