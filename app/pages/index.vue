@@ -21,8 +21,6 @@ const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 
 // ── WebView 偵測 ────────────────────────────────────────────────
-// Android：用 intent:// 自動跳到系統瀏覽器，失敗才顯示提示。
-// iOS：無法自動跳轉，直接顯示提示請用戶手動操作。
 const isAndroidWebView = ref(false)
 const isIosWebView = ref(false)
 const intentFired = ref(false)
@@ -34,10 +32,10 @@ function detectWebViews() {
   const isIos = /iPhone|iPad|iPod/i.test(ua)
 
   const inAppPatterns = [
-    /Line\//i,           // LINE
-    /FBAN|FBAV|FB_IAB/i, // Facebook
-    /Instagram/i,         // Instagram
-    /MicroMessenger/i,    // WeChat
+    /Line\//i,
+    /FBAN|FBAV|FB_IAB/i,
+    /Instagram/i,
+    /MicroMessenger/i,
   ]
 
   if (isAndroid) {
@@ -46,18 +44,15 @@ function detectWebViews() {
   }
 
   if (isIos) {
-    // iOS in-app browser：有 AppleWebKit 但沒有 Safari/ token
     const isInApp = inAppPatterns.some(p => p.test(ua))
       || (/AppleWebKit/i.test(ua) && !/Safari\//i.test(ua))
     isIosWebView.value = isInApp
   }
 }
 
-// intent:// scheme：跳到 Chrome，Chrome 沒裝則 fallback 到系統瀏覽器
 function openInAndroidBrowser() {
   if (intentFired.value) return
   intentFired.value = true
-
   const url = window.location.href
   const stripped = url.replace(/^https?:\/\//, '')
   const intentUrl = `intent://${stripped}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`
@@ -68,20 +63,16 @@ function openInAndroidBrowser() {
 onMounted(async () => {
   detectWebViews()
 
-  // Android in-app browser → 自動觸發跳外部瀏覽器
   if (isAndroidWebView.value) {
     openInAndroidBrowser()
-    return  // 顯示 Android fallback 提示，不載入 GSI
+    return
   }
 
-  // iOS in-app browser → 顯示提示，不載入 GSI
   if (isIosWebView.value) {
     return
   }
 
   await fetchMe()
-
-  // 正常瀏覽器環境，載入 GSI
 
   if (!document.getElementById('google-gsi-script')) {
     const script = document.createElement('script')
@@ -122,6 +113,10 @@ const initGoogle = (attempt = 0) => {
 const loading = ref(false)
 const error = ref('')
 
+// ── Google 登入回調 ──────────────────────────────────────────────
+// 修正：移除 allowedRoles 判斷，改用 permissionStore 的 group 判斷。
+// 後端已在登入時擋掉非員工（group 為 guest/member → 回傳 error）。
+// 前端再用 permissionStore.can('staff.home') 做最後確認，確保兩邊一致。
 const handleCredential = async (response) => {
   loading.value = true
   error.value = ''
@@ -140,19 +135,22 @@ const handleCredential = async (response) => {
 
     const data = await res.json()
     if (!data.error) {
-      const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN', 'CUSTOMER']
-      if (!allowedRoles.includes(data.role)) {
+      customerStore.setCustomer(data)
+      // 載入權限，用 staff.home 判斷是否為員工 group
+      await permissionStore.load(data.id, commonStore.data.main_url)
+      if (!permissionStore.can('staff.home')) {
         error.value = '此帳號非員工帳號，無法登入員工後台'
+        customerStore.clearCustomer()
+        permissionStore.clear()
         await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
         return
       }
-      customerStore.setCustomer(data)
-      await permissionStore.load(data.id, commonStore.data.main_url)
       navigateTo('/staff/home')
     } else {
+      // 後端回傳的錯誤訊息直接顯示（後端已有中文錯誤）
       error.value = data.error === 'Google token 驗證失敗'
         ? 'Google 驗證失敗，請重新登入'
-        : '登入失敗，請再試一次'
+        : data.error
     }
   } catch (e) {
     error.value = e.name === 'AbortError'
@@ -163,6 +161,8 @@ const handleCredential = async (response) => {
   }
 }
 
+// ── Cookie 自動登入（頁面重整時）────────────────────────────────
+// 修正：移除 allowedRoles 判斷，改用 permissionStore.can('staff.home')
 const fetchMe = async () => {
   try {
     const controller = new AbortController()
@@ -174,18 +174,22 @@ const fetchMe = async () => {
     clearTimeout(timer)
     const data = await res.json()
     if (!data.error) {
-      const allowedRoles = ['STAFF', 'EDITOR', 'ADMIN']
-      if (!allowedRoles.includes(data.role)) return
       customerStore.setCustomer(data)
       await permissionStore.load(data.id, commonStore.data.main_url)
+      if (!permissionStore.can('staff.home')) {
+        // cookie 有效但不是員工 group（例如主管剛把人降為 guest）
+        customerStore.clearCustomer()
+        permissionStore.clear()
+        await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
+        return
+      }
       navigateTo('/staff/home')
     }
   } catch {
-    // 未登入，靜默留在頁面
+    // 未登入或逾時，靜默留在頁面
   }
 }
 </script>
-
 <template>
   <div class="login-root">
     <!-- ── Navbar ─────────────────────────────────────────── -->
@@ -546,3 +550,4 @@ const fetchMe = async () => {
   text-align: center;
 }
 </style>
+</file>
