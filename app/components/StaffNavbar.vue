@@ -386,7 +386,7 @@ const navGroups = [
     label: '🎒️ 庫存・財務',
     items: [
       { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count' },
-      { to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit' }
+      // { to: '/staff/stock/cash-count-edit', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count.edit' }
     ]
   },
   {
@@ -403,13 +403,13 @@ const navGroups = [
       { to: '/staff/task/task-board', icon: '✅', label: '今日工作', color: 'bg-indigo-600', key: 'staff.task' },
       { to: '/staff/task/task-manager', icon: '📋', label: '工作管理', color: 'bg-teal-700', key: 'staff.task.manage' },
       { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
-      { to: '/staff/management/menu-edit', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit' },
+      // { to: '/staff/management/menu-edit', icon: '🍽️', label: '每日菜單', key: 'staff.menu.edit' },
       { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
-      { to: '/staff/management/calendar-edit', icon: '📅', label: '行事曆', key: 'staff.calendar.edit' },
+      // { to: '/staff/management/calendar-edit', icon: '📅', label: '行事曆', key: 'staff.calendar.edit' },
       { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset' },
-      { to: '/staff/management/asset-edit', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit' },
+      // { to: '/staff/management/asset-edit', icon: '🏷️', label: '財產登記', key: 'staff.asset.edit' },
       { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files' },
-      { to: '/staff/management/files-edit', icon: '📁', label: '檔案管理', key: 'staff.files.edit' }
+      // { to: '/staff/management/files-edit', icon: '📁', label: '檔案管理', key: 'staff.files.edit' }
     ]
   },
   {
@@ -419,25 +419,25 @@ const navGroups = [
       { to: '/staff/order/waybills', icon: '🐱', label: '黑貓貨單', key: 'staff.booking.edit' },
       { to: '/staff/order/lunch-edit', icon: '🍱', label: '便當訂單', key: 'staff.booking.edit' },
       { to: '/staff/order/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' },
-      { to: '/staff/order/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' }
+      // { to: '/staff/order/booking-edit', icon: '🪑', label: '訂位管理', key: 'staff.booking.edit' }
     ]
   },
   {
     label: '🌐 前台內容',
     items: [
       { to: '/staff/content/news-view', icon: '📰', label: '消息管理', key: 'staff.news' },
-      { to: '/staff/content/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
+      // { to: '/staff/content/news-edit', icon: '📰', label: '消息管理', key: 'staff.news.edit' },
       { to: '/staff/content/product-view', icon: '🛍️', label: '商品管理', key: 'staff.product' },
-      { to: '/staff/content/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
+      // { to: '/staff/content/product-edit', icon: '🛍️', label: '商品管理', key: 'staff.product.edit' },
       { to: '/staff/content/production-view', icon: '🌾', label: '產品訂購', key: 'staff.production' },
-      { to: '/staff/content/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' }
+      // { to: '/staff/content/production-edit', icon: '🌾', label: '產品訂購', key: 'staff.production.edit' }
     ]
   }
 ]
 
 const standaloneItems = [
   { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links' },
-  { to: '/staff/system/quick-links-edit', icon: '🔗', label: '常用網址', key: 'staff.quick-links.edit' }
+  // { to: '/staff/system/quick-links-edit', icon: '🔗', label: '常用網址', key: 'staff.quick-links.edit' }
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────

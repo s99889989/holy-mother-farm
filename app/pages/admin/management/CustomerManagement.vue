@@ -285,7 +285,7 @@
           <div class="flex items-center justify-between mb-2">
             <label class="text-xs font-semibold text-muted-c">個人覆蓋設定</label>
             <button class="text-xs text-hint-c hover:text-red-500 hover:underline transition-colors"
-                    @click="permModal.overrides = {}">清除所有覆蓋</button>
+                    @click="clearOverrides">清除所有覆蓋</button>
           </div>
 
           <div v-for="section in permSections" :key="section.prefix" class="mb-4">
@@ -306,7 +306,7 @@
                   </p>
                 </div>
                 <!-- 修正：改用 v-model 搭配計算的 getter/setter，確保響應式正確 -->
-                <select v-model="permModal.overrides[key]"
+                <select v-model="permOverrides[key]"
                         class="text-xs px-2 py-1 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-1 focus:ring-violet-400">
                   <option value="inherit">繼承群組</option>
                   <option value="allow">覆蓋：開啟</option>
@@ -486,6 +486,13 @@ const openEdit = (c) => {
     birthday: c.birthday || '',
     note:     c.note     || '',
   })
+}
+
+// ── 清除個人覆蓋（重設所有 key 為 inherit） ──────────────────────
+const clearOverrides = () => {
+  const fresh = {}
+  for (const key of ALL_KEYS) fresh[key] = 'inherit'
+  permOverrides.value = fresh
 }
 
 // ── 開啟用戶權限 Modal ────────────────────────────────────────────
