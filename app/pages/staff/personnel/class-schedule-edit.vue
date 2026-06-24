@@ -208,18 +208,24 @@ function countActual(emp) {
   return Object.values(emp.schedule).filter(v => OFF_CODES.has(parseCell(v).code)).length
 }
 function dailyOffCount(day)  {
-  return currentDeptEmployees.value.filter(e => OFF_CODES.has(parseCell(e.schedule[day]).code)).length
+  const emps = visibleIds.value.length
+    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
+    : currentDeptEmployees.value
+  return emps.filter(e => OFF_CODES.has(parseCell(e.schedule[day]).code)).length
 }
-function dailyWorkCount(day) { return currentDeptEmployees.value.length - dailyOffCount(day) }
-const totalEmployees = computed(() => currentDeptEmployees.value.length)
+function dailyWorkCount(day) {
+  const emps = visibleIds.value.length
+    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
+    : currentDeptEmployees.value
+  return emps.length - dailyOffCount(day)
+}
+const totalEmployees = computed(() =>
+  visibleIds.value.length
+    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id)).length
+    : currentDeptEmployees.value.length
+)
 
 // ── 日曆篩選 ──────────────────────────────────────────────────────
-const calSelectedIds  = ref([])
-const calFilteredEmps = computed(() =>
-  calSelectedIds.value.length
-    ? currentDeptEmployees.value.filter(e => calSelectedIds.value.includes(e.id))
-    : currentDeptEmployees.value
-)
 const calLeadingBlanks = computed(() => getWeekday(1))
 
 // ── Toast ─────────────────────────────────────────────────────────
@@ -746,15 +752,45 @@ watch(tableZoom, (v) => {
   try { localStorage.setItem(ZOOM_KEY, String(v)) } catch {}
 })
 
-// ── 班表人員篩選 ──────────────────────────────────────────────
-const tableVisibleIds = ref([])   // 空陣列 = 全部顯示
+// ── 顯示人員篩選（班表 + 日曆共用，存 localStorage，按部門分開）──
+const VISIBLE_KEY = 'class-schedule-visibleIds'
+function loadVisibleIds(dept) {
+  try {
+    const all = JSON.parse(localStorage.getItem(VISIBLE_KEY) ?? '{}')
+    return Array.isArray(all[dept]) ? all[dept] : []
+  } catch { return [] }
+}
+function saveVisibleIds(dept, ids) {
+  try {
+    const all = JSON.parse(localStorage.getItem(VISIBLE_KEY) ?? '{}')
+    all[dept] = ids
+    localStorage.setItem(VISIBLE_KEY, JSON.stringify(all))
+  } catch {}
+}
 
-// 部門切換時重置篩選
-watch(selectedDept, () => { tableVisibleIds.value = [] })
+const visibleIds = ref(import.meta.client ? loadVisibleIds(selectedDept.value) : [])
+
+// 部門切換時從 localStorage 載入該部門的設定
+watch(selectedDept, (dept) => {
+  visibleIds.value = import.meta.client ? loadVisibleIds(dept) : []
+})
+
+// visibleIds 變動時存入 localStorage
+watch(visibleIds, (ids) => {
+  if (import.meta.client) saveVisibleIds(selectedDept.value, ids)
+}, { deep: true })
+
+const tableVisibleIds = visibleIds   // 班表用（alias）
+const calSelectedIds  = visibleIds   // 日曆用（alias）
 
 const tableFilteredEmps = computed(() =>
-  tableVisibleIds.value.length
-    ? currentDeptEmployees.value.filter(e => tableVisibleIds.value.includes(e.id))
+  visibleIds.value.length
+    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
+    : currentDeptEmployees.value
+)
+const calFilteredEmps = computed(() =>
+  visibleIds.value.length
+    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
     : currentDeptEmployees.value
 )
 
@@ -1618,5 +1654,5 @@ onUnmounted(() => {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 /* 格子分隔線：用 CSS 變數保持深淺模式一致，透明度調低讓格線淡而不搶眼 */
-.border-cell { border-color: color-mix(in srgb, var(--border-light) 65%, transparent); border-right-width: 2px; }
+.border-cell { border-color: color-mix(in srgb, var(--border-light) 35%, transparent); }
 </style>
