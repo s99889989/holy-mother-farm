@@ -17,6 +17,7 @@ const LEGENDS = [
   { code: '原', label: '原住民歲時祭儀', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
   { code: '事', label: '事假',           color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   { code: '病', label: '病假',           color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
+  { code: '喪', label: '喪假',           color: 'bg-gray-200 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300' },
 ]
 
 const EXTRA_OPTIONS = [
@@ -26,7 +27,7 @@ const EXTRA_OPTIONS = [
 
 const EDIT_OPTIONS = [...LEGENDS, { code: 'V', label: 'V', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-700' }]
 
-const OFF_CODES = new Set(['休', '例', '假', '積', '特', '半', '公', '原', '事', '病'])
+const OFF_CODES = new Set(['休', '例', '假', '積', '特', '半', '公', '原', '事', '病', '喪'])
 
 const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -201,7 +202,9 @@ const view         = ref('table')
 watch(selectedDept, v => { try { localStorage.setItem(DEPT_KEY, v) } catch {} })
 watch(view,         v => { try { localStorage.setItem(VIEW_KEY, v) } catch {} })
 const legendOpen   = ref(false)
+const HEADER_KEY      = 'class-schedule-headerCollapsed'
 const headerCollapsed = ref(false)
+watch(headerCollapsed, v => { try { localStorage.setItem(HEADER_KEY, v ? '1' : '0') } catch {} })
 
 const currentDeptEmployees = computed(
   () => departments.value.find(d => d.name === selectedDept.value)?.employees ?? []
@@ -828,6 +831,7 @@ onMounted(() => {
     if (savedView && ['table', 'calendar', 'staff'].includes(savedView)) view.value = savedView
     const savedDept = localStorage.getItem(DEPT_KEY)
     if (savedDept) selectedDept.value = savedDept
+    headerCollapsed.value = localStorage.getItem(HEADER_KEY) === '1'
   } catch {}
 
   fetchSchedule()
@@ -1666,5 +1670,6 @@ onUnmounted(() => {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 /* 格子分隔線：用 CSS 變數保持深淺模式一致，透明度調低讓格線淡而不搶眼 */
-.border-cell { border-color: color-mix(in srgb, var(--border-light) 35%, transparent); }
+.border-cell { border-color: color-mix(in srgb, var(--border-light) 65%, transparent); border-right-width: 2px; }
+
 </style>
