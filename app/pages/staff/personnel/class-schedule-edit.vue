@@ -49,8 +49,24 @@ function extraBadgeClass(extra) {
 }
 
 // ── 日期 ──────────────────────────────────────────────────────────
-const currentYear  = ref(new Date().getFullYear())
-const currentMonth = ref(new Date().getMonth() + 1)
+const MONTH_KEY = 'class-schedule-currentYM'
+const _initYM = (() => {
+  try {
+    if (!import.meta.client) throw new Error()
+    const v = localStorage.getItem(MONTH_KEY)
+    if (v) {
+      const [y, m] = v.split('-').map(Number)
+      if (y >= 2020 && y <= 2099 && m >= 1 && m <= 12) return { y, m }
+    }
+  } catch {}
+  return { y: new Date().getFullYear(), m: new Date().getMonth() + 1 }
+})()
+const currentYear  = ref(_initYM.y)
+const currentMonth = ref(_initYM.m)
+watch([currentYear, currentMonth], ([y, m]) => {
+    try { localStorage.setItem(MONTH_KEY, `${y}-${m}`) } catch {}
+  }
+)
 
 // 假日 & 農曆從後端載入，初始值為空
 const holidays = ref({})
@@ -176,6 +192,105 @@ function showToast(msg, error = false) {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// ── 離線佇列 ──────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+const QUEUE_KEY  = 'class-schedule-offlineQueue'
+const isOnline   = ref(import.meta.client ? navigator.onLine : true)
+const isSyncing  = ref(false)
+
+// 佇列結構：Record<`${year}-${month}-${empId}-${day}`, payload>
+// key 相同時後者覆蓋前者（同一格只保留最後一筆）
+function loadQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '{}') } catch { return {} }
+}
+function saveQueue(q) {
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)) } catch {}
+}
+
+const pendingCount = ref(import.meta.client ? Object.keys(loadQueue()).length : 0)
+
+function enqueue(payload) {
+  const q   = loadQueue()
+  const key = `${payload.year}-${payload.month}-${payload.employeeId}-${payload.day}`
+  q[key]    = payload
+  saveQueue(q)
+  pendingCount.value = Object.keys(q).length
+}
+
+function dequeue(key) {
+  const q = loadQueue()
+  delete q[key]
+  saveQueue(q)
+  pendingCount.value = Object.keys(q).length
+}
+
+async function flushQueue() {
+  if (isSyncing.value) return
+  const q = loadQueue()
+  if (Object.keys(q).length === 0) return
+  isSyncing.value = true
+  let failed = 0
+  for (const [key, payload] of Object.entries(q)) {
+    try {
+      const res = await (await fetch(`${BASE()}/cell`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      })).json()
+      if (!res.success) throw new Error(res.message)
+      dequeue(key)
+      _applyLocalCell(payload)
+    } catch {
+      failed++
+    }
+  }
+  isSyncing.value = false
+  const remaining = Object.keys(loadQueue()).length
+  if (remaining === 0) {
+    showToast('離線變更已全部同步')
+    _broadcast()
+  } else {
+    showToast(`同步完成，${failed} 筆失敗待重試`, true)
+  }
+}
+
+function _applyLocalCell(payload) {
+  for (const dept of departments.value) {
+    const emp = dept.employees.find(e => e.id === payload.employeeId)
+    if (!emp) continue
+    if (payload.code === '') {
+      delete emp.schedule[payload.day]
+    } else {
+      emp.schedule[payload.day] = payload.extra
+        ? { code: payload.code, extra: payload.extra }
+        : payload.code
+    }
+    break
+  }
+}
+
+// ── BroadcastChannel：通知同瀏覽器其他頁籤重 fetch ──────────────
+let _bc = null
+function _broadcast() {
+  try { _bc?.postMessage({ type: 'refetch' }) } catch {}
+}
+
+// ── 定時重新 fetch（60 秒，有佇列或正在編輯時跳過）─────────────
+let _autoFetchTimer = null
+function startAutoFetch() {
+  _autoFetchTimer = setInterval(() => {
+    if (!isOnline.value)        return
+    if (pendingCount.value > 0) return
+    if (showForm.value)         return
+    fetchSchedule()
+  }, 60_000)
+}
+function stopAutoFetch() {
+  clearInterval(_autoFetchTimer)
+  _autoFetchTimer = null
+}
+
+// ════════════════════════════════════════════════════════════════════
 // ── 排班編輯 Modal ────────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════
 const showForm  = ref(false)
@@ -186,12 +301,14 @@ const editExtra = ref('')
 const saving    = ref(false)
 
 function openEdit(emp, day) {
-  editEmp.value   = emp
-  editDay.value   = day
-  const cell      = parseCell(emp.schedule[day])
-  editCode.value  = cell.code
-  editExtra.value = cell.extra
-  showForm.value  = true
+  editEmp.value       = emp
+  editDay.value       = day
+  selectedEmpId.value = emp.id
+  selectedDay.value   = day
+  const cell          = parseCell(emp.schedule[day])
+  editCode.value      = cell.code
+  editExtra.value     = cell.extra
+  showForm.value      = true
 }
 
 const canSetExtra = computed(() => OFF_CODES.has(editCode.value))
@@ -199,34 +316,46 @@ const canSetExtra = computed(() => OFF_CODES.has(editCode.value))
 async function saveEdit() {
   if (!editEmp.value) return
   saving.value = true
+  const extra   = canSetExtra.value ? editExtra.value : ''
+  const payload = {
+    year:       currentYear.value,
+    month:      currentMonth.value,
+    employeeId: editEmp.value.id,
+    day:        editDay.value,
+    code:       editCode.value,
+    extra
+  }
+  // 先更新本地畫面
+  if (editCode.value === '') {
+    delete editEmp.value.schedule[editDay.value]
+  } else {
+    editEmp.value.schedule[editDay.value] = extra
+      ? { code: editCode.value, extra }
+      : editCode.value
+  }
+  showForm.value = false
+
+  if (!isOnline.value) {
+    // 離線：存入佇列，同一格後者覆蓋前者
+    enqueue(payload)
+    showToast('已暫存（離線中，連線後自動同步）')
+    saving.value = false
+    return
+  }
+
   try {
-    const extra = canSetExtra.value ? editExtra.value : ''
-    // 呼叫後端
     const res = await (await fetch(`${BASE()}/cell`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        year:       currentYear.value,
-        month:      currentMonth.value,
-        employeeId: editEmp.value.id,
-        day:        editDay.value,
-        code:       editCode.value,
-        extra:      extra
-      })
+      body:    JSON.stringify(payload)
     })).json()
     if (!res.success) throw new Error(res.message)
-    // 更新本地資料
-    if (editCode.value === '') {
-      delete editEmp.value.schedule[editDay.value]
-    } else {
-      editEmp.value.schedule[editDay.value] = extra
-        ? { code: editCode.value, extra }
-        : editCode.value
-    }
-    showForm.value = false
     showToast('已儲存')
+    _broadcast()
   } catch (e) {
-    showToast('儲存失敗：' + (e.data?.message ?? e.message), true)
+    // 連線但請求失敗（如伺服器暫時無回應）→ 存佇列等重試
+    enqueue(payload)
+    showToast('儲存失敗，已暫存待重試', true)
   } finally {
     saving.value = false
   }
@@ -570,6 +699,7 @@ const tableScale    = ref(1)
 const ZOOM_KEY = 'class-schedule-tableZoom'
 const tableZoom = ref((() => {
   try {
+    if (!import.meta.client) return 100
     const v = Number(localStorage.getItem(ZOOM_KEY))
     return v >= 50 && v <= 150 ? v : 100
   } catch { return 100 }
@@ -592,6 +722,14 @@ const tableFilteredEmps = computed(() =>
 
 // ── 欄 hover 高亮（hover 時顯示星期列）────────────────────────
 const hoveredDay = ref(null)
+const hoveredRow = ref(null)
+// 點選後持續高亮（手機無 hover，點格子後保留十字直到 modal 關閉）
+const selectedDay   = ref(null)
+const selectedEmpId = ref(null)
+
+watch(showForm, (open) => {
+  if (!open) { selectedDay.value = null; selectedEmpId.value = null }
+})
 
 function updateTableScale() {}
 
@@ -609,10 +747,35 @@ onMounted(() => {
   fetchSchedule()
   fetchShifts()
   nextTick(() => mountTableObserver())
+  startAutoFetch()
+
+  // 網路狀態監聽
+  window.addEventListener('online', () => {
+    isOnline.value = true
+    flushQueue()
+    fetchSchedule()
+  })
+  window.addEventListener('offline', () => {
+    isOnline.value = false
+  })
+
+  // BroadcastChannel：接收其他頁籤的 refetch 通知
+  try {
+    _bc = new BroadcastChannel('class-schedule-sync')
+    _bc.onmessage = (e) => {
+      if (e.data?.type === 'refetch' && !showForm.value && pendingCount.value === 0) {
+        fetchSchedule()
+      }
+    }
+  } catch {}
 })
 
 onUnmounted(() => {
   unmountTableObserver()
+  stopAutoFetch()
+  window.removeEventListener('online', () => {})
+  window.removeEventListener('offline', () => {})
+  try { _bc?.close() } catch {}
 })
 </script>
 
@@ -847,15 +1010,16 @@ onUnmounted(() => {
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-base">
-                <tr v-for="emp in tableFilteredEmps" :key="emp.id"
-                    class="hover-surface2/40 transition-colors">
-                  <td class="sticky left-0 z-10 bg-surface hover-surface2/40 border-r border-light-c px-2 py-1.5 whitespace-nowrap overflow-hidden">
+                <tr v-for="emp in tableFilteredEmps" :key="emp.id">
+                  <td class="sticky left-0 z-10 bg-surface border-r border-light-c px-2 py-1.5 whitespace-nowrap overflow-hidden">
                     <div class="font-semibold text-base-c text-sm truncate">{{ emp.name }}</div>
                     <div class="text-xs text-hint-c truncate">{{ emp.id }}</div>
                   </td>
                   <td v-for="d in days" :key="d"
-                      :class="['text-center py-1 px-0 cursor-pointer transition-colors', dayCellBg(d),
- hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '', 'hover:ring-1 hover:ring-inset hover:ring-green-400']"
+                      :class="['text-center py-1 px-0 cursor-pointer transition-colors border-r border-cell', dayCellBg(d),
+ hoveredDay === d ? 'bg-green-500/20 dark:bg-green-400/20' : '',
+ selectedDay === d && selectedEmpId === emp.id ? 'ring-2 ring-inset ring-green-500' : '',
+ 'hover:bg-green-500/15 dark:hover:bg-green-400/15']"
                       @mouseenter="hoveredDay = d"
                       @mouseleave="hoveredDay = null"
                       @click="openEdit(emp, d)">
@@ -883,8 +1047,8 @@ onUnmounted(() => {
                     <div class="text-xs text-hint-c leading-tight">共 {{ totalEmployees }} 人</div>
                   </td>
                   <td v-for="d in days" :key="d"
-                      :class="['text-center py-1 px-0 transition-colors', dayCellBg(d),
- hoveredDay === d ? 'bg-green-500/10 dark:bg-green-400/10' : '']">
+                      :class="['text-center py-1 px-0 transition-colors border-r border-cell', dayCellBg(d),
+ hoveredDay === d ? 'bg-green-500/20 dark:bg-green-400/20' : '']">
                     <span v-if="dailyWorkCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                       {{ dailyWorkCount(d) }}
@@ -897,7 +1061,7 @@ onUnmounted(() => {
                   <td class="sticky left-0 z-10 bg-surface2 border-r border-light-c px-2 py-1.5">
                     <div class="text-xs font-semibold text-hint-c leading-tight">休假人數</div>
                   </td>
-                  <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
+                  <td v-for="d in days" :key="d" :class="['text-center py-1 px-0 border-r border-cell', dayCellBg(d)]">
                     <span v-if="dailyOffCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-surface2 text-hint-c dark:text-hint-c">
                       {{ dailyOffCount(d) }}
@@ -1166,8 +1330,9 @@ onUnmounted(() => {
       </div>
     </div>
     <div v-if="showForm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" @click.self="showForm = false">
-      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm p-5">
-        <div class="flex items-center justify-between mb-4">
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh]">
+        <!-- Header（固定不捲動） -->
+        <div class="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
           <div>
             <h3 class="font-bold text-base-c">編輯排休</h3>
             <p class="text-lg text-hint-c mt-0.5">
@@ -1181,54 +1346,69 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <p class="text-lg font-semibold text-hint-c uppercase tracking-wide mb-2">主狀態</p>
-        <div class="grid grid-cols-4 gap-2 mb-4">
-          <button v-for="opt in EDIT_OPTIONS" :key="opt.code"
+        <!-- 捲動區域 -->
+        <div class="overflow-y-auto flex-1 px-5">
+          <!-- 桌機：左右雙欄；手機：單欄 -->
+          <div class="sm:flex sm:gap-5 sm:items-start">
+            <!-- 左欄：主狀態 -->
+            <div class="sm:flex-1">
+              <p class="text-sm font-semibold text-hint-c uppercase tracking-wide mb-2">主狀態</p>
+              <div class="grid grid-cols-4 gap-2">
+                <button v-for="opt in EDIT_OPTIONS" :key="opt.code"
+                        :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
+         editCode === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
+                        @click="editCode = opt.code">
+                  <span :class="['w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold', opt.color]">{{ opt.code }}</span>
+                  <span class="text-xs text-hint-c text-center leading-tight">{{ opt.label }}</span>
+                </button>
+                <button
                   :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
- editCode === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
-                  @click="editCode = opt.code">
-            <span :class="['w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold', opt.color]">{{ opt.code }}</span>
-            <span class="text-lg text-hint-c">{{ opt.label }}</span>
-          </button>
-          <button
-            :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
- editCode === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
-            @click="editCode = ''; editExtra = ''">
-            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold bg-surface2 text-hint-c">—</span>
-            <span class="text-lg text-hint-c">清除</span>
-          </button>
-        </div>
-        <transition name="fade">
-          <div v-if="canSetExtra" class="mb-4">
-            <p class="text-lg font-semibold text-hint-c uppercase tracking-wide mb-2">
-              附加工作 <span class="text-hint-c normal-case font-normal">（休假期間）</span>
-            </p>
-            <div class="flex gap-2">
-              <button :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800' : 'border-transparent hover-border']" @click="editExtra = ''">
-                <span class="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold bg-surface2 text-hint-c">—</span>
-                <span class="text-lg text-hint-c">無</span>
-              </button>
-              <button v-for="opt in EXTRA_OPTIONS" :key="opt.code"
-                      :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
-                      @click="editExtra = opt.code">
-                <span :class="['w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold', opt.color]">{{ opt.code }}</span>
-                <span class="text-lg text-hint-c">{{ opt.label }}</span>
-              </button>
+         editCode === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
+                  @click="editCode = ''; editExtra = ''">
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold bg-surface2 text-hint-c">—</span>
+                  <span class="text-xs text-hint-c">清除</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 右欄（桌機）/ 下方（手機）：附加工作 + 預覽 -->
+            <div class="sm:w-52 mt-4 sm:mt-0">
+              <transition name="fade">
+                <div v-if="canSetExtra" class="mb-3">
+                  <p class="text-sm font-semibold text-hint-c uppercase tracking-wide mb-2">
+                    附加工作 <span class="normal-case font-normal">（休假期間）</span>
+                  </p>
+                  <div class="flex gap-2">
+                    <button :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800' : 'border-transparent hover-border']" @click="editExtra = ''">
+                      <span class="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold bg-surface2 text-hint-c">—</span>
+                      <span class="text-xs text-hint-c">無</span>
+                    </button>
+                    <button v-for="opt in EXTRA_OPTIONS" :key="opt.code"
+                            :class="['flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all', editExtra === opt.code ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
+                            @click="editExtra = opt.code">
+                      <span :class="['w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold', opt.color]">{{ opt.code }}</span>
+                      <span class="text-xs text-hint-c">{{ opt.label }}</span>
+                    </button>
+                  </div>
+                </div>
+              </transition>
+              <div v-if="editCode" class="px-3 py-2 bg-surface2 rounded-xl flex items-center gap-2 text-sm text-hint-c">
+                <span>預覽：</span>
+                <div class="relative inline-flex items-center justify-center">
+                  <span :class="['inline-flex items-center justify-center w-7 h-7 rounded-lg text-lg font-bold', badgeClass(editCode)]">{{ editCode }}</span>
+                  <span v-if="editExtra" :class="['absolute -top-1 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold leading-none shadow-sm', extraBadgeClass(editExtra)]">{{ editExtra }}</span>
+                </div>
+                <span>
+                  {{ LEGENDS.find(l => l.code === editCode)?.label ?? editCode }}
+                  <template v-if="editExtra">＋ {{ EXTRA_OPTIONS.find(e => e.code === editExtra)?.label }}</template>
+                </span>
+              </div>
             </div>
           </div>
-        </transition>
-        <div v-if="editCode" class="mb-4 px-3 py-2 bg-surface2 rounded-xl flex items-center gap-2 text-lg text-hint-c">
-          <span class="text-hint-c">預覽：</span>
-          <div class="relative inline-flex items-center justify-center">
-            <span :class="['inline-flex items-center justify-center w-7 h-7 rounded-lg text-lg font-bold', badgeClass(editCode)]">{{ editCode }}</span>
-            <span v-if="editExtra" :class="['absolute -top-1 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-lg font-bold leading-none shadow-sm', extraBadgeClass(editExtra)]">{{ editExtra }}</span>
-          </div>
-          <span class="ml-1">
-            {{ LEGENDS.find(l => l.code === editCode)?.label ?? editCode }}
-            <template v-if="editExtra">＋ {{ EXTRA_OPTIONS.find(e => e.code === editExtra)?.label }}</template>
-          </span>
         </div>
-        <div class="flex gap-2">
+
+        <!-- 取消/儲存按鈕（固定在底部） -->
+        <div class="flex gap-2 px-5 py-4 flex-shrink-0 border-t border-light-c">
           <button class="flex-1 py-2.5 text-lg border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors" @click="showForm = false">取消</button>
           <button class="flex-1 py-2.5 text-lg bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                   :disabled="saving" @click="saveEdit">
@@ -1353,6 +1533,36 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 網路狀態 Badge -->
+    <transition name="fade">
+      <div v-if="!isOnline || isSyncing || pendingCount > 0"
+           class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium shadow-lg whitespace-nowrap"
+           :class="isSyncing ? 'bg-blue-600 text-white' : !isOnline ? 'bg-amber-500 text-white' : 'bg-yellow-500 text-white'">
+        <!-- 同步中 -->
+        <template v-if="isSyncing">
+          <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg>
+          同步中…
+        </template>
+        <!-- 離線 -->
+        <template v-else-if="!isOnline">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M3 3l18 18M9.879 9.879A3 3 0 0012 9c.34 0 .67.057.976.163"/>
+          </svg>
+          離線中{{ pendingCount > 0 ? `・${pendingCount} 筆待同步` : '' }}
+        </template>
+        <!-- 連線但有待送出佇列 -->
+        <template v-else>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          {{ pendingCount }} 筆待同步
+        </template>
+      </div>
+    </transition>
+
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
@@ -1369,4 +1579,6 @@ onUnmounted(() => {
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+/* 格子分隔線：用 CSS 變數保持深淺模式一致，透明度調低讓格線淡而不搶眼 */
+.border-cell { border-color: color-mix(in srgb, var(--border-light) 35%, transparent); }
 </style>
