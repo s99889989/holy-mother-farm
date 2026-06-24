@@ -194,8 +194,12 @@ function changeMonth(dir) {
 }
 
 // ── 部門 & 頁籤 ───────────────────────────────────────────────────
+const DEPT_KEY = 'class-schedule-selectedDept'
+const VIEW_KEY = 'class-schedule-view'
 const selectedDept = ref('')
 const view         = ref('table')
+watch(selectedDept, v => { try { localStorage.setItem(DEPT_KEY, v) } catch {} })
+watch(view,         v => { try { localStorage.setItem(VIEW_KEY, v) } catch {} })
 const legendOpen   = ref(false)
 const headerCollapsed = ref(false)
 
@@ -768,7 +772,7 @@ function saveVisibleIds(dept, ids) {
   } catch {}
 }
 
-const visibleIds = ref(import.meta.client ? loadVisibleIds(selectedDept.value) : [])
+const visibleIds = ref([])
 
 // 部門切換時從 localStorage 載入該部門的設定
 watch(selectedDept, (dept) => {
@@ -818,6 +822,14 @@ watch(view, (v) => {
 
 // ── 初始載入 ─────────────────────────────────────────────────
 onMounted(() => {
+  // 從 localStorage 還原 view 和 selectedDept（放 onMounted 避免 SSR hydration mismatch）
+  try {
+    const savedView = localStorage.getItem(VIEW_KEY)
+    if (savedView && ['table', 'calendar', 'staff'].includes(savedView)) view.value = savedView
+    const savedDept = localStorage.getItem(DEPT_KEY)
+    if (savedDept) selectedDept.value = savedDept
+  } catch {}
+
   fetchSchedule()
   fetchShifts()
   nextTick(() => mountTableObserver())
