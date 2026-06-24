@@ -236,20 +236,7 @@ const editWeekday = computed(() =>
   editDay.value ? `星期${WEEKDAY_NAMES[getWeekday(editDay.value)]}` : ''
 )
 
-// ── 當日同事狀況（編輯 Modal 用）─────────────────────────────────
-const editDayColleagues = computed(() => {
-  if (!editDay.value || !editEmp.value) return []
-  return currentDeptEmployees.value
-    .filter(e => e.id !== editEmp.value.id)
-    .map(e => {
-      const cell = parseCell(e.schedule[editDay.value])
-      return { name: e.name, id: e.id, code: cell.code, extra: cell.extra }
-    })
-})
-const editDayOffCount = computed(() =>
-  editDayColleagues.value.filter(c => OFF_CODES.has(c.code)).length
-)
-const editDayTotalOthers = computed(() => editDayColleagues.value.length)
+
 
 // ════════════════════════════════════════════════════════════════════
 // ── 人員設定 ──────────────────────────────────────────────────────
@@ -666,11 +653,12 @@ onUnmounted(() => {
 
       <!-- 展開狀態：完整 header -->
       <template v-else>
-        <div class="flex items-center gap-2">
-          <div class="flex items-center gap-2 min-w-0 flex-1">
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <!-- Logo + 標題：手機隱藏 -->
+          <div class="hidden sm:flex items-center gap-2 min-w-0 flex-1">
             <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">📋</div>
             <div class="min-w-0">
-              <h1 class="font-bold text-base-c leading-none text-lg sm:text-lg truncate">員工排假班表</h1>
+              <h1 class="font-bold text-base-c leading-none text-lg truncate">員工排假班表</h1>
               <p class="text-lg text-hint-c mt-0.5 hidden md:block">Shift Schedule</p>
             </div>
           </div>
@@ -678,13 +666,13 @@ onUnmounted(() => {
           <!-- 月份切換 -->
           <div class="flex items-center gap-1 bg-surface2 rounded-lg px-1 py-0.5 flex-shrink-0">
             <button class="p-1.5 hover-surface2 rounded-md transition-colors" :disabled="loading" @click="changeMonth(-1)">
-              <svg class="w-4 h-4 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              <svg class="w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             </button>
-            <span class="text-lg font-semibold text-base-c min-w-[72px] text-center">
-            {{ currentYear }}/{{ String(currentMonth).padStart(2, '0') }}
-          </span>
+            <span class="text-sm font-semibold text-base-c min-w-[60px] text-center tabular-nums">
+              {{ currentYear }}/{{ String(currentMonth).padStart(2, '0') }}
+            </span>
             <button class="p-1.5 hover-surface2 rounded-md transition-colors" :disabled="loading" @click="changeMonth(1)">
-              <svg class="w-4 h-4 text-hint-c dark:text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <svg class="w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </button>
           </div>
 
@@ -695,16 +683,14 @@ onUnmounted(() => {
               { key: 'calendar', label: '日曆' },
               { key: 'staff',    label: '人員' },
             ]" :key="tab.key"
-                    :class="['px-2.5 py-1.5 text-lg font-medium rounded-md transition-colors relative',
- view === tab.key
- ? 'bg-surface text-base-c shadow-sm'
- : 'text-hint-c hover-text-muted']"
+                    :class="['px-2 py-1.5 text-sm font-medium rounded-md transition-colors',
+ view === tab.key ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c hover-text-muted']"
                     @click="view = tab.key">
               {{ tab.label }}
             </button>
           </div>
 
-          <!-- 縮放控制（班表 view 時顯示） -->
+          <!-- 縮放控制（桌機 + 班表 view） -->
           <div v-if="view === 'table'" class="hidden sm:flex items-center gap-1.5 flex-shrink-0">
             <button class="p-1 rounded hover-surface2 text-hint-c transition-colors disabled:opacity-30"
                     :disabled="tableZoom <= 50" @click="tableZoom = Math.max(50, tableZoom - 10)" title="縮小">
@@ -717,9 +703,9 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <!-- 下載 Excel（班表 view 時顯示） -->
+          <!-- 下載 Excel：手機只顯示 icon -->
           <button v-if="view === 'table'"
-                  class="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-60 flex-shrink-0"
+                  class="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-60 flex-shrink-0"
                   :disabled="downloading || loading" @click="exportExcel">
             <svg v-if="downloading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -729,7 +715,7 @@ onUnmounted(() => {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
-            {{ downloading ? '產生中…' : '下載 Excel' }}
+            <span class="hidden sm:inline">{{ downloading ? '產生中…' : '下載 Excel' }}</span>
           </button>
 
           <!-- 收起按鈕 -->
@@ -892,9 +878,9 @@ onUnmounted(() => {
                 </tbody>
                 <tfoot class="border-t-2 border-light-c">
                 <tr class="bg-surface2">
-                  <td class="sticky left-0 z-10 bg-surface2 border-r border-light-c px-2 py-1.5 whitespace-nowrap">
-                    <div class="text-xs font-semibold text-muted-c">每日人力</div>
-                    <div class="text-xs text-hint-c">共 {{ totalEmployees }} 人</div>
+                  <td class="sticky left-0 z-10 bg-surface2 border-r border-light-c px-2 py-1.5">
+                    <div class="text-xs font-semibold text-muted-c leading-tight">每日人力</div>
+                    <div class="text-xs text-hint-c leading-tight">共 {{ totalEmployees }} 人</div>
                   </td>
                   <td v-for="d in days" :key="d"
                       :class="['text-center py-1 px-0 transition-colors', dayCellBg(d),
@@ -908,8 +894,8 @@ onUnmounted(() => {
                   <td class="border-l border-light-c" colspan="3"/>
                 </tr>
                 <tr class="bg-surface2/60 /60">
-                  <td class="sticky left-0 z-10 bg-surface2 border-r border-light-c px-2 py-1.5 whitespace-nowrap">
-                    <div class="text-xs font-semibold text-hint-c">休假人數</div>
+                  <td class="sticky left-0 z-10 bg-surface2 border-r border-light-c px-2 py-1.5">
+                    <div class="text-xs font-semibold text-hint-c leading-tight">休假人數</div>
                   </td>
                   <td v-for="d in days" :key="d" :class="['text-center py-1 px-0', dayCellBg(d)]">
                     <span v-if="dailyOffCount(d) > 0"
@@ -1194,29 +1180,7 @@ onUnmounted(() => {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <!-- 當日同事狀況 -->
-        <div v-if="editDayTotalOthers > 0" class="mb-4 rounded-xl border border-light-c overflow-hidden">
-          <div class="flex items-center justify-between px-3 py-1.5 bg-surface2">
-            <span class="text-lg font-medium text-hint-c">當日同事出勤</span>
-            <span :class="['text-lg font-semibold px-2 py-0.5 rounded-full',
- editDayOffCount >= 2 ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' :
- editDayOffCount === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' :
- 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400']">
-              休假 {{ editDayOffCount }} / {{ editDayTotalOthers }} 人
-            </span>
-          </div>
-          <div class="flex flex-wrap gap-1.5 px-3 py-2">
-            <div v-for="c in editDayColleagues" :key="c.id"
-                 class="flex items-center gap-1 px-2 py-1 rounded-lg bg-surface2 border border-light-c">
-              <span class="text-lg text-muted-c font-medium">{{ c.name }}</span>
-              <span v-if="c.code"
-                    :class="['inline-flex items-center justify-center w-5 h-5 rounded text-lg font-bold flex-shrink-0', badgeClass(c.code)]">
-                {{ c.code }}
-              </span>
-              <span v-else class="text-lg text-hint-c">上班</span>
-            </div>
-          </div>
-        </div>
+
         <p class="text-lg font-semibold text-hint-c uppercase tracking-wide mb-2">主狀態</p>
         <div class="grid grid-cols-4 gap-2 mb-4">
           <button v-for="opt in EDIT_OPTIONS" :key="opt.code"
