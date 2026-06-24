@@ -100,40 +100,78 @@ const departments  = ref([])
 const loading      = ref(false)
 const loadError    = ref('')
 
-async function fetchSchedule() {
-  loading.value   = true
-  loadError.value = ''
+async function fetchSchedule(silent = false) {
+  if (!silent) {
+    loading.value   = true
+    loadError.value = ''
+  }
   try {
     const res  = await (await fetch(`${BASE()}/${currentYear.value}/${currentMonth.value}`)).json()
     if (!res.success) throw new Error(res.message ?? '載入失敗')
     const data = res.data
-    // 後端回傳 YML 解析結果，key 為整數需轉換
+
     holidays.value = normalizeKeys(data.holidays ?? {})
     lunar.value    = normalizeKeys(data.lunar    ?? {})
-    departments.value = (data.departments ?? []).map(dept => ({
+
+    const incoming = (data.departments ?? []).map(dept => ({
       name:      dept.name,
       employees: (dept.employees ?? []).map(emp => ({
         name:     emp.name,
         id:       String(emp.id),
         expected: emp.expected ?? 0,
-        // schedule key 為整數，統一轉成數字 key 的物件
         schedule: normalizeKeys(emp.schedule ?? {})
       }))
     }))
-    // 部門選擇預設第一個
-    if (departments.value.length && !departments.value.find(d => d.name === selectedDept.value)) {
-      selectedDept.value = departments.value[0].name
+
+    if (silent && departments.value.length > 0) {
+      // 靜默合併：只更新有變動的 schedule 格子，不替換整個陣列避免畫面閃爍
+      for (const inDept of incoming) {
+        const localDept = departments.value.find(d => d.name === inDept.name)
+        if (!localDept) continue
+        for (const inEmp of inDept.employees) {
+          const localEmp = localDept.employees.find(e => e.id === inEmp.id)
+          if (!localEmp) continue
+          // 更新 expected
+          localEmp.expected = inEmp.expected
+          // 合併 schedule：只寫入有差異的 key，跳過佇列中待送出的格子
+          const queue = loadQueue()
+          for (const [dayStr, val] of Object.entries(inEmp.schedule)) {
+            const day = Number(dayStr)
+            const queueKey = `${currentYear.value}-${currentMonth.value}-${inEmp.id}-${day}`
+            if (queue[queueKey]) continue  // 本地有未送出變更，保留本地值
+            localEmp.schedule[day] = val
+          }
+          // 清除後端已刪除的格子（同樣跳過佇列中的）
+          for (const dayStr of Object.keys(localEmp.schedule)) {
+            const day = Number(dayStr)
+            if (!(day in inEmp.schedule)) {
+              const queueKey = `${currentYear.value}-${currentMonth.value}-${inEmp.id}-${day}`
+              if (!loadQueue()[queueKey]) delete localEmp.schedule[day]
+            }
+          }
+        }
+      }
+    } else {
+      // 初始載入或月份切換：完整替換
+      departments.value = incoming
+      if (departments.value.length && !departments.value.find(d => d.name === selectedDept.value)) {
+        selectedDept.value = departments.value[0].name
+      }
     }
   } catch (e) {
-    loadError.value = e.message ?? '網路錯誤'
-    showToast('載入失敗：' + loadError.value)
-    // 清空舊資料，避免顯示上個月的內容
-    departments.value = []
-    holidays.value    = {}
-    lunar.value       = {}
+    if (!silent) {
+      loadError.value = e.message ?? '網路錯誤'
+      showToast('載入失敗：' + loadError.value)
+      departments.value = []
+      holidays.value    = {}
+      lunar.value       = {}
+    }
+    // 靜默刷新失敗時不打擾使用者，下次再試
   } finally {
-    loading.value = false
-    nextTick(() => updateTableScale())
+    if (!silent) {
+      loading.value = false
+      nextTick(() => updateTableScale())
+    }
   }
 }
 
@@ -282,7 +320,7 @@ function startAutoFetch() {
     if (!isOnline.value)        return
     if (pendingCount.value > 0) return
     if (showForm.value)         return
-    fetchSchedule()
+    fetchSchedule(true)  // 靜默刷新，不閃畫面
   }, 60_000)
 }
 function stopAutoFetch() {
@@ -753,7 +791,7 @@ onMounted(() => {
   window.addEventListener('online', () => {
     isOnline.value = true
     flushQueue()
-    fetchSchedule()
+    fetchSchedule(true)  // 靜默補齊離線期間的變動
   })
   window.addEventListener('offline', () => {
     isOnline.value = false
@@ -764,7 +802,7 @@ onMounted(() => {
     _bc = new BroadcastChannel('class-schedule-sync')
     _bc.onmessage = (e) => {
       if (e.data?.type === 'refetch' && !showForm.value && pendingCount.value === 0) {
-        fetchSchedule()
+        fetchSchedule(true)
       }
     }
   } catch {}
@@ -1580,5 +1618,5 @@ onUnmounted(() => {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 /* 格子分隔線：用 CSS 變數保持深淺模式一致，透明度調低讓格線淡而不搶眼 */
-.border-cell { border-color: color-mix(in srgb, var(--border-light) 35%, transparent); }
+.border-cell { border-color: color-mix(in srgb, var(--border-light) 65%, transparent); border-right-width: 2px; }
 </style>
