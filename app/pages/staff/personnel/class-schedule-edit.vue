@@ -212,13 +212,21 @@ const currentDeptEmployees = computed(
 
 // ── 每日統計 ──────────────────────────────────────────────────────
 function countActual(emp) {
-  return Object.values(emp.schedule).filter(v => OFF_CODES.has(parseCell(v).code)).length
+  return Object.values(emp.schedule).reduce((sum, v) => {
+    const code = parseCell(v).code
+    if (!OFF_CODES.has(code)) return sum
+    return sum + (code === '半' ? 0.5 : 1)
+  }, 0)
 }
 function dailyOffCount(day)  {
   const emps = visibleIds.value.length
     ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
     : currentDeptEmployees.value
-  return emps.filter(e => OFF_CODES.has(parseCell(e.schedule[day]).code)).length
+  return emps.reduce((sum, e) => {
+    const code = parseCell(e.schedule[day]).code
+    if (!OFF_CODES.has(code)) return sum
+    return sum + (code === '半' ? 0.5 : 1)
+  }, 0)
 }
 function dailyWorkCount(day) {
   const emps = visibleIds.value.length
@@ -232,7 +240,7 @@ const totalEmployees = computed(() =>
     : currentDeptEmployees.value.length
 )
 
-// ── 日曆篩選 ──────────────────────────────────────────────────────
+function fmtNum(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1) }
 const calLeadingBlanks = computed(() => getWeekday(1))
 
 // ── Toast ─────────────────────────────────────────────────────────
@@ -1127,7 +1135,7 @@ onUnmounted(() => {
                     </template>
                   </td>
                   <td class="text-center border-l border-light-c text-hint-c font-medium py-1 text-xs">{{ emp.expected }}</td>
-                  <td class="text-center text-base-c font-semibold py-1 text-xs">{{ countActual(emp) }}</td>
+                  <td class="text-center text-base-c font-semibold py-1 text-xs">{{ fmtNum(countActual(emp)) }}</td>
                 </tr>
                 </tbody>
                 <tfoot class="border-t-2 border-light-c">
@@ -1141,7 +1149,7 @@ onUnmounted(() => {
  hoveredDay === d ? 'bg-green-500/20 dark:bg-green-400/20' : '']">
                     <span v-if="dailyWorkCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
-                      {{ dailyWorkCount(d) }}
+                      {{ fmtNum(dailyWorkCount(d)) }}
                     </span>
                     <span v-else class="text-xs text-hint-c">—</span>
                   </td>
@@ -1154,7 +1162,7 @@ onUnmounted(() => {
                   <td v-for="d in days" :key="d" :class="['text-center py-1 px-0 border-r border-cell', dayCellBg(d)]">
                     <span v-if="dailyOffCount(d) > 0"
                           class="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold bg-surface2 text-hint-c dark:text-hint-c">
-                      {{ dailyOffCount(d) }}
+                      {{ fmtNum(dailyOffCount(d)) }}
                     </span>
                     <span v-else class="text-xs text-hint-c">—</span>
                   </td>

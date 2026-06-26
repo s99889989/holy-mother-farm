@@ -105,8 +105,25 @@
                 <div v-else class="w-20"></div>
               </div>
 
+              <!-- ── 載入中骨架 ── -->
+              <div v-if="isLoading"
+                   class="grid gap-3"
+                   :style="{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }">
+                <div v-for="i in colCount" :key="i"
+                     class="rounded-2xl bg-surface border border-light-c overflow-hidden animate-pulse">
+                  <div class="h-8 bg-surface2 rounded-t-2xl"></div>
+                  <div class="p-3 space-y-2">
+                    <div class="h-28 bg-surface2 rounded-xl"></div>
+                    <div class="h-3 bg-surface2 rounded w-3/4"></div>
+                    <div class="h-3 bg-surface2 rounded w-1/2"></div>
+                    <div class="h-3 bg-surface2 rounded w-2/3"></div>
+                  </div>
+                </div>
+              </div>
+
               <!-- 卡片網格 -->
-              <div class="grid gap-3"
+              <div v-else
+                   class="grid gap-3"
                    :style="{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }"
                    @touchstart="onTouchStart"
                    @touchend="onTouchEnd">
@@ -141,11 +158,18 @@
                           <div class="space-y-1.5">
                             <div v-for="item in itemsByTypeForDate(day.date, section.type)" :key="item.id"
                                  class="rounded-xl overflow-hidden border border-light-c bg-surface2">
-                              <img v-if="item.images && item.images.length > 0"
-                                   :src="thumbUrl(item.images[0])" :alt="item.name"
-                                   class="w-full aspect-[4/3] object-cover cursor-pointer"
-                                   loading="lazy"
-                                   @click="previewUrl = imgUrl(item.images[0])" />
+                              <template v-if="item.images && item.images.length > 0">
+                                <img v-if="!imgErrors.has(item.images[0])"
+                                     :src="thumbUrl(item.images[0])" :alt="item.name"
+                                     class="w-full aspect-[4/3] object-cover cursor-pointer bg-surface2"
+                                     loading="lazy"
+                                     @error="imgErrors.add(item.images[0])"
+                                     @click="previewUrl = imgUrl(item.images[0])" />
+                                <div v-else
+                                     class="w-full aspect-[4/3] bg-surface2 flex items-center justify-center text-hint-c text-xs">
+                                  無法載入圖片
+                                </div>
+                              </template>
                               <div class="px-2 py-1.5">
                                 <div class="flex items-center gap-1 flex-wrap">
                                 <span v-if="item.isFirst"
@@ -192,10 +216,14 @@
                         <div class="flex gap-3 p-3">
                           <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden relative"
                                :class="(!item.images || item.images.length === 0) ? 'border-2 border-dashed border-light-c bg-surface2' : ''">
-                            <img v-if="item.images && item.images.length > 0"
-                                 :src="imgUrl(item.images[0])" :alt="item.name"
-                                 class="w-full h-full object-cover cursor-pointer"
-                                 @click="previewUrl = imgUrl(item.images[0])" />
+                            <template v-if="item.images && item.images.length > 0">
+                              <img v-if="!imgErrors.has(item.images[0])"
+                                   :src="imgUrl(item.images[0])" :alt="item.name"
+                                   class="w-full h-full object-cover cursor-pointer"
+                                   @error="imgErrors.add(item.images[0])"
+                                   @click="previewUrl = imgUrl(item.images[0])" />
+                              <div v-else class="w-full h-full flex items-center justify-center text-hint-c text-xs text-center p-1">無法載入</div>
+                            </template>
                             <button v-if="item.images && item.images.length > 0"
                                     @click="deleteItemImage(item)"
                                     class="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center transition-colors">
@@ -345,6 +373,13 @@ const thumbUrl = (path) => {
   return full.replace('/holy/menu/image/', '/holy/menu/image/thumb/')
 }
 
+// ── fetch with timeout ────────────────────────────────────────────
+const fetchWithTimeout = (url, options = {}, ms = 8000) => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
 // ── 分類設定 ──────────────────────────────────────────────────────
 const DIET_TYPES = ['葷食', '素食', '五辛素', '蛋奶素', '五辛蛋奶素']
 const DIET_BADGE = {
@@ -355,14 +390,15 @@ const DIET_BADGE = {
   '五辛蛋奶素': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 }
 const sections = [
-  { type: 'dish',      label: '菜',     badge: 'px-2 py-0.5 rounded-full text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-semibold',  placeholder: '菜名…',       hasDiet: true },
-  { type: 'soup',      label: '湯',     badge: 'px-2 py-0.5 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-semibold',      placeholder: '湯名…',       hasDiet: true },
-  { type: 'tea',       label: '茶',     badge: 'px-2 py-0.5 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold',   placeholder: '茶名…',       hasDiet: false },
-  { type: 'salad_bar', label: '沙拉霸', badge: 'px-2 py-0.5 rounded-full text-sm bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400 font-semibold',      placeholder: '沙拉霸名稱…', hasDiet: false },
+  { type: 'dish',      label: '菜',     badge: 'px-2 py-0.5 rounded-full text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-semibold',  placeholder: '菜名…',       hasDiet: true,  defaultSlots: 1 },
+  { type: 'soup',      label: '湯',     badge: 'px-2 py-0.5 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-semibold',      placeholder: '湯名…',       hasDiet: true,  defaultSlots: 1 },
+  { type: 'tea',       label: '茶',     badge: 'px-2 py-0.5 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold',   placeholder: '茶名…',       hasDiet: false, defaultSlots: 1 },
+  { type: 'salad_bar', label: '沙拉霸', badge: 'px-2 py-0.5 rounded-full text-sm bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400 font-semibold',      placeholder: '沙拉霸名稱…', hasDiet: false, defaultSlots: 3 },
 ]
 
 // ── 狀態 ──────────────────────────────────────────────────────────
 const apiOnline       = ref(false)
+const isLoading       = ref(false)
 const menuItems       = ref([])
 const dateStatus      = ref({})
 const selectedDate    = ref('')
@@ -374,6 +410,7 @@ const isEditMode      = ref(false)
 const isClient        = ref(false)
 const ingredientDraft = reactive({})
 const showNote        = reactive({})
+const imgErrors       = reactive(new Set())
 
 const today    = new Date()
 const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
@@ -396,24 +433,29 @@ const colCount = computed(() => {
 const WEEK_LABELS  = ['日', '一', '二', '三', '四', '五', '六']
 const weekItemsMap = ref({})
 
+// 跨 refresh 持久化的月份快取（避免重複打 /dates/ API）
+const loadedMonthsCache = new Set()
+
 // 往某方向找有資料的日期（最多掃 365 天）
 const findDatesWithData = async (startDate, direction, count) => {
   const result = []
   const d = new Date(startDate)
-  const loadedMonths = new Set()
   for (let i = 0; i < 365 && result.length < count; i++) {
     const yyyy = d.getFullYear()
     const mm   = String(d.getMonth() + 1).padStart(2, '0')
     const dd   = String(d.getDate()).padStart(2, '0')
     const date = `${yyyy}-${mm}-${dd}`
     const ym   = `${yyyy}-${mm}`
-    if (!loadedMonths.has(ym)) {
-      loadedMonths.add(ym)
+    if (!loadedMonthsCache.has(ym)) {
+      loadedMonthsCache.add(ym)
       try {
-        const status = await (await fetch(`${BASE}/dates/${ym}`)).json()
+        const status = await (await fetchWithTimeout(`${BASE}/dates/${ym}`)).json()
         dateStatus.value = { ...dateStatus.value, ...status }
         apiOnline.value = true
-      } catch { apiOnline.value = false }
+      } catch {
+        apiOnline.value = false
+        loadedMonthsCache.delete(ym) // 失敗時移除，下次可重試
+      }
     }
     if (dateStatus.value[date]) result.push(date)
     d.setDate(d.getDate() + direction)
@@ -426,7 +468,7 @@ const fetchItemsForDates = async (dates) => {
   await Promise.all(dates.map(async (date) => {
     if (weekItemsMap.value[date] !== undefined) return
     try {
-      const items = await (await fetch(`${BASE}/get/${date}`)).json()
+      const items = await (await fetchWithTimeout(`${BASE}/get/${date}`)).json()
       weekItemsMap.value[date] = items.filter(i =>
         (i.name && i.name.trim() !== '') || (i.images && i.images.length > 0))
     } catch { weekItemsMap.value[date] = [] }
@@ -447,44 +489,49 @@ const displayDates = computed(() =>
 const visibleDates = ref([])
 
 const refresh = async () => {
-  // 從 anchor 往後找 colCount 筆
-  let dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
+  isLoading.value = true
+  try {
+    // 從 anchor 往後找 colCount 筆
+    let dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
 
-  // 找不到：往前找並重設 anchor
-  if (dates.length === 0) {
-    const prev = await findDatesWithData(anchorDate.value, -1, colCount.value)
-    if (prev.length > 0) {
-      anchorDate.value = prev[prev.length - 1]
-      dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
+    // 找不到：往前找並重設 anchor
+    if (dates.length === 0) {
+      const prev = await findDatesWithData(anchorDate.value, -1, colCount.value)
+      if (prev.length > 0) {
+        anchorDate.value = prev[prev.length - 1]
+        dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
+      }
     }
-  }
 
-  // 不足一頁：往前補齊
-  if (dates.length > 0 && dates.length < colCount.value) {
-    const need = colCount.value - dates.length
-    const firstD = new Date(dates[0])
-    firstD.setDate(firstD.getDate() - 1)
-    const fs = `${firstD.getFullYear()}-${String(firstD.getMonth()+1).padStart(2,'0')}-${String(firstD.getDate()).padStart(2,'0')}`
-    const fill = await findDatesWithData(fs, -1, need)
-    dates = [...fill.reverse(), ...dates]
-    if (dates.length > 0) anchorDate.value = dates[0]
-  }
+    // 不足一頁：往前補齊
+    if (dates.length > 0 && dates.length < colCount.value) {
+      const need = colCount.value - dates.length
+      const firstD = new Date(dates[0])
+      firstD.setDate(firstD.getDate() - 1)
+      const fs = `${firstD.getFullYear()}-${String(firstD.getMonth()+1).padStart(2,'0')}-${String(firstD.getDate()).padStart(2,'0')}`
+      const fill = await findDatesWithData(fs, -1, need)
+      dates = [...fill.reverse(), ...dates]
+      if (dates.length > 0) anchorDate.value = dates[0]
+    }
 
-  visibleDates.value = dates
-  await fetchItemsForDates(dates)
+    visibleDates.value = dates
+    await fetchItemsForDates(dates)
 
-  // 判斷前後是否還有資料
-  if (dates.length > 0) {
-    const f = new Date(dates[0]); f.setDate(f.getDate() - 1)
-    const fp = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`
-    hasPrev.value = (await findDatesWithData(fp, -1, 1)).length > 0
+    // 判斷前後是否還有資料
+    if (dates.length > 0) {
+      const f = new Date(dates[0]); f.setDate(f.getDate() - 1)
+      const fp = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`
+      hasPrev.value = (await findDatesWithData(fp, -1, 1)).length > 0
 
-    const l = new Date(dates[dates.length-1]); l.setDate(l.getDate() + 1)
-    const ln = `${l.getFullYear()}-${String(l.getMonth()+1).padStart(2,'0')}-${String(l.getDate()).padStart(2,'0')}`
-    hasNext.value = (await findDatesWithData(ln, 1, 1)).length > 0
-  } else {
-    hasPrev.value = false
-    hasNext.value = false
+      const l = new Date(dates[dates.length-1]); l.setDate(l.getDate() + 1)
+      const ln = `${l.getFullYear()}-${String(l.getMonth()+1).padStart(2,'0')}-${String(l.getDate()).padStart(2,'0')}`
+      hasNext.value = (await findDatesWithData(ln, 1, 1)).length > 0
+    } else {
+      hasPrev.value = false
+      hasNext.value = false
+    }
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -619,7 +666,7 @@ const nextMonth = () => {
 const selectDate = async (date) => {
   selectedDate.value = date
   weekItemsMap.value = {}
-  await fetch(`${BASE}/init/${date}`, { method: 'POST' })
+  await fetchWithTimeout(`${BASE}/init/${date}`, { method: 'POST' }).catch(() => {})
   await fetchMenuItems()
   await fetchMarkedDates()
 }
@@ -641,9 +688,9 @@ const openSingleImageUpload = (item) => {
     try {
       if (item.images && item.images.length > 0) {
         const oldFile = item.images[0].split('/').pop()
-        await fetch(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${oldFile}`, { method: 'DELETE' })
+        await fetchWithTimeout(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${oldFile}`, { method: 'DELETE' }).catch(() => {})
       }
-      const res = await fetch(`${BASE}/image/upload/${item.date}/${item.id}`, { method: 'POST', body: formData })
+      const res = await fetchWithTimeout(`${BASE}/image/upload/${item.date}/${item.id}`, { method: 'POST', body: formData })
       if (!res.ok) throw new Error(`上傳失敗（${res.status}）`)
       item.images = (await res.json()).slice(0, 1)
       showToast('圖片已更新')
@@ -656,7 +703,7 @@ const deleteItemImage = async (item) => {
   if (!item.images || item.images.length === 0) return
   const fileName = item.images[0].split('/').pop()
   try {
-    await fetch(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${fileName}`, { method: 'DELETE' })
+    await fetchWithTimeout(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${fileName}`, { method: 'DELETE' })
     item.images = []; showToast('圖片已刪除')
   } catch (e) { console.error(e) }
 }
@@ -676,7 +723,7 @@ const uploadImages = async (files) => {
       try {
         const formData = new FormData()
         formData.append('files', file)
-        const res = await fetch(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, { method: 'POST', body: formData })
+        const res = await fetchWithTimeout(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, { method: 'POST', body: formData })
         if (!res.ok) throw new Error(`${file.name}：${res.status}`)
         const newPaths = await res.json()
         imageModal.images.push(...newPaths)
@@ -706,7 +753,7 @@ const deleteMenuImage = async (idx) => {
   if (!confirm('確定刪除？')) return
   const fileName = imageModal.images[idx].split('/').pop()
   try {
-    await fetch(`${BASE}/image/remove/${imageModal.item.date}/${imageModal.item.id}?fileName=${fileName}`, { method: 'DELETE' })
+    await fetchWithTimeout(`${BASE}/image/remove/${imageModal.item.date}/${imageModal.item.id}?fileName=${fileName}`, { method: 'DELETE' })
     imageModal.images.splice(idx, 1)
     const found = menuItems.value.find(i => i.id === imageModal.item.id)
     if (found) found.images = [...imageModal.images]
@@ -721,7 +768,7 @@ const showToast = (msg) => { toast.message = msg; toast.show = true; setTimeout(
 // ── API ───────────────────────────────────────────────────────────
 const fetchMarkedDates = async () => {
   try {
-    dateStatus.value = await (await fetch(`${BASE}/dates/${yearMonth.value}`)).json()
+    dateStatus.value = await (await fetchWithTimeout(`${BASE}/dates/${yearMonth.value}`)).json()
     apiOnline.value = true
   } catch { apiOnline.value = false }
 }
@@ -729,24 +776,44 @@ const fetchMarkedDates = async () => {
 const fetchMenuItems = async () => {
   if (!selectedDate.value) return
   try {
-    menuItems.value = await (await fetch(`${BASE}/get/${selectedDate.value}`)).json()
+    menuItems.value = await (await fetchWithTimeout(`${BASE}/get/${selectedDate.value}`)).json()
     menuItems.value.forEach(i => { if (!ingredientDraft[i.id]) ingredientDraft[i.id] = '' })
-  } catch (e) { console.error(e) }
+    apiOnline.value = true
+    // 補足各 section 的預設槽數
+    await ensureDefaultSlots()
+  } catch (e) {
+    apiOnline.value = false
+    console.error(e)
+  }
+}
+
+// 確保每個 section slot 1 都達到 defaultItems 數量
+const ensureDefaultSlots = async () => {
+  for (const section of sections) {
+    const existingInSlot1 = itemsByTypeAndSlot(section.type, 1)
+    const need = section.defaultSlots - existingInSlot1.length
+    for (let i = 0; i < need; i++) {
+      await addItemToSlot(section.type, 1)
+    }
+  }
 }
 
 const autoSave = async (item) => {
   if (!item.id) return
   try {
-    await fetch(`${BASE}/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
+    await fetchWithTimeout(`${BASE}/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
     await fetchMarkedDates()
   } catch (e) { console.error(e) }
 }
 
 const addItemToSlot = async (type, slot) => {
   try {
-    const res = await fetch(`${BASE}/save`, {
+    // 繼承同 slot 現有項目的 dietType
+    const existing = itemsByTypeAndSlot(type, slot)
+    const dietType = existing.length > 0 ? (existing[0].dietType || '') : ''
+    const res = await fetchWithTimeout(`${BASE}/save`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: selectedDate.value, type, slot, name: '', ingredients: [], images: [], note: '' })
+      body: JSON.stringify({ date: selectedDate.value, type, slot, name: '', dietType, ingredients: [], images: [], note: '' })
     })
     const saved = await res.json(); menuItems.value.push(saved); ingredientDraft[saved.id] = ''
   } catch (e) { console.error(e) }
@@ -755,7 +822,7 @@ const addItemToSlot = async (type, slot) => {
 const confirmDeleteDay = async () => {
   if (!confirm(`確定刪除 ${selectedDate.value} 的所有菜色？此操作無法復原。`)) return
   try {
-    await fetch(`${BASE}/remove/${selectedDate.value}`, { method: 'DELETE' })
+    await fetchWithTimeout(`${BASE}/remove/${selectedDate.value}`, { method: 'DELETE' })
     menuItems.value = []; delete dateStatus.value[selectedDate.value]; delete weekItemsMap.value[selectedDate.value]
     showToast(`${selectedDate.value} 菜色已刪除`)
   } catch (e) { console.error(e) }
@@ -764,7 +831,7 @@ const confirmDeleteDay = async () => {
 const confirmDelete = async (item) => {
   if (!confirm(`確定刪除${item.name ? `「${item.name}」` : '這個項目'}？`)) return
   try {
-    await fetch(`${BASE}/remove/${item.date}/${item.id}`, { method: 'DELETE' })
+    await fetchWithTimeout(`${BASE}/remove/${item.date}/${item.id}`, { method: 'DELETE' })
     menuItems.value = menuItems.value.filter(i => i.id !== item.id); showToast('已刪除')
   } catch (e) { console.error(e) }
 }
@@ -797,7 +864,7 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeyDown)
   await fetchMarkedDates()
   selectedDate.value = todayStr
-  await fetch(`${BASE}/init/${todayStr}`, { method: 'POST' })
+  fetchWithTimeout(`${BASE}/init/${todayStr}`, { method: 'POST' }).catch(() => {})
   await fetchMenuItems()
   await fetchMarkedDates()
   await nextTick()
