@@ -666,64 +666,51 @@
 </template>
 
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'staff.asset'})
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.asset.edit' })
 const perm = usePermission()
 
 // ── Dark Mode ─────────────────────────────────────────────────────
 const darkStore = useDarkModeStore()
 const isDark = computed(() => darkStore.data.dark)
-const toggleDark = () => {
-  darkStore.change_dark_mode()
-}
+const toggleDark = () => { darkStore.change_dark_mode() }
 
 // ── 桌機顯示模式 ──────────────────────────────────────────────────
 const desktopView = ref('table')
 
 // ── 欄位設定 ──────────────────────────────────────────────────────
 const COL_DEFS = [
-  {key: 'listed', label: '列入財產'},
-  {key: 'spec', label: '規格'},
-  {key: 'brand', label: '廠牌'},
-  {key: 'keeper', label: '保管人員'},
-  {key: 'org', label: '機構'},
-  {key: 'unit', label: '保管單位'},
-  {key: 'location', label: '放置位置'},
-  {key: 'usage', label: '用途'},
-  {key: 'issuer', label: '撥發單位'},
-  {key: 'quantity', label: '撥發數量'},
-  {key: 'note', label: '備註'},
-  {key: 'purchaseDate', label: '購置日期'},
-  {key: 'price', label: '單價'},
-  {key: 'lifespan', label: '使用年限'},
-  {key: 'planName', label: '計畫名稱'},
-  {key: 'plateNo', label: '車號'}
+  { key: 'listed', label: '列入財產' },
+  { key: 'spec', label: '規格' },
+  { key: 'brand', label: '廠牌' },
+  { key: 'keeper', label: '保管人員' },
+  { key: 'org', label: '機構' },
+  { key: 'unit', label: '保管單位' },
+  { key: 'location', label: '放置位置' },
+  { key: 'usage', label: '用途' },
+  { key: 'issuer', label: '撥發單位' },
+  { key: 'quantity', label: '撥發數量' },
+  { key: 'note', label: '備註' },
+  { key: 'purchaseDate', label: '購置日期' },
+  { key: 'price', label: '單價' },
+  { key: 'lifespan', label: '使用年限' },
+  { key: 'planName', label: '計畫名稱' },
+  { key: 'plateNo', label: '車號' }
 ]
 const DEFAULT_COLS = Object.fromEntries(COL_DEFS.map(c => [c.key, true]))
 const LS_COLS = 'asset_visible_cols'
-const visibleCols = reactive({...DEFAULT_COLS})
+const visibleCols = reactive({ ...DEFAULT_COLS })
 const showColSettings = ref(false)
 const colSettingsRef = ref(null)
 
 const loadCols = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(LS_COLS) || '{}')
-    for (const col of COL_DEFS) {
-      if (col.key in saved) visibleCols[col.key] = saved[col.key]
-    }
-  } catch {
-  }
+    for (const col of COL_DEFS) { if (col.key in saved) visibleCols[col.key] = saved[col.key] }
+  } catch {}
 }
-const saveCols = () => {
-  localStorage.setItem(LS_COLS, JSON.stringify({...visibleCols}))
-}
-const toggleCol = (key) => {
-  visibleCols[key] = !visibleCols[key];
-  saveCols()
-}
-const resetCols = () => {
-  for (const col of COL_DEFS) visibleCols[col.key] = true;
-  saveCols()
-}
+const saveCols = () => { localStorage.setItem(LS_COLS, JSON.stringify({ ...visibleCols })) }
+const toggleCol = (key) => { visibleCols[key] = !visibleCols[key]; saveCols() }
+const resetCols = () => { for (const col of COL_DEFS) visibleCols[col.key] = true; saveCols() }
 
 // ── 篩選 ─────────────────────────────────────────────────────────
 const searchText = ref('')
@@ -741,8 +728,7 @@ const loadFilters = () => {
     if (s.filterUnit) filterUnit.value = s.filterUnit
     if (s.filterLocation) filterLocation.value = s.filterLocation
     if (s.filterListed) filterListed.value = s.filterListed
-  } catch {
-  }
+  } catch {}
 }
 const saveFilters = () => {
   localStorage.setItem(LS_FILTERS, JSON.stringify({
@@ -767,10 +753,10 @@ const emptyAsset = () => ({
   image: '', thumbUrl: '', thumbLgUrl: '', listed: true
 })
 
-const modal = reactive({show: false, isNew: true, simple: true, data: emptyAsset()})
+const modal = reactive({ show: false, isNew: true, simple: true, data: emptyAsset() })
 const imageInputRef = ref(null)
 const uploadingImage = ref(false)
-const toast = reactive({show: false, message: ''})
+const toast = reactive({ show: false, message: '' })
 
 // ── imgUrl ────────────────────────────────────────────────────────
 const imgUrl = (path) => {
@@ -780,31 +766,21 @@ const imgUrl = (path) => {
 }
 
 // ── 大圖預覽 ─────────────────────────────────────────────────────
-const preview = reactive({show: false, url: '', loading: false})
+const preview = reactive({ show: false, url: '', loading: false })
 const openPreview = (imagePath) => {
-  preview.url = imgUrl(imagePath);
-  preview.loading = true;
-  preview.show = true
+  preview.url = imgUrl(imagePath); preview.loading = true; preview.show = true
 }
 
 // ── 圖片上傳：後端回傳 { image, thumbUrl, thumbLgUrl } ───────────
 const triggerImageUpload = async () => {
   if (modal.isNew && !modal.data.id) {
-    if (!modal.data.name?.trim()) {
-      alert('請先填寫財產名稱再上傳圖片');
-      return
-    }
+    if (!modal.data.name?.trim()) { alert('請先填寫財產名稱再上傳圖片'); return }
     try {
       const saved = await (await fetch(`${API_BASE.value}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(modal.data)
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(modal.data)
       })).json()
-      modal.data.id = saved.id;
-      modal.isNew = false;
-      assets.value.push({...modal.data})
-    } catch (e) {
-      console.error(e);
-      return
-    }
+      modal.data.id = saved.id; modal.isNew = false; assets.value.push({ ...modal.data })
+    } catch (e) { console.error(e); return }
   }
   imageInputRef.value?.click()
 }
@@ -828,9 +804,7 @@ const handleImageChange = async (e) => {
       assets.value[idx].thumbUrl = result.thumbUrl
       assets.value[idx].thumbLgUrl = result.thumbLgUrl
     }
-  } catch (e) {
-    console.error(e)
-  } finally {
+  } catch (e) { console.error(e) } finally {
     uploadingImage.value = false
     if (imageInputRef.value) imageInputRef.value.value = ''
   }
@@ -839,19 +813,13 @@ const handleImageChange = async (e) => {
 const deleteImage = async () => {
   if (!modal.data.id) return
   try {
-    await fetch(`${API_BASE.value}/image/remove/${modal.data.id}`, {method: 'DELETE'})
-    modal.data.image = '';
-    modal.data.thumbUrl = '';
-    modal.data.thumbLgUrl = ''
+    await fetch(`${API_BASE.value}/image/remove/${modal.data.id}`, { method: 'DELETE' })
+    modal.data.image = ''; modal.data.thumbUrl = ''; modal.data.thumbLgUrl = ''
     const idx = assets.value.findIndex(a => a.id === modal.data.id)
     if (idx >= 0) {
-      assets.value[idx].image = '';
-      assets.value[idx].thumbUrl = '';
-      assets.value[idx].thumbLgUrl = ''
+      assets.value[idx].image = ''; assets.value[idx].thumbUrl = ''; assets.value[idx].thumbLgUrl = ''
     }
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 // ── Computed ──────────────────────────────────────────────────────
@@ -877,22 +845,13 @@ const onDragStart = (index, event) => {
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', String(index))
 }
-const onDragOver = (index) => {
-  if (draggingIndex.value !== null && draggingIndex.value !== index) dragOverIndex.value = index
-}
-const onDragLeave = () => {
-  dragOverIndex.value = null
-}
-const onDragEnd = () => {
-  draggingIndex.value = null;
-  dragOverIndex.value = null
-}
+const onDragOver = (index) => { if (draggingIndex.value !== null && draggingIndex.value !== index) dragOverIndex.value = index }
+const onDragLeave = () => { dragOverIndex.value = null }
+const onDragEnd = () => { draggingIndex.value = null; dragOverIndex.value = null }
 
 const onDrop = (targetIndex) => {
   if (draggingIndex.value === null || draggingIndex.value === targetIndex) {
-    draggingIndex.value = null;
-    dragOverIndex.value = null;
-    return
+    draggingIndex.value = null; dragOverIndex.value = null; return
   }
   const fromIdx = assets.value.findIndex(a => a.id === filtered.value[draggingIndex.value].id)
   const toIdx = assets.value.findIndex(a => a.id === filtered.value[targetIndex].id)
@@ -901,24 +860,18 @@ const onDrop = (targetIndex) => {
     assets.value.splice(toIdx, 0, moved)
     saveReorder()
   }
-  draggingIndex.value = null;
-  dragOverIndex.value = null
+  draggingIndex.value = null; dragOverIndex.value = null
 }
 
 const saveReorder = async () => {
   reordering.value = true
   try {
     await fetch(`${API_BASE.value}/reorder`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(assets.value.map(a => a.id))
     })
     showToast('排序已儲存')
-  } catch (e) {
-    console.error(e);
-    showToast('排序儲存失敗')
-  } finally {
-    reordering.value = false
-  }
+  } catch (e) { console.error(e); showToast('排序儲存失敗') } finally { reordering.value = false }
 }
 
 // ── 保管單位 ──────────────────────────────────────────────────────
@@ -928,33 +881,24 @@ const newUnitInput = ref('')
 const lastSelectedUnit = ref('')
 
 const fetchUnits = async () => {
-  try {
-    managedUnitOptions.value = await (await fetch(`${API_BASE.value}/units`)).json()
-  } catch (e) {
-    console.error(e)
-  }
+  try { managedUnitOptions.value = await (await fetch(`${API_BASE.value}/units`)).json() } catch (e) { console.error(e) }
 }
 const addUnitOption = async () => {
-  const v = newUnitInput.value.trim();
-  if (!v) return
+  const v = newUnitInput.value.trim(); if (!v) return
   try {
     managedUnitOptions.value = await (await fetch(`${API_BASE.value}/units/add`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(v)
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v)
     })).json()
     newUnitInput.value = ''
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 const removeUnitOption = async (idx) => {
   const unit = managedUnitOptions.value[idx]
   try {
     managedUnitOptions.value = await (await fetch(`${API_BASE.value}/units/remove`, {
-      method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(unit)
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(unit)
     })).json()
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 // ── 放置位置 ──────────────────────────────────────────────────────
@@ -965,24 +909,16 @@ const customLocationOptions = ref([])
 const lastSelectedLocation = ref('')
 
 const loadCustomLocations = () => {
-  try {
-    customLocationOptions.value = JSON.parse(localStorage.getItem(LS_KEY) || '[]')
-  } catch {
-    customLocationOptions.value = []
-  }
+  try { customLocationOptions.value = JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { customLocationOptions.value = [] }
 }
-const saveCustomLocations = () => {
-  localStorage.setItem(LS_KEY, JSON.stringify(customLocationOptions.value))
-}
+const saveCustomLocations = () => { localStorage.setItem(LS_KEY, JSON.stringify(customLocationOptions.value)) }
 const assetLocationOptions = computed(() => [...new Set(assets.value.map(a => a.location).filter(Boolean))])
 const managedLocationOptions = computed(() => [...new Set([...assetLocationOptions.value, ...customLocationOptions.value])].sort())
 
 const addLocationOption = () => {
   const v = newLocationInput.value.trim()
   if (!v || managedLocationOptions.value.includes(v)) return
-  customLocationOptions.value.push(v);
-  saveCustomLocations();
-  newLocationInput.value = ''
+  customLocationOptions.value.push(v); saveCustomLocations(); newLocationInput.value = ''
 }
 const removeLocationOption = (option) => {
   if (assetLocationOptions.value.includes(option)) return
@@ -993,31 +929,21 @@ const removeLocationOption = (option) => {
 // ── 資料 CRUD ─────────────────────────────────────────────────────
 const fetchAssets = async () => {
   loading.value = true
-  try {
-    assets.value = await (await fetch(`${API_BASE.value}/list`)).json()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
+  try { assets.value = await (await fetch(`${API_BASE.value}/list`)).json() } catch (e) { console.error(e) } finally { loading.value = false }
 }
 
 const saveAsset = async () => {
-  if (!modal.data.name?.trim()) {
-    showToast('請填寫財產名稱');
-    return
-  }
-  const data = {...modal.data}
+  if (!modal.data.name?.trim()) { showToast('請填寫財產名稱'); return }
+  const data = { ...modal.data }
   try {
     if (modal.isNew) {
       const saved = await (await fetch(`${API_BASE.value}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
       })).json()
-      modal.data.id = saved.id;
-      assets.value.push(saved)
+      modal.data.id = saved.id; assets.value.push(saved)
     } else {
       await fetch(`${API_BASE.value}/update/${data.id}`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
       })
       const idx = assets.value.findIndex(a => a.id === data.id)
       if (idx >= 0) assets.value[idx] = data
@@ -1026,31 +952,22 @@ const saveAsset = async () => {
     if (data.unit) lastSelectedUnit.value = data.unit
     if (data.location) lastSelectedLocation.value = data.location
     showToast(modal.isNew ? '新增成功' : '儲存成功')
-  } catch (e) {
-    console.error(e);
-    showToast('儲存失敗')
-  }
+  } catch (e) { console.error(e); showToast('儲存失敗') }
 }
 
 const confirmDelete = async (asset) => {
   if (!confirm(`確定刪除「${asset.name}」？`)) return
   try {
-    await fetch(`${API_BASE.value}/remove/${asset.id}`, {method: 'DELETE'})
+    await fetch(`${API_BASE.value}/remove/${asset.id}`, { method: 'DELETE' })
     assets.value = assets.value.filter(a => a.id !== asset.id)
     showToast('已刪除')
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 const openModal = (asset) => {
   modal.isNew = !asset
   modal.simple = true
-  modal.data = asset ? {...asset} : {
-    ...emptyAsset(),
-    unit: lastSelectedUnit.value,
-    location: lastSelectedLocation.value
-  }
+  modal.data = asset ? { ...asset } : { ...emptyAsset(), unit: lastSelectedUnit.value, location: lastSelectedLocation.value }
   modal.show = true
 }
 
@@ -1077,102 +994,66 @@ const exportExcel = async () => {
     const aoa = [
       ['財產補登資料填寫表1150326版', ...Array(COLS.length - 1).fill(null)],
       COLS.map(c => c[0]), COLS.map(c => c[2] || null),
-      ...items.map(asset => COLS.map(([, field]) => {
-        const v = asset[field];
-        return (v === null || v === undefined || v === '' || v === 0) ? null : v
-      }))
+      ...items.map(asset => COLS.map(([, field]) => { const v = asset[field]; return (v === null || v === undefined || v === '' || v === 0) ? null : v }))
     ]
     const ws = XLSX.utils.aoa_to_sheet(aoa)
-    ws['!cols'] = COLS.map(c => ({wch: c[3]}))
-    ws['!rows'] = [{hpt: 39.75}, {hpt: 31.5}, {}, {hpt: 25.5}]
-    ws['!merges'] = [0, 1, 2, 6, 8, 10, 12, 13, 15].map(c => ({s: {r: 1, c}, e: {r: 2, c}}))
-    ws['!freeze'] = {xSplit: 0, ySplit: 3}
+    ws['!cols'] = COLS.map(c => ({ wch: c[3] }))
+    ws['!rows'] = [{ hpt: 39.75 }, { hpt: 31.5 }, {}, { hpt: 25.5 }]
+    ws['!merges'] = [0, 1, 2, 6, 8, 10, 12, 13, 15].map(c => ({ s: { r: 1, c }, e: { r: 2, c } }))
+    ws['!freeze'] = { xSplit: 0, ySplit: 3 }
     XLSX.utils.book_append_sheet(wb, ws, sheetName.replace(/[\\/:*?[\]]/g, '_').slice(0, 31))
   }
-  const buf = XLSX.write(wb, {bookType: 'xlsx', type: 'array'})
-  const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = url;
-  a.download = `財產登記_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  a.click()
+  a.href = url; a.download = `財產登記_${new Date().toISOString().slice(0, 10)}.xlsx`; a.click()
   URL.revokeObjectURL(url)
   showToast('Excel 已匯出')
 }
 
 // ── 匯入 Excel ────────────────────────────────────────────────────
 const importInputRef = ref(null)
-const importState = reactive({show: false, done: false, total: 0, current: 0, success: 0, fail: 0})
+const importState = reactive({ show: false, done: false, total: 0, current: 0, success: 0, fail: 0 })
 
-const triggerImport = () => {
-  if (importInputRef.value) importInputRef.value.value = '';
-  importInputRef.value?.click()
-}
+const triggerImport = () => { if (importInputRef.value) importInputRef.value.value = ''; importInputRef.value?.click() }
 
 const handleImport = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return
+  const file = e.target.files[0]; if (!file) return
   const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs')
-  const wb = XLSX.read(await file.arrayBuffer(), {type: 'array'})
+  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
   const COL_MAP = {
-    '財產名稱/型號': 'name',
-    '規格': 'spec',
-    '廠牌': 'brand',
-    '保管人員': 'keeper',
-    '機構': 'org',
-    '保管單位': 'unit',
-    '用途': 'usage',
-    '放置位置': 'location',
-    '撥發數量': 'quantity',
-    '撥發單位': 'issuer',
-    '備註': 'note',
-    '購置日期': 'purchaseDate',
-    '單價': 'price',
-    '使用年限': 'lifespan',
-    '計畫名稱': 'planName',
-    '車號': 'plateNo'
+    '財產名稱/型號': 'name', '規格': 'spec', '廠牌': 'brand', '保管人員': 'keeper', '機構': 'org',
+    '保管單位': 'unit', '用途': 'usage', '放置位置': 'location', '撥發數量': 'quantity', '撥發單位': 'issuer',
+    '備註': 'note', '購置日期': 'purchaseDate', '單價': 'price', '使用年限': 'lifespan', '計畫名稱': 'planName', '車號': 'plateNo'
   }
   const rows = []
   for (const sheetName of wb.SheetNames) {
     const ws = wb.Sheets[sheetName]
-    const raw = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''})
-    const hi = raw.findIndex(r => r.includes('財產名稱/型號'));
-    if (hi < 0) continue
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+    const hi = raw.findIndex(r => r.includes('財產名稱/型號')); if (hi < 0) continue
     const headers = raw[hi]
     for (let i = hi + 1; i < raw.length; i++) {
-      const row = {};
-      headers.forEach((h, idx) => {
-        if (h) row[h] = raw[i][idx] ?? ''
-      })
+      const row = {}; headers.forEach((h, idx) => { if (h) row[h] = raw[i][idx] ?? '' })
       const name = String(row['財產名稱/型號'] ?? '').trim()
       if (!name || name.includes('填寫') || name.includes('參閱') || name === '財產名稱/型號') continue
-      const asset = {...emptyAsset()}
+      const asset = { ...emptyAsset() }
       for (const [xlsCol, apiField] of Object.entries(COL_MAP)) {
-        const val = row[xlsCol];
-        if (val === undefined || val === '') continue
-        if (['quantity', 'price', 'lifespan'].includes(apiField)) {
-          const n = parseFloat(val);
-          asset[apiField] = isNaN(n) ? null : n
-        } else asset[apiField] = String(val).trim()
+        const val = row[xlsCol]; if (val === undefined || val === '') continue
+        if (['quantity', 'price', 'lifespan'].includes(apiField)) { const n = parseFloat(val); asset[apiField] = isNaN(n) ? null : n } else asset[apiField] = String(val).trim()
       }
       rows.push(asset)
     }
   }
-  if (rows.length === 0) {
-    showToast('找不到可匯入的資料');
-    return
-  }
-  Object.assign(importState, {show: true, done: false, total: rows.length, current: 0, success: 0, fail: 0})
+  if (rows.length === 0) { showToast('找不到可匯入的資料'); return }
+  Object.assign(importState, { show: true, done: false, total: rows.length, current: 0, success: 0, fail: 0 })
   for (const asset of rows) {
     try {
       const saved = await (await fetch(`${API_BASE.value}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(asset)
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(asset)
       })).json()
-      assets.value.push(saved);
-      importState.success++
-    } catch {
-      importState.fail++
-    }
+      assets.value.push(saved); importState.success++
+    } catch { importState.fail++ }
     importState.current++
   }
   importState.done = true

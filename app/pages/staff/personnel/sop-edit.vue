@@ -31,8 +31,8 @@ const SopCard = {
           open.value = !open.value
         }
       }, [
-        h('span', {class: 'flex-1 font-semibold text-base-c text-sm'}, props.title),
-        props.badge ? h('span', {class: `text-xs font-medium px-2 py-0.5 rounded-full ${bc[props.badgeType] || bc.gray}`}, props.badge) : null,
+        h('span', {class: 'flex-1 font-semibold text-base-c text-base'}, props.title),
+        props.badge ? h('span', {class: `text-sm font-medium px-2 py-0.5 rounded-full ${bc[props.badgeType] || bc.gray}`}, props.badge) : null,
         h('svg', {
           class: `w-4 h-4 text-hint-c transition-transform duration-200 ${open.value ? 'rotate-180' : ''}`,
           fill: 'none',
@@ -581,12 +581,12 @@ function showToast(msg) {
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <div
-            class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-base font-bold flex-shrink-0">
             📋
           </div>
           <div>
-            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">SOP 手冊</h1>
-            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">聖母健康農莊</p>
+            <h1 class="font-bold text-base-c leading-none text-base sm:text-lg">SOP 手冊</h1>
+            <p class="text-sm text-hint-c mt-0.5 hidden sm:block">聖母健康農莊</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -594,7 +594,7 @@ function showToast(msg) {
           <button v-if="editMode"
                   @click="saveSop"
                   :disabled="saving"
-                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border bg-green-700 border-green-700 text-white hover:bg-green-800 transition-all disabled:opacity-50">
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border bg-green-700 border-green-700 text-white hover:bg-green-800 transition-all disabled:opacity-50">
             <svg v-if="!saving" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
@@ -607,7 +607,7 @@ function showToast(msg) {
           </button>
           <!-- Edit Mode toggle -->
           <button @click="editMode = !editMode"
-                  :class="['flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all',
+                  :class="['flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all',
  editMode
  ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
  : 'bg-surface2 border-light-c text-hint-c']">
@@ -627,10 +627,10 @@ function showToast(msg) {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
       </svg>
-      <span class="text-sm">載入中…</span>
+      <span class="text-base">載入中…</span>
     </div>
 
-    <div v-else class="max-w-[1400px] mx-auto px-3 sm:px-4 py-4 sm:py-6 flex gap-4 items-start">
+    <div v-else class="w-full px-3 sm:px-4 py-4 sm:py-6 flex gap-4 items-start">
 
       <!-- ── Sidebar ── -->
       <nav class="w-48 flex-shrink-0 hidden md:block sticky top-20">
@@ -642,22 +642,22 @@ function showToast(msg) {
               <template v-if="editMode && editingLabelId === group.id">
                 <input :id="'label-input-'+group.id" v-model="editingLabelVal"
                        @blur="commitLabel(group)" @keyup.enter="commitLabel(group)"
-                       class="flex-1 text-[10px] font-semibold uppercase tracking-wider bg-surface2 rounded px-1 py-0.5 outline-none text-muted-c w-full"/>
+                       class="flex-1 text-sm font-semibold uppercase tracking-wider bg-surface2 rounded px-1 py-0.5 outline-none text-muted-c w-full"/>
               </template>
               <template v-else>
-                <span :class="['flex-1 text-[10px] font-semibold uppercase tracking-wider text-hint-c truncate',
+                <span :class="['flex-1 text-sm font-semibold uppercase tracking-wider text-hint-c truncate',
  editMode ? 'cursor-pointer hover-text-muted' : '']"
                       @click="editMode && startEditLabel(group.id, group.label)">{{ group.label }}</span>
               </template>
               <template v-if="editMode">
                 <button @click="moveGroup(gIdx, -1)"
-                        class="text-hint-c hover:text-hint-c text-xs px-0.5" title="上移">↑
+                        class="text-hint-c hover:text-hint-c text-sm px-0.5" title="上移">↑
                 </button>
                 <button @click="moveGroup(gIdx, 1)"
-                        class="text-hint-c hover:text-hint-c text-xs px-0.5" title="下移">↓
+                        class="text-hint-c hover:text-hint-c text-sm px-0.5" title="下移">↓
                 </button>
                 <button @click="deleteGroup(gIdx)"
-                        class="text-red-300 dark:text-red-700 hover:text-red-500 text-xs px-0.5" title="刪除分類">×
+                        class="text-red-300 dark:text-red-700 hover:text-red-500 text-sm px-0.5" title="刪除分類">×
                 </button>
               </template>
             </div>
@@ -665,7 +665,7 @@ function showToast(msg) {
             <!-- Pages -->
             <div v-for="(page, pIdx) in group.pages" :key="page.id"
                  class="flex items-center group/page">
-              <a :class="['flex-1 flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors border-l-2 min-w-0',
+              <a :class="['flex-1 flex items-center gap-2 px-3 py-2 text-base cursor-pointer transition-colors border-l-2 min-w-0',
  activePageId === page.id
  ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-medium'
  : 'border-transparent text-muted-c hover-surface2']"
@@ -677,24 +677,24 @@ function showToast(msg) {
                 <template v-if="editMode && editingLabelId === page.id">
                   <input :id="'label-input-'+page.id" v-model="editingLabelVal"
                          @blur="commitLabel(page)" @keyup.enter="commitLabel(page)"
-                         class="flex-1 min-w-0 text-xs bg-surface2 rounded px-1 py-0.5 outline-none"/>
+                         class="flex-1 min-w-0 text-sm bg-surface2 rounded px-1 py-0.5 outline-none"/>
                 </template>
                 <template v-else>
-                  <span class="truncate text-xs"
+                  <span class="truncate text-sm"
                         @dblclick="editMode && startEditLabel(page.id, page.label)">{{ page.label }}</span>
                 </template>
               </a>
               <template v-if="editMode">
                 <div class="flex flex-col pr-1 opacity-0 group-hover/page:opacity-100 transition-opacity">
                   <button @click="movePage(group, pIdx, -1)"
-                          class="text-hint-c hover:text-hint-c text-[10px] leading-none">↑
+                          class="text-hint-c hover:text-hint-c text-sm leading-none">↑
                   </button>
                   <button @click="movePage(group, pIdx, 1)"
-                          class="text-hint-c hover:text-hint-c text-[10px] leading-none">↓
+                          class="text-hint-c hover:text-hint-c text-sm leading-none">↓
                   </button>
                 </div>
                 <button @click="deletePage(group, pIdx)"
-                        class="pr-2 text-red-300 hover:text-red-500 text-xs opacity-0 group-hover/page:opacity-100 transition-opacity">
+                        class="pr-2 text-red-300 hover:text-red-500 text-sm opacity-0 group-hover/page:opacity-100 transition-opacity">
                   ×
                 </button>
               </template>
@@ -703,7 +703,7 @@ function showToast(msg) {
             <!-- Add page -->
             <div v-if="editMode" class="px-3 pb-2 pt-1">
               <button @click="addPage(group)"
-                      class="w-full text-[11px] text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
+                      class="w-full text-sm text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
                 ＋ 新增頁面
               </button>
             </div>
@@ -712,7 +712,7 @@ function showToast(msg) {
           <!-- Add group -->
           <div v-if="editMode" class="px-3 py-2 border-t border-light-c">
             <button @click="addGroup"
-                    class="w-full text-[11px] text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
+                    class="w-full text-sm text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
               ＋ 新增分類
             </button>
           </div>
@@ -722,7 +722,7 @@ function showToast(msg) {
       <!-- Mobile nav -->
       <div class="md:hidden w-full mb-2">
         <select v-model="activePageId"
-                class="w-full text-sm border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none">
+                class="w-full text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none">
           <optgroup v-for="g in sopData.groups" :key="g.id" :label="g.label">
             <option v-for="p in g.pages" :key="p.id" :value="p.id">{{ p.label }}</option>
           </optgroup>
@@ -736,7 +736,7 @@ function showToast(msg) {
           <!-- Page header -->
           <div class="mb-4 flex items-start justify-between gap-2">
             <div>
-              <h2 class="text-base font-bold text-base-c">{{ activePage.label }}</h2>
+              <h2 class="text-lg font-bold text-base-c">{{ activePage.label }}</h2>
             </div>
           </div>
 
@@ -747,8 +747,8 @@ function showToast(msg) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                     d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-            <p class="text-sm">這個頁面還沒有內容</p>
-            <p v-if="!editMode" class="text-xs mt-1">開啟右上角「編輯模式」來新增區塊</p>
+            <p class="text-base">這個頁面還沒有內容</p>
+            <p v-if="!editMode" class="text-sm mt-1">開啟右上角「編輯模式」來新增區塊</p>
           </div>
 
           <!-- Blocks -->
@@ -757,14 +757,14 @@ function showToast(msg) {
             <!-- Block edit controls -->
             <div v-if="editMode"
                  class="absolute -top-2 -right-2 z-10 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity bg-surface rounded-xl border border-light-c shadow-sm px-1.5 py-1">
-              <button @click="moveBlock(activePage, bIdx, -1)" class="text-hint-c hover:text-muted-c text-xs px-1"
+              <button @click="moveBlock(activePage, bIdx, -1)" class="text-hint-c hover:text-muted-c text-sm px-1"
                       title="上移">↑
               </button>
-              <button @click="moveBlock(activePage, bIdx, 1)" class="text-hint-c hover:text-muted-c text-xs px-1"
+              <button @click="moveBlock(activePage, bIdx, 1)" class="text-hint-c hover:text-muted-c text-sm px-1"
                       title="下移">↓
               </button>
               <span class="text-base-c dark:text-muted-c">|</span>
-              <button @click="deleteBlock(activePage, bIdx)" class="text-red-400 hover:text-red-600 text-xs px-1"
+              <button @click="deleteBlock(activePage, bIdx)" class="text-red-400 hover:text-red-600 text-sm px-1"
                       title="刪除">🗑
               </button>
             </div>
@@ -774,11 +774,11 @@ function showToast(msg) {
               <SopCard :title="block.title" :badge="block.badge" :badge-type="block.badgeType">
                 <div v-if="editMode" class="flex gap-2 mb-3 flex-wrap">
                   <input v-model="block.title" placeholder="標題"
-                         class="flex-1 min-w-0 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="flex-1 min-w-0 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <input v-model="block.badge" placeholder="標籤"
-                         class="w-24 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="w-24 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <select v-model="block.badgeType"
-                          class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
+                          class="px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
                     <option value="green">綠</option>
                     <option value="orange">橙</option>
                     <option value="gray">灰</option>
@@ -798,32 +798,32 @@ function showToast(msg) {
                     </div>
                     <template v-if="editMode">
                       <input v-model="item.text"
-                             class="flex-1 min-w-0 px-2 py-0.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                             class="flex-1 min-w-0 px-2 py-0.5 text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                       <div class="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0">
                         <button @click="moveCheckItem(block, iIdx, -1)"
-                                class="text-hint-c hover:text-hint-c text-xs px-0.5">↑
+                                class="text-hint-c hover:text-hint-c text-sm px-0.5">↑
                         </button>
                         <button @click="moveCheckItem(block, iIdx, 1)"
-                                class="text-hint-c hover:text-hint-c text-xs px-0.5">↓
+                                class="text-hint-c hover:text-hint-c text-sm px-0.5">↓
                         </button>
                         <button @click="deleteCheckItem(block, iIdx)"
-                                class="text-red-300 hover:text-red-500 text-xs px-0.5">×
+                                class="text-red-300 hover:text-red-500 text-sm px-0.5">×
                         </button>
                       </div>
                     </template>
                     <span v-else
-                          :class="['flex-1 text-sm leading-relaxed', item.done ? 'line-through text-hint-c' : 'text-base-c']">{{
+                          :class="['flex-1 text-base leading-relaxed', item.done ? 'line-through text-hint-c' : 'text-base-c']">{{
                         item.text
                       }}</span>
                   </li>
                 </ul>
                 <div class="flex items-center justify-between mt-2">
                   <button v-if="editMode" @click="addCheckItem(block)"
-                          class="text-xs text-green-600 dark:text-green-400 hover:underline">＋ 新增項目
+                          class="text-sm text-green-600 dark:text-green-400 hover:underline">＋ 新增項目
                   </button>
                   <div v-else/>
                   <button @click="block.items.forEach(i => i.done = false)"
-                          class="text-xs text-hint-c hover-text-muted px-2 py-1 rounded-lg hover-surface2 transition-colors">
+                          class="text-sm text-hint-c hover-text-muted px-2 py-1 rounded-lg hover-surface2 transition-colors">
                     ↺ 重置
                   </button>
                 </div>
@@ -835,11 +835,11 @@ function showToast(msg) {
               <SopCard :title="block.title" :badge="block.badge" :badge-type="block.badgeType">
                 <div v-if="editMode" class="flex gap-2 mb-3 flex-wrap">
                   <input v-model="block.title" placeholder="標題"
-                         class="flex-1 min-w-0 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="flex-1 min-w-0 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <input v-model="block.badge" placeholder="標籤"
-                         class="w-24 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="w-24 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <select v-model="block.badgeType"
-                          class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
+                          class="px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
                     <option value="green">綠</option>
                     <option value="orange">橙</option>
                     <option value="gray">灰</option>
@@ -848,20 +848,20 @@ function showToast(msg) {
                 <ol class="space-y-3">
                   <li v-for="(item, iIdx) in block.items" :key="item.id" class="flex gap-3 group/step">
                     <span
-                      class="w-6 h-6 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{
+                      class="w-6 h-6 rounded-full bg-green-700 text-white text-sm font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{
                         iIdx + 1
                       }}</span>
                     <div class="flex-1 min-w-0">
                       <template v-if="editMode">
                         <input v-model="item.title" placeholder="步驟標題"
-                               class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-1"/>
+                               class="w-full px-2 py-1 text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-1"/>
                         <textarea v-model="item.desc" placeholder="步驟說明（選填）" rows="2"
-                                  class="w-full px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none"/>
+                                  class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none"/>
                       </template>
                       <template v-else>
-                        <p class="text-sm font-medium text-base-c">{{ item.title }}</p>
+                        <p class="text-base font-medium text-base-c">{{ item.title }}</p>
                         <p v-if="item.desc"
-                           class="text-xs text-hint-c mt-0.5 whitespace-pre-line">{{
+                           class="text-sm text-hint-c mt-0.5 whitespace-pre-line">{{
                             item.desc
                           }}</p>
                       </template>
@@ -869,19 +869,19 @@ function showToast(msg) {
                     <div v-if="editMode"
                          class="flex gap-0.5 opacity-0 group-hover/step:opacity-100 transition-opacity flex-shrink-0 pt-1">
                       <button @click="moveStepItem(block, iIdx, -1)"
-                              class="text-hint-c hover:text-hint-c text-xs px-0.5">↑
+                              class="text-hint-c hover:text-hint-c text-sm px-0.5">↑
                       </button>
                       <button @click="moveStepItem(block, iIdx, 1)"
-                              class="text-hint-c hover:text-hint-c text-xs px-0.5">↓
+                              class="text-hint-c hover:text-hint-c text-sm px-0.5">↓
                       </button>
                       <button @click="deleteStepItem(block, iIdx)"
-                              class="text-red-300 hover:text-red-500 text-xs px-0.5">×
+                              class="text-red-300 hover:text-red-500 text-sm px-0.5">×
                       </button>
                     </div>
                   </li>
                 </ol>
                 <button v-if="editMode" @click="addStepItem(block)"
-                        class="mt-3 text-xs text-green-600 dark:text-green-400 hover:underline">＋ 新增步驟
+                        class="mt-3 text-sm text-green-600 dark:text-green-400 hover:underline">＋ 新增步驟
                 </button>
               </SopCard>
             </template>
@@ -895,24 +895,24 @@ function showToast(msg) {
                 <template v-if="editMode">
                   <div class="flex gap-2 mb-2 flex-wrap">
                     <input v-model="block.title" placeholder="標題"
-                           class="flex-1 min-w-0 px-2 py-1 text-xs border border-light-c rounded-lg bg-surface text-base-c outline-none font-semibold"/>
+                           class="flex-1 min-w-0 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-base-c outline-none font-semibold"/>
                     <select v-model="block.variant"
-                            class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface text-base-c outline-none">
+                            class="px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-base-c outline-none">
                       <option value="info">藍色</option>
                       <option value="warn">橙色</option>
                       <option value="default">灰色</option>
                     </select>
                   </div>
-                  <textarea v-model="block.content" placeholder="內容（換行用 Enter）" rows="3"
-                            class="w-full px-2 py-1 text-xs border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-none"/>
+                  <textarea v-model="block.content" placeholder="內容（換行用 Enter）" rows="8"
+                            class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-y"/>
                 </template>
                 <template v-else>
-                  <p :class="['text-sm font-semibold mb-1',
+                  <p :class="['text-base font-semibold mb-1',
  block.variant==='warn' ? 'text-orange-700 dark:text-orange-300' :
  block.variant==='info' ? 'text-blue-700 dark:text-blue-300' : 'text-base-c']">
                     {{ block.title }}
                   </p>
-                  <p :class="['text-xs leading-relaxed whitespace-pre-line',
+                  <p :class="['text-sm leading-relaxed whitespace-pre-line',
  block.variant==='warn' ? 'text-orange-600 dark:text-orange-400' :
  block.variant==='info' ? 'text-blue-600 dark:text-blue-400' : 'text-hint-c']">
                     {{ block.content }}
@@ -928,14 +928,14 @@ function showToast(msg) {
                 <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c">
                   <template v-if="editMode">
                     <input v-model="block.title" placeholder="標題"
-                           class="flex-1 px-2 py-1 text-sm font-semibold border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                           class="flex-1 px-2 py-1 text-base font-semibold border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   </template>
-                  <span v-else class="flex-1 font-semibold text-base-c text-sm">{{
+                  <span v-else class="flex-1 font-semibold text-base-c text-base">{{
                       block.title || '圖片'
                     }}</span>
                   <button v-if="editMode"
                           @click="openImgLib(block)"
-                          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 transition-colors">
+                          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -951,7 +951,7 @@ function showToast(msg) {
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
-                    <p class="text-xs">{{ editMode ? '點擊上方「插入圖片」從資源庫選取' : '尚無圖片' }}</p>
+                    <p class="text-sm">{{ editMode ? '點擊上方「插入圖片」從資源庫選取' : '尚無圖片' }}</p>
                   </div>
                   <!-- Grid -->
                   <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -967,24 +967,24 @@ function showToast(msg) {
                       <div class="px-2 py-1.5">
                         <template v-if="editMode">
                           <input v-model="img.caption" placeholder="說明文字（選填）"
-                                 class="w-full text-[11px] bg-transparent outline-none text-hint-c"/>
+                                 class="w-full text-sm bg-transparent outline-none text-hint-c"/>
                         </template>
-                        <p v-else-if="img.caption" class="text-[11px] text-hint-c truncate">
+                        <p v-else-if="img.caption" class="text-sm text-hint-c truncate">
                           {{ img.caption }}</p>
                       </div>
                       <!-- Edit controls -->
                       <div v-if="editMode"
                            class="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
                         <button @click="moveImg(block, iIdx, -1)"
-                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-xs hover:bg-black/80">
+                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-sm hover:bg-black/80">
                           ←
                         </button>
                         <button @click="moveImg(block, iIdx, 1)"
-                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-xs hover:bg-black/80">
+                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-sm hover:bg-black/80">
                           →
                         </button>
                         <button @click="removeImg(block, iIdx)"
-                                class="w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-xs hover:bg-red-600">
+                                class="w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-600">
                           ×
                         </button>
                       </div>
@@ -999,21 +999,21 @@ function showToast(msg) {
               <div
                 class="bg-surface rounded-2xl border border-light-c shadow-sm mb-3 overflow-hidden">
                 <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c">
-                  <span class="flex-1 font-semibold text-base-c text-sm">{{ block.title }}</span>
+                  <span class="flex-1 font-semibold text-base-c text-base">{{ block.title }}</span>
                   <template v-if="editMode">
                     <input v-model="block.title"
-                           class="text-xs px-2 py-1 border border-light-c rounded-lg bg-surface2 text-base-c outline-none w-32"
+                           class="text-sm px-2 py-1 border border-light-c rounded-lg bg-surface2 text-base-c outline-none w-32"
                            placeholder="流程圖名稱"/>
                   </template>
                   <!-- tab pills -->
                   <div class="flex items-center gap-0.5 bg-surface2 rounded-xl p-0.5">
                     <button @click="getFc(block).tab='view'"
-                            :class="['px-3 py-1 text-xs font-medium rounded-lg transition-colors',
+                            :class="['px-3 py-1 text-sm font-medium rounded-lg transition-colors',
  getFc(block).tab==='view' ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c hover:text-muted-c']">
                       📋 檢視
                     </button>
                     <button @click="getFc(block).tab='edit'"
-                            :class="['px-3 py-1 text-xs font-medium rounded-lg transition-colors',
+                            :class="['px-3 py-1 text-sm font-medium rounded-lg transition-colors',
  getFc(block).tab==='edit' ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c hover:text-muted-c']">
                       ✏️ 編輯
                     </button>
@@ -1035,7 +1035,7 @@ function showToast(msg) {
                         <path :d="edgePoints(block,e)" fill="none" stroke="#9C9A92" stroke-width="0.8" opacity="0.5"
                               marker-end="url(#va)"/>
                         <text v-if="e.label" :x="edgeMid(block,e).x" :y="edgeMid(block,e).y-6" text-anchor="middle"
-                              font-size="11" fill="#9C9A92">{{ e.label }}
+                              font-size="15" fill="#9C9A92">{{ e.label }}
                         </text>
                       </g>
                       <g v-for="n in block.nodes" :key="n.id">
@@ -1043,29 +1043,29 @@ function showToast(msg) {
                           <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="pal(n.palette).fill"
                                 :stroke="pal(n.palette).stroke" stroke-width="0.5"/>
                           <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-8:n.y+n.h/2" text-anchor="middle"
-                                dominant-baseline="central" font-size="14" font-weight="500"
+                                dominant-baseline="central" font-size="16" font-weight="500"
                                 :fill="pal(n.palette).text">{{ n.label }}
                           </text>
                           <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+10" text-anchor="middle"
-                                dominant-baseline="central" font-size="11" :fill="pal(n.palette).stroke">{{ n.sub }}
+                                dominant-baseline="central" font-size="15" :fill="pal(n.palette).stroke">{{ n.sub }}
                           </text>
                         </template>
                         <template v-else-if="n.type==='diamond'">
                           <polygon :points="diamondPts(n)" fill="transparent" :stroke="pal(n.palette).text"
                                    stroke-width="1" opacity="0.85"/>
                           <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-7:n.y+n.h/2" text-anchor="middle"
-                                dominant-baseline="central" font-size="13" font-weight="500" fill="#FAF9F5">
+                                dominant-baseline="central" font-size="15" font-weight="500" fill="#FAF9F5">
                             {{ n.label }}
                           </text>
                           <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+9" text-anchor="middle"
-                                dominant-baseline="central" font-size="10" fill="#B4B2A9">{{ n.sub }}
+                                dominant-baseline="central" font-size="16" fill="#B4B2A9">{{ n.sub }}
                           </text>
                         </template>
                       </g>
                       <g v-for="(l,i) in LEGEND" :key="l.label" :transform="`translate(0,${fcLegendY(block)})`">
                         <rect :x="40+i*105" y="0" width="14" height="14" rx="3" :fill="pal(l.palette).fill"
                               :stroke="pal(l.palette).stroke" stroke-width="0.5"/>
-                        <text :x="60+i*105" y="11" font-size="12" fill="#C2C0B6">{{ l.label }}</text>
+                        <text :x="60+i*105" y="11" font-size="16" fill="#C2C0B6">{{ l.label }}</text>
                       </g>
                     </svg>
                   </div>
@@ -1074,23 +1074,23 @@ function showToast(msg) {
                   <div v-else>
                     <div class="flex flex-wrap gap-2 mb-3">
                       <button @click="fcAddNode(block)"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-light-c bg-surface text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+                              class="px-3 py-1.5 text-sm font-medium rounded-xl border border-light-c bg-surface text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
                         ＋ 新增節點
                       </button>
                       <button @click="fcDeleteSelected(block)"
                               :disabled="!getFc(block).selected && !getFc(block).selectedEdgeId"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-light-c bg-surface text-red-600 dark:text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40">
+                              class="px-3 py-1.5 text-sm font-medium rounded-xl border border-light-c bg-surface text-red-600 dark:text-red-400 hover:bg-red-50 transition-colors disabled:opacity-40">
                         🗑 刪除選取
                       </button>
                       <button
                         @click="getFc(block).addingEdge = getFc(block).addingEdge ? null : { fromId: getFc(block).selected }"
                         :disabled="!getFc(block).selected"
-                        :class="['px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors disabled:opacity-40',
+                        :class="['px-3 py-1.5 text-sm font-medium rounded-xl border transition-colors disabled:opacity-40',
  getFc(block).addingEdge ? 'bg-green-700 border-green-700 text-white' : 'border-light-c bg-surface text-muted-c']">
                         {{ getFc(block).addingEdge ? '點選目標節點…' : '↗ 連線' }}
                       </button>
                       <button @click="e => fcExport(block, e.currentTarget.closest('.fc-editor').querySelector('svg'))"
-                              class="px-3 py-1.5 text-xs font-medium rounded-xl border border-light-c bg-surface text-hint-c hover:bg-surface2 transition-colors ml-auto">
+                              class="px-3 py-1.5 text-sm font-medium rounded-xl border border-light-c bg-surface text-hint-c hover:bg-surface2 transition-colors ml-auto">
                         ⬇ 匯出
                       </button>
                     </div>
@@ -1116,7 +1116,7 @@ function showToast(msg) {
                                   :stroke-width="getFc(block).selectedEdgeId===e.id?1.5:0.8"
                                   opacity="0.9" marker-end="url(#ea)"/>
                             <text v-if="e.label" :x="edgeMid(block,e).x" :y="edgeMid(block,e).y-6"
-                                  text-anchor="middle" font-size="11"
+                                  text-anchor="middle" font-size="15"
                                   :fill="getFc(block).selectedEdgeId===e.id?'#93C5FD':'#9C9A92'">{{ e.label }}
                             </text>
                             <g v-if="getFc(block).selectedEdgeId===e.id">
@@ -1137,11 +1137,11 @@ function showToast(msg) {
                                     :stroke="getFc(block).selected===n.id?'#FFD700':pal(n.palette).stroke"
                                     :stroke-width="getFc(block).selected===n.id?2:0.5"/>
                               <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-8:n.y+n.h/2" text-anchor="middle"
-                                    dominant-baseline="central" font-size="14" font-weight="500"
+                                    dominant-baseline="central" font-size="16" font-weight="500"
                                     :fill="pal(n.palette).text" style="pointer-events:none">{{ n.label }}
                               </text>
                               <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+10" text-anchor="middle"
-                                    dominant-baseline="central" font-size="11" :fill="pal(n.palette).stroke"
+                                    dominant-baseline="central" font-size="15" :fill="pal(n.palette).stroke"
                                     style="pointer-events:none">{{ n.sub }}
                               </text>
                             </template>
@@ -1150,11 +1150,11 @@ function showToast(msg) {
                                        :stroke="getFc(block).selected===n.id?'#FFD700':pal(n.palette).text"
                                        :stroke-width="getFc(block).selected===n.id?2:1" opacity="0.9"/>
                               <text :x="n.x+n.w/2" :y="n.sub?n.y+n.h/2-7:n.y+n.h/2" text-anchor="middle"
-                                    dominant-baseline="central" font-size="13" font-weight="500" fill="#FAF9F5"
+                                    dominant-baseline="central" font-size="15" font-weight="500" fill="#FAF9F5"
                                     style="pointer-events:none">{{ n.label }}
                               </text>
                               <text v-if="n.sub" :x="n.x+n.w/2" :y="n.y+n.h/2+9" text-anchor="middle"
-                                    dominant-baseline="central" font-size="10" fill="#B4B2A9"
+                                    dominant-baseline="central" font-size="16" fill="#B4B2A9"
                                     style="pointer-events:none">{{ n.sub }}
                               </text>
                             </template>
@@ -1165,23 +1165,23 @@ function showToast(msg) {
                       <!-- Property panel -->
                       <div class="w-48 flex-shrink-0">
                         <div v-if="getFc(block).selected && block.nodes.find(n=>n.id===getFc(block).selected)"
-                             class="bg-surface rounded-2xl border border-light-c p-3 text-xs">
-                          <p class="text-[10px] font-semibold text-hint-c uppercase tracking-wide mb-2">節點屬性</p>
+                             class="bg-surface rounded-2xl border border-light-c p-3 text-sm">
+                          <p class="text-sm font-semibold text-hint-c uppercase tracking-wide mb-2">節點屬性</p>
                           <label class="block text-hint-c mb-1">文字</label>
                           <input v-model="block.nodes.find(n=>n.id===getFc(block).selected).label"
-                                 class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2"/>
+                                 class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2"/>
                           <label class="block text-hint-c mb-1">副標題</label>
                           <input v-model="block.nodes.find(n=>n.id===getFc(block).selected).sub" placeholder="（選填）"
-                                 class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2"/>
+                                 class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2"/>
                           <label class="block text-hint-c mb-1">形狀</label>
                           <select v-model="block.nodes.find(n=>n.id===getFc(block).selected).type"
-                                  class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2">
+                                  class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2">
                             <option value="rect">矩形</option>
                             <option value="diamond">菱形（判斷）</option>
                           </select>
                           <label class="block text-hint-c mb-1">顏色</label>
                           <select v-model="block.nodes.find(n=>n.id===getFc(block).selected).palette"
-                                  class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2">
+                                  class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-2">
                             <option value="customer">顧客（綠）</option>
                             <option value="order">訂單（紫）</option>
                             <option value="payment">付款（橙）</option>
@@ -1192,20 +1192,20 @@ function showToast(msg) {
                           <div class="grid grid-cols-2 gap-1.5">
                             <div><label class="block text-hint-c mb-1">寬</label>
                               <input type="number" v-model.number="block.nodes.find(n=>n.id===getFc(block).selected).w"
-                                     class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                                     class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                             </div>
                             <div><label class="block text-hint-c mb-1">高</label>
                               <input type="number" v-model.number="block.nodes.find(n=>n.id===getFc(block).selected).h"
-                                     class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                                     class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                             </div>
                           </div>
                         </div>
 
                         <div
                           v-else-if="getFc(block).selectedEdgeId && block.edges.find(e=>e.id===getFc(block).selectedEdgeId)"
-                          class="bg-surface rounded-2xl border border-blue-200 dark:border-blue-800 p-3 text-xs">
-                          <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide mb-2">連線屬性</p>
-                          <div class="text-[11px] text-hint-c mb-2">
+                          class="bg-surface rounded-2xl border border-blue-200 dark:border-blue-800 p-3 text-sm">
+                          <p class="text-sm font-semibold text-blue-400 uppercase tracking-wide mb-2">連線屬性</p>
+                          <div class="text-sm text-hint-c mb-2">
                             {{
                               (block.nodes.find(n => n.id === block.edges.find(e => e.id === getFc(block).selectedEdgeId)?.from) || {label: '?'}).label
                             }}
@@ -1217,19 +1217,19 @@ function showToast(msg) {
                           <label class="block text-hint-c mb-1">標籤</label>
                           <input v-model="block.edges.find(e=>e.id===getFc(block).selectedEdgeId).label"
                                  placeholder="是 / 否"
-                                 class="w-full px-2 py-1.5 text-xs border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-3"/>
+                                 class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-3"/>
                           <button @click="fcResetEdgeMid(block, getFc(block).selectedEdgeId)"
-                                  class="w-full px-2 py-1.5 text-[11px] border border-light-c rounded-lg bg-surface2 text-hint-c hover:bg-surface2 transition-colors mb-2">
+                                  class="w-full px-2 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-hint-c hover:bg-surface2 transition-colors mb-2">
                             ↺ 重置折點
                           </button>
                           <button @click="fcDeleteEdge(block, getFc(block).selectedEdgeId)"
-                                  class="w-full px-2 py-1.5 text-[11px] border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors">
+                                  class="w-full px-2 py-1.5 text-sm border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors">
                             🗑 刪除連線
                           </button>
                         </div>
 
                         <div v-else
-                             class="bg-surface2/50 rounded-2xl border border-dashed border-light-c p-4 text-center text-xs text-hint-c">
+                             class="bg-surface2/50 rounded-2xl border border-dashed border-light-c p-4 text-center text-sm text-hint-c">
                           點選節點或連線<br>查看屬性
                         </div>
                       </div>
@@ -1245,7 +1245,7 @@ function showToast(msg) {
           <div v-if="editMode" class="mt-2">
             <div v-if="!blockPickerOpen">
               <button @click="blockPickerOpen = true"
-                      class="w-full py-2.5 text-sm text-hint-c hover:text-green-600 dark:hover:text-green-400 border-2 border-dashed border-light-c rounded-2xl transition-colors flex items-center justify-center gap-2">
+                      class="w-full py-2.5 text-base text-hint-c hover:text-green-600 dark:hover:text-green-400 border-2 border-dashed border-light-c rounded-2xl transition-colors flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -1254,7 +1254,7 @@ function showToast(msg) {
             </div>
             <div v-else
                  class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
-              <p class="text-xs font-semibold text-hint-c mb-3">選擇區塊類型</p>
+              <p class="text-sm font-semibold text-hint-c mb-3">選擇區塊類型</p>
               <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <button v-for="bt in [
                   { type:'checklist', icon:'☑️', label:'Checklist', desc:'可打勾的清單' },
@@ -1266,12 +1266,12 @@ function showToast(msg) {
                         @click="addBlock(activePage, bt.type)"
                         class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-light-c hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all cursor-pointer text-center">
                   <span class="text-2xl">{{ bt.icon }}</span>
-                  <span class="text-xs font-semibold text-base-c">{{ bt.label }}</span>
-                  <span class="text-[10px] text-hint-c">{{ bt.desc }}</span>
+                  <span class="text-sm font-semibold text-base-c">{{ bt.label }}</span>
+                  <span class="text-sm text-hint-c">{{ bt.desc }}</span>
                 </button>
               </div>
               <button @click="blockPickerOpen = false"
-                      class="mt-3 text-xs text-hint-c hover:text-muted-c w-full text-center">取消
+                      class="mt-3 text-sm text-hint-c hover:text-muted-c w-full text-center">取消
               </button>
             </div>
           </div>
@@ -1280,7 +1280,7 @@ function showToast(msg) {
 
         <!-- No page selected -->
         <div v-else class="flex flex-col items-center justify-center py-24 text-hint-c">
-          <p class="text-sm">請從左側選擇頁面</p>
+          <p class="text-base">請從左側選擇頁面</p>
         </div>
       </div>
     </div>
@@ -1288,7 +1288,7 @@ function showToast(msg) {
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 right-6 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+           class="fixed bottom-6 right-6 bg-accent-solid text-white text-base px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
         <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
@@ -1310,9 +1310,9 @@ function showToast(msg) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            <span class="font-semibold text-base-c flex-1 text-sm">選取圖片</span>
+            <span class="font-semibold text-base-c flex-1 text-base">選取圖片</span>
             <!-- Upload button -->
-            <label :class="['flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer',
+            <label :class="['flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border transition-colors cursor-pointer',
  imgUploading
  ? 'border-light-c bg-surface2 text-hint-c cursor-not-allowed'
  : 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100']">
@@ -1330,7 +1330,7 @@ function showToast(msg) {
             </label>
             <!-- Search -->
             <input v-model="imgLibSearch" placeholder="搜尋…"
-                   class="w-36 px-3 py-1.5 text-xs border border-light-c rounded-xl bg-surface2 text-base-c outline-none"/>
+                   class="w-36 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"/>
             <button @click="imgLibOpen = false"
                     class="text-hint-c hover:text-muted-c text-xl leading-none ml-1 flex-shrink-0">
               ×
@@ -1344,7 +1344,7 @@ function showToast(msg) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
               </svg>
-              <span class="text-sm">載入中…</span>
+              <span class="text-base">載入中…</span>
             </div>
             <div v-else-if="imgLibFiltered.length === 0"
                  class="flex flex-col items-center justify-center py-16 text-hint-c">
@@ -1352,7 +1352,7 @@ function showToast(msg) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
-              <p class="text-sm">尚無圖片，點擊右上角上傳</p>
+              <p class="text-base">尚無圖片，點擊右上角上傳</p>
             </div>
             <div v-else class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
               <div v-for="img in imgLibFiltered" :key="img.url"
@@ -1364,12 +1364,12 @@ function showToast(msg) {
                        class="w-full h-full object-cover group-hover/imgsel:scale-105 transition-transform duration-200"/>
                   <div
                     class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 opacity-0 group-hover/imgsel:opacity-100 transition-opacity">
-                    <p class="text-[10px] text-white truncate">{{ img.displayName || img.originalName }}</p>
+                    <p class="text-sm text-white truncate">{{ img.displayName || img.originalName }}</p>
                   </div>
                 </button>
                 <!-- Delete button -->
                 <button @click.stop="deleteLibImg(img)"
-                        class="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-xs opacity-0 group-hover/imgsel:opacity-100 transition-opacity hover:bg-red-600 z-10">
+                        class="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-sm opacity-0 group-hover/imgsel:opacity-100 transition-opacity hover:bg-red-600 z-10">
                   ×
                 </button>
               </div>
@@ -1379,9 +1379,9 @@ function showToast(msg) {
           <!-- Modal footer -->
           <div
             class="px-4 py-2.5 border-t border-light-c flex-shrink-0 flex items-center justify-between">
-            <span class="text-xs text-hint-c">共 {{ imgLibFiltered.length }} 張圖片・點擊圖片即可插入</span>
+            <span class="text-sm text-hint-c">共 {{ imgLibFiltered.length }} 張圖片・點擊圖片即可插入</span>
             <button @click="imgLibOpen = false"
-                    class="px-3 py-1.5 text-xs rounded-xl border border-light-c text-hint-c hover-surface2 transition-colors">
+                    class="px-3 py-1.5 text-sm rounded-xl border border-light-c text-hint-c hover-surface2 transition-colors">
               關閉
             </button>
           </div>

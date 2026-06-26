@@ -1,103 +1,123 @@
 <template>
-  <div class="min-h-full bg-surface2 transition-colors">
+  <div class="min-h-full bg-surface2 dark:bg-[#15171c] transition-colors">
 
-    <!-- ── Header ── -->
-    <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">曆</div>
-          <div>
-            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">行事曆管理</h1>
-            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button v-if="perm.can('staff.calendar.edit')" @click="showTxtModal = true"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-light-c text-muted-c rounded-lg bg-surface hover:border-indigo-400 hover:text-indigo-600 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            <span class="hidden sm:inline">貼上 TXT</span>
-            <span class="sm:hidden">TXT</span>
-          </button>
-          <button v-if="perm.can('staff.calendar.edit')" @click="openAddOnDate(null)"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            新增
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- ── 月份導覽 ── -->
-    <div class="bg-surface border-b border-light-c px-4 py-3">
-      <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
-        <!-- 月份切換 -->
-        <div class="flex items-center gap-3">
+    <!-- ── 精簡列（永遠顯示）── -->
+    <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3 sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
           <button @click="prevMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
+                  class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <h2 class="text-base font-bold text-base-c min-w-[100px] text-center">
+          <h2 class="text-xl font-bold text-base-c min-w-[130px] text-center">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
           <button @click="nextMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
+                  class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
+            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
           </button>
           <button @click="goToday"
-                  class="px-3 py-1 text-xs border border-light-c text-hint-c rounded-lg hover-surface2 transition-colors">
+                  class="px-4 py-1.5 text-sm border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors">
             今天
           </button>
         </div>
 
-        <!-- 類型圖例 -->
-        <div class="hidden sm:flex items-center gap-3">
-          <div v-for="t in TYPES" :key="t" class="flex items-center gap-1.5">
-            <div :class="['w-2.5 h-2.5 rounded-sm', legendDotClass(t)]"></div>
-            <span class="text-xs text-hint-c">{{ t }}</span>
+        <button @click="panelExpanded = !panelExpanded"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors">
+          <span class="hidden sm:inline">{{ panelExpanded ? '收合' : '展開' }}</span>
+          <svg class="w-4 h-4 transition-transform" :class="{'rotate-180': panelExpanded}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── 可收合區塊：Header / 圖例 / 篩選列 ── -->
+    <Transition name="collapse">
+      <div v-if="panelExpanded" class="overflow-hidden">
+
+        <!-- ── Header ── -->
+        <header class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#2a2e37] px-6 py-4">
+          <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">曆</div>
+              <div>
+                <h1 class="font-bold text-base-c leading-none text-lg sm:text-xl">行事曆管理</h1>
+                <p class="text-sm text-hint-c mt-1 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button v-if="perm.can('staff.calendar.edit')" @click="openClearMonthModal"
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span class="hidden sm:inline">清空當月</span>
+              </button>
+              <button v-if="perm.can('staff.calendar.edit')" @click="showTxtModal = true"
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span class="hidden sm:inline">貼上 TXT</span>
+                <span class="sm:hidden">TXT</span>
+              </button>
+              <button v-if="perm.can('staff.calendar.edit')" @click="openAddOnDate(null)"
+                      class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                新增
+              </button>
+            </div>
           </div>
-          <span class="text-xs text-hint-c ml-1">{{ monthEventCount }} 筆</span>
+        </header>
+
+        <!-- ── 類型圖例 ── -->
+        <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3">
+          <div class="max-w-7xl mx-auto flex items-center justify-end gap-4">
+            <div v-for="t in TYPES" :key="t" class="flex items-center gap-2">
+              <div :class="['w-3 h-3 rounded-sm', legendDotClass(t)]"></div>
+              <span class="text-sm text-hint-c">{{ t }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-sm bg-blue-500"></div>
+              <span class="text-sm text-hint-c">Google</span>
+            </div>
+            <span class="text-sm text-hint-c ml-1">{{ monthEventCount }} 筆</span>
+          </div>
         </div>
+
+        <!-- ── 篩選列 ── -->
+        <div class="border-b border-light-c dark:border-[#22252c] bg-surface dark:bg-[#15171c] px-6 py-3.5">
+          <div class="max-w-7xl mx-auto filter-bar">
+
+            <!-- 類型 -->
+            <div class="filter-select-group">
+              <label class="filter-label">類型</label>
+              <select
+                class="filter-select"
+                :value="filterType"
+                @change="setFilterType($event.target.value)"
+              >
+                <option value="全部">全部 {{ monthEventCount }}</option>
+                <option v-for="t in TYPES" :key="t" :value="t">{{ t }} {{ typeCount[t] || 0 }}</option>
+                <option value="Google">Google {{ typeCount['Google'] || 0 }}</option>
+              </select>
+              <span v-if="googleLoading" class="filter-sync-hint">
+                <span class="filter-sync-dot"></span>Google 同步中
+              </span>
+            </div>
+
+            <!-- 地點 -->
+            <div v-if="availableLocations.length" class="filter-select-group">
+              <label class="filter-label">地點</label>
+              <select class="filter-select" v-model="filterLocation">
+                <option value="">全部</option>
+                <option v-for="loc in availableLocations" :key="loc" :value="loc">{{ loc }}</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+
       </div>
-    </div>
-
-    <!-- ── 篩選列 ── -->
-    <div class="border-b border-light-c bg-surface px-4 py-2.5 space-y-2">
-      <div class="max-w-5xl mx-auto space-y-2">
-
-        <!-- 類型 -->
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="text-xs text-hint-c mr-1 flex-shrink-0">類型</span>
-          <button
-            v-for="t in ['全部', ...TYPES, 'Google']" :key="t"
-            @click="setFilterType(t)"
-            :class="['filter-type-btn', t === '全部' ? 'all' : t === 'Google' ? 'google' : typeColorClass(t), filterType === t ? 'active' : '']"
-          >
-            {{ t }}
-            <span class="filter-count">
-              {{ t === '全部' ? monthEventCount : (typeCount[t] || 0) }}<span v-if="t === 'Google' && googleLoading" class="ml-1 inline-block w-2 h-2 border border-blue-400 border-t-transparent rounded-full animate-spin"></span>
-            </span>
-          </button>
-        </div>
-
-        <!-- 地點 -->
-        <div v-if="availableLocations.length" class="flex flex-wrap items-center gap-1.5">
-          <span class="text-xs text-hint-c mr-1 flex-shrink-0">地點</span>
-          <button
-            :class="['filter-loc-btn', filterLocation === '' ? 'active' : '']"
-            @click="filterLocation = ''"
-          >全部</button>
-          <button
-            v-for="loc in availableLocations" :key="loc"
-            :class="['filter-loc-btn', filterLocation === loc ? 'active' : '']"
-            @click="filterLocation = loc"
-          >{{ loc }}</button>
-        </div>
-
-      </div>
-    </div>
+    </Transition>
 
     <!-- ── 月曆主體 ── -->
-    <div class="max-w-5xl mx-auto px-3 sm:px-4 py-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
       <div v-if="loading" class="flex items-center justify-center py-24 text-hint-c gap-2">
         <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -106,10 +126,9 @@
 
       <template v-else>
         <!-- 星期標頭 + 日期格子 同一個 grid，確保欄寬完全對齊 -->
-        <div class="calendar-grid gap-1">
-          <div v-for="d in weekdays" :key="d"
-               :class="['text-center text-xs font-semibold py-2 tracking-wide',
- d === '日' ? 'text-red-400' : d === '六' ? 'text-blue-400' : 'text-hint-c']">
+        <div class="calendar-grid gap-1.5">
+          <div v-for="(d, wIdx) in weekdays" :key="d"
+               :class="['cal-weekday', {sun: wIdx === 0, sat: wIdx === 6}]">
             {{ d }}
           </div>
           <div v-for="(cell, idx) in calendarCells" :key="idx"
@@ -145,6 +164,9 @@
                   :key="ev.id"
                   :class="['cal-chip', chipClass(ev)]"
                   @click.stop="openEdit(ev)"
+                  @mouseenter="showTooltip(ev, $event)"
+                  @mousemove="moveTooltip($event)"
+                  @mouseleave="hideTooltip"
                 >
                   <span class="chip-time hidden sm:inline">{{ ev.time?.split('-')[0] }}</span>
                   <span class="chip-title">{{ ev.title }}</span>
@@ -152,7 +174,7 @@
                 <!-- 超出顯示 +N -->
                 <div
                   v-if="cell.events.length > 3"
-                  class="text-[10px] text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
+                  class="text-xs text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
                   @click.stop="openDayPanel(cell)"
                 >
                   +{{ cell.events.length - 3 }} 更多
@@ -163,7 +185,7 @@
         </div>
 
         <!-- ── 備注區 ── -->
-        <div class="mt-5 bg-amber-50 /60 border border-amber-200 dark:border-amber-900/50 rounded-2xl overflow-hidden">
+        <div class="mt-5 bg-amber-50 dark:bg-[#3a2a1a]/60 border border-amber-200 dark:border-amber-900/50 rounded-2xl overflow-hidden">
           <!-- 備注標題列 -->
           <div class="flex items-center justify-between px-4 py-3 border-b border-amber-100 dark:border-amber-900/40">
             <div class="flex items-center gap-2">
@@ -205,7 +227,7 @@
                   <textarea
                     v-model="noteEditValue"
                     rows="2"
-                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-surface text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400"
+                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-surface dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400"
                     @keydown.enter.ctrl="confirmEditNote(idx)"
                     @keydown.esc="cancelEditNote"
                     autofocus
@@ -216,7 +238,7 @@
                       確認
                     </button>
                     <button @click="cancelEditNote"
-                            class="px-2.5 py-1 text-xs border border-light-c text-hint-c rounded-lg hover:bg-surface2 transition-colors">
+                            class="px-2.5 py-1 text-xs border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 transition-colors">
                       取消
                     </button>
                   </div>
@@ -239,9 +261,9 @@
       <div v-if="dayPanel.show"
            class="fixed inset-0 z-40 flex justify-end"
            @click.self="dayPanel.show = false">
-        <div class="w-full sm:w-96 bg-surface h-full shadow-2xl overflow-y-auto flex flex-col">
+        <div class="w-full sm:w-96 bg-surface dark:bg-[#15171c] h-full shadow-2xl overflow-y-auto flex flex-col">
           <!-- 側板 Header -->
-          <div class="px-5 py-4 border-b border-light-c flex items-center justify-between sticky top-0 bg-surface z-10">
+          <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
             <div>
               <p class="font-bold text-base-c">{{ dayPanel.dateStr }}</p>
               <p class="text-xs text-hint-c mt-0.5">{{ dayPanel.events.length }} 個活動</p>
@@ -264,7 +286,7 @@
             <div
               v-for="ev in dayPanel.events"
               :key="ev.id"
-              class="group flex items-start gap-3 p-3 rounded-xl border border-light-c hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
+              class="group flex items-start gap-3 p-3 rounded-xl border border-light-c dark:border-[#2a2e37] hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
             >
               <!-- 類型色條 -->
               <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev.type)]"></div>
@@ -299,9 +321,9 @@
     <!-- ══ Modal: 新增 / 編輯 ══ -->
     <div v-if="formModal.show"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-light-c flex items-center justify-between sticky top-0 bg-surface z-10">
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-base-c">{{ formModal.isNew ? '新增活動' : '編輯活動' }}</h3>
           <button @click="formModal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -342,9 +364,9 @@
           <p v-if="formError" class="text-xs text-red-500">{{ formError }}</p>
         </div>
 
-        <div class="px-5 py-4 border-t border-light-c flex gap-2 justify-end sticky bottom-0 bg-surface">
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button @click="formModal.show = false"
-                  class="px-4 py-2 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             取消
           </button>
           <button @click="saveForm" :disabled="saving"
@@ -356,13 +378,55 @@
       </div>
     </div>
 
+    <!-- ══ Modal: 清空當月確認 ══ -->
+    <div v-if="clearMonthModal.show"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+         @click.self="closeClearMonthModal">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between">
+          <h3 class="font-bold text-red-500 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+            清空當月內容
+          </h3>
+          <button @click="closeClearMonthModal" class="text-hint-c hover:text-muted-c p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="px-5 py-4 space-y-3">
+          <p class="text-sm text-muted-c leading-relaxed">
+            即將刪除 <strong class="text-base-c">{{ currentYear }} 年 {{ currentMonth }} 月</strong> 的全部系統活動（{{ clearableEventCount }} 筆）與備注（{{ notes.length }} 條）。
+          </p>
+          <p class="text-xs text-hint-c">此操作無法復原。Google 日曆同步的活動不受影響，請另至 Google 日曆刪除。</p>
+          <div>
+            <label class="field-label">請輸入「{{ currentMonth }}」以確認刪除</label>
+            <input v-model="clearMonthConfirmText" type="text" class="field-input" :placeholder="String(currentMonth)" />
+          </div>
+          <p v-if="clearMonthError" class="text-xs text-red-500">{{ clearMonthError }}</p>
+        </div>
+
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end">
+          <button @click="closeClearMonthModal"
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+            取消
+          </button>
+          <button @click="confirmClearMonth" :disabled="clearingMonth || clearMonthConfirmText !== String(currentMonth)"
+                  class="px-4 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:bg-red-200 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5">
+            <div v-if="clearingMonth" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            確認刪除
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Modal: Google 活動詳細 ══ -->
     <div v-if="googleDetailModal.show && googleDetailModal.ev"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
          @click.self="googleDetailModal.show = false">
-      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
-        <div class="px-5 py-4 border-b border-light-c flex items-center justify-between sticky top-0 bg-surface z-10">
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-sm bg-blue-500 flex-shrink-0"></div>
             <h3 class="font-bold text-base-c text-sm">Google 日曆活動</h3>
@@ -392,14 +456,14 @@
           </div>
           <!-- 說明 -->
           <div v-if="googleDetailModal.ev.description"
-               class="bg-surface2 rounded-xl p-3 text-sm text-muted-c whitespace-pre-wrap leading-relaxed">
+               class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c whitespace-pre-wrap leading-relaxed">
             {{ googleDetailModal.ev.description }}
           </div>
         </div>
         <!-- Footer -->
-        <div class="px-5 py-4 border-t border-light-c flex gap-2 justify-end sticky bottom-0 bg-surface">
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button @click="googleDetailModal.show = false"
-                  class="px-4 py-2 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             關閉
           </button>
           <a v-if="googleDetailModal.ev.googleLink"
@@ -416,9 +480,9 @@
     <!-- ══ Modal: TXT 匯入 ══ -->
     <div v-if="showTxtModal"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
-      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 
-        <div class="px-5 py-4 border-b border-light-c flex items-center justify-between sticky top-0 bg-surface z-10">
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-base-c">貼上 TXT 行事曆</h3>
           <button @click="closeTxtModal" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -426,7 +490,7 @@
         </div>
 
         <div class="px-5 py-4 space-y-3">
-          <div class="bg-surface2 border border-light-c rounded-xl p-3">
+          <div class="bg-surface2 dark:bg-[#1c1f26] border border-light-c dark:border-[#2a2e37] rounded-xl p-3">
             <p class="text-xs font-semibold text-hint-c mb-1.5">支援格式（原始行事曆 TXT）：</p>
             <pre class="text-xs text-hint-c font-mono leading-relaxed overflow-x-auto">2026年4月
 1
@@ -437,13 +501,13 @@
           <textarea v-model="txtInput" rows="10"
                     placeholder="請貼上行事曆 TXT 內容…"
                     :disabled="!!txtResult"
-                    class="w-full p-3 text-sm font-mono border border-light-c rounded-xl bg-surface2 text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
+                    class="w-full p-3 text-sm font-mono border border-light-c dark:border-[#2a2e37] rounded-xl bg-surface2 dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
           </textarea>
 
           <div v-if="txtResult" class="space-y-2">
             <!-- 活動統計 + 列表 -->
-            <div class="rounded-xl border border-light-c overflow-hidden">
-              <div class="px-4 py-3 bg-surface2 flex flex-wrap gap-4 text-sm">
+            <div class="rounded-xl border border-light-c dark:border-[#2a2e37] overflow-hidden">
+              <div class="px-4 py-3 bg-surface2 dark:bg-[#1c1f26] flex flex-wrap gap-4 text-sm">
                 <span class="text-hint-c">活動：解析 <strong class="text-base-c">{{ txtResult.total }}</strong> 筆</span>
                 <span class="text-green-600 dark:text-green-400">✓ 可新增 <strong>{{ txtResult.added.length }}</strong> 筆</span>
                 <span class="text-amber-500 dark:text-amber-400">⊘ 重複跳過 <strong>{{ txtResult.skipped }}</strong> 筆</span>
@@ -479,9 +543,9 @@
           </div>
         </div>
 
-        <div class="px-5 py-4 border-t border-light-c flex gap-2 justify-end sticky bottom-0 bg-surface">
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button @click="closeTxtModal"
-                  class="px-4 py-2 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
             取消
           </button>
           <template v-if="!txtResult">
@@ -492,7 +556,7 @@
           </template>
           <template v-else>
             <button @click="txtResult = null"
-                    class="px-4 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+                    class="px-4 py-2 text-sm border border-light-c dark:border-[#2a2e37] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
               重新解析
             </button>
             <button @click="confirmImportTxt"
@@ -516,6 +580,22 @@
         {{ toast.message }}
       </div>
     </Transition>
+
+    <!-- 滑鼠移上活動 chip 顯示詳細內容（跟隨游標） -->
+    <Teleport to="body">
+      <div
+        v-if="tooltipEvent"
+        class="event-tooltip"
+        :style="tooltipStyle"
+      >
+        <div class="tooltip-title">{{ tooltipEvent.title }}</div>
+        <div v-if="tooltipEvent.time" class="tooltip-row">🕐 {{ tooltipEvent.time }}</div>
+        <div v-if="tooltipEvent.room" class="tooltip-row">📍 {{ tooltipEvent.room }}</div>
+        <div v-if="tooltipEvent.owner" class="tooltip-row">👤 {{ tooltipEvent.owner }}</div>
+        <div v-if="tooltipEvent.description" class="tooltip-row">📝 {{ tooltipEvent.description }}</div>
+        <div v-if="tooltipEvent.source === 'google'" class="tooltip-hint">🔗 點擊查看 Google 詳細資訊</div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -552,6 +632,47 @@ function chipClass(ev) {
   return typeChipClass(ev.type)
 }
 
+// ── 跟隨游標的活動提示框 ─────────────────────────────────────────
+const tooltipEvent = ref(null)
+const tooltipPos = reactive({x: 0, y: 0})
+const TOOLTIP_OFFSET = 18
+const TOOLTIP_WIDTH = 280
+const TOOLTIP_MAX_HEIGHT = 220
+
+const tooltipStyle = computed(() => {
+  if (!import.meta.client) return {}
+  let left = tooltipPos.x + TOOLTIP_OFFSET
+  let top = tooltipPos.y + TOOLTIP_OFFSET
+
+  // 靠右邊界時翻到游標左側
+  if (left + TOOLTIP_WIDTH > window.innerWidth - 8) {
+    left = tooltipPos.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET
+  }
+  // 靠下邊界時翻到游標上方
+  if (top + TOOLTIP_MAX_HEIGHT > window.innerHeight - 8) {
+    top = tooltipPos.y - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET
+  }
+  if (left < 8) left = 8
+  if (top < 8) top = 8
+
+  return {left: `${left}px`, top: `${top}px`}
+})
+
+function showTooltip(ev, e) {
+  tooltipEvent.value = ev
+  tooltipPos.x = e.clientX
+  tooltipPos.y = e.clientY
+}
+
+function moveTooltip(e) {
+  tooltipPos.x = e.clientX
+  tooltipPos.y = e.clientY
+}
+
+function hideTooltip() {
+  tooltipEvent.value = null
+}
+
 function typeBarClass(type) {
   if (type === 'Google') return 'bg-blue-500'
   return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
@@ -565,6 +686,17 @@ function legendDotClass(type) {
 const today = new Date()
 const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth() + 1)  // 1-based
+
+// ── 上方資訊區收合狀態（記住使用者上次的選擇）──────────────────────
+const PANEL_EXPANDED_KEY = 'calendar_panel_expanded'
+const panelExpanded = ref(true)
+if (import.meta.client) {
+  const saved = localStorage.getItem(PANEL_EXPANDED_KEY)
+  if (saved !== null) panelExpanded.value = saved === '1'
+}
+watch(panelExpanded, (v) => {
+  if (import.meta.client) localStorage.setItem(PANEL_EXPANDED_KEY, v ? '1' : '0')
+})
 
 // ── 篩選狀態 ──────────────────────────────────────────────────────
 const filterType = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
@@ -707,22 +839,15 @@ async function fetchGoogleEvents() {
       + `&singleEvents=true&orderBy=startTime&maxResults=250`
     const res = await fetch(url)
     const data = res.ok ? await res.json() : {}
-    googleEvents.value = (data.items || []).map(item => {
+    const expanded = []
+    for (const item of data.items || []) {
       const isAllDay = !!item.start?.date
       const startRaw = isAllDay ? item.start.date : item.start?.dateTime
       const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
-      const date = startRaw ? startRaw.slice(0, 10) : ''
-      let time = ''
-      if (!isAllDay && startRaw) {
-        const s = new Date(startRaw)
-        const e = endRaw ? new Date(endRaw) : null
-        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-        time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
-      }
-      return {
+      if (!startRaw) continue
+
+      const base = {
         id: item.id,
-        date,
-        time,
         title: item.summary || '（無標題）',
         owner: item.organizer?.displayName || '',
         room: item.location || '',
@@ -731,7 +856,39 @@ async function fetchGoogleEvents() {
         googleLink: item.htmlLink || '',
         description: item.description || ''
       }
-    })
+
+      if (!isAllDay) {
+        // 一般有時間的活動：維持原本單筆、單日的處理方式
+        const s = new Date(startRaw)
+        const e = endRaw ? new Date(endRaw) : null
+        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+        expanded.push({
+          ...base,
+          date: startRaw.slice(0, 10),
+          time: e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+        })
+        continue
+      }
+
+      // all-day 活動：Google 的 end.date 是「不含」的下一天，逐天展開到實際結束日（含）
+      // 每天各自一筆，id 加上日期後綴避免重複 key；保留 googleEventId 供需要時對應回原始活動
+      const startDate = new Date(`${startRaw}T00:00:00`)
+      const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(startDate)
+      for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const dateStr = `${y}-${m}-${day}`
+        expanded.push({
+          ...base,
+          id: `${item.id}_${dateStr}`,
+          googleEventId: item.id,
+          date: dateStr,
+          time: ''
+        })
+      }
+    }
+    googleEvents.value = expanded
   } catch (e) {
     console.warn('Google 日曆載入失敗', e)
   } finally {
@@ -834,6 +991,70 @@ async function deleteEvent(ev) {
     showToast('已刪除')
   } catch {
     showToast('刪除失敗')
+  }
+}
+
+// ── 清空當月（活動 + 備注，不含 Google 同步活動）──────────────────
+const clearMonthModal = reactive({show: false})
+const clearMonthConfirmText = ref('')
+const clearMonthError = ref('')
+const clearingMonth = ref(false)
+
+// 當月可清空的系統活動（排除 Google 來源）
+const clearableMonthEvents = computed(() => {
+  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  return events.value.filter(e => e.date?.startsWith(ym))
+})
+const clearableEventCount = computed(() => clearableMonthEvents.value.length)
+
+function openClearMonthModal() {
+  clearMonthConfirmText.value = ''
+  clearMonthError.value = ''
+  clearMonthModal.show = true
+}
+
+function closeClearMonthModal() {
+  clearMonthModal.show = false
+}
+
+async function confirmClearMonth() {
+  if (clearMonthConfirmText.value !== String(currentMonth.value)) return
+  clearingMonth.value = true
+  clearMonthError.value = ''
+  try {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    const targets = clearableMonthEvents.value
+    // 逐筆刪除系統活動（後端僅提供單筆 DELETE，沒有批次清空 API）
+    const results = await Promise.allSettled(
+      targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'}))
+    )
+    const failedCount = results.filter(r => r.status === 'rejected' || !r.value?.ok).length
+    const deletedIds = new Set(
+      targets.filter((_, i) => results[i].status === 'fulfilled' && results[i].value?.ok).map(ev => ev.id)
+    )
+    events.value = events.value.filter(e => !deletedIds.has(e.id))
+
+    // 清空當月備注
+    await fetch(`${BASE.value}/notes?yearMonth=${ym}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify([])
+    })
+    notes.value = []
+
+    // 同步更新側板
+    if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+
+    clearMonthModal.show = false
+    if (failedCount > 0) {
+      showToast(`已清空，但有 ${failedCount} 筆活動刪除失敗`)
+    } else {
+      showToast(`已清空 ${currentYear.value} 年 ${currentMonth.value} 月內容`)
+    }
+  } catch (e) {
+    clearMonthError.value = '清空失敗，請稍後再試'
+  } finally {
+    clearingMonth.value = false
   }
 }
 
@@ -1099,18 +1320,53 @@ onMounted(() => {
   width: 100%;
 }
 
+:root.dark .calendar-grid {
+  gap: 0 !important;
+}
+
+:root.dark .cal-cell {
+  margin: 0 -1px -1px 0;
+}
+
+/* ── 星期標頭：深色底白字 ── */
+.cal-weekday {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  padding: 10px 0;
+  background: #495969;
+  color: #fff;
+  border-radius: 6px;
+}
+
+.cal-weekday.sun {
+  color: #fca5a5;
+}
+
+.cal-weekday.sat {
+  color: #93c5fd;
+}
+
+:root.dark .cal-weekday {
+  background: #38404c;
+  border-radius: 0;
+}
+
 /* ── 日期格子 ── */
 .cal-cell {
-  min-height: 110px;
+  min-height: 140px;
   background: #fff;
+  border: 1px solid #ece7e2;
   border-radius: 8px;
-  padding: 6px 5px 5px;
+  padding: 8px 7px 7px;
   cursor: pointer;
-  transition: box-shadow 0.15s, background 0.1s;
+  transition: box-shadow 0.15s, background 0.1s, border-color 0.15s;
   position: relative;
 }
 
 .cal-cell:hover {
+  border-color: #6366f1;
   box-shadow: 0 0 0 2px #6366f1;
 }
 
@@ -1119,7 +1375,9 @@ onMounted(() => {
 }
 
 :root.dark .cal-cell {
-  background: #27272a;
+  background: #15171c;
+  border: 1px solid #2a2e37;
+  border-radius: 0;
 }
 
 .cal-cell.weekend {
@@ -1127,20 +1385,31 @@ onMounted(() => {
 }
 
 :root.dark .cal-cell.weekend {
-  background: #232325;
+  background: #15171c;
 }
 
 .cal-cell.today {
+  border-color: #6366f1;
   box-shadow: 0 0 0 2px #6366f1;
+}
+
+:root.dark .cal-cell.today {
+  background: #2d3250;
+  border-color: #5b6bb8;
+  box-shadow: none;
 }
 
 .cal-cell.has-events {
   box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
 }
 
+:root.dark .cal-cell.has-events {
+  box-shadow: none;
+}
+
 /* ── 日期數字 ── */
 .cal-day-num {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1;
 }
@@ -1149,12 +1418,17 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 25px;
+  height: 25px;
   background: #6366f1;
   color: #fff;
   border-radius: 50%;
   font-weight: 700;
+}
+
+:root.dark .today-num {
+  background: transparent;
+  color: #c7d2fe;
 }
 
 /* ── 快速新增按鈕 ── */
@@ -1167,22 +1441,23 @@ onMounted(() => {
 .cal-chip {
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  gap: 4px;
   border-radius: 4px;
-  padding: 1px 4px;
+  border-left: 3px solid transparent;
+  padding: 2px 5px 2px 6px;
   cursor: pointer;
   overflow: hidden;
   transition: opacity 0.1s, filter 0.1s;
-  font-size: 10px;
+  font-size: 12.5px;
 }
 
 .cal-chip:hover {
-  opacity: 0.8;
-  filter: brightness(0.95);
+  opacity: 0.85;
+  filter: brightness(0.97);
 }
 
 .chip-time {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
@@ -1202,41 +1477,54 @@ onMounted(() => {
 .chip-hospital {
   background: #fee2e2;
   color: #c0392b;
+  border-left-color: #e0534a;
 }
 
 .chip-park {
   background: #d1fae5;
   color: #065f46;
+  border-left-color: #3d6b52;
 }
 
 .chip-fragrant {
   background: #fce7f3;
   color: #9d4f78;
+  border-left-color: #a06080;
 }
 
 .chip-google {
   background: #dbeafe;
   color: #1d4ed8;
+  border-left-color: #2563eb;
+}
+
+:root.dark .cal-chip {
+  border-left-width: 0;
+  padding: 2px 6px;
 }
 
 :root.dark .chip-hospital {
-  background: #4d2323;
-  color: #fca5a5;
+  background: #c0392b;
+  color: #fff;
 }
 
 :root.dark .chip-park {
-  background: #1a3a26;
-  color: #6ee7b7;
+  background: #15803d;
+  color: #fff;
 }
 
 :root.dark .chip-fragrant {
-  background: #3b1a2e;
-  color: #f0abfc;
+  background: #a06080;
+  color: #fff;
 }
 
 :root.dark .chip-google {
-  background: #1e3a5f;
-  color: #93c5fd;
+  background: #2563eb;
+  color: #fff;
+}
+
+:root.dark .chip-time {
+  opacity: 0.85;
 }
 
 /* ── 類型 badge ── */
@@ -1289,113 +1577,87 @@ onMounted(() => {
   color: #93c5fd;
 }
 
-/* ── 篩選按鈕：類型 ── */
-.filter-type-btn {
+/* ── 篩選列：下拉選單 ── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.filter-select-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a8a29e;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filter-select {
+  padding: 7px 12px;
+  border: 1.5px solid #e2ddd8;
+  border-radius: 8px;
+  background: #fff;
+  color: #1c1917;
+  font-size: 13.5px;
+  max-width: 220px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+
+.filter-select:hover {
+  border-color: #6366f1;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+}
+
+:root.dark .filter-select {
+  background: #1c1f26;
+  border-color: #2a2e37;
+  color: #f5f5f4;
+}
+
+.filter-sync-hint {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 500;
-  border: 1.5px solid #e2ddd8;
-  background: transparent;
-  cursor: pointer;
-  color: #78716c;
-  transition: all .15s;
-}
-
-:root.dark .filter-type-btn {
-  border-color: #3f3f46;
-  color: #a1a1aa;
-}
-
-.filter-count {
-  font-size: 10px;
-  opacity: .7;
-  background: rgba(0, 0, 0, .06);
-  border-radius: 8px;
-  padding: 0 4px;
-  min-width: 16px;
-  text-align: center;
-}
-
-.filter-type-btn.active.all {
-  background: #1c1917;
-  color: #fff;
-  border-color: #1c1917;
-}
-
-.filter-type-btn.active.hospital {
-  background: #e0534a;
-  color: #fff;
-  border-color: #e0534a;
-}
-
-.filter-type-btn.active.park {
-  background: #3d6b52;
-  color: #fff;
-  border-color: #3d6b52;
-}
-
-.filter-type-btn.active.fragrant {
-  background: #a06080;
-  color: #fff;
-  border-color: #a06080;
-}
-
-.filter-type-btn.google {
-  border-color: #bfdbfe;
+  font-size: 11px;
   color: #2563eb;
 }
 
-:root.dark .filter-type-btn.google {
-  border-color: #1e3a5f;
+:root.dark .filter-sync-hint {
   color: #93c5fd;
 }
 
-.filter-type-btn.active.google {
+.filter-sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
+  animation: filter-sync-pulse 1s infinite;
 }
 
-.filter-type-btn:not(.active):hover {
-  border-color: #6366f1;
-  color: #6366f1;
+:root.dark .filter-sync-dot {
+  background: #93c5fd;
 }
 
-/* ── 篩選按鈕：地點 ── */
-.filter-loc-btn {
-  padding: 3px 10px;
-  border-radius: 14px;
-  font-size: 11px;
-  font-weight: 500;
-  border: 1.5px solid #e2ddd8;
-  background: transparent;
-  cursor: pointer;
-  color: #78716c;
-  transition: all .15s;
-  white-space: nowrap;
-}
-
-:root.dark .filter-loc-btn {
-  border-color: #3f3f46;
-  color: #a1a1aa;
-}
-
-.filter-loc-btn.active {
-  background: #6366f1;
-  color: #fff;
-  border-color: #6366f1;
-}
-
-.filter-loc-btn:not(.active):hover {
-  border-color: #6366f1;
-  color: #6366f1;
+@keyframes filter-sync-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* ── 表單欄位 ── */
+
 .field-label {
   display: block;
   font-size: 12px;
@@ -1421,14 +1683,29 @@ onMounted(() => {
 }
 
 :root.dark .field-input {
-  background: #3f3f46;
-  border-color: #52525b;
+  background: #1c1f26;
+  border-color: #2a2e37;
   color: #f5f5f4;
 }
 
 .field-input:focus {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+}
+
+/* ── 收合區塊動畫 ── */
+.collapse-enter-active, .collapse-leave-active {
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.collapse-enter-from, .collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.collapse-enter-to, .collapse-leave-from {
+  max-height: 500px;
+  opacity: 1;
 }
 
 /* ── 側板動畫 ── */
@@ -1464,6 +1741,56 @@ onMounted(() => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+/* ── 跟隨游標的活動提示框 ── */
+.event-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
+  background: #fff;
+  color: #1c1917;
+  border: 1px solid #e2ddd8;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
+
+:root.dark .event-tooltip {
+  background: #1c1f26;
+  color: #f5f5f4;
+  border-color: #2a2e37;
+}
+
+.tooltip-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.tooltip-row {
+  color: #78716c;
+  word-break: break-word;
+}
+
+:root.dark .tooltip-row {
+  color: #a1a1aa;
+}
+
+.tooltip-hint {
+  margin-top: 8px;
+  color: #6366f1;
+  font-size: 12px;
+}
+
+:root.dark .tooltip-hint {
+  color: #818cf8;
 }
 
 /* ── RWD ── */
