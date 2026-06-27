@@ -1,7 +1,7 @@
 <template>
   <div class="h-screen flex flex-col bg-page transition-colors">
     <StaffNavbar />
-    <div class="flex-1 overflow-y-auto">
+    <div id="staff-scroll-wrap" class="flex-1 overflow-y-auto">
       <slot />
     </div>
   </div>
@@ -25,3 +25,12 @@ onMounted(async () => {
 </script>
 
 <style src="~/assets/css/main.css" />
+<style>
+@media print {
+  #staff-scroll-wrap {
+    overflow: visible !important;
+    height: auto !important;
+    flex: none !important;
+  }
+}
+</style>

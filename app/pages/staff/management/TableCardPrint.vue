@@ -26,7 +26,14 @@
         <template v-if="sideTab==='config'">
           <div class="config-scroll">
 
-            <!-- 區塊一：文字大小規則（含中英文，統一收縮） -->
+            <!-- 儲存設定按鈕 -->
+            <div class="save-config-row">
+              <button class="save-config-btn" :disabled="savingConfig" @click="saveConfig">
+                {{ savingConfig ? '儲存中...' : '💾 儲存設定' }}
+              </button>
+            </div>
+
+            <!-- 區塊一：文字大小規則 -->
             <div class="config-section-title collapsible-section" @click="open.size = !open.size">
               文字大小規則 <span class="caret">{{ open.size ? '▲' : '▼' }}</span>
             </div>
@@ -111,9 +118,29 @@
               項目管理 <span class="caret">{{ open.items ? '▲' : '▼' }}</span>
             </div>
             <template v-if="open.items">
-              <!-- 項目管理（可捲動） -->
-              <div class="list-scroll">
-                <div class="add-group-row">
+              <div class="list-scroll items-list-scroll">
+                <div class="search-row border-b border-light-c">
+                  <input v-model="configSearchQuery" placeholder="搜尋項目..." class="search-inp text-base-c bg-surface" />
+                  <button v-if="configSearchQuery" class="search-clear text-muted-c" @click="configSearchQuery=''">✕</button>
+                </div>
+                <template v-if="configSearchQuery.trim()">
+                  <div v-for="p in configSearchResults" :key="p.id" class="item-row config-item-row">
+                    <div class="config-item-content">
+                      <span class="zh-main">{{ p.zh }}</span>
+                      <span class="item-actions" style="opacity:1">
+                        <button class="act-btn" @click="startEditItem(p._gi, p._pi, p)" title="編輯">✎</button>
+                        <template v-if="confirmDeleteKey === p._gi+'-'+p._pi">
+                          <span class="del-confirm-label">確定刪除？</span>
+                          <button class="del-yes" @click="confirmDeleteItem(p._gi, p._pi, p)">是</button>
+                          <button class="del-no border-light-c text-base-c" @click="confirmDeleteKey=''">否</button>
+                        </template>
+                        <button v-else class="act-btn del" @click="confirmDeleteKey=p._gi+'-'+p._pi" title="刪除">✕</button>
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="configSearchResults.length===0" class="empty-search text-hint-c">找不到「{{ configSearchQuery }}」</div>
+                </template>
+                <div class="add-group-row" v-show="!configSearchQuery.trim()">
                   <template v-if="addingGroup">
                     <input v-model="newGroupName" placeholder="類別名稱" class="edit-inp border-light-c bg-surface text-base-c" @keyup.enter="confirmAddGroup" @keyup.escape="addingGroup=false" />
                     <button class="edit-ok" @click="confirmAddGroup">✓</button>
@@ -122,7 +149,7 @@
                   <button v-else class="add-group-btn" @click="addingGroup=true;newGroupName=''">＋ 新增類別</button>
                 </div>
 
-                <div v-for="(group, gi) in presets" :key="gi" class="group">
+                <div v-for="(group, gi) in presets" v-show="!configSearchQuery.trim()" :key="group.id" class="group">
                   <div class="group-header bg-surface">
                     <span class="group-toggle" @click="toggleGroupOpen(gi)">{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
                     <template v-if="editingGroupIdx === gi">
@@ -133,15 +160,15 @@
                     <template v-else>
                       <span class="group-name-label text-base-c">{{ group.group }}</span>
                       <span class="group-actions">
-                  <button class="act-btn" @click="startEditGroup(gi)" title="改名">✎</button>
-                  <template v-if="confirmDeleteGroupIdx === gi">
-                    <span class="del-confirm-label">確定？</span>
-                    <button class="del-yes" @click="confirmDeleteGroup(gi)">是</button>
-                    <button class="del-no border-light-c text-base-c"  @click="confirmDeleteGroupIdx=-1">否</button>
-                  </template>
-                  <button v-else class="act-btn del" @click="confirmDeleteGroupIdx=gi" title="刪除類別">✕</button>
-                  <button class="group-add-btn" @click="startAddItem(gi)" title="新增項目">＋</button>
-                </span>
+                        <button class="act-btn" @click="startEditGroup(gi)" title="改名">✎</button>
+                        <template v-if="confirmDeleteGroupIdx === gi">
+                          <span class="del-confirm-label">確定？</span>
+                          <button class="del-yes" @click="confirmDeleteGroup(gi)">是</button>
+                          <button class="del-no border-light-c text-base-c" @click="confirmDeleteGroupIdx=-1">否</button>
+                        </template>
+                        <button v-else class="act-btn del" @click="confirmDeleteGroupIdx=gi" title="刪除類別">✕</button>
+                        <button class="group-add-btn" @click="startAddItem(gi)" title="新增項目">＋</button>
+                      </span>
                     </template>
                   </div>
 
@@ -161,7 +188,7 @@
                       </div>
                     </div>
 
-                    <div v-for="(p, pi) in group.items" :key="pi">
+                    <div v-for="(p, pi) in group.items" :key="p.id">
                       <div v-if="editingKey === gi+'-'+pi" class="edit-row edit-item-row bg-surface border-b border-light-c">
                         <div class="edit-field-row">
                           <span class="edit-field-label">中文</span>
@@ -180,34 +207,34 @@
                         <div class="edit-field-row">
                           <span class="edit-field-label">中文上下</span>
                           <input type="range" v-model.number="editForm.zhTop"
-                                 @input="presets[gi].items[pi].zhTop=editForm.zhTop"
+                                 @input="Object.assign(presets[gi].items[pi], {zhTop: editForm.zhTop})"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
                           <span class="offset-val text-muted-c">{{ editForm.zhTop>0?'+':'' }}{{ editForm.zhTop }}mm</span>
-                          <button class="offset-reset" @click="editForm.zhTop=0;presets[gi].items[pi].zhTop=0" v-if="editForm.zhTop!==0">↺</button>
+                          <button class="offset-reset" @click="editForm.zhTop=0;Object.assign(presets[gi].items[pi], {zhTop:0})" v-if="editForm.zhTop!==0">↺</button>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">英文上下</span>
                           <input type="range" v-model.number="editForm.enTop"
-                                 @input="presets[gi].items[pi].enTop=editForm.enTop"
+                                 @input="Object.assign(presets[gi].items[pi], {enTop: editForm.enTop})"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
                           <span class="offset-val text-muted-c">{{ editForm.enTop>0?'+':'' }}{{ editForm.enTop }}mm</span>
-                          <button class="offset-reset" @click="editForm.enTop=0;presets[gi].items[pi].enTop=0" v-if="editForm.enTop!==0">↺</button>
+                          <button class="offset-reset" @click="editForm.enTop=0;Object.assign(presets[gi].items[pi], {enTop:0})" v-if="editForm.enTop!==0">↺</button>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">中文左右</span>
                           <input type="range" v-model.number="editForm.zhOffset"
-                                 @input="presets[gi].items[pi].zhOffset=editForm.zhOffset"
+                                 @input="Object.assign(presets[gi].items[pi], {zhOffset: editForm.zhOffset})"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
                           <span class="offset-val text-muted-c">{{ editForm.zhOffset>0?'+':'' }}{{ editForm.zhOffset }}mm</span>
-                          <button class="offset-reset" @click="editForm.zhOffset=0;presets[gi].items[pi].zhOffset=0" v-if="editForm.zhOffset!==0">↺</button>
+                          <button class="offset-reset" @click="editForm.zhOffset=0;Object.assign(presets[gi].items[pi], {zhOffset:0})" v-if="editForm.zhOffset!==0">↺</button>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">英文左右</span>
                           <input type="range" v-model.number="editForm.enOffset"
-                                 @input="presets[gi].items[pi].enOffset=editForm.enOffset"
+                                 @input="Object.assign(presets[gi].items[pi], {enOffset: editForm.enOffset})"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
                           <span class="offset-val text-muted-c">{{ editForm.enOffset>0?'+':'' }}{{ editForm.enOffset }}mm</span>
-                          <button class="offset-reset" @click="editForm.enOffset=0;presets[gi].items[pi].enOffset=0" v-if="editForm.enOffset!==0">↺</button>
+                          <button class="offset-reset" @click="editForm.enOffset=0;Object.assign(presets[gi].items[pi], {enOffset:0})" v-if="editForm.enOffset!==0">↺</button>
                         </div>
                         <div class="edit-action-row">
                           <button class="edit-ok" @click="confirmEdit(gi,pi)">✓ 確認</button>
@@ -218,14 +245,14 @@
                         <div class="config-item-content">
                           <span class="zh-main">{{ p.zh }}</span>
                           <span class="item-actions" style="opacity:1">
-                      <button class="act-btn" @click="startEditItem(gi,pi,p)" title="編輯">✎</button>
-                      <template v-if="confirmDeleteKey === gi+'-'+pi">
-                        <span class="del-confirm-label">確定刪除？</span>
-                        <button class="del-yes" @click="confirmDeleteItem(gi,pi,p)">是</button>
-                        <button class="del-no border-light-c text-base-c"  @click="confirmDeleteKey=''">否</button>
-                      </template>
-                      <button v-else class="act-btn del" @click="confirmDeleteKey=gi+'-'+pi" title="刪除">✕</button>
-                    </span>
+                            <button class="act-btn" @click="startEditItem(gi,pi,p)" title="編輯">✎</button>
+                            <template v-if="confirmDeleteKey === gi+'-'+pi">
+                              <span class="del-confirm-label">確定刪除？</span>
+                              <button class="del-yes" @click="confirmDeleteItem(gi,pi,p)">是</button>
+                              <button class="del-no border-light-c text-base-c" @click="confirmDeleteKey=''">否</button>
+                            </template>
+                            <button v-else class="act-btn del" @click="confirmDeleteKey=gi+'-'+pi" title="刪除">✕</button>
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -240,8 +267,28 @@
 
         <!-- ── 選項目 tab ── -->
         <template v-if="sideTab==='use'">
+          <div class="search-row border-b border-light-c">
+            <input v-model="searchQuery" placeholder="搜尋項目..." class="search-inp text-base-c bg-surface" />
+            <button v-if="searchQuery" class="search-clear text-muted-c" @click="searchQuery=''">✕</button>
+          </div>
           <div class="list-scroll">
-            <div v-for="(group, gi) in presets" :key="gi" class="group">
+            <template v-if="searchQuery.trim()">
+              <div v-for="p in searchResults" :key="p.id"
+                   class="item-row text-base-c" :class="{'checked bg-slate-100 dark:bg-slate-700/30': isSelected(p)}">
+                <label class="item-label-inner">
+                  <input type="checkbox" :checked="isSelected(p)" @change="toggleItem(p,$event.target.checked)"/>
+                  <span class="zh-main">{{ mainZh(p.zh) }}</span>
+                  <span v-if="dietTag(p.zh)" class="diet" :class="dietClass(p.zh)">{{ dietTag(p.zh) }}</span>
+                </label>
+                <span v-if="isSelected(p)" class="qty-wrap">
+                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,-1)">−</button>
+                  <span class="qty-num text-base-c">{{ getQty(p) }}</span>
+                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,+1)">＋</button>
+                </span>
+              </div>
+              <div v-if="searchResults.length===0" class="empty-search text-hint-c">找不到「{{ searchQuery }}」</div>
+            </template>
+            <div v-for="(group, gi) in presets" v-show="!searchQuery.trim()" :key="group.id" class="group">
               <div class="group-header bg-surface">
                 <span class="group-toggle" @click="toggleGroupOpen(gi)">{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
                 <label class="group-check">
@@ -253,7 +300,7 @@
                 </label>
               </div>
               <template v-if="groupOpen[gi] !== false">
-                <div v-for="(p, pi) in group.items" :key="pi"
+                <div v-for="(p, pi) in group.items" :key="p.id"
                      class="item-row text-base-c" :class="{'checked bg-slate-100 dark:bg-slate-700/30': isSelected(p)}">
                   <label class="item-label-inner">
                     <input type="checkbox" :checked="isSelected(p)" @change="toggleItem(p,$event.target.checked)"/>
@@ -261,14 +308,14 @@
                     <span v-if="dietTag(p.zh)" class="diet" :class="dietClass(p.zh)">{{ dietTag(p.zh) }}</span>
                   </label>
                   <span v-if="isSelected(p)" class="qty-wrap">
-                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,-1)">−</button>
-                  <span class="qty-num text-base-c">{{ getQty(p) }}</span>
-                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,+1)">＋</button>
-                </span>
+                    <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,-1)">−</button>
+                    <span class="qty-num text-base-c">{{ getQty(p) }}</span>
+                    <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,+1)">＋</button>
+                  </span>
                 </div>
               </template>
             </div>
-          </div>
+          </div><!-- end list-scroll -->
 
           <div class="sidebar-footer border-t border-light-c">
             <div class="count-badge text-muted-c">已選 {{ totalCount }} 張</div>
@@ -280,7 +327,6 @@
 
       <!-- ── 右側預覽 ── -->
       <main class="preview-area" ref="previewAreaRef">
-        <!-- 顯示比例控制 -->
         <div class="preview-toolbar bg-surface border-b border-light-c">
           <span class="preview-toolbar-label text-muted-c">預覽縮放</span>
           <input type="range" v-model.number="manualScale" min="20" max="100" step="5" class="scale-slider"/>
@@ -289,39 +335,60 @@
           <span class="preview-toolbar-label text-muted-c" style="margin-left:12px">自動排列 {{ previewCols }} 欄</span>
         </div>
 
-        <div v-if="sideTab==='use' && selected.length===0" class="empty-hint text-hint-c">← 從左側勾選項目</div>
+        <div v-if="loading" class="empty-hint text-hint-c">載入中...</div>
+        <div v-else-if="sideTab==='use' && selected.length===0" class="empty-hint text-hint-c">← 從左側勾選項目</div>
 
-        <!-- 多欄排列 -->
-        <div class="preview-pages-wrap" :style="{ '--cols': previewCols }">
-          <div v-for="(pageCards, pi) in (sideTab==='config' ? configPreviewPages : previewPages)" :key="pi" class="a4-preview-wrap">
-            <div class="page-num-label text-hint-c">第 {{ pi+1 }} 頁</div>
-            <div class="a4-preview" :style="a4Style">
-              <div class="cut-area">
-                <div class="grid">
-                  <div v-for="(card,ci) in pageCards" :key="ci" class="card-wrapper">
-                    <div class="card-text-area" :style="textAreaStyle">
-                      <p class="card-line1" :style="[{fontSize: calcZhSize(card.zh), position:'relative', left:(card.zhOffset??0)+'mm', top:((card.zhTop??0)+zhOffsetTop)+'mm'}, zhLineStyle]">{{ card.zh }}</p>
-                      <p class="card-line2" :style="[{fontSize: calcEnSize(card.en), position:'relative', left:(card.enOffset??0)+'mm', top:((card.enTop??0)+enOffsetTop)+'mm'}, enLineStyle]">{{ card.en }}</p>
-                    </div>
-                    <img src="/images/桌牌.png" alt="桌牌" class="card-img"/>
+        <!-- config tab：按分類顯示 -->
+        <template v-if="sideTab==='config'">
+          <div class="config-preview-wrap">
+            <div v-for="group in presets" :key="group.id" class="config-preview-group">
+              <div class="config-preview-group-label text-muted-c">{{ group.group }}</div>
+              <div class="config-preview-grid">
+                <div v-for="card in group.items" :key="card.id" class="card-wrapper">
+                  <div class="card-text-area" :style="textAreaStyle">
+                    <p class="card-line1" :style="[{fontSize: calcZhSize(card.zh), position:'relative', left:(card.zhOffset??0)+'mm', top:((card.zhTop??0)+zhOffsetTop)+'mm'}, zhLineStyle]">{{ card.zh }}</p>
+                    <p class="card-line2" :style="[{fontSize: calcEnSize(card.en), position:'relative', left:(card.enOffset??0)+'mm', top:((card.enTop??0)+enOffsetTop)+'mm'}, enLineStyle]">{{ card.en }}</p>
                   </div>
-                  <div v-for="k in (9-pageCards.length)" :key="'e'+k" class="card-wrapper">
-                    <img src="/images/桌牌.png" alt="" class="card-img"/>
-                  </div>
+                  <img src="/images/桌牌.png" alt="桌牌" class="card-img"/>
                 </div>
-                <div class="cut-line cut-v" style="left:89mm"></div>
-                <div class="cut-line cut-v" style="left:178mm"></div>
-                <div class="cut-line cut-h" style="top:59mm"></div>
-                <div class="cut-line cut-h" style="top:118mm"></div>
               </div>
             </div>
           </div>
-        </div>
+        </template>
+
+        <!-- use tab：A4 頁面格式 -->
+        <template v-else>
+          <div class="preview-pages-wrap" :style="{ '--cols': previewCols }">
+            <div v-for="(pageCards, pi) in previewPages" :key="pi" class="a4-preview-wrap">
+              <div class="page-num-label text-hint-c">第 {{ pi+1 }} 頁</div>
+              <div class="a4-preview" :style="a4Style">
+                <div class="cut-area">
+                  <div class="grid">
+                    <div v-for="(card,ci) in pageCards" :key="ci" class="card-wrapper">
+                      <div class="card-text-area" :style="textAreaStyle">
+                        <p class="card-line1" :style="[{fontSize: calcZhSize(card.zh), position:'relative', left:(card.zhOffset??0)+'mm', top:((card.zhTop??0)+zhOffsetTop)+'mm'}, zhLineStyle]">{{ card.zh }}</p>
+                        <p class="card-line2" :style="[{fontSize: calcEnSize(card.en), position:'relative', left:(card.enOffset??0)+'mm', top:((card.enTop??0)+enOffsetTop)+'mm'}, enLineStyle]">{{ card.en }}</p>
+                      </div>
+                      <img src="/images/桌牌.png" alt="桌牌" class="card-img"/>
+                    </div>
+                    <div v-for="k in (9-pageCards.length)" :key="'e'+k" class="card-wrapper">
+                      <img src="/images/桌牌.png" alt="" class="card-img"/>
+                    </div>
+                  </div>
+                  <div class="cut-line cut-v" style="left:89mm"></div>
+                  <div class="cut-line cut-v" style="left:178mm"></div>
+                  <div class="cut-line cut-h" style="top:59mm"></div>
+                  <div class="cut-line cut-h" style="top:118mm"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
       </main>
     </div>
 
     <!-- ══ 列印頁 ══ -->
-    <div v-if="page==='print'">
+    <div v-if="page==='print'" style="overflow-x:hidden">
       <div class="print-toolbar no-print bg-surface border-b border-light-c">
         <button class="back-btn border-light-c text-base-c" @click="page='select'">← 返回選單</button>
         <span class="toolbar-info text-muted-c">共 {{ printPages.length }} 頁</span>
@@ -352,11 +419,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-
+import { ref, reactive, computed, onMounted, onUnmounted }from 'vue'
 definePageMeta({ layout: 'staff', requiredPermission: 'staff.quick-links' })
-
-const sideTab = ref('use')   // 'use' | 'config'
+const sideTab = ref('use')
 const page = ref('select')
 
 /* ── 字數規則 ── */
@@ -375,7 +440,6 @@ const enRules = reactive([
 const enFallbackPt = ref(8)
 
 function calcZhSize(text) {
-  // 全形括號視覺上比漢字窄，算 0.6 個字寬
   const len = (text||'').split('').reduce((acc, ch) => {
     if (/[（）]/.test(ch)) return acc + 0.6
     return acc + 1
@@ -404,125 +468,167 @@ const textAreaStyle = computed(()=>({
   right:  (-offsetLeft.value)+'mm',
   height: textAreaH.value+'%',
 }))
-
-const zhLineStyle = computed(()=>({ letterSpacing: zhSpacing.value+'mm', position:'relative', top: zhOffsetTop.value+'mm' }))
-const enLineStyle = computed(()=>({ letterSpacing: enSpacing.value+'mm', position:'relative', top: enOffsetTop.value+'mm' }))
+const zhLineStyle = computed(()=>({ letterSpacing: zhSpacing.value+'mm' }))
+const enLineStyle = computed(()=>({ letterSpacing: enSpacing.value+'mm' }))
 
 /* ── 收縮狀態 ── */
 const open = reactive({size:true, tune:false, items:true})
-const groupOpen = reactive({})   // gi -> bool，undefined = 展開
+const groupOpen = reactive({})
 function toggleGroupOpen(gi) {
   groupOpen[gi] = groupOpen[gi]===false ? true : false
 }
 
-/* ── 預設資料 ── */
-const presets = reactive([
-  { group:'醬料', items:[
-      {zh:'胡麻醬（葷）',  en:'Sesame Dressing (Non-Veg)'},
-      {zh:'油醋醬（素）',  en:'Vinaigrette (Vegan)'},
-      {zh:'洋蔥鮪魚（葷）',en:'Tuna with Onions (Non-Veg)'},
-      {zh:'黑芝麻醬（素）',en:'Black Sesame Paste (Vegan)'},
-      {zh:'醬油膏',        en:'Thick Soy Sauce'},
-      {zh:'辣椒醬油（非常辣）',en:'Chili Soy Sauce (Spicy)'},
-      {zh:'自製沾醬（葷）',en:'House-made Dipping Sauce (Non-Veg)'},
-      {zh:'自製沾醬（素）',en:'House-made Dipping Sauce (Vegan)'},
-      {zh:'和風柚子（素）',en:'Japanese Yuzu Dressing (Vegan)'},
-      {zh:'蜂蜜',          en:'Honey'},
-      {zh:'和風芝麻（素）',en:'Japanese Sesame Dressing (Vegan)'},
-      {zh:'火龍果醬（素）',en:'Dragon Fruit Jam (Vegan)'},
-      {zh:'蔓越莓腰果（素）',en:'Cranberry Cashews (Vegan)'},
-      {zh:'鳳梨腰果（素）',en:'Pineapple Cashews (Vegan)'},
-      {zh:'腰果醬（素）',  en:'Cashew Paste (Vegan)'},
-      {zh:'洛神腰果（素）',en:'Roselle Cashews (Vegan)'},
-    ]},
-  { group:'飲品', items:[
-      {zh:'紅烏龍茶',      en:'Red Oolong Tea'},
-      {zh:'青茶',          en:'Light Oolong Tea'},
-      {zh:'白鶴靈芝',      en:'White Crane Lingzhi Tea'},
-      {zh:'芳香萬壽菊',    en:'Lemon Marigold Tea'},
-      {zh:'七葉蘭',        en:'Pandan Leaf Tea'},
-      {zh:'檸檬香茅',      en:'Lemongrass Tea'},
-      {zh:'鳳梨鼠尾草',    en:'Pineapple Sage Tea'},
-      {zh:'魚腥草',        en:'Houttuynia Tea'},
-      {zh:'三葉五加',      en:'Three-leaf Eleuthero'},
-      {zh:'扁桃斑鳩菊',    en:'African Bitter Leaf Tea'},
-      {zh:'紫蘇',          en:'Perilla'},
-      {zh:'現磨濃豆漿',    en:'Freshly Ground Rich Soy Milk'},
-      {zh:'黑糖薑茶',      en:'Brown Sugar Ginger Tea'},
-      {zh:'黑糖南薑茶',    en:'Brown Sugar Galangal Tea'},
-      {zh:'好體力茶',      en:'Energy Boost Tea'},
-      {zh:'好輕鬆茶',      en:'Relax & Unwind Tea'},
-      {zh:'好睡茶',        en:'Sleepy Time Tea'},
-      {zh:'幸福茶',        en:'Happiness Blend Tea'},
-      {zh:'舒康茶',        en:'Wellness & Comfort Tea'},
-      {zh:'添加甜菊（天然微甜）',en:'Stevia Added (Naturally Sweetened)'},
-      {zh:'冬瓜糖水',      en:'Winter Melon Sugar Syrup'},
-    ]},
-  { group:'食品標示', items:[
-      {zh:'手工餅乾',      en:'Handmade Cookies'},
-      {zh:'手工麵包',      en:'House-baked Bread'},
-      {zh:'素肉燥',        en:'Vegetarian Meat Sauce'},
-      {zh:'自製芝麻湯圓',  en:'House-made Sesame Tangyuan'},
-      {zh:'田間自產',      en:'Farm-to-Table Fresh'},
-      {zh:'含有堅果類',    en:'Contains Nuts'},
-      {zh:'冷飲',          en:'Chilled'},
-      {zh:'溫飲',          en:'Warm'},
-      {zh:'辣',            en:'Spicy'},
-      {zh:'不辣',          en:'Not Spicy'},
-      {zh:'樂智長輩栽種',  en:'Lovingly Grown by Our Eldercare Seniors'},
-    ]},
-  { group:'飲食類型', items:[
-      {zh:'葷食',          en:'Non-Veg'},
-      {zh:'素食',          en:'Vegan'},
-      {zh:'五辛素',        en:'Vegetarian (contains Allium)'},
-      {zh:'蛋奶素',        en:'Ovo-Lacto Vegetarian'},
-      {zh:'五辛蛋奶素',    en:'Ovo-Lacto Vegetarian (contains Allium)'},
-    ]},
-])
+/* ── presets（含 id） ── */
+const presets = reactive([])
+
+const commonStore = useCommonStore()
+const BASE = () => commonStore.data.main_url + '/holy/table-card'
+
+const loading = ref(false)
+
+/* ══════════════════════════════════
+   API 呼叫
+══════════════════════════════════ */
+
+async function loadConfig() {
+  try {
+    const res = await fetch(`${BASE()}/config`)
+    const data = await res.json()
+    // 字數規則
+    if (data.zhRules?.length) { zhRules.splice(0); data.zhRules.forEach(r => zhRules.push(r)) }
+    if (data.zhFallbackPt != null) zhFallbackPt.value = data.zhFallbackPt
+    if (data.enRules?.length) { enRules.splice(0); data.enRules.forEach(r => enRules.push(r)) }
+    if (data.enFallbackPt != null) enFallbackPt.value = data.enFallbackPt
+    // 位置微調
+    if (data.textAreaH   != null) textAreaH.value   = data.textAreaH
+    if (data.zhOffsetTop != null) zhOffsetTop.value = data.zhOffsetTop
+    if (data.enOffsetTop != null) enOffsetTop.value = data.enOffsetTop
+    if (data.offsetLeft  != null) offsetLeft.value  = data.offsetLeft
+    if (data.zhSpacing   != null) zhSpacing.value   = data.zhSpacing
+    if (data.enSpacing   != null) enSpacing.value   = data.enSpacing
+  } catch (e) { console.error('載入設定失敗', e) }
+}
+
+async function loadItems() {
+  try {
+    const res = await fetch(`${BASE()}/items/list`)
+    const data = await res.json()
+    presets.splice(0)
+    data.forEach(cat => presets.push({
+      id:    cat.id,
+      group: cat.group,
+      items: (cat.items || []).map(it => ({
+        id:       it.id,
+        zh:       it.zh,
+        en:       it.en,
+        zhOffset: it.zhOffset ?? 0,
+        enOffset: it.enOffset ?? 0,
+        zhTop:    it.zhTop    ?? 0,
+        enTop:    it.enTop    ?? 0,
+      }))
+    }))
+  } catch (e) { console.error('載入項目失敗', e) }
+}
+
+const savingConfig = ref(false)
+async function saveConfig() {
+  savingConfig.value = true
+  try {
+    await fetch(`${BASE()}/config/save`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        zhRules: zhRules.map(r=>({maxLen:r.maxLen, sizePt:r.sizePt})),
+        zhFallbackPt: zhFallbackPt.value,
+        enRules: enRules.map(r=>({maxLen:r.maxLen, sizePt:r.sizePt})),
+        enFallbackPt: enFallbackPt.value,
+        textAreaH:   textAreaH.value,
+        zhOffsetTop: zhOffsetTop.value,
+        enOffsetTop: enOffsetTop.value,
+        offsetLeft:  offsetLeft.value,
+        zhSpacing:   zhSpacing.value,
+        enSpacing:   enSpacing.value,
+      })
+    })
+  } catch (e) { console.error('儲存設定失敗', e) }
+  finally { savingConfig.value = false }
+}
 
 /* ── 類別 CRUD ── */
-const addingGroup  = ref(false)
-const newGroupName = ref('')
+const addingGroup     = ref(false)
+const newGroupName    = ref('')
 const editingGroupIdx = ref(-1)
 const editGroupName   = ref('')
 
-function confirmAddGroup() {
+async function confirmAddGroup() {
   const name = newGroupName.value.trim()
   if (!name) return
-  presets.push({group: name, items:[]})
+  try {
+    const res = await fetch(`${BASE()}/category/save`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name })
+    })
+    const data = await res.json()
+    presets.push({ id: data.id, group: name, items: [] })
+  } catch (e) { console.error('新增類別失敗', e) }
   addingGroup.value = false
 }
+
 function startEditGroup(gi) {
   editingGroupIdx.value = gi
   editGroupName.value = presets[gi].group
 }
-function confirmEditGroup(gi) {
+
+async function confirmEditGroup(gi) {
   const name = editGroupName.value.trim()
-  if (name) presets[gi].group = name
+  if (!name) return
+  try {
+    await fetch(`${BASE()}/category/save`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ id: presets[gi].id, name })
+    })
+    presets[gi].group = name
+  } catch (e) { console.error('改名失敗', e) }
   editingGroupIdx.value = -1
 }
-function deleteGroup(gi) {
-  const zhs = new Set(presets[gi].items.map(p=>p.zh))
-  presets.splice(gi,1)
-  selected.value = selected.value.filter(s=>!zhs.has(s.zh))
+
+async function confirmDeleteGroup(gi) {
+  try {
+    await fetch(`${BASE()}/category/${presets[gi].id}`, { method: 'DELETE' })
+    const zhs = new Set(presets[gi].items.map(p=>p.zh))
+    presets.splice(gi, 1)
+    selected.value = selected.value.filter(s => !zhs.has(s.zh))
+  } catch (e) { console.error('刪除類別失敗', e) }
+  confirmDeleteGroupIdx.value = -1
 }
 
 /* ── 項目 CRUD ── */
 const addingIn   = ref(-1)
 const editingKey = ref('')
 const editForm   = reactive({zh:'', en:'', toGroup:0, zhOffset:0, enOffset:0, zhTop:0, enTop:0})
+const editOrigOffset = reactive({zhOffset:0, enOffset:0, gi:-1, pi:-1})
 
 function startAddItem(gi) {
   addingIn.value = gi; editingKey.value = ''
   editForm.zh=''; editForm.en=''
 }
-function confirmAdd(gi) {
+
+async function confirmAdd(gi) {
   const zh = editForm.zh.trim(); const en = editForm.en.trim()
   if (!zh) return
-  presets[gi].items.push({zh, en: en||zh})
+  try {
+    const res = await fetch(`${BASE()}/item/save`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ catId: presets[gi].id, zh, en: en||zh })
+    })
+    const data = await res.json()
+    presets[gi].items.push({ id: data.id, zh, en: en||zh, zhOffset:0, enOffset:0, zhTop:0, enTop:0 })
+  } catch (e) { console.error('新增項目失敗', e) }
   addingIn.value = -1
 }
-const editOrigOffset = reactive({zhOffset:0, enOffset:0, gi:-1, pi:-1})
 
 function startEditItem(gi, pi, p) {
   editingKey.value = gi+'-'+pi; addingIn.value=-1
@@ -534,51 +640,97 @@ function startEditItem(gi, pi, p) {
 }
 
 function cancelEdit() {
-  // 還原 preset 的 offset
   if (editOrigOffset.gi >= 0 && editOrigOffset.pi >= 0) {
     const item = presets[editOrigOffset.gi]?.items[editOrigOffset.pi]
     if (item) { item.zhOffset = editOrigOffset.zhOffset; item.enOffset = editOrigOffset.enOffset }
   }
   editingKey.value = ''
 }
-function confirmEdit(gi, pi) {
+
+async function confirmEdit(gi, pi) {
   const zh = editForm.zh.trim(); const en = editForm.en.trim()
   if (!zh) return
   const oldZh = presets[gi].items[pi].zh
-  const newItem = {zh, en: en||zh, zhOffset: editForm.zhOffset, enOffset: editForm.enOffset, zhTop: editForm.zhTop, enTop: editForm.enTop}
   const tg = editForm.toGroup
-  if (tg !== gi) {
-    presets[gi].items.splice(pi,1)
-    presets[tg].items.push(newItem)
-  } else {
-    presets[gi].items[pi] = newItem
-  }
-  const sel = selected.value.find(s=>s.zh===oldZh)
-  if (sel) { sel.zh=zh; sel.en=en||zh; sel.zhOffset=editForm.zhOffset; sel.enOffset=editForm.enOffset }
-  editingKey.value=''
+  const item = presets[gi].items[pi]
+  const newItem = { id: item.id, zh, en: en||zh, zhOffset: editForm.zhOffset, enOffset: editForm.enOffset, zhTop: editForm.zhTop, enTop: editForm.enTop }
+
+  try {
+    if (tg !== gi) {
+      // 跨類別移動：先 move 再 save 更新內容
+      await fetch(`${BASE()}/item/move`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ fromCatId: presets[gi].id, toCatId: presets[tg].id, id: item.id })
+      })
+      await fetch(`${BASE()}/item/save`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ catId: presets[tg].id, id: item.id, zh, en: en||zh,
+          zhOffset: editForm.zhOffset, enOffset: editForm.enOffset,
+          zhTop: editForm.zhTop, enTop: editForm.enTop })
+      })
+      presets[gi].items.splice(pi, 1)
+      presets[tg].items.push(newItem)
+    } else {
+      await fetch(`${BASE()}/item/save`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ catId: presets[gi].id, id: item.id, zh, en: en||zh,
+          zhOffset: editForm.zhOffset, enOffset: editForm.enOffset,
+          zhTop: editForm.zhTop, enTop: editForm.enTop })
+      })
+      presets[gi].items[pi] = newItem
+    }
+    const sel = selected.value.find(s=>s.zh===oldZh)
+    if (sel) { sel.zh=zh; sel.en=en||zh; sel.zhOffset=editForm.zhOffset; sel.enOffset=editForm.enOffset; sel.zhTop=editForm.zhTop; sel.enTop=editForm.enTop }
+  } catch (e) { console.error('儲存項目失敗', e) }
+  editingKey.value = ''
 }
-const confirmDeleteKey      = ref('')   // 'gi-pi'
+
+const confirmDeleteKey      = ref('')
 const confirmDeleteGroupIdx = ref(-1)
 
-function confirmDeleteItem(gi, pi, p) {
-  presets[gi].items.splice(pi, 1)
-  selected.value = selected.value.filter(s => s.zh !== p.zh)
+async function confirmDeleteItem(gi, pi, p) {
+  try {
+    await fetch(`${BASE()}/item/${presets[gi].id}/${p.id}`, { method: 'DELETE' })
+    presets[gi].items.splice(pi, 1)
+    selected.value = selected.value.filter(s => s.zh !== p.zh)
+  } catch (e) { console.error('刪除項目失敗', e) }
   confirmDeleteKey.value = ''
 }
-function confirmDeleteGroup(gi) {
-  const zhs = new Set(presets[gi].items.map(p => p.zh))
-  presets.splice(gi, 1)
-  selected.value = selected.value.filter(s => !zhs.has(s.zh))
-  confirmDeleteGroupIdx.value = -1
-}
 
-
+/* ── 搜尋 ── */
+const searchQuery = ref('')
+const configSearchQuery = ref('')
+const configSearchResults = computed(() => {
+  const q = configSearchQuery.value.trim().toLowerCase()
+  if (!q) return []
+  const r = []
+  for (let gi = 0; gi < presets.length; gi++)
+    for (let pi = 0; pi < presets[gi].items.length; pi++) {
+      const p = presets[gi].items[pi]
+      if (p.zh.toLowerCase().includes(q) || p.en.toLowerCase().includes(q))
+        r.push({ ...p, _gi: gi, _pi: pi })
+    }
+  return r
+})
+const searchResults = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return []
+  const r = []
+  for (const g of presets)
+    for (const p of g.items)
+      if (p.zh.toLowerCase().includes(q) || p.en.toLowerCase().includes(q))
+        r.push(p)
+  return r
+})
 
 /* ── 選取 ── */
 const selected = ref([])
-function isSelected(p) { return selected.value.some(s=>s.zh===p.zh) }
-function getQty(p)     { return selected.value.find(s=>s.zh===p.zh)?.qty??1 }
-function changeQty(p,d){ const i=selected.value.find(s=>s.zh===p.zh); if(i) i.qty=Math.max(1,i.qty+d) }
+function isSelected(p)  { return selected.value.some(s=>s.zh===p.zh) }
+function getQty(p)      { return selected.value.find(s=>s.zh===p.zh)?.qty??1 }
+function changeQty(p,d) { const i=selected.value.find(s=>s.zh===p.zh); if(i) i.qty=Math.max(1,i.qty+d) }
 function toggleItem(p,checked) {
   if (checked) { if(!isSelected(p)) selected.value.push({...p,qty:1}) }
   else          { selected.value=selected.value.filter(s=>s.zh!==p.zh) }
@@ -596,10 +748,10 @@ function toggleGroup(g,checked) {
 }
 
 function chunk(arr,n){ const r=[]; for(let i=0;i<arr.length;i+=n) r.push(arr.slice(i,i+n)); return r }
-// 設定tab預覽：顯示所有 preset 項目（不受 selected 影響，即時反映 offset）
+
 const allPresetCards = computed(()=>{
   const r=[]
-  for (const g of presets) for (const p of g.items) r.push({zh:p.zh, en:p.en, zhOffset:p.zhOffset??0, enOffset:p.enOffset??0})
+  for (const g of presets) for (const p of g.items) r.push({zh:p.zh, en:p.en, zhOffset:p.zhOffset??0, enOffset:p.enOffset??0, zhTop:p.zhTop??0, enTop:p.enTop??0})
   return r
 })
 const configPreviewPages = computed(()=>allPresetCards.value.length ? chunk(allPresetCards.value,9) : [[]])
@@ -624,16 +776,24 @@ const expandedCards = computed(()=>{
   return r
 })
 const totalCount   = computed(()=>selected.value.reduce((s,i)=>s+i.qty,0))
-const previewPages = computed(()=>expandedCards.value.length?chunk(expandedCards.value,9):[[]])
+const previewPages = computed(()=>chunk(expandedCards.value,9))
 const printPages   = computed(()=>chunk(expandedCards.value,9))
 
 /* ── 預覽縮放 ── */
 const previewAreaRef = ref(null)
 const previewWidth   = ref(800)
-const manualScale    = ref(50)    // 預設 50%
+const manualScale    = ref(50)
 const previewCols    = ref(1)
 
-onMounted(()=>{
+onMounted(async ()=>{
+  // 動態取得 staff-nav 高度，讓 layout fixed 定位正確
+  const nav = document.querySelector('.staff-nav')
+  if (nav) {
+    document.documentElement.style.setProperty('--nav-height', nav.offsetHeight + 'px')
+  }
+  loading.value = true
+  await Promise.all([loadConfig(), loadItems()])
+  loading.value = false
   if (!previewAreaRef.value) return
   const ro = new ResizeObserver(e=>{ previewWidth.value=e[0]?.contentRect.width??800 })
   ro.observe(previewAreaRef.value)
@@ -644,8 +804,7 @@ const a4Style = computed(()=>{
   const a4W = 297*3.7795
   const a4H = 210*3.7795
   const scale = manualScale.value > 0 ? manualScale.value/100 : Math.min(0.95, (previewWidth.value - 48) / a4W)
-  // 自動算能放幾欄
-  const scaledW = a4W * scale + 16   // 16px gap
+  const scaledW = a4W * scale + 16
   const autoCols = Math.max(1, Math.floor((previewWidth.value - 32) / scaledW))
   previewCols.value = autoCols
   return {
@@ -665,20 +824,7 @@ function dietClass(zh) {
   return ''
 }
 function doPrint() {
-  // 列印前暫時移除 a4-preview 的 transform，印完後還原
-  const els = document.querySelectorAll('.a4-preview')
-  const saved = []
-  els.forEach(el => {
-    saved.push(el.style.cssText)
-    el.style.transform = 'none'
-    el.style.marginBottom = '0'
-    el.style.marginRight = '0'
-  })
   globalThis.window?.print()
-  // 還原（setTimeout 確保在列印對話框關閉後執行）
-  setTimeout(() => {
-    els.forEach((el, i) => { el.style.cssText = saved[i] })
-  }, 500)
 }
 </script>
 
@@ -686,10 +832,10 @@ function doPrint() {
 *,*::before,*::after { box-sizing:border-box; }
 
 /* ══ Layout ══ */
-.layout { display:flex; height:100vh; overflow:hidden; }
+.layout { display:flex; height:calc(100vh - var(--nav-height,44px)); overflow:hidden; }
 
 /* Sidebar */
-.sidebar { width:260px; min-width:260px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+.sidebar { width:260px; min-width:260px; display:flex; flex-direction:column; height:100%; overflow:hidden; }
 .sidebar-header { flex-shrink:0; }
 
 /* Tabs */
@@ -702,7 +848,7 @@ function doPrint() {
 }
 
 /* Config */
-.config-scroll { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; }
+.config-scroll { flex:1; overflow-y:auto; overflow-x:hidden; }
 .config-section-title {
   padding:6px 12px; font-size:12px; font-weight:bold;
   background:rgba(128,128,128,.1); border-top:1px solid rgba(128,128,128,.18); border-bottom:1px solid rgba(128,128,128,.18);
@@ -713,6 +859,7 @@ function doPrint() {
 .collapsible-section:hover { background:rgba(128,128,128,.17); }
 .caret { font-size:10px; opacity:.6; }
 .size-panel { padding:8px 12px; flex-shrink:0; }
+.panel-label { font-size:11px; font-weight:bold; opacity:.6; margin-bottom:5px; }
 .rule-row { display:flex; align-items:center; gap:3px; margin-bottom:3px; font-size:11px; }
 .rule-prefix { min-width:18px; text-align:right; }
 .rule-unit { font-size:11px; }
@@ -735,8 +882,18 @@ function doPrint() {
 .tune-row input[type=range] { flex:1; accent-color:#64748b; }
 .tune-val { min-width:38px; text-align:right; font-size:11px; }
 
+/* 儲存設定按鈕 */
+.save-config-row { padding:8px 12px; flex-shrink:0; }
+.save-config-btn {
+  width:100%; padding:6px 0; font-size:12px; font-weight:bold; cursor:pointer;
+  border-radius:6px; border:none; background:#475569; color:white; transition:background .15s;
+}
+.save-config-btn:hover:not(:disabled) { background:#334155; }
+.save-config-btn:disabled { opacity:.5; cursor:default; }
+
 /* List */
 .list-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:4px 0; }
+.items-list-scroll { padding-top:0; }
 .add-group-row { padding:6px 12px; display:flex; gap:4px; align-items:center; }
 .add-group-btn {
   font-size:11px; background:none; border-radius:4px;
@@ -805,8 +962,9 @@ function doPrint() {
 .act-btn { background:none; border:none; cursor:pointer; font-size:11px; opacity:.4; padding:2px 4px; border-radius:3px; }
 .act-btn:hover { opacity:1; background:rgba(128,128,128,.15); }
 .act-btn.del:hover { background:rgba(239,68,68,.15); color:#ef4444; }
+.config-item-row { padding-left:0; }
 .config-item-row .item-actions { opacity:1; }
-.config-item-content { display:flex; align-items:center; padding:4px 8px 4px 34px; }
+.config-item-content { display:flex; align-items:center; padding:4px 8px 4px 16px; }
 .config-item-content .zh-main { flex:1; }
 .config-item-content .item-actions { opacity:1; }
 
@@ -822,6 +980,13 @@ function doPrint() {
 .print-nav-btn { background:#dc2626; color:white; border:none; border-radius:8px; padding:8px 14px; font-size:12px; cursor:pointer; font-weight:bold; display:flex; align-items:center; gap:4px; }
 .print-nav-btn:disabled { opacity:.4; cursor:default; }
 .print-nav-btn:not(:disabled):hover { background:#b91c1c; }
+
+/* 搜尋 */
+.search-row { display:flex; align-items:center; padding:6px 10px; gap:4px; flex-shrink:0; }
+.search-inp { flex:1; background:transparent; border:none; outline:none; font-size:12px; padding:2px 4px; }
+.search-clear { background:none; border:none; cursor:pointer; font-size:11px; opacity:.5; padding:2px 4px; flex-shrink:0; }
+.search-clear:hover { opacity:1; }
+.empty-search { padding:20px 16px; font-size:12px; opacity:.5; text-align:center; }
 
 /* ══ 預覽區 ══ */
 .preview-area { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; min-width:0; }
@@ -841,6 +1006,15 @@ function doPrint() {
   transform-origin:top left;
 }
 .empty-hint { font-size:16px; padding:60px 20px; opacity:.4; }
+
+/* ══ Config 預覽分類 ══ */
+.config-preview-wrap { padding:16px; display:flex; flex-direction:column; gap:20px; }
+.config-preview-group-label { font-size:11px; font-weight:bold; opacity:.5; margin-bottom:6px; padding-left:2px; }
+.config-preview-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, 89mm);
+  gap:0;
+}
 
 /* ══ 裁切區 ══ */
 .cut-area { position:relative; width:267mm; height:177mm; }
@@ -863,12 +1037,72 @@ function doPrint() {
 
 @media print {
   @page { size:A4 landscape; margin:0; }
-  .sidebar,.preview-toolbar,.page-num-label,.empty-hint,.a4-page { display:none !important; }
-  .layout { display:block; height:auto; overflow:visible; }
-  .preview-area { display:block !important; overflow:visible !important; padding:0 !important; width:100% !important; }
+
+  /* 隱藏所有非列印元素 */
+  .no-print,
+  .sidebar,
+  .preview-toolbar,
+  .page-num-label,
+  .empty-hint,
+  .search-row,
+  .print-toolbar,
+  .config-preview-wrap { display:none !important; }
+
+  /* layout 展開 */
+  .layout { display:block !important; height:auto !important; overflow:visible !important; }
+
+  /* preview-area 全寬展開 */
+  .preview-area {
+    display:block !important;
+    overflow:visible !important;
+    padding:0 !important;
+    width:100% !important;
+    height:auto !important;
+  }
+
+  /* 頁面包裝逐一換頁 */
   .preview-pages-wrap { display:block !important; padding:0 !important; gap:0 !important; }
-  .a4-preview-wrap { display:block !important; }
-  .a4-preview-wrap:not(:last-child) { page-break-after:always; break-after:page; }
-  .a4-preview { width:297mm !important; height:210mm !important; transform:none !important; margin:0 !important; box-shadow:none !important; display:flex !important; align-items:flex-start !important; justify-content:flex-start !important; }
+  .a4-preview-wrap { display:block !important; page-break-after:always; break-after:page; }
+  .a4-preview-wrap:last-child { page-break-after:avoid; break-after:avoid; }
+
+  /* A4 本體：移除縮放，還原實際尺寸（預覽頁） */
+  .a4-preview {
+    width:297mm !important;
+    height:210mm !important;
+    transform:none !important;
+    margin:0 !important;
+    box-shadow:none !important;
+    display:flex !important;
+    align-items:flex-start !important;
+    justify-content:flex-start !important;
+    overflow:hidden !important;
+  }
+
+  /* 列印頁（page==='print'）的 A4 */
+  .a4-page {
+    width:297mm !important;
+    height:210mm !important;
+    margin:0 !important;
+    box-shadow:none !important;
+    display:flex !important;
+    align-items:flex-start !important;
+    justify-content:flex-start !important;
+    overflow:hidden !important;
+    page-break-after:always !important;
+    break-after:page !important;
+  }
+  .a4-page:last-child {
+    page-break-after:avoid !important;
+    break-after:avoid !important;
+  }
+}
+</style>
+
+<!-- 全域列印覆蓋：解除 staff layout 的高度/overflow 限制 -->
+<style>
+@media print {
+  .h-screen { height:auto !important; overflow:visible !important; display:block !important; }
+  .flex-1 { flex:none !important; height:auto !important; overflow:visible !important; }
+  .overflow-y-auto { overflow:visible !important; height:auto !important; }
 }
 </style>

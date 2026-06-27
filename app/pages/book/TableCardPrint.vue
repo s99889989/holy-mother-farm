@@ -354,8 +354,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.quick-links' })
-
 const sideTab = ref('use')   // 'use' | 'config'
 const page = ref('select')
 
