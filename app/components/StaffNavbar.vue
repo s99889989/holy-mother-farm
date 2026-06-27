@@ -400,6 +400,7 @@ const navGroups = [
     items: [
       { to: '/staff/task/task-board', icon: '✅', label: '今日工作', color: 'bg-indigo-600', key: 'staff.task' },
       { to: '/staff/task/task-manager', icon: '📋', label: '工作管理', color: 'bg-teal-700', key: 'staff.task.manage' },
+      { to: '/staff/management/TableCardPrint', icon: '🖼️', label: '桌牌', key: 'staff.menu' },
       { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
       { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
       { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset' },

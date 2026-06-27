@@ -8,7 +8,7 @@
       <aside class="sidebar bg-surface border-r border-light-c">
         <div class="sidebar-header border-b border-light-c px-4 py-3">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🏷️</div>
+            <div class="w-8 h-8 rounded-lg bg-slate-600 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🏷️</div>
             <div>
               <div class="font-bold text-base-c leading-none" style="font-size:15px">餐廳標籤桌牌</div>
               <div class="text-hint-c mt-0.5" style="font-size:11px">勾選後列印，每頁 9 張 A4 橫向</div>
@@ -18,8 +18,8 @@
 
         <!-- Tab 切換 -->
         <div class="tab-bar border-b border-light-c">
-          <button :class="['tab-btn', sideTab==='use' ? 'active' : '']" @click="sideTab='use'">☰ 選項目</button>
-          <button :class="['tab-btn', sideTab==='config' ? 'active' : '']" @click="sideTab='config'">⚙ 設定</button>
+          <button :class="['tab-btn', sideTab==='use' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='use'">☰ 選項目</button>
+          <button :class="['tab-btn', sideTab==='config' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='config'">⚙ 設定</button>
         </div>
 
         <!-- ── 設定 tab ── -->
@@ -33,34 +33,34 @@
             <template v-if="open.size">
               <div class="size-panel">
                 <div class="panel-label">中文字數對應大小</div>
-                <div v-for="(rule, i) in zhRules" :key="'zh'+i" class="rule-row">
+                <div v-for="(rule, i) in zhRules" :key="'zh'+i" class="rule-row text-base-c">
                   <span class="rule-prefix">≤</span>
-                  <input type="number" v-model.number="rule.maxLen" min="1" max="50" class="rule-input" />
+                  <input type="number" v-model.number="rule.maxLen" min="1" max="50" class="rule-input border-light-c bg-surface text-base-c" />
                   <span class="rule-unit">字</span>
-                  <input type="number" v-model.number="rule.sizePt" min="6" max="72" class="rule-input" />
+                  <input type="number" v-model.number="rule.sizePt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" />
                   <span class="rule-unit">pt</span>
                   <button class="rule-del" @click="zhRules.splice(i,1)" v-if="zhRules.length>1">✕</button>
                 </div>
-                <div class="rule-row">
+                <div class="rule-row text-base-c">
                   <span class="rule-prefix">其餘</span>
-                  <input type="number" v-model.number="zhFallbackPt" min="6" max="72" class="rule-input" style="margin-left:4px"/>
+                  <input type="number" v-model.number="zhFallbackPt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" style="margin-left:4px"/>
                   <span class="rule-unit">pt</span>
                 </div>
                 <button class="rule-add" @click="zhRules.push({maxLen:10,sizePt:20})">＋ 新增規則</button>
               </div>
               <div class="size-panel">
                 <div class="panel-label">英文字數對應大小</div>
-                <div v-for="(rule, i) in enRules" :key="'en'+i" class="rule-row">
+                <div v-for="(rule, i) in enRules" :key="'en'+i" class="rule-row text-base-c">
                   <span class="rule-prefix">≤</span>
-                  <input type="number" v-model.number="rule.maxLen" min="1" max="100" class="rule-input" />
+                  <input type="number" v-model.number="rule.maxLen" min="1" max="100" class="rule-input border-light-c bg-surface text-base-c" />
                   <span class="rule-unit">字</span>
-                  <input type="number" v-model.number="rule.sizePt" min="6" max="72" class="rule-input" />
+                  <input type="number" v-model.number="rule.sizePt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" />
                   <span class="rule-unit">pt</span>
                   <button class="rule-del" @click="enRules.splice(i,1)" v-if="enRules.length>1">✕</button>
                 </div>
-                <div class="rule-row">
+                <div class="rule-row text-base-c">
                   <span class="rule-prefix">其餘</span>
-                  <input type="number" v-model.number="enFallbackPt" min="6" max="72" class="rule-input" style="margin-left:4px"/>
+                  <input type="number" v-model.number="enFallbackPt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" style="margin-left:4px"/>
                   <span class="rule-unit">pt</span>
                 </div>
                 <button class="rule-add" @click="enRules.push({maxLen:20,sizePt:12})">＋ 新增規則</button>
@@ -73,35 +73,35 @@
             </div>
             <template v-if="open.tune">
               <div class="size-panel">
-                <div class="tune-row">
+                <div class="tune-row text-base-c">
                   <span>文字區高度</span>
                   <input type="range" v-model.number="textAreaH" min="55" max="90" step="1"/>
-                  <span class="tune-val">{{ textAreaH }}%</span>
+                  <span class="tune-val text-hint-c">{{ textAreaH }}%</span>
                 </div>
-                <div class="tune-row">
+                <div class="tune-row text-base-c">
                   <span>中文上下</span>
                   <input type="range" v-model.number="zhOffsetTop" min="-20" max="20" step="0.5"/>
-                  <span class="tune-val">{{ zhOffsetTop>0?'+':'' }}{{ zhOffsetTop }}mm</span>
+                  <span class="tune-val text-hint-c">{{ zhOffsetTop>0?'+':'' }}{{ zhOffsetTop }}mm</span>
                 </div>
-                <div class="tune-row">
+                <div class="tune-row text-base-c">
                   <span>英文上下</span>
                   <input type="range" v-model.number="enOffsetTop" min="-20" max="20" step="0.5"/>
-                  <span class="tune-val">{{ enOffsetTop>0?'+':'' }}{{ enOffsetTop }}mm</span>
+                  <span class="tune-val text-hint-c">{{ enOffsetTop>0?'+':'' }}{{ enOffsetTop }}mm</span>
                 </div>
-                <div class="tune-row">
+                <div class="tune-row text-base-c">
                   <span>左右位置</span>
                   <input type="range" v-model.number="offsetLeft" min="-20" max="20" step="1"/>
-                  <span class="tune-val">{{ offsetLeft>0?'+':'' }}{{ offsetLeft }}mm</span>
+                  <span class="tune-val text-hint-c">{{ offsetLeft>0?'+':'' }}{{ offsetLeft }}mm</span>
                 </div>
-                <div class="tune-row">
+                <div class="tune-row text-base-c">
                   <span>中文字距</span>
                   <input type="range" v-model.number="zhSpacing" min="-3" max="5" step="0.5"/>
-                  <span class="tune-val">{{ zhSpacing }}mm</span>
+                  <span class="tune-val text-hint-c">{{ zhSpacing }}mm</span>
                 </div>
-                <div class="tune-row">
+                <div class="tune-row text-base-c">
                   <span>英文字距</span>
                   <input type="range" v-model.number="enSpacing" min="-2" max="3" step="0.5"/>
-                  <span class="tune-val">{{ enSpacing }}mm</span>
+                  <span class="tune-val text-hint-c">{{ enSpacing }}mm</span>
                 </div>
               </div>
             </template>
@@ -115,29 +115,29 @@
               <div class="list-scroll">
                 <div class="add-group-row">
                   <template v-if="addingGroup">
-                    <input v-model="newGroupName" placeholder="類別名稱" class="edit-inp" @keyup.enter="confirmAddGroup" @keyup.escape="addingGroup=false" />
+                    <input v-model="newGroupName" placeholder="類別名稱" class="edit-inp border-light-c bg-surface text-base-c" @keyup.enter="confirmAddGroup" @keyup.escape="addingGroup=false" />
                     <button class="edit-ok" @click="confirmAddGroup">✓</button>
-                    <button class="edit-cancel" @click="addingGroup=false">✕</button>
+                    <button class="edit-cancel border-light-c text-base-c" @click="addingGroup=false">✕</button>
                   </template>
                   <button v-else class="add-group-btn" @click="addingGroup=true;newGroupName=''">＋ 新增類別</button>
                 </div>
 
                 <div v-for="(group, gi) in presets" :key="gi" class="group">
-                  <div class="group-header">
+                  <div class="group-header bg-surface">
                     <span class="group-toggle" @click="toggleGroupOpen(gi)">{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
                     <template v-if="editingGroupIdx === gi">
                       <input v-model="editGroupName" class="edit-inp group-name-inp" @keyup.enter="confirmEditGroup(gi)" @keyup.escape="editingGroupIdx=-1"/>
                       <button class="edit-ok sm" @click="confirmEditGroup(gi)">✓</button>
-                      <button class="edit-cancel sm" @click="editingGroupIdx=-1">✕</button>
+                      <button class="edit-cancel sm border-light-c text-base-c" @click="editingGroupIdx=-1">✕</button>
                     </template>
                     <template v-else>
-                      <span class="group-name-label">{{ group.group }}</span>
+                      <span class="group-name-label text-base-c">{{ group.group }}</span>
                       <span class="group-actions">
                   <button class="act-btn" @click="startEditGroup(gi)" title="改名">✎</button>
                   <template v-if="confirmDeleteGroupIdx === gi">
                     <span class="del-confirm-label">確定？</span>
                     <button class="del-yes" @click="confirmDeleteGroup(gi)">是</button>
-                    <button class="del-no"  @click="confirmDeleteGroupIdx=-1">否</button>
+                    <button class="del-no border-light-c text-base-c"  @click="confirmDeleteGroupIdx=-1">否</button>
                   </template>
                   <button v-else class="act-btn del" @click="confirmDeleteGroupIdx=gi" title="刪除類別">✕</button>
                   <button class="group-add-btn" @click="startAddItem(gi)" title="新增項目">＋</button>
@@ -146,34 +146,34 @@
                   </div>
 
                   <template v-if="groupOpen[gi] !== false">
-                    <div v-if="addingIn === gi" class="edit-row">
+                    <div v-if="addingIn === gi" class="edit-row bg-surface border-b border-light-c">
                       <div class="edit-field-row">
                         <span class="edit-field-label">中文</span>
-                        <input v-model="editForm.zh" placeholder="中文名稱" class="edit-inp" @keyup.escape="addingIn=-1"/>
+                        <input v-model="editForm.zh" placeholder="中文名稱" class="edit-inp border-light-c bg-surface text-base-c" @keyup.escape="addingIn=-1"/>
                       </div>
                       <div class="edit-field-row">
                         <span class="edit-field-label">英文</span>
-                        <input v-model="editForm.en" placeholder="English name" class="edit-inp" @keyup.escape="addingIn=-1"/>
+                        <input v-model="editForm.en" placeholder="English name" class="edit-inp border-light-c bg-surface text-base-c" @keyup.escape="addingIn=-1"/>
                       </div>
                       <div class="edit-action-row">
                         <button class="edit-ok" @click="confirmAdd(gi)">✓ 確認</button>
-                        <button class="edit-cancel" @click="addingIn=-1">✕ 取消</button>
+                        <button class="edit-cancel border-light-c text-base-c" @click="addingIn=-1">✕ 取消</button>
                       </div>
                     </div>
 
                     <div v-for="(p, pi) in group.items" :key="pi">
-                      <div v-if="editingKey === gi+'-'+pi" class="edit-row edit-item-row">
+                      <div v-if="editingKey === gi+'-'+pi" class="edit-row edit-item-row bg-surface border-b border-light-c">
                         <div class="edit-field-row">
                           <span class="edit-field-label">中文</span>
-                          <input v-model="editForm.zh" placeholder="中文名稱" class="edit-inp"/>
+                          <input v-model="editForm.zh" placeholder="中文名稱" class="edit-inp border-light-c bg-surface text-base-c"/>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">英文</span>
-                          <input v-model="editForm.en" placeholder="English name" class="edit-inp"/>
+                          <input v-model="editForm.en" placeholder="English name" class="edit-inp border-light-c bg-surface text-base-c"/>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">類別</span>
-                          <select v-model="editForm.toGroup" class="edit-group-sel" style="flex:1">
+                          <select v-model="editForm.toGroup" class="edit-group-sel border-light-c bg-surface text-base-c" style="flex:1">
                             <option v-for="(g,gj) in presets" :key="gj" :value="gj">{{ g.group }}</option>
                           </select>
                         </div>
@@ -182,7 +182,7 @@
                           <input type="range" v-model.number="editForm.zhTop"
                                  @input="presets[gi].items[pi].zhTop=editForm.zhTop"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
-                          <span class="offset-val">{{ editForm.zhTop>0?'+':'' }}{{ editForm.zhTop }}mm</span>
+                          <span class="offset-val text-muted-c">{{ editForm.zhTop>0?'+':'' }}{{ editForm.zhTop }}mm</span>
                           <button class="offset-reset" @click="editForm.zhTop=0;presets[gi].items[pi].zhTop=0" v-if="editForm.zhTop!==0">↺</button>
                         </div>
                         <div class="edit-field-row">
@@ -190,7 +190,7 @@
                           <input type="range" v-model.number="editForm.enTop"
                                  @input="presets[gi].items[pi].enTop=editForm.enTop"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
-                          <span class="offset-val">{{ editForm.enTop>0?'+':'' }}{{ editForm.enTop }}mm</span>
+                          <span class="offset-val text-muted-c">{{ editForm.enTop>0?'+':'' }}{{ editForm.enTop }}mm</span>
                           <button class="offset-reset" @click="editForm.enTop=0;presets[gi].items[pi].enTop=0" v-if="editForm.enTop!==0">↺</button>
                         </div>
                         <div class="edit-field-row">
@@ -198,7 +198,7 @@
                           <input type="range" v-model.number="editForm.zhOffset"
                                  @input="presets[gi].items[pi].zhOffset=editForm.zhOffset"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
-                          <span class="offset-val">{{ editForm.zhOffset>0?'+':'' }}{{ editForm.zhOffset }}mm</span>
+                          <span class="offset-val text-muted-c">{{ editForm.zhOffset>0?'+':'' }}{{ editForm.zhOffset }}mm</span>
                           <button class="offset-reset" @click="editForm.zhOffset=0;presets[gi].items[pi].zhOffset=0" v-if="editForm.zhOffset!==0">↺</button>
                         </div>
                         <div class="edit-field-row">
@@ -206,12 +206,12 @@
                           <input type="range" v-model.number="editForm.enOffset"
                                  @input="presets[gi].items[pi].enOffset=editForm.enOffset"
                                  min="-20" max="20" step="0.5" class="edit-slider"/>
-                          <span class="offset-val">{{ editForm.enOffset>0?'+':'' }}{{ editForm.enOffset }}mm</span>
+                          <span class="offset-val text-muted-c">{{ editForm.enOffset>0?'+':'' }}{{ editForm.enOffset }}mm</span>
                           <button class="offset-reset" @click="editForm.enOffset=0;presets[gi].items[pi].enOffset=0" v-if="editForm.enOffset!==0">↺</button>
                         </div>
                         <div class="edit-action-row">
                           <button class="edit-ok" @click="confirmEdit(gi,pi)">✓ 確認</button>
-                          <button class="edit-cancel" @click="cancelEdit()">✕ 取消</button>
+                          <button class="edit-cancel border-light-c text-base-c" @click="cancelEdit()">✕ 取消</button>
                         </div>
                       </div>
                       <div v-else class="item-row config-item-row">
@@ -222,7 +222,7 @@
                       <template v-if="confirmDeleteKey === gi+'-'+pi">
                         <span class="del-confirm-label">確定刪除？</span>
                         <button class="del-yes" @click="confirmDeleteItem(gi,pi,p)">是</button>
-                        <button class="del-no"  @click="confirmDeleteKey=''">否</button>
+                        <button class="del-no border-light-c text-base-c"  @click="confirmDeleteKey=''">否</button>
                       </template>
                       <button v-else class="act-btn del" @click="confirmDeleteKey=gi+'-'+pi" title="刪除">✕</button>
                     </span>
@@ -242,7 +242,7 @@
         <template v-if="sideTab==='use'">
           <div class="list-scroll">
             <div v-for="(group, gi) in presets" :key="gi" class="group">
-              <div class="group-header">
+              <div class="group-header bg-surface">
                 <span class="group-toggle" @click="toggleGroupOpen(gi)">{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
                 <label class="group-check">
                   <input type="checkbox"
@@ -254,24 +254,24 @@
               </div>
               <template v-if="groupOpen[gi] !== false">
                 <div v-for="(p, pi) in group.items" :key="pi"
-                     class="item-row" :class="{checked: isSelected(p)}">
+                     class="item-row text-base-c" :class="{'checked bg-slate-100 dark:bg-slate-700/30': isSelected(p)}">
                   <label class="item-label-inner">
                     <input type="checkbox" :checked="isSelected(p)" @change="toggleItem(p,$event.target.checked)"/>
                     <span class="zh-main">{{ mainZh(p.zh) }}</span>
                     <span v-if="dietTag(p.zh)" class="diet" :class="dietClass(p.zh)">{{ dietTag(p.zh) }}</span>
                   </label>
                   <span v-if="isSelected(p)" class="qty-wrap">
-                  <button class="qty-btn" @click="changeQty(p,-1)">−</button>
-                  <span class="qty-num">{{ getQty(p) }}</span>
-                  <button class="qty-btn" @click="changeQty(p,+1)">＋</button>
+                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,-1)">−</button>
+                  <span class="qty-num text-base-c">{{ getQty(p) }}</span>
+                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,+1)">＋</button>
                 </span>
                 </div>
               </template>
             </div>
           </div>
 
-          <div class="sidebar-footer">
-            <div class="count-badge">已選 {{ totalCount }} 張</div>
+          <div class="sidebar-footer border-t border-light-c">
+            <div class="count-badge text-muted-c">已選 {{ totalCount }} 張</div>
             <button class="print-nav-btn" :disabled="selected.length===0" @click="doPrint">🖨️ 列印</button>
           </div>
 
@@ -281,20 +281,20 @@
       <!-- ── 右側預覽 ── -->
       <main class="preview-area" ref="previewAreaRef">
         <!-- 顯示比例控制 -->
-        <div class="preview-toolbar">
-          <span class="preview-toolbar-label">預覽縮放</span>
+        <div class="preview-toolbar bg-surface border-b border-light-c">
+          <span class="preview-toolbar-label text-muted-c">預覽縮放</span>
           <input type="range" v-model.number="manualScale" min="20" max="100" step="5" class="scale-slider"/>
-          <span class="preview-toolbar-val">{{ manualScale }}%</span>
-          <button class="auto-scale-btn" @click="manualScale=0" :class="{active: manualScale===0}">自動</button>
-          <span class="preview-toolbar-label" style="margin-left:12px">自動排列 {{ previewCols }} 欄</span>
+          <span class="preview-toolbar-val text-base-c">{{ manualScale }}%</span>
+          <button class="auto-scale-btn border-light-c text-base-c" @click="manualScale=0" :class="{active: manualScale===0}">自動</button>
+          <span class="preview-toolbar-label text-muted-c" style="margin-left:12px">自動排列 {{ previewCols }} 欄</span>
         </div>
 
-        <div v-if="sideTab==='use' && selected.length===0" class="empty-hint">← 從左側勾選項目</div>
+        <div v-if="sideTab==='use' && selected.length===0" class="empty-hint text-hint-c">← 從左側勾選項目</div>
 
         <!-- 多欄排列 -->
         <div class="preview-pages-wrap" :style="{ '--cols': previewCols }">
           <div v-for="(pageCards, pi) in (sideTab==='config' ? configPreviewPages : previewPages)" :key="pi" class="a4-preview-wrap">
-            <div class="page-num-label">第 {{ pi+1 }} 頁</div>
+            <div class="page-num-label text-hint-c">第 {{ pi+1 }} 頁</div>
             <div class="a4-preview" :style="a4Style">
               <div class="cut-area">
                 <div class="grid">
@@ -322,9 +322,9 @@
 
     <!-- ══ 列印頁 ══ -->
     <div v-if="page==='print'">
-      <div class="print-toolbar no-print">
-        <button class="back-btn" @click="page='select'">← 返回選單</button>
-        <span class="toolbar-info">共 {{ printPages.length }} 頁</span>
+      <div class="print-toolbar no-print bg-surface border-b border-light-c">
+        <button class="back-btn border-light-c text-base-c" @click="page='select'">← 返回選單</button>
+        <span class="toolbar-info text-muted-c">共 {{ printPages.length }} 頁</span>
         <button class="do-print-btn" @click="doPrint">🖨️ 列印</button>
       </div>
       <div v-for="(pageCards,pi) in printPages" :key="pi" class="a4-page">
@@ -688,161 +688,161 @@ function doPrint() {
 /* ══ Layout ══ */
 .layout { display:flex; height:100vh; overflow:hidden; }
 
-/* ══ Sidebar ══ */
-.sidebar {
-  width:260px; min-width:260px;
-  display:flex; flex-direction:column; height:100vh; overflow:hidden;
-}
+/* Sidebar */
+.sidebar { width:260px; min-width:260px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .sidebar-header { flex-shrink:0; }
 
-/* 規則面板 */
-.tab-bar { display:flex; border-bottom:2px solid #e0e0e0; flex-shrink:0; }
-.tab-btn { flex:1; padding:8px 0; font-size:12px; font-weight:bold; border:none; background:none; cursor:pointer; color:var(--color-muted-c,#888); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; -webkit-tap-highlight-color:transparent; }
-.tab-btn:hover { color:var(--color-base-c,#444); background:var(--color-surface2,#f5f5f5); }
-.tab-btn.active { color:var(--color-base-c,#2c3e50); border-bottom-color:#15803d; background:var(--color-surface,white); }
+/* Tabs */
+.tab-bar { display:flex; flex-shrink:0; }
+.tab-btn {
+  flex:1; padding:8px 0; font-size:12px; font-weight:bold;
+  border:none; background:transparent; cursor:pointer;
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:all .15s; -webkit-tap-highlight-color:transparent;
+}
 
+/* Config */
 .config-scroll { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; }
 .config-section-title {
-  font-size:11px; font-weight:bold; color:white;
-  background:#15803d; padding:5px 12px; letter-spacing:.5px;
-  flex-shrink:0; margin-top:4px;
-  display:flex; justify-content:space-between; align-items:center;
+  padding:6px 12px; font-size:12px; font-weight:bold;
+  background:rgba(128,128,128,.1); border-top:1px solid rgba(128,128,128,.18); border-bottom:1px solid rgba(128,128,128,.18);
+  display:flex; align-items:center; justify-content:space-between;
+  user-select:none; flex-shrink:0;
 }
-.config-section-title.collapsible-section { cursor:pointer; user-select:none; }
-.config-section-title.collapsible-section:hover { background:#166534; }
-.config-section-title:first-child { margin-top:0; }
-
-.panel-label { font-size:11px; font-weight:bold; color:var(--color-hint-c,#888); letter-spacing:.4px; margin-bottom:5px; border-left:2px solid #15803d; padding-left:5px; }
-.panel-label.collapsible { cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; }
-.panel-label.collapsible:hover { color:#15803d; }
-.caret { font-size:9px; color:#aaa; }
-.rule-row { display:flex; align-items:center; gap:3px; margin-bottom:3px; font-size:11px; color:var(--color-base-c,#444); }
-.rule-prefix { min-width:18px; text-align:right; color:var(--color-hint-c,#888); }
-.rule-input { width:38px; text-align:center; border:1px solid var(--color-light-c,#e2e8f0); border-radius:3px; padding:2px 4px; font-size:11px; }
-.rule-unit { color:var(--color-hint-c,#888); font-size:11px; }
-.rule-del { background:none; border:none; color:#ccc; cursor:pointer; font-size:11px; padding:0 2px; }
-.rule-del:hover { color:#c0392b; }
-.rule-add { font-size:11px; color:#15803d; background:none; border:1px dashed #15803d; border-radius:3px; padding:2px 8px; cursor:pointer; width:100%; margin-top:3px; }
-.rule-add:hover { background:#f0fdf4; }
-.tune-row { display:flex; align-items:center; gap:6px; font-size:11px; color:#555; margin-bottom:4px; }
+.collapsible-section { cursor:pointer; }
+.collapsible-section:hover { background:rgba(128,128,128,.17); }
+.caret { font-size:10px; opacity:.6; }
+.size-panel { padding:8px 12px; flex-shrink:0; }
+.rule-row { display:flex; align-items:center; gap:3px; margin-bottom:3px; font-size:11px; }
+.rule-prefix { min-width:18px; text-align:right; }
+.rule-unit { font-size:11px; }
+.rule-input {
+  width:38px; text-align:center; font-size:11px;
+  border-radius:4px; padding:2px 4px;
+  border:1px solid;
+  background:transparent;
+}
+.rule-del { background:none; border:none; cursor:pointer; font-size:11px; padding:0 2px; opacity:.5; }
+.rule-del:hover { opacity:1; color:#ef4444; }
+.rule-add {
+  font-size:11px; background:none; border-radius:4px;
+  padding:3px 8px; cursor:pointer; width:100%; margin-top:4px;
+  border:1px dashed #64748b; color:#64748b;
+}
+.rule-add:hover { background:rgba(100,116,139,.08); }
+.tune-row { display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:5px; }
 .tune-row span:first-child { min-width:56px; }
-.tune-row input[type=range] { flex:1; accent-color:#15803d; }
-.tune-val { min-width:36px; text-align:right; color:var(--color-hint-c,#888); font-size:11px; }
+.tune-row input[type=range] { flex:1; accent-color:#64748b; }
+.tune-val { min-width:38px; text-align:right; font-size:11px; }
 
-/* ── 清單 ── */
+/* List */
 .list-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:4px 0; }
-
-/* 新增類別 */
-.add-group-row { padding:5px 12px; display:flex; gap:4px; align-items:center; border-bottom:1px dashed var(--color-light-c,#e2e8f0); }
-.add-group-btn { font-size:11px; color:#15803d; background:none; border:1px dashed #15803d; border-radius:3px; padding:2px 10px; cursor:pointer; width:100%; }
-.add-group-btn:hover { background:#eef5e8; }
-
-/* 群組 */
-.group { margin-bottom:2px; }
-.group-header {
-  padding:5px 8px 3px; position:sticky; top:0;
-  background:var(--color-surface,white); z-index:1;
-  display:flex; align-items:center; gap:4px;
+.add-group-row { padding:6px 12px; display:flex; gap:4px; align-items:center; }
+.add-group-btn {
+  font-size:11px; background:none; border-radius:4px;
+  padding:3px 10px; cursor:pointer; width:100%;
+  border:1px dashed #64748b; color:#64748b;
 }
-.group-toggle { cursor:pointer; font-size:10px; color:#aaa; width:12px; flex-shrink:0; }
-.group-check { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:bold; color:var(--color-base-c,#444); cursor:pointer; flex:1; }
-.group-check input { accent-color:#15803d; width:13px; height:13px; }
+.add-group-btn:hover { background:rgba(100,116,139,.08); }
+
+/* Groups */
+.group { margin-bottom:2px; }
+.group-header { padding:5px 8px 3px; position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:4px; }
+.group-toggle { cursor:pointer; font-size:10px; width:12px; flex-shrink:0; opacity:.5; }
+.group-check { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:bold; cursor:pointer; flex:1; }
+.group-check input { accent-color:#64748b; width:13px; height:13px; }
+.group-name-label { flex:1; font-size:12px; font-weight:bold; }
 .group-actions { display:flex; align-items:center; gap:2px; flex-shrink:0; }
-.group-add-btn { background:none; border:none; color:#15803d; font-size:13px; cursor:pointer; padding:0 3px; line-height:1; }
-.group-add-btn:hover { color:#166534; }
-.group-name-inp { flex:1; font-size:12px; }
+.group-add-btn { background:none; border:none; color:#64748b; font-size:13px; cursor:pointer; padding:0 3px; line-height:1; }
+.group-add-btn:hover { color:#475569; }
+.group-name-inp {
+  flex:1; font-size:12px; border-radius:3px;
+  padding:2px 6px; background:transparent; border:1px solid;
+}
 
-/* 編輯行 */
-.edit-row { display:flex; flex-direction:column; gap:5px; padding:8px 10px; background:#fefce8; border-bottom:1px solid #fde68a; }
+/* Edit row */
+.edit-row { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border-left:3px solid #64748b; }
 .edit-field-row { display:flex; align-items:center; gap:6px; }
-.edit-field-label { font-size:11px; color:var(--color-hint-c,#888); min-width:28px; flex-shrink:0; }
+.edit-field-label { font-size:11px; min-width:42px; flex-shrink:0; opacity:.7; }
 .edit-action-row { display:flex; gap:6px; justify-content:flex-end; margin-top:2px; }
+.edit-inp {
+  flex:1; border-radius:4px; padding:4px 8px;
+  font-size:11px; min-width:60px; background:transparent; border:1px solid;
+}
+.edit-group-sel {
+  font-size:11px; border-radius:4px; padding:3px 6px;
+  flex:1; background:transparent; border:1px solid;
+}
+.edit-ok { background:#64748b; color:white; border:none; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px; font-weight:bold; }
+.edit-ok:hover { background:#475569; }
+.edit-ok.sm { padding:2px 7px; font-size:11px; }
+.edit-cancel { background:transparent; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px; border:1px solid; }
+.edit-cancel.sm { padding:2px 7px; font-size:11px; }
+.edit-slider { flex:1; accent-color:#64748b; }
+.offset-val { font-size:10px; min-width:40px; text-align:right; white-space:nowrap; opacity:.7; }
+.offset-reset { background:none; border:none; cursor:pointer; font-size:12px; padding:0 2px; opacity:.4; }
+.offset-reset:hover { opacity:1; color:#64748b; }
 
-.edit-inp { flex:1; border:1px solid var(--color-light-c,#e2e8f0); border-radius:3px; padding:3px 6px; font-size:11px; min-width:60px; }
-.edit-group-sel { font-size:10px; border:1px solid var(--color-light-c,#e2e8f0); border-radius:3px; padding:2px 4px; max-width:80px; }
-.edit-ok { background:#15803d; color:white; border:none; border-radius:3px; padding:2px 7px; cursor:pointer; font-size:12px; }
-.edit-ok.sm { padding:1px 5px; font-size:11px; }
-.edit-cancel { background:#ccc; color:white; border:none; border-radius:3px; padding:2px 7px; cursor:pointer; font-size:12px; }
-.edit-cancel.sm { padding:1px 5px; font-size:11px; }
-
-/* 項目列 */
-.item-row { display:flex; align-items:center; padding:3px 8px 3px 34px; font-size:12px; color:var(--color-base-c,#444); transition:background .1s; }
-.item-row:hover { background:var(--color-surface2,#f8f9fa); }
+/* Item rows */
+.item-row { display:flex; align-items:center; padding:4px 8px 4px 34px; font-size:12px; transition:background .1s; }
 .item-row:hover .item-actions { opacity:1; }
-.item-row.checked { background:#f0fdf4; }
 .item-label-inner { display:flex; align-items:center; gap:4px; flex:1; cursor:pointer; min-width:0; }
-.item-label-inner input { accent-color:#15803d; width:12px; height:12px; flex-shrink:0; }
+.item-label-inner input { accent-color:#64748b; width:12px; height:12px; flex-shrink:0; }
 .zh-main { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .diet { font-size:10px; font-weight:bold; flex-shrink:0; }
-.tag-meat  { color:#c0392b; }
-.tag-veg   { color:#27ae60; }
-.tag-spicy { color:#e67e22; }
-.qty-wrap { display:flex; align-items:center; gap:1px; margin-left:auto; flex-shrink:0; }
-.qty-btn { background:var(--color-surface2,#e8e8e8); border:none; border-radius:3px; width:16px; height:16px; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#444; padding:0; }
-.qty-btn:hover { background:#15803d; color:white; }
-.qty-num { font-size:11px; font-weight:bold; color:var(--color-base-c,#333); min-width:16px; text-align:center; }
-.del-confirm-label { font-size:10px; color:#c0392b; white-space:nowrap; }
-.del-yes { background:#c0392b; color:white; border:none; border-radius:3px; padding:1px 6px; font-size:11px; cursor:pointer; }
-.del-yes:hover { background:#a93226; }
-.del-no  { background:#aaa; color:white; border:none; border-radius:3px; padding:1px 6px; font-size:11px; cursor:pointer; }
-.del-no:hover { background:#888; }
-
-
+.tag-meat  { color:#ef4444; }
+.tag-veg   { color:#22c55e; }
+.tag-spicy { color:#f97316; }
+.qty-wrap { display:flex; align-items:center; gap:2px; margin-left:auto; flex-shrink:0; }
+.qty-btn {
+  background:transparent; border-radius:3px; width:18px; height:18px; font-size:13px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  padding:0; line-height:1; border:1px solid;
+}
+.qty-btn:hover { background:#64748b; color:white; border-color:#64748b; }
+.qty-num { font-size:11px; font-weight:bold; min-width:18px; text-align:center; }
+.item-actions { display:flex; gap:2px; opacity:0; transition:opacity .15s; flex-shrink:0; margin-left:2px; }
+.act-btn { background:none; border:none; cursor:pointer; font-size:11px; opacity:.4; padding:2px 4px; border-radius:3px; }
+.act-btn:hover { opacity:1; background:rgba(128,128,128,.15); }
+.act-btn.del:hover { background:rgba(239,68,68,.15); color:#ef4444; }
 .config-item-row .item-actions { opacity:1; }
-.config-item-content { display:flex; align-items:center; padding:3px 8px 3px 34px; }
+.config-item-content { display:flex; align-items:center; padding:4px 8px 4px 34px; }
 .config-item-content .zh-main { flex:1; }
 .config-item-content .item-actions { opacity:1; }
-.config-item-offsets { display:flex; gap:3px; margin-right:4px; }
-.offset-badge { font-size:9px; color:#15803d; background:#eef5e8; border-radius:3px; padding:1px 4px; white-space:nowrap; }
-.edit-slider { flex:1; accent-color:#15803d; }
-.offset-val { font-size:10px; color:var(--color-muted-c,#666); min-width:36px; text-align:right; white-space:nowrap; }
-.offset-reset { background:none; border:none; color:#bbb; cursor:pointer; font-size:12px; padding:0 2px; }
-.offset-reset:hover { color:#15803d; }
-.group-name-label { flex:1; font-size:12px; font-weight:bold; color:var(--color-base-c,#444); }
 
-
-.act-btn { background:none; border:none; cursor:pointer; font-size:11px; color:#aaa; padding:1px 3px; border-radius:2px; }
-.act-btn:hover { background:#e0e0e0; color:var(--color-base-c,#444); }
-.act-btn.del:hover { background:#fde8e8; color:#c0392b; }
+/* Delete confirm */
+.del-confirm-label { font-size:10px; color:#ef4444; white-space:nowrap; }
+.del-yes { background:#ef4444; color:white; border:none; border-radius:3px; padding:2px 8px; font-size:11px; cursor:pointer; }
+.del-yes:hover { background:#dc2626; }
+.del-no  { background:transparent; border-radius:3px; padding:2px 8px; font-size:11px; cursor:pointer; border:1px solid; opacity:.6; }
 
 /* Footer */
-.sidebar-footer { padding:10px 12px; border-top:1px solid var(--color-light-c,#e2e8f0); display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.count-badge { flex:1; font-size:13px; color:var(--color-muted-c,#666); }
-.print-nav-btn { background:#dc2626; color:white; border:none; border-radius:6px; padding:7px 12px; font-size:12px; cursor:pointer; }
-.print-nav-btn:disabled { background:#ccc; cursor:default; }
+.sidebar-footer { padding:10px 12px; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.count-badge { flex:1; font-size:13px; }
+.print-nav-btn { background:#dc2626; color:white; border:none; border-radius:8px; padding:8px 14px; font-size:12px; cursor:pointer; font-weight:bold; display:flex; align-items:center; gap:4px; }
+.print-nav-btn:disabled { opacity:.4; cursor:default; }
 .print-nav-btn:not(:disabled):hover { background:#b91c1c; }
 
 /* ══ 預覽區 ══ */
 .preview-area { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; min-width:0; }
-
-.preview-toolbar {
-  display:flex; align-items:center; gap:6px; padding:8px 16px;
-  background:var(--color-surface2,#f8f9fa); border-bottom:1px solid var(--color-light-c,#e2e8f0); flex-shrink:0; flex-wrap:wrap;
-}
-.preview-toolbar-label { font-size:11px; color:var(--color-muted-c,#666); white-space:nowrap; }
-.preview-toolbar-val   { font-size:11px; color:var(--color-base-c,#444); min-width:28px; }
-.scale-slider { width:80px; accent-color:#15803d; }
-.auto-scale-btn { font-size:11px; padding:2px 8px; border:1px solid var(--color-light-c,#e2e8f0); border-radius:3px; background:white; cursor:pointer; }
-.auto-scale-btn.active { background:#15803d; color:white; border-color:#15803d; }
-
-.preview-pages-wrap {
-  display:grid;
-  grid-template-columns: repeat(var(--cols,1), 1fr);
-  gap:20px;
-  padding:16px;
-  align-items:start;
-}
+.preview-toolbar { display:flex; align-items:center; gap:6px; padding:8px 16px; flex-shrink:0; flex-wrap:wrap; }
+.preview-toolbar-label { font-size:11px; white-space:nowrap; opacity:.7; }
+.preview-toolbar-val   { font-size:11px; min-width:28px; }
+.scale-slider { width:80px; accent-color:#64748b; }
+.auto-scale-btn { font-size:11px; padding:3px 10px; border-radius:6px; cursor:pointer; border:1px solid; background:transparent; }
+.auto-scale-btn.active { background:#64748b; color:white; border-color:#64748b; }
+.preview-pages-wrap { display:grid; grid-template-columns:repeat(var(--cols,1),1fr); gap:20px; padding:16px; align-items:start; }
 .a4-preview-wrap { min-width:0; }
-.page-num-label { font-size:11px; color:var(--color-hint-c,#888); margin-bottom:4px; }
+.page-num-label { font-size:11px; margin-bottom:4px; opacity:.6; }
 .a4-preview {
   width:297mm; height:210mm;
-  background:white; box-shadow:0 2px 16px rgba(0,0,0,.18);
+  background:white; box-shadow:0 4px 24px rgba(0,0,0,.25);
   display:flex; align-items:flex-start; justify-content:flex-start;
   transform-origin:top left;
 }
-.empty-hint { color:var(--color-hint-c,#bbb); font-size:18px; padding:60px 20px; }
+.empty-hint { font-size:16px; padding:60px 20px; opacity:.4; }
 
-/* ══ 裁切區（共用）══ */
+/* ══ 裁切區 ══ */
 .cut-area { position:relative; width:267mm; height:177mm; }
 .grid { display:grid; grid-template-columns:repeat(3,89mm); grid-template-rows:repeat(3,59mm); gap:0; }
 .card-wrapper { width:89mm; height:59mm; position:relative; overflow:hidden; }
@@ -855,53 +855,20 @@ function doPrint() {
 .cut-h { left:-4mm; height:0.3mm; width:calc(100% + 8mm); }
 
 /* ══ 列印工具列 ══ */
-.print-toolbar { display:flex; align-items:center; gap:12px; padding:10px 20px; background:var(--color-surface,white); border-bottom:1px solid var(--color-light-c,#e2e8f0); }
-.back-btn { background:var(--color-muted-c,#64748b); color:white; border:none; border-radius:6px; padding:7px 16px; font-size:13px; cursor:pointer; }
+.print-toolbar { display:flex; align-items:center; gap:12px; padding:10px 20px; }
+.back-btn { background:transparent; border-radius:6px; padding:7px 16px; font-size:13px; cursor:pointer; border:1px solid; }
 .do-print-btn { background:#dc2626; color:white; border:none; border-radius:6px; padding:7px 16px; font-size:13px; cursor:pointer; }
-.toolbar-info { flex:1; font-size:13px; color:var(--color-muted-c,#666); }
-
-/* ══ 列印 A4 ══ */
+.toolbar-info { flex:1; font-size:13px; opacity:.7; }
 .a4-page { width:297mm; height:210mm; margin:20px auto; background:white; box-shadow:0 2px 12px rgba(0,0,0,.12); display:flex; align-items:flex-start; justify-content:flex-start; }
 
 @media print {
   @page { size:A4 landscape; margin:0; }
-  /* 隱藏所有 UI */
-  .sidebar,
-  .preview-toolbar,
-  .page-num-label,
-  .empty-hint,
-  .a4-page { display:none !important; }
-  /* 讓 layout 正常流動 */
-
+  .sidebar,.preview-toolbar,.page-num-label,.empty-hint,.a4-page { display:none !important; }
   .layout { display:block; height:auto; overflow:visible; }
-  .preview-area {
-    display:block !important;
-    overflow:visible !important;
-    padding:0 !important;
-    width:100% !important;
-  }
-  .preview-pages-wrap {
-    display:block !important;
-    padding:0 !important;
-    gap:0 !important;
-  }
-  .a4-preview-wrap {
-    display:block !important;
-  }
-  .a4-preview-wrap:not(:last-child) {
-    page-break-after:always;
-    break-after:page;
-  }
-  /* 取消 JS 注入的 transform，還原真實 A4 尺寸 */
-  .a4-preview {
-    width:297mm !important;
-    height:210mm !important;
-    transform:none !important;
-    margin:0 !important;
-    box-shadow:none !important;
-    display:flex !important;
-    align-items:flex-start !important;
-    justify-content:flex-start !important;
-  }
+  .preview-area { display:block !important; overflow:visible !important; padding:0 !important; width:100% !important; }
+  .preview-pages-wrap { display:block !important; padding:0 !important; gap:0 !important; }
+  .a4-preview-wrap { display:block !important; }
+  .a4-preview-wrap:not(:last-child) { page-break-after:always; break-after:page; }
+  .a4-preview { width:297mm !important; height:210mm !important; transform:none !important; margin:0 !important; box-shadow:none !important; display:flex !important; align-items:flex-start !important; justify-content:flex-start !important; }
 }
 </style>
