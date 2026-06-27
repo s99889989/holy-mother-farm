@@ -2,7 +2,7 @@
   <div class="min-h-full bg-surface2 transition-colors">
 
     <!-- ══ 選單頁 ══ -->
-    <div v-if="page === 'select'" class="layout no-print">
+    <div class="layout">
 
       <!-- ── 左側 Sidebar ── -->
       <aside class="sidebar bg-surface border-r border-light-c">
@@ -387,34 +387,6 @@
       </main>
     </div>
 
-    <!-- ══ 列印頁 ══ -->
-    <div v-if="page==='print'" style="overflow-x:hidden">
-      <div class="print-toolbar no-print bg-surface border-b border-light-c">
-        <button class="back-btn border-light-c text-base-c" @click="page='select'">← 返回選單</button>
-        <span class="toolbar-info text-muted-c">共 {{ printPages.length }} 頁</span>
-        <button class="do-print-btn" @click="doPrint">🖨️ 列印</button>
-      </div>
-      <div v-for="(pageCards,pi) in printPages" :key="pi" class="a4-page">
-        <div class="cut-area">
-          <div class="grid">
-            <div v-for="(card,ci) in pageCards" :key="ci" class="card-wrapper">
-              <div class="card-text-area" :style="textAreaStyle">
-                <p class="card-line1" :style="[{fontSize: calcZhSize(card.zh), position:'relative', left:(card.zhOffset??0)+'mm', top:((card.zhTop??0)+zhOffsetTop)+'mm'}, zhLineStyle]">{{ card.zh }}</p>
-                <p class="card-line2" :style="[{fontSize: calcEnSize(card.en), position:'relative', left:(card.enOffset??0)+'mm', top:((card.enTop??0)+enOffsetTop)+'mm'}, enLineStyle]">{{ card.en }}</p>
-              </div>
-              <img src="/images/桌牌.png" alt="桌牌" class="card-img"/>
-            </div>
-            <div v-for="k in (9-pageCards.length)" :key="'e'+k" class="card-wrapper">
-              <img src="/images/桌牌.png" alt="" class="card-img"/>
-            </div>
-          </div>
-          <div class="cut-line cut-v" style="left:89mm"></div>
-          <div class="cut-line cut-v" style="left:178mm"></div>
-          <div class="cut-line cut-h" style="top:59mm"></div>
-          <div class="cut-line cut-h" style="top:118mm"></div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -422,7 +394,6 @@
 import { ref, reactive, computed, onMounted, onUnmounted }from 'vue'
 definePageMeta({ layout: 'staff', requiredPermission: 'staff.quick-links' })
 const sideTab = ref('use')
-const page = ref('select')
 
 /* ── 字數規則 ── */
 const zhRules = reactive([
@@ -777,7 +748,6 @@ const expandedCards = computed(()=>{
 })
 const totalCount   = computed(()=>selected.value.reduce((s,i)=>s+i.qty,0))
 const previewPages = computed(()=>chunk(expandedCards.value,9))
-const printPages   = computed(()=>chunk(expandedCards.value,9))
 
 /* ── 預覽縮放 ── */
 const previewAreaRef = ref(null)
@@ -824,7 +794,98 @@ function dietClass(zh) {
   return ''
 }
 function doPrint() {
-  globalThis.window?.print()
+  if (expandedCards.value.length === 0) return
+
+  const imgUrl = new URL('/images/桌牌.png', window.location.origin).href
+
+  // 用 JS 把每頁的卡片 HTML 組好，所有樣式 inline，不依賴 DOM
+  const pages = chunk(expandedCards.value, 9)
+
+  const pagesHtml = pages.map(pageCards => {
+    // 補空卡到 9 張
+    const cards = [...pageCards]
+    while (cards.length < 9) cards.push(null)
+
+    const cardsHtml = cards.map(card => {
+      if (!card) {
+        return `<div class="card-wrapper"><img class="card-img" src="${imgUrl}" alt=""/></div>`
+      }
+      const zhSize  = calcZhSize(card.zh)
+      const enSize  = calcEnSize(card.en)
+      const taLeft  = offsetLeft.value + 'mm'
+      const taRight = (-offsetLeft.value) + 'mm'
+      const taH     = textAreaH.value + '%'
+      const zhTop   = ((card.zhTop ?? 0) + zhOffsetTop.value) + 'mm'
+      const enTop   = ((card.enTop ?? 0) + enOffsetTop.value) + 'mm'
+      const zhLeft  = (card.zhOffset ?? 0) + 'mm'
+      const enLeft  = (card.enOffset ?? 0) + 'mm'
+      const zhLS    = zhSpacing.value + 'mm'
+      const enLS    = enSpacing.value + 'mm'
+      return `
+        <div class="card-wrapper">
+          <div class="card-text-area" style="left:${taLeft};right:${taRight};height:${taH}">
+            <p class="card-line1" style="font-size:${zhSize};position:relative;left:${zhLeft};top:${zhTop};letter-spacing:${zhLS}">${card.zh}</p>
+            <p class="card-line2" style="font-size:${enSize};position:relative;left:${enLeft};top:${enTop};letter-spacing:${enLS}">${card.en}</p>
+          </div>
+          <img class="card-img" src="${imgUrl}" alt="${card.zh}"/>
+        </div>`
+    }).join('')
+
+    return `
+      <div class="a4-page">
+        <div class="cut-area">
+          <div class="grid">${cardsHtml}</div>
+          <div class="cut-line cut-v" style="left:89mm"></div>
+          <div class="cut-line cut-v" style="left:178mm"></div>
+          <div class="cut-line cut-h" style="top:59mm"></div>
+          <div class="cut-line cut-h" style="top:118mm"></div>
+        </div>
+      </div>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  @page { size: A4 landscape; margin: 0; }
+  body { margin: 0; padding: 0; background: white; }
+  .a4-page {
+    width: 297mm; height: 210mm;
+    display: flex; align-items: flex-start; justify-content: flex-start;
+    page-break-after: always; break-after: page;
+    overflow: hidden;
+  }
+  .a4-page:last-child { page-break-after: avoid; break-after: avoid; }
+  .cut-area { position: relative; width: 267mm; height: 177mm; }
+  .grid { display: grid; grid-template-columns: repeat(3,89mm); grid-template-rows: repeat(3,59mm); gap: 0; }
+  .card-wrapper { width: 89mm; height: 59mm; position: relative; overflow: hidden; }
+  .card-text-area { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 2mm 3mm 3mm; z-index: 1; overflow: hidden; }
+  .card-line1 { margin: 0; font-family: '標楷體','DFKai-SB',serif; font-weight: bold; color: #1a1a1a; text-align: center; line-height: 1.15; white-space: nowrap; }
+  .card-line2 { margin: 0; font-family: 'Georgia',serif; font-weight: bold; color: #1a1a1a; text-align: center; line-height: 1.2; white-space: nowrap; }
+  .card-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0; }
+  .cut-line { position: absolute; background: repeating-linear-gradient(transparent,transparent 2.5mm,#999 2.5mm,#999 5mm); z-index: 20; pointer-events: none; }
+  .cut-v { top: -4mm; width: 0.3mm; height: calc(100% + 8mm); }
+  .cut-h { left: -4mm; height: 0.3mm; width: calc(100% + 8mm); }
+</style>
+</head>
+<body>
+${pagesHtml}
+</body>
+</html>`
+
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;'
+  document.body.appendChild(iframe)
+  iframe.contentDocument.open()
+  iframe.contentDocument.write(html)
+  iframe.contentDocument.close()
+  iframe.onload = () => {
+    iframe.contentWindow.focus()
+    iframe.contentWindow.print()
+    setTimeout(() => document.body.removeChild(iframe), 2000)
+  }
 }
 </script>
 
@@ -1028,81 +1089,5 @@ function doPrint() {
 .cut-v { top:-4mm; width:0.3mm; height:calc(100% + 8mm); }
 .cut-h { left:-4mm; height:0.3mm; width:calc(100% + 8mm); }
 
-/* ══ 列印工具列 ══ */
-.print-toolbar { display:flex; align-items:center; gap:12px; padding:10px 20px; }
-.back-btn { background:transparent; border-radius:6px; padding:7px 16px; font-size:13px; cursor:pointer; border:1px solid; }
-.do-print-btn { background:#dc2626; color:white; border:none; border-radius:6px; padding:7px 16px; font-size:13px; cursor:pointer; }
-.toolbar-info { flex:1; font-size:13px; opacity:.7; }
-.a4-page { width:297mm; height:210mm; margin:20px auto; background:white; box-shadow:0 2px 12px rgba(0,0,0,.12); display:flex; align-items:flex-start; justify-content:flex-start; }
 
-@media print {
-  @page { size:A4 landscape; margin:0; }
-
-  /* 隱藏所有非列印元素 */
-  .no-print,
-  .sidebar,
-  .preview-toolbar,
-  .page-num-label,
-  .empty-hint,
-  .search-row,
-  .print-toolbar,
-  .config-preview-wrap { display:none !important; }
-
-  /* layout 展開 */
-  .layout { display:block !important; height:auto !important; overflow:visible !important; }
-
-  /* preview-area 全寬展開 */
-  .preview-area {
-    display:block !important;
-    overflow:visible !important;
-    padding:0 !important;
-    width:100% !important;
-    height:auto !important;
-  }
-
-  /* 頁面包裝逐一換頁 */
-  .preview-pages-wrap { display:block !important; padding:0 !important; gap:0 !important; }
-  .a4-preview-wrap { display:block !important; page-break-after:always; break-after:page; }
-  .a4-preview-wrap:last-child { page-break-after:avoid; break-after:avoid; }
-
-  /* A4 本體：移除縮放，還原實際尺寸（預覽頁） */
-  .a4-preview {
-    width:297mm !important;
-    height:210mm !important;
-    transform:none !important;
-    margin:0 !important;
-    box-shadow:none !important;
-    display:flex !important;
-    align-items:flex-start !important;
-    justify-content:flex-start !important;
-    overflow:hidden !important;
-  }
-
-  /* 列印頁（page==='print'）的 A4 */
-  .a4-page {
-    width:297mm !important;
-    height:210mm !important;
-    margin:0 !important;
-    box-shadow:none !important;
-    display:flex !important;
-    align-items:flex-start !important;
-    justify-content:flex-start !important;
-    overflow:hidden !important;
-    page-break-after:always !important;
-    break-after:page !important;
-  }
-  .a4-page:last-child {
-    page-break-after:avoid !important;
-    break-after:avoid !important;
-  }
-}
-</style>
-
-<!-- 全域列印覆蓋：解除 staff layout 的高度/overflow 限制 -->
-<style>
-@media print {
-  .h-screen { height:auto !important; overflow:visible !important; display:block !important; }
-  .flex-1 { flex:none !important; height:auto !important; overflow:visible !important; }
-  .overflow-y-auto { overflow:visible !important; height:auto !important; }
-}
 </style>
