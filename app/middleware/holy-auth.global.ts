@@ -38,7 +38,7 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   '/staff/stock/cash-count':   'staff.cash-count',
 }
 
-const ADMIN_HOME = '/admin/management/PermissionManagement'
+const ADMIN_HOME = '/admin/customer-management'
 
 let blockedChecked = false
 

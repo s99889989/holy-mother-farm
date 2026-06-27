@@ -17,7 +17,7 @@ onMounted(async () => {
   // 已用帳密登入 → 後台
   if (localStorage.getItem('holy_auth')) {
     loggedIn.value = true
-    await navigateTo('/admin/management/permission-management')
+    await navigateTo('/admin/permission-management')
     return
   }
 })
@@ -44,7 +44,7 @@ const login = async () => {
     if (res.success) {
       localStorage.setItem('holy_auth', 'ok')
       if (res.token) localStorage.setItem('holy_auth_token', res.token)
-      navigateTo('/admin/management/permission-management')
+      navigateTo('/admin/permission-management')
     } else {
       error.value = '帳號或密碼錯誤，請再試一次'
       password.value = ''
