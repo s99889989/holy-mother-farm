@@ -638,18 +638,28 @@ const savePerm = async () => {
 // ── API：封鎖/解鎖 ─────────────────────────────────────────────────
 const toggleBlock = async (c) => {
   const newStatus = c.status === 'blocked' ? 'active' : 'blocked'
+  const token = localStorage.getItem('holy_auth_token') ?? ''
   try {
     const res = await fetch(`${BASE.value}/${c.id}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      credentials: 'include',
       body: JSON.stringify({ status: newStatus })
     })
     const data = await res.json()
     if (data.success) {
       c.status = newStatus
       showToast(newStatus === 'blocked' ? '帳號已封鎖' : '帳號已解鎖')
+    } else {
+      showToast('❌ ' + (data.error || '操作失敗'))
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    showToast('❌ 連線失敗：' + e.message)
+    console.error(e)
+  }
 }
 
 // ── API：刪除 ─────────────────────────────────────────────────────
@@ -678,6 +688,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>

@@ -36,6 +36,9 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
 
 const ADMIN_HOME = '/admin/management/PermissionManagement'
 
+// 同一個 session 只驗一次 blocked 狀態，避免每次換頁都打 /me
+let blockedChecked = false
+
 export default defineNuxtRouteMiddleware(async (to) => {
   // /staff 根路徑自動導向 /staff/home
   if (to.path === '/staff') return navigateTo('/staff/home')
@@ -73,6 +76,23 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // 未登入 → 跳 /
   if (to.path.startsWith('/staff') && !customerStore.isLoggedIn) {
     return navigateTo('/')
+  }
+
+  // 已登入但帳號被封鎖 → 強制登出並跳首頁（每個 session 只驗一次）
+  if (to.path.startsWith('/staff') && customerStore.isLoggedIn && !blockedChecked) {
+    blockedChecked = true
+    const commonStore = useCommonStore()
+    try {
+      const res = await fetch(commonStore.data.main_url + '/holy/customer/me', { credentials: 'include' })
+      const data = await res.json()
+      if (data.error) {
+        blockedChecked = false // 重置，讓下次重新驗
+        customerStore.clearCustomer()
+        return navigateTo('/')
+      }
+    } catch (e) {
+      blockedChecked = false // 網路錯誤放行，下次重驗
+    }
   }
 
   // ── 載入權限並檢查 ────────────────────────────────────────────────

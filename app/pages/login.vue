@@ -1,60 +1,61 @@
 <script setup>
-  definePageMeta({ layout: 'loginl' })
+definePageMeta({ layout: 'loginl' })
 
-  const commonStore = useCommonStore()
+const commonStore = useCommonStore()
 
-  const loggedIn = ref(false)
+const loggedIn = ref(false)
 
-  onMounted(async () => {
-    if (import.meta.client) {
-      if (localStorage.getItem('adminDark') === '1') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-    }
-
-    // 已用帳密登入 → 後台
-    if (localStorage.getItem('holy_auth')) {
-      loggedIn.value = true
-      await navigateTo('/admin/management/PermissionManagement')
-      return
-    }
-  })
-
-  // ── 帳密登入 ─────────────────────────────────────────────────────
-  const username = ref('')
-  const password = ref('')
-  const loading = ref(false)
-  const error = ref('')
-
-  const login = async () => {
-    if (!username.value || !password.value) {
-      error.value = '請輸入帳號和密碼'
-      return
-    }
-    if (loading.value) return
-    loading.value = true
-    error.value = ''
-    try {
-      const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
-        method: 'POST',
-        body: { username: username.value, password: password.value }
-      })
-      if (res.success) {
-        localStorage.setItem('holy_auth', 'ok')
-        navigateTo('/admin/management/PermissionManagement')
-      } else {
-        error.value = '帳號或密碼錯誤，請再試一次'
-        password.value = ''
-      }
-    } catch {
-      error.value = '帳號或密碼錯誤，請再試一次'
-      password.value = ''
-    } finally {
-      loading.value = false
+onMounted(async () => {
+  if (import.meta.client) {
+    if (localStorage.getItem('adminDark') === '1') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
     }
   }
+
+  // 已用帳密登入 → 後台
+  if (localStorage.getItem('holy_auth')) {
+    loggedIn.value = true
+    await navigateTo('/admin/management/PermissionManagement')
+    return
+  }
+})
+
+// ── 帳密登入 ─────────────────────────────────────────────────────
+const username = ref('')
+const password = ref('')
+const loading = ref(false)
+const error = ref('')
+
+const login = async () => {
+  if (!username.value || !password.value) {
+    error.value = '請輸入帳號和密碼'
+    return
+  }
+  if (loading.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await $fetch(`${commonStore.data.main_url}/holy/auth/login`, {
+      method: 'POST',
+      body: {username: username.value, password: password.value}
+    })
+    if (res.success) {
+      localStorage.setItem('holy_auth', 'ok')
+      if (res.token) localStorage.setItem('holy_auth_token', res.token)
+      navigateTo('/admin/management/PermissionManagement')
+    } else {
+      error.value = '帳號或密碼錯誤，請再試一次'
+      password.value = ''
+    }
+  } catch {
+    error.value = '帳號或密碼錯誤，請再試一次'
+    password.value = ''
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
@@ -123,7 +124,7 @@
                 class="login-btn"
                 @click="login"
               >
-                <div v-if="loading" class="login-spinner" />
+                <div v-if="loading" class="login-spinner"/>
                 {{ loading ? '登入中…' : '登入' }}
               </button>
             </div>
@@ -318,7 +319,9 @@ html.dark .login-input-error {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .login-back {
