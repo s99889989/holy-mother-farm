@@ -2,50 +2,50 @@
 
 import { usePermissionStore } from '~/stores/permission'
 
+// 路由 → 所需 permission key（一頁一個 key）
 const ROUTE_PERMISSIONS: Record<string, string> = {
-  // ── 員工首頁 ────────────────────────────────────────────────────
+  // 員工首頁
   '/staff/home': 'staff.home',
 
-  // ── 庫存・財務 ──────────────────────────────────────────────────
-  '/staff/stock/cash-count-view': 'staff.cash-count',
-  '/staff/stock/cash-count-edit': 'staff.cash-count.edit',
+  // 人事
+  '/staff/personnel/class-schedule':  'staff.class-schedule',
+  '/staff/personnel/phone-directory': 'staff.phone-directory',
+  '/staff/personnel/work-manual':     'staff.work-manual',
 
-  // ── 營運管理 ────────────────────────────────────────────────────
-  '/staff/management/booking-view': 'staff.booking',
-  '/staff/management/booking-edit': 'staff.booking.edit',
-  '/staff/management/menu-view': 'staff.menu',
-  '/staff/management/menu-edit': 'staff.menu.edit',
-  '/staff/management/calendar-view': 'staff.calendar',
-  '/staff/management/calendar-edit': 'staff.calendar.edit',
-  '/staff/management/asset-view': 'staff.asset',
-  '/staff/management/asset-edit': 'staff.asset.edit',
-  '/staff/management/files-view': 'staff.files',
-  '/staff/management/files-edit': 'staff.files.edit',
-  '/staff/task/task-board': 'staff.task',
-  '/staff/task/task-manager': 'staff.task.manage',
+  // 列印中心
+  '/staff/print/table-card-print':  'staff.table-card-print',
+  '/staff/print/herbs-label-print': 'staff.herbs-label-print',
 
-  // ── 前台內容 ────────────────────────────────────────────────────
-  '/staff/front/news-edit': 'staff.news.edit',
-  '/staff/front/product-edit': 'staff.product.edit',
-  '/staff/front/production-edit': 'staff.production.edit',
+  // 營運管理
+  '/staff/management/daily-menu': 'staff.daily-menu',
+  '/staff/management/calendar':   'staff.calendar',
+  '/staff/management/asset':      'staff.asset',
+  '/staff/management/files':      'staff.files',
 
-  // ── 工具・系統 ──────────────────────────────────────────────────
-  '/staff/system/quick-links-view': 'staff.quick-links',
-  '/staff/system/quick-links-edit': 'staff.quick-links.edit'
+  // 訂單管理
+  '/staff/order/black-cat-orders': 'staff.black-cat-orders',
+  '/staff/order/soybean-orders':   'staff.soybean-orders',
+  '/staff/order/lunch-orders':     'staff.lunch-orders',
+  '/staff/order/booking-orders':   'staff.booking-orders',
+
+  // 前台內容
+  '/staff/content/news':       'staff.news',
+  '/staff/content/product':    'staff.product',
+  '/staff/content/production': 'staff.production',
+
+  // 工具・系統
+  '/staff/system/quick-links': 'staff.quick-links',
+  '/staff/stock/cash-count':   'staff.cash-count',
 }
 
 const ADMIN_HOME = '/admin/management/PermissionManagement'
 
-// 同一個 session 只驗一次 blocked 狀態，避免每次換頁都打 /me
 let blockedChecked = false
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  // /staff 根路徑自動導向 /staff/home
   if (to.path === '/staff') return navigateTo('/staff/home')
 
-  // ── /admin 路徑 ───────────────────────────────────────────────────
-  // SSR 時無法讀 localStorage，一律放行交給 client 端判斷
-  // （原本 SSR redirect 到 /login 會導致 login 頁面 HTML 疊在 admin 頁面上）
+  // ── /admin 路徑 ──────────────────────────────────────────────────
   if (to.path.startsWith('/admin')) {
     if (import.meta.server) return
     return localStorage.getItem('holy_auth')
@@ -53,32 +53,25 @@ export default defineNuxtRouteMiddleware(async (to) => {
       : navigateTo('/login')
   }
 
-  // server side 以下不執行
   if (import.meta.server) return
 
   const hasAdminAuth = !!localStorage.getItem('holy_auth')
   const customerStore = useCustomerStore()
 
-  // ── /login ────────────────────────────────────────────────────────
-  // 已有 holy_auth → 跳後台
   if (to.path === '/login') {
     if (hasAdminAuth) return navigateTo(ADMIN_HOME)
     return
   }
 
-  // ── 前台公開頁面 / 根路徑 → 放行 ─────────────────────────────────
   if (to.path === '/') return
 
-  // ── holy_auth 登入者 → 全部放行 ──────────────────────────────────
   if (hasAdminAuth) return
 
-  // ── /staff 路徑 ───────────────────────────────────────────────────
-  // 未登入 → 跳 /
   if (to.path.startsWith('/staff') && !customerStore.isLoggedIn) {
     return navigateTo('/')
   }
 
-  // 已登入但帳號被封鎖 → 強制登出並跳首頁（每個 session 只驗一次）
+  // 已登入但帳號被封鎖（每個 session 只驗一次）
   if (to.path.startsWith('/staff') && customerStore.isLoggedIn && !blockedChecked) {
     blockedChecked = true
     const commonStore = useCommonStore()
@@ -86,16 +79,16 @@ export default defineNuxtRouteMiddleware(async (to) => {
       const res = await fetch(commonStore.data.main_url + '/holy/customer/me', { credentials: 'include' })
       const data = await res.json()
       if (data.error) {
-        blockedChecked = false // 重置，讓下次重新驗
+        blockedChecked = false
         customerStore.clearCustomer()
         return navigateTo('/')
       }
     } catch (e) {
-      blockedChecked = false // 網路錯誤放行，下次重驗
+      blockedChecked = false
     }
   }
 
-  // ── 載入權限並檢查 ────────────────────────────────────────────────
+  // ── 取得所需 key（優先 definePageMeta，其次 ROUTE_PERMISSIONS）──
   const requiredKey = (to.meta.requiredPermission as string)
     ?? ROUTE_PERMISSIONS[to.path]
 

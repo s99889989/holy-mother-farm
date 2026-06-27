@@ -392,7 +392,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted }from 'vue'
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.quick-links' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.table-card-print' })
 const sideTab = ref('use')
 
 /* ── 字數規則 ── */

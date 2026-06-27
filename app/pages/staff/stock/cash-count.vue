@@ -1,5 +1,6 @@
 <script setup>
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.cash-count' })
+const perm = usePermission()
 
 const commonStore   = useCommonStore()
 const BASE          = () => commonStore.data.main_url + '/holy/cashCount'
@@ -247,8 +248,7 @@ onUnmounted(() => {
 
 
 <template>
-  <div class="min-h-screen bg-surface2 transition-colors duration-300">
-    <AdminNavbar />
+  <div class="min-h-full bg-surface2 transition-colors duration-300">
 
     <!-- Header -->
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">

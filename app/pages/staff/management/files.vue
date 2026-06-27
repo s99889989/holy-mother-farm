@@ -1,6 +1,5 @@
 <template>
-  <div class="min-h-screen bg-surface2" @keydown.esc="exitSelectMode" tabindex="-1">
-    <AdminNavbar />
+  <div class="min-h-full bg-surface2" @keydown.esc="exitSelectMode" tabindex="-1">
 
     <!-- Header -->
     <header class="bg-surface border-b border-light-c px-4 py-3">
@@ -75,7 +74,7 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             多選
           </button>
-          <label class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer ml-auto">
+          <label v-if="perm.can('staff.image.edit')" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer ml-auto">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
             上傳
             <input type="file" accept="image/*,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.pdf,.txt" multiple class="hidden" @change="handleUpload" />
@@ -94,12 +93,12 @@
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               下載
             </button>
-            <button @click="batchMove" :disabled="selected.size === 0"
+            <button v-if="perm.can('staff.image.edit')" @click="batchMove" :disabled="selected.size === 0"
                     class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface border border-light-c text-muted-c rounded-lg hover:bg-surface2 disabled:opacity-40 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
               移動
             </button>
-            <button @click="batchDelete" :disabled="selected.size === 0"
+            <button v-if="perm.can('staff.image.edit')" @click="batchDelete" :disabled="selected.size === 0"
                     class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-40 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               刪除{{ selected.size > 0 ? ' ' + selected.size + ' 個' : '' }}
@@ -182,7 +181,7 @@
               <!-- 桌機 hover 操作（非多選模式） -->
               <div v-if="!selectMode" class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all rounded-2xl items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 hidden sm:flex">
                 <button @click.stop="copyUrl(img)" class="p-2 bg-surface/90 hover:bg-surface rounded-xl text-muted-c transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
-                <a :href="imgUrl(img.url)" :download="img.originalName" @click.stop class="p-2 bg-surface/90 hover:bg-indigo-50 rounded-xl text-indigo-600 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></a>
+                <button @click.stop="downloadFile(img)" class="p-2 bg-surface/90 hover:bg-indigo-50 rounded-xl text-indigo-600 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
                 <button @click.stop="openMoveModal(img)" class="p-2 bg-surface/90 hover:bg-indigo-50 rounded-xl text-indigo-500 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></button>
                 <button @click.stop="openEditModal(img)" class="p-2 bg-surface/90 hover:bg-amber-50 rounded-xl text-amber-600 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
                 <button @click.stop="confirmDelete(img)" class="p-2 bg-surface/90 hover:bg-red-50 rounded-xl text-red-500 transition-colors shadow-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
@@ -233,7 +232,7 @@
                 <td v-if="!selectMode" class="px-4 py-2">
                   <div class="flex items-center justify-center gap-1">
                     <button @click.stop="copyUrl(img)" class="p-1.5 text-hint-c hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
-                    <a :href="imgUrl(img.url)" :download="img.originalName" class="p-1.5 text-hint-c hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></a>
+                    <button @click.stop="downloadFile(img)" class="p-1.5 text-hint-c hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
                     <button @click.stop="openMoveModal(img)" class="p-1.5 text-hint-c hover:text-indigo-600 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></button>
                     <button @click.stop="openEditModal(img)" class="p-1.5 text-hint-c hover:text-amber-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
                     <button @click.stop="confirmDelete(img)" class="p-1.5 text-hint-c hover:text-red-400 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
@@ -259,9 +258,9 @@
             <button @click="copyUrl(previewImg)" class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>複製連結
             </button>
-            <a :href="imgUrl(previewImg.url)" :download="previewImg.originalName" class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface2 text-base-c rounded-lg hover:bg-surface2 transition-colors">
+            <button @click="downloadFile(previewImg)" class="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface2 text-base-c rounded-lg hover:bg-surface2 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>下載
-            </a>
+            </button>
             <button @click="previewImg = null" class="p-1.5 text-hint-c hover:text-muted-c"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
           </div>
         </div>
@@ -269,11 +268,11 @@
           <img v-if="isImage(previewImg.fileName)" :src="imgUrl(previewImg.url)" :alt="previewImg.originalName" class="max-w-full max-h-[60vh] object-contain rounded-xl" />
           <div v-else-if="previewImg.coverUrl" class="flex flex-col items-center gap-4">
             <img :src="imgUrl(previewImg.coverUrl)" class="max-w-full max-h-[55vh] object-contain rounded-xl shadow-md" />
-            <a :href="imgUrl(previewImg.url)" :download="previewImg.originalName" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">下載 {{ fileExt(previewImg.fileName) }} 檔案</a>
+            <button @click="downloadFile(previewImg)" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">下載 {{ fileExt(previewImg.fileName) }} 檔案</button>
           </div>
           <div v-else class="flex flex-col items-center gap-4 py-12">
             <span class="text-7xl">{{ fileEmoji(previewImg.fileName) }}</span>
-            <a :href="imgUrl(previewImg.url)" :download="previewImg.originalName" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">下載檔案</a>
+            <button @click="downloadFile(previewImg)" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">下載檔案</button>
           </div>
         </div>
         <div class="px-4 py-3 border-t border-light-c flex items-center gap-2">
@@ -395,7 +394,8 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.files' })
+const perm = usePermission()
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/images')
@@ -517,16 +517,29 @@ onBeforeUnmount(() => {
 })
 
 // ── 批次操作 ──────────────────────────────────────────────────────
+// 強制下載（避免跨域 <a download> 失效跳頁）
+const downloadFile = async (img) => {
+  try {
+    const res = await fetch(imgUrl(img.url))
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = img.originalName
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch {
+    showToast('下載失敗')
+  }
+}
+
 const batchDownload = async () => {
   const targets = filteredImages.value.filter(img => selected.has(imgKey(img)))
   for (const img of targets) {
-    const a = document.createElement('a')
-    a.href = imgUrl(img.url);
-    a.download = img.originalName
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a)
+    await downloadFile(img)
     await new Promise(r => setTimeout(r, 300))  // 每個間隔 300ms，避免瀏覽器封鎖
   }
   showToast(`下載 ${targets.length} 個檔案`)

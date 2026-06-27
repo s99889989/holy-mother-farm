@@ -5,18 +5,18 @@
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-teal-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">產</div>
+          <div class="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">農</div>
           <div>
-            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">產品訂購管理</h1>
-            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Production Items</p>
+            <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">推薦農產品管理</h1>
+            <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Featured Products</p>
           </div>
         </div>
         <button v-if="perm.can('staff.product.edit')" @click="openModal(null)"
-                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors">
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
-          新增產品
+          新增農產品
         </button>
       </div>
     </header>
@@ -25,28 +25,28 @@
 
       <!-- 載入中 -->
       <div v-if="loading" class="flex items-center justify-center py-16 text-hint-c gap-2">
-        <div class="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+        <div class="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
         載入中…
       </div>
 
       <!-- 無資料 -->
-      <div v-else-if="itemList.length === 0"
+      <div v-else-if="productList.length === 0"
            class="text-center py-16 text-hint-c text-sm">
-        尚無產品，點擊「新增產品」開始新增
+        尚無推薦農產品，點擊「新增農產品」開始新增
       </div>
 
-      <!-- 產品列表 -->
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div v-for="item in itemList" :key="item.id"
-             class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden flex gap-4 items-start p-4">
+      <!-- 農產品列表 -->
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div v-for="item in productList" :key="item.id"
+             class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden flex flex-col">
 
           <!-- 封面圖 -->
-          <div class="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden bg-surface2">
+          <div class="w-full aspect-square bg-surface2 overflow-hidden">
             <img v-if="item.coverUrl" :src="apiUrl(item.coverUrl)" :alt="item.name"
                  class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
                  @click="previewUrl = apiUrl(item.coverUrl)" />
             <div v-else class="w-full h-full flex items-center justify-center text-hint-c">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
@@ -54,22 +54,22 @@
           </div>
 
           <!-- 內容 -->
-          <div class="flex-1 min-w-0 flex flex-col gap-2">
+          <div class="p-3 flex-1 flex flex-col gap-2">
             <div>
-              <p class="font-bold text-sm text-base-c truncate">{{ item.name }}</p>
-              <p class="text-xs text-hint-c mt-0.5">排序：{{ item.sort }}</p>
+              <div class="flex items-start justify-between gap-1">
+                <p class="font-bold text-sm text-base-c line-clamp-1">{{ item.name }}</p>
+              </div>
               <a v-if="item.link" :href="item.link" target="_blank"
-                 class="text-xs text-teal-600 dark:text-teal-400 mt-1 truncate block hover:underline">
+                 class="text-xs text-emerald-600 dark:text-emerald-400 mt-1 truncate block hover:underline">
                 🔗 {{ item.link }}
               </a>
-              <p v-else class="text-xs text-hint-c mt-1">— 無連結</p>
             </div>
-            <div class="flex gap-1.5 mt-auto">
-              <button @click="openModal(item)"
+            <div class="flex gap-1.5 mt-auto pt-1">
+              <button v-if="perm.can('staff.product.edit')" @click="openModal(item)"
                       class="flex-1 px-2 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                 編輯
               </button>
-              <button @click="confirmDelete(item)"
+              <button v-if="perm.can('staff.product.edit')" @click="confirmDelete(item)"
                       class="flex-1 px-2 py-1.5 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                 刪除
               </button>
@@ -86,7 +86,7 @@
 
         <div class="px-5 py-4 border-b border-light-c flex items-center justify-between sticky top-0 bg-surface z-10">
           <h3 class="font-bold text-base-c">
-            {{ modal.isNew ? '新增產品' : '編輯產品' }}
+            {{ modal.isNew ? '新增推薦農產品' : '編輯推薦農產品' }}
           </h3>
           <button @click="modal.show = false" class="text-hint-c hover:text-muted-c p-1">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,22 +100,15 @@
           <!-- 名稱 -->
           <div>
             <label class="text-xs font-semibold text-muted-c block mb-1">名稱 *</label>
-            <input v-model="form.name" placeholder="產品名稱"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400" />
+            <input v-model="form.name" placeholder="農產品名稱"
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
 
-          <!-- 連結 + 排序 -->
-          <div class="grid grid-cols-2 gap-3">
-            <div class="col-span-2">
-              <label class="text-xs font-semibold text-muted-c block mb-1">連結（點擊另開新分頁）</label>
-              <input v-model="form.link" placeholder="https://..."
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-muted-c block mb-1">排序（小的排前面）</label>
-              <input v-model.number="form.sort" type="number" min="0" placeholder="0"
-                     class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-teal-400" />
-            </div>
+          <!-- 連結 -->
+          <div>
+            <label class="text-xs font-semibold text-muted-c block mb-1">連結（點擊圖片另開新分頁）</label>
+            <input v-model="form.link" placeholder="https://..."
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
 
           <!-- 封面圖 -->
@@ -128,7 +121,7 @@
                       class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">×</button>
             </div>
             <div @click="coverInputRef?.click()"
-                 class="border-2 border-dashed border-base rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 transition-colors">
+                 class="border-2 border-dashed border-base rounded-xl p-4 text-center cursor-pointer hover:border-emerald-400 transition-colors">
               <p class="text-sm text-hint-c">點擊上傳封面圖</p>
               <input ref="coverInputRef" type="file" accept="image/*" class="hidden" @change="handleCoverSelect" />
             </div>
@@ -142,7 +135,7 @@
             取消
           </button>
           <button @click="save" :disabled="saving"
-                  class="px-4 py-2 text-sm bg-teal-700 text-white rounded-xl hover:bg-teal-800 disabled:bg-teal-300 transition-colors flex items-center gap-1.5">
+                  class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-xl hover:bg-emerald-800 disabled:bg-emerald-300 transition-colors flex items-center gap-1.5">
             <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             {{ modal.isNew ? '新增' : '儲存' }}
           </button>
@@ -170,11 +163,11 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.production.edit' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.product' })
 const perm = usePermission()
 
 const commonStore  = useCommonStore()
-const BASE         = computed(() => commonStore.data.main_url + '/holy/production-item')
+const BASE         = computed(() => commonStore.data.main_url + '/holy/product')
 const API_ORIGIN   = computed(() => commonStore.data.main_url)
 
 const apiUrl = (path) => {
@@ -183,7 +176,7 @@ const apiUrl = (path) => {
 }
 
 // ── 狀態 ──────────────────────────────────────────────────────────
-const itemList      = ref([])
+const productList   = ref([])
 const loading       = ref(false)
 const saving        = ref(false)
 const previewUrl    = ref('')
@@ -191,7 +184,7 @@ const coverInputRef = ref(null)
 const toast         = reactive({ show: false, message: '' })
 const modal         = reactive({ show: false, isNew: true })
 const form          = reactive({
-  id: '', name: '', link: '', sort: 0,
+  id: '', name: '', link: '',
   coverUrl: '', coverFile: null, coverPreview: ''
 })
 
@@ -219,19 +212,18 @@ const openModal = (item) => {
     id:       item?.id       || '',
     name:     item?.name     || '',
     link:     item?.link     || '',
-    sort:     item?.sort     ?? 0,
-    coverUrl: item?.coverUrl || '',
+    coverUrl:    item?.coverUrl    || '',
     coverFile: null, coverPreview: '',
   })
   modal.show = true
 }
 
 // ── API ──────────────────────────────────────────────────────────
-const fetchItems = async () => {
+const fetchProducts = async () => {
   loading.value = true
   try {
-    itemList.value = await (await fetch(`${BASE.value}/list`)).json()
-  } catch { itemList.value = [] }
+    productList.value = await (await fetch(`${BASE.value}/list`)).json()
+  } catch { productList.value = [] }
   finally { loading.value = false }
 }
 
@@ -240,37 +232,47 @@ const save = async () => {
   saving.value = true
   try {
     const fd = new FormData()
-    fd.append('id',   form.id)
+    fd.append('id', form.id)
     fd.append('name', form.name)
     fd.append('link', form.link)
-    fd.append('sort', form.sort)
-    if (form.coverFile)      fd.append('cover', form.coverFile)
+    if (form.coverFile) fd.append('cover', form.coverFile)
     else if (!form.coverUrl) fd.append('removeCover', 'true')
 
-    const url    = modal.isNew ? `${BASE.value}/save` : `${BASE.value}/update`
+    const url = modal.isNew ? `${BASE.value}/save` : `${BASE.value}/update`
     const method = modal.isNew ? 'POST' : 'PUT'
-    const res    = await fetch(url, { method, body: fd })
+    const res = await fetch(url, {method, body: fd})
     if (!res.ok) throw new Error()
-    await fetchItems()
+    await fetchProducts()
     modal.show = false
     showToast(modal.isNew ? '已新增' : '已儲存')
-  } catch { showToast('儲存失敗') }
-  finally { saving.value = false }
+  } catch {
+    showToast('儲存失敗')
+  } finally {
+    saving.value = false
+  }
 }
 
 const confirmDelete = async (item) => {
   if (!confirm(`確定刪除「${item.name}」？`)) return
   try {
-    await fetch(`${BASE.value}/remove/${item.id}`, { method: 'DELETE' })
-    itemList.value = itemList.value.filter(p => p.id !== item.id)
+    await fetch(`${BASE.value}/remove/${item.id}`, {method: 'DELETE'})
+    productList.value = productList.value.filter(p => p.id !== item.id)
     showToast('已刪除')
-  } catch { showToast('刪除失敗') }
+  } catch {
+    showToast('刪除失敗')
+  }
 }
 
-onMounted(fetchItems)
+onMounted(fetchProducts)
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>

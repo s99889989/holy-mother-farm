@@ -2,7 +2,7 @@
 import {ref, computed} from 'vue'
 import {herbSections} from '~/composables/useHerbsData'
 
-definePageMeta({layout: 'staff', requiredPermission: 'staff.quick-links'})
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.herbs-label-print' })
 const BASE_URL = 'https://holyfarm.netlify.app/front/herbs/'
 const PER_PAGE = 8  // 4欄 × 2列
 

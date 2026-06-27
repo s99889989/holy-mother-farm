@@ -666,7 +666,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.asset.edit' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.asset' })
 const perm = usePermission()
 
 // ── Dark Mode ─────────────────────────────────────────────────────

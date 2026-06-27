@@ -256,7 +256,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.quick-links.edit' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.phone-directory' })
 
 import { ref, computed } from 'vue'
 

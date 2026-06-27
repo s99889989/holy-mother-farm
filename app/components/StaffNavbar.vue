@@ -166,10 +166,16 @@
               @click.stop
             >
               <div class="nav-dropdown-head px-3 py-2">
-                <p class="text-sm font-semibold truncate" style="color: var(--text)">
+                <p
+                  class="text-sm font-semibold truncate"
+                  style="color: var(--text)"
+                >
                   {{ customer.name }}
                 </p>
-                <p class="text-sm truncate" style="color: var(--text-hint)">
+                <p
+                  class="text-sm truncate"
+                  style="color: var(--text-hint)"
+                >
                   {{ customer.email }}
                 </p>
               </div>
@@ -260,20 +266,59 @@
           :title="isDark ? '切換亮色' : '切換暗色'"
           @click="toggleDark"
         >
-          <svg v-if="isDark" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"/>
+          <svg
+            v-if="isDark"
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"
+            />
           </svg>
-          <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
+          <svg
+            v-else
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
+            />
           </svg>
         </button>
         <button
           class="nav-icon-btn p-1 rounded transition-colors"
           @click="mobileOpen = !mobileOpen"
         >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path v-if="!mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              v-if="!mobileOpen"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+            <path
+              v-else
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
@@ -297,7 +342,10 @@
           v-for="group in visibleGroups"
           :key="group.label"
         >
-          <p class="text-xs font-semibold px-1 mb-1" style="color: var(--text-hint)">
+          <p
+            class="text-xs font-semibold px-1 mb-1"
+            style="color: var(--text-hint)"
+          >
             {{ group.label }}
           </p>
           <div class="grid grid-cols-3 gap-1">
@@ -382,53 +430,50 @@ watch(() => route.path, () => {
 // ── 選單定義 ─────────────────────────────────────────────────────
 const navGroups = [
   {
-    label: '🎒️ 庫存・財務',
-    items: [
-      { to: '/staff/stock/cash-count-view', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count' }
-    ]
-  },
-  {
     label: '👥 人事',
     items: [
-      { to: '/staff/personnel/class-schedule-edit', icon: '🌴', label: '假表', key: 'staff.cash-count.edit' },
-      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'staff.cash-count.edit' },
-      { to: '/staff/personnel/sop-edit', icon: '〰️', label: '流程', key: 'staff.cash-count.edit' }
+      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'staff.class-schedule' },
+      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'staff.phone-directory' },
+      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'staff.work-manual' }
     ]
   },
   {
-    label: '🗿 營運管理',
+    label: '🖨️ 列印中心',
     items: [
-      { to: '/staff/task/task-board', icon: '✅', label: '今日工作', color: 'bg-indigo-600', key: 'staff.task' },
-      { to: '/staff/task/task-manager', icon: '📋', label: '工作管理', color: 'bg-teal-700', key: 'staff.task.manage' },
-      { to: '/staff/management/TableCardPrint', icon: '🖼️', label: '桌牌', key: 'staff.menu' },
-      { to: '/staff/management/label-print', icon: '🖼️', label: '花園QRCode', key: 'staff.menu' },
-      { to: '/staff/management/menu-view', icon: '🍽️', label: '每日菜單', key: 'staff.menu' },
-      { to: '/staff/management/calendar-view', icon: '📅', label: '行事曆', key: 'staff.calendar' },
-      { to: '/staff/management/asset-view', icon: '🏷️', label: '財產登記', key: 'staff.asset' },
-      { to: '/staff/management/files-view', icon: '📁', label: '檔案管理', key: 'staff.files' }
+      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'staff.table-card-print' },
+      { to: '/staff/print/herbs-label-print', icon: '🏷️', label: '花園 QRCode', key: 'staff.herbs-label-print' }
     ]
   },
   {
-    label: '🧾 訂單管理',
+    label: '🏢 營運管理',
     items: [
-      { to: '/staff/order/soybean-log', icon: '🥛', label: '豆漿訂單', key: 'staff.booking.edit' },
-      { to: '/staff/order/waybills', icon: '🐱', label: '黑貓貨單', key: 'staff.booking.edit' },
-      { to: '/staff/order/lunch-edit', icon: '🍱', label: '便當訂單', key: 'staff.booking.edit' },
-      { to: '/staff/order/booking-view', icon: '🪑', label: '訂位管理', key: 'staff.booking' }
+      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'staff.daily-menu' },
+      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'staff.calendar' },
+      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'staff.asset' },
+      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'staff.files' }
+    ]
+  },
+  {
+    label: '📦 訂單管理',
+    items: [
+      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'staff.black-cat-orders' },
+      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'staff.soybean-orders' },
+      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'staff.lunch-orders' },
+      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'staff.booking-orders' }
     ]
   },
   {
     label: '🌐 前台內容',
     items: [
-      { to: '/staff/content/news-view', icon: '📰', label: '消息管理', key: 'staff.news' },
-      { to: '/staff/content/product-view', icon: '🛍️', label: '商品管理', key: 'staff.product' },
-      { to: '/staff/content/production-view', icon: '🌾', label: '產品訂購', key: 'staff.production' }
+      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'staff.news' },
+      { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'staff.product' },
+      { to: '/staff/content/production', icon: '🌱', label: '產品訂購', key: 'staff.production' }
     ]
   }
 ]
 
 const standaloneItems = [
-  { to: '/staff/system/quick-links-view', icon: '🔗', label: '常用網址', key: 'staff.quick-links' }
+  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'staff.quick-links' }
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────

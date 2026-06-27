@@ -1,6 +1,9 @@
 <script setup>
-definePageMeta({layout: 'staff'})
-import {ref, reactive, computed, h, nextTick, onMounted} from 'vue'
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.work-manual' })
+
+import { ref, reactive, computed, h, nextTick, onMounted } from 'vue'
+
+
 
 useHead({title: 'SOP 手冊 — 聖母健康農莊'})
 

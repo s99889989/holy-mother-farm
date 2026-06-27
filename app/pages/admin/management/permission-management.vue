@@ -201,39 +201,36 @@ const BASE = computed(() => commonStore.data.main_url + '/holy/permission')
 // ── Permission Key 中文對照 ──────────────────────────────────────
 const KEY_LABELS = {
   // 前台
-  'front.view':                 '前台瀏覽',
-  'profile.view':               '個人頁面',
-  // 庫存・財務
-  'staff.cash-count':           '點鈔紀錄（查看）',
-  'staff.cash-count.edit':      '點鈔紀錄（編輯）',
-  'staff.inventory':            '庫存管理（查看）',
-  'staff.inventory.edit':       '庫存管理（編輯）',
-  // 營運管理
-  'staff.booking':              '訂位管理（查看）',
-  'staff.booking.edit':         '訂位管理（編輯）',
-  'staff.menu':                 '每日菜單（查看）',
-  'staff.menu.edit':            '每日菜單（編輯）',
-  'staff.calendar':             '行事曆（查看）',
-  'staff.calendar.edit':        '行事曆（編輯）',
-  'staff.asset':                '財產登記（查看）',
-  'staff.asset.edit':           '財產登記（編輯）',
-  'staff.files':                '檔案管理（查看）',
-  'staff.files.edit':           '檔案管理（編輯）',
-  // 前台內容
-  'staff.news':                 '消息管理（查看）',
-  'staff.news.edit':            '消息管理（編輯）',
-  'staff.product':              '商品管理（查看）',
-  'staff.product.edit':         '商品管理（編輯）',
-  'staff.production':           '產品訂購管理（查看）',
-  'staff.production.edit':      '產品訂購管理（編輯）',
+  'front.view':                  '前台瀏覽',
+  'profile.view':                '個人頁面',
   // 工具・系統
-  'staff.home':                 '員工首頁（查看）',
-  'staff.home.edit':            '員工首頁（編輯）',
-  'staff.quick-links':          '常用網址（查看）',
-  'staff.quick-links.edit':     '常用網址（編輯）',
-  // 其他
-  'staff.customer':             '客戶管理（查看）',
-  'staff.customer.edit':        '客戶管理（編輯）',
+  'staff.home':                  '員工首頁',
+  'staff.quick-links':           '常用網址',
+  'staff.cash-count':            '點鈔記錄',
+  // 人事
+  'staff.class-schedule':        '假表',
+  'staff.phone-directory':       '電話簿',
+  'staff.work-manual':           '工作手冊',
+  // 列印中心
+  'staff.table-card-print':      '桌牌列印',
+  'staff.herbs-label-print':     '花園 QRCode 列印',
+  // 營運管理
+  'staff.daily-menu':            '每日菜色',
+  'staff.calendar':              '行事曆',
+  'staff.asset':                 '財產登記',
+  'staff.files':                 '檔案管理',
+  // 訂單管理
+  'staff.black-cat-orders':      '黑貓貨單',
+  'staff.soybean-orders':        '豆漿訂單',
+  'staff.lunch-orders':          '便當訂單',
+  'staff.booking-orders':        '訂位管理',
+  // 前台內容
+  'staff.news':                  '消息管理',
+  'staff.product':               '商品管理',
+  'staff.production':            '產品訂購管理',
+  // 其他（後台 admin 用）
+  'staff.customer':              '客戶管理（查看）',
+  'staff.customer.edit':         '客戶管理（編輯）',
 }
 
 // ── Permission 分區顯示 ──────────────────────────────────────────
@@ -244,47 +241,39 @@ const permSections = [
     keys: ['front.view', 'profile.view']
   },
   {
-    prefix: 'inventory',
-    label: '庫存・財務',
-    keys: [
-      'staff.cash-count', 'staff.cash-count.edit',
-      'staff.inventory',  'staff.inventory.edit',
-    ]
+    prefix: 'tools',
+    label: '工具・系統',
+    keys: ['staff.home', 'staff.quick-links', 'staff.cash-count']
+  },
+  {
+    prefix: 'personnel',
+    label: '人事',
+    keys: ['staff.class-schedule', 'staff.phone-directory', 'staff.work-manual']
+  },
+  {
+    prefix: 'print',
+    label: '列印中心',
+    keys: ['staff.table-card-print', 'staff.herbs-label-print']
   },
   {
     prefix: 'ops',
     label: '營運管理',
-    keys: [
-      'staff.booking',     'staff.booking.edit',
-      'staff.menu',        'staff.menu.edit',
-      'staff.calendar',    'staff.calendar.edit',
-      'staff.asset',       'staff.asset.edit',
-      'staff.files',       'staff.files.edit',
-    ]
+    keys: ['staff.daily-menu', 'staff.calendar', 'staff.asset', 'staff.files']
+  },
+  {
+    prefix: 'order',
+    label: '訂單管理',
+    keys: ['staff.black-cat-orders', 'staff.soybean-orders', 'staff.lunch-orders', 'staff.booking-orders']
   },
   {
     prefix: 'content',
     label: '前台內容',
-    keys: [
-      'staff.news',       'staff.news.edit',
-      'staff.product',    'staff.product.edit',
-      'staff.production', 'staff.production.edit',
-    ]
-  },
-  {
-    prefix: 'tools',
-    label: '工具・系統',
-    keys: [
-      'staff.home',        'staff.home.edit',
-      'staff.quick-links', 'staff.quick-links.edit',
-    ]
+    keys: ['staff.news', 'staff.product', 'staff.production']
   },
   {
     prefix: 'misc',
     label: '其他',
-    keys: [
-      'staff.customer', 'staff.customer.edit',
-    ]
+    keys: ['staff.customer', 'staff.customer.edit']
   },
 ]
 
@@ -398,30 +387,50 @@ const setAsDefault = async (groupId) => {
   try {
     await fetch(BASE.value + '/default-group', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ group: groupId })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({group: groupId})
     })
     defaultGroup.value = groupId
     showToast('預設群組已更新')
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 // ── 刪除群組 ──────────────────────────────────────────────────────
-const confirmDeleteGroup = (g) => { deleteGroupTarget.value = g }
+const confirmDeleteGroup = (g) => {
+  deleteGroupTarget.value = g
+}
 const doDeleteGroup = async () => {
   saving.value = true
   try {
-    const res = await fetch(`${BASE.value}/groups/${deleteGroupTarget.value.id}`, { method: 'DELETE' })
+    const res = await fetch(`${BASE.value}/groups/${deleteGroupTarget.value.id}`, {method: 'DELETE'})
     const d = await res.json()
-    if (d.success) { await fetchGroups(); showToast('群組已刪除') }
-  } catch (e) { console.error(e) } finally { saving.value = false; deleteGroupTarget.value = null }
+    if (d.success) {
+      await fetchGroups();
+      showToast('群組已刪除')
+    }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    saving.value = false;
+    deleteGroupTarget.value = null
+  }
 }
 
 // ── 初始化 ────────────────────────────────────────────────────────
-onMounted(() => { fetchGroups() })
+onMounted(() => {
+  fetchGroups()
+})
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>

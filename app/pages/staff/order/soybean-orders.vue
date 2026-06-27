@@ -2,7 +2,7 @@
 import {ref, computed, onMounted, onUnmounted} from 'vue'
 import {useCommonStore} from '~/stores/common.js'
 
-definePageMeta({layout: 'staff'})
+definePageMeta({layout: 'staff', requiredPermission: 'staff.soybean-orders' })
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/soybean')

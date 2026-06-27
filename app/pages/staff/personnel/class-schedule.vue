@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.class-schedule' })
 
 // ── API base（參考 quick-links-edit.vue 使用 commonStore）────────
 const commonStore = useCommonStore()
