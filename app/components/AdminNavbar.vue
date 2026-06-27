@@ -14,8 +14,8 @@ watch(() => route.path, () => { mobileOpen.value = false })
 
 // 後台縮減為只剩帳戶管理
 const navItems = [
-  { to: '/admin/management/customer-management', label: '帳號管理' },
-  { to: '/admin/management/permission-management', label: '權限管理' }
+  { to: '/admin/customer-management', label: '帳號管理' },
+  { to: '/admin/permission-management', label: '權限管理' }
 ]
 
 // ── 頭像選單 ──────────────────────────────────────────────────────
