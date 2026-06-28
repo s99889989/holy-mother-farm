@@ -21,7 +21,7 @@
               <button @click="isEditMode = false"
                       :class="!isEditMode ? 'bg-orange-700 text-white' : 'text-hint-c dark:text-hint-c hover-surface2'"
                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">查看</button>
-              <button :disabled="!perm.can('staff.menu.edit')" @click="perm.can('staff.menu.edit') && (isEditMode = true)"
+              <button :disabled="!perm.can('staff.daily-menu')" @click="perm.can('staff.daily-menu') && (isEditMode = true)"
                       :class="isEditMode ? 'bg-orange-700 text-white' : 'text-hint-c dark:text-hint-c hover-surface2'"
                       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">編輯</button>
             </div>
@@ -160,9 +160,13 @@
                                  class="rounded-xl overflow-hidden border border-light-c bg-surface2">
                               <template v-if="item.images && item.images.length > 0">
                                 <img v-if="!imgErrors.has(item.images[0])"
-                                     :src="thumbUrl(item.images[0])" :alt="item.name"
+                                     :src="thumbUrl(item.images[0])"
+                                     :srcset="`${thumbUrl(item.images[0])} 400w, ${imgUrl(item.images[0])} 1200w`"
+                                     sizes="(max-width: 640px) 45vw, 300px"
+                                     :alt="item.name"
                                      class="w-full aspect-[4/3] object-cover cursor-pointer bg-surface2"
                                      loading="lazy"
+                                     decoding="async"
                                      @error="imgErrors.add(item.images[0])"
                                      @click="previewUrl = imgUrl(item.images[0])" />
                                 <div v-else
@@ -220,6 +224,7 @@
                               <img v-if="!imgErrors.has(item.images[0])"
                                    :src="imgUrl(item.images[0])" :alt="item.name"
                                    class="w-full h-full object-cover cursor-pointer"
+                                   decoding="async"
                                    @error="imgErrors.add(item.images[0])"
                                    @click="previewUrl = imgUrl(item.images[0])" />
                               <div v-else class="w-full h-full flex items-center justify-center text-hint-c text-xs text-center p-1">無法載入</div>
@@ -311,7 +316,7 @@
             <div v-if="imageModal.images.length > 0" class="grid grid-cols-3 sm:grid-cols-4 gap-2">
               <div v-for="(url, idx) in imageModal.images" :key="idx"
                    class="relative group aspect-square rounded-xl overflow-hidden border border-light-c">
-                <img :src="imgUrl(url)" class="w-full h-full object-cover cursor-pointer" @click="previewUrl = imgUrl(url)" />
+                <img :src="imgUrl(url)" class="w-full h-full object-cover cursor-pointer" decoding="async" @click="previewUrl = imgUrl(url)" />
                 <button @click="deleteMenuImage(idx)"
                         class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-100 hover:bg-red-600">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -320,6 +325,8 @@
             </div>
             <p v-else class="text-sm text-hint-c py-4 text-center border border-dashed border-light-c rounded-xl">尚無圖片</p>
           </div>
+
+          <!-- 上傳區 -->
           <div @dragover.prevent="dragOver = true" @dragleave="dragOver = false" @drop.prevent="handleDrop"
                :class="dragOver ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-base hover:border-orange-400'"
                class="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all" @click="fileInputRef?.click()">
@@ -327,10 +334,12 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
             </svg>
             <p class="text-sm text-hint-c">點擊或拖曳圖片上傳</p>
+            <p class="text-xs text-hint-c mt-1 opacity-60">上傳前自動壓縮，節省流量</p>
             <input ref="fileInputRef" type="file" multiple accept="image/*" class="hidden" @change="handleFileSelect" />
           </div>
           <div v-if="uploading" class="mt-3 flex items-center gap-2 text-sm text-hint-c">
-            <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>上傳中…
+            <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+            上傳中…{{ uploadProgress }}
           </div>
           <button @click="imageModal.show = false" class="mt-4 w-full px-4 py-2.5 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors">關閉</button>
         </div>
@@ -338,7 +347,7 @@
 
       <!-- 大圖預覽 -->
       <div v-if="previewUrl" class="fixed inset-0 bg-black/85 flex items-center justify-center z-[60] cursor-pointer p-4" @click="previewUrl = ''">
-        <img :src="previewUrl" class="max-w-full max-h-full rounded-xl shadow-2xl object-contain" />
+        <img :src="previewUrl" class="max-w-full max-h-full rounded-xl shadow-2xl object-contain" decoding="async" />
       </div>
 
       <!-- Toast -->
@@ -380,6 +389,35 @@ const fetchWithTimeout = (url, options = {}, ms = 8000) => {
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
 }
 
+// ── 上傳前在前端壓縮圖片 ──────────────────────────────────────────
+// 目的：手機拍的照片通常 4–10 MB，壓縮到 1200px / quality 0.82 後
+//       約 200–400 KB，可減少 ~80% 的上傳流量。
+// 後端收到後仍會再做一次 WebP 轉換，確保統一格式。
+const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale  = Math.min(1, maxWidth / img.width)
+      const canvas = document.createElement('canvas')
+      canvas.width  = Math.round(img.width  * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(
+        blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
+        'image/jpeg',
+        quality
+      )
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(file) // 壓縮失敗就用原檔
+    }
+    img.src = url
+  })
+}
+
 // ── 分類設定 ──────────────────────────────────────────────────────
 const DIET_TYPES = ['葷食', '素食', '五辛素', '蛋奶素', '五辛蛋奶素']
 const DIET_BADGE = {
@@ -406,6 +444,7 @@ const previewUrl      = ref('')
 const fileInputRef    = ref(null)
 const dragOver        = ref(false)
 const uploading       = ref(false)
+const uploadProgress  = ref('')
 const isEditMode      = ref(false)
 const isClient        = ref(false)
 const ingredientDraft = reactive({})
@@ -421,8 +460,8 @@ const calMonth = ref(today.getMonth() + 1)
 const mainCol        = ref(null)
 const containerWidth = ref(800)
 const CARD_GAP           = 12
-const COL_MIN_WIDTH      = 160   // 手機用
-const COL_MIN_WIDTH_MD   = 320   // 平板以上用（顯示較少欄但較大）
+const COL_MIN_WIDTH      = 160
+const COL_MIN_WIDTH_MD   = 320
 
 const colCount = computed(() => {
   const minW = containerWidth.value >= 640 ? COL_MIN_WIDTH_MD : COL_MIN_WIDTH
@@ -432,11 +471,8 @@ const colCount = computed(() => {
 // ── 日期搜尋 ─────────────────────────────────────────────────────
 const WEEK_LABELS  = ['日', '一', '二', '三', '四', '五', '六']
 const weekItemsMap = ref({})
-
-// 跨 refresh 持久化的月份快取（避免重複打 /dates/ API）
 const loadedMonthsCache = new Set()
 
-// 往某方向找有資料的日期（最多掃 365 天）
 const findDatesWithData = async (startDate, direction, count) => {
   const result = []
   const d = new Date(startDate)
@@ -454,7 +490,7 @@ const findDatesWithData = async (startDate, direction, count) => {
         apiOnline.value = true
       } catch {
         apiOnline.value = false
-        loadedMonthsCache.delete(ym) // 失敗時移除，下次可重試
+        loadedMonthsCache.delete(ym)
       }
     }
     if (dateStatus.value[date]) result.push(date)
@@ -463,7 +499,6 @@ const findDatesWithData = async (startDate, direction, count) => {
   return result
 }
 
-// 拉品項資料
 const fetchItemsForDates = async (dates) => {
   await Promise.all(dates.map(async (date) => {
     if (weekItemsMap.value[date] !== undefined) return
@@ -476,7 +511,7 @@ const fetchItemsForDates = async (dates) => {
 }
 
 // ── 顯示日期列表 ──────────────────────────────────────────────────
-const anchorDate = ref(todayStr)   // 目前這頁的起始日期
+const anchorDate = ref(todayStr)
 const hasPrev    = ref(false)
 const hasNext    = ref(false)
 
@@ -491,10 +526,8 @@ const visibleDates = ref([])
 const refresh = async () => {
   isLoading.value = true
   try {
-    // 從 anchor 往後找 colCount 筆
     let dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
 
-    // 找不到：往前找並重設 anchor
     if (dates.length === 0) {
       const prev = await findDatesWithData(anchorDate.value, -1, colCount.value)
       if (prev.length > 0) {
@@ -503,7 +536,6 @@ const refresh = async () => {
       }
     }
 
-    // 不足一頁：往前補齊
     if (dates.length > 0 && dates.length < colCount.value) {
       const need = colCount.value - dates.length
       const firstD = new Date(dates[0])
@@ -517,7 +549,6 @@ const refresh = async () => {
     visibleDates.value = dates
     await fetchItemsForDates(dates)
 
-    // 判斷前後是否還有資料
     if (dates.length > 0) {
       const f = new Date(dates[0]); f.setDate(f.getDate() - 1)
       const fp = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`
@@ -560,7 +591,6 @@ const jumpToToday = async () => {
   await refresh()
 }
 
-// colCount 改變時重拉
 watch(colCount, () => refresh())
 
 // ── 觸控 / 滑鼠 / 滾輪 切換 ──────────────────────────────────────
@@ -571,11 +601,10 @@ const onTouchEnd   = (e) => {
   if (Math.abs(diff) > 50) diff > 0 ? slideNext() : slidePrev()
 }
 
-// 滑鼠橫向滾輪（trackpad 兩指左右滑）
 let wheelTimer = null
 let wheelAccum = 0
 const onWheel = (e) => {
-  if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) return  // 縱向滾動不觸發
+  if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) return
   wheelAccum += e.deltaX
   clearTimeout(wheelTimer)
   wheelTimer = setTimeout(() => {
@@ -585,17 +614,11 @@ const onWheel = (e) => {
   }, 80)
 }
 
-// 滑鼠拖曳
 let isDragging = false
 let dragStartX = 0
 let dragMoved  = false
-const onMouseDown = (e) => {
-  isDragging = true; dragStartX = e.clientX; dragMoved = false
-}
-const onMouseMove = (e) => {
-  if (!isDragging) return
-  if (Math.abs(e.clientX - dragStartX) > 5) dragMoved = true
-}
+const onMouseDown = (e) => { isDragging = true; dragStartX = e.clientX; dragMoved = false }
+const onMouseMove = (e) => { if (!isDragging) return; if (Math.abs(e.clientX - dragStartX) > 5) dragMoved = true }
 const onMouseUp = (e) => {
   if (!isDragging) return
   isDragging = false
@@ -678,18 +701,21 @@ const addIngredientToItem = (item) => {
   ingredientDraft[item.id] = ''
 }
 
-// ── 圖片 ──────────────────────────────────────────────────────────
+// ── 圖片：單張上傳（編輯卡片小圖）────────────────────────────────
 const openSingleImageUpload = (item) => {
   const input = document.createElement('input')
   input.type = 'file'; input.accept = 'image/*'
   input.onchange = async (e) => {
     const file = e.target.files[0]; if (!file) return
-    const formData = new FormData(); formData.append('files', file)
     try {
+      // 壓縮後上傳
+      const compressed = await compressImage(file)
       if (item.images && item.images.length > 0) {
         const oldFile = item.images[0].split('/').pop()
         await fetchWithTimeout(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${oldFile}`, { method: 'DELETE' }).catch(() => {})
       }
+      const formData = new FormData()
+      formData.append('files', compressed)
       const res = await fetchWithTimeout(`${BASE}/image/upload/${item.date}/${item.id}`, { method: 'POST', body: formData })
       if (!res.ok) throw new Error(`上傳失敗（${res.status}）`)
       item.images = (await res.json()).slice(0, 1)
@@ -713,25 +739,30 @@ const openImageUpload = (item) => { imageModal.item = item; imageModal.images = 
 const handleFileSelect = (e) => uploadImages(Array.from(e.target.files))
 const handleDrop = (e) => { dragOver.value = false; uploadImages(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))) }
 
+// ── 圖片：批次上傳（Modal）──────────────────────────────────────
 const uploadImages = async (files) => {
   if (!imageModal.item || files.length === 0) return
   uploading.value = true
+  uploadProgress.value = ''
   let successCount = 0
   const errors = []
   try {
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      uploadProgress.value = `（${i + 1} / ${files.length}）`
       try {
+        // 先壓縮
+        const compressed = await compressImage(files[i])
         const formData = new FormData()
-        formData.append('files', file)
+        formData.append('files', compressed)
         const res = await fetchWithTimeout(`${BASE}/image/upload/${imageModal.item.date}/${imageModal.item.id}`, { method: 'POST', body: formData })
-        if (!res.ok) throw new Error(`${file.name}：${res.status}`)
+        if (!res.ok) throw new Error(`${files[i].name}：${res.status}`)
         const newPaths = await res.json()
         imageModal.images.push(...newPaths)
         const found = menuItems.value.find(i => i.id === imageModal.item.id)
         if (found) found.images = [...imageModal.images]
         successCount++
       } catch (err) {
-        errors.push(err.message || file.name)
+        errors.push(err.message || files[i].name)
       }
     }
     if (errors.length === 0) {
@@ -745,6 +776,7 @@ const uploadImages = async (files) => {
     }
   } finally {
     uploading.value = false
+    uploadProgress.value = ''
     if (fileInputRef.value) fileInputRef.value.value = ''
   }
 }
@@ -779,7 +811,6 @@ const fetchMenuItems = async () => {
     menuItems.value = await (await fetchWithTimeout(`${BASE}/get/${selectedDate.value}`)).json()
     menuItems.value.forEach(i => { if (!ingredientDraft[i.id]) ingredientDraft[i.id] = '' })
     apiOnline.value = true
-    // 補足各 section 的預設槽數
     await ensureDefaultSlots()
   } catch (e) {
     apiOnline.value = false
@@ -787,7 +818,6 @@ const fetchMenuItems = async () => {
   }
 }
 
-// 確保每個 section slot 1 都達到 defaultItems 數量
 const ensureDefaultSlots = async () => {
   for (const section of sections) {
     const existingInSlot1 = itemsByTypeAndSlot(section.type, 1)
@@ -808,7 +838,6 @@ const autoSave = async (item) => {
 
 const addItemToSlot = async (type, slot) => {
   try {
-    // 繼承同 slot 現有項目的 dietType
     const existing = itemsByTypeAndSlot(type, slot)
     const dietType = existing.length > 0 ? (existing[0].dietType || '') : ''
     const res = await fetchWithTimeout(`${BASE}/save`, {
@@ -864,7 +893,8 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeyDown)
   await fetchMarkedDates()
   selectedDate.value = todayStr
-  fetchWithTimeout(`${BASE}/init/${todayStr}`, { method: 'POST' }).catch(() => {})
+  fetchWithTimeout(`${BASE}/init/${todayStr}`, {method: 'POST'}).catch(() => {
+  })
   await fetchMenuItems()
   await fetchMarkedDates()
   await nextTick()
@@ -881,6 +911,12 @@ onUnmounted(() => {
 
 <style scoped>
 @use '~/assets/scs/main' as *;
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>
