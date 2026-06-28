@@ -8,39 +8,49 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   '/staff/home': 'staff.home',
 
   // 人事
-  '/staff/personnel/class-schedule':  'staff.class-schedule',
+  '/staff/personnel/class-schedule': 'staff.class-schedule',
   '/staff/personnel/phone-directory': 'staff.phone-directory',
-  '/staff/personnel/work-manual':     'staff.work-manual',
+  '/staff/personnel/work-manual': 'staff.work-manual',
 
   // 列印中心
-  '/staff/print/table-card-print':  'staff.table-card-print',
+  '/staff/print/table-card-print': 'staff.table-card-print',
   '/staff/print/herbs-label-print': 'staff.herbs-label-print',
 
   // 營運管理
   '/staff/management/daily-menu': 'staff.daily-menu',
-  '/staff/management/calendar':   'staff.calendar',
-  '/staff/management/asset':      'staff.asset',
-  '/staff/management/files':      'staff.files',
+  '/staff/management/calendar': 'staff.calendar',
+  '/staff/management/asset': 'staff.asset',
+  '/staff/management/files': 'staff.files',
 
   // 訂單管理
   '/staff/order/black-cat-orders': 'staff.black-cat-orders',
-  '/staff/order/soybean-orders':   'staff.soybean-orders',
-  '/staff/order/lunch-orders':     'staff.lunch-orders',
-  '/staff/order/booking-orders':   'staff.booking-orders',
+  '/staff/order/soybean-orders': 'staff.soybean-orders',
+  '/staff/order/lunch-orders': 'staff.lunch-orders',
+  '/staff/order/booking-orders': 'staff.booking-orders',
 
   // 前台內容
-  '/staff/content/news':       'staff.news',
-  '/staff/content/product':    'staff.product',
+  '/staff/content/news': 'staff.news',
+  '/staff/content/product': 'staff.product',
   '/staff/content/production': 'staff.production',
 
   // 工具・系統
   '/staff/system/quick-links': 'staff.quick-links',
-  '/staff/stock/cash-count':   'staff.cash-count',
+  '/staff/stock/cash-count': 'staff.cash-count'
 }
 
 const ADMIN_HOME = '/admin/customer-management'
 
 let blockedChecked = false
+
+// 清除登入狀態並跳回首頁
+async function forceLogout(customerStore: ReturnType<typeof useCustomerStore>, baseUrl: string) {
+  blockedChecked = false
+  customerStore.clearCustomer()
+  usePermissionStore().clear()
+  // 盡力通知後端清 cookie，失敗無所謂
+  try { await fetch(`${baseUrl}/holy/customer/logout`, { method: 'POST', credentials: 'include' }) } catch { /* ignore */ }
+  return navigateTo('/')
+}
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/staff') return navigateTo('/staff/home')
@@ -71,19 +81,33 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/')
   }
 
-  // 已登入但帳號被封鎖（每個 session 只驗一次）
+  // ── Cookie 有效性驗證（每個 session 只打一次 /me）────────────────
+  // 修正：iOS Safari/Chrome 的 ITP 機制可能在背景喚醒或跨分頁時
+  // 丟掉 cookie，導致 localStorage（Pinia persist）還有 isLoggedIn=true
+  // 但後端 session 已失效。這裡統一用 res.ok 判斷 HTTP status，
+  // 401/403 或任何 !ok 都視為 cookie 失效，強制清除並跳首頁。
   if (to.path.startsWith('/staff') && customerStore.isLoggedIn && !blockedChecked) {
     blockedChecked = true
     const commonStore = useCommonStore()
     try {
-      const res = await fetch(commonStore.data.main_url + '/holy/customer/me', { credentials: 'include' })
+      const res = await fetch(commonStore.data.main_url + '/holy/customer/me', {
+        credentials: 'include'
+      })
+
+      // HTTP 層級失敗（401、403、500 …）→ cookie 一定失效，強制登出
+      if (!res.ok) {
+        return forceLogout(customerStore, commonStore.data.main_url)
+      }
+
+      // HTTP 200 但 body 帶 error（後端業務層封鎖）→ 同樣強制登出
       const data = await res.json()
       if (data.error) {
-        blockedChecked = false
-        customerStore.clearCustomer()
-        return navigateTo('/')
+        return forceLogout(customerStore, commonStore.data.main_url)
       }
     } catch (e) {
+      // 純網路錯誤（DNS、逾時）：不清除狀態，讓使用者繼續使用
+      // 待網路恢復後下次切頁再驗一次（blockedChecked 已被設 true，
+      // 手動重設讓下次切頁能再驗）
       blockedChecked = false
     }
   }
