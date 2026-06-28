@@ -77,7 +77,6 @@ async function loadSop() {
     if (sopData.groups.length > 0) {
       activePageId.value = sopData.groups[0].pages?.[0]?.id || ''
     }
-    showToast('已載入最新資料')
   } catch (e) {
     showToast('載入失敗，請確認伺服器')
   } finally {
@@ -350,13 +349,23 @@ const fcState = reactive({})
 
 function getFc(block) {
   if (!fcState[block.id]) {
+    // nextId 從現有節點/邊的最大數字開始，避免新增時 id 碰撞
+    const allIds = [
+      ...block.nodes.map(n => n.id),
+      ...block.edges.map(e => e.id),
+    ]
+    const maxNum = allIds.reduce((m, id) => {
+      const num = parseInt(id.replace(/\D/g, ''), 10)
+      return isNaN(num) ? m : Math.max(m, num)
+    }, 200)
     fcState[block.id] = {
-      tab: 'view',
       selected: null,
       selectedEdgeId: null,
       addingEdge: null,
       svgRef: null,
-      nextId: 200,
+      viewSvgRef: null,
+      nextId: maxNum,
+      zoom: 100,
     }
   }
   return fcState[block.id]
@@ -433,9 +442,20 @@ function fcSelectEdge(block, id) {
 }
 
 function fcAddNode(block) {
+  // 清掉任何殘留的節點 mouseup handler，避免按鈕 mousedown → mouseup 觸發舊 select
+  window.removeEventListener('mouseup', _fcNodeMouseUp)
+  _pendingSelectBlock = null
+  _pendingSelectNodeId = null
   const s = getFc(block)
   const id = 'n' + (++s.nextId)
-  block.nodes.push({id, type: 'rect', label: '新節點', x: 200, y: 200, w: 120, h: 40, palette: 'neutral', sub: ''})
+  // 放在現有節點最下方，避免疊到現有節點
+  const maxY = block.nodes.length
+    ? block.nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0) + 40
+    : 100
+  const cx = block.nodes.length
+    ? block.nodes.reduce((sum, n) => sum + n.x + n.w / 2, 0) / block.nodes.length
+    : 300
+  block.nodes.push({id, type: 'rect', label: '新節點', x: Math.round(cx - 60), y: maxY, w: 120, h: 40, palette: 'neutral', sub: ''})
   s.selected = id
 }
 
@@ -468,6 +488,42 @@ function fcResetEdgeMid(block, eid) {
 
 // drag nodes
 let dragging = null
+let _dragMoved = false
+let _pendingSelectBlock = null   // 待 mouseup 確認 select 的 block
+let _pendingSelectNodeId = null  // 待 mouseup 確認 select 的 nodeId
+
+function _fcNodeMouseUp() {
+  window.removeEventListener('mousemove', onDrag)
+  window.removeEventListener('mouseup', _fcNodeMouseUp)
+  if (!_dragMoved && _pendingSelectBlock && _pendingSelectNodeId) {
+    fcSelectNode(_pendingSelectBlock, _pendingSelectNodeId)
+  }
+  dragging = null
+  _dragMoved = false
+  _pendingSelectBlock = null
+  _pendingSelectNodeId = null
+}
+
+// 合併 drag + select：mousedown 啟動，mouseup 判斷是否移動後決定是否 select
+function fcNodeMouseDown(e, block, nodeId, svgEl) {
+  e.preventDefault()
+  // 先清掉上一輪可能殘留的 listener
+  window.removeEventListener('mouseup', _fcNodeMouseUp)
+
+  const pt = svgEl.createSVGPoint()
+  const n = block.nodes.find(x => x.id === nodeId)
+  if (!n) return
+  const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
+  pt.x = cp.x; pt.y = cp.y
+  const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+  dragging = {block, nodeId, svgEl, ox: sp.x - n.x, oy: sp.y - n.y, startX: sp.x, startY: sp.y}
+  _dragMoved = false
+  _pendingSelectBlock = block
+  _pendingSelectNodeId = nodeId
+
+  window.addEventListener('mousemove', onDrag)
+  window.addEventListener('mouseup', _fcNodeMouseUp)
+}
 
 function fcDragStart(e, block, nodeId, svgEl) {
   e.preventDefault()
@@ -478,7 +534,8 @@ function fcDragStart(e, block, nodeId, svgEl) {
   pt.x = cp.x;
   pt.y = cp.y
   const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
-  dragging = {block, nodeId, svgEl, ox: sp.x - n.x, oy: sp.y - n.y}
+  dragging = {block, nodeId, svgEl, ox: sp.x - n.x, oy: sp.y - n.y, startX: sp.x, startY: sp.y}
+  _dragMoved = false
   window.addEventListener('mousemove', onDrag)
   window.addEventListener('mouseup', endDrag)
   window.addEventListener('touchmove', onDrag, {passive: false})
@@ -497,6 +554,10 @@ function onDrag(e) {
   if (n) {
     n.x = sp.x - dragging.ox;
     n.y = sp.y - dragging.oy
+    // 移動超過 4px 才算真正拖動，避免誤判
+    if (Math.abs(sp.x - dragging.startX) > 4 || Math.abs(sp.y - dragging.startY) > 4) {
+      _dragMoved = true
+    }
   }
 }
 
@@ -552,12 +613,14 @@ function endWpDrag() {
   window.removeEventListener('touchend', endWpDrag)
 }
 
-function fcExport(block, svgEl) {
+function fcExport(block) {
+  const s = getFc(block)
+  const svgEl = editMode.value ? s.svgRef : s.viewSvgRef
   if (!svgEl) return
   const blob = new Blob(['<?xml version="1.0"?>\n' + svgEl.cloneNode(true).outerHTML], {type: 'image/svg+xml'})
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'flowchart.svg';
+  a.download = (block.title || 'flowchart') + '.svg';
   a.click()
 }
 
@@ -1018,31 +1081,28 @@ function showToast(msg) {
               <div
                 class="bg-surface rounded-2xl border border-light-c shadow-sm mb-3 overflow-hidden">
                 <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c">
-                  <span class="flex-1 font-semibold text-base-c text-base">{{ block.title }}</span>
                   <template v-if="editMode">
                     <input v-model="block.title"
-                           class="text-sm px-2 py-1 border border-light-c rounded-lg bg-surface2 text-base-c outline-none w-32"
+                           class="flex-1 text-sm px-2 py-1 border border-light-c rounded-lg bg-surface2 text-base-c outline-none font-semibold"
                            placeholder="流程圖名稱"/>
                   </template>
-                  <!-- tab pills -->
-                  <div class="flex items-center gap-0.5 bg-surface2 rounded-xl p-0.5">
-                    <button @click="getFc(block).tab='view'"
-                            :class="['px-3 py-1 text-sm font-medium rounded-lg transition-colors',
- getFc(block).tab==='view' ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c hover:text-muted-c']">
-                      📋 檢視
-                    </button>
-                    <button @click="getFc(block).tab='edit'"
-                            :class="['px-3 py-1 text-sm font-medium rounded-lg transition-colors',
- getFc(block).tab==='edit' ? 'bg-surface text-base-c shadow-sm' : 'text-hint-c hover:text-muted-c']">
-                      ✏️ 編輯
-                    </button>
+                  <span v-else class="flex-1 font-semibold text-base-c text-base">{{ block.title }}</span>
+                  <!-- zoom control -->
+                  <div class="flex items-center gap-1 bg-surface2 rounded-xl px-2 py-1">
+                    <button @click="getFc(block).zoom = Math.max(30, getFc(block).zoom - 10)"
+                            class="w-5 h-5 flex items-center justify-center text-hint-c hover:text-base-c text-base leading-none rounded transition-colors">−</button>
+                    <span class="text-xs text-hint-c w-9 text-center select-none">{{ getFc(block).zoom }}%</span>
+                    <button @click="getFc(block).zoom = Math.min(200, getFc(block).zoom + 10)"
+                            class="w-5 h-5 flex items-center justify-center text-hint-c hover:text-base-c text-base leading-none rounded transition-colors">＋</button>
                   </div>
                 </div>
 
                 <div class="p-3">
-                  <!-- View -->
-                  <div v-if="getFc(block).tab==='view'" class="rounded-xl overflow-auto p-3">
-                    <svg :viewBox="fcViewBox(block)" width="100%" style="min-width:400px;display:block;">
+                  <!-- View（非編輯模式） -->
+                  <div v-if="!editMode" class="rounded-xl overflow-auto p-3">
+                    <svg :viewBox="fcViewBox(block)" :width="getFc(block).zoom + '%'"
+                         style="min-width:300px;display:block;"
+                         :ref="el => { if(el) getFc(block).viewSvgRef = el }">
                       <defs>
                         <marker id="va" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6"
                                 orient="auto-start-reverse">
@@ -1089,10 +1149,10 @@ function showToast(msg) {
                     </svg>
                   </div>
 
-                  <!-- Edit -->
+                  <!-- Edit（編輯模式） -->
                   <div v-else>
                     <div class="flex flex-wrap gap-2 mb-3">
-                      <button @click="fcAddNode(block)"
+                      <button @mousedown.prevent="fcAddNode(block)"
                               class="px-3 py-1.5 text-sm font-medium rounded-xl border border-light-c bg-surface text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
                         ＋ 新增節點
                       </button>
@@ -1108,7 +1168,7 @@ function showToast(msg) {
  getFc(block).addingEdge ? 'bg-green-700 border-green-700 text-white' : 'border-light-c bg-surface text-muted-c']">
                         {{ getFc(block).addingEdge ? '點選目標節點…' : '↗ 連線' }}
                       </button>
-                      <button @click="e => fcExport(block, e.currentTarget.closest('.fc-editor').querySelector('svg'))"
+                      <button @click="fcExport(block)"
                               class="px-3 py-1.5 text-sm font-medium rounded-xl border border-light-c bg-surface text-hint-c hover:bg-surface2 transition-colors ml-auto">
                         ⬇ 匯出
                       </button>
@@ -1116,8 +1176,8 @@ function showToast(msg) {
 
                     <div class="fc-editor flex gap-3 items-start">
                       <div class="flex-1 rounded-xl overflow-auto">
-                        <svg :viewBox="fcViewBox(block)" width="100%"
-                             style="min-width:400px;display:block;"
+                        <svg :viewBox="fcViewBox(block)" :width="getFc(block).zoom + '%'"
+                             style="min-width:300px;display:block;"
                              :style="{cursor: getFc(block).addingEdge ? 'crosshair' : 'default'}"
                              :ref="el => { if(el) getFc(block).svgRef = el }">
                           <defs>
@@ -1147,9 +1207,9 @@ function showToast(msg) {
                           </g>
                           <g v-for="n in block.nodes" :key="n.id"
                              :style="{cursor: getFc(block).addingEdge?'crosshair':'grab'}"
-                             @mousedown.stop="fcDragStart($event,block,n.id,getFc(block).svgRef)"
+                             @mousedown.stop="fcNodeMouseDown($event,block,n.id,getFc(block).svgRef)"
                              @touchstart.stop.prevent="fcDragStart($event,block,n.id,getFc(block).svgRef)"
-                             @click.stop="fcSelectNode(block,n.id)">
+                             @click.stop>
                             <template v-if="n.type==='rect'">
                               <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8"
                                     :fill="pal(n.palette).fill"

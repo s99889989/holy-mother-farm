@@ -450,7 +450,8 @@ const navGroups = [
       { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'staff.daily-menu' },
       { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'staff.calendar' },
       { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'staff.asset' },
-      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'staff.files' }
+      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'staff.files' },
+      { to: '/staff/management/html-page', icon: '📁', label: '網頁檔案', key: 'staff.files' }
     ]
   },
   {
