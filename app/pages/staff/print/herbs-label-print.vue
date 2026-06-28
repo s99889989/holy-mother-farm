@@ -2,7 +2,7 @@
 import {ref, computed} from 'vue'
 import {herbSections} from '~/composables/useHerbsData'
 
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.herbs-label-print' })
+definePageMeta({layout: 'staff', requiredPermission: 'staff.herbs-label-print'})
 const BASE_URL = 'https://holyfarm.netlify.app/front/herbs/'
 const PER_PAGE = 8  // 4欄 × 2列
 
@@ -169,7 +169,9 @@ ${pagesHtml}
 
       <div class="lp-plant-list">
         <template v-for="section in herbSections" :key="section.key">
-          <div class="lp-section-label text-muted-c border-b border-light-c bg-surface">{{ section.icon }} {{ section.label }}</div>
+          <div class="lp-section-label text-muted-c border-b border-light-c bg-surface">{{ section.icon }}
+            {{ section.label }}
+          </div>
           <div v-for="herb in section.herbs" :key="herb.name" class="lp-row">
             <span class="lp-herb-name text-base-c">{{ herb.name }}</span>
             <div class="lp-qty">
@@ -188,7 +190,9 @@ ${pagesHtml}
 
       <div class="lp-footer border-t border-light-c bg-surface">
         <div class="lp-count-info text-muted-c">
-          已選 <strong class="text-base-c">{{ totalCount }}</strong> 張，共 <strong class="text-base-c">{{ totalPages }}</strong> 頁
+          已選 <strong class="text-base-c">{{ totalCount }}</strong> 張，共 <strong class="text-base-c">{{
+            totalPages
+          }}</strong> 頁
         </div>
         <!-- 產生預覽 -->
         <button
@@ -310,7 +314,7 @@ ${pagesHtml}
 }
 
 .lp-row:hover {
-  background: rgba(128,128,128,.08);
+  background: rgba(128, 128, 128, .08);
 }
 
 .lp-herb-name {
@@ -343,7 +347,7 @@ ${pagesHtml}
 }
 
 .lp-btn:hover {
-  background: rgba(128,128,128,.15);
+  background: rgba(128, 128, 128, .15);
 }
 
 .lp-input {
@@ -529,12 +533,62 @@ ${pagesHtml}
     flex-direction: column;
   }
 
+  /* 側邊欄：限制高度讓植物列表可以滾動，footer 固定在底部 */
   .lp-sidebar {
     width: 100%;
+    max-height: 55vh;
+    min-height: 0;
     height: auto;
     position: static;
+    overflow: hidden;
   }
 
+  .lp-sidebar-head {
+    padding: 10px 14px;
+  }
+
+  /* 讓植物列表在側邊欄內滾動 */
+  .lp-plant-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 每一行植物：加大觸控高度 */
+  .lp-row {
+    padding: 7px 12px;
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  /* −/+ 按鈕加大為易於手指點擊 */
+  .lp-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    font-size: 18px;
+  }
+
+  /* 數量 input 加寬加高 */
+  .lp-input {
+    width: 44px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  /* footer 按鈕加大 */
+  .lp-btn-generate,
+  .lp-btn-print,
+  .lp-btn-clear {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .lp-count-info {
+    font-size: 13px;
+  }
+
+  /* 預覽區 */
   .lp-sheets-area {
     padding: 0.75rem;
   }
@@ -548,18 +602,18 @@ ${pagesHtml}
 
   .label-cell {
     height: auto;
-    min-height: 40vw;
+    min-height: 44vw;
     padding: 2vw;
     gap: 1.5vw;
   }
 
   .label-qr {
-    width: 24vw;
-    height: 24vw;
+    width: 26vw;
+    height: 26vw;
   }
 
   .label-text {
-    font-size: 4vw;
+    font-size: 4.5vw;
   }
 }
 </style>

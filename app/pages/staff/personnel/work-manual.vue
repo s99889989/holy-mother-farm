@@ -588,7 +588,7 @@ function showToast(msg) {
             📋
           </div>
           <div>
-            <h1 class="font-bold text-base-c leading-none text-base sm:text-lg">SOP 手冊</h1>
+            <h1 class="font-bold text-base-c leading-none text-base sm:text-lg">工作手冊</h1>
             <p class="text-sm text-hint-c mt-0.5 hidden sm:block">聖母健康農莊</p>
           </div>
         </div>
@@ -606,11 +606,11 @@ function showToast(msg) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
             </svg>
-            {{ saving ? '儲存中…' : '儲存' }}
+            <span class="hidden sm:inline">{{ saving ? '儲存中…' : '儲存' }}</span>
           </button>
           <!-- Edit Mode toggle -->
           <button @click="editMode = !editMode"
-                  :class="['flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all',
+                  :class="['flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all',
  editMode
  ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
  : 'bg-surface2 border-light-c text-hint-c']">
@@ -618,7 +618,8 @@ function showToast(msg) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
-            {{ editMode ? '編輯中' : '編輯模式' }}
+            <span class="hidden sm:inline">{{ editMode ? '編輯中' : '編輯模式' }}</span>
+            <span class="sm:hidden">{{ editMode ? '編輯中' : '編輯' }}</span>
           </button>
         </div>
       </div>
@@ -633,7 +634,7 @@ function showToast(msg) {
       <span class="text-base">載入中…</span>
     </div>
 
-    <div v-else class="w-full px-3 sm:px-4 py-4 sm:py-6 flex gap-4 items-start">
+    <div v-else class="w-full px-3 sm:px-4 py-4 sm:py-6 flex flex-col md:flex-row gap-4 items-start">
 
       <!-- ── Sidebar ── -->
       <nav class="w-48 flex-shrink-0 hidden md:block sticky top-20">
@@ -688,7 +689,7 @@ function showToast(msg) {
                 </template>
               </a>
               <template v-if="editMode">
-                <div class="flex flex-col pr-1 opacity-0 group-hover/page:opacity-100 transition-opacity">
+                <div class="flex flex-col pr-1 md:opacity-0 md:group-hover/page:opacity-100 transition-opacity">
                   <button @click="movePage(group, pIdx, -1)"
                           class="text-hint-c hover:text-hint-c text-sm leading-none">↑
                   </button>
@@ -697,7 +698,7 @@ function showToast(msg) {
                   </button>
                 </div>
                 <button @click="deletePage(group, pIdx)"
-                        class="pr-2 text-red-300 hover:text-red-500 text-sm opacity-0 group-hover/page:opacity-100 transition-opacity">
+                        class="pr-2 text-red-300 hover:text-red-500 text-sm md:opacity-0 md:group-hover/page:opacity-100 transition-opacity">
                   ×
                 </button>
               </template>
@@ -723,13 +724,27 @@ function showToast(msg) {
       </nav>
 
       <!-- Mobile nav -->
-      <div class="md:hidden w-full mb-2">
-        <select v-model="activePageId"
-                class="w-full text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none">
-          <optgroup v-for="g in sopData.groups" :key="g.id" :label="g.label">
-            <option v-for="p in g.pages" :key="p.id" :value="p.id">{{ p.label }}</option>
-          </optgroup>
-        </select>
+      <div class="md:hidden w-full">
+        <div class="flex gap-2 mb-2">
+          <select v-model="activePageId"
+                  class="flex-1 min-w-0 text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none">
+            <optgroup v-for="g in sopData.groups" :key="g.id" :label="g.label">
+              <option v-for="p in g.pages" :key="p.id" :value="p.id">{{ p.label }}</option>
+            </optgroup>
+          </select>
+          <!-- Mobile edit shortcuts -->
+          <template v-if="editMode">
+            <button
+              @click="sopData.groups.length && addPage(sopData.groups[sopData.groups.findIndex(g => g.pages.some(p => p.id === activePageId)) >= 0 ? sopData.groups.findIndex(g => g.pages.some(p => p.id === activePageId)) : 0])"
+              class="px-3 py-2 rounded-xl border border-dashed border-light-c text-hint-c hover:text-green-600 text-sm whitespace-nowrap">
+              ＋頁面
+            </button>
+            <button @click="addGroup"
+                    class="px-3 py-2 rounded-xl border border-dashed border-light-c text-hint-c hover:text-green-600 text-sm whitespace-nowrap">
+              ＋分類
+            </button>
+          </template>
+        </div>
       </div>
 
       <!-- ── Main ── -->
@@ -759,7 +774,7 @@ function showToast(msg) {
 
             <!-- Block edit controls -->
             <div v-if="editMode"
-                 class="absolute -top-2 -right-2 z-10 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity bg-surface rounded-xl border border-light-c shadow-sm px-1.5 py-1">
+                 class="absolute -top-2 -right-2 z-10 flex items-center gap-1 md:opacity-0 md:group-hover/block:opacity-100 transition-opacity bg-surface rounded-xl border border-light-c shadow-sm px-1.5 py-1">
               <button @click="moveBlock(activePage, bIdx, -1)" class="text-hint-c hover:text-muted-c text-sm px-1"
                       title="上移">↑
               </button>
@@ -802,7 +817,8 @@ function showToast(msg) {
                     <template v-if="editMode">
                       <input v-model="item.text"
                              class="flex-1 min-w-0 px-2 py-0.5 text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
-                      <div class="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0">
+                      <div
+                        class="flex gap-0.5 md:opacity-0 md:group-hover/item:opacity-100 transition-opacity flex-shrink-0">
                         <button @click="moveCheckItem(block, iIdx, -1)"
                                 class="text-hint-c hover:text-hint-c text-sm px-0.5">↑
                         </button>
@@ -870,7 +886,7 @@ function showToast(msg) {
                       </template>
                     </div>
                     <div v-if="editMode"
-                         class="flex gap-0.5 opacity-0 group-hover/step:opacity-100 transition-opacity flex-shrink-0 pt-1">
+                         class="flex gap-0.5 md:opacity-0 md:group-hover/step:opacity-100 transition-opacity flex-shrink-0 pt-1">
                       <button @click="moveStepItem(block, iIdx, -1)"
                               class="text-hint-c hover:text-hint-c text-sm px-0.5">↑
                       </button>
@@ -1308,36 +1324,40 @@ function showToast(msg) {
           class="bg-surface rounded-2xl border border-light-c shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
 
           <!-- Modal header -->
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c flex-shrink-0">
-            <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <span class="font-semibold text-base-c flex-1 text-base">選取圖片</span>
-            <!-- Upload button -->
-            <label :class="['flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border transition-colors cursor-pointer',
+          <div class="flex flex-col gap-2 px-4 py-3 border-b border-light-c flex-shrink-0">
+            <!-- Row 1: title + close -->
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span class="font-semibold text-base-c flex-1 text-base">選取圖片</span>
+              <button @click="imgLibOpen = false"
+                      class="text-hint-c hover:text-muted-c text-xl leading-none flex-shrink-0">
+                ×
+              </button>
+            </div>
+            <!-- Row 2: upload + search -->
+            <div class="flex items-center gap-2">
+              <label :class="['flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border transition-colors cursor-pointer flex-shrink-0',
  imgUploading
  ? 'border-light-c bg-surface2 text-hint-c cursor-not-allowed'
  : 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100']">
-              <svg v-if="!imgUploading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-              </svg>
-              <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
-              </svg>
-              {{ imgUploading ? '上傳中…' : '上傳圖片' }}
-              <input type="file" accept="image/*" multiple class="hidden" :disabled="imgUploading"
-                     @change="uploadImgFiles"/>
-            </label>
-            <!-- Search -->
-            <input v-model="imgLibSearch" placeholder="搜尋…"
-                   class="w-36 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"/>
-            <button @click="imgLibOpen = false"
-                    class="text-hint-c hover:text-muted-c text-xl leading-none ml-1 flex-shrink-0">
-              ×
-            </button>
+                <svg v-if="!imgUploading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
+                </svg>
+                {{ imgUploading ? '上傳中…' : '上傳圖片' }}
+                <input type="file" accept="image/*" multiple class="hidden" :disabled="imgUploading"
+                       @change="uploadImgFiles"/>
+              </label>
+              <input v-model="imgLibSearch" placeholder="搜尋…"
+                     class="flex-1 min-w-0 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"/>
+            </div>
           </div>
 
           <!-- Image grid -->

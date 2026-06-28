@@ -40,7 +40,7 @@
     </header>
 
     <!-- 機構 Tab（手機版，獨立列） -->
-    <div class="lg:hidden bg-surface border-b border-light-c sticky top-[calc(3.5rem+49px)] z-10">
+    <div class="lg:hidden bg-surface border-b border-light-c">
       <div class="tab-scroll flex gap-1 px-3 py-2 overflow-x-auto">
         <button
           v-for="org in orgs" :key="org.id"

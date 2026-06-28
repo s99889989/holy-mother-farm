@@ -4,8 +4,27 @@
     <!-- ══ 選單頁 ══ -->
     <div class="layout">
 
+      <!-- ── 手機 Topbar ── -->
+      <div class="mobile-topbar bg-surface border-b border-light-c">
+        <div class="mobile-topbar-inner">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-slate-600 flex items-center justify-center text-white flex-shrink-0" style="font-size:12px">🏷️</div>
+            <span class="font-bold" style="font-size:14px">餐廳標籤桌牌</span>
+          </div>
+          <div class="mobile-topbar-actions">
+            <button class="print-nav-btn" :disabled="selected.length===0" @click="doPrint" style="padding:6px 10px;font-size:11px">🖨️ 列印</button>
+            <button class="mobile-menu-btn" @click="mobileOpen=!mobileOpen" :class="{active: mobileOpen}">
+              <span>{{ mobileOpen ? '✕' : '☰' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 手機 Sidebar 遮罩 ── -->
+      <div class="mobile-overlay" v-if="mobileOpen" @click="mobileOpen=false"></div>
+
       <!-- ── 左側 Sidebar ── -->
-      <aside class="sidebar bg-surface border-r border-light-c">
+      <aside class="sidebar bg-surface border-r border-light-c" :class="{open: mobileOpen}">
         <div class="sidebar-header border-b border-light-c px-4 py-3">
           <div class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-lg bg-slate-600 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🏷️</div>
@@ -18,8 +37,8 @@
 
         <!-- Tab 切換 -->
         <div class="tab-bar border-b border-light-c">
-          <button :class="['tab-btn', sideTab==='use' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='use'">☰ 選項目</button>
-          <button :class="['tab-btn', sideTab==='config' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='config'">⚙ 設定</button>
+          <button :class="['tab-btn', sideTab==='use' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='use'; mobileOpen=false">☰ 選項目</button>
+          <button :class="['tab-btn', sideTab==='config' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='config'; mobileOpen=false">⚙ 設定</button>
         </div>
 
         <!-- ── 設定 tab ── -->
@@ -391,62 +410,66 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted }from 'vue'
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.table-card-print' })
+import {ref, reactive, computed, onMounted, onUnmounted} from 'vue'
+
+definePageMeta({layout: 'staff', requiredPermission: 'staff.table-card-print'})
 const sideTab = ref('use')
+const mobileOpen = ref(false)
 
 /* ── 字數規則 ── */
 const zhRules = reactive([
-  {maxLen:3,  sizePt:36},
-  {maxLen:6,  sizePt:28},
-  {maxLen:8,  sizePt:20},
-  {maxLen:12, sizePt:14},
+  {maxLen: 3, sizePt: 36},
+  {maxLen: 6, sizePt: 28},
+  {maxLen: 8, sizePt: 20},
+  {maxLen: 12, sizePt: 14},
 ])
 const zhFallbackPt = ref(10)
 const enRules = reactive([
-  {maxLen:10, sizePt:14},
-  {maxLen:20, sizePt:12},
-  {maxLen:30, sizePt:10},
+  {maxLen: 10, sizePt: 14},
+  {maxLen: 20, sizePt: 12},
+  {maxLen: 30, sizePt: 10},
 ])
 const enFallbackPt = ref(8)
 
 function calcZhSize(text) {
-  const len = (text||'').split('').reduce((acc, ch) => {
+  const len = (text || '').split('').reduce((acc, ch) => {
     if (/[（）]/.test(ch)) return acc + 0.6
     return acc + 1
   }, 0)
-  const sorted = [...zhRules].sort((a,b)=>a.maxLen-b.maxLen)
-  for (const r of sorted) if (len<=r.maxLen) return r.sizePt+'pt'
-  return zhFallbackPt.value+'pt'
+  const sorted = [...zhRules].sort((a, b) => a.maxLen - b.maxLen)
+  for (const r of sorted) if (len <= r.maxLen) return r.sizePt + 'pt'
+  return zhFallbackPt.value + 'pt'
 }
+
 function calcEnSize(text) {
-  const len = (text||'').length
-  const sorted = [...enRules].sort((a,b)=>a.maxLen-b.maxLen)
-  for (const r of sorted) if (len<=r.maxLen) return r.sizePt+'pt'
-  return enFallbackPt.value+'pt'
+  const len = (text || '').length
+  const sorted = [...enRules].sort((a, b) => a.maxLen - b.maxLen)
+  for (const r of sorted) if (len <= r.maxLen) return r.sizePt + 'pt'
+  return enFallbackPt.value + 'pt'
 }
 
 /* ── 位置微調 ── */
 const zhOffsetTop = ref(0)
 const enOffsetTop = ref(0)
-const offsetLeft  = ref(0)
-const textAreaH   = ref(76)
-const zhSpacing   = ref(0)
-const enSpacing   = ref(0)
+const offsetLeft = ref(0)
+const textAreaH = ref(76)
+const zhSpacing = ref(0)
+const enSpacing = ref(0)
 
-const textAreaStyle = computed(()=>({
-  left:   offsetLeft.value+'mm',
-  right:  (-offsetLeft.value)+'mm',
-  height: textAreaH.value+'%',
+const textAreaStyle = computed(() => ({
+  left: offsetLeft.value + 'mm',
+  right: (-offsetLeft.value) + 'mm',
+  height: textAreaH.value + '%',
 }))
-const zhLineStyle = computed(()=>({ letterSpacing: zhSpacing.value+'mm' }))
-const enLineStyle = computed(()=>({ letterSpacing: enSpacing.value+'mm' }))
+const zhLineStyle = computed(() => ({letterSpacing: zhSpacing.value + 'mm'}))
+const enLineStyle = computed(() => ({letterSpacing: enSpacing.value + 'mm'}))
 
 /* ── 收縮狀態 ── */
-const open = reactive({size:true, tune:false, items:true})
+const open = reactive({size: true, tune: false, items: true})
 const groupOpen = reactive({})
+
 function toggleGroupOpen(gi) {
-  groupOpen[gi] = groupOpen[gi]===false ? true : false
+  groupOpen[gi] = groupOpen[gi] === false ? true : false
 }
 
 /* ── presets（含 id） ── */
@@ -466,18 +489,26 @@ async function loadConfig() {
     const res = await fetch(`${BASE()}/config`)
     const data = await res.json()
     // 字數規則
-    if (data.zhRules?.length) { zhRules.splice(0); data.zhRules.forEach(r => zhRules.push(r)) }
+    if (data.zhRules?.length) {
+      zhRules.splice(0);
+      data.zhRules.forEach(r => zhRules.push(r))
+    }
     if (data.zhFallbackPt != null) zhFallbackPt.value = data.zhFallbackPt
-    if (data.enRules?.length) { enRules.splice(0); data.enRules.forEach(r => enRules.push(r)) }
+    if (data.enRules?.length) {
+      enRules.splice(0);
+      data.enRules.forEach(r => enRules.push(r))
+    }
     if (data.enFallbackPt != null) enFallbackPt.value = data.enFallbackPt
     // 位置微調
-    if (data.textAreaH   != null) textAreaH.value   = data.textAreaH
+    if (data.textAreaH != null) textAreaH.value = data.textAreaH
     if (data.zhOffsetTop != null) zhOffsetTop.value = data.zhOffsetTop
     if (data.enOffsetTop != null) enOffsetTop.value = data.enOffsetTop
-    if (data.offsetLeft  != null) offsetLeft.value  = data.offsetLeft
-    if (data.zhSpacing   != null) zhSpacing.value   = data.zhSpacing
-    if (data.enSpacing   != null) enSpacing.value   = data.enSpacing
-  } catch (e) { console.error('載入設定失敗', e) }
+    if (data.offsetLeft != null) offsetLeft.value = data.offsetLeft
+    if (data.zhSpacing != null) zhSpacing.value = data.zhSpacing
+    if (data.enSpacing != null) enSpacing.value = data.enSpacing
+  } catch (e) {
+    console.error('載入設定失敗', e)
+  }
 }
 
 async function loadItems() {
@@ -486,50 +517,56 @@ async function loadItems() {
     const data = await res.json()
     presets.splice(0)
     data.forEach(cat => presets.push({
-      id:    cat.id,
+      id: cat.id,
       group: cat.group,
       items: (cat.items || []).map(it => ({
-        id:       it.id,
-        zh:       it.zh,
-        en:       it.en,
+        id: it.id,
+        zh: it.zh,
+        en: it.en,
         zhOffset: it.zhOffset ?? 0,
         enOffset: it.enOffset ?? 0,
-        zhTop:    it.zhTop    ?? 0,
-        enTop:    it.enTop    ?? 0,
+        zhTop: it.zhTop ?? 0,
+        enTop: it.enTop ?? 0,
       }))
     }))
-  } catch (e) { console.error('載入項目失敗', e) }
+  } catch (e) {
+    console.error('載入項目失敗', e)
+  }
 }
 
 const savingConfig = ref(false)
+
 async function saveConfig() {
   savingConfig.value = true
   try {
     await fetch(`${BASE()}/config/save`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        zhRules: zhRules.map(r=>({maxLen:r.maxLen, sizePt:r.sizePt})),
+        zhRules: zhRules.map(r => ({maxLen: r.maxLen, sizePt: r.sizePt})),
         zhFallbackPt: zhFallbackPt.value,
-        enRules: enRules.map(r=>({maxLen:r.maxLen, sizePt:r.sizePt})),
+        enRules: enRules.map(r => ({maxLen: r.maxLen, sizePt: r.sizePt})),
         enFallbackPt: enFallbackPt.value,
-        textAreaH:   textAreaH.value,
+        textAreaH: textAreaH.value,
         zhOffsetTop: zhOffsetTop.value,
         enOffsetTop: enOffsetTop.value,
-        offsetLeft:  offsetLeft.value,
-        zhSpacing:   zhSpacing.value,
-        enSpacing:   enSpacing.value,
+        offsetLeft: offsetLeft.value,
+        zhSpacing: zhSpacing.value,
+        enSpacing: enSpacing.value,
       })
     })
-  } catch (e) { console.error('儲存設定失敗', e) }
-  finally { savingConfig.value = false }
+  } catch (e) {
+    console.error('儲存設定失敗', e)
+  } finally {
+    savingConfig.value = false
+  }
 }
 
 /* ── 類別 CRUD ── */
-const addingGroup     = ref(false)
-const newGroupName    = ref('')
+const addingGroup = ref(false)
+const newGroupName = ref('')
 const editingGroupIdx = ref(-1)
-const editGroupName   = ref('')
+const editGroupName = ref('')
 
 async function confirmAddGroup() {
   const name = newGroupName.value.trim()
@@ -537,12 +574,14 @@ async function confirmAddGroup() {
   try {
     const res = await fetch(`${BASE()}/category/save`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ name })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name})
     })
     const data = await res.json()
-    presets.push({ id: data.id, group: name, items: [] })
-  } catch (e) { console.error('新增類別失敗', e) }
+    presets.push({id: data.id, group: name, items: []})
+  } catch (e) {
+    console.error('新增類別失敗', e)
+  }
   addingGroup.value = false
 }
 
@@ -557,117 +596,160 @@ async function confirmEditGroup(gi) {
   try {
     await fetch(`${BASE()}/category/save`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ id: presets[gi].id, name })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: presets[gi].id, name})
     })
     presets[gi].group = name
-  } catch (e) { console.error('改名失敗', e) }
+  } catch (e) {
+    console.error('改名失敗', e)
+  }
   editingGroupIdx.value = -1
 }
 
 async function confirmDeleteGroup(gi) {
   try {
-    await fetch(`${BASE()}/category/${presets[gi].id}`, { method: 'DELETE' })
-    const zhs = new Set(presets[gi].items.map(p=>p.zh))
+    await fetch(`${BASE()}/category/${presets[gi].id}`, {method: 'DELETE'})
+    const zhs = new Set(presets[gi].items.map(p => p.zh))
     presets.splice(gi, 1)
     selected.value = selected.value.filter(s => !zhs.has(s.zh))
-  } catch (e) { console.error('刪除類別失敗', e) }
+  } catch (e) {
+    console.error('刪除類別失敗', e)
+  }
   confirmDeleteGroupIdx.value = -1
 }
 
 /* ── 項目 CRUD ── */
-const addingIn   = ref(-1)
+const addingIn = ref(-1)
 const editingKey = ref('')
-const editForm   = reactive({zh:'', en:'', toGroup:0, zhOffset:0, enOffset:0, zhTop:0, enTop:0})
-const editOrigOffset = reactive({zhOffset:0, enOffset:0, gi:-1, pi:-1})
+const editForm = reactive({zh: '', en: '', toGroup: 0, zhOffset: 0, enOffset: 0, zhTop: 0, enTop: 0})
+const editOrigOffset = reactive({zhOffset: 0, enOffset: 0, gi: -1, pi: -1})
 
 function startAddItem(gi) {
-  addingIn.value = gi; editingKey.value = ''
-  editForm.zh=''; editForm.en=''
+  addingIn.value = gi;
+  editingKey.value = ''
+  editForm.zh = '';
+  editForm.en = ''
 }
 
 async function confirmAdd(gi) {
-  const zh = editForm.zh.trim(); const en = editForm.en.trim()
+  const zh = editForm.zh.trim();
+  const en = editForm.en.trim()
   if (!zh) return
   try {
     const res = await fetch(`${BASE()}/item/save`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ catId: presets[gi].id, zh, en: en||zh })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({catId: presets[gi].id, zh, en: en || zh})
     })
     const data = await res.json()
-    presets[gi].items.push({ id: data.id, zh, en: en||zh, zhOffset:0, enOffset:0, zhTop:0, enTop:0 })
-  } catch (e) { console.error('新增項目失敗', e) }
+    presets[gi].items.push({id: data.id, zh, en: en || zh, zhOffset: 0, enOffset: 0, zhTop: 0, enTop: 0})
+  } catch (e) {
+    console.error('新增項目失敗', e)
+  }
   addingIn.value = -1
 }
 
 function startEditItem(gi, pi, p) {
-  editingKey.value = gi+'-'+pi; addingIn.value=-1
-  editForm.zh = p.zh; editForm.en = p.en; editForm.toGroup = gi
-  editForm.zhOffset = p.zhOffset ?? 0; editForm.enOffset = p.enOffset ?? 0
-  editForm.zhTop = p.zhTop ?? 0; editForm.enTop = p.enTop ?? 0
-  editOrigOffset.zhOffset = p.zhOffset ?? 0; editOrigOffset.enOffset = p.enOffset ?? 0
-  editOrigOffset.gi = gi; editOrigOffset.pi = pi
+  editingKey.value = gi + '-' + pi;
+  addingIn.value = -1
+  editForm.zh = p.zh;
+  editForm.en = p.en;
+  editForm.toGroup = gi
+  editForm.zhOffset = p.zhOffset ?? 0;
+  editForm.enOffset = p.enOffset ?? 0
+  editForm.zhTop = p.zhTop ?? 0;
+  editForm.enTop = p.enTop ?? 0
+  editOrigOffset.zhOffset = p.zhOffset ?? 0;
+  editOrigOffset.enOffset = p.enOffset ?? 0
+  editOrigOffset.gi = gi;
+  editOrigOffset.pi = pi
 }
 
 function cancelEdit() {
   if (editOrigOffset.gi >= 0 && editOrigOffset.pi >= 0) {
     const item = presets[editOrigOffset.gi]?.items[editOrigOffset.pi]
-    if (item) { item.zhOffset = editOrigOffset.zhOffset; item.enOffset = editOrigOffset.enOffset }
+    if (item) {
+      item.zhOffset = editOrigOffset.zhOffset;
+      item.enOffset = editOrigOffset.enOffset
+    }
   }
   editingKey.value = ''
 }
 
 async function confirmEdit(gi, pi) {
-  const zh = editForm.zh.trim(); const en = editForm.en.trim()
+  const zh = editForm.zh.trim();
+  const en = editForm.en.trim()
   if (!zh) return
   const oldZh = presets[gi].items[pi].zh
   const tg = editForm.toGroup
   const item = presets[gi].items[pi]
-  const newItem = { id: item.id, zh, en: en||zh, zhOffset: editForm.zhOffset, enOffset: editForm.enOffset, zhTop: editForm.zhTop, enTop: editForm.enTop }
+  const newItem = {
+    id: item.id,
+    zh,
+    en: en || zh,
+    zhOffset: editForm.zhOffset,
+    enOffset: editForm.enOffset,
+    zhTop: editForm.zhTop,
+    enTop: editForm.enTop
+  }
 
   try {
     if (tg !== gi) {
       // 跨類別移動：先 move 再 save 更新內容
       await fetch(`${BASE()}/item/move`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ fromCatId: presets[gi].id, toCatId: presets[tg].id, id: item.id })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fromCatId: presets[gi].id, toCatId: presets[tg].id, id: item.id})
       })
       await fetch(`${BASE()}/item/save`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ catId: presets[tg].id, id: item.id, zh, en: en||zh,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          catId: presets[tg].id, id: item.id, zh, en: en || zh,
           zhOffset: editForm.zhOffset, enOffset: editForm.enOffset,
-          zhTop: editForm.zhTop, enTop: editForm.enTop })
+          zhTop: editForm.zhTop, enTop: editForm.enTop
+        })
       })
       presets[gi].items.splice(pi, 1)
       presets[tg].items.push(newItem)
     } else {
       await fetch(`${BASE()}/item/save`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ catId: presets[gi].id, id: item.id, zh, en: en||zh,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          catId: presets[gi].id, id: item.id, zh, en: en || zh,
           zhOffset: editForm.zhOffset, enOffset: editForm.enOffset,
-          zhTop: editForm.zhTop, enTop: editForm.enTop })
+          zhTop: editForm.zhTop, enTop: editForm.enTop
+        })
       })
       presets[gi].items[pi] = newItem
     }
-    const sel = selected.value.find(s=>s.zh===oldZh)
-    if (sel) { sel.zh=zh; sel.en=en||zh; sel.zhOffset=editForm.zhOffset; sel.enOffset=editForm.enOffset; sel.zhTop=editForm.zhTop; sel.enTop=editForm.enTop }
-  } catch (e) { console.error('儲存項目失敗', e) }
+    const sel = selected.value.find(s => s.zh === oldZh)
+    if (sel) {
+      sel.zh = zh;
+      sel.en = en || zh;
+      sel.zhOffset = editForm.zhOffset;
+      sel.enOffset = editForm.enOffset;
+      sel.zhTop = editForm.zhTop;
+      sel.enTop = editForm.enTop
+    }
+  } catch (e) {
+    console.error('儲存項目失敗', e)
+  }
   editingKey.value = ''
 }
 
-const confirmDeleteKey      = ref('')
+const confirmDeleteKey = ref('')
 const confirmDeleteGroupIdx = ref(-1)
 
 async function confirmDeleteItem(gi, pi, p) {
   try {
-    await fetch(`${BASE()}/item/${presets[gi].id}/${p.id}`, { method: 'DELETE' })
+    await fetch(`${BASE()}/item/${presets[gi].id}/${p.id}`, {method: 'DELETE'})
     presets[gi].items.splice(pi, 1)
     selected.value = selected.value.filter(s => s.zh !== p.zh)
-  } catch (e) { console.error('刪除項目失敗', e) }
+  } catch (e) {
+    console.error('刪除項目失敗', e)
+  }
   confirmDeleteKey.value = ''
 }
 
@@ -682,7 +764,7 @@ const configSearchResults = computed(() => {
     for (let pi = 0; pi < presets[gi].items.length; pi++) {
       const p = presets[gi].items[pi]
       if (p.zh.toLowerCase().includes(q) || p.en.toLowerCase().includes(q))
-        r.push({ ...p, _gi: gi, _pi: pi })
+        r.push({...p, _gi: gi, _pi: pi})
     }
   return r
 })
@@ -699,33 +781,68 @@ const searchResults = computed(() => {
 
 /* ── 選取 ── */
 const selected = ref([])
-function isSelected(p)  { return selected.value.some(s=>s.zh===p.zh) }
-function getQty(p)      { return selected.value.find(s=>s.zh===p.zh)?.qty??1 }
-function changeQty(p,d) { const i=selected.value.find(s=>s.zh===p.zh); if(i) i.qty=Math.max(1,i.qty+d) }
-function toggleItem(p,checked) {
-  if (checked) { if(!isSelected(p)) selected.value.push({...p,qty:1}) }
-  else          { selected.value=selected.value.filter(s=>s.zh!==p.zh) }
+
+function isSelected(p) {
+  return selected.value.some(s => s.zh === p.zh)
 }
-function isGroupAllSelected(g) { return g.items.every(p=>isSelected(p)) }
-function isGroupPartial(g) {
-  const c=g.items.filter(p=>isSelected(p)).length; return c>0&&c<g.items.length
+
+function getQty(p) {
+  return selected.value.find(s => s.zh === p.zh)?.qty ?? 1
 }
-function toggleGroup(g,checked) {
-  if (checked) { g.items.forEach(p=>{ if(!isSelected(p)) selected.value.push({...p,qty:1}) }) }
-  else {
-    const zhs=new Set(g.items.map(p=>p.zh))
-    selected.value=selected.value.filter(s=>!zhs.has(s.zh))
+
+function changeQty(p, d) {
+  const i = selected.value.find(s => s.zh === p.zh);
+  if (i) i.qty = Math.max(1, i.qty + d)
+}
+
+function toggleItem(p, checked) {
+  if (checked) {
+    if (!isSelected(p)) selected.value.push({...p, qty: 1})
+  } else {
+    selected.value = selected.value.filter(s => s.zh !== p.zh)
   }
 }
 
-function chunk(arr,n){ const r=[]; for(let i=0;i<arr.length;i+=n) r.push(arr.slice(i,i+n)); return r }
+function isGroupAllSelected(g) {
+  return g.items.every(p => isSelected(p))
+}
 
-const allPresetCards = computed(()=>{
-  const r=[]
-  for (const g of presets) for (const p of g.items) r.push({zh:p.zh, en:p.en, zhOffset:p.zhOffset??0, enOffset:p.enOffset??0, zhTop:p.zhTop??0, enTop:p.enTop??0})
+function isGroupPartial(g) {
+  const c = g.items.filter(p => isSelected(p)).length;
+  return c > 0 && c < g.items.length
+}
+
+function toggleGroup(g, checked) {
+  if (checked) {
+    g.items.forEach(p => {
+      if (!isSelected(p)) selected.value.push({...p, qty: 1})
+    })
+  } else {
+    const zhs = new Set(g.items.map(p => p.zh))
+    selected.value = selected.value.filter(s => !zhs.has(s.zh))
+  }
+}
+
+function chunk(arr, n) {
+  const r = [];
+  for (let i = 0; i < arr.length; i += n) r.push(arr.slice(i, i + n));
+  return r
+}
+
+const allPresetCards = computed(() => {
+  const r = []
+  for (const g of presets) for (const p of g.items) r.push({
+    zh: p.zh,
+    en: p.en,
+    zhOffset: p.zhOffset ?? 0,
+    enOffset: p.enOffset ?? 0,
+    zhTop: p.zhTop ?? 0,
+    enTop: p.enTop ?? 0
+  })
   return r
 })
-const configPreviewPages = computed(()=>allPresetCards.value.length ? chunk(allPresetCards.value,9) : [[]])
+const configPreviewPages = computed(() => allPresetCards.value.length ? chunk(allPresetCards.value, 9) : [[]])
+
 function findPresetItem(zh) {
   for (const g of presets) {
     const found = g.items.find(p => p.zh === zh)
@@ -734,28 +851,28 @@ function findPresetItem(zh) {
   return null
 }
 
-const expandedCards = computed(()=>{
-  const r=[]
+const expandedCards = computed(() => {
+  const r = []
   for (const item of selected.value) {
     const preset = findPresetItem(item.zh)
     const zhOffset = preset?.zhOffset ?? item.zhOffset ?? 0
     const enOffset = preset?.enOffset ?? item.enOffset ?? 0
-    const zhTop    = preset?.zhTop    ?? item.zhTop    ?? 0
-    const enTop    = preset?.enTop    ?? item.enTop    ?? 0
-    for(let i=0;i<item.qty;i++) r.push({zh:item.zh, en:item.en, zhOffset, enOffset, zhTop, enTop})
+    const zhTop = preset?.zhTop ?? item.zhTop ?? 0
+    const enTop = preset?.enTop ?? item.enTop ?? 0
+    for (let i = 0; i < item.qty; i++) r.push({zh: item.zh, en: item.en, zhOffset, enOffset, zhTop, enTop})
   }
   return r
 })
-const totalCount   = computed(()=>selected.value.reduce((s,i)=>s+i.qty,0))
-const previewPages = computed(()=>chunk(expandedCards.value,9))
+const totalCount = computed(() => selected.value.reduce((s, i) => s + i.qty, 0))
+const previewPages = computed(() => chunk(expandedCards.value, 9))
 
 /* ── 預覽縮放 ── */
 const previewAreaRef = ref(null)
-const previewWidth   = ref(800)
-const manualScale    = ref(50)
-const previewCols    = ref(1)
+const previewWidth = ref(800)
+const manualScale = ref(50)
+const previewCols = ref(1)
 
-onMounted(async ()=>{
+onMounted(async () => {
   // 動態取得 staff-nav 高度，讓 layout fixed 定位正確
   const nav = document.querySelector('.staff-nav')
   if (nav) {
@@ -765,34 +882,44 @@ onMounted(async ()=>{
   await Promise.all([loadConfig(), loadItems()])
   loading.value = false
   if (!previewAreaRef.value) return
-  const ro = new ResizeObserver(e=>{ previewWidth.value=e[0]?.contentRect.width??800 })
+  const ro = new ResizeObserver(e => {
+    previewWidth.value = e[0]?.contentRect.width ?? 800
+  })
   ro.observe(previewAreaRef.value)
-  onUnmounted(()=>ro.disconnect())
+  onUnmounted(() => ro.disconnect())
 })
 
-const a4Style = computed(()=>{
-  const a4W = 297*3.7795
-  const a4H = 210*3.7795
-  const scale = manualScale.value > 0 ? manualScale.value/100 : Math.min(0.95, (previewWidth.value - 48) / a4W)
+const a4Style = computed(() => {
+  const a4W = 297 * 3.7795
+  const a4H = 210 * 3.7795
+  const scale = manualScale.value > 0 ? manualScale.value / 100 : Math.min(0.95, (previewWidth.value - 48) / a4W)
   const scaledW = a4W * scale + 16
   const autoCols = Math.max(1, Math.floor((previewWidth.value - 32) / scaledW))
   previewCols.value = autoCols
   return {
     transform: `scale(${scale})`,
-    marginBottom: `${a4H*scale - a4H}px`,
-    marginRight:  `${a4W*scale - a4W}px`,
+    marginBottom: `${a4H * scale - a4H}px`,
+    marginRight: `${a4W * scale - a4W}px`,
   }
 })
 
 /* ── 輔助 ── */
-function mainZh(zh) { return zh.replace(/（[^）]*）/g,'').trim() }
-function dietTag(zh) { const m=zh.match(/（([^）]*)）/); return m?`（${m[1]}）`:'' }
+function mainZh(zh) {
+  return zh.replace(/（[^）]*）/g, '').trim()
+}
+
+function dietTag(zh) {
+  const m = zh.match(/（([^）]*)）/);
+  return m ? `（${m[1]}）` : ''
+}
+
 function dietClass(zh) {
   if (/葷/.test(zh)) return 'tag-meat'
   if (/素/.test(zh)) return 'tag-veg'
   if (/辣/.test(zh)) return 'tag-spicy'
   return ''
 }
+
 function doPrint() {
   if (expandedCards.value.length === 0) return
 
@@ -810,17 +937,17 @@ function doPrint() {
       if (!card) {
         return `<div class="card-wrapper"><img class="card-img" src="${imgUrl}" alt=""/></div>`
       }
-      const zhSize  = calcZhSize(card.zh)
-      const enSize  = calcEnSize(card.en)
-      const taLeft  = offsetLeft.value + 'mm'
+      const zhSize = calcZhSize(card.zh)
+      const enSize = calcEnSize(card.en)
+      const taLeft = offsetLeft.value + 'mm'
       const taRight = (-offsetLeft.value) + 'mm'
-      const taH     = textAreaH.value + '%'
-      const zhTop   = ((card.zhTop ?? 0) + zhOffsetTop.value) + 'mm'
-      const enTop   = ((card.enTop ?? 0) + enOffsetTop.value) + 'mm'
-      const zhLeft  = (card.zhOffset ?? 0) + 'mm'
-      const enLeft  = (card.enOffset ?? 0) + 'mm'
-      const zhLS    = zhSpacing.value + 'mm'
-      const enLS    = enSpacing.value + 'mm'
+      const taH = textAreaH.value + '%'
+      const zhTop = ((card.zhTop ?? 0) + zhOffsetTop.value) + 'mm'
+      const enTop = ((card.enTop ?? 0) + enOffsetTop.value) + 'mm'
+      const zhLeft = (card.zhOffset ?? 0) + 'mm'
+      const enLeft = (card.enOffset ?? 0) + 'mm'
+      const zhLS = zhSpacing.value + 'mm'
+      const enLS = enSpacing.value + 'mm'
       return `
         <div class="card-wrapper">
           <div class="card-text-area" style="left:${taLeft};right:${taRight};height:${taH}">
@@ -890,204 +1017,979 @@ ${pagesHtml}
 </script>
 
 <style scoped>
-*,*::before,*::after { box-sizing:border-box; }
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 
 /* ══ Layout ══ */
-.layout { display:flex; height:calc(100vh - var(--nav-height,44px)); overflow:hidden; }
+.layout {
+  display: flex;
+  height: calc(100vh - var(--nav-height, 44px));
+  overflow: hidden;
+}
 
 /* Sidebar */
-.sidebar { width:260px; min-width:260px; display:flex; flex-direction:column; height:100%; overflow:hidden; }
-.sidebar-header { flex-shrink:0; }
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  flex-shrink: 0;
+}
 
 /* Tabs */
-.tab-bar { display:flex; flex-shrink:0; }
+.tab-bar {
+  display: flex;
+  flex-shrink: 0;
+}
+
 .tab-btn {
-  flex:1; padding:8px 0; font-size:12px; font-weight:bold;
-  border:none; background:transparent; cursor:pointer;
-  border-bottom:2px solid transparent; margin-bottom:-1px;
-  transition:all .15s; -webkit-tap-highlight-color:transparent;
+  flex: 1;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: bold;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all .15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Config */
-.config-scroll { flex:1; overflow-y:auto; overflow-x:hidden; }
+.config-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .config-section-title {
-  padding:6px 12px; font-size:12px; font-weight:bold;
-  background:rgba(128,128,128,.1); border-top:1px solid rgba(128,128,128,.18); border-bottom:1px solid rgba(128,128,128,.18);
-  display:flex; align-items:center; justify-content:space-between;
-  user-select:none; flex-shrink:0;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: bold;
+  background: rgba(128, 128, 128, .1);
+  border-top: 1px solid rgba(128, 128, 128, .18);
+  border-bottom: 1px solid rgba(128, 128, 128, .18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  flex-shrink: 0;
 }
-.collapsible-section { cursor:pointer; }
-.collapsible-section:hover { background:rgba(128,128,128,.17); }
-.caret { font-size:10px; opacity:.6; }
-.size-panel { padding:8px 12px; flex-shrink:0; }
-.panel-label { font-size:11px; font-weight:bold; opacity:.6; margin-bottom:5px; }
-.rule-row { display:flex; align-items:center; gap:3px; margin-bottom:3px; font-size:11px; }
-.rule-prefix { min-width:18px; text-align:right; }
-.rule-unit { font-size:11px; }
+
+.collapsible-section {
+  cursor: pointer;
+}
+
+.collapsible-section:hover {
+  background: rgba(128, 128, 128, .17);
+}
+
+.caret {
+  font-size: 10px;
+  opacity: .6;
+}
+
+.size-panel {
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.panel-label {
+  font-size: 11px;
+  font-weight: bold;
+  opacity: .6;
+  margin-bottom: 5px;
+}
+
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+
+.rule-prefix {
+  min-width: 18px;
+  text-align: right;
+}
+
+.rule-unit {
+  font-size: 11px;
+}
+
 .rule-input {
-  width:38px; text-align:center; font-size:11px;
-  border-radius:4px; padding:2px 4px;
-  border:1px solid;
-  background:transparent;
+  width: 38px;
+  text-align: center;
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  border: 1px solid;
+  background: transparent;
 }
-.rule-del { background:none; border:none; cursor:pointer; font-size:11px; padding:0 2px; opacity:.5; }
-.rule-del:hover { opacity:1; color:#ef4444; }
+
+.rule-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  opacity: .5;
+}
+
+.rule-del:hover {
+  opacity: 1;
+  color: #ef4444;
+}
+
 .rule-add {
-  font-size:11px; background:none; border-radius:4px;
-  padding:3px 8px; cursor:pointer; width:100%; margin-top:4px;
-  border:1px dashed #64748b; color:#64748b;
+  font-size: 11px;
+  background: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 4px;
+  border: 1px dashed #64748b;
+  color: #64748b;
 }
-.rule-add:hover { background:rgba(100,116,139,.08); }
-.tune-row { display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:5px; }
-.tune-row span:first-child { min-width:56px; }
-.tune-row input[type=range] { flex:1; accent-color:#64748b; }
-.tune-val { min-width:38px; text-align:right; font-size:11px; }
+
+.rule-add:hover {
+  background: rgba(100, 116, 139, .08);
+}
+
+.tune-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.tune-row span:first-child {
+  min-width: 56px;
+}
+
+.tune-row input[type=range] {
+  flex: 1;
+  accent-color: #64748b;
+}
+
+.tune-val {
+  min-width: 38px;
+  text-align: right;
+  font-size: 11px;
+}
 
 /* 儲存設定按鈕 */
-.save-config-row { padding:8px 12px; flex-shrink:0; }
-.save-config-btn {
-  width:100%; padding:6px 0; font-size:12px; font-weight:bold; cursor:pointer;
-  border-radius:6px; border:none; background:#475569; color:white; transition:background .15s;
+.save-config-row {
+  padding: 8px 12px;
+  flex-shrink: 0;
 }
-.save-config-btn:hover:not(:disabled) { background:#334155; }
-.save-config-btn:disabled { opacity:.5; cursor:default; }
+
+.save-config-btn {
+  width: 100%;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 6px;
+  border: none;
+  background: #475569;
+  color: white;
+  transition: background .15s;
+}
+
+.save-config-btn:hover:not(:disabled) {
+  background: #334155;
+}
+
+.save-config-btn:disabled {
+  opacity: .5;
+  cursor: default;
+}
 
 /* List */
-.list-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:4px 0; }
-.items-list-scroll { padding-top:0; }
-.add-group-row { padding:6px 12px; display:flex; gap:4px; align-items:center; }
-.add-group-btn {
-  font-size:11px; background:none; border-radius:4px;
-  padding:3px 10px; cursor:pointer; width:100%;
-  border:1px dashed #64748b; color:#64748b;
+.list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
 }
-.add-group-btn:hover { background:rgba(100,116,139,.08); }
+
+.items-list-scroll {
+  padding-top: 0;
+}
+
+.add-group-row {
+  padding: 6px 12px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.add-group-btn {
+  font-size: 11px;
+  background: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  width: 100%;
+  border: 1px dashed #64748b;
+  color: #64748b;
+}
+
+.add-group-btn:hover {
+  background: rgba(100, 116, 139, .08);
+}
 
 /* Groups */
-.group { margin-bottom:2px; }
-.group-header { padding:5px 8px 3px; position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:4px; }
-.group-toggle { cursor:pointer; font-size:10px; width:12px; flex-shrink:0; opacity:.5; }
-.group-check { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:bold; cursor:pointer; flex:1; }
-.group-check input { accent-color:#64748b; width:13px; height:13px; }
-.group-name-label { flex:1; font-size:12px; font-weight:bold; }
-.group-actions { display:flex; align-items:center; gap:2px; flex-shrink:0; }
-.group-add-btn { background:none; border:none; color:#64748b; font-size:13px; cursor:pointer; padding:0 3px; line-height:1; }
-.group-add-btn:hover { color:#475569; }
+.group {
+  margin-bottom: 2px;
+}
+
+.group-header {
+  padding: 5px 8px 3px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.group-toggle {
+  cursor: pointer;
+  font-size: 10px;
+  width: 12px;
+  flex-shrink: 0;
+  opacity: .5;
+}
+
+.group-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  flex: 1;
+}
+
+.group-check input {
+  accent-color: #64748b;
+  width: 13px;
+  height: 13px;
+}
+
+.group-name-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.group-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.group-add-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+.group-add-btn:hover {
+  color: #475569;
+}
+
 .group-name-inp {
-  flex:1; font-size:12px; border-radius:3px;
-  padding:2px 6px; background:transparent; border:1px solid;
+  flex: 1;
+  font-size: 12px;
+  border-radius: 3px;
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid;
 }
 
 /* Edit row */
-.edit-row { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border-left:3px solid #64748b; }
-.edit-field-row { display:flex; align-items:center; gap:6px; }
-.edit-field-label { font-size:11px; min-width:42px; flex-shrink:0; opacity:.7; }
-.edit-action-row { display:flex; gap:6px; justify-content:flex-end; margin-top:2px; }
+.edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-left: 3px solid #64748b;
+}
+
+.edit-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-field-label {
+  font-size: 11px;
+  min-width: 42px;
+  flex-shrink: 0;
+  opacity: .7;
+}
+
+.edit-action-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
 .edit-inp {
-  flex:1; border-radius:4px; padding:4px 8px;
-  font-size:11px; min-width:60px; background:transparent; border:1px solid;
+  flex: 1;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  min-width: 60px;
+  background: transparent;
+  border: 1px solid;
 }
+
 .edit-group-sel {
-  font-size:11px; border-radius:4px; padding:3px 6px;
-  flex:1; background:transparent; border:1px solid;
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 3px 6px;
+  flex: 1;
+  background: transparent;
+  border: 1px solid;
 }
-.edit-ok { background:#64748b; color:white; border:none; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px; font-weight:bold; }
-.edit-ok:hover { background:#475569; }
-.edit-ok.sm { padding:2px 7px; font-size:11px; }
-.edit-cancel { background:transparent; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:12px; border:1px solid; }
-.edit-cancel.sm { padding:2px 7px; font-size:11px; }
-.edit-slider { flex:1; accent-color:#64748b; }
-.offset-val { font-size:10px; min-width:40px; text-align:right; white-space:nowrap; opacity:.7; }
-.offset-reset { background:none; border:none; cursor:pointer; font-size:12px; padding:0 2px; opacity:.4; }
-.offset-reset:hover { opacity:1; color:#64748b; }
+
+.edit-ok {
+  background: #64748b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.edit-ok:hover {
+  background: #475569;
+}
+
+.edit-ok.sm {
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.edit-cancel {
+  background: transparent;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  border: 1px solid;
+}
+
+.edit-cancel.sm {
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.edit-slider {
+  flex: 1;
+  accent-color: #64748b;
+}
+
+.offset-val {
+  font-size: 10px;
+  min-width: 40px;
+  text-align: right;
+  white-space: nowrap;
+  opacity: .7;
+}
+
+.offset-reset {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  opacity: .4;
+}
+
+.offset-reset:hover {
+  opacity: 1;
+  color: #64748b;
+}
 
 /* Item rows */
-.item-row { display:flex; align-items:center; padding:4px 8px 4px 34px; font-size:12px; transition:background .1s; }
-.item-row:hover .item-actions { opacity:1; }
-.item-label-inner { display:flex; align-items:center; gap:4px; flex:1; cursor:pointer; min-width:0; }
-.item-label-inner input { accent-color:#64748b; width:12px; height:12px; flex-shrink:0; }
-.zh-main { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.diet { font-size:10px; font-weight:bold; flex-shrink:0; }
-.tag-meat  { color:#ef4444; }
-.tag-veg   { color:#22c55e; }
-.tag-spicy { color:#f97316; }
-.qty-wrap { display:flex; align-items:center; gap:2px; margin-left:auto; flex-shrink:0; }
-.qty-btn {
-  background:transparent; border-radius:3px; width:18px; height:18px; font-size:13px;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-  padding:0; line-height:1; border:1px solid;
+.item-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 4px 34px;
+  font-size: 12px;
+  transition: background .1s;
 }
-.qty-btn:hover { background:#64748b; color:white; border-color:#64748b; }
-.qty-num { font-size:11px; font-weight:bold; min-width:18px; text-align:center; }
-.item-actions { display:flex; gap:2px; opacity:0; transition:opacity .15s; flex-shrink:0; margin-left:2px; }
-.act-btn { background:none; border:none; cursor:pointer; font-size:11px; opacity:.4; padding:2px 4px; border-radius:3px; }
-.act-btn:hover { opacity:1; background:rgba(128,128,128,.15); }
-.act-btn.del:hover { background:rgba(239,68,68,.15); color:#ef4444; }
-.config-item-row { padding-left:0; }
-.config-item-row .item-actions { opacity:1; }
-.config-item-content { display:flex; align-items:center; padding:4px 8px 4px 16px; }
-.config-item-content .zh-main { flex:1; }
-.config-item-content .item-actions { opacity:1; }
+
+.item-row:hover .item-actions {
+  opacity: 1;
+}
+
+.item-label-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.item-label-inner input {
+  accent-color: #64748b;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.zh-main {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diet {
+  font-size: 10px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.tag-meat {
+  color: #ef4444;
+}
+
+.tag-veg {
+  color: #22c55e;
+}
+
+.tag-spicy {
+  color: #f97316;
+}
+
+.qty-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.qty-btn {
+  background: transparent;
+  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  border: 1px solid;
+}
+
+.qty-btn:hover {
+  background: #64748b;
+  color: white;
+  border-color: #64748b;
+}
+
+.qty-num {
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  text-align: center;
+}
+
+.item-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity .15s;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.act-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  opacity: .4;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.act-btn:hover {
+  opacity: 1;
+  background: rgba(128, 128, 128, .15);
+}
+
+.act-btn.del:hover {
+  background: rgba(239, 68, 68, .15);
+  color: #ef4444;
+}
+
+.config-item-row {
+  padding-left: 0;
+}
+
+.config-item-row .item-actions {
+  opacity: 1;
+}
+
+.config-item-content {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 4px 16px;
+}
+
+.config-item-content .zh-main {
+  flex: 1;
+}
+
+.config-item-content .item-actions {
+  opacity: 1;
+}
 
 /* Delete confirm */
-.del-confirm-label { font-size:10px; color:#ef4444; white-space:nowrap; }
-.del-yes { background:#ef4444; color:white; border:none; border-radius:3px; padding:2px 8px; font-size:11px; cursor:pointer; }
-.del-yes:hover { background:#dc2626; }
-.del-no  { background:transparent; border-radius:3px; padding:2px 8px; font-size:11px; cursor:pointer; border:1px solid; opacity:.6; }
+.del-confirm-label {
+  font-size: 10px;
+  color: #ef4444;
+  white-space: nowrap;
+}
+
+.del-yes {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.del-yes:hover {
+  background: #dc2626;
+}
+
+.del-no {
+  background: transparent;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid;
+  opacity: .6;
+}
 
 /* Footer */
-.sidebar-footer { padding:10px 12px; display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.count-badge { flex:1; font-size:13px; }
-.print-nav-btn { background:#dc2626; color:white; border:none; border-radius:8px; padding:8px 14px; font-size:12px; cursor:pointer; font-weight:bold; display:flex; align-items:center; gap:4px; }
-.print-nav-btn:disabled { opacity:.4; cursor:default; }
-.print-nav-btn:not(:disabled):hover { background:#b91c1c; }
+.sidebar-footer {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.count-badge {
+  flex: 1;
+  font-size: 13px;
+}
+
+.print-nav-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.print-nav-btn:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.print-nav-btn:not(:disabled):hover {
+  background: #b91c1c;
+}
 
 /* 搜尋 */
-.search-row { display:flex; align-items:center; padding:6px 10px; gap:4px; flex-shrink:0; }
-.search-inp { flex:1; background:transparent; border:none; outline:none; font-size:12px; padding:2px 4px; }
-.search-clear { background:none; border:none; cursor:pointer; font-size:11px; opacity:.5; padding:2px 4px; flex-shrink:0; }
-.search-clear:hover { opacity:1; }
-.empty-search { padding:20px 16px; font-size:12px; opacity:.5; text-align:center; }
+.search-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.search-inp {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  opacity: .5;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+
+.search-clear:hover {
+  opacity: 1;
+}
+
+.empty-search {
+  padding: 20px 16px;
+  font-size: 12px;
+  opacity: .5;
+  text-align: center;
+}
 
 /* ══ 預覽區 ══ */
-.preview-area { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; min-width:0; }
-.preview-toolbar { display:flex; align-items:center; gap:6px; padding:8px 16px; flex-shrink:0; flex-wrap:wrap; }
-.preview-toolbar-label { font-size:11px; white-space:nowrap; opacity:.7; }
-.preview-toolbar-val   { font-size:11px; min-width:28px; }
-.scale-slider { width:80px; accent-color:#64748b; }
-.auto-scale-btn { font-size:11px; padding:3px 10px; border-radius:6px; cursor:pointer; border:1px solid; background:transparent; }
-.auto-scale-btn.active { background:#64748b; color:white; border-color:#64748b; }
-.preview-pages-wrap { display:grid; grid-template-columns:repeat(var(--cols,1),1fr); gap:20px; padding:16px; align-items:start; }
-.a4-preview-wrap { min-width:0; }
-.page-num-label { font-size:11px; margin-bottom:4px; opacity:.6; }
-.a4-preview {
-  width:297mm; height:210mm;
-  background:white; box-shadow:0 4px 24px rgba(0,0,0,.25);
-  display:flex; align-items:flex-start; justify-content:flex-start;
-  transform-origin:top left;
+.preview-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
-.empty-hint { font-size:16px; padding:60px 20px; opacity:.4; }
+
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.preview-toolbar-label {
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: .7;
+}
+
+.preview-toolbar-val {
+  font-size: 11px;
+  min-width: 28px;
+}
+
+.scale-slider {
+  width: 80px;
+  accent-color: #64748b;
+}
+
+.auto-scale-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid;
+  background: transparent;
+}
+
+.auto-scale-btn.active {
+  background: #64748b;
+  color: white;
+  border-color: #64748b;
+}
+
+.preview-pages-wrap {
+  display: grid;
+  grid-template-columns:repeat(var(--cols, 1), 1fr);
+  gap: 20px;
+  padding: 16px;
+  align-items: start;
+}
+
+.a4-preview-wrap {
+  min-width: 0;
+}
+
+.page-num-label {
+  font-size: 11px;
+  margin-bottom: 4px;
+  opacity: .6;
+}
+
+.a4-preview {
+  width: 297mm;
+  height: 210mm;
+  background: white;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, .25);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  transform-origin: top left;
+}
+
+.empty-hint {
+  font-size: 16px;
+  padding: 60px 20px;
+  opacity: .4;
+}
 
 /* ══ Config 預覽分類 ══ */
-.config-preview-wrap { padding:16px; display:flex; flex-direction:column; gap:20px; }
-.config-preview-group-label { font-size:11px; font-weight:bold; opacity:.5; margin-bottom:6px; padding-left:2px; }
-.config-preview-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fill, 89mm);
-  gap:0;
+.config-preview-wrap {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-/* ══ 裁切區 ══ */
-.cut-area { position:relative; width:267mm; height:177mm; }
-.grid { display:grid; grid-template-columns:repeat(3,89mm); grid-template-rows:repeat(3,59mm); gap:0; }
-.card-wrapper { width:89mm; height:59mm; position:relative; overflow:hidden; }
-.card-text-area { position:absolute; left:0; right:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:2mm 3mm 3mm; z-index:1; overflow:hidden; }
-.card-line1 { margin:0; font-family:'標楷體','DFKai-SB',serif; font-weight:bold; color:#1a1a1a; text-align:center; line-height:1.15; white-space:nowrap; }
-.card-line2 { margin:0; font-family:'Georgia',serif; font-weight:bold; color:#1a1a1a; text-align:center; line-height:1.2; white-space:nowrap; }
-.card-img { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:fill; z-index:0; }
-.cut-line { position:absolute; background:repeating-linear-gradient(transparent,transparent 2.5mm,#999 2.5mm,#999 5mm); z-index:20; pointer-events:none; }
-.cut-v { top:-4mm; width:0.3mm; height:calc(100% + 8mm); }
-.cut-h { left:-4mm; height:0.3mm; width:calc(100% + 8mm); }
+.config-preview-group-label {
+  font-size: 11px;
+  font-weight: bold;
+  opacity: .5;
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+
+.config-preview-grid {
+  display: grid;
+  grid-template-columns:repeat(auto-fill, 89mm);
+  gap: 0;
+}
+
+/* ══ 手機響應式 ══ */
+.mobile-topbar {
+  display: none;
+  flex-shrink: 0;
+}
+
+.mobile-topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+}
+
+.mobile-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-menu-btn {
+  background: transparent;
+  border: 1px solid;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+
+.mobile-menu-btn.active {
+  background: #64748b;
+  color: white;
+  border-color: #64748b;
+}
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+  z-index: 40;
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 767px) {
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .mobile-overlay {
+    display: block;
+  }
+
+  .layout {
+    flex-direction: column;
+    height: calc(100vh - var(--nav-height, 44px));
+  }
+
+  /* Sidebar 變成左側滑入抽屜 */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 88vw);
+    min-width: 0;
+    transform: translateX(-110%);
+    transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+    z-index: 50;
+    border-right: 1px solid;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, .18);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* sidebar 內 header 在手機不顯示（topbar 已有標題） */
+  .sidebar-header {
+    display: none;
+  }
+
+  /* 底部 footer 列印按鈕在手機 sidebar 中繼續顯示 */
+  .sidebar-footer {
+    padding: 12px;
+  }
+
+  /* 預覽區佔全部剩餘空間 */
+  .preview-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* 預覽 toolbar 字體稍大 */
+  .preview-toolbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .preview-toolbar-label {
+    font-size: 12px;
+  }
+
+  .preview-toolbar-val {
+    font-size: 12px;
+  }
+
+  /* A4 預覽頁面縮放提示 */
+  .a4-preview-wrap {
+    overflow: auto;
+  }
+}
+
+
+.cut-area {
+  position: relative;
+  width: 267mm;
+  height: 177mm;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns:repeat(3, 89mm);
+  grid-template-rows:repeat(3, 59mm);
+  gap: 0;
+}
+
+.card-wrapper {
+  width: 89mm;
+  height: 59mm;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-text-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 2mm 3mm 3mm;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.card-line1 {
+  margin: 0;
+  font-family: '標楷體', 'DFKai-SB', serif;
+  font-weight: bold;
+  color: #1a1a1a;
+  text-align: center;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.card-line2 {
+  margin: 0;
+  font-family: 'Georgia', serif;
+  font-weight: bold;
+  color: #1a1a1a;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.card-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  z-index: 0;
+}
+
+.cut-line {
+  position: absolute;
+  background: repeating-linear-gradient(transparent, transparent 2.5mm, #999 2.5mm, #999 5mm);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.cut-v {
+  top: -4mm;
+  width: 0.3mm;
+  height: calc(100% + 8mm);
+}
+
+.cut-h {
+  left: -4mm;
+  height: 0.3mm;
+  width: calc(100% + 8mm);
+}
 
 
 </style>
