@@ -35,6 +35,7 @@
     "@nuxt/eslint": "^1.15.2",
     "@types/better-sqlite3": "^7.6.13",
     "eslint": "^10.0.3",
+    "iconv-lite": "^0.7.2",
     "sass-embedded": "^1.99.0",
     "typescript": "^5.9.3",
     "vue-tsc": "^3.2.5"

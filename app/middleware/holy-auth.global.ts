@@ -40,11 +40,17 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
 
 const ADMIN_HOME = '/admin/customer-management'
 
-let blockedChecked = false
+// ── Cookie 驗證時間控制 ───────────────────────────────────────────
+// 改用時間戳記取代 boolean flag：
+// - 每次路由切換都檢查距上次驗證是否已超過 CHECK_INTERVAL
+// - iOS 從後台回來後若超過間隔，下次切頁就會重驗
+// - 避免 BFCache 讓 boolean 永遠卡在 true 的問題
+const CHECK_INTERVAL = 10 * 60 * 1000 // 10 分鐘
+let lastCheckedAt = 0
 
 // 清除登入狀態並跳回首頁
 async function forceLogout(customerStore: ReturnType<typeof useCustomerStore>, baseUrl: string) {
-  blockedChecked = false
+  lastCheckedAt = 0
   customerStore.clearCustomer()
   usePermissionStore().clear()
   // 盡力通知後端清 cookie，失敗無所謂
@@ -81,13 +87,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/')
   }
 
-  // ── Cookie 有效性驗證（每個 session 只打一次 /me）────────────────
-  // 修正：iOS Safari/Chrome 的 ITP 機制可能在背景喚醒或跨分頁時
-  // 丟掉 cookie，導致 localStorage（Pinia persist）還有 isLoggedIn=true
-  // 但後端 session 已失效。這裡統一用 res.ok 判斷 HTTP status，
-  // 401/403 或任何 !ok 都視為 cookie 失效，強制清除並跳首頁。
-  if (to.path.startsWith('/staff') && customerStore.isLoggedIn && !blockedChecked) {
-    blockedChecked = true
+  // ── Cookie 有效性驗證 ────────────────────────────────────────────
+  // 修正：iOS Safari/Chrome 的 ITP 機制可能在 App 長時間放後台、
+  // BFCache 回復、或跨分頁時丟掉 cookie，導致 localStorage（Pinia
+  // persist）還有 isLoggedIn=true，但後端 session 已失效。
+  // 改用時間戳記判斷：每 10 分鐘重驗一次，兼顧性能與安全性。
+  const now = Date.now()
+  const needCheck = to.path.startsWith('/staff')
+    && customerStore.isLoggedIn
+    && (now - lastCheckedAt > CHECK_INTERVAL)
+
+  if (needCheck) {
+    lastCheckedAt = now
     const commonStore = useCommonStore()
     try {
       const res = await fetch(commonStore.data.main_url + '/holy/customer/me', {
@@ -104,11 +115,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
       if (data.error) {
         return forceLogout(customerStore, commonStore.data.main_url)
       }
-    } catch (e) {
+    } catch {
       // 純網路錯誤（DNS、逾時）：不清除狀態，讓使用者繼續使用
-      // 待網路恢復後下次切頁再驗一次（blockedChecked 已被設 true，
-      // 手動重設讓下次切頁能再驗）
-      blockedChecked = false
+      // 重設時間戳讓下次切頁能再驗
+      lastCheckedAt = 0
     }
   }
 
