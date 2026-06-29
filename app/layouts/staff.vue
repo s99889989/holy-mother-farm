@@ -18,8 +18,14 @@
   // 監聽 visibilitychange，頁面重新可見時打 /me 確認 session 仍有效。
   async function checkSessionOnVisible() {
     if (document.visibilityState !== 'visible') return
-    if (!customerStore.isLoggedIn) return
 
+    // isLoggedIn 已是 false → 狀態已清除但頁面還停在 staff，直接踢回首頁
+    if (!customerStore.isLoggedIn) {
+      window.location.href = '/'
+      return
+    }
+
+    // isLoggedIn 還是 true → 打 /me 確認 cookie 還活著
     try {
       const res = await fetch(commonStore.data.main_url + '/holy/customer/me', {
         credentials: 'include'
