@@ -441,7 +441,7 @@ onMounted(async () => {
                     <span v-if="bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) + recurBookingSpice > 0">🧄 {{ bookings.reduce((s,b)=>s+(Number(b.spiceVegQty)||0),0) + recurBookingSpice }}</span>
                   </span>
                 </p>
-                <button v-if="perm.can('staff.booking.edit')" @click="openBookingModal(null)"
+                <button v-if="perm.can('booking-orders')" @click="openBookingModal(null)"
                         class="flex items-center gap-1 px-3 py-1 bg-green-800 text-white text-xs rounded-lg hover:bg-green-900 transition-colors">
                   <span class="leading-none">+</span> 新增
                 </button>
