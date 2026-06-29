@@ -193,8 +193,9 @@
                   </template>
                   <!-- 月份平均列 -->
                   <tr class="month-avg-row">
-                    <td colspan="2">{{ month }} 平均／天</td>
-                    <td class="num">{{ (monthInvoiceCount(group) / group.length).toFixed(1) }}</td>
+                    <td>{{ month }} 平均／天</td>
+                    <td class="mobile-hide"></td>
+                    <td class="num mobile-hide">{{ (monthInvoiceCount(group) / group.length).toFixed(1) }}</td>
                     <td class="num">{{ formatMoney(Math.round(monthTotal(group) / group.length)) }}</td>
                     <td class="num" v-if="selectedItems.length">{{ formatMoney(Math.round(monthItemTotal(group) / group.length)) }}</td>
                     <td></td>
@@ -204,15 +205,17 @@
               </tbody>
               <tfoot>
               <tr class="total-row">
-                <td colspan="2">合計</td>
-                <td class="num">{{ filteredInvoices.length }}</td>
+                <td>合計</td>
+                <td class="mobile-hide"></td>
+                <td class="num mobile-hide">{{ filteredInvoices.length }}</td>
                 <td class="num">{{ formatMoney(filteredTotal) }}</td>
                 <td class="num" v-if="selectedItems.length">{{ formatMoney(filteredItemTotal) }}</td>
                 <td></td>
               </tr>
               <tr class="avg-row">
-                <td colspan="2">每日平均</td>
-                <td class="num">{{ filteredDays.length ? (filteredInvoices.length / filteredDays.length).toFixed(1) : '—' }}</td>
+                <td>每日平均</td>
+                <td class="mobile-hide"></td>
+                <td class="num mobile-hide">{{ filteredDays.length ? (filteredInvoices.length / filteredDays.length).toFixed(1) : '—' }}</td>
                 <td class="num">{{ filteredDays.length ? formatMoney(Math.round(filteredTotal / filteredDays.length)) : '—' }}</td>
                 <td class="num" v-if="selectedItems.length">{{ filteredDays.length ? formatMoney(Math.round(filteredItemTotal / filteredDays.length)) : '—' }}</td>
                 <td></td>
@@ -863,6 +866,9 @@
     color: #7a7870;
     font-size: 0.75rem;
   }
+  @media (max-width: 640px) {
+    .month-summary { float: none; display: block; margin-top: 0.1rem; }
+  }
   .month-avg-row td {
     padding: 0.5rem 0.75rem;
     font-size: 0.8rem;
@@ -919,8 +925,53 @@
   .empty-hint { font-size: 0.8rem; margin-top: 0.5rem; }
 
   @media (max-width: 640px) {
+    /* Header */
     .header-stats { display: none; }
+    .pos-header { padding: 0 1rem; }
+    .header-label { font-size: 0.9rem; }
+
+    /* Main padding */
+    .pos-main { padding: 1rem 0.75rem 3rem; }
+
+    /* Status bar */
+    .status-bar { padding: 0.6rem 1rem; font-size: 0.8rem; }
+
+    /* Filter bar */
+    .filter-bar { padding: 1rem; gap: 0.875rem; }
+    .month-pills, .weekday-pills { gap: 0.3rem; }
+    .pill { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+    .item-checklist { max-height: 140px; }
+    .item-check-row { font-size: 0.75rem; padding: 0.2rem 0.5rem; }
+
+    /* Summary cards: 2欄 */
+    .summary-cards { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .card { padding: 0.875rem 1rem; }
+    .card-num { font-size: 1.1rem; }
+
+    /* Table: 隱藏星期欄，日期縮短，筆數隱藏 */
+    .day-table th:nth-child(2),
+    .day-table td:nth-child(2),
+    .day-table th:nth-child(3),
+    .day-table td:nth-child(3),
+    .mobile-hide { display: none; }
+    .day-table th, .day-table td { padding: 0.5rem 0.5rem; font-size: 0.8rem; }
+    .month-header-row td { font-size: 0.75rem; padding: 0.35rem 0.5rem; }
+    .month-summary { font-size: 0.7rem; }
+
+    /* Invoice cards: 1欄 */
+    .invoice-list { padding: 0.5rem; gap: 0.5rem; }
+    .invoice-card { min-width: unset; width: 100%; }
+    .inv-header { font-size: 0.78rem; }
+    .inv-item { font-size: 0.72rem; }
+    .it-detail { font-size: 0.7rem; }
+
+    /* Ranking */
     .rank-row { grid-template-columns: 2rem 1fr auto; }
     .rank-bar-wrap, .rank-qty { display: none; }
+    .rank-amt { font-size: 0.8rem; }
+
+    /* Section titles */
+    .day-table-wrap, .ranking-wrap { padding: 1rem; }
+    .section-title { font-size: 0.75rem; }
   }
 </style>
