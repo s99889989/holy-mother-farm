@@ -27,17 +27,15 @@
       <!-- 載入狀態列 -->
       <section class="status-bar">
         <div v-if="loading" class="status-loading">
-          <span class="spinner"></span> 載入中... {{ loadedFiles.length }} 個檔案
+          <span class="spinner"></span> 載入資料中...
         </div>
         <div v-else-if="parseError" class="status-error">⚠ {{ parseError }}</div>
-        <div v-else-if="loadedFiles.length" class="status-ok">
+        <div v-else-if="allInvoices.length" class="status-ok">
           <span class="status-dot"></span>
-          已載入 {{ loadedFiles.length }} 個檔案
-          <button class="btn-reload" @click="loadFromApi">重新載入</button>
+          已載入 {{ allInvoices.length }} 筆資料・{{ loadedFiles.length }} 個檔案
+          <button class="btn-reload" @click="loadData">重新載入</button>
         </div>
-        <div v-else class="status-empty">
-          ⚠ 找不到資料，請確認 public/file/pos-data/ 目錄有 InvD*.txt 檔案
-        </div>
+        <div v-else class="status-empty">找不到資料</div>
       </section>
 
       <template v-if="allInvoices.length">
@@ -343,7 +341,6 @@
   }
 
   // ── State ─────────────────────────────────────────────────
-  const loading = ref(false)
   const loadedFiles = ref([])
   const parseError = ref('')
   const allInvoices = ref([])
@@ -357,43 +354,27 @@
 
   const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
-  // ── 從 Server API 自動載入 ────────────────────────────────
-  async function loadFromApi() {
+  // ── 從 JSON 載入（build 時預先轉換）────────────────────
+  const loading = ref(false)
+
+  async function loadData() {
     loading.value = true
     parseError.value = ''
-    allInvoices.value = []
-    loadedFiles.value = []
-
     try {
-      // 1. 取得檔案清單
-      const files = await $fetch('/api/pos/files')
-      if (!files.length) {
-        parseError.value = '目錄內沒有 .txt 檔案'
-        return
-      }
-
-      // 2. 逐一讀取並解析
-      for (const filename of files) {
-        try {
-          const text = await $fetch(`/api/pos/${filename}`)
-          const invs = parsePosFile(text, filename)
-          allInvoices.value.push(...invs)
-          loadedFiles.value.push(filename)
-        } catch (e) {
-          parseError.value = `讀取 ${filename} 失敗：${e.message}`
-        }
-      }
-
-      // 預設選全部月份
+      const data = await $fetch('/file/pos-data.json')
+      allInvoices.value = data
+      // 從資料反推載入的檔案清單（用日期去重）
+      const dates = new Set(data.map(inv => inv.date))
+      loadedFiles.value = [...dates].sort()
       selectedMonths.value = [...availableMonths.value]
     } catch (e) {
-      parseError.value = `API 連線失敗：${e.message}`
+      parseError.value = `載入失敗：${e.message}`
     } finally {
       loading.value = false
     }
   }
 
-  onMounted(() => loadFromApi())
+  onMounted(() => loadData())
 
   // ── 衍生資料 ─────────────────────────────────────────────
   const availableMonths = computed(() => {
@@ -624,9 +605,12 @@
     background: #fff;
     border-radius: 10px;
     border: 1px solid #e2e0d8;
-    padding: 0.875rem 1.25rem;
+    padding: 0.75rem 1.25rem;
     margin-bottom: 1.5rem;
     font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
   .status-loading { display: flex; align-items: center; gap: 0.6rem; color: #7a7870; }
   .spinner {
@@ -638,18 +622,10 @@
     animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .status-ok { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; }
+  .status-ok { display: flex; align-items: center; gap: 0.6rem; flex: 1; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #2d6a4f; flex-shrink: 0; }
   .status-error { color: #c0392b; }
   .status-empty { color: #7a7870; }
-  .loaded-list { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-  .file-tag {
-    background: #e8f4ee;
-    color: #2d6a4f;
-    border-radius: 4px;
-    padding: 0.15rem 0.5rem;
-    font-size: 0.72rem;
-  }
   .btn-reload {
     margin-left: auto;
     background: none;
