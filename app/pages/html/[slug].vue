@@ -1,24 +1,41 @@
 <script setup>
-definePageMeta({ layout: 'blank' })
+  definePageMeta({ layout: 'blank' })
 
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/html-page'
+  const config = useRuntimeConfig()
+  const BASE = config.public.apiBase + '/holy/html-page'
 
-const route = useRoute()
-const slug  = route.params.slug
+  const route = useRoute()
+  const slug = route.params.slug
 
-const htmlContent = ref('')
-const error       = ref(false)
+  const { data: htmlContent, error } = await useAsyncData(
+    `html-page-${slug}`,
+    () => $fetch(`${BASE}/content/${slug}`, { responseType: 'text' })
+  )
 
-onMounted(async () => {
-  try {
-    const res = await fetch(`${BASE()}/content/${slug}`)
-    if (!res.ok) { error.value = true; return }
-    htmlContent.value = await res.text()
-  } catch {
-    error.value = true
-  }
-})
+  const { data: metaList } = await useAsyncData(
+    'html-page-meta',
+    () => $fetch(`${BASE}/get`)
+  )
+
+  const pageTitle = computed(() => {
+    const found = metaList.value?.page_list?.find(p => p.slug === slug)
+    return found?.title ?? '聖母健康農莊'
+  })
+
+  useHead({
+    title: () => pageTitle.value,
+    meta: [
+      { property: 'og:title',        content: () => pageTitle.value },
+      { property: 'og:description',  content: '聖母健康農莊活動資訊' },
+      { property: 'og:type',         content: 'website' },
+      { property: 'og:image',        content: `/images/og/${slug}_og.jpg` },
+      { property: 'og:image:width',  content: '1200' },
+      { property: 'og:image:height', content: '630' },
+      { name: 'twitter:card',        content: 'summary_large_image' },
+      { name: 'twitter:title',       content: () => pageTitle.value },
+      { name: 'twitter:image',       content: `/images/og/${slug}_og.jpg` },
+    ],
+  })
 </script>
 
 <template>
