@@ -456,8 +456,8 @@
           </div>
           <!-- 說明 -->
           <div v-if="googleDetailModal.ev.description"
-               class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c whitespace-pre-wrap leading-relaxed">
-            {{ googleDetailModal.ev.description }}
+               class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed google-desc-html"
+               v-html="googleDetailModal.ev.description">
           </div>
         </div>
         <!-- Footer -->
@@ -592,7 +592,7 @@
         <div v-if="tooltipEvent.time" class="tooltip-row">🕐 {{ tooltipEvent.time }}</div>
         <div v-if="tooltipEvent.room" class="tooltip-row">📍 {{ tooltipEvent.room }}</div>
         <div v-if="tooltipEvent.owner" class="tooltip-row">👤 {{ tooltipEvent.owner }}</div>
-        <div v-if="tooltipEvent.description" class="tooltip-row" style="white-space: pre-line">📝 {{ tooltipEvent.description.length > 80 ? tooltipEvent.description.slice(0, 80) + '…' : tooltipEvent.description }}</div>
+        <div v-if="tooltipEvent.description" class="tooltip-row" style="white-space: pre-line">📝 {{ stripHtml(tooltipEvent.description).length > 80 ? stripHtml(tooltipEvent.description).slice(0, 80) + '…' : stripHtml(tooltipEvent.description) }}</div>
         <div v-if="tooltipEvent.source === 'google'" class="tooltip-hint">🔗 點擊查看 Google 詳細資訊</div>
       </div>
     </Teleport>
@@ -671,6 +671,11 @@
 
   function hideTooltip() {
     tooltipEvent.value = null
+  }
+
+  function stripHtml(html) {
+    if (!html) return ''
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
   }
 
   function typeBarClass(type) {
@@ -1792,6 +1797,14 @@
   :root.dark .tooltip-hint {
     color: #818cf8;
   }
+
+  /* ── Google 活動描述 HTML 渲染 ── */
+  .google-desc-html :deep(p) { margin: 0 0 6px; }
+  .google-desc-html :deep(ul),
+  .google-desc-html :deep(ol) { margin: 4px 0 4px 16px; padding: 0; }
+  .google-desc-html :deep(li) { margin-bottom: 2px; }
+  .google-desc-html :deep(strong) { font-weight: 600; color: var(--color-base-c, #1c1917); }
+  .google-desc-html :deep(a) { color: #6366f1; text-decoration: underline; }
 
   /* ── RWD ── */
   @media (max-width: 640px) {
