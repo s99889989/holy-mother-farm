@@ -592,7 +592,7 @@
         <div v-if="tooltipEvent.time" class="tooltip-row">🕐 {{ tooltipEvent.time }}</div>
         <div v-if="tooltipEvent.room" class="tooltip-row">📍 {{ tooltipEvent.room }}</div>
         <div v-if="tooltipEvent.owner" class="tooltip-row">👤 {{ tooltipEvent.owner }}</div>
-        <div v-if="tooltipEvent.description" class="tooltip-row">📝 {{ tooltipEvent.description.length > 60 ? tooltipEvent.description.slice(0, 60) + '…' : tooltipEvent.description }}</div>
+        <div v-if="tooltipEvent.description" class="tooltip-row" style="white-space: pre-line">📝 {{ tooltipEvent.description.length > 80 ? tooltipEvent.description.slice(0, 80) + '…' : tooltipEvent.description }}</div>
         <div v-if="tooltipEvent.source === 'google'" class="tooltip-hint">🔗 點擊查看 Google 詳細資訊</div>
       </div>
     </Teleport>
@@ -637,7 +637,7 @@
   const tooltipPos = reactive({x: 0, y: 0})
   const TOOLTIP_OFFSET = 18
   const TOOLTIP_WIDTH = 280
-  const TOOLTIP_MAX_HEIGHT = 220
+  const TOOLTIP_MAX_HEIGHT = 300
 
   const tooltipStyle = computed(() => {
     if (!import.meta.client) return {}
