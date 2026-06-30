@@ -406,149 +406,156 @@
 </template>
 
 <script setup>
-  const route = useRoute()
-  const mobileOpen = ref(false)
-  const menuOpen = ref(false)
-  const dropOpen = ref({})
-  const darkStore = useDarkModeStore()
-  const isDark = computed(() => darkStore.data.dark)
-  const perm = usePermission()
-  const customerStore = useCustomerStore()
-  const commonStore = useCommonStore()
-  const customer = computed(() => customerStore.customer)
+const route = useRoute()
+const mobileOpen = ref(false)
+const menuOpen = ref(false)
+const dropOpen = ref({})
+const darkStore = useDarkModeStore()
+const isDark = computed(() => darkStore.data.dark)
+const perm = usePermission()
+const customerStore = useCustomerStore()
+const commonStore = useCommonStore()
+const customer = computed(() => customerStore.customer)
 
-  const toggleDark = () => {
-    darkStore.change_dark_mode()
+const toggleDark = () => {
+  darkStore.change_dark_mode()
+}
+
+watch(() => route.path, () => {
+  mobileOpen.value = false
+  dropOpen.value = {}
+  menuOpen.value = false
+})
+
+// ── 選單定義 ─────────────────────────────────────────────────────
+const navGroups = [
+  {
+    label: '👥 人事',
+    items: [
+      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'staff.class-schedule' },
+      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'staff.phone-directory' },
+      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'staff.work-manual' }
+    ]
+  },
+  {
+    label: '🖨️ 列印中心',
+    items: [
+      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'staff.table-card-print' },
+      { to: '/staff/print/herbs-label-print', icon: '🏷️', label: '花園 QRCode', key: 'staff.herbs-label-print' }
+    ]
+  },
+  {
+    label: '🏢 營運管理',
+    items: [
+      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'staff.daily-menu' },
+      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'staff.calendar' },
+      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'staff.asset' },
+      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'staff.files' },
+      { to: '/staff/management/html-page', icon: '📁', label: '網頁檔案', key: 'staff.files' }
+    ]
+  },
+  {
+    label: '📦 訂單管理',
+    items: [
+      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'staff.black-cat-orders' },
+      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'staff.soybean-orders' },
+      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'staff.lunch-orders' },
+      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'staff.booking-orders' }
+    ]
+  },
+  {
+    label: '👥 庫存銷售',
+    items: [
+      { to: '/staff/stock/pos-analysis', icon: '📅', label: '銷售分析', key: 'staff.pos-analysis' },
+      { to: '/staff/stock/pos-files', icon: '📞', label: '資料管理', key: 'staff.pos-files' }
+    ]
+  },
+  {
+    label: '🌐 前台內容',
+    items: [
+      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'staff.news' },
+      { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'staff.product' },
+      { to: '/staff/content/production', icon: '🌱', label: '產品訂購', key: 'staff.production' }
+    ]
   }
+]
 
-  watch(() => route.path, () => {
-    mobileOpen.value = false
+const standaloneItems = [
+  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'staff.quick-links' }
+]
+
+// ── 權限過濾 ──────────────────────────────────────────────────────
+const permStore = usePermissionStore()
+
+// 改用 perms 是否有內容來判斷，而非 loaded flag。
+// 原因：loaded 不 persist，iOS BFCache/App Switcher 回來時 loaded=false，
+// 但 perms 還有 persist 的舊資料，這時用 loaded 判斷會讓選單空白，
+// 等 API 回來才顯示。改用 hasPerms 讓 perms 有資料就立刻顯示，
+// 背景 API 更新完再響應式刷新，完全無閃爍。
+const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
+
+const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
+
+const visibleGroups = computed(() => {
+  if (!hasPerms.value) return []
+  return navGroups
+    .map(g => ({ ...g, items: filterItems(g.items) }))
+    .filter(g => g.items.length > 0)
+})
+
+const visibleStandaloneItems = computed(() => {
+  if (!hasPerms.value) return []
+  return filterItems(standaloneItems)
+})
+
+const activeGroup = computed(() =>
+  visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
+)
+
+// ── Dropdown 控制 ─────────────────────────────────────────────────
+function toggleDrop(label) {
+  dropOpen.value = {
+    ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
+    [label]: !dropOpen.value[label]
+  }
+  menuOpen.value = false
+}
+
+// ── 點外部關閉所有 dropdown（統一一個 handler）────────────────────
+function onClickOutside(e) {
+  if (!e.target.closest('.nav-dropdown-wrap')) {
     dropOpen.value = {}
     menuOpen.value = false
-  })
-
-  // ── 選單定義 ─────────────────────────────────────────────────────
-  const navGroups = [
-    {
-      label: '👥 人事',
-      items: [
-        { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'staff.class-schedule' },
-        { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'staff.phone-directory' },
-        { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'staff.work-manual' }
-      ]
-    },
-    {
-      label: '🖨️ 列印中心',
-      items: [
-        { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'staff.table-card-print' },
-        { to: '/staff/print/herbs-label-print', icon: '🏷️', label: '花園 QRCode', key: 'staff.herbs-label-print' }
-      ]
-    },
-    {
-      label: '🏢 營運管理',
-      items: [
-        { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'staff.daily-menu' },
-        { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'staff.calendar' },
-        { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'staff.asset' },
-        { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'staff.files' },
-        { to: '/staff/management/html-page', icon: '📁', label: '網頁檔案', key: 'staff.files' }
-      ]
-    },
-    {
-      label: '📦 訂單管理',
-      items: [
-        { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'staff.black-cat-orders' },
-        { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'staff.soybean-orders' },
-        { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'staff.lunch-orders' },
-        { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'staff.booking-orders' }
-      ]
-    },
-    {
-      label: '🌐 前台內容',
-      items: [
-        { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'staff.news' },
-        { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'staff.product' },
-        { to: '/staff/content/production', icon: '🌱', label: '產品訂購', key: 'staff.production' }
-      ]
-    }
-  ]
-
-  const standaloneItems = [
-    { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'staff.quick-links' }
-  ]
-
-  // ── 權限過濾 ──────────────────────────────────────────────────────
-  const permStore = usePermissionStore()
-
-  // 改用 perms 是否有內容來判斷，而非 loaded flag。
-  // 原因：loaded 不 persist，iOS BFCache/App Switcher 回來時 loaded=false，
-  // 但 perms 還有 persist 的舊資料，這時用 loaded 判斷會讓選單空白，
-  // 等 API 回來才顯示。改用 hasPerms 讓 perms 有資料就立刻顯示，
-  // 背景 API 更新完再響應式刷新，完全無閃爍。
-  const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
-
-  const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
-
-  const visibleGroups = computed(() => {
-    if (!hasPerms.value) return []
-    return navGroups
-      .map(g => ({ ...g, items: filterItems(g.items) }))
-      .filter(g => g.items.length > 0)
-  })
-
-  const visibleStandaloneItems = computed(() => {
-    if (!hasPerms.value) return []
-    return filterItems(standaloneItems)
-  })
-
-  const activeGroup = computed(() =>
-    visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
-  )
-
-  // ── Dropdown 控制 ─────────────────────────────────────────────────
-  function toggleDrop(label) {
-    dropOpen.value = {
-      ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
-      [label]: !dropOpen.value[label]
-    }
-    menuOpen.value = false
   }
+}
 
-  // ── 點外部關閉所有 dropdown（統一一個 handler）────────────────────
-  function onClickOutside(e) {
-    if (!e.target.closest('.nav-dropdown-wrap')) {
-      dropOpen.value = {}
-      menuOpen.value = false
-    }
+onMounted(() => {
+  document.addEventListener('click', onClickOutside)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside)
+})
+
+// ── 個人設定導航（先關 dropdown 再跳頁，避免路由切換重渲染造成 CSS 異常）──
+const goProfile = () => {
+  menuOpen.value = false
+  nextTick(() => navigateTo('/staff/profile/settings'))
+}
+
+// ── 登出 ──────────────────────────────────────────────────────────
+const logout = async () => {
+  try {
+    await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+  } catch { /* 即使失敗也繼續清除本地狀態 */
   }
-
-  onMounted(() => {
-    document.addEventListener('click', onClickOutside)
-  })
-  onUnmounted(() => {
-    document.removeEventListener('click', onClickOutside)
-  })
-
-  // ── 個人設定導航（先關 dropdown 再跳頁，避免路由切換重渲染造成 CSS 異常）──
-  const goProfile = () => {
-    menuOpen.value = false
-    nextTick(() => navigateTo('/staff/profile/settings'))
-  }
-
-  // ── 登出 ──────────────────────────────────────────────────────────
-  const logout = async () => {
-    try {
-      await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
-        method: 'POST',
-        credentials: 'include'
-      })
-    } catch { /* 即使失敗也繼續清除本地狀態 */
-    }
-    customerStore.clearCustomer()
-    usePermissionStore().clear()
-    menuOpen.value = false
-    navigateTo('/')
-  }
+  customerStore.clearCustomer()
+  usePermissionStore().clear()
+  menuOpen.value = false
+  navigateTo('/')
+}
 </script>
 
 <style scoped>
