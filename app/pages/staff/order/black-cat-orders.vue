@@ -14,6 +14,13 @@
              @keyup.enter="search" />
       <button @click="search"      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded">過濾</button>
       <button @click="resetSearch" class="bg-surface2 hover-border text-base-c px-4 py-1.5 rounded">取消過濾</button>
+      <!-- 上傳 development.sqlite3 -->
+      <input ref="dbFileInput" type="file" accept=".sqlite3" class="hidden" @change="onDbFileChange" />
+      <button @click="(dbFileInput as HTMLInputElement)?.click()"
+              :disabled="dbUploading"
+              class="ml-auto bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm">
+        {{ dbUploading ? '上傳中…' : '⬆️ 上傳 DB' }}
+      </button>
     </div>
 
     <!-- 分頁資訊 -->
@@ -37,7 +44,7 @@
     </div>
 
     <!-- 表格 -->
-    <div class="overflow-x-auto rounded-md border p-4 border-light-c">
+    <div class="overflow-x-auto rounded-md border p-4 border-light-c dark:border-base">
       <table class="w-full border-collapse text-sm">
         <thead class="bg-teal-600 dark:bg-teal-800 text-white">
         <tr>
@@ -49,29 +56,22 @@
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">收件人</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">地址</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">郵遞區號</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">配送限制</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">手機</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">電話</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">特殊地點</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">偏遠地址</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">品名</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">訂單編號</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">代收貨款</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">收貨日期</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">希望配達時段</th>
           <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">希望配達日期</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">託運單狀態</th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">紙張種類</th>
         </tr>
         </thead>
         <tbody class="divide-y divide-base">
         <tr v-if="!listData?.rows?.length">
-          <td colspan="18" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">無資料</td>
+          <td colspan="11" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">無資料</td>
         </tr>
         <tr
           v-for="row in listData?.rows"
           :key="row.id"
-          class="transition-colors bg-surface hover:bg-blue-50"
+          class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20"
           :class="{
  'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': editingId === row.id,
  'bg-yellow-50 dark:bg-yellow-900/20': selectedIds.includes(row.id) && editingId !== row.id
@@ -90,19 +90,12 @@
           <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_name }}</td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis" :title="row.customer_address">{{ row.customer_address }}</td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_postcode }}</td>
-          <td class="border border-light-c px-3 py-1"></td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_mobile }}</td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.customer_phone }}</td>
-          <td class="border border-light-c px-3 py-1"></td>
-          <td class="border border-light-c px-3 py-1"></td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis" :title="row.production_name">{{ row.production_name }}</td>
-          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.order_no }}</td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.price }}</td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.send_date }}</td>
-          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ deliverTimeLabel(row.deliver_time) }}</td>
           <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.deliver_date }}</td>
-          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ row.state }}</td>
-          <td class="border border-light-c px-3 py-1 whitespace-nowrap">{{ paperName(row.paper_id) }}</td>
         </tr>
         </tbody>
       </table>
@@ -120,10 +113,10 @@
     <!-- ════════════════════════ 託運單表單 ════════════════════════ -->
     <div class="border border-base rounded-md overflow-hidden mb-4">
       <div class="bg-teal-500 dark:bg-teal-700 text-white px-4 py-2 font-bold">託運單資料</div>
-      <div class="p-4 bg-pink-50 space-y-4">
+      <div class="p-4 bg-pink-50 dark:bg-zinc-900 space-y-4">
 
         <!-- Header：契客 / 寄件人 / 紙張 / 單號 -->
-        <div class="flex flex-wrap gap-3 items-center">
+        <div class="flex flex-wrap gap-3 items-center bg-surface border border-base rounded px-3 py-2">
           <label class="text-muted-c dark:text-hint-c">契客代號</label>
           <select v-model="form.sender_code" class="border border-base rounded px-2 py-1 bg-surface text-base-c">
             <option v-for="a in (accounts as any[])" :key="a.login" :value="a.login">{{ a.login }}</option>
@@ -689,6 +682,35 @@ function printAll() {
   const ids = listData.value?.rows?.map((r: any) => r.id) ?? []
   doPrint(ids)
 }
+// 上傳 development.sqlite3
+const dbFileInput = ref<HTMLInputElement | null>(null)
+const dbUploading = ref(false)
+
+async function onDbFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.name.endsWith('.sqlite3')) return alert('只接受 .sqlite3 檔案')
+  if (!confirm(`確定要用「${file.name}」覆蓋伺服器上的 development.sqlite3？\n⚠️ 此操作無法還原！`)) {
+    input.value = ''
+    return
+  }
+  dbUploading.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    await $fetch(`${BASE()}/upload-db`, { method: 'POST', body: fd })
+    alert('✅ development.sqlite3 已成功更新！')
+    await loadMeta()
+    await refreshList()
+  } catch (err: any) {
+    alert('❌ 上傳失敗：' + (err?.data?.error ?? err?.statusMessage ?? '未知錯誤'))
+  } finally {
+    dbUploading.value = false
+    input.value = ''
+  }
+}
+
 onMounted(async () => {
   await loadMeta()
   await refreshList()
