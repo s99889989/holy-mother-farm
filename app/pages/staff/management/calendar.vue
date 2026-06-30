@@ -592,7 +592,7 @@
         <div v-if="tooltipEvent.time" class="tooltip-row">🕐 {{ tooltipEvent.time }}</div>
         <div v-if="tooltipEvent.room" class="tooltip-row">📍 {{ tooltipEvent.room }}</div>
         <div v-if="tooltipEvent.owner" class="tooltip-row">👤 {{ tooltipEvent.owner }}</div>
-        <div v-if="tooltipEvent.description" class="tooltip-row">📝 {{ tooltipEvent.description }}</div>
+        <div v-if="tooltipEvent.description" class="tooltip-row">📝 {{ tooltipEvent.description.length > 60 ? tooltipEvent.description.slice(0, 60) + '…' : tooltipEvent.description }}</div>
         <div v-if="tooltipEvent.source === 'google'" class="tooltip-hint">🔗 點擊查看 Google 詳細資訊</div>
       </div>
     </Teleport>
@@ -600,1208 +600,1208 @@
 </template>
 
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'staff.calendar'})
-const perm = usePermission()
+  definePageMeta({layout: 'staff', requiredPermission: 'staff.calendar'})
+  const perm = usePermission()
 
-const commonStore = useCommonStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
+  const commonStore = useCommonStore()
+  const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
 
-const TYPES = ['醫院', '園區', '芳心']
-const weekdays = ['日', '一', '二', '三', '四', '五', '六']
+  const TYPES = ['醫院', '園區', '芳心']
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
-// ── Google Calendar 設定 ──────────────────────────────────────────
-const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
-const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
+  // ── Google Calendar 設定 ──────────────────────────────────────────
+  const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
+  const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
 
-const googleEvents = ref([])
-const googleLoading = ref(false)
+  const googleEvents = ref([])
+  const googleLoading = ref(false)
 
-// ── 顏色工具 ─────────────────────────────────────────────────────
-function typeColorClass(type) {
-  if (type === 'Google') return 'google'
-  return {醫院: 'hospital', 園區: 'park', 芳心: 'fragrant'}[type] || 'park'
-}
-
-function typeChipClass(type) {
-  if (type === 'Google') return 'chip-google'
-  return {醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant'}[type] || 'chip-park'
-}
-
-function chipClass(ev) {
-  if (ev.source === 'google') return 'chip-google'
-  return typeChipClass(ev.type)
-}
-
-// ── 跟隨游標的活動提示框 ─────────────────────────────────────────
-const tooltipEvent = ref(null)
-const tooltipPos = reactive({x: 0, y: 0})
-const TOOLTIP_OFFSET = 18
-const TOOLTIP_WIDTH = 280
-const TOOLTIP_MAX_HEIGHT = 220
-
-const tooltipStyle = computed(() => {
-  if (!import.meta.client) return {}
-  let left = tooltipPos.x + TOOLTIP_OFFSET
-  let top = tooltipPos.y + TOOLTIP_OFFSET
-
-  // 靠右邊界時翻到游標左側
-  if (left + TOOLTIP_WIDTH > window.innerWidth - 8) {
-    left = tooltipPos.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET
-  }
-  // 靠下邊界時翻到游標上方
-  if (top + TOOLTIP_MAX_HEIGHT > window.innerHeight - 8) {
-    top = tooltipPos.y - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET
-  }
-  if (left < 8) left = 8
-  if (top < 8) top = 8
-
-  return {left: `${left}px`, top: `${top}px`}
-})
-
-function showTooltip(ev, e) {
-  tooltipEvent.value = ev
-  tooltipPos.x = e.clientX
-  tooltipPos.y = e.clientY
-}
-
-function moveTooltip(e) {
-  tooltipPos.x = e.clientX
-  tooltipPos.y = e.clientY
-}
-
-function hideTooltip() {
-  tooltipEvent.value = null
-}
-
-function typeBarClass(type) {
-  if (type === 'Google') return 'bg-blue-500'
-  return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
-}
-
-function legendDotClass(type) {
-  return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
-}
-
-// ── 月份狀態 ──────────────────────────────────────────────────────
-const today = new Date()
-const currentYear = ref(today.getFullYear())
-const currentMonth = ref(today.getMonth() + 1)  // 1-based
-
-// ── 上方資訊區收合狀態（記住使用者上次的選擇）──────────────────────
-const PANEL_EXPANDED_KEY = 'calendar_panel_expanded'
-const panelExpanded = ref(true)
-if (import.meta.client) {
-  const saved = localStorage.getItem(PANEL_EXPANDED_KEY)
-  if (saved !== null) panelExpanded.value = saved === '1'
-}
-watch(panelExpanded, (v) => {
-  if (import.meta.client) localStorage.setItem(PANEL_EXPANDED_KEY, v ? '1' : '0')
-})
-
-// ── 篩選狀態 ──────────────────────────────────────────────────────
-const filterType = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
-const filterLocation = ref('')       // 空字串 = 全部地點
-
-function setFilterType(t) {
-  filterType.value = t
-  filterLocation.value = ''
-}
-
-// room 欄位去掉場地代碼前綴："P0I10201 水電實習廠" → "水電實習廠"
-function extractLocation(room) {
-  if (!room || !room.trim()) return ''
-  return room.trim().replace(/^[A-Z0-9]+\s*/, '').trim() || room.trim()
-}
-
-// 依目前 filterType 動態產生可選地點（去重、排序）
-const availableLocations = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  let base = allEvents.value.filter(e => e.date?.startsWith(ym))
-  if (filterType.value !== '全部' && filterType.value !== 'Google') base = base.filter(e => e.type === filterType.value)
-  if (filterType.value === 'Google') base = base.filter(e => e.source === 'google')
-  return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
-})
-
-function prevMonth() {
-  if (currentMonth.value === 1) {
-    currentMonth.value = 12;
-    currentYear.value--
-  } else currentMonth.value--
-}
-
-function nextMonth() {
-  if (currentMonth.value === 12) {
-    currentMonth.value = 1;
-    currentYear.value++
-  } else currentMonth.value++
-}
-
-function goToday() {
-  currentYear.value = today.getFullYear()
-  currentMonth.value = today.getMonth() + 1
-}
-
-// ── 月曆格子計算 ─────────────────────────────────────────────────
-const calendarCells = computed(() => {
-  const year = currentYear.value
-  const month = currentMonth.value
-  const firstWeekday = new Date(year, month - 1, 1).getDay()   // 0=Sun
-  const daysInMonth = new Date(year, month, 0).getDate()
-
-  const cells = []
-
-  // 填充前空格
-  for (let i = 0; i < firstWeekday; i++) {
-    cells.push({day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i})
+  // ── 顏色工具 ─────────────────────────────────────────────────────
+  function typeColorClass(type) {
+    if (type === 'Google') return 'google'
+    return {醫院: 'hospital', 園區: 'park', 芳心: 'fragrant'}[type] || 'park'
   }
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    const weekdayIdx = (firstWeekday + d - 1) % 7
-    const isToday = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
-    const isWeekend = weekdayIdx === 0 || weekdayIdx === 6
-    const dayEvents = eventsOnDate(dateStr)
-    cells.push({day: d, dateStr, events: dayEvents, isToday, isWeekend, weekdayIdx})
+  function typeChipClass(type) {
+    if (type === 'Google') return 'chip-google'
+    return {醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant'}[type] || 'chip-park'
   }
 
-  return cells
-})
+  function chipClass(ev) {
+    if (ev.source === 'google') return 'chip-google'
+    return typeChipClass(ev.type)
+  }
 
-const monthEventCount = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  return allEvents.value.filter(e => {
-    if (!e.date?.startsWith(ym)) return false
-    if (filterType.value === 'Google') return e.source === 'google'
-    if (filterType.value !== '全部' && e.type !== filterType.value) return false
-    if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
-    return true
-  }).length
-})
+  // ── 跟隨游標的活動提示框 ─────────────────────────────────────────
+  const tooltipEvent = ref(null)
+  const tooltipPos = reactive({x: 0, y: 0})
+  const TOOLTIP_OFFSET = 18
+  const TOOLTIP_WIDTH = 280
+  const TOOLTIP_MAX_HEIGHT = 220
 
-// 類型統計（當月）
-const typeCount = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const counts = {醫院: 0, 園區: 0, 芳心: 0, Google: 0}
-  events.value.filter(e => e.date?.startsWith(ym)).forEach(e => {
-    if (counts[e.type] !== undefined) counts[e.type]++
+  const tooltipStyle = computed(() => {
+    if (!import.meta.client) return {}
+    let left = tooltipPos.x + TOOLTIP_OFFSET
+    let top = tooltipPos.y + TOOLTIP_OFFSET
+
+    // 靠右邊界時翻到游標左側
+    if (left + TOOLTIP_WIDTH > window.innerWidth - 8) {
+      left = tooltipPos.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET
+    }
+    // 靠下邊界時翻到游標上方
+    if (top + TOOLTIP_MAX_HEIGHT > window.innerHeight - 8) {
+      top = tooltipPos.y - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET
+    }
+    if (left < 8) left = 8
+    if (top < 8) top = 8
+
+    return {left: `${left}px`, top: `${top}px`}
   })
-  counts.Google = googleEvents.value.filter(e => e.date?.startsWith(ym)).length
-  return counts
-})
 
-function eventsOnDate(dateStr) {
-  return allEvents.value
-    .filter(e => {
-      if (e.date !== dateStr) return false
+  function showTooltip(ev, e) {
+    tooltipEvent.value = ev
+    tooltipPos.x = e.clientX
+    tooltipPos.y = e.clientY
+  }
+
+  function moveTooltip(e) {
+    tooltipPos.x = e.clientX
+    tooltipPos.y = e.clientY
+  }
+
+  function hideTooltip() {
+    tooltipEvent.value = null
+  }
+
+  function typeBarClass(type) {
+    if (type === 'Google') return 'bg-blue-500'
+    return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
+  }
+
+  function legendDotClass(type) {
+    return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
+  }
+
+  // ── 月份狀態 ──────────────────────────────────────────────────────
+  const today = new Date()
+  const currentYear = ref(today.getFullYear())
+  const currentMonth = ref(today.getMonth() + 1)  // 1-based
+
+  // ── 上方資訊區收合狀態（記住使用者上次的選擇）──────────────────────
+  const PANEL_EXPANDED_KEY = 'calendar_panel_expanded'
+  const panelExpanded = ref(true)
+  if (import.meta.client) {
+    const saved = localStorage.getItem(PANEL_EXPANDED_KEY)
+    if (saved !== null) panelExpanded.value = saved === '1'
+  }
+  watch(panelExpanded, (v) => {
+    if (import.meta.client) localStorage.setItem(PANEL_EXPANDED_KEY, v ? '1' : '0')
+  })
+
+  // ── 篩選狀態 ──────────────────────────────────────────────────────
+  const filterType = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
+  const filterLocation = ref('')       // 空字串 = 全部地點
+
+  function setFilterType(t) {
+    filterType.value = t
+    filterLocation.value = ''
+  }
+
+  // room 欄位去掉場地代碼前綴："P0I10201 水電實習廠" → "水電實習廠"
+  function extractLocation(room) {
+    if (!room || !room.trim()) return ''
+    return room.trim().replace(/^[A-Z0-9]+\s*/, '').trim() || room.trim()
+  }
+
+  // 依目前 filterType 動態產生可選地點（去重、排序）
+  const availableLocations = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    let base = allEvents.value.filter(e => e.date?.startsWith(ym))
+    if (filterType.value !== '全部' && filterType.value !== 'Google') base = base.filter(e => e.type === filterType.value)
+    if (filterType.value === 'Google') base = base.filter(e => e.source === 'google')
+    return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+  })
+
+  function prevMonth() {
+    if (currentMonth.value === 1) {
+      currentMonth.value = 12;
+      currentYear.value--
+    } else currentMonth.value--
+  }
+
+  function nextMonth() {
+    if (currentMonth.value === 12) {
+      currentMonth.value = 1;
+      currentYear.value++
+    } else currentMonth.value++
+  }
+
+  function goToday() {
+    currentYear.value = today.getFullYear()
+    currentMonth.value = today.getMonth() + 1
+  }
+
+  // ── 月曆格子計算 ─────────────────────────────────────────────────
+  const calendarCells = computed(() => {
+    const year = currentYear.value
+    const month = currentMonth.value
+    const firstWeekday = new Date(year, month - 1, 1).getDay()   // 0=Sun
+    const daysInMonth = new Date(year, month, 0).getDate()
+
+    const cells = []
+
+    // 填充前空格
+    for (let i = 0; i < firstWeekday; i++) {
+      cells.push({day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i})
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const weekdayIdx = (firstWeekday + d - 1) % 7
+      const isToday = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
+      const isWeekend = weekdayIdx === 0 || weekdayIdx === 6
+      const dayEvents = eventsOnDate(dateStr)
+      cells.push({day: d, dateStr, events: dayEvents, isToday, isWeekend, weekdayIdx})
+    }
+
+    return cells
+  })
+
+  const monthEventCount = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    return allEvents.value.filter(e => {
+      if (!e.date?.startsWith(ym)) return false
       if (filterType.value === 'Google') return e.source === 'google'
       if (filterType.value !== '全部' && e.type !== filterType.value) return false
       if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
       return true
+    }).length
+  })
+
+  // 類型統計（當月）
+  const typeCount = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    const counts = {醫院: 0, 園區: 0, 芳心: 0, Google: 0}
+    events.value.filter(e => e.date?.startsWith(ym)).forEach(e => {
+      if (counts[e.type] !== undefined) counts[e.type]++
     })
-    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-}
+    counts.Google = googleEvents.value.filter(e => e.date?.startsWith(ym)).length
+    return counts
+  })
 
-// ── 主資料狀態 ────────────────────────────────────────────────────
-const events = ref([])
-const loading = ref(false)
-const saving = ref(false)
-const toast = reactive({show: false, message: ''})
-
-// 系統活動 + Google 活動合併
-const allEvents = computed(() => [...events.value, ...googleEvents.value])
-
-async function fetchEvents() {
-  loading.value = true
-  try {
-    const res = await fetch(`${BASE.value}/list`)
-    events.value = res.ok ? await res.json() : []
-  } catch (e) {
-    console.error(e)
-    showToast('載入失敗')
-  } finally {
-    loading.value = false
+  function eventsOnDate(dateStr) {
+    return allEvents.value
+      .filter(e => {
+        if (e.date !== dateStr) return false
+        if (filterType.value === 'Google') return e.source === 'google'
+        if (filterType.value !== '全部' && e.type !== filterType.value) return false
+        if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
+        return true
+      })
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   }
-}
 
-// ── Google Calendar API ───────────────────────────────────────────
-async function fetchGoogleEvents() {
-  if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
-  googleLoading.value = true
-  googleEvents.value = []
-  try {
-    const year = currentYear.value
-    const month = currentMonth.value
-    const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
-    const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
-      + `?key=${GOOGLE_API_KEY}`
-      + `&timeMin=${timeMin}&timeMax=${timeMax}`
-      + `&singleEvents=true&orderBy=startTime&maxResults=250`
-    const res = await fetch(url)
-    const data = res.ok ? await res.json() : {}
-    const expanded = []
-    for (const item of data.items || []) {
-      const isAllDay = !!item.start?.date
-      const startRaw = isAllDay ? item.start.date : item.start?.dateTime
-      const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
-      if (!startRaw) continue
+  // ── 主資料狀態 ────────────────────────────────────────────────────
+  const events = ref([])
+  const loading = ref(false)
+  const saving = ref(false)
+  const toast = reactive({show: false, message: ''})
 
-      const base = {
-        id: item.id,
-        title: item.summary || '（無標題）',
-        owner: item.organizer?.displayName || '',
-        room: item.location || '',
-        type: 'Google',
-        source: 'google',
-        googleLink: item.htmlLink || '',
-        description: item.description || ''
+  // 系統活動 + Google 活動合併
+  const allEvents = computed(() => [...events.value, ...googleEvents.value])
+
+  async function fetchEvents() {
+    loading.value = true
+    try {
+      const res = await fetch(`${BASE.value}/list`)
+      events.value = res.ok ? await res.json() : []
+    } catch (e) {
+      console.error(e)
+      showToast('載入失敗')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ── Google Calendar API ───────────────────────────────────────────
+  async function fetchGoogleEvents() {
+    if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
+    googleLoading.value = true
+    googleEvents.value = []
+    try {
+      const year = currentYear.value
+      const month = currentMonth.value
+      const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
+      const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
+        + `?key=${GOOGLE_API_KEY}`
+        + `&timeMin=${timeMin}&timeMax=${timeMax}`
+        + `&singleEvents=true&orderBy=startTime&maxResults=250`
+      const res = await fetch(url)
+      const data = res.ok ? await res.json() : {}
+      const expanded = []
+      for (const item of data.items || []) {
+        const isAllDay = !!item.start?.date
+        const startRaw = isAllDay ? item.start.date : item.start?.dateTime
+        const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
+        if (!startRaw) continue
+
+        const base = {
+          id: item.id,
+          title: item.summary || '（無標題）',
+          owner: item.organizer?.displayName || '',
+          room: item.location || '',
+          type: 'Google',
+          source: 'google',
+          googleLink: item.htmlLink || '',
+          description: item.description || ''
+        }
+
+        if (!isAllDay) {
+          // 一般有時間的活動：維持原本單筆、單日的處理方式
+          const s = new Date(startRaw)
+          const e = endRaw ? new Date(endRaw) : null
+          const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+          expanded.push({
+            ...base,
+            date: startRaw.slice(0, 10),
+            time: e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+          })
+          continue
+        }
+
+        // all-day 活動：Google 的 end.date 是「不含」的下一天，逐天展開到實際結束日（含）
+        // 每天各自一筆，id 加上日期後綴避免重複 key；保留 googleEventId 供需要時對應回原始活動
+        const startDate = new Date(`${startRaw}T00:00:00`)
+        const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(startDate)
+        for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          const dateStr = `${y}-${m}-${day}`
+          expanded.push({
+            ...base,
+            id: `${item.id}_${dateStr}`,
+            googleEventId: item.id,
+            date: dateStr,
+            time: ''
+          })
+        }
       }
+      googleEvents.value = expanded
+    } catch (e) {
+      console.warn('Google 日曆載入失敗', e)
+    } finally {
+      googleLoading.value = false
+    }
+  }
 
-      if (!isAllDay) {
-        // 一般有時間的活動：維持原本單筆、單日的處理方式
-        const s = new Date(startRaw)
-        const e = endRaw ? new Date(endRaw) : null
-        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-        expanded.push({
-          ...base,
-          date: startRaw.slice(0, 10),
-          time: e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
-        })
+  // ── 日面板（點 +N 展開當日所有活動）──────────────────────────────
+  const dayPanel = reactive({show: false, dateStr: '', events: []})
+
+  function openDayPanel(cell) {
+    dayPanel.dateStr = cell.dateStr
+    dayPanel.events = cell.events
+    dayPanel.show = true
+  }
+
+  // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
+  const formModal = reactive({show: false, isNew: true, id: null})
+  const form = reactive({date: '', time: '', title: '', owner: '', room: '', type: '醫院'})
+  const formError = ref('')
+
+  // 從日曆格子點 + 新增，自動帶入日期
+  function openAddOnDate(dateStr) {
+    formModal.isNew = true
+    formModal.id = null
+    Object.assign(form, {
+      date: dateStr || '',
+      time: '', title: '', owner: '', room: '', type: '醫院'
+    })
+    formError.value = ''
+    formModal.show = true
+  }
+
+  // ── Google 活動詳細 Modal ──────────────────────────────────────────
+  const googleDetailModal = reactive({show: false, ev: null})
+
+  function openGoogleDetail(ev) {
+    googleDetailModal.ev = ev
+    googleDetailModal.show = true
+  }
+
+  function openEdit(ev) {
+    // Google 活動顯示詳細面板，不直接跳轉
+    if (ev.source === 'google') {
+      openGoogleDetail(ev)
+      return
+    }
+    formModal.isNew = false
+    formModal.id = ev.id
+    Object.assign(form, {date: ev.date, time: ev.time, title: ev.title, owner: ev.owner, room: ev.room, type: ev.type})
+    formError.value = ''
+    formModal.show = true
+  }
+
+  async function saveForm() {
+    if (!form.date || !form.title.trim()) {
+      formError.value = '日期和標題為必填';
+      return
+    }
+    saving.value = true
+    formError.value = ''
+    try {
+      const payload = {...form, id: formModal.isNew ? null : formModal.id}
+      const res = await fetch(`${BASE.value}/save`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('儲存失敗')
+      const saved = await res.json()
+      if (formModal.isNew) {
+        events.value.push(saved)
+        showToast('活動已新增')
+      } else {
+        const idx = events.value.findIndex(e => e.id === formModal.id)
+        if (idx !== -1) events.value[idx] = saved
+        // 同步更新側板
+        if (dayPanel.show && dayPanel.dateStr === saved.date) {
+          dayPanel.events = eventsOnDate(saved.date)
+        }
+        showToast('活動已更新')
+      }
+      formModal.show = false
+    } catch (e) {
+      formError.value = e.message
+    } finally {
+      saving.value = false
+    }
+  }
+
+  // DELETE /holy/calendar/{id}?date=YYYY-MM-DD
+  async function deleteEvent(ev) {
+    if (!confirm(`確定要刪除「${ev.title}」？`)) return
+    try {
+      const res = await fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'})
+      if (!res.ok) throw new Error()
+      events.value = events.value.filter(e => e.id !== ev.id)
+      // 同步更新側板
+      if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+      showToast('已刪除')
+    } catch {
+      showToast('刪除失敗')
+    }
+  }
+
+  // ── 清空當月（活動 + 備注，不含 Google 同步活動）──────────────────
+  const clearMonthModal = reactive({show: false})
+  const clearMonthConfirmText = ref('')
+  const clearMonthError = ref('')
+  const clearingMonth = ref(false)
+
+  // 當月可清空的系統活動（排除 Google 來源）
+  const clearableMonthEvents = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    return events.value.filter(e => e.date?.startsWith(ym))
+  })
+  const clearableEventCount = computed(() => clearableMonthEvents.value.length)
+
+  function openClearMonthModal() {
+    clearMonthConfirmText.value = ''
+    clearMonthError.value = ''
+    clearMonthModal.show = true
+  }
+
+  function closeClearMonthModal() {
+    clearMonthModal.show = false
+  }
+
+  async function confirmClearMonth() {
+    if (clearMonthConfirmText.value !== String(currentMonth.value)) return
+    clearingMonth.value = true
+    clearMonthError.value = ''
+    try {
+      const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+      const targets = clearableMonthEvents.value
+      // 逐筆刪除系統活動（後端僅提供單筆 DELETE，沒有批次清空 API）
+      const results = await Promise.allSettled(
+        targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'}))
+      )
+      const failedCount = results.filter(r => r.status === 'rejected' || !r.value?.ok).length
+      const deletedIds = new Set(
+        targets.filter((_, i) => results[i].status === 'fulfilled' && results[i].value?.ok).map(ev => ev.id)
+      )
+      events.value = events.value.filter(e => !deletedIds.has(e.id))
+
+      // 清空當月備注
+      await fetch(`${BASE.value}/notes?yearMonth=${ym}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify([])
+      })
+      notes.value = []
+
+      // 同步更新側板
+      if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+
+      clearMonthModal.show = false
+      if (failedCount > 0) {
+        showToast(`已清空，但有 ${failedCount} 筆活動刪除失敗`)
+      } else {
+        showToast(`已清空 ${currentYear.value} 年 ${currentMonth.value} 月內容`)
+      }
+    } catch (e) {
+      clearMonthError.value = '清空失敗，請稍後再試'
+    } finally {
+      clearingMonth.value = false
+    }
+  }
+
+  // ── TXT 解析 ──────────────────────────────────────────────────────
+  const showTxtModal = ref(false)
+  const txtInput = ref('')
+  const txtResult = ref(null)
+
+  function closeTxtModal() {
+    showTxtModal.value = false
+    txtInput.value = ''
+    txtResult.value = null
+  }
+
+  // 回傳 { events: [], notes: [] }
+  function parseTxtContent(raw) {
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+    const evList = []
+    const noteList = []
+    let year = null, month = null, day = null
+    let inNotes = false
+
+    for (const line of lines) {
+      // 年月行
+      const ym = line.match(/^(\d{4})年(\d{1,2})月/)
+      if (ym) {
+        year = +ym[1];
+        month = +ym[2];
+        inNotes = false;
         continue
       }
 
-      // all-day 活動：Google 的 end.date 是「不含」的下一天，逐天展開到實際結束日（含）
-      // 每天各自一筆，id 加上日期後綴避免重複 key；保留 googleEventId 供需要時對應回原始活動
-      const startDate = new Date(`${startRaw}T00:00:00`)
-      const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(startDate)
-      for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
-        const y = d.getFullYear()
-        const m = String(d.getMonth() + 1).padStart(2, '0')
-        const day = String(d.getDate()).padStart(2, '0')
-        const dateStr = `${y}-${m}-${day}`
-        expanded.push({
-          ...base,
-          id: `${item.id}_${dateStr}`,
-          googleEventId: item.id,
-          date: dateStr,
-          time: ''
+      // 備注區塊起始：「備 註 :」「備註：」等變體
+      if (/^備\s*[註注]\s*[:：]/.test(line)) {
+        inNotes = true;
+        continue
+      }
+
+      // ── 備注區 ──
+      if (inNotes) {
+        // 格式：1.(2026-04-03-14:00)文字內容
+        // → 保留成「(2026-04-03-14:00) 文字內容」
+        const m = line.match(/^\d+\.\s*(\([^)]*\))?\s*(.+)$/)
+        if (m) {
+          const prefix = m[1] ? m[1] + ' ' : ''
+          const text = m[2].trim()
+          if (text) noteList.push(prefix + text)
+        } else if (line && !/^備/.test(line)) {
+          noteList.push(line)
+        }
+        continue
+      }
+
+      // ── 活動區 ──
+      if (/^\d{1,2}$/.test(line) && +line >= 1 && +line <= 31) {
+        day = +line;
+        continue
+      }
+
+      if (!year || !month || !day) continue
+
+      const ev = line.match(/^(\d{2}:\d{2}-\d{2}:\d{2})\s+(.+?)\s*\(([^)]*)\)(醫院|園區|芳心)$/)
+      if (!ev) continue
+
+      const time = ev[1]
+      const title = ev[2].replace(/\s*\.\.\s*$/, '').trim()
+      const type = ev[4]
+      const parts = ev[3].trim().split(/\s+/).filter(Boolean)
+      const owner = parts[0] || ''
+      const room = parts.slice(1).join(' ')
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+      evList.push({date, time, title, owner, room, type})
+    }
+    return {events: evList, notes: noteList}
+  }
+
+  function eventKey(e) {
+    return `${e.date}|${e.time}|${e.title}|${e.owner}|${e.room}`
+  }
+
+  function parseTxt() {
+    const {events: parsed, notes: parsedNotes} = parseTxtContent(txtInput.value)
+    const existing = new Set(events.value.map(eventKey))
+    const added = [], skipped = {count: 0}
+
+    for (const ev of parsed) {
+      if (existing.has(eventKey(ev))) {
+        skipped.count++;
+        continue
+      }
+      existing.add(eventKey(ev))
+      added.push(ev)
+    }
+    txtResult.value = {total: parsed.length, added, skipped: skipped.count, notes: parsedNotes}
+  }
+
+  async function confirmImportTxt() {
+    if (!txtResult.value?.added.length && !txtResult.value?.notes.length) return
+    saving.value = true
+    try {
+      // ① 匯入活動
+      if (txtResult.value.added.length > 0) {
+        const res = await fetch(`${BASE.value}/batch`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(txtResult.value.added)
         })
+        if (!res.ok) throw new Error('活動匯入失敗')
+        const saved = await res.json()
+        events.value.push(...saved)
       }
+
+      // ② 匯入備注：按月份分組，合併到現有備注後儲存
+      if (txtResult.value.notes.length > 0) {
+        // 找出解析到的活動所在月份（取第一筆），若無活動就取 currentYearMonth
+        const targetYm = txtResult.value.added.length > 0
+          ? txtResult.value.added[0].date.slice(0, 7)
+          : currentYearMonth.value
+
+        // 先抓現有備注，再合併新備注（去重）
+        let existing = []
+        try {
+          const r = await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`)
+          if (r.ok) existing = await r.json()
+        } catch {
+        }
+        const merged = [...existing]
+        for (const n of txtResult.value.notes) {
+          if (!merged.includes(n)) merged.push(n)
+        }
+        await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(merged)
+        })
+        // 若當前月份就是 targetYm，同步更新畫面
+        if (targetYm === currentYearMonth.value) {
+          notes.value = merged
+        }
+      }
+
+      // ③ 跳至第一筆活動的月份
+      if (txtResult.value.added.length > 0) {
+        const firstDate = txtResult.value.added[0].date
+        currentYear.value = +firstDate.slice(0, 4)
+        currentMonth.value = +firstDate.slice(5, 7)
+      }
+
+      const evCount = txtResult.value.added.length
+      const noteCount = txtResult.value.notes.length
+      showToast(`匯入 ${evCount} 筆活動、${noteCount} 條備注`)
+      closeTxtModal()
+    } catch (e) {
+      showToast(e.message)
+    } finally {
+      saving.value = false
     }
-    googleEvents.value = expanded
-  } catch (e) {
-    console.warn('Google 日曆載入失敗', e)
-  } finally {
-    googleLoading.value = false
   }
-}
 
-// ── 日面板（點 +N 展開當日所有活動）──────────────────────────────
-const dayPanel = reactive({show: false, dateStr: '', events: []})
+  // ── 備注 ──────────────────────────────────────────────────────────
+  // GET  /holy/calendar/notes?yearMonth=2026-04  → String[]
+  // POST /holy/calendar/notes?yearMonth=2026-04  body: String[]
+  const notes = ref([])      // 當月備注陣列
+  const notesSaving = ref(false)
+  const noteEditIdx = ref(-1)      // 正在編輯的備注 index，-1 表示無
+  const noteEditValue = ref('')
 
-function openDayPanel(cell) {
-  dayPanel.dateStr = cell.dateStr
-  dayPanel.events = cell.events
-  dayPanel.show = true
-}
+  const currentYearMonth = computed(() =>
+    `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  )
 
-// ── 新增 / 編輯 Modal ─────────────────────────────────────────────
-const formModal = reactive({show: false, isNew: true, id: null})
-const form = reactive({date: '', time: '', title: '', owner: '', room: '', type: '醫院'})
-const formError = ref('')
-
-// 從日曆格子點 + 新增，自動帶入日期
-function openAddOnDate(dateStr) {
-  formModal.isNew = true
-  formModal.id = null
-  Object.assign(form, {
-    date: dateStr || '',
-    time: '', title: '', owner: '', room: '', type: '醫院'
+  // 切換月份時重新載入備注，並重置篩選
+  watch(currentYearMonth, () => {
+    fetchNotes()
+    fetchGoogleEvents()
+    noteEditIdx.value = -1
+    filterType.value = '全部'
+    filterLocation.value = ''
   })
-  formError.value = ''
-  formModal.show = true
-}
 
-// ── Google 活動詳細 Modal ──────────────────────────────────────────
-const googleDetailModal = reactive({show: false, ev: null})
-
-function openGoogleDetail(ev) {
-  googleDetailModal.ev = ev
-  googleDetailModal.show = true
-}
-
-function openEdit(ev) {
-  // Google 活動顯示詳細面板，不直接跳轉
-  if (ev.source === 'google') {
-    openGoogleDetail(ev)
-    return
-  }
-  formModal.isNew = false
-  formModal.id = ev.id
-  Object.assign(form, {date: ev.date, time: ev.time, title: ev.title, owner: ev.owner, room: ev.room, type: ev.type})
-  formError.value = ''
-  formModal.show = true
-}
-
-async function saveForm() {
-  if (!form.date || !form.title.trim()) {
-    formError.value = '日期和標題為必填';
-    return
-  }
-  saving.value = true
-  formError.value = ''
-  try {
-    const payload = {...form, id: formModal.isNew ? null : formModal.id}
-    const res = await fetch(`${BASE.value}/save`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    })
-    if (!res.ok) throw new Error('儲存失敗')
-    const saved = await res.json()
-    if (formModal.isNew) {
-      events.value.push(saved)
-      showToast('活動已新增')
-    } else {
-      const idx = events.value.findIndex(e => e.id === formModal.id)
-      if (idx !== -1) events.value[idx] = saved
-      // 同步更新側板
-      if (dayPanel.show && dayPanel.dateStr === saved.date) {
-        dayPanel.events = eventsOnDate(saved.date)
-      }
-      showToast('活動已更新')
+  async function fetchNotes() {
+    try {
+      const res = await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`)
+      notes.value = res.ok ? await res.json() : []
+    } catch {
+      notes.value = []
     }
-    formModal.show = false
-  } catch (e) {
-    formError.value = e.message
-  } finally {
-    saving.value = false
   }
-}
 
-// DELETE /holy/calendar/{id}?date=YYYY-MM-DD
-async function deleteEvent(ev) {
-  if (!confirm(`確定要刪除「${ev.title}」？`)) return
-  try {
-    const res = await fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'})
-    if (!res.ok) throw new Error()
-    events.value = events.value.filter(e => e.id !== ev.id)
-    // 同步更新側板
-    if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
-    showToast('已刪除')
-  } catch {
-    showToast('刪除失敗')
-  }
-}
-
-// ── 清空當月（活動 + 備注，不含 Google 同步活動）──────────────────
-const clearMonthModal = reactive({show: false})
-const clearMonthConfirmText = ref('')
-const clearMonthError = ref('')
-const clearingMonth = ref(false)
-
-// 當月可清空的系統活動（排除 Google 來源）
-const clearableMonthEvents = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  return events.value.filter(e => e.date?.startsWith(ym))
-})
-const clearableEventCount = computed(() => clearableMonthEvents.value.length)
-
-function openClearMonthModal() {
-  clearMonthConfirmText.value = ''
-  clearMonthError.value = ''
-  clearMonthModal.show = true
-}
-
-function closeClearMonthModal() {
-  clearMonthModal.show = false
-}
-
-async function confirmClearMonth() {
-  if (clearMonthConfirmText.value !== String(currentMonth.value)) return
-  clearingMonth.value = true
-  clearMonthError.value = ''
-  try {
-    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-    const targets = clearableMonthEvents.value
-    // 逐筆刪除系統活動（後端僅提供單筆 DELETE，沒有批次清空 API）
-    const results = await Promise.allSettled(
-      targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'}))
-    )
-    const failedCount = results.filter(r => r.status === 'rejected' || !r.value?.ok).length
-    const deletedIds = new Set(
-      targets.filter((_, i) => results[i].status === 'fulfilled' && results[i].value?.ok).map(ev => ev.id)
-    )
-    events.value = events.value.filter(e => !deletedIds.has(e.id))
-
-    // 清空當月備注
-    await fetch(`${BASE.value}/notes?yearMonth=${ym}`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify([])
-    })
-    notes.value = []
-
-    // 同步更新側板
-    if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
-
-    clearMonthModal.show = false
-    if (failedCount > 0) {
-      showToast(`已清空，但有 ${failedCount} 筆活動刪除失敗`)
-    } else {
-      showToast(`已清空 ${currentYear.value} 年 ${currentMonth.value} 月內容`)
-    }
-  } catch (e) {
-    clearMonthError.value = '清空失敗，請稍後再試'
-  } finally {
-    clearingMonth.value = false
-  }
-}
-
-// ── TXT 解析 ──────────────────────────────────────────────────────
-const showTxtModal = ref(false)
-const txtInput = ref('')
-const txtResult = ref(null)
-
-function closeTxtModal() {
-  showTxtModal.value = false
-  txtInput.value = ''
-  txtResult.value = null
-}
-
-// 回傳 { events: [], notes: [] }
-function parseTxtContent(raw) {
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
-  const evList = []
-  const noteList = []
-  let year = null, month = null, day = null
-  let inNotes = false
-
-  for (const line of lines) {
-    // 年月行
-    const ym = line.match(/^(\d{4})年(\d{1,2})月/)
-    if (ym) {
-      year = +ym[1];
-      month = +ym[2];
-      inNotes = false;
-      continue
-    }
-
-    // 備注區塊起始：「備 註 :」「備註：」等變體
-    if (/^備\s*[註注]\s*[:：]/.test(line)) {
-      inNotes = true;
-      continue
-    }
-
-    // ── 備注區 ──
-    if (inNotes) {
-      // 格式：1.(2026-04-03-14:00)文字內容
-      // → 保留成「(2026-04-03-14:00) 文字內容」
-      const m = line.match(/^\d+\.\s*(\([^)]*\))?\s*(.+)$/)
-      if (m) {
-        const prefix = m[1] ? m[1] + ' ' : ''
-        const text = m[2].trim()
-        if (text) noteList.push(prefix + text)
-      } else if (line && !/^備/.test(line)) {
-        noteList.push(line)
-      }
-      continue
-    }
-
-    // ── 活動區 ──
-    if (/^\d{1,2}$/.test(line) && +line >= 1 && +line <= 31) {
-      day = +line;
-      continue
-    }
-
-    if (!year || !month || !day) continue
-
-    const ev = line.match(/^(\d{2}:\d{2}-\d{2}:\d{2})\s+(.+?)\s*\(([^)]*)\)(醫院|園區|芳心)$/)
-    if (!ev) continue
-
-    const time = ev[1]
-    const title = ev[2].replace(/\s*\.\.\s*$/, '').trim()
-    const type = ev[4]
-    const parts = ev[3].trim().split(/\s+/).filter(Boolean)
-    const owner = parts[0] || ''
-    const room = parts.slice(1).join(' ')
-    const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-
-    evList.push({date, time, title, owner, room, type})
-  }
-  return {events: evList, notes: noteList}
-}
-
-function eventKey(e) {
-  return `${e.date}|${e.time}|${e.title}|${e.owner}|${e.room}`
-}
-
-function parseTxt() {
-  const {events: parsed, notes: parsedNotes} = parseTxtContent(txtInput.value)
-  const existing = new Set(events.value.map(eventKey))
-  const added = [], skipped = {count: 0}
-
-  for (const ev of parsed) {
-    if (existing.has(eventKey(ev))) {
-      skipped.count++;
-      continue
-    }
-    existing.add(eventKey(ev))
-    added.push(ev)
-  }
-  txtResult.value = {total: parsed.length, added, skipped: skipped.count, notes: parsedNotes}
-}
-
-async function confirmImportTxt() {
-  if (!txtResult.value?.added.length && !txtResult.value?.notes.length) return
-  saving.value = true
-  try {
-    // ① 匯入活動
-    if (txtResult.value.added.length > 0) {
-      const res = await fetch(`${BASE.value}/batch`, {
+  async function saveNotes() {
+    notesSaving.value = true
+    try {
+      await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(txtResult.value.added)
+        body: JSON.stringify(notes.value)
       })
-      if (!res.ok) throw new Error('活動匯入失敗')
-      const saved = await res.json()
-      events.value.push(...saved)
+    } catch {
+      showToast('備注儲存失敗')
+    } finally {
+      notesSaving.value = false
     }
+  }
 
-    // ② 匯入備注：按月份分組，合併到現有備注後儲存
-    if (txtResult.value.notes.length > 0) {
-      // 找出解析到的活動所在月份（取第一筆），若無活動就取 currentYearMonth
-      const targetYm = txtResult.value.added.length > 0
-        ? txtResult.value.added[0].date.slice(0, 7)
-        : currentYearMonth.value
+  function addNote() {
+    notes.value.push('')
+    noteEditIdx.value = notes.value.length - 1
+    noteEditValue.value = ''
+  }
 
-      // 先抓現有備注，再合併新備注（去重）
-      let existing = []
-      try {
-        const r = await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`)
-        if (r.ok) existing = await r.json()
-      } catch {
-      }
-      const merged = [...existing]
-      for (const n of txtResult.value.notes) {
-        if (!merged.includes(n)) merged.push(n)
-      }
-      await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(merged)
-      })
-      // 若當前月份就是 targetYm，同步更新畫面
-      if (targetYm === currentYearMonth.value) {
-        notes.value = merged
-      }
+  function startEditNote(idx) {
+    noteEditIdx.value = idx
+    noteEditValue.value = notes.value[idx]
+  }
+
+  async function confirmEditNote(idx) {
+    if (!noteEditValue.value.trim()) {
+      // 空白就直接刪除
+      notes.value.splice(idx, 1)
+    } else {
+      notes.value[idx] = noteEditValue.value.trim()
     }
+    noteEditIdx.value = -1
+    await saveNotes()
+  }
 
-    // ③ 跳至第一筆活動的月份
-    if (txtResult.value.added.length > 0) {
-      const firstDate = txtResult.value.added[0].date
-      currentYear.value = +firstDate.slice(0, 4)
-      currentMonth.value = +firstDate.slice(5, 7)
+  function cancelEditNote() {
+    // 若是剛新增的空白項就移除
+    if (notes.value[noteEditIdx.value] === '') {
+      notes.value.splice(noteEditIdx.value, 1)
     }
-
-    const evCount = txtResult.value.added.length
-    const noteCount = txtResult.value.notes.length
-    showToast(`匯入 ${evCount} 筆活動、${noteCount} 條備注`)
-    closeTxtModal()
-  } catch (e) {
-    showToast(e.message)
-  } finally {
-    saving.value = false
+    noteEditIdx.value = -1
   }
-}
 
-// ── 備注 ──────────────────────────────────────────────────────────
-// GET  /holy/calendar/notes?yearMonth=2026-04  → String[]
-// POST /holy/calendar/notes?yearMonth=2026-04  body: String[]
-const notes = ref([])      // 當月備注陣列
-const notesSaving = ref(false)
-const noteEditIdx = ref(-1)      // 正在編輯的備注 index，-1 表示無
-const noteEditValue = ref('')
-
-const currentYearMonth = computed(() =>
-  `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-)
-
-// 切換月份時重新載入備注，並重置篩選
-watch(currentYearMonth, () => {
-  fetchNotes()
-  fetchGoogleEvents()
-  noteEditIdx.value = -1
-  filterType.value = '全部'
-  filterLocation.value = ''
-})
-
-async function fetchNotes() {
-  try {
-    const res = await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`)
-    notes.value = res.ok ? await res.json() : []
-  } catch {
-    notes.value = []
-  }
-}
-
-async function saveNotes() {
-  notesSaving.value = true
-  try {
-    await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(notes.value)
-    })
-  } catch {
-    showToast('備注儲存失敗')
-  } finally {
-    notesSaving.value = false
-  }
-}
-
-function addNote() {
-  notes.value.push('')
-  noteEditIdx.value = notes.value.length - 1
-  noteEditValue.value = ''
-}
-
-function startEditNote(idx) {
-  noteEditIdx.value = idx
-  noteEditValue.value = notes.value[idx]
-}
-
-async function confirmEditNote(idx) {
-  if (!noteEditValue.value.trim()) {
-    // 空白就直接刪除
+  async function deleteNote(idx) {
     notes.value.splice(idx, 1)
-  } else {
-    notes.value[idx] = noteEditValue.value.trim()
+    await saveNotes()
+    showToast('備注已刪除')
   }
-  noteEditIdx.value = -1
-  await saveNotes()
-}
 
-function cancelEditNote() {
-  // 若是剛新增的空白項就移除
-  if (notes.value[noteEditIdx.value] === '') {
-    notes.value.splice(noteEditIdx.value, 1)
+  // ── Toast ─────────────────────────────────────────────────────────
+  function showToast(msg) {
+    toast.message = msg
+    toast.show = true
+    setTimeout(() => {
+      toast.show = false
+    }, 2500)
   }
-  noteEditIdx.value = -1
-}
 
-async function deleteNote(idx) {
-  notes.value.splice(idx, 1)
-  await saveNotes()
-  showToast('備注已刪除')
-}
-
-// ── Toast ─────────────────────────────────────────────────────────
-function showToast(msg) {
-  toast.message = msg
-  toast.show = true
-  setTimeout(() => {
-    toast.show = false
-  }, 2500)
-}
-
-onMounted(() => {
-  fetchEvents()
-  fetchNotes()
-  fetchGoogleEvents()
-})
+  onMounted(() => {
+    fetchEvents()
+    fetchNotes()
+    fetchGoogleEvents()
+  })
 </script>
 
 <style scoped>
-/* ── 月曆格線 ── */
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  width: 100%;
-}
-
-:root.dark .calendar-grid {
-  gap: 0 !important;
-}
-
-:root.dark .cal-cell {
-  margin: 0 -1px -1px 0;
-}
-
-/* ── 星期標頭：深色底白字 ── */
-.cal-weekday {
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: .03em;
-  padding: 10px 0;
-  background: #495969;
-  color: #fff;
-  border-radius: 6px;
-}
-
-.cal-weekday.sun {
-  color: #fca5a5;
-}
-
-.cal-weekday.sat {
-  color: #93c5fd;
-}
-
-:root.dark .cal-weekday {
-  background: #38404c;
-  border-radius: 0;
-}
-
-/* ── 日期格子 ── */
-.cal-cell {
-  min-height: 140px;
-  background: #fff;
-  border: 1px solid #ece7e2;
-  border-radius: 8px;
-  padding: 8px 7px 7px;
-  cursor: pointer;
-  transition: box-shadow 0.15s, background 0.1s, border-color 0.15s;
-  position: relative;
-}
-
-.cal-cell:hover {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px #6366f1;
-}
-
-.cal-cell:hover .cal-add-btn {
-  opacity: 1 !important;
-}
-
-:root.dark .cal-cell {
-  background: #15171c;
-  border: 1px solid #2a2e37;
-  border-radius: 0;
-}
-
-.cal-cell.weekend {
-  background: #faf6f2;
-}
-
-:root.dark .cal-cell.weekend {
-  background: #15171c;
-}
-
-.cal-cell.today {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px #6366f1;
-}
-
-:root.dark .cal-cell.today {
-  background: #2d3250;
-  border-color: #5b6bb8;
-  box-shadow: none;
-}
-
-.cal-cell.has-events {
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
-}
-
-:root.dark .cal-cell.has-events {
-  box-shadow: none;
-}
-
-/* ── 日期數字 ── */
-.cal-day-num {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.today-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 25px;
-  height: 25px;
-  background: #6366f1;
-  color: #fff;
-  border-radius: 50%;
-  font-weight: 700;
-}
-
-:root.dark .today-num {
-  background: transparent;
-  color: #c7d2fe;
-}
-
-/* ── 快速新增按鈕 ── */
-.cal-add-btn {
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-/* ── 活動 chip ── */
-.cal-chip {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  border-radius: 4px;
-  border-left: 3px solid transparent;
-  padding: 2px 5px 2px 6px;
-  cursor: pointer;
-  overflow: hidden;
-  transition: opacity 0.1s, filter 0.1s;
-  font-size: 12.5px;
-}
-
-.cal-chip:hover {
-  opacity: 0.85;
-  filter: brightness(0.97);
-}
-
-.chip-time {
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.7;
-}
-
-.chip-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-  font-weight: 500;
-}
-
-/* chip 顏色 */
-.chip-hospital {
-  background: #fee2e2;
-  color: #c0392b;
-  border-left-color: #e0534a;
-}
-
-.chip-park {
-  background: #d1fae5;
-  color: #065f46;
-  border-left-color: #3d6b52;
-}
-
-.chip-fragrant {
-  background: #fce7f3;
-  color: #9d4f78;
-  border-left-color: #a06080;
-}
-
-.chip-google {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-left-color: #2563eb;
-}
-
-:root.dark .cal-chip {
-  border-left-width: 0;
-  padding: 2px 6px;
-}
-
-:root.dark .chip-hospital {
-  background: #c0392b;
-  color: #fff;
-}
-
-:root.dark .chip-park {
-  background: #15803d;
-  color: #fff;
-}
-
-:root.dark .chip-fragrant {
-  background: #a06080;
-  color: #fff;
-}
-
-:root.dark .chip-google {
-  background: #2563eb;
-  color: #fff;
-}
-
-:root.dark .chip-time {
-  opacity: 0.85;
-}
-
-/* ── 類型 badge ── */
-.type-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.type-badge.hospital {
-  background: #fee2e2;
-  color: #c0392b;
-}
-
-.type-badge.park {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.type-badge.fragrant {
-  background: #fce7f3;
-  color: #9d4f78;
-}
-
-.type-badge.google {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-:root.dark .type-badge.hospital {
-  background: #4d2323;
-  color: #f87171;
-}
-
-:root.dark .type-badge.park {
-  background: #1a3a26;
-  color: #4ade80;
-}
-
-:root.dark .type-badge.fragrant {
-  background: #3b1a2e;
-  color: #f0abfc;
-}
-
-:root.dark .type-badge.google {
-  background: #1e3a5f;
-  color: #93c5fd;
-}
-
-/* ── 篩選列：下拉選單 ── */
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
-}
-
-.filter-select-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.filter-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #a8a29e;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.filter-select {
-  padding: 7px 12px;
-  border: 1.5px solid #e2ddd8;
-  border-radius: 8px;
-  background: #fff;
-  color: #1c1917;
-  font-size: 13.5px;
-  max-width: 220px;
-  cursor: pointer;
-  transition: border-color .15s;
-}
-
-.filter-select:hover {
-  border-color: #6366f1;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
-}
-
-:root.dark .filter-select {
-  background: #1c1f26;
-  border-color: #2a2e37;
-  color: #f5f5f4;
-}
-
-.filter-sync-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: #2563eb;
-}
-
-:root.dark .filter-sync-hint {
-  color: #93c5fd;
-}
-
-.filter-sync-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #2563eb;
-  animation: filter-sync-pulse 1s infinite;
-}
-
-:root.dark .filter-sync-dot {
-  background: #93c5fd;
-}
-
-@keyframes filter-sync-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-/* ── 表單欄位 ── */
-
-.field-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #57534e;
-  margin-bottom: 4px;
-}
-
-:root.dark .field-label {
-  color: #a8a29e;
-}
-
-.field-input {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  border: 1px solid #e2ddd8;
-  border-radius: 12px;
-  background: #fff;
-  color: #1c1917;
-  outline: none;
-  transition: border 0.15s, box-shadow 0.15s;
-}
-
-:root.dark .field-input {
-  background: #1c1f26;
-  border-color: #2a2e37;
-  color: #f5f5f4;
-}
-
-.field-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
-}
-
-/* ── 收合區塊動畫 ── */
-.collapse-enter-active, .collapse-leave-active {
-  transition: max-height 0.25s ease, opacity 0.2s ease;
-}
-
-.collapse-enter-from, .collapse-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-
-.collapse-enter-to, .collapse-leave-from {
-  max-height: 500px;
-  opacity: 1;
-}
-
-/* ── 側板動畫 ── */
-.slide-right-enter-active, .slide-right-leave-active {
-  transition: opacity 0.2s;
-}
-
-.slide-right-enter-active > div, .slide-right-leave-active > div {
-  transition: transform 0.25s cubic-bezier(.32, .72, 0, 1);
-}
-
-.slide-right-enter-from {
-  opacity: 0;
-}
-
-.slide-right-enter-from > div {
-  transform: translateX(100%);
-}
-
-.slide-right-leave-to {
-  opacity: 0;
-}
-
-.slide-right-leave-to > div {
-  transform: translateX(100%);
-}
-
-/* ── Toast ── */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-/* ── 跟隨游標的活動提示框 ── */
-.event-tooltip {
-  position: fixed;
-  z-index: 1000;
-  width: 280px;
-  background: #fff;
-  color: #1c1917;
-  border: 1px solid #e2ddd8;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
-  padding: 14px 16px;
-  font-size: 13px;
-  line-height: 1.7;
-  white-space: normal;
-  text-align: left;
-  pointer-events: none;
-}
-
-:root.dark .event-tooltip {
-  background: #1c1f26;
-  color: #f5f5f4;
-  border-color: #2a2e37;
-}
-
-.tooltip-title {
-  font-weight: 700;
-  font-size: 15px;
-  margin-bottom: 6px;
-  word-break: break-word;
-}
-
-.tooltip-row {
-  color: #78716c;
-  word-break: break-word;
-}
-
-:root.dark .tooltip-row {
-  color: #a1a1aa;
-}
-
-.tooltip-hint {
-  margin-top: 8px;
-  color: #6366f1;
-  font-size: 12px;
-}
-
-:root.dark .tooltip-hint {
-  color: #818cf8;
-}
-
-/* ── RWD ── */
-@media (max-width: 640px) {
+  /* ── 月曆格線 ── */
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  :root.dark .calendar-grid {
+    gap: 0 !important;
+  }
+
+  :root.dark .cal-cell {
+    margin: 0 -1px -1px 0;
+  }
+
+  /* ── 星期標頭：深色底白字 ── */
+  .cal-weekday {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    padding: 10px 0;
+    background: #495969;
+    color: #fff;
+    border-radius: 6px;
+  }
+
+  .cal-weekday.sun {
+    color: #fca5a5;
+  }
+
+  .cal-weekday.sat {
+    color: #93c5fd;
+  }
+
+  :root.dark .cal-weekday {
+    background: #38404c;
+    border-radius: 0;
+  }
+
+  /* ── 日期格子 ── */
   .cal-cell {
-    min-height: 72px;
-    padding: 3px 2px;
+    min-height: 140px;
+    background: #fff;
+    border: 1px solid #ece7e2;
+    border-radius: 8px;
+    padding: 8px 7px 7px;
+    cursor: pointer;
+    transition: box-shadow 0.15s, background 0.1s, border-color 0.15s;
+    position: relative;
   }
 
-  .cal-chip {
-    padding: 1px 3px;
+  .cal-cell:hover {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px #6366f1;
   }
-}
+
+  .cal-cell:hover .cal-add-btn {
+    opacity: 1 !important;
+  }
+
+  :root.dark .cal-cell {
+    background: #15171c;
+    border: 1px solid #2a2e37;
+    border-radius: 0;
+  }
+
+  .cal-cell.weekend {
+    background: #faf6f2;
+  }
+
+  :root.dark .cal-cell.weekend {
+    background: #15171c;
+  }
+
+  .cal-cell.today {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px #6366f1;
+  }
+
+  :root.dark .cal-cell.today {
+    background: #2d3250;
+    border-color: #5b6bb8;
+    box-shadow: none;
+  }
+
+  .cal-cell.has-events {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
+  }
+
+  :root.dark .cal-cell.has-events {
+    box-shadow: none;
+  }
+
+  /* ── 日期數字 ── */
+  .cal-day-num {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .today-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 25px;
+    height: 25px;
+    background: #6366f1;
+    color: #fff;
+    border-radius: 50%;
+    font-weight: 700;
+  }
+
+  :root.dark .today-num {
+    background: transparent;
+    color: #c7d2fe;
+  }
+
+  /* ── 快速新增按鈕 ── */
+  .cal-add-btn {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  /* ── 活動 chip ── */
+  .cal-chip {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+    padding: 2px 5px 2px 6px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: opacity 0.1s, filter 0.1s;
+    font-size: 12.5px;
+  }
+
+  .cal-chip:hover {
+    opacity: 0.85;
+    filter: brightness(0.97);
+  }
+
+  .chip-time {
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
+
+  .chip-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+  }
+
+  /* chip 顏色 */
+  .chip-hospital {
+    background: #fee2e2;
+    color: #c0392b;
+    border-left-color: #e0534a;
+  }
+
+  .chip-park {
+    background: #d1fae5;
+    color: #065f46;
+    border-left-color: #3d6b52;
+  }
+
+  .chip-fragrant {
+    background: #fce7f3;
+    color: #9d4f78;
+    border-left-color: #a06080;
+  }
+
+  .chip-google {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-left-color: #2563eb;
+  }
+
+  :root.dark .cal-chip {
+    border-left-width: 0;
+    padding: 2px 6px;
+  }
+
+  :root.dark .chip-hospital {
+    background: #c0392b;
+    color: #fff;
+  }
+
+  :root.dark .chip-park {
+    background: #15803d;
+    color: #fff;
+  }
+
+  :root.dark .chip-fragrant {
+    background: #a06080;
+    color: #fff;
+  }
+
+  :root.dark .chip-google {
+    background: #2563eb;
+    color: #fff;
+  }
+
+  :root.dark .chip-time {
+    opacity: 0.85;
+  }
+
+  /* ── 類型 badge ── */
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .type-badge.hospital {
+    background: #fee2e2;
+    color: #c0392b;
+  }
+
+  .type-badge.park {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .type-badge.fragrant {
+    background: #fce7f3;
+    color: #9d4f78;
+  }
+
+  .type-badge.google {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  :root.dark .type-badge.hospital {
+    background: #4d2323;
+    color: #f87171;
+  }
+
+  :root.dark .type-badge.park {
+    background: #1a3a26;
+    color: #4ade80;
+  }
+
+  :root.dark .type-badge.fragrant {
+    background: #3b1a2e;
+    color: #f0abfc;
+  }
+
+  :root.dark .type-badge.google {
+    background: #1e3a5f;
+    color: #93c5fd;
+  }
+
+  /* ── 篩選列：下拉選單 ── */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .filter-select-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .filter-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #a8a29e;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .filter-select {
+    padding: 7px 12px;
+    border: 1.5px solid #e2ddd8;
+    border-radius: 8px;
+    background: #fff;
+    color: #1c1917;
+    font-size: 13.5px;
+    max-width: 220px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+
+  .filter-select:hover {
+    border-color: #6366f1;
+  }
+
+  .filter-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+  }
+
+  :root.dark .filter-select {
+    background: #1c1f26;
+    border-color: #2a2e37;
+    color: #f5f5f4;
+  }
+
+  .filter-sync-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #2563eb;
+  }
+
+  :root.dark .filter-sync-hint {
+    color: #93c5fd;
+  }
+
+  .filter-sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2563eb;
+    animation: filter-sync-pulse 1s infinite;
+  }
+
+  :root.dark .filter-sync-dot {
+    background: #93c5fd;
+  }
+
+  @keyframes filter-sync-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── 表單欄位 ── */
+
+  .field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #57534e;
+    margin-bottom: 4px;
+  }
+
+  :root.dark .field-label {
+    color: #a8a29e;
+  }
+
+  .field-input {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 13px;
+    border: 1px solid #e2ddd8;
+    border-radius: 12px;
+    background: #fff;
+    color: #1c1917;
+    outline: none;
+    transition: border 0.15s, box-shadow 0.15s;
+  }
+
+  :root.dark .field-input {
+    background: #1c1f26;
+    border-color: #2a2e37;
+    color: #f5f5f4;
+  }
+
+  .field-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+  }
+
+  /* ── 收合區塊動畫 ── */
+  .collapse-enter-active, .collapse-leave-active {
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+  }
+
+  .collapse-enter-from, .collapse-leave-to {
+    max-height: 0;
+    opacity: 0;
+  }
+
+  .collapse-enter-to, .collapse-leave-from {
+    max-height: 500px;
+    opacity: 1;
+  }
+
+  /* ── 側板動畫 ── */
+  .slide-right-enter-active, .slide-right-leave-active {
+    transition: opacity 0.2s;
+  }
+
+  .slide-right-enter-active > div, .slide-right-leave-active > div {
+    transition: transform 0.25s cubic-bezier(.32, .72, 0, 1);
+  }
+
+  .slide-right-enter-from {
+    opacity: 0;
+  }
+
+  .slide-right-enter-from > div {
+    transform: translateX(100%);
+  }
+
+  .slide-right-leave-to {
+    opacity: 0;
+  }
+
+  .slide-right-leave-to > div {
+    transform: translateX(100%);
+  }
+
+  /* ── Toast ── */
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.3s, transform 0.3s;
+  }
+
+  .fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  /* ── 跟隨游標的活動提示框 ── */
+  .event-tooltip {
+    position: fixed;
+    z-index: 1000;
+    width: 280px;
+    background: #fff;
+    color: #1c1917;
+    border: 1px solid #e2ddd8;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: normal;
+    text-align: left;
+    pointer-events: none;
+  }
+
+  :root.dark .event-tooltip {
+    background: #1c1f26;
+    color: #f5f5f4;
+    border-color: #2a2e37;
+  }
+
+  .tooltip-title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 6px;
+    word-break: break-word;
+  }
+
+  .tooltip-row {
+    color: #78716c;
+    word-break: break-word;
+  }
+
+  :root.dark .tooltip-row {
+    color: #a1a1aa;
+  }
+
+  .tooltip-hint {
+    margin-top: 8px;
+    color: #6366f1;
+    font-size: 12px;
+  }
+
+  :root.dark .tooltip-hint {
+    color: #818cf8;
+  }
+
+  /* ── RWD ── */
+  @media (max-width: 640px) {
+    .cal-cell {
+      min-height: 72px;
+      padding: 3px 2px;
+    }
+
+    .cal-chip {
+      padding: 1px 3px;
+    }
+  }
 </style>
