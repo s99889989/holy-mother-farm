@@ -11,18 +11,68 @@
           <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Permission Management</p>
         </div>
       </div>
-
     </header>
 
-    <div class="max-w-full px-3 sm:px-4 py-4">
+    <div class="max-w-full px-3 sm:px-4 py-4 space-y-6">
+
+      <!-- ══ Permission Key 管理 ══ -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-bold text-base-c">Permission Key 清單</h2>
+            <p class="text-xs text-hint-c mt-0.5">新增頁面時在這裡新增 key，各群組會自動補上（預設關閉）</p>
+          </div>
+          <button
+            class="px-3 py-1.5 text-xs bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-1"
+            @click="openCreateKey"
+          >
+            <span class="text-base leading-none">+</span> 新增 Key
+          </button>
+        </div>
+
+        <div v-if="loadingKeys" class="flex items-center justify-center py-10 text-hint-c gap-2">
+          <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />載入中…
+        </div>
+
+        <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+          <!-- 分區顯示 -->
+          <div v-for="(keys, sectionName) in keysBySection" :key="sectionName">
+            <div class="px-4 py-2 bg-surface2 border-b border-light-c">
+              <span class="text-xs font-semibold text-hint-c uppercase tracking-wide">{{ sectionName }}</span>
+            </div>
+            <div v-for="kd in keys" :key="kd.key"
+                 class="flex items-center justify-between px-4 py-2.5 border-b border-light-c last:border-b-0 hover-surface2 transition-colors">
+              <div>
+                <p class="text-sm font-medium text-base-c">{{ kd.label }}</p>
+                <p class="text-xs text-hint-c font-mono">{{ kd.key }}</p>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button
+                  class="px-2 py-1 text-xs border border-light-c text-muted-c rounded-lg hover-surface2 transition-colors"
+                  @click="openEditKey(kd)">編輯</button>
+                <button
+                  class="px-2 py-1 text-xs border border-red-200 dark:border-red-800 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  @click="confirmDeleteKey(kd)">刪除</button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="keyDefs.length === 0" class="px-4 py-8 text-center text-hint-c text-sm">
+            尚未定義任何 permission key
+          </div>
+        </div>
+      </div>
 
       <!-- ══ 權限組管理 ══ -->
       <div>
         <div class="flex items-center justify-between mb-3">
-          <p class="text-xs text-hint-c">
-            共 {{ groups.length }} 個群組，預設：
-            <span class="font-semibold text-violet-600">{{ defaultGroup }}</span>
-          </p>
+          <div>
+            <h2 class="text-sm font-bold text-base-c">權限組</h2>
+            <p class="text-xs text-hint-c mt-0.5">
+              共 {{ groups.length }} 個群組，預設：
+              <span class="font-semibold text-violet-600">{{ defaultGroup }}</span>
+            </p>
+          </div>
           <button
             class="px-3 py-1.5 text-xs bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-1"
             @click="openCreateGroup"
@@ -68,16 +118,98 @@
               <p class="text-xs text-hint-c mb-2">{{ countAllowed(g.permissions) }} / {{ allKeys.length }} 項已開啟</p>
               <div class="flex flex-wrap gap-1.5">
                 <span
-                  v-for="key in allKeys" :key="key"
-                  :class="g.permissions[key] ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-surface2 text-hint-c dark:text-hint-c'"
+                  v-for="kd in keyDefs" :key="kd.key"
+                  :class="g.permissions[kd.key] ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-surface2 text-hint-c'"
                   class="px-2 py-0.5 text-xs rounded-full"
-                >{{ KEY_LABELS[key] ?? key }}</span>
+                >{{ kd.label }}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+    </div>
+
+    <!-- ══ 新增/編輯 Permission Key Modal ══ -->
+    <div v-if="keyModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6 my-auto">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="font-bold text-base-c">{{ keyModal.isCreate ? '新增 Permission Key' : '編輯 Key：' + keyModal.data.key }}</h3>
+          <button class="text-hint-c hover:text-muted-c p-1" @click="keyModal.open = false">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Key（新增時才輸入） -->
+          <div v-if="keyModal.isCreate">
+            <label class="text-xs font-semibold text-muted-c block mb-1">
+              Permission Key
+              <span class="text-hint-c font-normal">（英數字、點、連字號，例如 staff.pos-analysis）</span>
+            </label>
+            <input v-model="keyModal.data.key" placeholder="staff.pos-analysis"
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400 font-mono">
+          </div>
+
+          <!-- 中文標籤 -->
+          <div>
+            <label class="text-xs font-semibold text-muted-c block mb-1">中文標籤</label>
+            <input v-model="keyModal.data.label" placeholder="例如：POS 分析"
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+
+          <!-- 分區 -->
+          <div>
+            <label class="text-xs font-semibold text-muted-c block mb-1">分區</label>
+            <div class="flex gap-2">
+              <select v-model="keyModal.data.section"
+                      class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400">
+                <option v-for="s in existingSections" :key="s" :value="s">{{ s }}</option>
+                <option value="__custom__">自訂分區…</option>
+              </select>
+              <input v-if="keyModal.data.section === '__custom__'"
+                     v-model="keyModal.customSection" placeholder="輸入新分區名稱"
+                     class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400">
+            </div>
+          </div>
+
+          <p v-if="keyModal.isCreate" class="text-xs text-hint-c bg-surface2 rounded-xl px-3 py-2">
+            新增後，所有現有群組將自動補上此 key（預設關閉），可再到各群組的「編輯」調整。
+          </p>
+
+          <p v-if="keyModal.error" class="text-xs text-red-500">{{ keyModal.error }}</p>
+
+          <div class="flex gap-2 pt-1">
+            <button class="flex-1 py-2.5 text-sm bg-surface2 text-muted-c rounded-xl hover:bg-surface2 transition-colors" @click="keyModal.open = false">取消</button>
+            <button :disabled="saving"
+                    class="flex-1 py-2.5 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                    @click="saveKey">
+              <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {{ saving ? '儲存中…' : '儲存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 刪除 Key 確認 ══ -->
+    <div v-if="deleteKeyTarget" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <h3 class="font-bold text-base-c mb-2">確認刪除 Permission Key</h3>
+        <p class="text-sm text-hint-c mb-1">
+          確定要刪除「<span class="font-semibold text-base-c">{{ deleteKeyTarget.label }}</span>」嗎？
+        </p>
+        <p class="text-xs text-red-500 mb-5">此 key 將從所有群組及個人設定中一併移除，且無法復原。</p>
+        <div class="flex gap-2">
+          <button class="flex-1 py-2.5 text-sm bg-surface2 text-muted-c rounded-xl transition-colors" @click="deleteKeyTarget = null">取消</button>
+          <button :disabled="saving"
+                  class="flex-1 py-2.5 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                  @click="doDeleteKey">
+            <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            {{ saving ? '刪除中…' : '確認刪除' }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ══ 新增/編輯群組 Modal ══ -->
@@ -107,7 +239,7 @@
                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400">
           </div>
 
-          <!-- 權限設定 -->
+          <!-- 權限設定（動態從 keyDefs 產生分區） -->
           <div>
             <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-semibold text-muted-c">權限設定</label>
@@ -118,30 +250,34 @@
               </div>
             </div>
 
-            <div v-for="section in permSections" :key="section.prefix" class="mb-4">
+            <div v-for="(sectionKeys, sectionName) in keysBySection" :key="sectionName" class="mb-4">
               <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-semibold text-hint-c uppercase tracking-wide">{{ section.label }}</span>
-                <div class="flex-1 h-px bg-surface2 dark:bg-surface2" />
-                <button class="text-xs text-green-600 hover:underline" @click="setSectionPerms(section.prefix, true)">全開</button>
-                <button class="text-xs text-red-500 hover:underline" @click="setSectionPerms(section.prefix, false)">全關</button>
+                <span class="text-xs font-semibold text-hint-c uppercase tracking-wide">{{ sectionName }}</span>
+                <div class="flex-1 h-px bg-surface2" />
+                <button class="text-xs text-green-600 hover:underline" @click="setSectionPerms(sectionKeys, true)">全開</button>
+                <button class="text-xs text-red-500 hover:underline" @click="setSectionPerms(sectionKeys, false)">全關</button>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 <label
-                  v-for="key in section.keys" :key="key"
+                  v-for="kd in sectionKeys" :key="kd.key"
                   class="flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors"
-                  :class="groupModal.data.permissions[key]
- ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
- : 'border-light-c hover-surface2'"
+                  :class="groupModal.data.permissions[kd.key]
+                    ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
+                    : 'border-light-c hover-surface2'"
                 >
-                  <input type="checkbox" :checked="groupModal.data.permissions[key]"
+                  <input type="checkbox" :checked="groupModal.data.permissions[kd.key]"
                          class="accent-violet-600 w-3.5 h-3.5 flex-shrink-0"
-                         @change="groupModal.data.permissions[key] = $event.target.checked">
+                         @change="groupModal.data.permissions[kd.key] = $event.target.checked">
                   <div class="min-w-0">
-                    <p class="text-xs font-medium text-base-c">{{ KEY_LABELS[key] ?? key }}</p>
-                    <p class="text-xs text-hint-c">{{ key }}</p>
+                    <p class="text-xs font-medium text-base-c">{{ kd.label }}</p>
+                    <p class="text-xs text-hint-c font-mono">{{ kd.key }}</p>
                   </div>
                 </label>
               </div>
+            </div>
+
+            <div v-if="keyDefs.length === 0" class="text-xs text-hint-c text-center py-4">
+              尚未定義任何 permission key
             </div>
           </div>
 
@@ -194,123 +330,181 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'admin', pageLabel: '權限管理' })
+definePageMeta({layout: 'admin', pageLabel: '權限管理'})
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/permission')
-// ── Permission Key 中文對照 ──────────────────────────────────────
-const KEY_LABELS = {
-  // 前台
-  'front.view':                  '前台瀏覽',
-  'profile.view':                '個人頁面',
-  // 工具・系統
-  'staff.home':                  '員工首頁',
-  'staff.quick-links':           '常用網址',
-  'staff.cash-count':            '點鈔記錄',
-  // 人事
-  'staff.class-schedule':        '假表',
-  'staff.phone-directory':       '電話簿',
-  'staff.work-manual':           '工作手冊',
-  // 列印中心
-  'staff.table-card-print':      '桌牌列印',
-  'staff.herbs-label-print':     '花園 QRCode 列印',
-  // 營運管理
-  'staff.daily-menu':            '每日菜色',
-  'staff.calendar':              '行事曆',
-  'staff.asset':                 '財產登記',
-  'staff.files':                 '檔案管理',
-  // 訂單管理
-  'staff.black-cat-orders':      '黑貓貨單',
-  'staff.soybean-orders':        '豆漿訂單',
-  'staff.lunch-orders':          '便當訂單',
-  'staff.booking-orders':        '訂位管理',
-  // 前台內容
-  'staff.news':                  '消息管理',
-  'staff.product':               '商品管理',
-  'staff.production':            '產品訂購管理',
-  // 其他（後台 admin 用）
-  'staff.customer':              '客戶管理（查看）',
-  'staff.customer.edit':         '客戶管理（編輯）',
-}
-
-// ── Permission 分區顯示 ──────────────────────────────────────────
-const permSections = [
-  {
-    prefix: 'front',
-    label: '前台',
-    keys: ['front.view', 'profile.view']
-  },
-  {
-    prefix: 'tools',
-    label: '工具・系統',
-    keys: ['staff.home', 'staff.quick-links', 'staff.cash-count']
-  },
-  {
-    prefix: 'personnel',
-    label: '人事',
-    keys: ['staff.class-schedule', 'staff.phone-directory', 'staff.work-manual']
-  },
-  {
-    prefix: 'print',
-    label: '列印中心',
-    keys: ['staff.table-card-print', 'staff.herbs-label-print']
-  },
-  {
-    prefix: 'ops',
-    label: '營運管理',
-    keys: ['staff.daily-menu', 'staff.calendar', 'staff.asset', 'staff.files']
-  },
-  {
-    prefix: 'order',
-    label: '訂單管理',
-    keys: ['staff.black-cat-orders', 'staff.soybean-orders', 'staff.lunch-orders', 'staff.booking-orders']
-  },
-  {
-    prefix: 'content',
-    label: '前台內容',
-    keys: ['staff.news', 'staff.product', 'staff.production']
-  },
-  {
-    prefix: 'misc',
-    label: '其他',
-    keys: ['staff.customer', 'staff.customer.edit']
-  },
-]
-
-// allKeys 從 sections 展開
-const allKeys = permSections.flatMap(s => s.keys)
 
 // ── 狀態 ──────────────────────────────────────────────────────────
-const groups         = ref([])
-const defaultGroup   = ref('guest')
-const loadingGroups  = ref(true)
-const saving         = ref(false)
+const keyDefs = ref([])   // [{ key, label, section }]
+const groups = ref([])
+const defaultGroup = ref('guest')
+const loadingKeys = ref(true)
+const loadingGroups = ref(true)
+const saving = ref(false)
+const deleteKeyTarget = ref(null)
 const deleteGroupTarget = ref(null)
-const toast = reactive({ show: false, message: '' })
+const toast = reactive({show: false, message: ''})
+
+const keyModal = reactive({
+  open: false,
+  isCreate: false,
+  customSection: '',
+  data: {key: '', label: '', section: ''},
+  error: ''
+})
 
 const groupModal = reactive({
   open: false,
   isCreate: false,
-  data: { id: '', label: '', permissions: {} },
+  data: {id: '', label: '', permissions: {}},
   error: ''
 })
 
+// ── Computed ──────────────────────────────────────────────────────
+
+// key 列表（純 key 字串），供各處使用
+const allKeys = computed(() => keyDefs.value.map(k => k.key))
+
+// 依 section 分組：{ 前台: [...], 工具・系統: [...], ... }
+const keysBySection = computed(() => {
+  const map = {}
+  for (const kd of keyDefs.value) {
+    const s = kd.section || '其他'
+    if (!map[s]) map[s] = []
+    map[s].push(kd)
+  }
+  return map
+})
+
+// 現有分區清單（供 select 使用）
+const existingSections = computed(() => Object.keys(keysBySection.value))
+
 // ── 工具 ──────────────────────────────────────────────────────────
 const showToast = (msg) => {
-  toast.message = msg; toast.show = true
+  toast.message = msg;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
 const countAllowed = (perms) => perms ? Object.values(perms).filter(Boolean).length : 0
-const groupLabel = (groupId) => groups.value.find(g => g.id === groupId)?.label ?? groupId ?? '—'
 
 // ── 群組全選/分區 ──────────────────────────────────────────────────
 const setAllPerms = (val) => {
-  allKeys.forEach(k => { groupModal.data.permissions[k] = val })
+  allKeys.value.forEach(k => {
+    groupModal.data.permissions[k] = val
+  })
 }
-const setSectionPerms = (prefix, val) => {
-  const section = permSections.find(s => s.prefix === prefix)
-  section?.keys.forEach(k => { groupModal.data.permissions[k] = val })
+const setSectionPerms = (sectionKeys, val) => {
+  sectionKeys.forEach(kd => {
+    groupModal.data.permissions[kd.key] = val
+  })
+}
+
+// ── 載入 Keys ─────────────────────────────────────────────────────
+const fetchKeys = async () => {
+  loadingKeys.value = true
+  try {
+    const res = await fetch(BASE.value + '/keys')
+    keyDefs.value = await res.json()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingKeys.value = false
+  }
+}
+
+// ── 開啟新增 Key ──────────────────────────────────────────────────
+const openCreateKey = () => {
+  keyModal.isCreate = true
+  keyModal.error = ''
+  keyModal.customSection = ''
+  keyModal.data = {key: '', label: '', section: existingSections.value[0] ?? '其他'}
+  keyModal.open = true
+}
+
+// ── 開啟編輯 Key ──────────────────────────────────────────────────
+const openEditKey = (kd) => {
+  keyModal.isCreate = false
+  keyModal.error = ''
+  keyModal.customSection = ''
+  keyModal.data = {key: kd.key, label: kd.label, section: kd.section}
+  keyModal.open = true
+}
+
+// ── 儲存 Key ──────────────────────────────────────────────────────
+const saveKey = async () => {
+  keyModal.error = ''
+  if (!keyModal.data.label.trim()) {
+    keyModal.error = '請輸入中文標籤';
+    return
+  }
+
+  const section = keyModal.data.section === '__custom__'
+    ? keyModal.customSection.trim()
+    : keyModal.data.section.trim()
+  if (!section) {
+    keyModal.error = '請輸入分區名稱';
+    return
+  }
+
+  saving.value = true
+  try {
+    let res
+    if (keyModal.isCreate) {
+      if (!keyModal.data.key.trim()) {
+        keyModal.error = '請輸入 permission key';
+        saving.value = false;
+        return
+      }
+      res = await fetch(BASE.value + '/keys', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key: keyModal.data.key.trim(), label: keyModal.data.label.trim(), section})
+      })
+    } else {
+      res = await fetch(`${BASE.value}/keys/${encodeURIComponent(keyModal.data.key)}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({label: keyModal.data.label.trim(), section})
+      })
+    }
+    const d = await res.json()
+    if (d.error) {
+      keyModal.error = d.error;
+      return
+    }
+
+    await Promise.all([fetchKeys(), fetchGroups()])
+    keyModal.open = false
+    showToast(keyModal.isCreate ? 'Permission Key 已新增' : 'Permission Key 已更新')
+  } catch {
+    keyModal.error = '連線失敗，請再試一次'
+  } finally {
+    saving.value = false
+  }
+}
+
+// ── 刪除 Key ──────────────────────────────────────────────────────
+const confirmDeleteKey = (kd) => {
+  deleteKeyTarget.value = kd
+}
+
+const doDeleteKey = async () => {
+  saving.value = true
+  try {
+    const res = await fetch(`${BASE.value}/keys/${encodeURIComponent(deleteKeyTarget.value.key)}`, {method: 'DELETE'})
+    const d = await res.json()
+    if (d.success) {
+      await Promise.all([fetchKeys(), fetchGroups()])
+      showToast('Permission Key 已刪除')
+    }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    saving.value = false
+    deleteKeyTarget.value = null
+  }
 }
 
 // ── 載入群組 ──────────────────────────────────────────────────────
@@ -323,7 +517,11 @@ const fetchGroups = async () => {
     ])
     groups.value = await gRes.json()
     defaultGroup.value = (await dRes.json()).defaultGroup ?? 'guest'
-  } catch (e) { console.error(e) } finally { loadingGroups.value = false }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingGroups.value = false
+  }
 }
 
 // ── 開啟新增群組 ──────────────────────────────────────────────────
@@ -333,7 +531,7 @@ const openCreateGroup = () => {
   groupModal.data = {
     id: '',
     label: '',
-    permissions: Object.fromEntries(allKeys.map(k => [k, false]))
+    permissions: Object.fromEntries(allKeys.value.map(k => [k, false]))
   }
   groupModal.open = true
 }
@@ -345,7 +543,7 @@ const openEditGroup = (g) => {
   groupModal.data = {
     id: g.id,
     label: g.label,
-    permissions: { ...Object.fromEntries(allKeys.map(k => [k, false])), ...g.permissions }
+    permissions: {...Object.fromEntries(allKeys.value.map(k => [k, false])), ...g.permissions}
   }
   groupModal.open = true
 }
@@ -353,33 +551,51 @@ const openEditGroup = (g) => {
 // ── 儲存群組 ──────────────────────────────────────────────────────
 const saveGroup = async () => {
   groupModal.error = ''
-  if (!groupModal.data.label.trim()) { groupModal.error = '請輸入顯示名稱'; return }
+  if (!groupModal.data.label.trim()) {
+    groupModal.error = '請輸入顯示名稱';
+    return
+  }
 
   saving.value = true
   try {
     if (groupModal.isCreate) {
-      if (!groupModal.data.id.trim()) { groupModal.error = '請輸入群組 ID'; saving.value = false; return }
+      if (!groupModal.data.id.trim()) {
+        groupModal.error = '請輸入群組 ID';
+        saving.value = false;
+        return
+      }
       const res = await fetch(BASE.value + '/groups', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: groupModal.data.id, label: groupModal.data.label })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: groupModal.data.id, label: groupModal.data.label})
       })
       const d = await res.json()
-      if (d.error) { groupModal.error = d.error; saving.value = false; return }
+      if (d.error) {
+        groupModal.error = d.error;
+        saving.value = false;
+        return
+      }
     }
 
     const res = await fetch(`${BASE.value}/groups/${groupModal.data.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: groupModal.data.label, permissions: groupModal.data.permissions })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({label: groupModal.data.label, permissions: groupModal.data.permissions})
     })
     const d = await res.json()
-    if (d.error) { groupModal.error = d.error; return }
+    if (d.error) {
+      groupModal.error = d.error;
+      return
+    }
 
     await fetchGroups()
     groupModal.open = false
     showToast(groupModal.isCreate ? '群組已新增' : '群組已更新')
-  } catch { groupModal.error = '連線失敗，請再試一次' } finally { saving.value = false }
+  } catch {
+    groupModal.error = '連線失敗，請再試一次'
+  } finally {
+    saving.value = false
+  }
 }
 
 // ── 設為預設 ──────────────────────────────────────────────────────
@@ -401,25 +617,27 @@ const setAsDefault = async (groupId) => {
 const confirmDeleteGroup = (g) => {
   deleteGroupTarget.value = g
 }
+
 const doDeleteGroup = async () => {
   saving.value = true
   try {
     const res = await fetch(`${BASE.value}/groups/${deleteGroupTarget.value.id}`, {method: 'DELETE'})
     const d = await res.json()
     if (d.success) {
-      await fetchGroups();
+      await fetchGroups()
       showToast('群組已刪除')
     }
   } catch (e) {
     console.error(e)
   } finally {
-    saving.value = false;
+    saving.value = false
     deleteGroupTarget.value = null
   }
 }
 
 // ── 初始化 ────────────────────────────────────────────────────────
-onMounted(() => {
+onMounted(async () => {
+  await fetchKeys()   // keys 先載，groups 依賴 keyDefs 展開 checkbox
   fetchGroups()
 })
 </script>

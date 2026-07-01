@@ -466,7 +466,8 @@ const navGroups = [
   {
     label: '👥 庫存銷售',
     items: [
-      { to: '/staff/stock/pos-analysis', icon: '📅', label: '銷售分析', key: 'staff.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📅', label: 'POS機', key: 'staff.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📅', label: '銷售分析', key: 'staff.pos-analysis' },
       { to: '/staff/stock/pos-files', icon: '📞', label: '資料管理', key: 'staff.cash-count' }
     ]
   },
