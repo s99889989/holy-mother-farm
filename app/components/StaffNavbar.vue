@@ -464,11 +464,21 @@ const navGroups = [
     ]
   },
   {
+    label: '👥 POS機',
+    items: [
+      { to: '/staff/pos/pos-menu', icon: '📅', label: '商品管理', key: 'pos.pos-menu' },
+      { to: '/staff/pos/pos-stock', icon: '📅', label: '庫存管理', key: 'pos.pos-stock' },
+      { to: '/staff/pos/pos-sales', icon: '📅', label: '銷售報表', key: 'pos.pos-sales' },
+      { to: '/staff/pos/pos-sell', icon: '📞', label: '商品販賣', key: 'pos.pos-sell' }
+    ]
+  },
+  {
     label: '👥 庫存銷售',
     items: [
-      { to: '/staff/stock/pos-analysis', icon: '📅', label: 'POS機', key: 'staff.cash-count' },
+      { to: '/staff/stock/cash-count', icon: '📅', label: '資料表', key: 'staff.cash-count' },
+      { to: '/staff/stock/pos-data-table', icon: '📅', label: '資料表', key: 'staff.pos-data-table' },
       { to: '/staff/stock/pos-analysis', icon: '📅', label: '銷售分析', key: 'staff.pos-analysis' },
-      { to: '/staff/stock/pos-files', icon: '📞', label: '資料管理', key: 'staff.cash-count' }
+      { to: '/staff/stock/pos-files', icon: '📞', label: '資料管理', key: 'staff.pos-files' }
     ]
   },
   {

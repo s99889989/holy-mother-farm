@@ -12,10 +12,10 @@ const isDark = computed(() => darkStore.data.dark)
 const toggleDark = () => { darkStore.change_dark_mode() }
 watch(() => route.path, () => { mobileOpen.value = false })
 
-// 後台縮減為只剩帳戶管理
 const navItems = [
   { to: '/admin/customer-management', label: '帳號管理' },
-  { to: '/admin/permission-management', label: '權限管理' }
+  { to: '/admin/permission-management', label: '權限組' },
+  { to: '/admin/permission-keys', label: '權限設定' }
 ]
 
 // ── 頭像選單 ──────────────────────────────────────────────────────
@@ -101,12 +101,13 @@ const changePassword = async () => {
           :to="item.to"
           class="px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap"
           :class="route.path.startsWith(item.to)
- ? 'bg-blue-700 text-white dark:bg-transparent dark:text-blue-400'
- : 'text-muted-c dark:text-hint-c hover-surface2 dark:hover:text-white'"
+            ? 'bg-blue-700 text-white dark:bg-transparent dark:text-blue-400'
+            : 'text-muted-c dark:text-hint-c hover-surface2 dark:hover:text-white'"
         >
           {{ item.label }}
         </NuxtLink>
       </nav>
+
       <!-- 開燈 / 關燈 -->
       <button
         class="p-1.5 rounded text-hint-c hover-surface2 transition-colors"

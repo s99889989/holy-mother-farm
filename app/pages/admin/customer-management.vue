@@ -288,25 +288,25 @@
                     @click="clearOverrides">清除所有覆蓋</button>
           </div>
 
-          <div v-for="section in permSections" :key="section.prefix" class="mb-4">
+          <div v-for="section in permSections" :key="section.label" class="mb-4">
             <div class="flex items-center gap-2 mb-2">
               <span class="text-xs font-semibold text-hint-c uppercase tracking-wide">{{ section.label }}</span>
               <div class="flex-1 h-px bg-surface2 dark:bg-surface2" />
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              <div v-for="key in section.keys" :key="key"
+              <div v-for="kd in section.keys" :key="kd.key"
                    class="flex items-center gap-2 px-3 py-2 rounded-xl border border-light-c">
                 <div class="flex-1 min-w-0">
-                  <p class="text-xs font-medium text-base-c">{{ KEY_LABELS[key] ?? key }}</p>
+                  <p class="text-xs font-medium text-base-c">{{ kd.label }}</p>
                   <p class="text-xs text-hint-c mt-0.5">
                     群組預設：
-                    <span :class="groupDefaultForKey(key) ? 'text-green-600' : 'text-red-500'">
-                      {{ groupDefaultForKey(key) ? '開啟' : '關閉' }}
+                    <span :class="groupDefaultForKey(kd.key) ? 'text-green-600' : 'text-red-500'">
+                      {{ groupDefaultForKey(kd.key) ? '開啟' : '關閉' }}
                     </span>
                   </p>
                 </div>
                 <!-- 修正：改用 v-model 搭配計算的 getter/setter，確保響應式正確 -->
-                <select v-model="permOverrides[key]"
+                <select v-model="permOverrides[kd.key]"
                         class="text-xs px-2 py-1 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-1 focus:ring-violet-400">
                   <option value="inherit">繼承群組</option>
                   <option value="allow">覆蓋：開啟</option>
@@ -314,6 +314,10 @@
                 </select>
               </div>
             </div>
+          </div>
+
+          <div v-if="keyDefs.length === 0" class="text-xs text-hint-c text-center py-4">
+            尚未定義任何 permission key，請先至「Permission Keys」頁面新增。
           </div>
         </div>
 
@@ -404,48 +408,21 @@ const permModal = reactive({
 })
 const permOverrides = ref({})  // { key: 'inherit' | 'allow' | 'deny' }
 
-// ── Permission Key 中文對照 ──────────────────────────────────────
-const KEY_LABELS = {
-  'front.view':                 '前台瀏覽',
-  'profile.view':               '個人頁面',
-  'staff.cash-count':           '點鈔紀錄（查看）',
-  'staff.cash-count.edit':      '點鈔紀錄（編輯）',
-  'staff.inventory':            '庫存管理（查看）',
-  'staff.inventory.edit':       '庫存管理（編輯）',
-  'staff.booking':              '訂位管理（查看）',
-  'staff.booking.edit':         '訂位管理（編輯）',
-  'staff.menu':                 '每日菜單（查看）',
-  'staff.menu.edit':            '每日菜單（編輯）',
-  'staff.calendar':             '行事曆（查看）',
-  'staff.calendar.edit':        '行事曆（編輯）',
-  'staff.asset':                '財產登記（查看）',
-  'staff.asset.edit':           '財產登記（編輯）',
-  'staff.files':                '檔案管理（查看）',
-  'staff.files.edit':           '檔案管理（編輯）',
-  'staff.news':                 '消息管理（查看）',
-  'staff.news.edit':            '消息管理（編輯）',
-  'staff.product':              '商品管理（查看）',
-  'staff.product.edit':         '商品管理（編輯）',
-  'staff.production':           '產品訂購管理（查看）',
-  'staff.production.edit':      '產品訂購管理（編輯）',
-  'staff.home':                 '員工首頁（查看）',
-  'staff.home.edit':            '員工首頁（編輯）',
-  'staff.quick-links':          '常用網址（查看）',
-  'staff.quick-links.edit':     '常用網址（編輯）',
-  'staff.customer':             '客戶管理（查看）',
-  'staff.customer.edit':        '客戶管理（編輯）',
-}
+// ── Permission Key（改為動態抓取，避免跟 Permission Keys 頁面的資料脫節） ──
+const keyDefs = ref([])   // [{ key, label, section, order }]，從 /holy/permission/keys 取得
 
-const ALL_KEYS = Object.keys(KEY_LABELS)
+const allKeys = computed(() => keyDefs.value.map(kd => kd.key))
 
-const permSections = [
-  { prefix: 'front',     label: '前台',      keys: ['front.view', 'profile.view'] },
-  { prefix: 'inventory', label: '庫存・財務', keys: ['staff.cash-count', 'staff.cash-count.edit', 'staff.inventory', 'staff.inventory.edit'] },
-  { prefix: 'ops',       label: '營運管理',  keys: ['staff.booking', 'staff.booking.edit', 'staff.menu', 'staff.menu.edit', 'staff.calendar', 'staff.calendar.edit', 'staff.asset', 'staff.asset.edit', 'staff.files', 'staff.files.edit'] },
-  { prefix: 'content',   label: '前台內容',  keys: ['staff.news', 'staff.news.edit', 'staff.product', 'staff.product.edit', 'staff.production', 'staff.production.edit'] },
-  { prefix: 'tools',     label: '工具・系統', keys: ['staff.home', 'staff.home.edit', 'staff.quick-links', 'staff.quick-links.edit'] },
-  { prefix: 'misc',      label: '其他',      keys: ['staff.customer', 'staff.customer.edit'] },
-]
+// 依分區分組，順序完全跟著後端排序走（跟 Permission Keys / 權限組頁面一致）
+const permSections = computed(() => {
+  const map = {}
+  for (const kd of keyDefs.value) {
+    const s = kd.section || '其他'
+    if (!map[s]) map[s] = []
+    map[s].push(kd)
+  }
+  return Object.entries(map).map(([label, keys]) => ({ label, keys }))
+})
 
 // ── 計算屬性 ──────────────────────────────────────────────────────
 const filtered = computed(() => {
@@ -491,7 +468,7 @@ const openEdit = (c) => {
 // ── 清除個人覆蓋（重設所有 key 為 inherit） ──────────────────────
 const clearOverrides = () => {
   const fresh = {}
-  for (const key of ALL_KEYS) fresh[key] = 'inherit'
+  for (const key of allKeys.value) fresh[key] = 'inherit'
   permOverrides.value = fresh
 }
 
@@ -504,14 +481,15 @@ const openPermModal = (c) => {
   permModal.customer = c
   permModal.group = perm?.group ?? defaultGroup.value
 
-  // 所有 key 先設為 'inherit'
+  // 所有目前有效的 key 先設為 'inherit'
   const fresh = {}
-  for (const key of ALL_KEYS) fresh[key] = 'inherit'
+  for (const key of allKeys.value) fresh[key] = 'inherit'
 
-  // 套上後端已有的覆蓋
+  // 套上後端已有的覆蓋（防呆：忽略任何已不存在於 keyDefs 的舊 key，避免儲存時被後端拒絕）
   if (perm?.permissions) {
+    const validKeys = new Set(allKeys.value)
     Object.entries(perm.permissions).forEach(([key, allow]) => {
-      fresh[key] = allow ? 'allow' : 'deny'
+      if (validKeys.has(key)) fresh[key] = allow ? 'allow' : 'deny'
     })
   }
 
@@ -541,6 +519,14 @@ const fetchPermData = async () => {
     ])
     permGroups.value   = await gRes.json()
     defaultGroup.value = (await dRes.json()).defaultGroup ?? 'guest'
+  } catch (e) { console.error(e) }
+}
+
+// 動態取得目前有效的 permission key（跟 Permission Keys 頁面共用同一份資料源）
+const fetchKeyDefs = async () => {
+  try {
+    const res = await fetch(PERM_BASE.value + '/keys')
+    keyDefs.value = await res.json()
   } catch (e) { console.error(e) }
 }
 
@@ -668,13 +654,15 @@ const confirmDelete = (c) => { deleteTarget.value = c }
 const doDelete = async () => {
   saving.value = true
   try {
-    const res = await fetch(`${ADMIN_BASE.value}/delete/${deleteTarget.value.id}`, { method: 'DELETE' })
+    const res = await fetch(`${ADMIN_BASE.value}/delete/${deleteTarget.value.id}`, {method: 'DELETE'})
     const data = await res.json()
     if (data.success) {
       await fetchCustomers()
       showToast('帳號已刪除')
     }
-  } catch (e) { console.error(e) } finally {
+  } catch (e) {
+    console.error(e)
+  } finally {
     saving.value = false
     deleteTarget.value = null
   }
@@ -682,7 +670,7 @@ const doDelete = async () => {
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([fetchCustomers(), fetchPermData()])
+  await Promise.all([fetchCustomers(), fetchPermData(), fetchKeyDefs()])
   await fetchUserPerms()
 })
 </script>
