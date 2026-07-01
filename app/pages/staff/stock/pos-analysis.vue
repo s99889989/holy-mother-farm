@@ -285,7 +285,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.pos-analysis' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.cash-count' })
 
 import { ref, computed, onMounted } from 'vue'
 

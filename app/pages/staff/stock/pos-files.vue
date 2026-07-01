@@ -141,7 +141,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.pos-files' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.cash-count' })
 
 const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/pos'
