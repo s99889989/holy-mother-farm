@@ -372,7 +372,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.black-cat-orders' })
+definePageMeta({ layout: 'staff', requiredPermission: 'order.black-cat-orders' })
 
 const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/t-cat'

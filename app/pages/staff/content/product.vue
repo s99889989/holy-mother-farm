@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.product' })
+definePageMeta({ layout: 'staff', requiredPermission: 'content.product' })
 const perm = usePermission()
 
 const commonStore  = useCommonStore()

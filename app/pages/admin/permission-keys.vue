@@ -202,13 +202,32 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <p class="text-xs text-hint-c mb-4">用上下鍵調整分類順序；刪除分類時，內部 key 會自動移到「其他」。</p>
+        <p class="text-xs text-hint-c mb-4">拖曳把手或用上下鍵調整分類順序；刪除分類時，內部 key 會自動移到「其他」。</p>
 
         <div class="space-y-2 mb-4 max-h-[50vh] overflow-y-auto pr-0.5">
           <div
             v-for="(sec, idx) in sections" :key="sec.section"
-            class="flex items-center gap-2 px-2.5 py-2 rounded-xl border border-light-c"
+            class="flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-colors"
+            :class="dragOverIdx === idx && dragIdx !== idx ? 'border-violet-400 bg-violet-50 dark:bg-violet-900/20' : 'border-light-c'"
+            :style="dragIdx === idx ? 'opacity: 0.4' : ''"
+            @dragover.prevent="onSectionDragOver(idx)"
+            @dragleave="onSectionDragLeave(idx)"
+            @drop.prevent="onSectionDrop(idx)"
           >
+            <!-- 拖曳把手 -->
+            <span
+              class="text-hint-c hover:text-violet-600 cursor-grab active:cursor-grabbing flex-shrink-0 select-none touch-none"
+              title="拖曳調整順序"
+              draggable="true"
+              @dragstart="onSectionDragStart(idx, $event)"
+              @dragend="onSectionDragEnd"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <circle cx="6" cy="5" r="1.4"/><circle cx="6" cy="10" r="1.4"/><circle cx="6" cy="15" r="1.4"/>
+                <circle cx="14" cy="5" r="1.4"/><circle cx="14" cy="10" r="1.4"/><circle cx="14" cy="15" r="1.4"/>
+              </svg>
+            </span>
+
             <div class="flex flex-col flex-shrink-0">
               <button
                 class="text-hint-c hover:text-violet-600 disabled:opacity-20 disabled:pointer-events-none leading-none px-0.5"
@@ -300,6 +319,10 @@ const newSectionName  = ref('')
 const renamingSection = ref(null)
 const renameValue     = ref('')
 const deleteArmed     = ref(null)
+
+// 拖曳排序狀態
+const dragIdx    = ref(null)   // 正在被拖曳的項目 index
+const dragOverIdx = ref(null)  // 目前拖曳懸停在哪個項目上（用來顯示插入提示）
 
 // ── Computed ──────────────────────────────────────────────────────
 const keysBySection = computed(() => {
@@ -440,6 +463,8 @@ const openSectionManager = () => {
   newSectionName.value = ''
   renamingSection.value = null
   deleteArmed.value = null
+  dragIdx.value = null
+  dragOverIdx.value = null
 }
 
 const moveSection = async (idx, dir) => {
@@ -447,6 +472,11 @@ const moveSection = async (idx, dir) => {
   if (j < 0 || j >= sections.value.length) return
   const list = [...sections.value]
   ;[list[idx], list[j]] = [list[j], list[idx]]
+  await persistSectionOrder(list)
+}
+
+// 實際送出新順序給後端並重拉一次，供上下鍵跟拖曳共用
+const persistSectionOrder = async (list) => {
   sections.value = list
   try {
     await fetch(BASE.value + '/sections/reorder', {
@@ -458,6 +488,39 @@ const moveSection = async (idx, dir) => {
     console.error(e)
   }
   await fetchSections()
+}
+
+// ── 分類拖曳排序 ──────────────────────────────────────────────────
+const onSectionDragStart = (idx, e) => {
+  dragIdx.value = idx
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', String(idx)) // Firefox 需要才會啟動拖曳
+}
+
+const onSectionDragOver = (idx) => {
+  if (dragIdx.value === null) return
+  dragOverIdx.value = idx
+}
+
+const onSectionDragLeave = (idx) => {
+  if (dragOverIdx.value === idx) dragOverIdx.value = null
+}
+
+const onSectionDrop = async (idx) => {
+  const from = dragIdx.value
+  dragIdx.value = null
+  dragOverIdx.value = null
+  if (from === null || from === idx) return
+
+  const list = [...sections.value]
+  const [moved] = list.splice(from, 1)
+  list.splice(idx, 0, moved)
+  await persistSectionOrder(list)
+}
+
+const onSectionDragEnd = () => {
+  dragIdx.value = null
+  dragOverIdx.value = null
 }
 
 const doCreateSection = async () => {

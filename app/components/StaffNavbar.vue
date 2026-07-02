@@ -430,69 +430,69 @@ watch(() => route.path, () => {
 // ── 選單定義 ─────────────────────────────────────────────────────
 const navGroups = [
   {
-    label: '👥 人事',
+    label: '🌐 前台內容',
     items: [
-      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'staff.class-schedule' },
-      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'staff.phone-directory' },
-      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'staff.work-manual' }
-    ]
-  },
-  {
-    label: '🖨️ 列印中心',
-    items: [
-      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'staff.table-card-print' },
-      { to: '/staff/print/herbs-label-print', icon: '🏷️', label: '花園 QRCode', key: 'staff.herbs-label-print' }
+      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
+      { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'content.product' },
+      { to: '/staff/content/production', icon: '🌱', label: '產品訂購', key: 'content.production' }
     ]
   },
   {
     label: '🏢 營運管理',
     items: [
-      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'staff.daily-menu' },
-      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'staff.calendar' },
-      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'staff.asset' },
-      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'staff.files' },
-      { to: '/staff/management/html-page', icon: '📁', label: '網頁檔案', key: 'staff.files' }
+      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'management.asset' },
+      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
+      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
+      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'management.files' },
+      { to: '/staff/management/html-page', icon: '📁', label: '網頁頁面', key: 'management.html-page' }
     ]
   },
   {
     label: '📦 訂單管理',
     items: [
-      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'staff.black-cat-orders' },
-      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'staff.soybean-orders' },
-      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'staff.lunch-orders' },
-      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'staff.booking-orders' }
+      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
+      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'order.booking-orders' },
+      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
+      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' }
+    ]
+  },
+  {
+    label: '👥 人事',
+    items: [
+      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule' },
+      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
+      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual' }
     ]
   },
   {
     label: '👥 POS機',
     items: [
       { to: '/staff/pos/pos-menu', icon: '📅', label: '商品管理', key: 'pos.pos-menu' },
-      { to: '/staff/pos/pos-stock', icon: '📅', label: '庫存管理', key: 'pos.pos-stock' },
       { to: '/staff/pos/pos-sales', icon: '📅', label: '銷售報表', key: 'pos.pos-sales' },
-      { to: '/staff/pos/pos-sell', icon: '📞', label: '商品販賣', key: 'pos.pos-sell' }
+      { to: '/staff/pos/pos-sell', icon: '📞', label: '商品販賣', key: 'pos.pos-sell' },
+      { to: '/staff/pos/pos-stock', icon: '📅', label: '庫存管理', key: 'pos.pos-stock' }
+    ]
+  },
+  {
+    label: '🖨️ 列印中心',
+    items: [
+      { to: '/staff/print/herbs-label-print', icon: '🏷️', label: '花園 QRCode', key: 'print.herbs-label-print' },
+      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
     ]
   },
   {
     label: '👥 庫存銷售',
     items: [
-      { to: '/staff/stock/cash-count', icon: '📅', label: '資料表', key: 'staff.cash-count' },
-      { to: '/staff/stock/pos-data-table', icon: '📅', label: '資料表', key: 'staff.pos-data-table' },
-      { to: '/staff/stock/pos-analysis', icon: '📅', label: '銷售分析', key: 'staff.pos-analysis' },
-      { to: '/staff/stock/pos-files', icon: '📞', label: '資料管理', key: 'staff.pos-files' }
-    ]
-  },
-  {
-    label: '🌐 前台內容',
-    items: [
-      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'staff.news' },
-      { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'staff.product' },
-      { to: '/staff/content/production', icon: '🌱', label: '產品訂購', key: 'staff.production' }
+      { to: '/staff/stock/cash-count', icon: '📅', label: '資料表', key: 'stock.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📅', label: '銷售分析', key: 'stock.pos-analysis' },
+      { to: '/staff/stock/pos-data-table', icon: '📅', label: '資料表', key: 'stock.pos-data-table' },
+      { to: '/staff/stock/pos-files', icon: '📞', label: '資料管理', key: 'stock.pos-files' }
     ]
   }
 ]
 
 const standaloneItems = [
-  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'staff.quick-links' }
+  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
 ]
 
 // ── 權限過濾 ──────────────────────────────────────────────────────

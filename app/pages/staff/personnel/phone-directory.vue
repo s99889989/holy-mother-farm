@@ -256,7 +256,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.phone-directory' })
+definePageMeta({ layout: 'staff', requiredPermission: 'personnel.phone-directory' })
 
 import { ref, computed } from 'vue'
 

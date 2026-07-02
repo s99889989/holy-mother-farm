@@ -600,7 +600,7 @@
 </template>
 
 <script setup>
-  definePageMeta({layout: 'staff', requiredPermission: 'staff.calendar'})
+  definePageMeta({layout: 'staff', requiredPermission: 'management.calendar'})
   const perm = usePermission()
 
   const commonStore = useCommonStore()

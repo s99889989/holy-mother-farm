@@ -1,14 +1,14 @@
 <script setup>
-import {ref, computed} from 'vue'
-import {herbSections} from '~/composables/useHerbsData'
+import { ref, computed } from 'vue'
+import { herbSections } from '~/composables/useHerbsData'
 
-definePageMeta({layout: 'staff', requiredPermission: 'staff.herbs-label-print'})
+definePageMeta({ layout: 'staff', requiredPermission: 'print.herbs-label-print' })
 const BASE_URL = 'https://holyfarm.netlify.app/front/herbs/'
-const PER_PAGE = 8  // 4欄 × 2列
+const PER_PAGE = 8 // 4欄 × 2列
 
 const qty = ref({})
-herbSections.forEach(section => {
-  section.herbs.forEach(herb => {
+herbSections.forEach((section) => {
+  section.herbs.forEach((herb) => {
     qty.value[herb.name] = 0
   })
 })
@@ -23,25 +23,25 @@ function changeQty(name, delta) {
 }
 
 function clearAll() {
-  Object.keys(qty.value).forEach(k => {
+  Object.keys(qty.value).forEach((k) => {
     qty.value[k] = 0
   })
   sheets.value = []
 }
 
 // ── 預覽資料 ──
-const sheets = ref([])   // [[ { name, qrDataUrl } | null, ... ], ...]
+const sheets = ref([]) // [[ { name, qrDataUrl } | null, ... ], ...]
 const generating = ref(false)
 
 async function generate() {
   generating.value = true
   sheets.value = []
 
-  const {default: QRCode} = await import('qrcode')
+  const { default: QRCode } = await import('qrcode')
 
   const labels = []
-  herbSections.forEach(section => {
-    section.herbs.forEach(herb => {
+  herbSections.forEach((section) => {
+    section.herbs.forEach((herb) => {
       for (let i = 0; i < (qty.value[herb.name] || 0); i++) labels.push(herb.name)
     })
   })
@@ -50,15 +50,15 @@ async function generate() {
   for (let p = 0; p < Math.ceil(labels.length / PER_PAGE); p++) {
     const pageLabels = labels.slice(p * PER_PAGE, (p + 1) * PER_PAGE)
     const cells = await Promise.all(
-      pageLabels.map(async name => {
+      pageLabels.map(async (name) => {
         const url = BASE_URL + encodeURIComponent(name)
         const qrDataUrl = await QRCode.toDataURL(url, {
           width: 300,
           margin: 1,
           errorCorrectionLevel: 'M',
-          color: {dark: '#000000', light: '#ffffff'}
+          color: { dark: '#000000', light: '#ffffff' }
         })
-        return {name, qrDataUrl}
+        return { name, qrDataUrl }
       })
     )
     while (cells.length < PER_PAGE) cells.push(null)
@@ -71,8 +71,8 @@ async function generate() {
 
 // ── 用 iframe 列印，完全不受 scoped style 干擾 ──
 function printViaIframe() {
-  const pagesHtml = sheets.value.map(page => {
-    const cellsHtml = page.map(cell => {
+  const pagesHtml = sheets.value.map((page) => {
+    const cellsHtml = page.map((cell) => {
       if (!cell) return `<div class="label-cell empty"></div>`
       return `
         <div class="label-cell">
@@ -159,30 +159,53 @@ ${pagesHtml}
 
 <template>
   <div class="lp-wrap bg-surface2">
-
     <!-- 側邊欄 -->
     <aside class="lp-sidebar bg-surface border-r border-light-c">
       <div class="lp-sidebar-head border-b border-light-c">
-        <h1 class="lp-title text-base-c">🌿 植物標籤列印</h1>
-        <p class="lp-sub text-hint-c">每張約 71 × 66 mm，每頁 A4 橫排 8 張</p>
+        <h1 class="lp-title text-base-c">
+          🌿 植物標籤列印
+        </h1>
+        <p class="lp-sub text-hint-c">
+          每張約 71 × 66 mm，每頁 A4 橫排 8 張
+        </p>
       </div>
 
       <div class="lp-plant-list">
-        <template v-for="section in herbSections" :key="section.key">
-          <div class="lp-section-label text-muted-c border-b border-light-c bg-surface">{{ section.icon }}
+        <template
+          v-for="section in herbSections"
+          :key="section.key"
+        >
+          <div class="lp-section-label text-muted-c border-b border-light-c bg-surface">
+            {{ section.icon }}
             {{ section.label }}
           </div>
-          <div v-for="herb in section.herbs" :key="herb.name" class="lp-row">
+          <div
+            v-for="herb in section.herbs"
+            :key="herb.name"
+            class="lp-row"
+          >
             <span class="lp-herb-name text-base-c">{{ herb.name }}</span>
             <div class="lp-qty">
-              <button class="lp-btn border-light-c bg-surface2 text-base-c" @click="changeQty(herb.name, -1)">−</button>
+              <button
+                class="lp-btn border-light-c bg-surface2 text-base-c"
+                @click="changeQty(herb.name, -1)"
+              >
+                −
+              </button>
               <input
                 class="lp-input border-light-c bg-surface text-base-c"
-                type="number" min="0" max="99"
+                type="number"
+                min="0"
+                max="99"
                 :value="qty[herb.name]"
                 @change="qty[herb.name] = Math.max(0, Math.min(99, parseInt($event.target.value) || 0))"
-              />
-              <button class="lp-btn border-light-c bg-surface2 text-base-c" @click="changeQty(herb.name, 1)">+</button>
+              >
+              <button
+                class="lp-btn border-light-c bg-surface2 text-base-c"
+                @click="changeQty(herb.name, 1)"
+              >
+                +
+              </button>
             </div>
           </div>
         </template>
@@ -210,26 +233,66 @@ ${pagesHtml}
         >
           🖨️ 列印
         </button>
-        <button class="lp-btn-clear border-light-c text-muted-c" @click="clearAll">清除全部</button>
+        <button
+          class="lp-btn-clear border-light-c text-muted-c"
+          @click="clearAll"
+        >
+          清除全部
+        </button>
       </div>
     </aside>
 
     <!-- 空白提示 -->
-    <main class="lp-preview" v-if="sheets.length === 0 && !generating">
+    <main
+      v-if="sheets.length === 0 && !generating"
+      class="lp-preview"
+    >
       <div class="lp-empty text-muted-c">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#3d7a52" stroke-width="1.2">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-          <path d="M14 14h2v2h-2zM16 16h2v2h-2zM14 18v2M18 14v2M18 18h2"/>
+        <svg
+          width="64"
+          height="64"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#3d7a52"
+          stroke-width="1.2"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="7"
+            height="7"
+            rx="1"
+          />
+          <rect
+            x="14"
+            y="3"
+            width="7"
+            height="7"
+            rx="1"
+          />
+          <rect
+            x="3"
+            y="14"
+            width="7"
+            height="7"
+            rx="1"
+          />
+          <path d="M14 14h2v2h-2zM16 16h2v2h-2zM14 18v2M18 14v2M18 18h2" />
         </svg>
         <p>設定每種植物的數量<br>點「產生預覽」確認後再列印</p>
       </div>
     </main>
 
     <!-- 螢幕預覽（僅供確認，不會直接列印） -->
-    <div class="lp-sheets-area" v-if="sheets.length > 0">
-      <div v-for="(page, pi) in sheets" :key="pi" class="a4-page">
+    <div
+      v-if="sheets.length > 0"
+      class="lp-sheets-area"
+    >
+      <div
+        v-for="(page, pi) in sheets"
+        :key="pi"
+        class="a4-page"
+      >
         <div
           v-for="(cell, ci) in page"
           :key="ci"
@@ -237,13 +300,18 @@ ${pagesHtml}
           :class="{ empty: !cell }"
         >
           <template v-if="cell">
-            <img class="label-qr" :src="cell.qrDataUrl" :alt="`${cell.name} QR Code`"/>
-            <div class="label-text">{{ cell.name }}</div>
+            <img
+              class="label-qr"
+              :src="cell.qrDataUrl"
+              :alt="`${cell.name} QR Code`"
+            >
+            <div class="label-text">
+              {{ cell.name }}
+            </div>
           </template>
         </div>
       </div>
     </div>
-
   </div>
 </template>
 

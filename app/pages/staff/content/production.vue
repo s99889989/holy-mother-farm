@@ -170,7 +170,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.production' })
+definePageMeta({ layout: 'staff', requiredPermission: 'content.production' })
 const perm = usePermission()
 
 const commonStore  = useCommonStore()

@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.lunch-orders' })
+definePageMeta({ layout: 'staff', requiredPermission: 'order.lunch-orders' })
 const commonStore = useCommonStore()
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 

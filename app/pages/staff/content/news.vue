@@ -282,7 +282,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.news' })
+definePageMeta({ layout: 'staff', requiredPermission: 'content.news' })
 const perm = usePermission()
 
 import { useEditor, EditorContent } from '@tiptap/vue-3'

@@ -442,7 +442,7 @@
 </template>
 
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'staff.daily-menu'})
+definePageMeta({layout: 'staff', requiredPermission: 'management.daily-menu'})
 const perm = usePermission()
 
 const commonStore = useCommonStore()

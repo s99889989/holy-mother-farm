@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.work-manual' })
+definePageMeta({ layout: 'staff', requiredPermission: 'personnel.work-manual' })
 
 import { ref, reactive, computed, h, nextTick, onMounted } from 'vue'
 

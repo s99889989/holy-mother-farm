@@ -193,7 +193,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.files' })
+definePageMeta({ layout: 'staff', requiredPermission: 'management.html-page' })
 
 const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/html-page'

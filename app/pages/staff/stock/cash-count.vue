@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.cash-count' })
+definePageMeta({ layout: 'staff', requiredPermission: 'stock.cash-count' })
 const perm = usePermission()
 
 const commonStore   = useCommonStore()

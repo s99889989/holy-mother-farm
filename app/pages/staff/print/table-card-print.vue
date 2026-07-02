@@ -1,19 +1,36 @@
 <template>
   <div class="min-h-full bg-surface2 transition-colors">
-
     <!-- ══ 選單頁 ══ -->
     <div class="layout">
-
       <!-- ── 手機 Topbar ── -->
       <div class="mobile-topbar bg-surface border-b border-light-c">
         <div class="mobile-topbar-inner">
           <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-slate-600 flex items-center justify-center text-white flex-shrink-0" style="font-size:12px">🏷️</div>
-            <span class="font-bold" style="font-size:14px">餐廳標籤桌牌</span>
+            <div
+              class="w-7 h-7 rounded-lg bg-slate-600 flex items-center justify-center text-white flex-shrink-0"
+              style="font-size:12px"
+            >
+              🏷️
+            </div>
+            <span
+              class="font-bold"
+              style="font-size:14px"
+            >餐廳標籤桌牌</span>
           </div>
           <div class="mobile-topbar-actions">
-            <button class="print-nav-btn" :disabled="selected.length===0" @click="doPrint" style="padding:6px 10px;font-size:11px">🖨️ 列印</button>
-            <button class="mobile-menu-btn" @click="mobileOpen=!mobileOpen" :class="{active: mobileOpen}">
+            <button
+              class="print-nav-btn"
+              :disabled="selected.length===0"
+              style="padding:6px 10px;font-size:11px"
+              @click="doPrint"
+            >
+              🖨️ 列印
+            </button>
+            <button
+              class="mobile-menu-btn"
+              :class="{ active: mobileOpen }"
+              @click="mobileOpen=!mobileOpen"
+            >
               <span>{{ mobileOpen ? '✕' : '☰' }}</span>
             </button>
           </div>
@@ -21,256 +38,638 @@
       </div>
 
       <!-- ── 手機 Sidebar 遮罩 ── -->
-      <div class="mobile-overlay" v-if="mobileOpen" @click="mobileOpen=false"></div>
+      <div
+        v-if="mobileOpen"
+        class="mobile-overlay"
+        @click="mobileOpen=false"
+      />
 
       <!-- ── 左側 Sidebar ── -->
-      <aside class="sidebar bg-surface border-r border-light-c" :class="{open: mobileOpen}">
+      <aside
+        class="sidebar bg-surface border-r border-light-c"
+        :class="{ open: mobileOpen }"
+      >
         <div class="sidebar-header border-b border-light-c px-4 py-3">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-slate-600 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🏷️</div>
+            <div
+              class="w-8 h-8 rounded-lg bg-slate-600 flex items-center justify-center text-white flex-shrink-0"
+              style="font-size:14px"
+            >
+              🏷️
+            </div>
             <div>
-              <div class="font-bold text-base-c leading-none" style="font-size:15px">餐廳標籤桌牌</div>
-              <div class="text-hint-c mt-0.5" style="font-size:11px">勾選後列印，每頁 9 張 A4 橫向</div>
+              <div
+                class="font-bold text-base-c leading-none"
+                style="font-size:15px"
+              >
+                餐廳標籤桌牌
+              </div>
+              <div
+                class="text-hint-c mt-0.5"
+                style="font-size:11px"
+              >
+                勾選後列印，每頁 9 張 A4 橫向
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Tab 切換 -->
         <div class="tab-bar border-b border-light-c">
-          <button :class="['tab-btn', sideTab==='use' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='use'; mobileOpen=false">☰ 選項目</button>
-          <button :class="['tab-btn', sideTab==='config' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']" @click="sideTab='config'; mobileOpen=false">⚙ 設定</button>
+          <button
+            :class="['tab-btn', sideTab==='use' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']"
+            @click="sideTab='use'; mobileOpen=false"
+          >
+            ☰ 選項目
+          </button>
+          <button
+            :class="['tab-btn', sideTab==='config' ? 'active bg-surface border-b-2 border-slate-500 text-base-c' : 'text-muted-c hover:bg-surface2']"
+            @click="sideTab='config'; mobileOpen=false"
+          >
+            ⚙ 設定
+          </button>
         </div>
 
         <!-- ── 設定 tab ── -->
         <template v-if="sideTab==='config'">
           <div class="config-scroll">
-
             <!-- 儲存設定按鈕 -->
             <div class="save-config-row">
-              <button class="save-config-btn" :disabled="savingConfig" @click="saveConfig">
+              <button
+                class="save-config-btn"
+                :disabled="savingConfig"
+                @click="saveConfig"
+              >
                 {{ savingConfig ? '儲存中...' : '💾 儲存設定' }}
               </button>
             </div>
 
             <!-- 區塊一：文字大小規則 -->
-            <div class="config-section-title collapsible-section" @click="open.size = !open.size">
+            <div
+              class="config-section-title collapsible-section"
+              @click="open.size = !open.size"
+            >
               文字大小規則 <span class="caret">{{ open.size ? '▲' : '▼' }}</span>
             </div>
             <template v-if="open.size">
               <div class="size-panel">
-                <div class="panel-label">中文字數對應大小</div>
-                <div v-for="(rule, i) in zhRules" :key="'zh'+i" class="rule-row text-base-c">
+                <div class="panel-label">
+                  中文字數對應大小
+                </div>
+                <div
+                  v-for="(rule, i) in zhRules"
+                  :key="'zh'+i"
+                  class="rule-row text-base-c"
+                >
                   <span class="rule-prefix">≤</span>
-                  <input type="number" v-model.number="rule.maxLen" min="1" max="50" class="rule-input border-light-c bg-surface text-base-c" />
+                  <input
+                    v-model.number="rule.maxLen"
+                    type="number"
+                    min="1"
+                    max="50"
+                    class="rule-input border-light-c bg-surface text-base-c"
+                  >
                   <span class="rule-unit">字</span>
-                  <input type="number" v-model.number="rule.sizePt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" />
+                  <input
+                    v-model.number="rule.sizePt"
+                    type="number"
+                    min="6"
+                    max="72"
+                    class="rule-input border-light-c bg-surface text-base-c"
+                  >
                   <span class="rule-unit">pt</span>
-                  <button class="rule-del" @click="zhRules.splice(i,1)" v-if="zhRules.length>1">✕</button>
+                  <button
+                    v-if="zhRules.length>1"
+                    class="rule-del"
+                    @click="zhRules.splice(i, 1)"
+                  >
+                    ✕
+                  </button>
                 </div>
                 <div class="rule-row text-base-c">
                   <span class="rule-prefix">其餘</span>
-                  <input type="number" v-model.number="zhFallbackPt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" style="margin-left:4px"/>
+                  <input
+                    v-model.number="zhFallbackPt"
+                    type="number"
+                    min="6"
+                    max="72"
+                    class="rule-input border-light-c bg-surface text-base-c"
+                    style="margin-left:4px"
+                  >
                   <span class="rule-unit">pt</span>
                 </div>
-                <button class="rule-add" @click="zhRules.push({maxLen:10,sizePt:20})">＋ 新增規則</button>
+                <button
+                  class="rule-add"
+                  @click="zhRules.push({ maxLen: 10, sizePt: 20 })"
+                >
+                  ＋ 新增規則
+                </button>
               </div>
               <div class="size-panel">
-                <div class="panel-label">英文字數對應大小</div>
-                <div v-for="(rule, i) in enRules" :key="'en'+i" class="rule-row text-base-c">
+                <div class="panel-label">
+                  英文字數對應大小
+                </div>
+                <div
+                  v-for="(rule, i) in enRules"
+                  :key="'en'+i"
+                  class="rule-row text-base-c"
+                >
                   <span class="rule-prefix">≤</span>
-                  <input type="number" v-model.number="rule.maxLen" min="1" max="100" class="rule-input border-light-c bg-surface text-base-c" />
+                  <input
+                    v-model.number="rule.maxLen"
+                    type="number"
+                    min="1"
+                    max="100"
+                    class="rule-input border-light-c bg-surface text-base-c"
+                  >
                   <span class="rule-unit">字</span>
-                  <input type="number" v-model.number="rule.sizePt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" />
+                  <input
+                    v-model.number="rule.sizePt"
+                    type="number"
+                    min="6"
+                    max="72"
+                    class="rule-input border-light-c bg-surface text-base-c"
+                  >
                   <span class="rule-unit">pt</span>
-                  <button class="rule-del" @click="enRules.splice(i,1)" v-if="enRules.length>1">✕</button>
+                  <button
+                    v-if="enRules.length>1"
+                    class="rule-del"
+                    @click="enRules.splice(i, 1)"
+                  >
+                    ✕
+                  </button>
                 </div>
                 <div class="rule-row text-base-c">
                   <span class="rule-prefix">其餘</span>
-                  <input type="number" v-model.number="enFallbackPt" min="6" max="72" class="rule-input border-light-c bg-surface text-base-c" style="margin-left:4px"/>
+                  <input
+                    v-model.number="enFallbackPt"
+                    type="number"
+                    min="6"
+                    max="72"
+                    class="rule-input border-light-c bg-surface text-base-c"
+                    style="margin-left:4px"
+                  >
                   <span class="rule-unit">pt</span>
                 </div>
-                <button class="rule-add" @click="enRules.push({maxLen:20,sizePt:12})">＋ 新增規則</button>
+                <button
+                  class="rule-add"
+                  @click="enRules.push({ maxLen: 20, sizePt: 12 })"
+                >
+                  ＋ 新增規則
+                </button>
               </div>
             </template>
 
             <!-- 區塊二：文字位置微調 -->
-            <div class="config-section-title collapsible-section" @click="open.tune = !open.tune">
+            <div
+              class="config-section-title collapsible-section"
+              @click="open.tune = !open.tune"
+            >
               文字位置微調 <span class="caret">{{ open.tune ? '▲' : '▼' }}</span>
             </div>
             <template v-if="open.tune">
               <div class="size-panel">
                 <div class="tune-row text-base-c">
                   <span>文字區高度</span>
-                  <input type="range" v-model.number="textAreaH" min="55" max="90" step="1"/>
+                  <input
+                    v-model.number="textAreaH"
+                    type="range"
+                    min="55"
+                    max="90"
+                    step="1"
+                  >
                   <span class="tune-val text-hint-c">{{ textAreaH }}%</span>
                 </div>
                 <div class="tune-row text-base-c">
                   <span>中文上下</span>
-                  <input type="range" v-model.number="zhOffsetTop" min="-20" max="20" step="0.5"/>
+                  <input
+                    v-model.number="zhOffsetTop"
+                    type="range"
+                    min="-20"
+                    max="20"
+                    step="0.5"
+                  >
                   <span class="tune-val text-hint-c">{{ zhOffsetTop>0?'+':'' }}{{ zhOffsetTop }}mm</span>
                 </div>
                 <div class="tune-row text-base-c">
                   <span>英文上下</span>
-                  <input type="range" v-model.number="enOffsetTop" min="-20" max="20" step="0.5"/>
+                  <input
+                    v-model.number="enOffsetTop"
+                    type="range"
+                    min="-20"
+                    max="20"
+                    step="0.5"
+                  >
                   <span class="tune-val text-hint-c">{{ enOffsetTop>0?'+':'' }}{{ enOffsetTop }}mm</span>
                 </div>
                 <div class="tune-row text-base-c">
                   <span>左右位置</span>
-                  <input type="range" v-model.number="offsetLeft" min="-20" max="20" step="1"/>
+                  <input
+                    v-model.number="offsetLeft"
+                    type="range"
+                    min="-20"
+                    max="20"
+                    step="1"
+                  >
                   <span class="tune-val text-hint-c">{{ offsetLeft>0?'+':'' }}{{ offsetLeft }}mm</span>
                 </div>
                 <div class="tune-row text-base-c">
                   <span>中文字距</span>
-                  <input type="range" v-model.number="zhSpacing" min="-3" max="5" step="0.5"/>
+                  <input
+                    v-model.number="zhSpacing"
+                    type="range"
+                    min="-3"
+                    max="5"
+                    step="0.5"
+                  >
                   <span class="tune-val text-hint-c">{{ zhSpacing }}mm</span>
                 </div>
                 <div class="tune-row text-base-c">
                   <span>英文字距</span>
-                  <input type="range" v-model.number="enSpacing" min="-2" max="3" step="0.5"/>
+                  <input
+                    v-model.number="enSpacing"
+                    type="range"
+                    min="-2"
+                    max="3"
+                    step="0.5"
+                  >
                   <span class="tune-val text-hint-c">{{ enSpacing }}mm</span>
                 </div>
               </div>
             </template>
 
             <!-- 區塊三：項目管理 -->
-            <div class="config-section-title collapsible-section" @click="open.items = !open.items">
+            <div
+              class="config-section-title collapsible-section"
+              @click="open.items = !open.items"
+            >
               項目管理 <span class="caret">{{ open.items ? '▲' : '▼' }}</span>
             </div>
             <template v-if="open.items">
               <div class="list-scroll items-list-scroll">
                 <div class="search-row border-b border-light-c">
-                  <input v-model="configSearchQuery" placeholder="搜尋項目..." class="search-inp text-base-c bg-surface" />
-                  <button v-if="configSearchQuery" class="search-clear text-muted-c" @click="configSearchQuery=''">✕</button>
+                  <input
+                    v-model="configSearchQuery"
+                    placeholder="搜尋項目..."
+                    class="search-inp text-base-c bg-surface"
+                  >
+                  <button
+                    v-if="configSearchQuery"
+                    class="search-clear text-muted-c"
+                    @click="configSearchQuery=''"
+                  >
+                    ✕
+                  </button>
                 </div>
                 <template v-if="configSearchQuery.trim()">
-                  <div v-for="p in configSearchResults" :key="p.id" class="item-row config-item-row">
+                  <div
+                    v-for="p in configSearchResults"
+                    :key="p.id"
+                    class="item-row config-item-row"
+                  >
                     <div class="config-item-content">
                       <span class="zh-main">{{ p.zh }}</span>
-                      <span class="item-actions" style="opacity:1">
-                        <button class="act-btn" @click="startEditItem(p._gi, p._pi, p)" title="編輯">✎</button>
+                      <span
+                        class="item-actions"
+                        style="opacity:1"
+                      >
+                        <button
+                          class="act-btn"
+                          title="編輯"
+                          @click="startEditItem(p._gi, p._pi, p)"
+                        >✎</button>
                         <template v-if="confirmDeleteKey === p._gi+'-'+p._pi">
                           <span class="del-confirm-label">確定刪除？</span>
-                          <button class="del-yes" @click="confirmDeleteItem(p._gi, p._pi, p)">是</button>
-                          <button class="del-no border-light-c text-base-c" @click="confirmDeleteKey=''">否</button>
+                          <button
+                            class="del-yes"
+                            @click="confirmDeleteItem(p._gi, p._pi, p)"
+                          >是</button>
+                          <button
+                            class="del-no border-light-c text-base-c"
+                            @click="confirmDeleteKey=''"
+                          >否</button>
                         </template>
-                        <button v-else class="act-btn del" @click="confirmDeleteKey=p._gi+'-'+p._pi" title="刪除">✕</button>
+                        <button
+                          v-else
+                          class="act-btn del"
+                          title="刪除"
+                          @click="confirmDeleteKey=p._gi+'-'+p._pi"
+                        >✕</button>
                       </span>
                     </div>
                   </div>
-                  <div v-if="configSearchResults.length===0" class="empty-search text-hint-c">找不到「{{ configSearchQuery }}」</div>
+                  <div
+                    v-if="configSearchResults.length===0"
+                    class="empty-search text-hint-c"
+                  >
+                    找不到「{{ configSearchQuery }}」
+                  </div>
                 </template>
-                <div class="add-group-row" v-show="!configSearchQuery.trim()">
+                <div
+                  v-show="!configSearchQuery.trim()"
+                  class="add-group-row"
+                >
                   <template v-if="addingGroup">
-                    <input v-model="newGroupName" placeholder="類別名稱" class="edit-inp border-light-c bg-surface text-base-c" @keyup.enter="confirmAddGroup" @keyup.escape="addingGroup=false" />
-                    <button class="edit-ok" @click="confirmAddGroup">✓</button>
-                    <button class="edit-cancel border-light-c text-base-c" @click="addingGroup=false">✕</button>
+                    <input
+                      v-model="newGroupName"
+                      placeholder="類別名稱"
+                      class="edit-inp border-light-c bg-surface text-base-c"
+                      @keyup.enter="confirmAddGroup"
+                      @keyup.escape="addingGroup=false"
+                    >
+                    <button
+                      class="edit-ok"
+                      @click="confirmAddGroup"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      class="edit-cancel border-light-c text-base-c"
+                      @click="addingGroup=false"
+                    >
+                      ✕
+                    </button>
                   </template>
-                  <button v-else class="add-group-btn" @click="addingGroup=true;newGroupName=''">＋ 新增類別</button>
+                  <button
+                    v-else
+                    class="add-group-btn"
+                    @click="addingGroup=true;newGroupName=''"
+                  >
+                    ＋ 新增類別
+                  </button>
                 </div>
 
-                <div v-for="(group, gi) in presets" v-show="!configSearchQuery.trim()" :key="group.id" class="group">
+                <div
+                  v-for="(group, gi) in presets"
+                  v-show="!configSearchQuery.trim()"
+                  :key="group.id"
+                  class="group"
+                >
                   <div class="group-header bg-surface">
-                    <span class="group-toggle" @click="toggleGroupOpen(gi)">{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
+                    <span
+                      class="group-toggle"
+                      @click="toggleGroupOpen(gi)"
+                    >{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
                     <template v-if="editingGroupIdx === gi">
-                      <input v-model="editGroupName" class="edit-inp group-name-inp" @keyup.enter="confirmEditGroup(gi)" @keyup.escape="editingGroupIdx=-1"/>
-                      <button class="edit-ok sm" @click="confirmEditGroup(gi)">✓</button>
-                      <button class="edit-cancel sm border-light-c text-base-c" @click="editingGroupIdx=-1">✕</button>
+                      <input
+                        v-model="editGroupName"
+                        class="edit-inp group-name-inp"
+                        @keyup.enter="confirmEditGroup(gi)"
+                        @keyup.escape="editingGroupIdx=-1"
+                      >
+                      <button
+                        class="edit-ok sm"
+                        @click="confirmEditGroup(gi)"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        class="edit-cancel sm border-light-c text-base-c"
+                        @click="editingGroupIdx=-1"
+                      >
+                        ✕
+                      </button>
                     </template>
                     <template v-else>
                       <span class="group-name-label text-base-c">{{ group.group }}</span>
                       <span class="group-actions">
-                        <button class="act-btn" @click="startEditGroup(gi)" title="改名">✎</button>
+                        <button
+                          class="act-btn"
+                          title="改名"
+                          @click="startEditGroup(gi)"
+                        >✎</button>
                         <template v-if="confirmDeleteGroupIdx === gi">
                           <span class="del-confirm-label">確定？</span>
-                          <button class="del-yes" @click="confirmDeleteGroup(gi)">是</button>
-                          <button class="del-no border-light-c text-base-c" @click="confirmDeleteGroupIdx=-1">否</button>
+                          <button
+                            class="del-yes"
+                            @click="confirmDeleteGroup(gi)"
+                          >是</button>
+                          <button
+                            class="del-no border-light-c text-base-c"
+                            @click="confirmDeleteGroupIdx=-1"
+                          >否</button>
                         </template>
-                        <button v-else class="act-btn del" @click="confirmDeleteGroupIdx=gi" title="刪除類別">✕</button>
-                        <button class="group-add-btn" @click="startAddItem(gi)" title="新增項目">＋</button>
+                        <button
+                          v-else
+                          class="act-btn del"
+                          title="刪除類別"
+                          @click="confirmDeleteGroupIdx=gi"
+                        >✕</button>
+                        <button
+                          class="group-add-btn"
+                          title="新增項目"
+                          @click="startAddItem(gi)"
+                        >＋</button>
                       </span>
                     </template>
                   </div>
 
                   <template v-if="groupOpen[gi] !== false">
-                    <div v-if="addingIn === gi" class="edit-row bg-surface border-b border-light-c">
+                    <div
+                      v-if="addingIn === gi"
+                      class="edit-row bg-surface border-b border-light-c"
+                    >
                       <div class="edit-field-row">
                         <span class="edit-field-label">中文</span>
-                        <input v-model="editForm.zh" placeholder="中文名稱" class="edit-inp border-light-c bg-surface text-base-c" @keyup.escape="addingIn=-1"/>
+                        <input
+                          v-model="editForm.zh"
+                          placeholder="中文名稱"
+                          class="edit-inp border-light-c bg-surface text-base-c"
+                          @keyup.escape="addingIn=-1"
+                        >
                       </div>
                       <div class="edit-field-row">
                         <span class="edit-field-label">英文</span>
-                        <input v-model="editForm.en" placeholder="English name" class="edit-inp border-light-c bg-surface text-base-c" @keyup.escape="addingIn=-1"/>
+                        <input
+                          v-model="editForm.en"
+                          placeholder="English name"
+                          class="edit-inp border-light-c bg-surface text-base-c"
+                          @keyup.escape="addingIn=-1"
+                        >
                       </div>
                       <div class="edit-action-row">
-                        <button class="edit-ok" @click="confirmAdd(gi)">✓ 確認</button>
-                        <button class="edit-cancel border-light-c text-base-c" @click="addingIn=-1">✕ 取消</button>
+                        <button
+                          class="edit-ok"
+                          @click="confirmAdd(gi)"
+                        >
+                          ✓ 確認
+                        </button>
+                        <button
+                          class="edit-cancel border-light-c text-base-c"
+                          @click="addingIn=-1"
+                        >
+                          ✕ 取消
+                        </button>
                       </div>
                     </div>
 
-                    <div v-for="(p, pi) in group.items" :key="p.id">
-                      <div v-if="editingKey === gi+'-'+pi" class="edit-row edit-item-row bg-surface border-b border-light-c">
+                    <div
+                      v-for="(p, pi) in group.items"
+                      :key="p.id"
+                    >
+                      <div
+                        v-if="editingKey === gi+'-'+pi"
+                        class="edit-row edit-item-row bg-surface border-b border-light-c"
+                      >
                         <div class="edit-field-row">
                           <span class="edit-field-label">中文</span>
-                          <input v-model="editForm.zh" placeholder="中文名稱" class="edit-inp border-light-c bg-surface text-base-c"/>
+                          <input
+                            v-model="editForm.zh"
+                            placeholder="中文名稱"
+                            class="edit-inp border-light-c bg-surface text-base-c"
+                          >
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">英文</span>
-                          <input v-model="editForm.en" placeholder="English name" class="edit-inp border-light-c bg-surface text-base-c"/>
+                          <input
+                            v-model="editForm.en"
+                            placeholder="English name"
+                            class="edit-inp border-light-c bg-surface text-base-c"
+                          >
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">類別</span>
-                          <select v-model="editForm.toGroup" class="edit-group-sel border-light-c bg-surface text-base-c" style="flex:1">
-                            <option v-for="(g,gj) in presets" :key="gj" :value="gj">{{ g.group }}</option>
+                          <select
+                            v-model="editForm.toGroup"
+                            class="edit-group-sel border-light-c bg-surface text-base-c"
+                            style="flex:1"
+                          >
+                            <option
+                              v-for="(g, gj) in presets"
+                              :key="gj"
+                              :value="gj"
+                            >
+                              {{ g.group }}
+                            </option>
                           </select>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">中文上下</span>
-                          <input type="range" v-model.number="editForm.zhTop"
-                                 @input="Object.assign(presets[gi].items[pi], {zhTop: editForm.zhTop})"
-                                 min="-20" max="20" step="0.5" class="edit-slider"/>
+                          <input
+                            v-model.number="editForm.zhTop"
+                            type="range"
+                            min="-20"
+                            max="20"
+                            step="0.5"
+                            class="edit-slider"
+                            @input="Object.assign(presets[gi].items[pi], { zhTop: editForm.zhTop })"
+                          >
                           <span class="offset-val text-muted-c">{{ editForm.zhTop>0?'+':'' }}{{ editForm.zhTop }}mm</span>
-                          <button class="offset-reset" @click="editForm.zhTop=0;Object.assign(presets[gi].items[pi], {zhTop:0})" v-if="editForm.zhTop!==0">↺</button>
+                          <button
+                            v-if="editForm.zhTop!==0"
+                            class="offset-reset"
+                            @click="editForm.zhTop=0;Object.assign(presets[gi].items[pi], { zhTop: 0 })"
+                          >
+                            ↺
+                          </button>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">英文上下</span>
-                          <input type="range" v-model.number="editForm.enTop"
-                                 @input="Object.assign(presets[gi].items[pi], {enTop: editForm.enTop})"
-                                 min="-20" max="20" step="0.5" class="edit-slider"/>
+                          <input
+                            v-model.number="editForm.enTop"
+                            type="range"
+                            min="-20"
+                            max="20"
+                            step="0.5"
+                            class="edit-slider"
+                            @input="Object.assign(presets[gi].items[pi], { enTop: editForm.enTop })"
+                          >
                           <span class="offset-val text-muted-c">{{ editForm.enTop>0?'+':'' }}{{ editForm.enTop }}mm</span>
-                          <button class="offset-reset" @click="editForm.enTop=0;Object.assign(presets[gi].items[pi], {enTop:0})" v-if="editForm.enTop!==0">↺</button>
+                          <button
+                            v-if="editForm.enTop!==0"
+                            class="offset-reset"
+                            @click="editForm.enTop=0;Object.assign(presets[gi].items[pi], { enTop: 0 })"
+                          >
+                            ↺
+                          </button>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">中文左右</span>
-                          <input type="range" v-model.number="editForm.zhOffset"
-                                 @input="Object.assign(presets[gi].items[pi], {zhOffset: editForm.zhOffset})"
-                                 min="-20" max="20" step="0.5" class="edit-slider"/>
+                          <input
+                            v-model.number="editForm.zhOffset"
+                            type="range"
+                            min="-20"
+                            max="20"
+                            step="0.5"
+                            class="edit-slider"
+                            @input="Object.assign(presets[gi].items[pi], { zhOffset: editForm.zhOffset })"
+                          >
                           <span class="offset-val text-muted-c">{{ editForm.zhOffset>0?'+':'' }}{{ editForm.zhOffset }}mm</span>
-                          <button class="offset-reset" @click="editForm.zhOffset=0;Object.assign(presets[gi].items[pi], {zhOffset:0})" v-if="editForm.zhOffset!==0">↺</button>
+                          <button
+                            v-if="editForm.zhOffset!==0"
+                            class="offset-reset"
+                            @click="editForm.zhOffset=0;Object.assign(presets[gi].items[pi], { zhOffset: 0 })"
+                          >
+                            ↺
+                          </button>
                         </div>
                         <div class="edit-field-row">
                           <span class="edit-field-label">英文左右</span>
-                          <input type="range" v-model.number="editForm.enOffset"
-                                 @input="Object.assign(presets[gi].items[pi], {enOffset: editForm.enOffset})"
-                                 min="-20" max="20" step="0.5" class="edit-slider"/>
+                          <input
+                            v-model.number="editForm.enOffset"
+                            type="range"
+                            min="-20"
+                            max="20"
+                            step="0.5"
+                            class="edit-slider"
+                            @input="Object.assign(presets[gi].items[pi], { enOffset: editForm.enOffset })"
+                          >
                           <span class="offset-val text-muted-c">{{ editForm.enOffset>0?'+':'' }}{{ editForm.enOffset }}mm</span>
-                          <button class="offset-reset" @click="editForm.enOffset=0;Object.assign(presets[gi].items[pi], {enOffset:0})" v-if="editForm.enOffset!==0">↺</button>
+                          <button
+                            v-if="editForm.enOffset!==0"
+                            class="offset-reset"
+                            @click="editForm.enOffset=0;Object.assign(presets[gi].items[pi], { enOffset: 0 })"
+                          >
+                            ↺
+                          </button>
                         </div>
                         <div class="edit-action-row">
-                          <button class="edit-ok" @click="confirmEdit(gi,pi)">✓ 確認</button>
-                          <button class="edit-cancel border-light-c text-base-c" @click="cancelEdit()">✕ 取消</button>
+                          <button
+                            class="edit-ok"
+                            @click="confirmEdit(gi, pi)"
+                          >
+                            ✓ 確認
+                          </button>
+                          <button
+                            class="edit-cancel border-light-c text-base-c"
+                            @click="cancelEdit()"
+                          >
+                            ✕ 取消
+                          </button>
                         </div>
                       </div>
-                      <div v-else class="item-row config-item-row">
+                      <div
+                        v-else
+                        class="item-row config-item-row"
+                      >
                         <div class="config-item-content">
                           <span class="zh-main">{{ p.zh }}</span>
-                          <span class="item-actions" style="opacity:1">
-                            <button class="act-btn" @click="startEditItem(gi,pi,p)" title="編輯">✎</button>
+                          <span
+                            class="item-actions"
+                            style="opacity:1"
+                          >
+                            <button
+                              class="act-btn"
+                              title="編輯"
+                              @click="startEditItem(gi, pi, p)"
+                            >✎</button>
                             <template v-if="confirmDeleteKey === gi+'-'+pi">
                               <span class="del-confirm-label">確定刪除？</span>
-                              <button class="del-yes" @click="confirmDeleteItem(gi,pi,p)">是</button>
-                              <button class="del-no border-light-c text-base-c" @click="confirmDeleteKey=''">否</button>
+                              <button
+                                class="del-yes"
+                                @click="confirmDeleteItem(gi, pi, p)"
+                              >是</button>
+                              <button
+                                class="del-no border-light-c text-base-c"
+                                @click="confirmDeleteKey=''"
+                              >否</button>
                             </template>
-                            <button v-else class="act-btn del" @click="confirmDeleteKey=gi+'-'+pi" title="刪除">✕</button>
+                            <button
+                              v-else
+                              class="act-btn del"
+                              title="刪除"
+                              @click="confirmDeleteKey=gi+'-'+pi"
+                            >✕</button>
                           </span>
                         </div>
                       </div>
@@ -279,57 +678,122 @@
                 </div>
               </div>
             </template><!-- end items -->
-
           </div><!-- end config-scroll -->
-
         </template><!-- end config tab -->
 
         <!-- ── 選項目 tab ── -->
         <template v-if="sideTab==='use'">
           <div class="search-row border-b border-light-c">
-            <input v-model="searchQuery" placeholder="搜尋項目..." class="search-inp text-base-c bg-surface" />
-            <button v-if="searchQuery" class="search-clear text-muted-c" @click="searchQuery=''">✕</button>
+            <input
+              v-model="searchQuery"
+              placeholder="搜尋項目..."
+              class="search-inp text-base-c bg-surface"
+            >
+            <button
+              v-if="searchQuery"
+              class="search-clear text-muted-c"
+              @click="searchQuery=''"
+            >
+              ✕
+            </button>
           </div>
           <div class="list-scroll">
             <template v-if="searchQuery.trim()">
-              <div v-for="p in searchResults" :key="p.id"
-                   class="item-row text-base-c" :class="{'checked bg-slate-100 dark:bg-slate-700/30': isSelected(p)}">
+              <div
+                v-for="p in searchResults"
+                :key="p.id"
+                class="item-row text-base-c"
+                :class="{ 'checked bg-slate-100 dark:bg-slate-700/30': isSelected(p) }"
+              >
                 <label class="item-label-inner">
-                  <input type="checkbox" :checked="isSelected(p)" @change="toggleItem(p,$event.target.checked)"/>
+                  <input
+                    type="checkbox"
+                    :checked="isSelected(p)"
+                    @change="toggleItem(p, $event.target.checked)"
+                  >
                   <span class="zh-main">{{ mainZh(p.zh) }}</span>
-                  <span v-if="dietTag(p.zh)" class="diet" :class="dietClass(p.zh)">{{ dietTag(p.zh) }}</span>
+                  <span
+                    v-if="dietTag(p.zh)"
+                    class="diet"
+                    :class="dietClass(p.zh)"
+                  >{{ dietTag(p.zh) }}</span>
                 </label>
-                <span v-if="isSelected(p)" class="qty-wrap">
-                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,-1)">−</button>
+                <span
+                  v-if="isSelected(p)"
+                  class="qty-wrap"
+                >
+                  <button
+                    class="qty-btn border-light-c text-base-c"
+                    @click="changeQty(p, -1)"
+                  >−</button>
                   <span class="qty-num text-base-c">{{ getQty(p) }}</span>
-                  <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,+1)">＋</button>
+                  <button
+                    class="qty-btn border-light-c text-base-c"
+                    @click="changeQty(p, +1)"
+                  >＋</button>
                 </span>
               </div>
-              <div v-if="searchResults.length===0" class="empty-search text-hint-c">找不到「{{ searchQuery }}」</div>
+              <div
+                v-if="searchResults.length===0"
+                class="empty-search text-hint-c"
+              >
+                找不到「{{ searchQuery }}」
+              </div>
             </template>
-            <div v-for="(group, gi) in presets" v-show="!searchQuery.trim()" :key="group.id" class="group">
+            <div
+              v-for="(group, gi) in presets"
+              v-show="!searchQuery.trim()"
+              :key="group.id"
+              class="group"
+            >
               <div class="group-header bg-surface">
-                <span class="group-toggle" @click="toggleGroupOpen(gi)">{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
+                <span
+                  class="group-toggle"
+                  @click="toggleGroupOpen(gi)"
+                >{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
                 <label class="group-check">
-                  <input type="checkbox"
-                         :checked="isGroupAllSelected(group)"
-                         :indeterminate.prop="isGroupPartial(group)"
-                         @change="toggleGroup(group, $event.target.checked)" />
+                  <input
+                    type="checkbox"
+                    :checked="isGroupAllSelected(group)"
+                    :indeterminate.prop="isGroupPartial(group)"
+                    @change="toggleGroup(group, $event.target.checked)"
+                  >
                   {{ group.group }}
                 </label>
               </div>
               <template v-if="groupOpen[gi] !== false">
-                <div v-for="(p, pi) in group.items" :key="p.id"
-                     class="item-row text-base-c" :class="{'checked bg-slate-100 dark:bg-slate-700/30': isSelected(p)}">
+                <div
+                  v-for="(p, pi) in group.items"
+                  :key="p.id"
+                  class="item-row text-base-c"
+                  :class="{ 'checked bg-slate-100 dark:bg-slate-700/30': isSelected(p) }"
+                >
                   <label class="item-label-inner">
-                    <input type="checkbox" :checked="isSelected(p)" @change="toggleItem(p,$event.target.checked)"/>
+                    <input
+                      type="checkbox"
+                      :checked="isSelected(p)"
+                      @change="toggleItem(p, $event.target.checked)"
+                    >
                     <span class="zh-main">{{ mainZh(p.zh) }}</span>
-                    <span v-if="dietTag(p.zh)" class="diet" :class="dietClass(p.zh)">{{ dietTag(p.zh) }}</span>
+                    <span
+                      v-if="dietTag(p.zh)"
+                      class="diet"
+                      :class="dietClass(p.zh)"
+                    >{{ dietTag(p.zh) }}</span>
                   </label>
-                  <span v-if="isSelected(p)" class="qty-wrap">
-                    <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,-1)">−</button>
+                  <span
+                    v-if="isSelected(p)"
+                    class="qty-wrap"
+                  >
+                    <button
+                      class="qty-btn border-light-c text-base-c"
+                      @click="changeQty(p, -1)"
+                    >−</button>
                     <span class="qty-num text-base-c">{{ getQty(p) }}</span>
-                    <button class="qty-btn border-light-c text-base-c" @click="changeQty(p,+1)">＋</button>
+                    <button
+                      class="qty-btn border-light-c text-base-c"
+                      @click="changeQty(p, +1)"
+                    >＋</button>
                   </span>
                 </div>
               </template>
@@ -337,38 +801,101 @@
           </div><!-- end list-scroll -->
 
           <div class="sidebar-footer border-t border-light-c">
-            <div class="count-badge text-muted-c">已選 {{ totalCount }} 張</div>
-            <button class="print-nav-btn" :disabled="selected.length===0" @click="doPrint">🖨️ 列印</button>
+            <div class="count-badge text-muted-c">
+              已選 {{ totalCount }} 張
+            </div>
+            <button
+              class="print-nav-btn"
+              :disabled="selected.length===0"
+              @click="doPrint"
+            >
+              🖨️ 列印
+            </button>
           </div>
-
         </template><!-- end use tab -->
       </aside>
 
       <!-- ── 右側預覽 ── -->
-      <main class="preview-area" ref="previewAreaRef">
+      <main
+        ref="previewAreaRef"
+        class="preview-area"
+      >
         <div class="preview-toolbar bg-surface border-b border-light-c">
           <span class="preview-toolbar-label text-muted-c">預覽縮放</span>
-          <input type="range" v-model.number="manualScale" min="20" max="100" step="5" class="scale-slider"/>
+          <input
+            v-model.number="manualScale"
+            type="range"
+            min="20"
+            max="100"
+            step="5"
+            class="scale-slider"
+          >
           <span class="preview-toolbar-val text-base-c">{{ manualScale }}%</span>
-          <button class="auto-scale-btn border-light-c text-base-c" @click="manualScale=0" :class="{active: manualScale===0}">自動</button>
-          <span class="preview-toolbar-label text-muted-c" style="margin-left:12px">自動排列 {{ previewCols }} 欄</span>
+          <button
+            class="auto-scale-btn border-light-c text-base-c"
+            :class="{ active: manualScale===0 }"
+            @click="manualScale=0"
+          >
+            自動
+          </button>
+          <span
+            class="preview-toolbar-label text-muted-c"
+            style="margin-left:12px"
+          >自動排列 {{ previewCols }} 欄</span>
         </div>
 
-        <div v-if="loading" class="empty-hint text-hint-c">載入中...</div>
-        <div v-else-if="sideTab==='use' && selected.length===0" class="empty-hint text-hint-c">← 從左側勾選項目</div>
+        <div
+          v-if="loading"
+          class="empty-hint text-hint-c"
+        >
+          載入中...
+        </div>
+        <div
+          v-else-if="sideTab==='use' && selected.length===0"
+          class="empty-hint text-hint-c"
+        >
+          ← 從左側勾選項目
+        </div>
 
         <!-- config tab：按分類顯示 -->
         <template v-if="sideTab==='config'">
           <div class="config-preview-wrap">
-            <div v-for="group in presets" :key="group.id" class="config-preview-group">
-              <div class="config-preview-group-label text-muted-c">{{ group.group }}</div>
+            <div
+              v-for="group in presets"
+              :key="group.id"
+              class="config-preview-group"
+            >
+              <div class="config-preview-group-label text-muted-c">
+                {{ group.group }}
+              </div>
               <div class="config-preview-grid">
-                <div v-for="card in group.items" :key="card.id" class="card-wrapper">
-                  <div class="card-text-area" :style="textAreaStyle">
-                    <p class="card-line1" :style="[{fontSize: calcZhSize(card.zh), position:'relative', left:(card.zhOffset??0)+'mm', top:((card.zhTop??0)+zhOffsetTop)+'mm'}, zhLineStyle]">{{ card.zh }}</p>
-                    <p class="card-line2" :style="[{fontSize: calcEnSize(card.en), position:'relative', left:(card.enOffset??0)+'mm', top:((card.enTop??0)+enOffsetTop)+'mm'}, enLineStyle]">{{ card.en }}</p>
+                <div
+                  v-for="card in group.items"
+                  :key="card.id"
+                  class="card-wrapper"
+                >
+                  <div
+                    class="card-text-area"
+                    :style="textAreaStyle"
+                  >
+                    <p
+                      class="card-line1"
+                      :style="[{ fontSize: calcZhSize(card.zh), position: 'relative', left: (card.zhOffset??0)+'mm', top: ((card.zhTop??0)+zhOffsetTop)+'mm' }, zhLineStyle]"
+                    >
+                      {{ card.zh }}
+                    </p>
+                    <p
+                      class="card-line2"
+                      :style="[{ fontSize: calcEnSize(card.en), position: 'relative', left: (card.enOffset??0)+'mm', top: ((card.enTop??0)+enOffsetTop)+'mm' }, enLineStyle]"
+                    >
+                      {{ card.en }}
+                    </p>
                   </div>
-                  <img src="/images/桌牌.png" alt="桌牌" class="card-img"/>
+                  <img
+                    src="/images/桌牌.png"
+                    alt="桌牌"
+                    class="card-img"
+                  >
                 </div>
               </div>
             </div>
@@ -377,27 +904,80 @@
 
         <!-- use tab：A4 頁面格式 -->
         <template v-else>
-          <div class="preview-pages-wrap" :style="{ '--cols': previewCols }">
-            <div v-for="(pageCards, pi) in previewPages" :key="pi" class="a4-preview-wrap">
-              <div class="page-num-label text-hint-c">第 {{ pi+1 }} 頁</div>
-              <div class="a4-preview" :style="a4Style">
+          <div
+            class="preview-pages-wrap"
+            :style="{ '--cols': previewCols }"
+          >
+            <div
+              v-for="(pageCards, pi) in previewPages"
+              :key="pi"
+              class="a4-preview-wrap"
+            >
+              <div class="page-num-label text-hint-c">
+                第 {{ pi+1 }} 頁
+              </div>
+              <div
+                class="a4-preview"
+                :style="a4Style"
+              >
                 <div class="cut-area">
                   <div class="grid">
-                    <div v-for="(card,ci) in pageCards" :key="ci" class="card-wrapper">
-                      <div class="card-text-area" :style="textAreaStyle">
-                        <p class="card-line1" :style="[{fontSize: calcZhSize(card.zh), position:'relative', left:(card.zhOffset??0)+'mm', top:((card.zhTop??0)+zhOffsetTop)+'mm'}, zhLineStyle]">{{ card.zh }}</p>
-                        <p class="card-line2" :style="[{fontSize: calcEnSize(card.en), position:'relative', left:(card.enOffset??0)+'mm', top:((card.enTop??0)+enOffsetTop)+'mm'}, enLineStyle]">{{ card.en }}</p>
+                    <div
+                      v-for="(card, ci) in pageCards"
+                      :key="ci"
+                      class="card-wrapper"
+                    >
+                      <div
+                        class="card-text-area"
+                        :style="textAreaStyle"
+                      >
+                        <p
+                          class="card-line1"
+                          :style="[{ fontSize: calcZhSize(card.zh), position: 'relative', left: (card.zhOffset??0)+'mm', top: ((card.zhTop??0)+zhOffsetTop)+'mm' }, zhLineStyle]"
+                        >
+                          {{ card.zh }}
+                        </p>
+                        <p
+                          class="card-line2"
+                          :style="[{ fontSize: calcEnSize(card.en), position: 'relative', left: (card.enOffset??0)+'mm', top: ((card.enTop??0)+enOffsetTop)+'mm' }, enLineStyle]"
+                        >
+                          {{ card.en }}
+                        </p>
                       </div>
-                      <img src="/images/桌牌.png" alt="桌牌" class="card-img"/>
+                      <img
+                        src="/images/桌牌.png"
+                        alt="桌牌"
+                        class="card-img"
+                      >
                     </div>
-                    <div v-for="k in (9-pageCards.length)" :key="'e'+k" class="card-wrapper">
-                      <img src="/images/桌牌.png" alt="" class="card-img"/>
+                    <div
+                      v-for="k in (9-pageCards.length)"
+                      :key="'e'+k"
+                      class="card-wrapper"
+                    >
+                      <img
+                        src="/images/桌牌.png"
+                        alt=""
+                        class="card-img"
+                      >
                     </div>
                   </div>
-                  <div class="cut-line cut-v" style="left:89mm"></div>
-                  <div class="cut-line cut-v" style="left:178mm"></div>
-                  <div class="cut-line cut-h" style="top:59mm"></div>
-                  <div class="cut-line cut-h" style="top:118mm"></div>
+                  <div
+                    class="cut-line cut-v"
+                    style="left:89mm"
+                  />
+                  <div
+                    class="cut-line cut-v"
+                    style="left:178mm"
+                  />
+                  <div
+                    class="cut-line cut-h"
+                    style="top:59mm"
+                  />
+                  <div
+                    class="cut-line cut-h"
+                    style="top:118mm"
+                  />
                 </div>
               </div>
             </div>
@@ -405,29 +985,28 @@
         </template>
       </main>
     </div>
-
   </div>
 </template>
 
 <script setup>
-import {ref, reactive, computed, onMounted, onUnmounted} from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 
-definePageMeta({layout: 'staff', requiredPermission: 'staff.table-card-print'})
+definePageMeta({ layout: 'staff', requiredPermission: 'print.table-card-print' })
 const sideTab = ref('use')
 const mobileOpen = ref(false)
 
 /* ── 字數規則 ── */
 const zhRules = reactive([
-  {maxLen: 3, sizePt: 36},
-  {maxLen: 6, sizePt: 28},
-  {maxLen: 8, sizePt: 20},
-  {maxLen: 12, sizePt: 14},
+  { maxLen: 3, sizePt: 36 },
+  { maxLen: 6, sizePt: 28 },
+  { maxLen: 8, sizePt: 20 },
+  { maxLen: 12, sizePt: 14 }
 ])
 const zhFallbackPt = ref(10)
 const enRules = reactive([
-  {maxLen: 10, sizePt: 14},
-  {maxLen: 20, sizePt: 12},
-  {maxLen: 30, sizePt: 10},
+  { maxLen: 10, sizePt: 14 },
+  { maxLen: 20, sizePt: 12 },
+  { maxLen: 30, sizePt: 10 }
 ])
 const enFallbackPt = ref(8)
 
@@ -459,13 +1038,13 @@ const enSpacing = ref(0)
 const textAreaStyle = computed(() => ({
   left: offsetLeft.value + 'mm',
   right: (-offsetLeft.value) + 'mm',
-  height: textAreaH.value + '%',
+  height: textAreaH.value + '%'
 }))
-const zhLineStyle = computed(() => ({letterSpacing: zhSpacing.value + 'mm'}))
-const enLineStyle = computed(() => ({letterSpacing: enSpacing.value + 'mm'}))
+const zhLineStyle = computed(() => ({ letterSpacing: zhSpacing.value + 'mm' }))
+const enLineStyle = computed(() => ({ letterSpacing: enSpacing.value + 'mm' }))
 
 /* ── 收縮狀態 ── */
-const open = reactive({size: true, tune: false, items: true})
+const open = reactive({ size: true, tune: false, items: true })
 const groupOpen = reactive({})
 
 function toggleGroupOpen(gi) {
@@ -490,12 +1069,12 @@ async function loadConfig() {
     const data = await res.json()
     // 字數規則
     if (data.zhRules?.length) {
-      zhRules.splice(0);
+      zhRules.splice(0)
       data.zhRules.forEach(r => zhRules.push(r))
     }
     if (data.zhFallbackPt != null) zhFallbackPt.value = data.zhFallbackPt
     if (data.enRules?.length) {
-      enRules.splice(0);
+      enRules.splice(0)
       data.enRules.forEach(r => enRules.push(r))
     }
     if (data.enFallbackPt != null) enFallbackPt.value = data.enFallbackPt
@@ -526,7 +1105,7 @@ async function loadItems() {
         zhOffset: it.zhOffset ?? 0,
         enOffset: it.enOffset ?? 0,
         zhTop: it.zhTop ?? 0,
-        enTop: it.enTop ?? 0,
+        enTop: it.enTop ?? 0
       }))
     }))
   } catch (e) {
@@ -541,18 +1120,18 @@ async function saveConfig() {
   try {
     await fetch(`${BASE()}/config/save`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        zhRules: zhRules.map(r => ({maxLen: r.maxLen, sizePt: r.sizePt})),
+        zhRules: zhRules.map(r => ({ maxLen: r.maxLen, sizePt: r.sizePt })),
         zhFallbackPt: zhFallbackPt.value,
-        enRules: enRules.map(r => ({maxLen: r.maxLen, sizePt: r.sizePt})),
+        enRules: enRules.map(r => ({ maxLen: r.maxLen, sizePt: r.sizePt })),
         enFallbackPt: enFallbackPt.value,
         textAreaH: textAreaH.value,
         zhOffsetTop: zhOffsetTop.value,
         enOffsetTop: enOffsetTop.value,
         offsetLeft: offsetLeft.value,
         zhSpacing: zhSpacing.value,
-        enSpacing: enSpacing.value,
+        enSpacing: enSpacing.value
       })
     })
   } catch (e) {
@@ -574,11 +1153,11 @@ async function confirmAddGroup() {
   try {
     const res = await fetch(`${BASE()}/category/save`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name})
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
     })
     const data = await res.json()
-    presets.push({id: data.id, group: name, items: []})
+    presets.push({ id: data.id, group: name, items: [] })
   } catch (e) {
     console.error('新增類別失敗', e)
   }
@@ -596,8 +1175,8 @@ async function confirmEditGroup(gi) {
   try {
     await fetch(`${BASE()}/category/save`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({id: presets[gi].id, name})
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: presets[gi].id, name })
     })
     presets[gi].group = name
   } catch (e) {
@@ -608,7 +1187,7 @@ async function confirmEditGroup(gi) {
 
 async function confirmDeleteGroup(gi) {
   try {
-    await fetch(`${BASE()}/category/${presets[gi].id}`, {method: 'DELETE'})
+    await fetch(`${BASE()}/category/${presets[gi].id}`, { method: 'DELETE' })
     const zhs = new Set(presets[gi].items.map(p => p.zh))
     presets.splice(gi, 1)
     selected.value = selected.value.filter(s => !zhs.has(s.zh))
@@ -621,28 +1200,28 @@ async function confirmDeleteGroup(gi) {
 /* ── 項目 CRUD ── */
 const addingIn = ref(-1)
 const editingKey = ref('')
-const editForm = reactive({zh: '', en: '', toGroup: 0, zhOffset: 0, enOffset: 0, zhTop: 0, enTop: 0})
-const editOrigOffset = reactive({zhOffset: 0, enOffset: 0, gi: -1, pi: -1})
+const editForm = reactive({ zh: '', en: '', toGroup: 0, zhOffset: 0, enOffset: 0, zhTop: 0, enTop: 0 })
+const editOrigOffset = reactive({ zhOffset: 0, enOffset: 0, gi: -1, pi: -1 })
 
 function startAddItem(gi) {
-  addingIn.value = gi;
+  addingIn.value = gi
   editingKey.value = ''
-  editForm.zh = '';
+  editForm.zh = ''
   editForm.en = ''
 }
 
 async function confirmAdd(gi) {
-  const zh = editForm.zh.trim();
+  const zh = editForm.zh.trim()
   const en = editForm.en.trim()
   if (!zh) return
   try {
     const res = await fetch(`${BASE()}/item/save`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({catId: presets[gi].id, zh, en: en || zh})
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ catId: presets[gi].id, zh, en: en || zh })
     })
     const data = await res.json()
-    presets[gi].items.push({id: data.id, zh, en: en || zh, zhOffset: 0, enOffset: 0, zhTop: 0, enTop: 0})
+    presets[gi].items.push({ id: data.id, zh, en: en || zh, zhOffset: 0, enOffset: 0, zhTop: 0, enTop: 0 })
   } catch (e) {
     console.error('新增項目失敗', e)
   }
@@ -650,18 +1229,18 @@ async function confirmAdd(gi) {
 }
 
 function startEditItem(gi, pi, p) {
-  editingKey.value = gi + '-' + pi;
+  editingKey.value = gi + '-' + pi
   addingIn.value = -1
-  editForm.zh = p.zh;
-  editForm.en = p.en;
+  editForm.zh = p.zh
+  editForm.en = p.en
   editForm.toGroup = gi
-  editForm.zhOffset = p.zhOffset ?? 0;
+  editForm.zhOffset = p.zhOffset ?? 0
   editForm.enOffset = p.enOffset ?? 0
-  editForm.zhTop = p.zhTop ?? 0;
+  editForm.zhTop = p.zhTop ?? 0
   editForm.enTop = p.enTop ?? 0
-  editOrigOffset.zhOffset = p.zhOffset ?? 0;
+  editOrigOffset.zhOffset = p.zhOffset ?? 0
   editOrigOffset.enOffset = p.enOffset ?? 0
-  editOrigOffset.gi = gi;
+  editOrigOffset.gi = gi
   editOrigOffset.pi = pi
 }
 
@@ -669,7 +1248,7 @@ function cancelEdit() {
   if (editOrigOffset.gi >= 0 && editOrigOffset.pi >= 0) {
     const item = presets[editOrigOffset.gi]?.items[editOrigOffset.pi]
     if (item) {
-      item.zhOffset = editOrigOffset.zhOffset;
+      item.zhOffset = editOrigOffset.zhOffset
       item.enOffset = editOrigOffset.enOffset
     }
   }
@@ -677,7 +1256,7 @@ function cancelEdit() {
 }
 
 async function confirmEdit(gi, pi) {
-  const zh = editForm.zh.trim();
+  const zh = editForm.zh.trim()
   const en = editForm.en.trim()
   if (!zh) return
   const oldZh = presets[gi].items[pi].zh
@@ -698,12 +1277,12 @@ async function confirmEdit(gi, pi) {
       // 跨類別移動：先 move 再 save 更新內容
       await fetch(`${BASE()}/item/move`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({fromCatId: presets[gi].id, toCatId: presets[tg].id, id: item.id})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromCatId: presets[gi].id, toCatId: presets[tg].id, id: item.id })
       })
       await fetch(`${BASE()}/item/save`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           catId: presets[tg].id, id: item.id, zh, en: en || zh,
           zhOffset: editForm.zhOffset, enOffset: editForm.enOffset,
@@ -715,7 +1294,7 @@ async function confirmEdit(gi, pi) {
     } else {
       await fetch(`${BASE()}/item/save`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           catId: presets[gi].id, id: item.id, zh, en: en || zh,
           zhOffset: editForm.zhOffset, enOffset: editForm.enOffset,
@@ -726,11 +1305,11 @@ async function confirmEdit(gi, pi) {
     }
     const sel = selected.value.find(s => s.zh === oldZh)
     if (sel) {
-      sel.zh = zh;
-      sel.en = en || zh;
-      sel.zhOffset = editForm.zhOffset;
-      sel.enOffset = editForm.enOffset;
-      sel.zhTop = editForm.zhTop;
+      sel.zh = zh
+      sel.en = en || zh
+      sel.zhOffset = editForm.zhOffset
+      sel.enOffset = editForm.enOffset
+      sel.zhTop = editForm.zhTop
       sel.enTop = editForm.enTop
     }
   } catch (e) {
@@ -744,7 +1323,7 @@ const confirmDeleteGroupIdx = ref(-1)
 
 async function confirmDeleteItem(gi, pi, p) {
   try {
-    await fetch(`${BASE()}/item/${presets[gi].id}/${p.id}`, {method: 'DELETE'})
+    await fetch(`${BASE()}/item/${presets[gi].id}/${p.id}`, { method: 'DELETE' })
     presets[gi].items.splice(pi, 1)
     selected.value = selected.value.filter(s => s.zh !== p.zh)
   } catch (e) {
@@ -764,7 +1343,7 @@ const configSearchResults = computed(() => {
     for (let pi = 0; pi < presets[gi].items.length; pi++) {
       const p = presets[gi].items[pi]
       if (p.zh.toLowerCase().includes(q) || p.en.toLowerCase().includes(q))
-        r.push({...p, _gi: gi, _pi: pi})
+        r.push({ ...p, _gi: gi, _pi: pi })
     }
   return r
 })
@@ -791,13 +1370,13 @@ function getQty(p) {
 }
 
 function changeQty(p, d) {
-  const i = selected.value.find(s => s.zh === p.zh);
+  const i = selected.value.find(s => s.zh === p.zh)
   if (i) i.qty = Math.max(1, i.qty + d)
 }
 
 function toggleItem(p, checked) {
   if (checked) {
-    if (!isSelected(p)) selected.value.push({...p, qty: 1})
+    if (!isSelected(p)) selected.value.push({ ...p, qty: 1 })
   } else {
     selected.value = selected.value.filter(s => s.zh !== p.zh)
   }
@@ -808,14 +1387,14 @@ function isGroupAllSelected(g) {
 }
 
 function isGroupPartial(g) {
-  const c = g.items.filter(p => isSelected(p)).length;
+  const c = g.items.filter(p => isSelected(p)).length
   return c > 0 && c < g.items.length
 }
 
 function toggleGroup(g, checked) {
   if (checked) {
-    g.items.forEach(p => {
-      if (!isSelected(p)) selected.value.push({...p, qty: 1})
+    g.items.forEach((p) => {
+      if (!isSelected(p)) selected.value.push({ ...p, qty: 1 })
     })
   } else {
     const zhs = new Set(g.items.map(p => p.zh))
@@ -824,8 +1403,8 @@ function toggleGroup(g, checked) {
 }
 
 function chunk(arr, n) {
-  const r = [];
-  for (let i = 0; i < arr.length; i += n) r.push(arr.slice(i, i + n));
+  const r = []
+  for (let i = 0; i < arr.length; i += n) r.push(arr.slice(i, i + n))
   return r
 }
 
@@ -859,7 +1438,7 @@ const expandedCards = computed(() => {
     const enOffset = preset?.enOffset ?? item.enOffset ?? 0
     const zhTop = preset?.zhTop ?? item.zhTop ?? 0
     const enTop = preset?.enTop ?? item.enTop ?? 0
-    for (let i = 0; i < item.qty; i++) r.push({zh: item.zh, en: item.en, zhOffset, enOffset, zhTop, enTop})
+    for (let i = 0; i < item.qty; i++) r.push({ zh: item.zh, en: item.en, zhOffset, enOffset, zhTop, enTop })
   }
   return r
 })
@@ -882,7 +1461,7 @@ onMounted(async () => {
   await Promise.all([loadConfig(), loadItems()])
   loading.value = false
   if (!previewAreaRef.value) return
-  const ro = new ResizeObserver(e => {
+  const ro = new ResizeObserver((e) => {
     previewWidth.value = e[0]?.contentRect.width ?? 800
   })
   ro.observe(previewAreaRef.value)
@@ -899,7 +1478,7 @@ const a4Style = computed(() => {
   return {
     transform: `scale(${scale})`,
     marginBottom: `${a4H * scale - a4H}px`,
-    marginRight: `${a4W * scale - a4W}px`,
+    marginRight: `${a4W * scale - a4W}px`
   }
 })
 
@@ -909,7 +1488,7 @@ function mainZh(zh) {
 }
 
 function dietTag(zh) {
-  const m = zh.match(/（([^）]*)）/);
+  const m = zh.match(/（([^）]*)）/)
   return m ? `（${m[1]}）` : ''
 }
 
@@ -928,12 +1507,12 @@ function doPrint() {
   // 用 JS 把每頁的卡片 HTML 組好，所有樣式 inline，不依賴 DOM
   const pages = chunk(expandedCards.value, 9)
 
-  const pagesHtml = pages.map(pageCards => {
+  const pagesHtml = pages.map((pageCards) => {
     // 補空卡到 9 張
     const cards = [...pageCards]
     while (cards.length < 9) cards.push(null)
 
-    const cardsHtml = cards.map(card => {
+    const cardsHtml = cards.map((card) => {
       if (!card) {
         return `<div class="card-wrapper"><img class="card-img" src="${imgUrl}" alt=""/></div>`
       }
@@ -1908,7 +2487,6 @@ ${pagesHtml}
   }
 }
 
-
 .cut-area {
   position: relative;
   width: 267mm;
@@ -1990,6 +2568,4 @@ ${pagesHtml}
   height: 0.3mm;
   width: calc(100% + 8mm);
 }
-
-
 </style>

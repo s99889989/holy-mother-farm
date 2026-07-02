@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.pos-data-table' })
+definePageMeta({ layout: 'staff', requiredPermission: 'stock.pos-data-table' })
 
 interface TableData {
   columns: string[]

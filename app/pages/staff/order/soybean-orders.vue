@@ -1,21 +1,21 @@
 <script setup>
-import {ref, computed, onMounted, onUnmounted} from 'vue'
-import {useCommonStore} from '~/stores/common.js'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useCommonStore } from '~/stores/common.js'
 
-definePageMeta({layout: 'staff', requiredPermission: 'staff.soybean-orders' })
+definePageMeta({ layout: 'staff', requiredPermission: 'order.soybean-orders' })
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/soybean')
 
 // ── 營業日設定（取代寫死的週二/週五）─────────────────────────────
 // ISO 星期數字：1=一 2=二 3=三 4=四 5=五 6=六 7=日
-const DOW_CODE  = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun' }
+const DOW_CODE = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun' }
 const DOW_LABEL = { 1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六', 7: '週日' }
 const DOW_COLORS = [
   { bg: 'bg-green-100 text-green-700', active: 'bg-green-700 text-white border-green-700', filterActiveBorder: 'border-green-700' },
-  { bg: 'bg-blue-100 text-blue-700',   active: 'bg-blue-600 text-white border-blue-600',   filterActiveBorder: 'border-blue-600' },
+  { bg: 'bg-blue-100 text-blue-700', active: 'bg-blue-600 text-white border-blue-600', filterActiveBorder: 'border-blue-600' },
   { bg: 'bg-amber-100 text-amber-700', active: 'bg-amber-600 text-white border-amber-600', filterActiveBorder: 'border-amber-600' },
-  { bg: 'bg-purple-100 text-purple-700', active: 'bg-purple-600 text-white border-purple-600', filterActiveBorder: 'border-purple-600' },
+  { bg: 'bg-purple-100 text-purple-700', active: 'bg-purple-600 text-white border-purple-600', filterActiveBorder: 'border-purple-600' }
 ]
 
 const businessDays = ref([2, 5]) // 預設二五，實際以後端設定為準
@@ -28,7 +28,7 @@ const businessDayOptions = computed(() =>
     dow,
     code: DOW_CODE[dow] || 'tue',
     label: DOW_LABEL[dow] || '',
-    color: DOW_COLORS[idx % DOW_COLORS.length],
+    color: DOW_COLORS[idx % DOW_COLORS.length]
   }))
 )
 
@@ -60,7 +60,7 @@ const saveBusinessDays = async (days) => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ businessDays: days }),
+      body: JSON.stringify({ businessDays: days })
     })
     const data = await res.json()
     if (data.error) { alert('儲存失敗：' + data.error); return }
@@ -89,7 +89,7 @@ const monthOptions = computed(() => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
-    opts.push({val, label})
+    opts.push({ val, label })
   }
   return opts
 })
@@ -105,14 +105,14 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await fetch(`${BASE.value}/admin/list?month=${selectedMonth.value}`, {
-      credentials: 'include',
+      credentials: 'include'
     })
     const data = await res.json()
     totalSoymilk.value = data.totalSoymilk ?? 0
     totalTofu.value = data.totalTofu ?? 0
     orders.value = data.orders ?? []
     const now = new Date()
-    lastUpdated.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
+    lastUpdated.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
   } catch {
     orders.value = []
   } finally {
@@ -135,7 +135,7 @@ const filterDay = ref('')
 const filterStatus = ref('')
 
 const filteredOrders = computed(() => {
-  return orders.value.filter(o => {
+  return orders.value.filter((o) => {
     if (filterDay.value && o.pickupDay !== filterDay.value) return false
     if (filterStatus.value && o.status !== filterStatus.value) return false
     return true
@@ -160,15 +160,15 @@ function nextPickupDateFromNow(pickupDay) {
   const diff = (targetDow - base.getDay() + 7) % 7
   const result = new Date(base)
   result.setDate(base.getDate() + diff)
-  return `${result.getFullYear()}-${String(result.getMonth()+1).padStart(2,'0')}-${String(result.getDate()).padStart(2,'0')}`
+  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
 }
 
 // 格式化取貨日顯示：2026-06-19 → 週五 6/19
 function pickupDateLabel(pickupDay) {
   const date = nextPickupDateFromNow(pickupDay)
   const d = new Date(date + 'T00:00:00')
-  const weekDay = ['日','一','二','三','四','五','六'][d.getDay()]
-  return `週${weekDay} ${d.getMonth()+1}/${d.getDate()}`
+  const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+  return `週${weekDay} ${d.getMonth() + 1}/${d.getDate()}`
 }
 const PRESET_VOLS = [600, 800, 1000, 1700]
 
@@ -225,7 +225,7 @@ const groupedOrders = computed(() => {
   return Array.from(map.entries())
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([date, orders]) => {
-      const weekDay = ['日','一','二','三','四','五','六'][new Date(date + 'T00:00:00').getDay()]
+      const weekDay = ['日', '一', '二', '三', '四', '五', '六'][new Date(date + 'T00:00:00').getDay()]
       const [, m, d] = date.split('-')
       const active = orders.filter(o => o.status !== '已取消')
       const soymilkQty = active.reduce((s, o) => {
@@ -250,14 +250,14 @@ function resolvePickupDate(pickupDay, createdAt, pickupDate) {
   const diff = (targetDow - base.getDay() + 7) % 7
   const result = new Date(base)
   result.setDate(base.getDate() + diff)
-  return `${result.getFullYear()}-${String(result.getMonth()+1).padStart(2,'0')}-${String(result.getDate()).padStart(2,'0')}`
+  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
 }
 
 // ── 格式化訂購時間 ────────────────────────────────────────────────
 function formatCreatedAt(createdAt) {
   if (!createdAt) return ''
   const d = new Date(createdAt.replace(' ', 'T'))
-  const weekDay = ['日','一','二','三','四','五','六'][d.getDay()]
+  const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   const hh = String(d.getHours()).padStart(2, '0')
@@ -271,7 +271,7 @@ const updateStatus = async (order, newStatus) => {
   try {
     await fetch(`${BASE.value}/admin/status/${order.month}/${order.id}?status=${encodeURIComponent(newStatus)}`, {
       method: 'PATCH',
-      credentials: 'include',
+      credentials: 'include'
     })
     order.status = newStatus
   } catch {
@@ -282,11 +282,11 @@ const updateStatus = async (order, newStatus) => {
 }
 
 // ── 狀態樣式 ──────────────────────────────────────────────────────
-const statusClass = (s) => ({
-  '待確認': 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700',
-  '已確認': 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700',
-  '已取貨': 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700',
-  '已取消': 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500',
+const statusClass = s => ({
+  待確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700',
+  已確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700',
+  已取貨: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700',
+  已取消: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500'
 }[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c')
 
 // 根據訂單的取貨日資訊產生顯示文字：有 pickupDate 就直接用，否則用 createdAt 推算當週的營業日
@@ -305,7 +305,7 @@ const pickupLabel = (order) => {
   const base = order?.createdAt ? new Date(order.createdAt) : new Date()
   const baseDow = base.getDay() // 0=日
   let diff = dow - baseDow
-  if (diff < 0) diff += 7   // 已過，取下週
+  if (diff < 0) diff += 7 // 已過，取下週
   const target = new Date(base)
   target.setDate(base.getDate() + diff)
   const m = target.getMonth() + 1
@@ -316,23 +316,23 @@ const pickupLabel = (order) => {
 const STATUSES = ['待確認', '已確認', '已取貨', '已取消']
 
 // ── 刪除 ──────────────────────────────────────────────────────────
-const deleteModal = ref({show: false, order: null, submitting: false})
+const deleteModal = ref({ show: false, order: null, submitting: false })
 
 const openDeleteModal = (order) => {
-  deleteModal.value = {show: true, order, submitting: false}
+  deleteModal.value = { show: true, order, submitting: false }
 }
 const closeDeleteModal = () => {
-  deleteModal.value = {show: false, order: null, submitting: false}
+  deleteModal.value = { show: false, order: null, submitting: false }
 }
 
 const confirmDelete = async () => {
-  const {order} = deleteModal.value
+  const { order } = deleteModal.value
   if (!order) return
   deleteModal.value.submitting = true
   try {
     const res = await fetch(`${BASE.value}/admin/order/${order.month}/${order.id}`, {
       method: 'DELETE',
-      credentials: 'include',
+      credentials: 'include'
     })
     const data = await res.json()
     if (data.error) { alert('刪除失敗：' + data.error); return }
@@ -346,10 +346,10 @@ const confirmDelete = async () => {
 }
 
 // ── 新增訂單 ──────────────────────────────────────────────────────
-const createModal = ref({show: false, submitting: false})
+const createModal = ref({ show: false, submitting: false })
 const createForm = ref({
   name: '', contact: '', pickupDay: 'tue', pickupDate: '',
-  soymilkItems: [newSoymilkItem()], tofuQty: 0, remark: '', status: '已確認',
+  soymilkItems: [newSoymilkItem()], tofuQty: 0, remark: '', status: '已確認'
 })
 
 const openCreateModal = () => {
@@ -385,7 +385,7 @@ function resolveVol(item) {
 
 const submitCreate = async () => {
   const f = createForm.value
-  if (!f.name.trim())    { alert('請輸入姓名'); return }
+  if (!f.name.trim()) { alert('請輸入姓名'); return }
   if (!f.contact.trim()) { alert('請輸入聯絡方式'); return }
   const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
   if (!hasSoymilk && f.tofuQty === 0) { alert('請選擇豆漿或豆腐數量'); return }
@@ -394,8 +394,8 @@ const submitCreate = async () => {
   const resolvedPickupDate = f.pickupDate || nextPickupDateFromNow(f.pickupDay)
   if (closedDates.value.includes(resolvedPickupDate)) {
     const d = new Date(resolvedPickupDate + 'T00:00:00')
-    const weekDay = ['日','一','二','三','四','五','六'][d.getDay()]
-    alert(`${d.getMonth()+1}/${d.getDate()}（週${weekDay}）為休息日，無法新增訂單`)
+    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+    alert(`${d.getMonth() + 1}/${d.getDate()}（週${weekDay}）為休息日，無法新增訂單`)
     return
   }
   createModal.value.submitting = true
@@ -412,13 +412,13 @@ const submitCreate = async () => {
       tofuQty: f.tofuQty,
       remark: f.remark.trim(),
       status: f.status,
-      ...(f.pickupDate ? { pickupDate: f.pickupDate } : {}),
+      ...(f.pickupDate ? { pickupDate: f.pickupDate } : {})
     }
     const res = await fetch(`${BASE.value}/order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     })
     const data = await res.json()
     if (data.error) { alert('新增失敗：' + data.error); return }
@@ -434,26 +434,26 @@ const submitCreate = async () => {
 // ── 提示訊息設定 ──────────────────────────────────────────────────
 const showHintSettings = ref(false)
 const hintSaving = ref(false)
-const hintSaved  = ref(false)
+const hintSaved = ref(false)
 
 const HINT_STATUSES = ['待確認', '已確認', '已取貨', '已取消']
-const hintBadgeClass = (s) => ({
-  '待確認': 'bg-amber-100 text-amber-700',
-  '已確認': 'bg-emerald-100 text-emerald-700',
-  '已取貨': 'bg-teal-100 text-teal-700',
-  '已取消': 'bg-red-100 text-red-500',
+const hintBadgeClass = s => ({
+  待確認: 'bg-amber-100 text-amber-700',
+  已確認: 'bg-emerald-100 text-emerald-700',
+  已取貨: 'bg-teal-100 text-teal-700',
+  已取消: 'bg-red-100 text-red-500'
 }[s] || 'bg-surface2 text-hint-c')
 
 const hints = ref({
-  '待確認': '我們已收到您的預約，將盡快來電確認。',
-  '已確認': '訂單已確認，請於取貨日前來取貨！',
-  '已取貨': '感謝您的訂購，歡迎再次訂購！',
-  '已取消': '此筆訂單已取消，歡迎再次訂購。',
+  待確認: '我們已收到您的預約，將盡快來電確認。',
+  已確認: '訂單已確認，請於取貨日前來取貨！',
+  已取貨: '感謝您的訂購，歡迎再次訂購！',
+  已取消: '此筆訂單已取消，歡迎再次訂購。'
 })
 
 const fetchHints = async () => {
   try {
-    const res  = await fetch(`${BASE.value}/settings/hints`, {credentials: 'include'})
+    const res = await fetch(`${BASE.value}/settings/hints`, { credentials: 'include' })
     const data = await res.json()
     if (!data.error) Object.assign(hints.value, data)
   } catch {}
@@ -461,13 +461,13 @@ const fetchHints = async () => {
 
 const saveHints = async () => {
   hintSaving.value = true
-  hintSaved.value  = false
+  hintSaved.value = false
   try {
-    const res  = await fetch(`${BASE.value}/settings/hints`, {
+    const res = await fetch(`${BASE.value}/settings/hints`, {
       method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(hints.value),
+      body: JSON.stringify(hints.value)
     })
     const data = await res.json()
     if (data.error) { alert('儲存失敗：' + data.error); return }
@@ -481,14 +481,14 @@ const saveHints = async () => {
 }
 
 // ── 休息日設定 ────────────────────────────────────────────────────
-const closedDates = ref([])          // ['2026-06-17', '2026-06-24']
-const closedDateInput = ref('')      // 新增輸入框
+const closedDates = ref([]) // ['2026-06-17', '2026-06-24']
+const closedDateInput = ref('') // 新增輸入框
 const closedSaving = ref(false)
-const closedSaved  = ref(false)
+const closedSaved = ref(false)
 
 const fetchClosedDates = async () => {
   try {
-    const res  = await fetch(`${BASE.value}/admin/settings/closed-dates`, { credentials: 'include' })
+    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, { credentials: 'include' })
     const data = await res.json()
     closedDates.value = Array.isArray(data.closedDates) ? data.closedDates : []
   } catch {}
@@ -500,11 +500,11 @@ const addClosedDate = async () => {
   if (closedDates.value.includes(d)) { alert('此日期已在休息日清單中'); return }
   closedSaving.value = true
   try {
-    const res  = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
+    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ date: d }),
+      body: JSON.stringify({ date: d })
     })
     const data = await res.json()
     if (data.error) { alert('新增失敗：' + data.error); return }
@@ -518,11 +518,11 @@ const addClosedDate = async () => {
 const removeClosedDate = async (date) => {
   closedSaving.value = true
   try {
-    const res  = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
+    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ date }),
+      body: JSON.stringify({ date })
     })
     const data = await res.json()
     if (data.error) { alert('刪除失敗：' + data.error); return }
@@ -533,8 +533,8 @@ const removeClosedDate = async (date) => {
 // 格式化休息日顯示：2026-06-17 → 06/17（週三）
 function formatClosedDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
-  const weekDay = ['日','一','二','三','四','五','六'][d.getDay()]
-  return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}（週${weekDay}）`
+  const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（週${weekDay}）`
 }
 
 // 是否為休息日（用於訂單列表標記）
@@ -576,9 +576,9 @@ function onPickupDateChange() {
 }
 
 function pickCreateCustomer(name) {
-  createForm.value.name    = name
+  createForm.value.name = name
   createForm.value.contact = knownCustomers.value.get(name) || createForm.value.contact
-  showCreateSuggest.value  = false
+  showCreateSuggest.value = false
 }
 
 function onEditPickupDateChange() {
@@ -607,27 +607,27 @@ const editModal = ref({ show: false, submitting: false, orderId: '', orderMonth:
 const editForm = ref({
   name: '', contact: '', pickupDay: 'tue', pickupDate: '',
   soymilkItems: [newSoymilkItem()], tofuQty: 0,
-  remark: '', status: '待確認',
+  remark: '', status: '待確認'
 })
 
 const openEditModal = (order) => {
   const raw = normalizeSoymilkItems(order)
   const soymilkItems = raw.length > 0
     ? raw.map(i => ({
-      volume: PRESET_VOLS.includes(i.volume) ? i.volume : -1,
-      customVolume: PRESET_VOLS.includes(i.volume) ? 0 : i.volume,
-      qty: i.qty || 1,
-    }))
+        volume: PRESET_VOLS.includes(i.volume) ? i.volume : -1,
+        customVolume: PRESET_VOLS.includes(i.volume) ? 0 : i.volume,
+        qty: i.qty || 1
+      }))
     : [newSoymilkItem()]
   editForm.value = {
-    name:         order.name      || '',
-    contact:      order.contact   || '',
-    pickupDay:    order.pickupDay || 'tue',
-    pickupDate:   order.pickupDate || '',
+    name: order.name || '',
+    contact: order.contact || '',
+    pickupDay: order.pickupDay || 'tue',
+    pickupDate: order.pickupDate || '',
     soymilkItems,
-    tofuQty:      order.tofuQty  || 0,
-    remark:       order.remark   || '',
-    status:       order.status   || '待確認',
+    tofuQty: order.tofuQty || 0,
+    remark: order.remark || '',
+    status: order.status || '待確認'
   }
   editModal.value = { show: true, submitting: false, orderId: order.id, orderMonth: order.month }
 }
@@ -638,7 +638,7 @@ const closeEditModal = () => {
 
 const submitEdit = async () => {
   const f = editForm.value
-  if (!f.name.trim())    { alert('請輸入姓名'); return }
+  if (!f.name.trim()) { alert('請輸入姓名'); return }
   if (!f.contact.trim()) { alert('請輸入聯絡方式'); return }
   const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
   if (!hasSoymilk && f.tofuQty === 0) { alert('請選擇豆漿或豆腐數量'); return }
@@ -649,16 +649,16 @@ const submitEdit = async () => {
       .filter(i => i.qty > 0)
       .map(i => ({ volume: resolveVol(i), qty: i.qty }))
     const payload = {
-      name:          f.name.trim(),
-      contact:       f.contact.trim(),
-      pickupDay:     f.pickupDay,
+      name: f.name.trim(),
+      contact: f.contact.trim(),
+      pickupDay: f.pickupDay,
       soymilkItems,
-      soymilkQty:    soymilkItems.reduce((s, i) => s + i.qty, 0),
+      soymilkQty: soymilkItems.reduce((s, i) => s + i.qty, 0),
       soymilkVolume: soymilkItems.length === 1 ? soymilkItems[0].volume : 0,
-      tofuQty:       f.tofuQty,
-      remark:        f.remark.trim(),
-      status:        f.status,
-      pickupDate:    f.pickupDate || '',
+      tofuQty: f.tofuQty,
+      remark: f.remark.trim(),
+      status: f.status,
+      pickupDate: f.pickupDate || ''
     }
     const res = await fetch(
       `${BASE.value}/admin/order/${editModal.value.orderMonth}/${editModal.value.orderId}`,
@@ -679,57 +679,143 @@ const submitEdit = async () => {
 
 <template>
   <div class="min-h-full bg-surface2 transition-colors">
-
     <!-- Header -->
     <header class="bg-surface border-b border-light-c px-4 py-3">
       <div class="max-w-6xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-            <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
-            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
-            <line x1="6" y1="1" x2="6" y2="4"/>
-            <line x1="10" y1="1" x2="10" y2="4"/>
-            <line x1="14" y1="1" x2="14" y2="4"/>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="w-4 h-4"
+          >
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+            <line
+              x1="6"
+              y1="1"
+              x2="6"
+              y2="4"
+            />
+            <line
+              x1="10"
+              y1="1"
+              x2="10"
+              y2="4"
+            />
+            <line
+              x1="14"
+              y1="1"
+              x2="14"
+              y2="4"
+            />
           </svg>
         </div>
-        <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">豆製品訂購管理</h1>
+        <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">
+          豆製品訂購管理
+        </h1>
         <div class="flex items-center gap-1.5 sm:gap-2 ml-auto flex-wrap justify-end">
           <!-- 月份選擇 -->
-          <select v-model="selectedMonth" @change="fetchData"
-                  class="px-2 py-1.5 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500 text-xs sm:text-sm">
-            <option v-for="o in monthOptions" :key="o.val" :value="o.val">{{ o.label }}</option>
+          <select
+            v-model="selectedMonth"
+            class="px-2 py-1.5 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500 text-xs sm:text-sm"
+            @change="fetchData"
+          >
+            <option
+              v-for="o in monthOptions"
+              :key="o.val"
+              :value="o.val"
+            >
+              {{ o.label }}
+            </option>
           </select>
           <!-- 客戶訂單連結 -->
-          <a href="https://holyfarm.netlify.app/front/order/soybeans?og=20" target="_blank"
-             class="flex items-center gap-1 px-2 py-1.5 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors text-xs">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+          <a
+            href="https://holyfarm.netlify.app/front/order/soybeans?og=20"
+            target="_blank"
+            class="flex items-center gap-1 px-2 py-1.5 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors text-xs"
+          >
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
             </svg>
             <span class="hidden sm:inline">訂購連結</span>
           </a>
           <!-- 新增訂單按鈕 -->
-          <button @click="openCreateModal"
-                  class="flex items-center gap-1 px-2.5 py-1.5 border border-emerald-600 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors text-xs font-semibold">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+          <button
+            class="flex items-center gap-1 px-2.5 py-1.5 border border-emerald-600 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors text-xs font-semibold"
+            @click="openCreateModal"
+          >
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.5"
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             新增訂單
           </button>
           <!-- 設定按鈕 -->
-          <button @click="showHintSettings = !showHintSettings"
-                  :class="showHintSettings ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c border-light-c'"
-                  class="flex items-center gap-1 px-2 py-1.5 border rounded-lg transition-colors text-xs">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-              <circle cx="12" cy="12" r="3"/>
+          <button
+            :class="showHintSettings ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c border-light-c'"
+            class="flex items-center gap-1 px-2 py-1.5 border rounded-lg transition-colors text-xs"
+            @click="showHintSettings = !showHintSettings"
+          >
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="3"
+              />
             </svg>
             <span class="hidden sm:inline">設定</span>
           </button>
           <!-- 重新整理 -->
-          <button @click="fetchData" :disabled="loading"
-                  class="flex items-center gap-1 px-2 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors text-xs">
-            <svg :class="['w-3.5 h-3.5', loading && 'animate-spin']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          <button
+            :disabled="loading"
+            class="flex items-center gap-1 px-2 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors text-xs"
+            @click="fetchData"
+          >
+            <svg
+              :class="['w-3.5 h-3.5', loading && 'animate-spin']"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             <span class="hidden sm:inline">{{ loading ? '載入中…' : '重新整理' }}</span>
           </button>
@@ -739,27 +825,54 @@ const submitEdit = async () => {
 
     <!-- 內容區 -->
     <div class="max-w-6xl mx-auto px-3 sm:px-4 py-4">
-
       <!-- ── 提示訊息設定面板 ── -->
       <Transition name="hint-panel">
-        <div v-if="showHintSettings"
-             class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden">
+        <div
+          v-if="showHintSettings"
+          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+        >
           <div class="flex items-center justify-between px-4 py-3 border-b border-light-c">
             <div class="flex items-center gap-2">
-              <svg class="w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+              <svg
+                class="w-4 h-4 text-hint-c"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                />
               </svg>
               <span class="text-sm font-semibold text-base-c">前台提示訊息設定</span>
               <span class="text-xs text-hint-c">（客戶在「我的紀錄」看到的說明文字）</span>
             </div>
-            <button @click="showHintSettings = false" class="text-hint-c hover:text-hint-c transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            <button
+              class="text-hint-c hover:text-hint-c transition-colors"
+              @click="showHintSettings = false"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
           <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div v-for="s in HINT_STATUSES" :key="s">
+            <div
+              v-for="s in HINT_STATUSES"
+              :key="s"
+            >
               <label class="flex items-center gap-2 mb-1.5">
                 <span :class="['inline-block px-2 py-0.5 rounded-full text-xs font-semibold', hintBadgeClass(s)]">{{ s }}</span>
                 <span class="text-xs text-hint-c">顯示訊息</span>
@@ -769,18 +882,45 @@ const submitEdit = async () => {
                 rows="2"
                 class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500 resize-none font-sans leading-relaxed"
                 :placeholder="'「' + s + '」狀態的提示訊息'"
-              ></textarea>
+              />
             </div>
           </div>
           <div class="px-4 pb-4 flex items-center gap-3">
-            <button @click="saveHints" :disabled="hintSaving"
-                    class="flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors">
-              <svg v-if="hintSaving" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg>
+            <button
+              :disabled="hintSaving"
+              class="flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors"
+              @click="saveHints"
+            >
+              <svg
+                v-if="hintSaving"
+                class="w-3.5 h-3.5 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              ><circle
+                cx="12"
+                cy="12"
+                r="10"
+              /></svg>
               {{ hintSaving ? '儲存中…' : '儲存設定' }}
             </button>
             <Transition name="fade">
-              <span v-if="hintSaved" class="text-sm text-emerald-600 flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12"/></svg>
+              <span
+                v-if="hintSaved"
+                class="text-sm text-emerald-600 flex items-center gap-1"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><polyline
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  points="20 6 9 17 4 12"
+                /></svg>
                 已儲存
               </span>
             </Transition>
@@ -790,11 +930,23 @@ const submitEdit = async () => {
 
       <!-- ── 休息日設定面板 ── -->
       <Transition name="hint-panel">
-        <div v-if="showHintSettings"
-             class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden">
+        <div
+          v-if="showHintSettings"
+          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+        >
           <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-            <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            <svg
+              class="w-4 h-4 text-red-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+              />
             </svg>
             <span class="text-sm font-semibold text-base-c">休息日設定</span>
             <span class="text-xs text-hint-c">（設定後客戶無法訂購該取貨日）</span>
@@ -802,40 +954,101 @@ const submitEdit = async () => {
           <div class="p-4">
             <!-- 新增輸入 -->
             <div class="flex gap-2 mb-3">
-              <input v-model="closedDateInput" type="date"
-                     class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-400"/>
-              <button @click="addClosedDate" :disabled="closedSaving || !closedDateInput"
-                      class="flex items-center gap-1 px-3 py-2 bg-red-500 text-white text-sm rounded-xl hover:bg-red-600 disabled:opacity-40 transition-colors font-medium whitespace-nowrap">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+              <input
+                v-model="closedDateInput"
+                type="date"
+                class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-400"
+              >
+              <button
+                :disabled="closedSaving || !closedDateInput"
+                class="flex items-center gap-1 px-3 py-2 bg-red-500 text-white text-sm rounded-xl hover:bg-red-600 disabled:opacity-40 transition-colors font-medium whitespace-nowrap"
+                @click="addClosedDate"
+              >
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
                 新增
               </button>
             </div>
 
             <!-- 休息日清單 -->
-            <div v-if="closedDates.length === 0" class="text-xs text-hint-c py-2 text-center">
+            <div
+              v-if="closedDates.length === 0"
+              class="text-xs text-hint-c py-2 text-center"
+            >
               尚未設定任何休息日
             </div>
-            <div v-else class="flex flex-wrap gap-2">
-              <div v-for="d in closedDates.slice().sort()" :key="d"
-                   class="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-xs">
-                <svg class="w-3 h-3 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            <div
+              v-else
+              class="flex flex-wrap gap-2"
+            >
+              <div
+                v-for="d in closedDates.slice().sort()"
+                :key="d"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-xs"
+              >
+                <svg
+                  class="w-3 h-3 text-red-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
                 </svg>
                 <span class="text-red-700 dark:text-red-300 font-medium">{{ formatClosedDate(d) }}</span>
-                <button @click="removeClosedDate(d)" :disabled="closedSaving"
-                        class="ml-0.5 text-red-400 hover:text-red-600 disabled:opacity-40 transition-colors">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                <button
+                  :disabled="closedSaving"
+                  class="ml-0.5 text-red-400 hover:text-red-600 disabled:opacity-40 transition-colors"
+                  @click="removeClosedDate(d)"
+                >
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2.5"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
             </div>
 
             <Transition name="fade">
-              <p v-if="closedSaved" class="mt-2 text-xs text-emerald-600 flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12"/></svg>
+              <p
+                v-if="closedSaved"
+                class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
+              >
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><polyline
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  points="20 6 9 17 4 12"
+                /></svg>
                 已更新
               </p>
             </Transition>
@@ -844,32 +1057,60 @@ const submitEdit = async () => {
       </Transition>
       <!-- ── 營業日設定面板 ── -->
       <Transition name="hint-panel">
-        <div v-if="showHintSettings"
-             class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden">
+        <div
+          v-if="showHintSettings"
+          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+        >
           <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-            <svg class="w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            <svg
+              class="w-4 h-4 text-hint-c"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
             </svg>
             <span class="text-sm font-semibold text-base-c">營業日設定</span>
             <span class="text-xs text-hint-c">（決定每週固定接單的星期，目前：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
           </div>
           <div class="p-4">
             <div class="flex items-center gap-2 flex-wrap">
-              <button v-for="dow in [1,2,3,4,5,6,7]" :key="dow"
-                      @click="businessDays.includes(dow)
-                        ? saveBusinessDays(businessDays.filter(d => d !== dow))
-                        : saveBusinessDays([...businessDays, dow].sort())"
-                      :disabled="businessDaysSaving"
-                      :class="businessDays.includes(dow)
- ? 'bg-accent-solid text-white'
- : 'bg-surface text-hint-c border-light-c'"
-                      class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50">
+              <button
+                v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
+                :key="dow"
+                :disabled="businessDaysSaving"
+                :class="businessDays.includes(dow)
+                  ? 'bg-accent-solid text-white'
+                  : 'bg-surface text-hint-c border-light-c'"
+                class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
+                @click="businessDays.includes(dow)
+                  ? saveBusinessDays(businessDays.filter(d => d !== dow))
+                  : saveBusinessDays([...businessDays, dow].sort())"
+              >
                 {{ DOW_LABEL[dow] }}
               </button>
             </div>
             <Transition name="fade">
-              <p v-if="businessDaysSaved" class="mt-2 text-xs text-emerald-600 flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12"/></svg>
+              <p
+                v-if="businessDaysSaved"
+                class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
+              >
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><polyline
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  points="20 6 9 17 4 12"
+                /></svg>
                 已更新
               </p>
             </Transition>
@@ -882,101 +1123,199 @@ const submitEdit = async () => {
           <span class="text-base font-extrabold text-base-c">{{ orders.length }}</span>
           <span class="text-xs text-hint-c">筆</span>
         </div>
-        <div class="w-px h-4 bg-surface2 mx-1"></div>
+        <div class="w-px h-4 bg-surface2 mx-1" />
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-green-600">豆漿</span>
           <span class="text-base font-extrabold text-green-700">{{ totalSoymilk }}</span>
           <span class="text-xs text-green-500">袋</span>
         </div>
-        <div class="w-px h-4 bg-surface2 mx-1"></div>
+        <div class="w-px h-4 bg-surface2 mx-1" />
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-amber-600">豆腐</span>
           <span class="text-base font-extrabold text-amber-600">{{ totalTofu }}</span>
           <span class="text-xs text-amber-500">塊</span>
         </div>
-        <div v-if="lastUpdated" class="ml-auto text-xs text-hint-c whitespace-nowrap">更新 {{ lastUpdated }}</div>
+        <div
+          v-if="lastUpdated"
+          class="ml-auto text-xs text-hint-c whitespace-nowrap"
+        >
+          更新 {{ lastUpdated }}
+        </div>
       </div>
 
       <!-- 篩選列 -->
       <div class="bg-surface border border-light-c rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-hint-c whitespace-nowrap">取貨日</span>
-          <button @click="filterDay = ''" :class="['filter-chip', { active: filterDay === '' }]">全部</button>
-          <button v-for="opt in businessDayOptions" :key="opt.code"
-                  @click="filterDay = opt.code" :class="['filter-chip', { active: filterDay === opt.code }]">
+          <button
+            :class="['filter-chip', { active: filterDay === '' }]"
+            @click="filterDay = ''"
+          >
+            全部
+          </button>
+          <button
+            v-for="opt in businessDayOptions"
+            :key="opt.code"
+            :class="['filter-chip', { active: filterDay === opt.code }]"
+            @click="filterDay = opt.code"
+          >
             {{ opt.label }}
           </button>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-hint-c whitespace-nowrap">狀態</span>
-          <button @click="filterStatus = ''" :class="['filter-chip', { active: filterStatus === '' }]">全部</button>
-          <button v-for="s in STATUSES" :key="s" @click="filterStatus = s" :class="['filter-chip', { active: filterStatus === s }]">{{ s }}</button>
+          <button
+            :class="['filter-chip', { active: filterStatus === '' }]"
+            @click="filterStatus = ''"
+          >
+            全部
+          </button>
+          <button
+            v-for="s in STATUSES"
+            :key="s"
+            :class="['filter-chip', { active: filterStatus === s }]"
+            @click="filterStatus = s"
+          >
+            {{ s }}
+          </button>
         </div>
-        <div v-if="filterDay || filterStatus" class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap">
+        <div
+          v-if="filterDay || filterStatus"
+          class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap"
+        >
           篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong> 塊（{{ filteredOrders.length }} 筆）
         </div>
       </div>
 
       <!-- 訂單列表（按日期分組） -->
-      <div v-if="loading && orders.length === 0" class="text-center py-16 text-hint-c text-sm">載入中…</div>
-      <div v-else-if="filteredOrders.length === 0"
-           class="text-center py-16 text-hint-c text-sm border-2 border-dashed border-light-c rounded-2xl">
+      <div
+        v-if="loading && orders.length === 0"
+        class="text-center py-16 text-hint-c text-sm"
+      >
+        載入中…
+      </div>
+      <div
+        v-else-if="filteredOrders.length === 0"
+        class="text-center py-16 text-hint-c text-sm border-2 border-dashed border-light-c rounded-2xl"
+      >
         本月尚無訂購紀錄
       </div>
       <template v-else>
-        <div v-for="group in groupedOrders" :key="group.date" class="mb-4">
+        <div
+          v-for="group in groupedOrders"
+          :key="group.date"
+          class="mb-4"
+        >
           <!-- 日期分隔標題 -->
           <div class="flex items-center gap-2 mb-2">
             <span class="text-xs font-bold text-hint-c whitespace-nowrap">{{ group.dateLabel }}</span>
-            <span v-if="isClosedDate(group.date)"
-                  class="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            <span
+              v-if="isClosedDate(group.date)"
+              class="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium"
+            >
+              <svg
+                class="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                />
               </svg>
               休息日
             </span>
-            <div class="flex-1 h-px bg-surface2 dark:bg-surface2"></div>
+            <div class="flex-1 h-px bg-surface2 dark:bg-surface2" />
             <div class="flex items-center gap-2 text-xs whitespace-nowrap">
-              <span v-if="group.soymilk" class="text-green-700 font-semibold">豆漿 {{ group.soymilkMl }}ml<span class="text-hint-c font-normal text-xs">（{{ group.soymilk }} 袋）</span></span>
-              <span v-if="group.soymilk && group.tofu" class="text-hint-c">／</span>
-              <span v-if="group.tofu" class="text-amber-600 font-semibold">豆腐 {{ group.tofu }} 塊</span>
+              <span
+                v-if="group.soymilk"
+                class="text-green-700 font-semibold"
+              >豆漿 {{ group.soymilkMl }}ml<span class="text-hint-c font-normal text-xs">（{{ group.soymilk }} 袋）</span></span>
+              <span
+                v-if="group.soymilk && group.tofu"
+                class="text-hint-c"
+              >／</span>
+              <span
+                v-if="group.tofu"
+                class="text-amber-600 font-semibold"
+              >豆腐 {{ group.tofu }} 塊</span>
               <span class="text-hint-c">{{ group.orders.length }} 筆</span>
             </div>
           </div>
 
           <!-- 手機：卡片列表 -->
           <div class="flex flex-col gap-2 sm:hidden">
-            <div v-for="o in group.orders" :key="o.id"
-                 class="bg-surface border border-light-c rounded-2xl px-4 py-3 shadow-sm"
-                 :class="{ 'opacity-40': o.status === '已取消' }">
+            <div
+              v-for="o in group.orders"
+              :key="o.id"
+              class="bg-surface border border-light-c rounded-2xl px-4 py-3 shadow-sm"
+              :class="{ 'opacity-40': o.status === '已取消' }"
+            >
               <!-- 頂行：姓名 + 狀態 + 操作 -->
               <div class="flex items-center gap-2 mb-2">
                 <span class="font-bold text-base-c text-sm flex-1">{{ o.name }}</span>
                 <span :class="statusClass(o.status)">{{ o.status }}</span>
-                <button @click="openEditModal(o)" :disabled="updatingId === o.id"
-                        class="p-1.5 rounded-lg border border-blue-200 dark:border-blue-900 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                <button
+                  :disabled="updatingId === o.id"
+                  class="p-1.5 rounded-lg border border-blue-200 dark:border-blue-900 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 transition-colors"
+                  @click="openEditModal(o)"
+                >
+                  <svg
+                    class="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
                   </svg>
                 </button>
-                <button @click="openDeleteModal(o)" :disabled="updatingId === o.id"
-                        class="p-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                <button
+                  :disabled="updatingId === o.id"
+                  class="p-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 transition-colors"
+                  @click="openDeleteModal(o)"
+                >
+                  <svg
+                    class="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
                   </svg>
                 </button>
               </div>
               <!-- 中間：品項資訊 -->
               <div class="flex items-center gap-3 mb-2 flex-wrap">
-                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                      :class="colorForCode(o.pickupDay).bg">
+                <span
+                  class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                  :class="colorForCode(o.pickupDay).bg"
+                >
                   {{ pickupLabel(o) }}
                 </span>
-                <span v-if="normalizeSoymilkItems(o).length" class="text-sm font-semibold text-green-700">
+                <span
+                  v-if="normalizeSoymilkItems(o).length"
+                  class="text-sm font-semibold text-green-700"
+                >
                   豆漿 {{ totalSoymilkQty(normalizeSoymilkItems(o)) }} 袋
                   <span class="text-xs text-hint-c font-normal">（{{ soymilkItemsLabel(o) }}）</span>
                 </span>
-                <span v-if="o.tofuQty" class="text-sm font-semibold text-amber-600">
+                <span
+                  v-if="o.tofuQty"
+                  class="text-sm font-semibold text-amber-600"
+                >
                   豆腐 {{ o.tofuQty }} 塊
                 </span>
                 <span class="text-sm font-bold text-base-c ml-auto">
@@ -986,8 +1325,14 @@ const submitEdit = async () => {
               <!-- 底行：聯絡 + 備註 + 時間 -->
               <div class="flex items-center gap-2 text-xs text-hint-c flex-wrap">
                 <span>{{ o.contact }}</span>
-                <span v-if="o.remark" class="text-hint-c">｜</span>
-                <span v-if="o.remark" class="text-hint-c truncate max-w-[120px]">{{ o.remark }}</span>
+                <span
+                  v-if="o.remark"
+                  class="text-hint-c"
+                >｜</span>
+                <span
+                  v-if="o.remark"
+                  class="text-hint-c truncate max-w-[120px]"
+                >{{ o.remark }}</span>
                 <span class="ml-auto text-hint-c">{{ formatCreatedAt(o.createdAt) }}</span>
               </div>
             </div>
@@ -998,83 +1343,156 @@ const submitEdit = async () => {
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead class="bg-surface2 /50 border-b border-light-c">
-                <tr>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">訂購時間</th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">姓名</th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">聯絡</th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">取貨日</th>
-                  <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">豆漿</th>
-                  <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">豆腐</th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">金額</th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">備註</th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">狀態</th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">操作</th>
-                </tr>
+                  <tr>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      訂購時間
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      姓名
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      聯絡
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      取貨日
+                    </th>
+                    <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
+                      豆漿
+                    </th>
+                    <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
+                      豆腐
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      金額
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      備註
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      狀態
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      操作
+                    </th>
+                  </tr>
                 </thead>
                 <tbody class="divide-y divide-base">
-                <tr v-for="o in group.orders" :key="o.id"
+                  <tr
+                    v-for="o in group.orders"
+                    :key="o.id"
                     class="hover-surface2/30 transition-colors"
-                    :class="{ 'opacity-40': o.status === '已取消' }">
-                  <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">{{ formatCreatedAt(o.createdAt) }}</td>
-                  <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">{{ o.name }}</td>
-                  <td class="px-3 py-2.5 text-xs text-hint-c">{{ o.contact }}</td>
-                  <td class="px-3 py-2.5">
-                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                          :class="colorForCode(o.pickupDay).bg">
-                      {{ pickupLabel(o) }}
-                    </span>
-                  </td>
-                  <td class="px-3 py-2.5">
-                    <div v-if="normalizeSoymilkItems(o).length" class="text-xs text-green-700 font-semibold space-y-0.5">
-                      <div v-for="(item, idx) in normalizeSoymilkItems(o)" :key="idx" class="whitespace-nowrap">
-                        {{ item.volume }}ml × {{ item.qty }}
+                    :class="{ 'opacity-40': o.status === '已取消' }"
+                  >
+                    <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">
+                      {{ formatCreatedAt(o.createdAt) }}
+                    </td>
+                    <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">
+                      {{ o.name }}
+                    </td>
+                    <td class="px-3 py-2.5 text-xs text-hint-c">
+                      {{ o.contact }}
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <span
+                        class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                        :class="colorForCode(o.pickupDay).bg"
+                      >
+                        {{ pickupLabel(o) }}
+                      </span>
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <div
+                        v-if="normalizeSoymilkItems(o).length"
+                        class="text-xs text-green-700 font-semibold space-y-0.5"
+                      >
+                        <div
+                          v-for="(item, idx) in normalizeSoymilkItems(o)"
+                          :key="idx"
+                          class="whitespace-nowrap"
+                        >
+                          {{ item.volume }}ml × {{ item.qty }}
+                        </div>
                       </div>
-                    </div>
-                    <span v-else class="text-hint-c text-xs">—</span>
-                  </td>
-                  <td class="px-3 py-2.5 text-center">
-                    <span v-if="o.tofuQty" class="font-semibold text-amber-600 text-xs">{{ o.tofuQty }} 塊</span>
-                    <span v-else class="text-hint-c text-xs">—</span>
-                  </td>
-                  <td class="px-3 py-2.5 font-semibold text-base-c text-xs whitespace-nowrap">
-                    ${{ calcTotal(o) }}
-                  </td>
-                  <td class="px-3 py-2.5 text-xs text-hint-c max-w-[100px] truncate">{{ o.remark || '—' }}</td>
-                  <td class="px-3 py-2.5"><span :class="statusClass(o.status)">{{ o.status }}</span></td>
-                  <td class="px-3 py-2.5">
-                    <div class="flex gap-1 flex-wrap">
-                      <button :disabled="updatingId === o.id" @click="openEditModal(o)"
-                              class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-surface text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
-                        編輯
-                      </button>
-                      <button :disabled="updatingId === o.id" @click="openDeleteModal(o)"
-                              class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap">
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                      <span
+                        v-else
+                        class="text-hint-c text-xs"
+                      >—</span>
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                      <span
+                        v-if="o.tofuQty"
+                        class="font-semibold text-amber-600 text-xs"
+                      >{{ o.tofuQty }} 塊</span>
+                      <span
+                        v-else
+                        class="text-hint-c text-xs"
+                      >—</span>
+                    </td>
+                    <td class="px-3 py-2.5 font-semibold text-base-c text-xs whitespace-nowrap">
+                      ${{ calcTotal(o) }}
+                    </td>
+                    <td class="px-3 py-2.5 text-xs text-hint-c max-w-[100px] truncate">
+                      {{ o.remark || '—' }}
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <span :class="statusClass(o.status)">{{ o.status }}</span>
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <div class="flex gap-1 flex-wrap">
+                        <button
+                          :disabled="updatingId === o.id"
+                          class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-surface text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                          @click="openEditModal(o)"
+                        >
+                          編輯
+                        </button>
+                        <button
+                          :disabled="updatingId === o.id"
+                          class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                          @click="openDeleteModal(o)"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       </template>
-
     </div>
 
     <!-- 新增訂單 Modal -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="createModal.show"
-             class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
-             @click.self="closeCreateModal">
+        <div
+          v-if="createModal.show"
+          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+          @click.self="closeCreateModal"
+        >
           <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
-              <h3 class="font-bold text-base-c text-base">新增訂單</h3>
-              <button @click="closeCreateModal" class="text-hint-c hover:text-hint-c transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              <h3 class="font-bold text-base-c text-base">
+                新增訂單
+              </h3>
+              <button
+                class="text-hint-c hover:text-hint-c transition-colors"
+                @click="closeCreateModal"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -1085,18 +1503,27 @@ const submitEdit = async () => {
                 <div>
                   <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span class="text-red-400">*</span></label>
                   <div class="relative">
-                    <input v-model="createForm.name" type="text" placeholder="訂購人姓名"
-                           autocomplete="off"
-                           @input="onCreateNameInput"
-                           @blur="setTimeout(() => showCreateSuggest = false, 150)"
-                           @focus="onCreateNameInput"
-                           class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"/>
+                    <input
+                      v-model="createForm.name"
+                      type="text"
+                      placeholder="訂購人姓名"
+                      autocomplete="off"
+                      class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
+                      @input="onCreateNameInput"
+                      @blur="setTimeout(() => showCreateSuggest = false, 150)"
+                      @focus="onCreateNameInput"
+                    >
                     <!-- 建議下拉 -->
-                    <div v-if="showCreateSuggest"
-                         class="absolute top-full left-0 right-0 mt-1 bg-surface border border-light-c rounded-xl shadow-lg z-50 overflow-hidden">
-                      <button v-for="n in createNameSuggest" :key="n"
-                              @mousedown.prevent="pickCreateCustomer(n)"
-                              class="w-full text-left px-3 py-2 text-sm text-base-c hover:bg-green-50 flex items-center justify-between gap-2 border-b border-light-c last:border-0">
+                    <div
+                      v-if="showCreateSuggest"
+                      class="absolute top-full left-0 right-0 mt-1 bg-surface border border-light-c rounded-xl shadow-lg z-50 overflow-hidden"
+                    >
+                      <button
+                        v-for="n in createNameSuggest"
+                        :key="n"
+                        class="w-full text-left px-3 py-2 text-sm text-base-c hover:bg-green-50 flex items-center justify-between gap-2 border-b border-light-c last:border-0"
+                        @mousedown.prevent="pickCreateCustomer(n)"
+                      >
                         <span class="font-medium">{{ n }}</span>
                         <span class="text-xs text-hint-c truncate max-w-[80px]">{{ knownCustomers.get(n) }}</span>
                       </button>
@@ -1105,8 +1532,12 @@ const submitEdit = async () => {
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-hint-c mb-1">聯絡方式 <span class="text-red-400">*</span></label>
-                  <input v-model="createForm.contact" type="text" placeholder="電話或 Line"
-                         class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"/>
+                  <input
+                    v-model="createForm.contact"
+                    type="text"
+                    placeholder="電話或 Line"
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
+                  >
                 </div>
               </div>
 
@@ -1114,25 +1545,33 @@ const submitEdit = async () => {
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1.5">
                   取貨日
-                  <span v-if="createForm.pickupDate" class="text-hint-c font-normal">（由自訂日期決定）</span>
+                  <span
+                    v-if="createForm.pickupDate"
+                    class="text-hint-c font-normal"
+                  >（由自訂日期決定）</span>
                 </label>
                 <div class="flex gap-2">
-                  <button v-for="opt in businessDayOptions" :key="opt.code"
-                          @click="!createForm.pickupDate && (createForm.pickupDay = opt.code)"
-                          :disabled="!!createForm.pickupDate || isClosedDate(nextPickupDateFromNow(opt.code))"
-                          :class="[
- createForm.pickupDate
- ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
- : isClosedDate(nextPickupDateFromNow(opt.code))
- ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
- : createForm.pickupDay === opt.code
- ? opt.color.active
- : 'bg-surface text-muted-c border-light-c'
- ]"
-                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium relative">
+                  <button
+                    v-for="opt in businessDayOptions"
+                    :key="opt.code"
+                    :disabled="!!createForm.pickupDate || isClosedDate(nextPickupDateFromNow(opt.code))"
+                    :class="[
+                      createForm.pickupDate
+                        ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
+                        : isClosedDate(nextPickupDateFromNow(opt.code))
+                          ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
+                          : createForm.pickupDay === opt.code
+                            ? opt.color.active
+                            : 'bg-surface text-muted-c border-light-c'
+                    ]"
+                    class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium relative"
+                    @click="!createForm.pickupDate && (createForm.pickupDay = opt.code)"
+                  >
                     <div>{{ pickupDateLabel(opt.code) }}</div>
-                    <span v-if="isClosedDate(nextPickupDateFromNow(opt.code))"
-                          class="text-xs font-normal text-red-400">休息日</span>
+                    <span
+                      v-if="isClosedDate(nextPickupDateFromNow(opt.code))"
+                      class="text-xs font-normal text-red-400"
+                    >休息日</span>
                   </button>
                 </div>
               </div>
@@ -1143,56 +1582,104 @@ const submitEdit = async () => {
                   自訂取貨日期
                   <span class="text-hint-c font-normal">（不填則自動取當週設定的營業日）</span>
                 </label>
-                <input v-model="createForm.pickupDate" type="date"
-                       @change="onPickupDateChange"
-                       class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"/>
+                <input
+                  v-model="createForm.pickupDate"
+                  type="date"
+                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
+                  @change="onPickupDateChange"
+                >
               </div>
 
               <!-- 豆漿容量（多組） -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label class="text-xs font-medium text-hint-c">豆漿（可多種容量）</label>
-                  <button @click="addSoymilkItem(createForm)"
-                          class="flex items-center gap-1 text-xs text-green-700 hover:text-green-800 font-medium">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                  <button
+                    class="flex items-center gap-1 text-xs text-green-700 hover:text-green-800 font-medium"
+                    @click="addSoymilkItem(createForm)"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.5"
+                        d="M12 4v16m8-8H4"
+                      />
                     </svg>
                     新增容量
                   </button>
                 </div>
                 <div class="space-y-2">
-                  <div v-for="(item, idx) in createForm.soymilkItems" :key="idx"
-                       class="bg-surface2 rounded-xl p-3">
+                  <div
+                    v-for="(item, idx) in createForm.soymilkItems"
+                    :key="idx"
+                    class="bg-surface2 rounded-xl p-3"
+                  >
                     <!-- 容量選擇 -->
                     <div class="flex items-center gap-1.5 flex-wrap mb-2">
-                      <button v-for="v in PRESET_VOLS" :key="v"
-                              @click="item.volume = v"
-                              :class="item.volume === v ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                              class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium">
+                      <button
+                        v-for="v in PRESET_VOLS"
+                        :key="v"
+                        :class="item.volume === v ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
+                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
+                        @click="item.volume = v"
+                      >
                         {{ v }}ml
                       </button>
-                      <button @click="item.volume = -1"
-                              :class="item.volume === -1 ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                              class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium">
+                      <button
+                        :class="item.volume === -1 ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
+                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
+                        @click="item.volume = -1"
+                      >
                         自訂
                       </button>
                     </div>
-                    <input v-if="item.volume === -1"
-                           v-model.number="item.customVolume"
-                           type="number" min="0" placeholder="輸入 ml"
-                           class="w-full mb-2 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500"/>
+                    <input
+                      v-if="item.volume === -1"
+                      v-model.number="item.customVolume"
+                      type="number"
+                      min="0"
+                      placeholder="輸入 ml"
+                      class="w-full mb-2 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500"
+                    >
                     <!-- 數量 & 刪除 -->
                     <div class="flex items-center gap-2">
                       <span class="text-xs text-hint-c mr-auto">數量</span>
-                      <button @click="adjItemQty(item, -1)"
-                              class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center">−</button>
+                      <button
+                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
+                        @click="adjItemQty(item, -1)"
+                      >
+                        −
+                      </button>
                       <span class="w-8 text-center font-semibold text-base-c text-sm">{{ item.qty }}</span>
-                      <button @click="adjItemQty(item, 1)"
-                              class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center">＋</button>
-                      <button v-if="createForm.soymilkItems.length > 1" @click="removeSoymilkItem(createForm, idx)"
-                              class="ml-2 w-7 h-7 border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      <button
+                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
+                        @click="adjItemQty(item, 1)"
+                      >
+                        ＋
+                      </button>
+                      <button
+                        v-if="createForm.soymilkItems.length > 1"
+                        class="ml-2 w-7 h-7 border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center"
+                        @click="removeSoymilkItem(createForm, idx)"
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -1204,17 +1691,27 @@ const submitEdit = async () => {
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1.5">豆腐（塊）</label>
                 <div class="flex items-center gap-2">
-                  <button @click="adjTofuQty(createForm, -1)"
-                          class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg">−</button>
+                  <button
+                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
+                    @click="adjTofuQty(createForm, -1)"
+                  >
+                    −
+                  </button>
                   <span class="w-10 text-center font-semibold text-base-c text-sm">{{ createForm.tofuQty }}</span>
-                  <button @click="adjTofuQty(createForm, 1)"
-                          class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg">＋</button>
+                  <button
+                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
+                    @click="adjTofuQty(createForm, 1)"
+                  >
+                    ＋
+                  </button>
                 </div>
               </div>
 
               <!-- 金額小計 -->
-              <div v-if="formTotal(createForm) > 0"
-                   class="bg-surface2 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm">
+              <div
+                v-if="formTotal(createForm) > 0"
+                class="bg-surface2 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm"
+              >
                 <span class="text-hint-c">小計</span>
                 <span class="font-bold text-base-c">${{ formTotal(createForm) }}</span>
               </div>
@@ -1222,18 +1719,25 @@ const submitEdit = async () => {
               <!-- 備註 -->
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1">備註</label>
-                <input v-model="createForm.remark" type="text" placeholder="選填"
-                       class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"/>
+                <input
+                  v-model="createForm.remark"
+                  type="text"
+                  placeholder="選填"
+                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
+                >
               </div>
 
               <!-- 訂單狀態 -->
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1.5">訂單狀態</label>
                 <div class="flex flex-wrap gap-2">
-                  <button v-for="s in STATUSES" :key="s"
-                          @click="createForm.status = s"
-                          :class="createForm.status === s ? statusClass(s) + 'ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
-                          class="transition-all cursor-pointer">
+                  <button
+                    v-for="s in STATUSES"
+                    :key="s"
+                    :class="createForm.status === s ? statusClass(s) + 'ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
+                    class="transition-all cursor-pointer"
+                    @click="createForm.status = s"
+                  >
                     {{ s }}
                   </button>
                 </div>
@@ -1241,13 +1745,22 @@ const submitEdit = async () => {
             </div>
 
             <div class="flex gap-2 mt-6">
-              <button @click="closeCreateModal" :disabled="createModal.submitting"
-                      class="flex-1 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover-surface2 disabled:opacity-50 transition-colors">
+              <button
+                :disabled="createModal.submitting"
+                class="flex-1 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover-surface2 disabled:opacity-50 transition-colors"
+                @click="closeCreateModal"
+              >
                 取消
               </button>
-              <button @click="submitCreate" :disabled="createModal.submitting"
-                      class="flex-1 py-2.5 text-sm bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold">
-                <span v-if="createModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+              <button
+                :disabled="createModal.submitting"
+                class="flex-1 py-2.5 text-sm bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold"
+                @click="submitCreate"
+              >
+                <span
+                  v-if="createModal.submitting"
+                  class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"
+                />
                 {{ createModal.submitting ? '新增中…' : '確認新增' }}
               </button>
             </div>
@@ -1259,15 +1772,32 @@ const submitEdit = async () => {
     <!-- 編輯訂單 Modal -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="editModal.show"
-             class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
-             @click.self="closeEditModal">
+        <div
+          v-if="editModal.show"
+          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
+          @click.self="closeEditModal"
+        >
           <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6 my-auto">
             <div class="flex items-center justify-between mb-5">
-              <h3 class="font-bold text-base-c text-base">編輯訂單</h3>
-              <button @click="closeEditModal" class="text-hint-c hover:text-hint-c transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              <h3 class="font-bold text-base-c text-base">
+                編輯訂單
+              </h3>
+              <button
+                class="text-hint-c hover:text-hint-c transition-colors"
+                @click="closeEditModal"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -1277,13 +1807,21 @@ const submitEdit = async () => {
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span class="text-red-400">*</span></label>
-                  <input v-model="editForm.name" type="text" placeholder="訂購人姓名"
-                         class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"/>
+                  <input
+                    v-model="editForm.name"
+                    type="text"
+                    placeholder="訂購人姓名"
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-hint-c mb-1">聯絡方式 <span class="text-red-400">*</span></label>
-                  <input v-model="editForm.contact" type="text" placeholder="電話或 Line"
-                         class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"/>
+                  <input
+                    v-model="editForm.contact"
+                    type="text"
+                    placeholder="電話或 Line"
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                 </div>
               </div>
 
@@ -1291,20 +1829,26 @@ const submitEdit = async () => {
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1.5">
                   取貨日
-                  <span v-if="editForm.pickupDate" class="text-hint-c font-normal">（由自訂日期決定）</span>
+                  <span
+                    v-if="editForm.pickupDate"
+                    class="text-hint-c font-normal"
+                  >（由自訂日期決定）</span>
                 </label>
                 <div class="flex gap-2">
-                  <button v-for="opt in businessDayOptions" :key="opt.code"
-                          @click="!editForm.pickupDate && (editForm.pickupDay = opt.code)"
-                          :disabled="!!editForm.pickupDate"
-                          :class="[
- editForm.pickupDate
- ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
- : editForm.pickupDay === opt.code
- ? opt.color.active
- : 'bg-surface text-muted-c border-light-c'
- ]"
-                          class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium">
+                  <button
+                    v-for="opt in businessDayOptions"
+                    :key="opt.code"
+                    :disabled="!!editForm.pickupDate"
+                    :class="[
+                      editForm.pickupDate
+                        ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
+                        : editForm.pickupDay === opt.code
+                          ? opt.color.active
+                          : 'bg-surface text-muted-c border-light-c'
+                    ]"
+                    class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium"
+                    @click="!editForm.pickupDate && (editForm.pickupDay = opt.code)"
+                  >
                     <div>{{ opt.label }} {{ editPickupDateLabel(opt.code) }}</div>
                   </button>
                 </div>
@@ -1317,11 +1861,17 @@ const submitEdit = async () => {
                   <span class="text-hint-c font-normal">（不填則沿用上方週次標籤）</span>
                 </label>
                 <div class="flex gap-2">
-                  <input v-model="editForm.pickupDate" type="date"
-                         @change="onEditPickupDateChange"
-                         class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"/>
-                  <button v-if="editForm.pickupDate" @click="editForm.pickupDate = ''"
-                          class="px-3 py-2 text-xs text-hint-c hover:text-muted-c border border-light-c rounded-xl transition-colors">
+                  <input
+                    v-model="editForm.pickupDate"
+                    type="date"
+                    class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                    @change="onEditPickupDateChange"
+                  >
+                  <button
+                    v-if="editForm.pickupDate"
+                    class="px-3 py-2 text-xs text-hint-c hover:text-muted-c border border-light-c rounded-xl transition-colors"
+                    @click="editForm.pickupDate = ''"
+                  >
                     清除
                   </button>
                 </div>
@@ -1331,47 +1881,92 @@ const submitEdit = async () => {
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label class="text-xs font-medium text-hint-c">豆漿（可多種容量）</label>
-                  <button @click="addSoymilkItem(editForm)"
-                          class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                  <button
+                    class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    @click="addSoymilkItem(editForm)"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.5"
+                        d="M12 4v16m8-8H4"
+                      />
                     </svg>
                     新增容量
                   </button>
                 </div>
                 <div class="space-y-2">
-                  <div v-for="(item, idx) in editForm.soymilkItems" :key="idx"
-                       class="bg-surface2 rounded-xl p-3">
+                  <div
+                    v-for="(item, idx) in editForm.soymilkItems"
+                    :key="idx"
+                    class="bg-surface2 rounded-xl p-3"
+                  >
                     <!-- 容量選擇 -->
                     <div class="flex items-center gap-1.5 flex-wrap mb-2">
-                      <button v-for="v in PRESET_VOLS" :key="v"
-                              @click="item.volume = v"
-                              :class="item.volume === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                              class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium">
+                      <button
+                        v-for="v in PRESET_VOLS"
+                        :key="v"
+                        :class="item.volume === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
+                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
+                        @click="item.volume = v"
+                      >
                         {{ v }}ml
                       </button>
-                      <button @click="item.volume = -1"
-                              :class="item.volume === -1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                              class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium">
+                      <button
+                        :class="item.volume === -1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
+                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
+                        @click="item.volume = -1"
+                      >
                         自訂
                       </button>
                     </div>
-                    <input v-if="item.volume === -1"
-                           v-model.number="item.customVolume"
-                           type="number" min="0" placeholder="輸入 ml"
-                           class="w-full mb-2 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface text-base-c outline-none focus:ring-2 focus:ring-blue-500"/>
+                    <input
+                      v-if="item.volume === -1"
+                      v-model.number="item.customVolume"
+                      type="number"
+                      min="0"
+                      placeholder="輸入 ml"
+                      class="w-full mb-2 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                    >
                     <!-- 數量 & 刪除 -->
                     <div class="flex items-center gap-2">
                       <span class="text-xs text-hint-c mr-auto">數量</span>
-                      <button @click="adjItemQty(item, -1)"
-                              class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center">−</button>
+                      <button
+                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
+                        @click="adjItemQty(item, -1)"
+                      >
+                        −
+                      </button>
                       <span class="w-8 text-center font-semibold text-base-c text-sm">{{ item.qty }}</span>
-                      <button @click="adjItemQty(item, 1)"
-                              class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center">＋</button>
-                      <button v-if="editForm.soymilkItems.length > 1" @click="removeSoymilkItem(editForm, idx)"
-                              class="ml-2 w-7 h-7 border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      <button
+                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
+                        @click="adjItemQty(item, 1)"
+                      >
+                        ＋
+                      </button>
+                      <button
+                        v-if="editForm.soymilkItems.length > 1"
+                        class="ml-2 w-7 h-7 border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center"
+                        @click="removeSoymilkItem(editForm, idx)"
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -1383,17 +1978,27 @@ const submitEdit = async () => {
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1.5">豆腐（塊）</label>
                 <div class="flex items-center gap-2">
-                  <button @click="adjTofuQty(editForm, -1)"
-                          class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg">−</button>
+                  <button
+                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
+                    @click="adjTofuQty(editForm, -1)"
+                  >
+                    −
+                  </button>
                   <span class="w-10 text-center font-semibold text-base-c text-sm">{{ editForm.tofuQty }}</span>
-                  <button @click="adjTofuQty(editForm, 1)"
-                          class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg">＋</button>
+                  <button
+                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
+                    @click="adjTofuQty(editForm, 1)"
+                  >
+                    ＋
+                  </button>
                 </div>
               </div>
 
               <!-- 金額小計 -->
-              <div v-if="formTotal(editForm) > 0"
-                   class="bg-surface2 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm">
+              <div
+                v-if="formTotal(editForm) > 0"
+                class="bg-surface2 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm"
+              >
                 <span class="text-hint-c">小計</span>
                 <span class="font-bold text-base-c">${{ formTotal(editForm) }}</span>
               </div>
@@ -1401,18 +2006,25 @@ const submitEdit = async () => {
               <!-- 備註 -->
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1">備註</label>
-                <input v-model="editForm.remark" type="text" placeholder="選填"
-                       class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"/>
+                <input
+                  v-model="editForm.remark"
+                  type="text"
+                  placeholder="選填"
+                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                >
               </div>
 
               <!-- 訂單狀態 -->
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1.5">訂單狀態</label>
                 <div class="flex flex-wrap gap-2">
-                  <button v-for="s in STATUSES" :key="s"
-                          @click="editForm.status = s"
-                          :class="editForm.status === s ? statusClass(s) + 'ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
-                          class="transition-all cursor-pointer">
+                  <button
+                    v-for="s in STATUSES"
+                    :key="s"
+                    :class="editForm.status === s ? statusClass(s) + 'ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
+                    class="transition-all cursor-pointer"
+                    @click="editForm.status = s"
+                  >
                     {{ s }}
                   </button>
                 </div>
@@ -1420,13 +2032,22 @@ const submitEdit = async () => {
             </div>
 
             <div class="flex gap-2 mt-6">
-              <button @click="closeEditModal" :disabled="editModal.submitting"
-                      class="flex-1 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover-surface2 disabled:opacity-50 transition-colors">
+              <button
+                :disabled="editModal.submitting"
+                class="flex-1 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover-surface2 disabled:opacity-50 transition-colors"
+                @click="closeEditModal"
+              >
                 取消
               </button>
-              <button @click="submitEdit" :disabled="editModal.submitting"
-                      class="flex-1 py-2.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold">
-                <span v-if="editModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+              <button
+                :disabled="editModal.submitting"
+                class="flex-1 py-2.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold"
+                @click="submitEdit"
+              >
+                <span
+                  v-if="editModal.submitting"
+                  class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"
+                />
                 {{ editModal.submitting ? '儲存中…' : '確認儲存' }}
               </button>
             </div>
@@ -1438,31 +2059,56 @@ const submitEdit = async () => {
     <!-- 刪除確認 Modal -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="deleteModal.show"
-             class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
-             @click.self="closeDeleteModal">
+        <div
+          v-if="deleteModal.show"
+          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+          @click.self="closeDeleteModal"
+        >
           <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
             <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-              <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              <svg
+                class="w-6 h-6 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
               </svg>
             </div>
-            <h3 class="font-bold text-base-c mb-2">確認刪除訂單？</h3>
-            <p v-if="deleteModal.order" class="text-sm text-hint-c leading-relaxed mb-5">
+            <h3 class="font-bold text-base-c mb-2">
+              確認刪除訂單？
+            </h3>
+            <p
+              v-if="deleteModal.order"
+              class="text-sm text-hint-c leading-relaxed mb-5"
+            >
               <strong class="text-muted-c">{{ deleteModal.order.name }}</strong>　{{ pickupLabel(deleteModal.order) }} 取貨<br>
               <span v-if="deleteModal.order.soymilkQty">豆漿 × {{ deleteModal.order.soymilkQty }} 袋　</span>
               <span v-if="deleteModal.order.tofuQty">豆腐 × {{ deleteModal.order.tofuQty }} 塊</span>
               <br><span class="text-red-400 text-xs">刪除後無法復原</span>
             </p>
             <div class="flex gap-2">
-              <button @click="closeDeleteModal" :disabled="deleteModal.submitting"
-                      class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors">
+              <button
+                :disabled="deleteModal.submitting"
+                class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors"
+                @click="closeDeleteModal"
+              >
                 取消
               </button>
-              <button @click="confirmDelete" :disabled="deleteModal.submitting"
-                      class="flex-1 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
-                <span v-if="deleteModal.submitting" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+              <button
+                :disabled="deleteModal.submitting"
+                class="flex-1 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                @click="confirmDelete"
+              >
+                <span
+                  v-if="deleteModal.submitting"
+                  class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"
+                />
                 {{ deleteModal.submitting ? '刪除中…' : '確認刪除' }}
               </button>
             </div>
@@ -1470,7 +2116,6 @@ const submitEdit = async () => {
         </div>
       </Transition>
     </Teleport>
-
   </div>
 </template>
 
