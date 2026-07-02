@@ -612,14 +612,14 @@ const navGroups = [
   {
     label: '💳 基本資料',
     items: [
-      { to: '/staff/pos/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' }
+      { to: '/staff/pos/base/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' }
     ]
   },
   {
     label: '💳 日常作業',
     items: [
-      { to: '/staff/pos/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
-      { to: '/staff/pos/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
+      { to: '/staff/pos/daily/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
+      { to: '/staff/pos/daily/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
     ]
   },
   {
