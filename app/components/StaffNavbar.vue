@@ -324,84 +324,224 @@
       </div>
     </div>
 
-    <!-- 手機選單 -->
-    <Transition
-      enter-active-class="transition-all duration-150 ease-out"
-      enter-from-class="opacity-0 -translate-y-1"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition-all duration-100"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="mobileOpen"
-        class="nav-mobile-menu lg:hidden mt-2 p-2 rounded-lg space-y-2 max-h-[70vh] overflow-y-auto"
+    <!-- 手機全螢幕選單（App 風格）-->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
       >
-        <!-- 分類群組 -->
         <div
-          v-for="group in visibleGroups"
-          :key="group.label"
+          v-if="mobileOpen"
+          class="nav-fullscreen lg:hidden fixed inset-0 z-[100] flex flex-col"
         >
-          <p
-            class="text-xs font-semibold px-1 mb-1"
-            style="color: var(--text-hint)"
-          >
-            {{ group.label }}
-          </p>
-          <div class="grid grid-cols-3 gap-1">
-            <NuxtLink
-              v-for="item in group.items"
-              :key="item.to"
-              :to="item.to"
-              class="px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
-              :class="route.path.startsWith(item.to) ? 'nav-mobile-active' : 'nav-item-inactive'"
-            >{{ item.label }}</NuxtLink>
+          <!-- 頂部標題列 -->
+          <div class="nav-fullscreen-header flex items-center justify-between px-4 py-3 flex-shrink-0">
+            <span class="font-bold text-base">選單</span>
+            <button
+              class="nav-icon-btn p-1.5 rounded-full transition-colors"
+              @click="mobileOpen = false"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <!-- 可捲動內容 -->
+          <div class="flex-1 overflow-y-auto px-4 pb-4">
+            <!-- 使用者卡片 -->
+            <button
+              v-if="customer"
+              class="nav-user-card w-full flex items-center gap-3 p-3 rounded-2xl mb-5 mt-1 transition-colors"
+              @click="mobileOpen = false; goProfile()"
+            >
+              <img
+                v-if="customer.picture"
+                :src="customer.picture"
+                class="w-11 h-11 rounded-full object-cover flex-shrink-0"
+              >
+              <div
+                v-else
+                class="user-avatar w-11 h-11 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
+              >
+                {{ customer.name?.charAt(0) || '?' }}
+              </div>
+              <div class="flex-1 min-w-0 text-left">
+                <p
+                  class="text-sm font-semibold truncate"
+                  style="color: var(--text)"
+                >
+                  {{ customer.name }}
+                </p>
+                <p
+                  class="text-xs truncate"
+                  style="color: var(--text-hint)"
+                >
+                  {{ customer.email }}
+                </p>
+              </div>
+              <svg
+                class="w-4 h-4 flex-shrink-0"
+                style="color: var(--text-hint)"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="m9 5 7 7-7 7"
+                />
+              </svg>
+            </button>
+
+            <!-- 分類卡片網格 -->
+            <div
+              v-for="group in visibleGroups"
+              :key="group.label"
+              class="mb-6"
+            >
+              <p
+                class="text-xs font-semibold px-1 mb-2 tracking-wide"
+                style="color: var(--text-hint)"
+              >
+                {{ group.label }}
+              </p>
+              <div class="grid grid-cols-3 gap-3">
+                <NuxtLink
+                  v-for="item in group.items"
+                  :key="item.to"
+                  :to="item.to"
+                  class="nav-app-tile flex flex-col items-center justify-center gap-1.5 py-3.5 px-1 rounded-2xl text-center transition-colors"
+                  :class="route.path.startsWith(item.to) ? 'nav-app-tile-active' : ''"
+                >
+                  <span class="text-2xl leading-none">{{ item.icon }}</span>
+                  <span class="text-xs font-medium leading-tight">{{ item.label }}</span>
+                </NuxtLink>
+              </div>
+            </div>
+
+            <!-- 獨立連結 -->
+            <div
+              v-if="visibleStandaloneItems.length > 0"
+              class="mb-2"
+            >
+              <p
+                class="text-xs font-semibold px-1 mb-2 tracking-wide"
+                style="color: var(--text-hint)"
+              >
+                🔗 其他
+              </p>
+              <div class="grid grid-cols-3 gap-3">
+                <NuxtLink
+                  v-for="item in visibleStandaloneItems"
+                  :key="item.to"
+                  :to="item.to"
+                  class="nav-app-tile flex flex-col items-center justify-center gap-1.5 py-3.5 px-1 rounded-2xl text-center transition-colors"
+                  :class="route.path.startsWith(item.to) ? 'nav-app-tile-active' : ''"
+                >
+                  <span class="text-2xl leading-none">{{ item.icon }}</span>
+                  <span class="text-xs font-medium leading-tight">{{ item.label }}</span>
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部固定工具列 -->
+          <div class="nav-fullscreen-footer flex-shrink-0 px-4 py-3 flex items-center gap-2">
+            <button
+              class="nav-footer-btn flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-colors"
+              @click="toggleDark"
+            >
+              <svg
+                v-if="isDark"
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z"
+                />
+              </svg>
+              <svg
+                v-else
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
+                />
+              </svg>
+              {{ isDark ? '亮色' : '暗色' }}
+            </button>
+            <a
+              href="https://holyfarm.netlify.app"
+              target="_blank"
+              class="nav-footer-btn flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-colors"
+              @click="mobileOpen = false"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+              首頁
+            </a>
+            <button
+              class="nav-footer-btn nav-footer-btn-danger flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-colors"
+              @click="logout"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              登出
+            </button>
           </div>
         </div>
-
-        <!-- 獨立連結 -->
-        <div
-          v-if="visibleStandaloneItems.length > 0"
-          class="grid grid-cols-3 gap-1"
-        >
-          <NuxtLink
-            v-for="item in visibleStandaloneItems"
-            :key="item.to"
-            :to="item.to"
-            class="px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
-            :class="route.path.startsWith(item.to) ? 'nav-mobile-active' : 'nav-item-inactive'"
-          >{{ item.label }}</NuxtLink>
-        </div>
-
-        <!-- 個人設定 / 首頁 -->
-        <div class="nav-dropdown-divider pt-2 grid grid-cols-2 gap-1">
-          <button
-            class="nav-item-inactive px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
-            @click="mobileOpen = false; goProfile()"
-          >
-            個人設定
-          </button>
-          <a
-            href="https://holyfarm.netlify.app"
-            target="_blank"
-            class="nav-item-inactive px-2 py-1.5 rounded text-sm font-medium text-center transition-colors"
-            @click="mobileOpen = false"
-          >
-            首頁
-          </a>
-        </div>
-
-        <!-- 登出 -->
-        <div class="nav-dropdown-divider pt-2">
-          <button
-            class="w-full text-left px-2 py-1.5 rounded text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            @click="logout"
-          >
-            登出
-          </button>
-        </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </nav>
 </template>
 
@@ -427,14 +567,19 @@ watch(() => route.path, () => {
   menuOpen.value = false
 })
 
-// ── 選單定義 ─────────────────────────────────────────────────────
+watch(mobileOpen, (val) => {
+  if (import.meta.client) {
+    document.body.style.overflow = val ? 'hidden' : ''
+  }
+})
+
 const navGroups = [
   {
     label: '🌐 前台內容',
     items: [
       { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
-      { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'content.product' },
-      { to: '/staff/content/production', icon: '🌱', label: '產品訂購', key: 'content.production' }
+      { to: '/staff/content/product', icon: '🛒', label: '商品管理', key: 'content.product' },
+      { to: '/staff/content/production', icon: '🌾', label: '產品訂購', key: 'content.production' }
     ]
   },
   {
@@ -443,8 +588,8 @@ const navGroups = [
       { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'management.asset' },
       { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
       { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
-      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'management.files' },
-      { to: '/staff/management/html-page', icon: '📁', label: '網頁頁面', key: 'management.html-page' }
+      { to: '/staff/management/files', icon: '🗂️', label: '檔案管理', key: 'management.files' },
+      { to: '/staff/management/html-page', icon: '🌐', label: '網頁頁面', key: 'management.html-page' }
     ]
   },
   {
@@ -465,28 +610,28 @@ const navGroups = [
     ]
   },
   {
-    label: '👥 POS機',
+    label: '💳 POS 機',
     items: [
-      { to: '/staff/pos/pos-menu', icon: '📅', label: '商品管理', key: 'pos.pos-menu' },
-      { to: '/staff/pos/pos-sales', icon: '📅', label: '銷售報表', key: 'pos.pos-sales' },
-      { to: '/staff/pos/pos-sell', icon: '📞', label: '商品販賣', key: 'pos.pos-sell' },
-      { to: '/staff/pos/pos-stock', icon: '📅', label: '庫存管理', key: 'pos.pos-stock' }
+      { to: '/staff/pos/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' },
+      { to: '/staff/pos/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.pos-sales' },
+      { to: '/staff/pos/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
+      { to: '/staff/pos/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
     ]
   },
   {
     label: '🖨️ 列印中心',
     items: [
-      { to: '/staff/print/herbs-label-print', icon: '🏷️', label: '花園 QRCode', key: 'print.herbs-label-print' },
+      { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
       { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
     ]
   },
   {
-    label: '👥 庫存銷售',
+    label: '📊 庫存銷售',
     items: [
-      { to: '/staff/stock/cash-count', icon: '📅', label: '資料表', key: 'stock.cash-count' },
-      { to: '/staff/stock/pos-analysis', icon: '📅', label: '銷售分析', key: 'stock.pos-analysis' },
-      { to: '/staff/stock/pos-data-table', icon: '📅', label: '資料表', key: 'stock.pos-data-table' },
-      { to: '/staff/stock/pos-files', icon: '📞', label: '資料管理', key: 'stock.pos-files' }
+      { to: '/staff/stock/cash-count', icon: '💵', label: '現金盤點', key: 'stock.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
+      { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
+      { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
     ]
   }
 ]
@@ -495,14 +640,8 @@ const standaloneItems = [
   { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
 ]
 
-// ── 權限過濾 ──────────────────────────────────────────────────────
 const permStore = usePermissionStore()
 
-// 改用 perms 是否有內容來判斷，而非 loaded flag。
-// 原因：loaded 不 persist，iOS BFCache/App Switcher 回來時 loaded=false，
-// 但 perms 還有 persist 的舊資料，這時用 loaded 判斷會讓選單空白，
-// 等 API 回來才顯示。改用 hasPerms 讓 perms 有資料就立刻顯示，
-// 背景 API 更新完再響應式刷新，完全無閃爍。
 const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
 
 const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
@@ -523,7 +662,6 @@ const activeGroup = computed(() =>
   visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
 )
 
-// ── Dropdown 控制 ─────────────────────────────────────────────────
 function toggleDrop(label) {
   dropOpen.value = {
     ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
@@ -532,7 +670,6 @@ function toggleDrop(label) {
   menuOpen.value = false
 }
 
-// ── 點外部關閉所有 dropdown（統一一個 handler）────────────────────
 function onClickOutside(e) {
   if (!e.target.closest('.nav-dropdown-wrap')) {
     dropOpen.value = {}
@@ -545,15 +682,16 @@ onMounted(() => {
 })
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside)
+  if (import.meta.client) {
+    document.body.style.overflow = ''
+  }
 })
 
-// ── 個人設定導航（先關 dropdown 再跳頁，避免路由切換重渲染造成 CSS 異常）──
 const goProfile = () => {
   menuOpen.value = false
   nextTick(() => navigateTo('/staff/profile/settings'))
 }
 
-// ── 登出 ──────────────────────────────────────────────────────────
 const logout = async () => {
   try {
     await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
@@ -565,6 +703,7 @@ const logout = async () => {
   customerStore.clearCustomer()
   usePermissionStore().clear()
   menuOpen.value = false
+  mobileOpen.value = false
   navigateTo('/')
 }
 </script>
@@ -633,13 +772,51 @@ const logout = async () => {
     border-top: 1px solid var(--border-light);
   }
 
-  .nav-mobile-menu {
-    background: var(--surface2);
-    border: 1px solid var(--border-light);
+  .nav-fullscreen {
+    background: var(--surface);
   }
 
-  .nav-mobile-active {
-    color: white;
-    background: var(--accent);
+  .nav-fullscreen-header {
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .nav-fullscreen-footer {
+    border-top: 1px solid var(--border-light);
+    background: var(--surface2);
+  }
+
+  .nav-user-card {
+    background: var(--surface2);
+  }
+
+  .nav-user-card:active {
+    opacity: 0.7;
+  }
+
+  .nav-app-tile {
+    background: var(--surface2);
+    color: var(--text-muted);
+  }
+
+  .nav-app-tile:active {
+    opacity: 0.7;
+  }
+
+  .nav-app-tile-active {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  .nav-footer-btn {
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+
+  .nav-footer-btn:active {
+    opacity: 0.7;
+  }
+
+  .nav-footer-btn-danger {
+    color: #ef4444;
   }
 </style>

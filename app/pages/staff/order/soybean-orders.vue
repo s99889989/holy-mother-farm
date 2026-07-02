@@ -1,27 +1,45 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useCommonStore } from '~/stores/common.js'
+import {ref, computed, onMounted, onUnmounted} from 'vue'
+import {useCommonStore} from '~/stores/common.js'
 
-definePageMeta({ layout: 'staff', requiredPermission: 'order.soybean-orders' })
+definePageMeta({layout: 'staff', requiredPermission: 'order.soybean-orders'})
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/soybean')
 
 // ── 營業日設定（取代寫死的週二/週五）─────────────────────────────
 // ISO 星期數字：1=一 2=二 3=三 4=四 5=五 6=六 7=日
-const DOW_CODE = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun' }
-const DOW_LABEL = { 1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六', 7: '週日' }
+const DOW_CODE = {1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun'}
+const DOW_LABEL = {1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六', 7: '週日'}
 const DOW_COLORS = [
-  { bg: 'bg-green-100 text-green-700', active: 'bg-green-700 text-white border-green-700', filterActiveBorder: 'border-green-700' },
-  { bg: 'bg-blue-100 text-blue-700', active: 'bg-blue-600 text-white border-blue-600', filterActiveBorder: 'border-blue-600' },
-  { bg: 'bg-amber-100 text-amber-700', active: 'bg-amber-600 text-white border-amber-600', filterActiveBorder: 'border-amber-600' },
-  { bg: 'bg-purple-100 text-purple-700', active: 'bg-purple-600 text-white border-purple-600', filterActiveBorder: 'border-purple-600' }
+  {
+    bg: 'bg-green-100 text-green-700',
+    active: 'bg-green-700 text-white border-green-700',
+    filterActiveBorder: 'border-green-700'
+  },
+  {
+    bg: 'bg-blue-100 text-blue-700',
+    active: 'bg-blue-600 text-white border-blue-600',
+    filterActiveBorder: 'border-blue-600'
+  },
+  {
+    bg: 'bg-amber-100 text-amber-700',
+    active: 'bg-amber-600 text-white border-amber-600',
+    filterActiveBorder: 'border-amber-600'
+  },
+  {
+    bg: 'bg-purple-100 text-purple-700',
+    active: 'bg-purple-600 text-white border-purple-600',
+    filterActiveBorder: 'border-purple-600'
+  }
 ]
 
-const businessDays = ref([2, 5]) // 預設二五，實際以後端設定為準
-const businessDaysInput = ref('') // 設定面板用的多選暫存
+const businessDays = ref([2, 5]) // 目前（今天）實際生效中的營業日，實際以後端設定為準
+const businessDaysDraft = ref([2, 5]) // 排程面板中正在編輯的星期選擇（尚未儲存）
+const businessDaysEffectiveFrom = ref('') // 排程面板的生效日；空字串＝立即生效（今天）
 const businessDaysSaving = ref(false)
 const businessDaysSaved = ref(false)
+const businessDaysSchedule = ref([]) // 所有已排定的營業日設定 [{ effectiveFrom, businessDays }]
 
 const businessDayOptions = computed(() =>
   businessDays.value.map((dow, idx) => ({
@@ -32,45 +50,94 @@ const businessDayOptions = computed(() =>
   }))
 )
 
-function dowToCode(dow) { return DOW_CODE[dow] || 'tue' }
+function dowToCode(dow) {
+  return DOW_CODE[dow] || 'tue'
+}
+
 function codeToDow(code) {
   const found = Object.entries(DOW_CODE).find(([, c]) => c === code)
   return found ? Number(found[0]) : 2
 }
+
 function colorForCode(code) {
   const idx = businessDays.value.indexOf(codeToDow(code))
   return DOW_COLORS[idx >= 0 ? idx % DOW_COLORS.length : 0]
 }
 
-const fetchBusinessDays = async () => {
-  try {
-    const res = await fetch(`${BASE.value}/settings/business-days`, { credentials: 'include' })
-    const data = await res.json()
-    if (Array.isArray(data.businessDays) && data.businessDays.length > 0) {
-      businessDays.value = data.businessDays
-    }
-  } catch {}
+function todayDateStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const saveBusinessDays = async (days) => {
+function toggleDraftDow(dow) {
+  businessDaysDraft.value = businessDaysDraft.value.includes(dow)
+    ? businessDaysDraft.value.filter(d => d !== dow)
+    : [...businessDaysDraft.value, dow].sort((a, b) => a - b)
+}
+
+// 抓「目前生效中的營業日」＋ 完整排程清單（含未來已排定但還沒生效的設定）
+const fetchBusinessDaysSchedule = async () => {
+  try {
+    const res = await fetch(`${BASE.value}/settings/business-days-schedule`, {credentials: 'include'})
+    const data = await res.json()
+    businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
+    if (Array.isArray(data.currentBusinessDays) && data.currentBusinessDays.length > 0) {
+      businessDays.value = data.currentBusinessDays
+      businessDaysDraft.value = [...data.currentBusinessDays]
+    }
+  } catch {
+  }
+}
+
+// days: 要設定的星期陣列；effectiveFrom: 選填，YYYY-MM-DD，空字串＝立即生效
+const saveBusinessDays = async (days, effectiveFrom = '') => {
+  if (!days.length) {
+    alert('請至少選擇一個營業日');
+    return
+  }
   businessDaysSaving.value = true
   businessDaysSaved.value = false
   try {
+    const payload = {businessDays: days}
+    if (effectiveFrom) payload.effectiveFrom = effectiveFrom
     const res = await fetch(`${BASE.value}/admin/settings/business-days`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
-      body: JSON.stringify({ businessDays: days })
+      body: JSON.stringify(payload)
     })
     const data = await res.json()
-    if (data.error) { alert('儲存失敗：' + data.error); return }
-    businessDays.value = data.businessDays
+    if (data.error) {
+      alert('儲存失敗：' + data.error);
+      return
+    }
+    if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
     businessDaysSaved.value = true
     setTimeout(() => businessDaysSaved.value = false, 2000)
+    fetchBusinessDaysSchedule()
   } catch {
     alert('儲存失敗')
   } finally {
     businessDaysSaving.value = false
+  }
+}
+
+const removeBusinessDaysScheduleEntry = async (effectiveFrom) => {
+  if (!confirm(`確定要刪除 ${effectiveFrom} 起生效的營業日排程？`)) return
+  try {
+    const res = await fetch(`${BASE.value}/admin/settings/business-days-schedule?effectiveFrom=${encodeURIComponent(effectiveFrom)}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+    const data = await res.json()
+    if (data.error) {
+      alert('刪除失敗：' + data.error);
+      return
+    }
+    businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
+    if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
+  } catch {
+    alert('刪除失敗')
   }
 }
 
@@ -89,7 +156,7 @@ const monthOptions = computed(() => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
-    opts.push({ val, label })
+    opts.push({val, label})
   }
   return opts
 })
@@ -125,7 +192,7 @@ onMounted(() => {
   fetchData()
   fetchHints()
   fetchClosedDates()
-  fetchBusinessDays()
+  fetchBusinessDaysSchedule()
   autoRefreshTimer = setInterval(fetchData, 30000)
 })
 onUnmounted(() => clearInterval(autoRefreshTimer))
@@ -170,6 +237,7 @@ function pickupDateLabel(pickupDay) {
   const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
   return `週${weekDay} ${d.getMonth() + 1}/${d.getDate()}`
 }
+
 const PRESET_VOLS = [600, 800, 1000, 1700]
 
 // 把訂單的 soymilkItems 正規化（相容舊資料）
@@ -179,10 +247,11 @@ function normalizeSoymilkItems(order) {
   }
   // 相容舊版單一容量格式
   if (order.soymilkQty > 0) {
-    return [{ volume: order.soymilkVolume || 800, qty: order.soymilkQty }]
+    return [{volume: order.soymilkVolume || 800, qty: order.soymilkQty}]
   }
   return []
 }
+
 // 計算總豆漿袋數
 function totalSoymilkQty(items) {
   return items.reduce((s, i) => s + (i.qty || 0), 0)
@@ -208,8 +277,9 @@ function calcTotal(order) {
 
 // 新建一個空豆漿項目
 function newSoymilkItem() {
-  return { volume: 800, customVolume: 0, qty: 1 }
+  return {volume: 800, customVolume: 0, qty: 1}
 }
+
 const groupedOrders = computed(() => {
   const withPickup = filteredOrders.value.map(o => ({
     ...o,
@@ -237,7 +307,7 @@ const groupedOrders = computed(() => {
         return s + items.reduce((a, i) => a + (i.volume || 0) * (i.qty || 0), 0)
       }, 0)
       const tofu = active.reduce((s, o) => s + (o.tofuQty || 0), 0)
-      return { date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk: soymilkQty, soymilkMl, tofu }
+      return {date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk: soymilkQty, soymilkMl, tofu}
     })
 })
 
@@ -264,6 +334,7 @@ function formatCreatedAt(createdAt) {
   const min = String(d.getMinutes()).padStart(2, '0')
   return `${mm}/${dd}（週${weekDay}）${hh}:${min}`
 }
+
 const updatingId = ref('')
 
 const updateStatus = async (order, newStatus) => {
@@ -316,17 +387,17 @@ const pickupLabel = (order) => {
 const STATUSES = ['待確認', '已確認', '已取貨', '已取消']
 
 // ── 刪除 ──────────────────────────────────────────────────────────
-const deleteModal = ref({ show: false, order: null, submitting: false })
+const deleteModal = ref({show: false, order: null, submitting: false})
 
 const openDeleteModal = (order) => {
-  deleteModal.value = { show: true, order, submitting: false }
+  deleteModal.value = {show: true, order, submitting: false}
 }
 const closeDeleteModal = () => {
-  deleteModal.value = { show: false, order: null, submitting: false }
+  deleteModal.value = {show: false, order: null, submitting: false}
 }
 
 const confirmDelete = async () => {
-  const { order } = deleteModal.value
+  const {order} = deleteModal.value
   if (!order) return
   deleteModal.value.submitting = true
   try {
@@ -335,7 +406,10 @@ const confirmDelete = async () => {
       credentials: 'include'
     })
     const data = await res.json()
-    if (data.error) { alert('刪除失敗：' + data.error); return }
+    if (data.error) {
+      alert('刪除失敗：' + data.error);
+      return
+    }
     orders.value = orders.value.filter(o => o.id !== order.id)
     closeDeleteModal()
   } catch {
@@ -346,18 +420,27 @@ const confirmDelete = async () => {
 }
 
 // ── 新增訂單 ──────────────────────────────────────────────────────
-const createModal = ref({ show: false, submitting: false })
+const createModal = ref({show: false, submitting: false})
 const createForm = ref({
   name: '', contact: '', pickupDay: 'tue', pickupDate: '',
   soymilkItems: [newSoymilkItem()], tofuQty: 0, remark: '', status: '已確認'
 })
 
 const openCreateModal = () => {
-  createForm.value = { name: '', contact: '', pickupDay: 'tue', pickupDate: '', soymilkItems: [newSoymilkItem()], tofuQty: 0, remark: '', status: '已確認' }
-  createModal.value = { show: true, submitting: false }
+  createForm.value = {
+    name: '',
+    contact: '',
+    pickupDay: 'tue',
+    pickupDate: '',
+    soymilkItems: [newSoymilkItem()],
+    tofuQty: 0,
+    remark: '',
+    status: '已確認'
+  }
+  createModal.value = {show: true, submitting: false}
 }
 const closeCreateModal = () => {
-  createModal.value = { show: false, submitting: false }
+  createModal.value = {show: false, submitting: false}
 }
 
 const addSoymilkItem = (form) => {
@@ -378,6 +461,7 @@ function formTotal(form) {
   const sm = form.soymilkItems.reduce((s, i) => s + (i.qty || 0), 0)
   return sm * 50 + (form.tofuQty || 0) * 50
 }
+
 // 解析容量（-1 表示自訂）
 function resolveVol(item) {
   return item.volume === -1 ? (item.customVolume || 0) : (item.volume || 800)
@@ -385,10 +469,19 @@ function resolveVol(item) {
 
 const submitCreate = async () => {
   const f = createForm.value
-  if (!f.name.trim()) { alert('請輸入姓名'); return }
-  if (!f.contact.trim()) { alert('請輸入聯絡方式'); return }
+  if (!f.name.trim()) {
+    alert('請輸入姓名');
+    return
+  }
+  if (!f.contact.trim()) {
+    alert('請輸入聯絡方式');
+    return
+  }
   const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
-  if (!hasSoymilk && f.tofuQty === 0) { alert('請選擇豆漿或豆腐數量'); return }
+  if (!hasSoymilk && f.tofuQty === 0) {
+    alert('請選擇豆漿或豆腐數量');
+    return
+  }
 
   // ── 休息日檢查：有自訂日期用自訂日期，否則用當週推算 ──────────
   const resolvedPickupDate = f.pickupDate || nextPickupDateFromNow(f.pickupDay)
@@ -402,7 +495,7 @@ const submitCreate = async () => {
   try {
     const soymilkItems = f.soymilkItems
       .filter(i => i.qty > 0)
-      .map(i => ({ volume: resolveVol(i), qty: i.qty }))
+      .map(i => ({volume: resolveVol(i), qty: i.qty}))
     const payload = {
       name: f.name.trim(), contact: f.contact.trim(),
       pickupDay: f.pickupDay,
@@ -412,16 +505,19 @@ const submitCreate = async () => {
       tofuQty: f.tofuQty,
       remark: f.remark.trim(),
       status: f.status,
-      ...(f.pickupDate ? { pickupDate: f.pickupDate } : {})
+      ...(f.pickupDate ? {pickupDate: f.pickupDate} : {})
     }
     const res = await fetch(`${BASE.value}/order`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
       body: JSON.stringify(payload)
     })
     const data = await res.json()
-    if (data.error) { alert('新增失敗：' + data.error); return }
+    if (data.error) {
+      alert('新增失敗：' + data.error);
+      return
+    }
     closeCreateModal()
     await fetchData()
   } catch {
@@ -453,10 +549,11 @@ const hints = ref({
 
 const fetchHints = async () => {
   try {
-    const res = await fetch(`${BASE.value}/settings/hints`, { credentials: 'include' })
+    const res = await fetch(`${BASE.value}/settings/hints`, {credentials: 'include'})
     const data = await res.json()
     if (!data.error) Object.assign(hints.value, data)
-  } catch {}
+  } catch {
+  }
 }
 
 const saveHints = async () => {
@@ -465,12 +562,15 @@ const saveHints = async () => {
   try {
     const res = await fetch(`${BASE.value}/settings/hints`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
       body: JSON.stringify(hints.value)
     })
     const data = await res.json()
-    if (data.error) { alert('儲存失敗：' + data.error); return }
+    if (data.error) {
+      alert('儲存失敗：' + data.error);
+      return
+    }
     hintSaved.value = true
     setTimeout(() => hintSaved.value = false, 2500)
   } catch {
@@ -488,31 +588,45 @@ const closedSaved = ref(false)
 
 const fetchClosedDates = async () => {
   try {
-    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, { credentials: 'include' })
+    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {credentials: 'include'})
     const data = await res.json()
     closedDates.value = Array.isArray(data.closedDates) ? data.closedDates : []
-  } catch {}
+  } catch {
+  }
 }
 
 const addClosedDate = async () => {
   const d = closedDateInput.value.trim()
-  if (!d.match(/^\d{4}-\d{2}-\d{2}$/)) { alert('請輸入正確日期格式 YYYY-MM-DD'); return }
-  if (closedDates.value.includes(d)) { alert('此日期已在休息日清單中'); return }
+  if (!d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    alert('請輸入正確日期格式 YYYY-MM-DD');
+    return
+  }
+  if (closedDates.value.includes(d)) {
+    alert('此日期已在休息日清單中');
+    return
+  }
   closedSaving.value = true
   try {
     const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
-      body: JSON.stringify({ date: d })
+      body: JSON.stringify({date: d})
     })
     const data = await res.json()
-    if (data.error) { alert('新增失敗：' + data.error); return }
+    if (data.error) {
+      alert('新增失敗：' + data.error);
+      return
+    }
     closedDates.value = data.closedDates
     closedDateInput.value = ''
     closedSaved.value = true
     setTimeout(() => closedSaved.value = false, 2000)
-  } catch { alert('新增失敗') } finally { closedSaving.value = false }
+  } catch {
+    alert('新增失敗')
+  } finally {
+    closedSaving.value = false
+  }
 }
 
 const removeClosedDate = async (date) => {
@@ -520,14 +634,21 @@ const removeClosedDate = async (date) => {
   try {
     const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
-      body: JSON.stringify({ date })
+      body: JSON.stringify({date})
     })
     const data = await res.json()
-    if (data.error) { alert('刪除失敗：' + data.error); return }
+    if (data.error) {
+      alert('刪除失敗：' + data.error);
+      return
+    }
     closedDates.value = data.closedDates
-  } catch { alert('刪除失敗') } finally { closedSaving.value = false }
+  } catch {
+    alert('刪除失敗')
+  } finally {
+    closedSaving.value = false
+  }
 }
 
 // 格式化休息日顯示：2026-06-17 → 06/17（週三）
@@ -541,6 +662,7 @@ function formatClosedDate(dateStr) {
 function isClosedDate(dateStr) {
   return closedDates.value.includes(dateStr)
 }
+
 // ── 新增訂單姓名自動完成 ──────────────────────────────────────────
 const createNameSuggest = ref([])
 const showCreateSuggest = ref(false)
@@ -560,7 +682,10 @@ const knownCustomers = computed(() => {
 
 function onCreateNameInput() {
   const val = createForm.value.name.trim()
-  if (!val) { showCreateSuggest.value = false; return }
+  if (!val) {
+    showCreateSuggest.value = false;
+    return
+  }
   const matches = [...knownCustomers.value.keys()]
     .filter(n => n.includes(val) && n !== val)
     .slice(0, 6)
@@ -603,7 +728,7 @@ function editPickupDateLabel(code) {
 }
 
 // ── 編輯訂單 ──────────────────────────────────────────────────────
-const editModal = ref({ show: false, submitting: false, orderId: '', orderMonth: '' })
+const editModal = ref({show: false, submitting: false, orderId: '', orderMonth: ''})
 const editForm = ref({
   name: '', contact: '', pickupDay: 'tue', pickupDate: '',
   soymilkItems: [newSoymilkItem()], tofuQty: 0,
@@ -614,10 +739,10 @@ const openEditModal = (order) => {
   const raw = normalizeSoymilkItems(order)
   const soymilkItems = raw.length > 0
     ? raw.map(i => ({
-        volume: PRESET_VOLS.includes(i.volume) ? i.volume : -1,
-        customVolume: PRESET_VOLS.includes(i.volume) ? 0 : i.volume,
-        qty: i.qty || 1
-      }))
+      volume: PRESET_VOLS.includes(i.volume) ? i.volume : -1,
+      customVolume: PRESET_VOLS.includes(i.volume) ? 0 : i.volume,
+      qty: i.qty || 1
+    }))
     : [newSoymilkItem()]
   editForm.value = {
     name: order.name || '',
@@ -629,25 +754,34 @@ const openEditModal = (order) => {
     remark: order.remark || '',
     status: order.status || '待確認'
   }
-  editModal.value = { show: true, submitting: false, orderId: order.id, orderMonth: order.month }
+  editModal.value = {show: true, submitting: false, orderId: order.id, orderMonth: order.month}
 }
 
 const closeEditModal = () => {
-  editModal.value = { show: false, submitting: false, orderId: '', orderMonth: '' }
+  editModal.value = {show: false, submitting: false, orderId: '', orderMonth: ''}
 }
 
 const submitEdit = async () => {
   const f = editForm.value
-  if (!f.name.trim()) { alert('請輸入姓名'); return }
-  if (!f.contact.trim()) { alert('請輸入聯絡方式'); return }
+  if (!f.name.trim()) {
+    alert('請輸入姓名');
+    return
+  }
+  if (!f.contact.trim()) {
+    alert('請輸入聯絡方式');
+    return
+  }
   const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
-  if (!hasSoymilk && f.tofuQty === 0) { alert('請選擇豆漿或豆腐數量'); return }
+  if (!hasSoymilk && f.tofuQty === 0) {
+    alert('請選擇豆漿或豆腐數量');
+    return
+  }
 
   editModal.value.submitting = true
   try {
     const soymilkItems = f.soymilkItems
       .filter(i => i.qty > 0)
-      .map(i => ({ volume: resolveVol(i), qty: i.qty }))
+      .map(i => ({volume: resolveVol(i), qty: i.qty}))
     const payload = {
       name: f.name.trim(),
       contact: f.contact.trim(),
@@ -662,10 +796,18 @@ const submitEdit = async () => {
     }
     const res = await fetch(
       `${BASE.value}/admin/order/${editModal.value.orderMonth}/${editModal.value.orderId}`,
-      { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) }
+      {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      }
     )
     const data = await res.json()
-    if (data.error) { alert('編輯失敗：' + data.error); return }
+    if (data.error) {
+      alert('編輯失敗：' + data.error);
+      return
+    }
     const target = orders.value.find(o => o.id === editModal.value.orderId)
     if (target) Object.assign(target, payload)
     closeEditModal()
@@ -691,8 +833,8 @@ const submitEdit = async () => {
             stroke-width="2"
             class="w-4 h-4"
           >
-            <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
             <line
               x1="6"
               y1="1"
@@ -874,7 +1016,9 @@ const submitEdit = async () => {
               :key="s"
             >
               <label class="flex items-center gap-2 mb-1.5">
-                <span :class="['inline-block px-2 py-0.5 rounded-full text-xs font-semibold', hintBadgeClass(s)]">{{ s }}</span>
+                <span :class="['inline-block px-2 py-0.5 rounded-full text-xs font-semibold', hintBadgeClass(s)]">{{
+                    s
+                  }}</span>
                 <span class="text-xs text-hint-c">顯示訊息</span>
               </label>
               <textarea
@@ -898,11 +1042,13 @@ const submitEdit = async () => {
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2.5"
-              ><circle
-                cx="12"
-                cy="12"
-                r="10"
-              /></svg>
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                />
+              </svg>
               {{ hintSaving ? '儲存中…' : '儲存設定' }}
             </button>
             <Transition name="fade">
@@ -1043,12 +1189,14 @@ const submitEdit = async () => {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                ><polyline
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.5"
-                  points="20 6 9 17 4 12"
-                /></svg>
+                >
+                  <polyline
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                    points="20 6 9 17 4 12"
+                  />
+                </svg>
                 已更新
               </p>
             </Transition>
@@ -1076,60 +1224,131 @@ const submitEdit = async () => {
               />
             </svg>
             <span class="text-sm font-semibold text-base-c">營業日設定</span>
-            <span class="text-xs text-hint-c">（決定每週固定接單的星期，目前：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
+            <span class="text-xs text-hint-c">（目前生效中：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
           </div>
-          <div class="p-4">
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
-                :key="dow"
-                :disabled="businessDaysSaving"
-                :class="businessDays.includes(dow)
-                  ? 'bg-accent-solid text-white'
-                  : 'bg-surface text-hint-c border-light-c'"
-                class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
-                @click="businessDays.includes(dow)
-                  ? saveBusinessDays(businessDays.filter(d => d !== dow))
-                  : saveBusinessDays([...businessDays, dow].sort())"
-              >
-                {{ DOW_LABEL[dow] }}
-              </button>
+          <div class="p-4 space-y-5">
+
+            <!-- 立即調整：今天起馬上生效 -->
+            <div>
+              <p class="text-xs font-medium text-hint-c mb-2">立即調整（今天起生效）</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
+                  :key="dow"
+                  :disabled="businessDaysSaving"
+                  :class="businessDays.includes(dow)
+                    ? 'bg-accent-solid text-white'
+                    : 'bg-surface text-hint-c border-light-c'"
+                  class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
+                  @click="businessDays.includes(dow)
+                    ? saveBusinessDays(businessDays.filter(d => d !== dow))
+                    : saveBusinessDays([...businessDays, dow].sort())"
+                >
+                  {{ DOW_LABEL[dow] }}
+                </button>
+              </div>
+              <Transition name="fade">
+                <p
+                  v-if="businessDaysSaved"
+                  class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
+                >
+                  <svg
+                    class="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <polyline
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2.5"
+                      points="20 6 9 17 4 12"
+                    />
+                  </svg>
+                  已更新
+                </p>
+              </Transition>
             </div>
-            <Transition name="fade">
-              <p
-                v-if="businessDaysSaved"
-                class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
-              >
-                <svg
-                  class="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><polyline
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.5"
-                  points="20 6 9 17 4 12"
-                /></svg>
-                已更新
-              </p>
-            </Transition>
+
+            <!-- 排定未來生效：例如「下週一起改成二、四」 -->
+            <div class="pt-4 border-t border-light-c">
+              <p class="text-xs font-medium text-hint-c mb-2">排定未來生效（例如下週開始改成不同的星期）</p>
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <button
+                  v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
+                  :key="dow"
+                  :disabled="businessDaysSaving"
+                  :class="businessDaysDraft.includes(dow)
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-surface text-hint-c border-light-c'"
+                  class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
+                  @click="toggleDraftDow(dow)"
+                >
+                  {{ DOW_LABEL[dow] }}
+                </button>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <label class="text-xs text-hint-c">生效日</label>
+                <input
+                  v-model="businessDaysEffectiveFrom"
+                  type="date"
+                  :min="todayDateStr()"
+                  class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                <button
+                  :disabled="businessDaysSaving || !businessDaysEffectiveFrom"
+                  class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+                  @click="saveBusinessDays(businessDaysDraft, businessDaysEffectiveFrom)"
+                >
+                  儲存排程
+                </button>
+                <span class="text-xs text-hint-c">未選生效日則無法儲存（避免誤觸立即生效）</span>
+              </div>
+            </div>
+
+            <!-- 已排定的營業日清單 -->
+            <div v-if="businessDaysSchedule.length" class="pt-4 border-t border-light-c">
+              <p class="text-xs font-medium text-hint-c mb-2">已排定的營業日設定</p>
+              <div class="space-y-1.5">
+                <div
+                  v-for="entry in businessDaysSchedule"
+                  :key="entry.effectiveFrom"
+                  class="flex items-center justify-between gap-2 px-3 py-2 bg-surface2 rounded-xl text-sm"
+                >
+                  <span class="text-base-c">
+                    <span class="font-semibold">{{ entry.effectiveFrom }}</span> 起 →
+                    {{ entry.businessDays.map(d => DOW_LABEL[d]).join('、') }}
+                    <span v-if="entry.effectiveFrom <= todayDateStr()"
+                          class="ml-1 text-xs text-emerald-600">（生效中）</span>
+                    <span v-else class="ml-1 text-xs text-amber-600">（尚未生效）</span>
+                  </span>
+                  <button
+                    class="text-red-400 hover:text-red-500 text-xs font-medium transition-colors"
+                    @click="removeBusinessDaysScheduleEntry(entry.effectiveFrom)"
+                  >
+                    刪除
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </Transition>
-      <div class="flex items-center gap-2 mb-3 bg-surface border border-light-c rounded-xl px-3 py-2 shadow-sm flex-wrap">
+      <div
+        class="flex items-center gap-2 mb-3 bg-surface border border-light-c rounded-xl px-3 py-2 shadow-sm flex-wrap">
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-hint-c">本月訂單</span>
           <span class="text-base font-extrabold text-base-c">{{ orders.length }}</span>
           <span class="text-xs text-hint-c">筆</span>
         </div>
-        <div class="w-px h-4 bg-surface2 mx-1" />
+        <div class="w-px h-4 bg-surface2 mx-1"/>
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-green-600">豆漿</span>
           <span class="text-base font-extrabold text-green-700">{{ totalSoymilk }}</span>
           <span class="text-xs text-green-500">袋</span>
         </div>
-        <div class="w-px h-4 bg-surface2 mx-1" />
+        <div class="w-px h-4 bg-surface2 mx-1"/>
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-amber-600">豆腐</span>
           <span class="text-base font-extrabold text-amber-600">{{ totalTofu }}</span>
@@ -1144,7 +1363,8 @@ const submitEdit = async () => {
       </div>
 
       <!-- 篩選列 -->
-      <div class="bg-surface border border-light-c rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
+      <div
+        class="bg-surface border border-light-c rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs text-hint-c whitespace-nowrap">取貨日</span>
           <button
@@ -1183,7 +1403,8 @@ const submitEdit = async () => {
           v-if="filterDay || filterStatus"
           class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap"
         >
-          篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong> 塊（{{ filteredOrders.length }} 筆）
+          篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong>
+          塊（{{ filteredOrders.length }} 筆）
         </div>
       </div>
 
@@ -1228,7 +1449,7 @@ const submitEdit = async () => {
               </svg>
               休息日
             </span>
-            <div class="flex-1 h-px bg-surface2 dark:bg-surface2" />
+            <div class="flex-1 h-px bg-surface2 dark:bg-surface2"/>
             <div class="flex items-center gap-2 text-xs whitespace-nowrap">
               <span
                 v-if="group.soymilk"
@@ -1343,119 +1564,119 @@ const submitEdit = async () => {
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead class="bg-surface2 /50 border-b border-light-c">
-                  <tr>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      訂購時間
-                    </th>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      姓名
-                    </th>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      聯絡
-                    </th>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      取貨日
-                    </th>
-                    <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
-                      豆漿
-                    </th>
-                    <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
-                      豆腐
-                    </th>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      金額
-                    </th>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      備註
-                    </th>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      狀態
-                    </th>
-                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                      操作
-                    </th>
-                  </tr>
+                <tr>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    訂購時間
+                  </th>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    姓名
+                  </th>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    聯絡
+                  </th>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    取貨日
+                  </th>
+                  <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
+                    豆漿
+                  </th>
+                  <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
+                    豆腐
+                  </th>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    金額
+                  </th>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    備註
+                  </th>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    狀態
+                  </th>
+                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                    操作
+                  </th>
+                </tr>
                 </thead>
                 <tbody class="divide-y divide-base">
-                  <tr
-                    v-for="o in group.orders"
-                    :key="o.id"
-                    class="hover-surface2/30 transition-colors"
-                    :class="{ 'opacity-40': o.status === '已取消' }"
-                  >
-                    <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">
-                      {{ formatCreatedAt(o.createdAt) }}
-                    </td>
-                    <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">
-                      {{ o.name }}
-                    </td>
-                    <td class="px-3 py-2.5 text-xs text-hint-c">
-                      {{ o.contact }}
-                    </td>
-                    <td class="px-3 py-2.5">
+                <tr
+                  v-for="o in group.orders"
+                  :key="o.id"
+                  class="hover-surface2/30 transition-colors"
+                  :class="{ 'opacity-40': o.status === '已取消' }"
+                >
+                  <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">
+                    {{ formatCreatedAt(o.createdAt) }}
+                  </td>
+                  <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">
+                    {{ o.name }}
+                  </td>
+                  <td class="px-3 py-2.5 text-xs text-hint-c">
+                    {{ o.contact }}
+                  </td>
+                  <td class="px-3 py-2.5">
                       <span
                         class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
                         :class="colorForCode(o.pickupDay).bg"
                       >
                         {{ pickupLabel(o) }}
                       </span>
-                    </td>
-                    <td class="px-3 py-2.5">
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <div
+                      v-if="normalizeSoymilkItems(o).length"
+                      class="text-xs text-green-700 font-semibold space-y-0.5"
+                    >
                       <div
-                        v-if="normalizeSoymilkItems(o).length"
-                        class="text-xs text-green-700 font-semibold space-y-0.5"
+                        v-for="(item, idx) in normalizeSoymilkItems(o)"
+                        :key="idx"
+                        class="whitespace-nowrap"
                       >
-                        <div
-                          v-for="(item, idx) in normalizeSoymilkItems(o)"
-                          :key="idx"
-                          class="whitespace-nowrap"
-                        >
-                          {{ item.volume }}ml × {{ item.qty }}
-                        </div>
+                        {{ item.volume }}ml × {{ item.qty }}
                       </div>
-                      <span
-                        v-else
-                        class="text-hint-c text-xs"
-                      >—</span>
-                    </td>
-                    <td class="px-3 py-2.5 text-center">
+                    </div>
+                    <span
+                      v-else
+                      class="text-hint-c text-xs"
+                    >—</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-center">
                       <span
                         v-if="o.tofuQty"
                         class="font-semibold text-amber-600 text-xs"
                       >{{ o.tofuQty }} 塊</span>
-                      <span
-                        v-else
-                        class="text-hint-c text-xs"
-                      >—</span>
-                    </td>
-                    <td class="px-3 py-2.5 font-semibold text-base-c text-xs whitespace-nowrap">
-                      ${{ calcTotal(o) }}
-                    </td>
-                    <td class="px-3 py-2.5 text-xs text-hint-c max-w-[100px] truncate">
-                      {{ o.remark || '—' }}
-                    </td>
-                    <td class="px-3 py-2.5">
-                      <span :class="statusClass(o.status)">{{ o.status }}</span>
-                    </td>
-                    <td class="px-3 py-2.5">
-                      <div class="flex gap-1 flex-wrap">
-                        <button
-                          :disabled="updatingId === o.id"
-                          class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-surface text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                          @click="openEditModal(o)"
-                        >
-                          編輯
-                        </button>
-                        <button
-                          :disabled="updatingId === o.id"
-                          class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                          @click="openDeleteModal(o)"
-                        >
-                          刪除
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                    <span
+                      v-else
+                      class="text-hint-c text-xs"
+                    >—</span>
+                  </td>
+                  <td class="px-3 py-2.5 font-semibold text-base-c text-xs whitespace-nowrap">
+                    ${{ calcTotal(o) }}
+                  </td>
+                  <td class="px-3 py-2.5 text-xs text-hint-c max-w-[100px] truncate">
+                    {{ o.remark || '—' }}
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <span :class="statusClass(o.status)">{{ o.status }}</span>
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <div class="flex gap-1 flex-wrap">
+                      <button
+                        :disabled="updatingId === o.id"
+                        class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-surface text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                        @click="openEditModal(o)"
+                      >
+                        編輯
+                      </button>
+                      <button
+                        :disabled="updatingId === o.id"
+                        class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                        @click="openDeleteModal(o)"
+                      >
+                        刪除
+                      </button>
+                    </div>
+                  </td>
+                </tr>
                 </tbody>
               </table>
             </div>
@@ -1501,7 +1722,8 @@ const submitEdit = async () => {
               <!-- 姓名 & 聯絡 -->
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span class="text-red-400">*</span></label>
+                  <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span
+                    class="text-red-400">*</span></label>
                   <div class="relative">
                     <input
                       v-model="createForm.name"
@@ -1806,7 +2028,8 @@ const submitEdit = async () => {
               <!-- 姓名 & 聯絡 -->
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span class="text-red-400">*</span></label>
+                  <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span
+                    class="text-red-400">*</span></label>
                   <input
                     v-model="editForm.name"
                     type="text"
@@ -2132,12 +2355,33 @@ const submitEdit = async () => {
   transition: all 0.12s;
   white-space: nowrap;
 }
-.dark .filter-chip { border-color: #52525b; background: #3f3f46; color: #d6d3d1; }
-.filter-chip.active { background: #15803d; color: white; border-color: #15803d; }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.dark .filter-chip {
+  border-color: #52525b;
+  background: #3f3f46;
+  color: #d6d3d1;
+}
 
-.hint-panel-enter-active, .hint-panel-leave-active { transition: opacity 0.2s, transform 0.2s; }
-.hint-panel-enter-from, .hint-panel-leave-to { opacity: 0; transform: translateY(-6px); }
+.filter-chip.active {
+  background: #15803d;
+  color: white;
+  border-color: #15803d;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.hint-panel-enter-active, .hint-panel-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.hint-panel-enter-from, .hint-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
 </style>
