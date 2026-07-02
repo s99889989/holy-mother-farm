@@ -3,20 +3,19 @@ definePageMeta({ layout: 'staff' })
 
 const commonStore   = useCommonStore()
 const customerStore = useCustomerStore()
+const permissionStore = usePermissionStore()
 const BASE          = computed(() => commonStore.data.main_url + '/holy/customer')
+const PERM_BASE      = computed(() => commonStore.data.main_url + '/holy/permission')
 const customer      = computed(() => customerStore.customer)
 
-// group 中文對照（與 permissions.yml 的 group id 一致）
-const GROUP_LABELS = {
-  guest:   '一般訪客',
-  member:  '一般會員',
-  staff:   '基本員工',
-  senior:  '資深員工',
-  manager: '主管',
-}
-const groupLabel = computed(() =>
-  GROUP_LABELS[customer.value?.group] ?? customer.value?.group ?? customer.value?.role ?? ''
-)
+// ── 群組（動態抓取，不再硬編碼，跟後台 Permission Groups 頁面同一份資料源） ──
+const permGroups  = ref([])   // 所有群組定義 [{ id, label, ... }]
+const myGroups    = ref([])   // 此用戶可切換的群組 id 清單
+const activeGroup = ref('')   // 目前使用中的群組
+const switching   = ref(false)
+
+const groupLabel = (groupId) =>
+  permGroups.value.find(g => g.id === groupId)?.label ?? groupId ?? ''
 
 // ── 表單 ─────────────────────────────────────────────────────────
 const form = reactive({ mobile: '', landline: '', address: '', birthday: '', note: '' })
@@ -61,6 +60,48 @@ const initForm = () => {
   form.note     = customer.value.note     || ''
 }
 
+// ── 載入群組資訊：可切換清單 + 目前使用中 ─────────────────────────
+const fetchPermInfo = async () => {
+  if (!customer.value?.id) return
+  try {
+    const [groupsRes, userRes] = await Promise.all([
+      fetch(PERM_BASE.value + '/groups'),
+      fetch(`${PERM_BASE.value}/user/${customer.value.id}`),
+    ])
+    permGroups.value = await groupsRes.json()
+    const userData   = await userRes.json()
+    myGroups.value    = userData.groups || []
+    activeGroup.value = userData.activeGroup || myGroups.value[0] || ''
+  } catch (e) { console.error(e) }
+}
+
+// ── 切換使用中群組：導覽選單與權限依此顯示，不影響可切換範圍 ─────
+const switchActiveGroup = async (groupId) => {
+  if (!customer.value?.id || groupId === activeGroup.value || switching.value) return
+  switching.value = true
+  error.value = ''
+  try {
+    const res = await fetch(`${PERM_BASE.value}/user/${customer.value.id}/active-group`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ group: groupId })
+    })
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+
+    activeGroup.value = groupId
+    // 立即重拉權限，讓導覽選單同步更新，不需重整頁面
+    await permissionStore.load(String(customer.value.id), commonStore.data.main_url, true)
+
+    saved.value = true
+    setTimeout(() => saved.value = false, 2000)
+  } catch (e) {
+    error.value = e.message || '切換失敗，請稍後再試。'
+  } finally {
+    switching.value = false
+  }
+}
+
 // ── 儲存：PUT /holy/customer/profile（後端用 cookie 驗身份）──────
 const saveProfile = async () => {
   if (form.mobile) {
@@ -99,6 +140,7 @@ const saveProfile = async () => {
 
 onMounted(() => {
   initForm()
+  fetchPermInfo()
 })
 </script>
 
@@ -145,8 +187,25 @@ onMounted(() => {
             <p class="text-sm font-semibold text-base-c truncate">{{ customer.name }}</p>
             <p class="text-xs text-hint-c truncate">{{ customer.email }}</p>
             <span class="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-              {{ groupLabel }}
+              {{ groupLabel(activeGroup) }}
             </span>
+          </div>
+        </div>
+
+        <!-- 使用中群組切換（僅在此用戶擁有多個群組時顯示） -->
+        <div v-if="myGroups.length > 1" class="bg-surface rounded-2xl border border-light-c p-4 mb-4">
+          <h2 class="text-sm font-semibold text-base-c mb-1">使用中群組</h2>
+          <p class="text-xs text-hint-c mb-3">切換群組會改變您看到的導覽選單與權限，不影響您可使用的群組範圍</p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="gid in myGroups" :key="gid" type="button"
+              :disabled="switching"
+              @click="switchActiveGroup(gid)"
+              class="px-3 py-1.5 text-xs rounded-full border transition-colors disabled:opacity-50"
+              :class="activeGroup === gid
+                ? 'bg-green-700 border-green-700 text-white'
+                : 'border-light-c text-muted-c hover-surface2'"
+            >{{ groupLabel(gid) }}</button>
           </div>
         </div>
 

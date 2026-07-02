@@ -111,21 +111,25 @@
     <div v-if="keyModal.open" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 px-4 py-6 overflow-y-auto">
       <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6 my-auto">
         <div class="flex items-center justify-between mb-5">
-          <h3 class="font-bold text-base-c">{{ keyModal.isCreate ? '新增 Permission Key' : '編輯 Key：' + keyModal.data.key }}</h3>
+          <h3 class="font-bold text-base-c">{{ keyModal.isCreate ? '新增 Permission Key' : '編輯 Key：' + keyModal.originalKey }}</h3>
           <button class="text-hint-c hover:text-muted-c p-1" @click="keyModal.open = false">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
         <div class="space-y-4">
-          <!-- Key（新增時才輸入） -->
-          <div v-if="keyModal.isCreate">
+          <!-- Key -->
+          <div>
             <label class="text-xs font-semibold text-muted-c block mb-1">
               Permission Key
               <span class="text-hint-c font-normal">（英數字、點、連字號）</span>
             </label>
             <input v-model="keyModal.data.key" placeholder="例如：staff.pos-analysis"
                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400 font-mono">
+            <p v-if="!keyModal.isCreate && keyModal.data.key !== keyModal.originalKey"
+               class="text-xs text-amber-500 mt-1">
+              ⚠️ 重新命名不會遺失群組的開/關設定，但頁面 <code class="font-mono">definePageMeta({{ '{' }} requiredPermission {{ '}' }})</code> 需要手動同步改成新 key，否則權限檢查會失效。
+            </p>
           </div>
 
           <!-- 中文標籤 -->
@@ -285,6 +289,7 @@ const keyModal = reactive({
   open: false,
   isCreate: false,
   customSection: '',
+  originalKey: '',   // 編輯模式下用來記住原始 key，才知道要 PUT 到哪個路徑
   data: { key: '', label: '', section: '' },
   error: ''
 })
@@ -356,6 +361,7 @@ const openCreateKey = (presetSection) => {
   keyModal.isCreate = true
   keyModal.error = ''
   keyModal.customSection = ''
+  keyModal.originalKey = ''
   keyModal.data = { key: '', label: '', section: presetSection || sections.value[0]?.section || '其他' }
   keyModal.open = true
 }
@@ -365,6 +371,7 @@ const openEditKey = (kd) => {
   keyModal.isCreate = false
   keyModal.error = ''
   keyModal.customSection = ''
+  keyModal.originalKey = kd.key
   keyModal.data = { key: kd.key, label: kd.label, section: kd.section }
   keyModal.open = true
 }
@@ -372,6 +379,7 @@ const openEditKey = (kd) => {
 // ── 儲存 Key ──────────────────────────────────────────────────────
 const saveKey = async () => {
   keyModal.error = ''
+  if (!keyModal.data.key.trim())   { keyModal.error = '請輸入 permission key'; return }
   if (!keyModal.data.label.trim()) { keyModal.error = '請輸入中文標籤'; return }
 
   const section = keyModal.data.section === '__custom__'
@@ -383,17 +391,17 @@ const saveKey = async () => {
   try {
     let res
     if (keyModal.isCreate) {
-      if (!keyModal.data.key.trim()) { keyModal.error = '請輸入 permission key'; saving.value = false; return }
       res = await fetch(BASE.value + '/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: keyModal.data.key.trim(), label: keyModal.data.label.trim(), section })
       })
     } else {
-      res = await fetch(`${BASE.value}/keys/${encodeURIComponent(keyModal.data.key)}`, {
+      // PUT 到原本的 key 路徑；body 帶新的 key 值，後端會自動搬移各群組的設定
+      res = await fetch(`${BASE.value}/keys/${encodeURIComponent(keyModal.originalKey)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: keyModal.data.label.trim(), section })
+        body: JSON.stringify({ key: keyModal.data.key.trim(), label: keyModal.data.label.trim(), section })
       })
     }
     const d = await res.json()

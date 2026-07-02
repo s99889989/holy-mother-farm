@@ -79,11 +79,21 @@
             </td>
             <td class="px-3 py-2.5 text-hint-c">{{ c.email }}</td>
             <td class="px-3 py-2.5 text-muted-c">{{ c.mobile || c.landline || '—' }}</td>
-            <!-- 權限群組 -->
+            <!-- 權限群組（可複選 + 快速切換使用中） -->
             <td class="px-3 py-2.5 text-center">
-              <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                {{ groupLabel(userPermMap[c.id]?.group) }}
-              </span>
+              <div class="flex justify-center">
+                <select v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
+                        :value="userPermMap[c.id]?.activeGroup"
+                        @change="quickSwitchActiveGroup(c.id, $event.target.value)"
+                        class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400">
+                  <option v-for="gid in userPermMap[c.id].groups" :key="gid" :value="gid">{{ groupLabel(gid) }}</option>
+                </select>
+                <span v-else-if="userPermMap[c.id]?.groups?.length === 1"
+                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                  {{ groupLabel(userPermMap[c.id].activeGroup || userPermMap[c.id].groups[0]) }}
+                </span>
+                <span v-else class="text-hint-c text-xs">—</span>
+              </div>
             </td>
             <td class="px-3 py-2.5 text-center">
               <span class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 font-medium">
@@ -140,9 +150,16 @@
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2 flex-wrap">
                 <p class="font-semibold text-base-c truncate">{{ c.name }}</p>
-                <div class="flex gap-1.5">
-                  <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                    {{ groupLabel(userPermMap[c.id]?.group) }}
+                <div class="flex gap-1.5 flex-wrap justify-end items-center">
+                  <select v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
+                          :value="userPermMap[c.id]?.activeGroup"
+                          @change="quickSwitchActiveGroup(c.id, $event.target.value)"
+                          class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400">
+                    <option v-for="gid in userPermMap[c.id].groups" :key="gid" :value="gid">{{ groupLabel(gid) }}</option>
+                  </select>
+                  <span v-else-if="userPermMap[c.id]?.groups?.length === 1"
+                        class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                    {{ groupLabel(userPermMap[c.id].activeGroup || userPermMap[c.id].groups[0]) }}
                   </span>
                   <span :class="c.status === 'blocked'
  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
@@ -270,55 +287,43 @@
           </button>
         </div>
 
-        <!-- 選擇群組 -->
-        <div class="mb-5">
-          <label class="text-xs font-semibold text-muted-c block mb-1">所屬群組</label>
-          <select v-model="permModal.group"
-                  class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-violet-400">
-            <option v-for="g in permGroups" :key="g.id" :value="g.id">{{ g.label }}（{{ g.id }}）</option>
-          </select>
-          <p class="text-xs text-hint-c mt-1">群組為基礎，個人覆蓋優先於群組設定</p>
+        <!-- 選擇群組（可複選，決定可切換的範圍） -->
+        <div>
+          <label class="text-xs font-semibold text-muted-c block mb-2">所屬群組（可複選）</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <label
+              v-for="g in permGroups" :key="g.id"
+              class="flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors"
+              :class="permModal.groups.includes(g.id)
+                ? 'border-violet-300 bg-violet-50 dark:border-violet-700 dark:bg-violet-900/20'
+                : 'border-light-c hover-surface2'"
+            >
+              <input type="checkbox" :checked="permModal.groups.includes(g.id)"
+                     class="accent-violet-600 w-3.5 h-3.5 flex-shrink-0"
+                     @change="toggleGroup(g.id, $event.target.checked)">
+              <div class="min-w-0">
+                <p class="text-xs font-medium text-base-c">{{ g.label }}</p>
+                <p class="text-xs text-hint-c font-mono">{{ g.id }}</p>
+              </div>
+            </label>
+          </div>
+          <p class="text-xs text-hint-c mt-2">勾選此用戶可切換的群組範圍</p>
         </div>
 
-        <!-- 個人覆蓋 -->
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <label class="text-xs font-semibold text-muted-c">個人覆蓋設定</label>
-            <button class="text-xs text-hint-c hover:text-red-500 hover:underline transition-colors"
-                    @click="clearOverrides">清除所有覆蓋</button>
+        <!-- 目前使用中群組（決定導覽選單與權限，僅能從上方勾選範圍中選一個） -->
+        <div v-if="permModal.groups.length > 0" class="mt-4">
+          <label class="text-xs font-semibold text-muted-c block mb-2">目前使用中群組</label>
+          <div class="flex flex-wrap gap-1.5">
+            <button v-for="gid in permModal.groups" :key="gid" type="button"
+                    @click="permModal.activeGroup = gid"
+                    class="px-3 py-1.5 text-xs rounded-full border transition-colors"
+                    :class="permModal.activeGroup === gid
+                      ? 'bg-violet-600 border-violet-600 text-white'
+                      : 'border-light-c text-muted-c hover-surface2'">
+              {{ groupLabel(gid) }}
+            </button>
           </div>
-
-          <div v-for="section in permSections" :key="section.label" class="mb-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs font-semibold text-hint-c uppercase tracking-wide">{{ section.label }}</span>
-              <div class="flex-1 h-px bg-surface2 dark:bg-surface2" />
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              <div v-for="kd in section.keys" :key="kd.key"
-                   class="flex items-center gap-2 px-3 py-2 rounded-xl border border-light-c">
-                <div class="flex-1 min-w-0">
-                  <p class="text-xs font-medium text-base-c">{{ kd.label }}</p>
-                  <p class="text-xs text-hint-c mt-0.5">
-                    群組預設：
-                    <span :class="groupDefaultForKey(kd.key) ? 'text-green-600' : 'text-red-500'">
-                      {{ groupDefaultForKey(kd.key) ? '開啟' : '關閉' }}
-                    </span>
-                  </p>
-                </div>
-                <!-- 修正：改用 v-model 搭配計算的 getter/setter，確保響應式正確 -->
-                <select v-model="permOverrides[kd.key]"
-                        class="text-xs px-2 py-1 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-1 focus:ring-violet-400">
-                  <option value="inherit">繼承群組</option>
-                  <option value="allow">覆蓋：開啟</option>
-                  <option value="deny">覆蓋：關閉</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="keyDefs.length === 0" class="text-xs text-hint-c text-center py-4">
-            尚未定義任何 permission key，請先至「Permission Keys」頁面新增。
-          </div>
+          <p class="text-xs text-hint-c mt-2">導覽選單與權限依「使用中群組」顯示，切換不影響上方可選範圍</p>
         </div>
 
         <!-- 錯誤提示 -->
@@ -398,30 +403,13 @@ const userPermMap  = ref({})   // { customerId: { group, permissions } }
 const editModal = reactive({ open: false, customer: null })
 const editForm  = reactive({ name: '', mobile: '', landline: '', address: '', birthday: '', note: '' })
 
-// 修正：overrides 用 ref({}) 而非放在 reactive() 裡，
-// 避免整個物件重新指派時 Vue 追蹤斷裂。
-// 每個 key 初始值為 'inherit'，這樣 v-model 一定有東西可以綁。
+// permModal.groups 為所屬群組 id 陣列（可切換範圍）
+// permModal.activeGroup 為目前使用中的群組（決定導覽選單與權限）
 const permModal = reactive({
   open: false,
   customer: null,
-  group: 'guest',
-})
-const permOverrides = ref({})  // { key: 'inherit' | 'allow' | 'deny' }
-
-// ── Permission Key（改為動態抓取，避免跟 Permission Keys 頁面的資料脫節） ──
-const keyDefs = ref([])   // [{ key, label, section, order }]，從 /holy/permission/keys 取得
-
-const allKeys = computed(() => keyDefs.value.map(kd => kd.key))
-
-// 依分區分組，順序完全跟著後端排序走（跟 Permission Keys / 權限組頁面一致）
-const permSections = computed(() => {
-  const map = {}
-  for (const kd of keyDefs.value) {
-    const s = kd.section || '其他'
-    if (!map[s]) map[s] = []
-    map[s].push(kd)
-  }
-  return Object.entries(map).map(([label, keys]) => ({ label, keys }))
+  groups: [],
+  activeGroup: '',
 })
 
 // ── 計算屬性 ──────────────────────────────────────────────────────
@@ -430,7 +418,7 @@ const filtered = computed(() => {
   return customers.value.filter(c => {
     const matchSearch = !q || [c.name, c.email, c.mobile, c.landline, c.address].some(v => v?.toLowerCase().includes(q))
     const matchStatus = !filterStatus.value || c.status === filterStatus.value
-    const matchGroup  = !filterGroup.value  || userPermMap.value[c.id]?.group === filterGroup.value
+    const matchGroup  = !filterGroup.value  || (userPermMap.value[c.id]?.groups || []).includes(filterGroup.value)
     return matchSearch && matchStatus && matchGroup
   })
 })
@@ -444,11 +432,6 @@ const showToast = (msg) => {
 
 const groupLabel = (groupId) =>
   permGroups.value.find(g => g.id === groupId)?.label ?? groupId ?? '—'
-
-const groupDefaultForKey = (key) => {
-  const g = permGroups.value.find(g => g.id === permModal.group)
-  return g?.permissions?.[key] ?? false
-}
 
 // ── 開啟編輯 ──────────────────────────────────────────────────────
 const openEdit = (c) => {
@@ -465,36 +448,50 @@ const openEdit = (c) => {
   })
 }
 
-// ── 清除個人覆蓋（重設所有 key 為 inherit） ──────────────────────
-const clearOverrides = () => {
-  const fresh = {}
-  for (const key of allKeys.value) fresh[key] = 'inherit'
-  permOverrides.value = fresh
+// ── 切換群組勾選 ──────────────────────────────────────────────────
+const toggleGroup = (groupId, checked) => {
+  if (checked) {
+    if (!permModal.groups.includes(groupId)) permModal.groups.push(groupId)
+    if (!permModal.activeGroup) permModal.activeGroup = groupId
+  } else {
+    permModal.groups = permModal.groups.filter(g => g !== groupId)
+    // 若取消勾選的正是目前使用中的群組，自動改選範圍內第一個
+    if (permModal.activeGroup === groupId) {
+      permModal.activeGroup = permModal.groups[0] || ''
+    }
+  }
 }
 
 // ── 開啟用戶權限 Modal ────────────────────────────────────────────
-// 修正：所有 key 都預先初始化為 'inherit'，
-// 再把後端已有的覆蓋蓋上去，確保 v-model 有初始值可以綁定。
 const openPermModal = (c) => {
   permError.value = ''
   const perm = userPermMap.value[c.id]
   permModal.customer = c
-  permModal.group = perm?.group ?? defaultGroup.value
-
-  // 所有目前有效的 key 先設為 'inherit'
-  const fresh = {}
-  for (const key of allKeys.value) fresh[key] = 'inherit'
-
-  // 套上後端已有的覆蓋（防呆：忽略任何已不存在於 keyDefs 的舊 key，避免儲存時被後端拒絕）
-  if (perm?.permissions) {
-    const validKeys = new Set(allKeys.value)
-    Object.entries(perm.permissions).forEach(([key, allow]) => {
-      if (validKeys.has(key)) fresh[key] = allow ? 'allow' : 'deny'
-    })
-  }
-
-  permOverrides.value = fresh
+  permModal.groups = perm?.groups?.length
+    ? [...perm.groups]
+    : (perm?.group ? [perm.group] : [defaultGroup.value]) // 相容舊資料單一 group 欄位
+  permModal.activeGroup = perm?.activeGroup && permModal.groups.includes(perm.activeGroup)
+    ? perm.activeGroup
+    : permModal.groups[0]
   permModal.open = true
+}
+
+// ── 快速切換使用中群組（不需開啟 Modal，直接在列表操作） ─────────
+const quickSwitchActiveGroup = async (customerId, groupId) => {
+  try {
+    const res = await fetch(`${PERM_BASE.value}/user/${customerId}/active-group`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ group: groupId })
+    })
+    const data = await res.json()
+    if (data.error) { showToast('❌ ' + data.error); return }
+    if (userPermMap.value[customerId]) userPermMap.value[customerId].activeGroup = groupId
+    showToast('使用中群組已切換')
+  } catch (e) {
+    showToast('❌ 連線失敗')
+    console.error(e)
+  }
 }
 
 // ── API：取得客戶清單 ──────────────────────────────────────────────
@@ -519,14 +516,6 @@ const fetchPermData = async () => {
     ])
     permGroups.value   = await gRes.json()
     defaultGroup.value = (await dRes.json()).defaultGroup ?? 'guest'
-  } catch (e) { console.error(e) }
-}
-
-// 動態取得目前有效的 permission key（跟 Permission Keys 頁面共用同一份資料源）
-const fetchKeyDefs = async () => {
-  try {
-    const res = await fetch(PERM_BASE.value + '/keys')
-    keyDefs.value = await res.json()
   } catch (e) { console.error(e) }
 }
 
@@ -568,47 +557,31 @@ const saveEdit = async () => {
   }
 }
 
-// ── API：儲存用戶權限 ─────────────────────────────────────────────
-// 修正重點：
-// 1. 每個步驟的 API 回傳值都檢查是否有 error，有的話拋出讓 catch 接住
-// 2. DELETE 改用 query string（?key=...），避免 DELETE with body 被 filter 吞掉
-// 3. 儲存完後重新拉全部用戶權限，確保列表資料同步
+// ── API：儲存用戶所屬群組 + 使用中群組 ────────────────────────────
 const savePerm = async () => {
   permError.value = ''
+  if (permModal.groups.length === 0) { permError.value = '請至少選擇一個群組'; return }
+
   saving.value = true
   const customerId = permModal.customer.id
   try {
-    // 1. 儲存群組
-    const groupRes = await fetch(`${PERM_BASE.value}/user/${customerId}/group`, {
+    const groupsRes = await fetch(`${PERM_BASE.value}/user/${customerId}/groups`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ group: permModal.group })
+      body: JSON.stringify({ groups: permModal.groups })
     })
-    const groupData = await groupRes.json()
-    if (groupData.error) throw new Error('群組儲存失敗：' + groupData.error)
+    const groupsData = await groupsRes.json()
+    if (groupsData.error) throw new Error('群組儲存失敗：' + groupsData.error)
 
-    // 2. 儲存個人覆蓋
-    for (const [key, val] of Object.entries(permOverrides.value)) {
-      if (val === 'inherit') {
-        // 修正：DELETE 用 query string，不帶 body
-        const delRes = await fetch(
-          `${PERM_BASE.value}/user/${customerId}/perm?key=${encodeURIComponent(key)}`,
-          { method: 'DELETE' }
-        )
-        const delData = await delRes.json()
-        if (delData.error) throw new Error(`清除 ${key} 失敗：` + delData.error)
-      } else {
-        const putRes = await fetch(`${PERM_BASE.value}/user/${customerId}/perm`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key, allow: val === 'allow' })
-        })
-        const putData = await putRes.json()
-        if (putData.error) throw new Error(`設定 ${key} 失敗：` + putData.error)
-      }
-    }
+    const activeRes = await fetch(`${PERM_BASE.value}/user/${customerId}/active-group`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ group: permModal.activeGroup })
+    })
+    const activeData = await activeRes.json()
+    if (activeData.error) throw new Error('切換使用中群組失敗：' + activeData.error)
 
-    // 3. 重新拉全部用戶權限，確保列表群組顯示同步
+    // 重新拉全部用戶權限，確保列表群組顯示同步
     await fetchUserPerms()
 
     permModal.open = false
@@ -670,7 +643,7 @@ const doDelete = async () => {
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([fetchCustomers(), fetchPermData(), fetchKeyDefs()])
+  await Promise.all([fetchCustomers(), fetchPermData()])
   await fetchUserPerms()
 })
 </script>
