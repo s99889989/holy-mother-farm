@@ -610,12 +610,22 @@ const navGroups = [
     ]
   },
   {
-    label: '💳 POS 機',
+    label: '💳 基本資料',
     items: [
-      { to: '/staff/pos/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' },
-      { to: '/staff/pos/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.pos-sales' },
+      { to: '/staff/pos/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' }
+    ]
+  },
+  {
+    label: '💳 日常作業',
+    items: [
       { to: '/staff/pos/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
       { to: '/staff/pos/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
+    ]
+  },
+  {
+    label: '💳 營業分析',
+    items: [
+      { to: '/staff/pos/analysis/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.pos-sales' }
     ]
   },
   {
