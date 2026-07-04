@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'admin', pageLabel: '權限組' })
+definePageMeta({ layout: 'staff', requiredPermission: 'permission.permission-management' })
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/permission')

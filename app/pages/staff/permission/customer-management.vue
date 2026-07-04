@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'staff', requiredPermission: 'permission.customer-management' })
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
