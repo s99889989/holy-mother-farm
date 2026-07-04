@@ -91,7 +91,7 @@ const navGroups = [
   {
     label: '📊 庫存銷售',
     items: [
-      { to: '/staff/stock/cash-count', icon: '💵', label: '現金盤點', key: 'stock.cash-count' },
+      { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
       { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
       { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
       { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
