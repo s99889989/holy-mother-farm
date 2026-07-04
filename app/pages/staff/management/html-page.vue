@@ -50,6 +50,9 @@
                 <button @click="copyUrl(page.slug)"
                         class="px-2 py-1 rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
                         style="font-size:12px">複製</button>
+                <button @click="openContentEditor(page)"
+                        class="px-2 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
+                        style="font-size:12px">編輯內容</button>
                 <button @click="openEdit(page)"
                         class="px-2 py-1 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
                         style="font-size:12px">編輯</button>
@@ -197,6 +200,90 @@
                   style="font-size:13px">
             <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             {{ modal.mode === 'edit' ? '儲存' : '上傳' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ 內容編輯 Modal (編輯／即時預覽) ════ -->
+    <div v-if="contentModal.show"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-6xl h-full sm:h-[92vh] flex flex-col overflow-hidden">
+
+        <div class="px-5 py-3 border-b border-light-c flex items-center justify-between flex-none">
+          <div class="min-w-0">
+            <h3 class="font-bold text-base-c truncate" style="font-size:15px">編輯內容 — {{ contentModal.title }}</h3>
+            <p class="text-hint-c font-mono truncate" style="font-size:11px">/html/{{ contentModal.slug }}</p>
+          </div>
+          <div class="flex items-center gap-2 flex-none">
+            <button @click="toggleWysiwyg"
+                    class="px-3 py-1.5 rounded-lg border font-semibold transition-colors whitespace-nowrap"
+                    :class="editMode === 'wysiwyg'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-light-c text-hint-c hover-surface2'"
+                    style="font-size:12px">
+              {{ editMode === 'wysiwyg' ? '✓ 點擊編輯中' : '啟用點擊編輯' }}
+            </button>
+            <button @click="contentModal.show = false" class="text-hint-c hover:text-base-c p-1">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 手機用頁籤切換編輯／預覽 -->
+        <div class="flex lg:hidden border-b border-light-c flex-none">
+          <button @click="mobileTab = 'edit'"
+                  class="flex-1 py-2 font-semibold transition-colors"
+                  :class="mobileTab === 'edit' ? 'text-green-700 border-b-2 border-green-700' : 'text-hint-c'"
+                  style="font-size:13px">編輯</button>
+          <button @click="mobileTab = 'preview'"
+                  class="flex-1 py-2 font-semibold transition-colors"
+                  :class="mobileTab === 'preview' ? 'text-green-700 border-b-2 border-green-700' : 'text-hint-c'"
+                  style="font-size:13px">預覽</button>
+        </div>
+
+        <div v-if="editMode === 'wysiwyg'"
+             class="px-5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 flex-none"
+             style="font-size:11px">
+          點擊右側預覽畫面裡的文字即可直接修改。適合改字、改用詞；大範圍排版調整請先關閉此模式，改用左側原始碼。
+        </div>
+
+        <div v-if="contentModal.loading" class="flex-1 flex items-center justify-center text-hint-c" style="font-size:13px">
+          載入中...
+        </div>
+
+        <div v-else class="flex-1 grid lg:grid-cols-2 overflow-hidden">
+          <textarea
+            :class="[mobileTab === 'edit' ? 'block' : 'hidden', 'lg:block']"
+            v-model="contentModal.content"
+            :disabled="editMode === 'wysiwyg'"
+            @keydown.tab.prevent="insertTab"
+            spellcheck="false"
+            class="w-full h-full resize-none outline-none p-4 font-mono bg-surface2 text-base-c border-r border-light-c disabled:opacity-60 disabled:cursor-not-allowed"
+            style="font-size:13px; line-height:1.6;"
+          ></textarea>
+          <iframe
+            ref="previewFrame"
+            :class="[mobileTab === 'preview' ? 'block' : 'hidden', 'lg:block']"
+            :srcdoc="contentModal.content"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            class="w-full h-full border-0"
+            title="即時預覽"
+            @load="onPreviewLoad"
+          ></iframe>
+        </div>
+
+        <div class="px-5 py-3 border-t border-light-c flex gap-2 justify-end flex-none">
+          <button @click="contentModal.show = false"
+                  class="px-4 py-2 rounded-xl bg-surface2 text-muted-c hover-surface2 transition-colors"
+                  style="font-size:13px">取消</button>
+          <button @click="saveContent" :disabled="savingContent || contentModal.loading"
+                  class="px-4 py-2 rounded-xl bg-green-700 text-white hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                  style="font-size:13px">
+            <div v-if="savingContent" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            儲存內容
           </button>
         </div>
       </div>
@@ -372,6 +459,88 @@ const copyUrl = (slug) => {
 }
 
 const openInTab = (slug) => window.open(`/html/${slug}`, '_blank')
+
+// ── 內容編輯（直接在網頁上改 HTML，右側即時預覽） ──────────────
+const contentModal = reactive({ show: false, slug: '', title: '', content: '', loading: false })
+const mobileTab = ref('edit')
+const savingContent = ref(false)
+const editMode = ref('code') // 'code' | 'wysiwyg'
+const previewFrame = ref(null)
+
+const openContentEditor = async (page) => {
+  contentModal.slug    = page.slug
+  contentModal.title   = page.title
+  contentModal.content = ''
+  contentModal.loading = true
+  contentModal.show    = true
+  mobileTab.value      = 'preview'
+  editMode.value       = 'wysiwyg'
+  try {
+    contentModal.content = await (await fetch(`${BASE()}/content/${page.slug}`)).text()
+  } catch {
+    showToast('讀取內容失敗', true)
+    contentModal.show = false
+  } finally {
+    contentModal.loading = false
+  }
+}
+
+// Tab 鍵在編輯器裡插入兩個空格，而不是跳出 textarea
+const insertTab = (e) => {
+  const ta = e.target
+  const start = ta.selectionStart
+  const end = ta.selectionEnd
+  contentModal.content = contentModal.content.slice(0, start) + '  ' + contentModal.content.slice(end)
+  nextTick(() => { ta.selectionStart = ta.selectionEnd = start + 2 })
+}
+
+// ── 點擊編輯（讓右側預覽的 iframe 內文直接可編輯） ──────────────
+const onPreviewLoad = () => {
+  if (editMode.value === 'wysiwyg') enableEditable()
+}
+
+const enableEditable = () => {
+  const doc = previewFrame.value?.contentDocument
+  if (doc?.body) doc.body.contentEditable = 'true'
+}
+
+// 把 iframe 裡目前的 DOM 內容讀回 contentModal.content（保留原本的 DOCTYPE）
+const syncFromPreview = () => {
+  const doc = previewFrame.value?.contentDocument
+  if (!doc?.documentElement) return
+  const hasDoctype = /^\s*<!DOCTYPE/i.test(contentModal.content)
+  contentModal.content = (hasDoctype ? '<!DOCTYPE html>\n' : '') + doc.documentElement.outerHTML
+}
+
+const toggleWysiwyg = () => {
+  if (editMode.value === 'code') {
+    editMode.value = 'wysiwyg'
+    enableEditable() // iframe 已經載入好了，直接開啟可編輯，不會重新整理
+  } else {
+    syncFromPreview() // 離開前先把改動同步回原始碼（會觸發 iframe 重新載入一次，恢復成唯讀預覽）
+    editMode.value = 'code'
+  }
+}
+
+const saveContent = async () => {
+  if (editMode.value === 'wysiwyg') syncFromPreview()
+  savingContent.value = true
+  try {
+    const blob = new Blob([contentModal.content], { type: 'text/html' })
+    const file = new File([blob], contentModal.slug + '.html', { type: 'text/html' })
+    const fd = new FormData()
+    fd.append('title', contentModal.title)
+    fd.append('file', file)
+    await fetch(`${BASE()}/update/${contentModal.slug}`, { method: 'POST', body: fd })
+    showToast('內容已儲存')
+    contentModal.show = false
+    await fetchList()
+  } catch {
+    showToast('儲存失敗', true)
+  } finally {
+    savingContent.value = false
+  }
+}
 
 onMounted(fetchList)
 </script>
