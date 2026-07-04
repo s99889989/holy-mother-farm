@@ -13,75 +13,6 @@ const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart
 const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
 const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${weekDays[today.getDay()]}`
 
-// ── 功能列表（含所需權限 key）─────────────────────────────────────
-const appGroups = [
-  {
-    label: '人事',
-    items: [
-      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'staff.class-schedule', bg: 'bg-sky-500' },
-      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話簿', key: 'staff.phone-directory', bg: 'bg-sky-600' },
-      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'staff.work-manual', bg: 'bg-sky-700' }
-    ]
-  },
-  {
-    label: '列印中心',
-    items: [
-      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'staff.table-card-print', bg: 'bg-purple-500' },
-      { to: '/staff/print/herbs-label-print', icon: '🏷️', label: '花園 QRCode', key: 'staff.herbs-label-print', bg: 'bg-purple-600' }
-    ]
-  },
-  {
-    label: '營運管理',
-    items: [
-      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'staff.daily-menu', bg: 'bg-orange-500' },
-      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'staff.calendar', bg: 'bg-orange-600' },
-      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'staff.asset', bg: 'bg-orange-700' },
-      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'staff.files', bg: 'bg-amber-600' }
-    ]
-  },
-  {
-    label: '訂單管理',
-    items: [
-      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'staff.booking-orders', bg: 'bg-green-600' },
-      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'staff.lunch-orders', bg: 'bg-green-700' },
-      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'staff.soybean-orders', bg: 'bg-green-800' },
-      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'staff.black-cat-orders', bg: 'bg-teal-600' }
-    ]
-  },
-  {
-    label: '前台內容',
-    items: [
-      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'staff.news', bg: 'bg-rose-500' },
-      { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'staff.product', bg: 'bg-rose-600' },
-      { to: '/staff/content/production', icon: '🌱', label: '產品訂購', key: 'staff.production', bg: 'bg-rose-700' }
-    ]
-  },
-  {
-    label: '工具・系統',
-    items: [
-      { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'staff.cash-count', bg: 'bg-slate-500' },
-      { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'staff.quick-links', bg: 'bg-slate-600' }
-    ]
-  }
-]
-
-// ── 權限過濾 ──────────────────────────────────────────────────────
-const perm = usePermission()
-const permStore = usePermissionStore()
-
-// 改用 perms 是否有內容來判斷，而非 loaded flag。
-// 原因：loaded 不 persist，iOS BFCache/App Switcher 回來時 loaded=false，
-// 但 perms 還有 persist 的舊資料，這時用 loaded 判斷會讓功能圖示全消失，
-// 等 API 回來才顯示。改用 hasPerms 讓 perms 有資料就立刻顯示。
-const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
-
-const visibleGroups = computed(() => {
-  if (!hasPerms.value) return []
-  return appGroups
-    .map(g => ({ ...g, items: g.items.filter(i => perm.can(i.key)) }))
-    .filter(g => g.items.length > 0)
-})
-
 // ── 今日概況 ──────────────────────────────────────────────────────
 const loading = ref(false)
 const todaySummary = ref(null)
@@ -170,7 +101,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface2 transition-colors">
+  <div class="min-h-full bg-surface2 transition-colors">
     <header class="bg-surface border-b border-light-c px-4 py-3">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
         <div
@@ -426,63 +357,6 @@ onMounted(() => {
           </div>
         </div>
       </div>
-
-      <!-- ── App 功能列表 ── -->
-      <div
-        v-if="!hasPerms"
-        class="flex justify-center py-8"
-      >
-        <div class="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-      <template v-else>
-        <div
-          v-for="group in visibleGroups"
-          :key="group.label"
-        >
-          <p
-            class="text-hint-c font-semibold uppercase tracking-widest px-1 mb-2"
-            style="font-size:10px"
-          >
-            {{ group.label }}
-          </p>
-          <div class="grid grid-cols-4 gap-3">
-            <NuxtLink
-              v-for="item in group.items"
-              :key="item.to"
-              :to="item.to"
-              class="app-icon flex flex-col items-center gap-1.5"
-            >
-              <div
-                :class="item.bg"
-                class="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm app-icon-btn"
-                style="font-size:26px"
-              >
-                {{ item.icon }}
-              </div>
-              <span
-                class="text-center text-base-c leading-tight"
-                style="font-size:11px"
-              >{{ item.label }}</span>
-            </NuxtLink>
-          </div>
-        </div>
-      </template>
     </div>
   </div>
 </template>
-
-<style scoped>
-  .app-icon {
-    text-decoration: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .app-icon-btn {
-    transition: transform 0.12s, opacity 0.12s;
-  }
-
-  .app-icon:active .app-icon-btn {
-    transform: scale(0.91);
-    opacity: 0.85;
-  }
-</style>

@@ -272,9 +272,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface2 transition-colors duration-300">
-    <AdminNavbar />
-
+  <div class="min-h-full bg-surface2 transition-colors duration-300">
     <!-- ── Header ── -->
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between mb-2">
