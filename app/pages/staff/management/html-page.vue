@@ -140,6 +140,52 @@
             </label>
           </div>
 
+          <!-- OG 分享圖片 -->
+          <div>
+            <label class="text-hint-c font-semibold block mb-2" style="font-size:12px">
+              分享預覽圖 (OG Image)
+              <span class="font-normal">— 不上傳會依標題自動產生</span>
+            </label>
+
+            <!-- 現有圖片預覽 (僅編輯模式，且尚未選擇新檔案時顯示) -->
+            <div v-if="modal.mode === 'edit' && !form.ogImage && !ogPreviewBroken" class="mb-2 relative">
+              <img
+                :src="ogPreviewUrl"
+                @error="ogPreviewBroken = true"
+                class="w-full rounded-xl border border-light-c object-cover"
+                style="aspect-ratio: 1200 / 630;"
+              />
+              <button
+                type="button"
+                @click="resetOgImage"
+                :disabled="resettingOg"
+                class="absolute top-2 right-2 px-2 py-1 rounded-lg bg-black/60 text-white hover:bg-black/80 transition-colors disabled:opacity-50"
+                style="font-size:11px"
+              >{{ resettingOg ? '重設中...' : '重設為自動產生' }}</button>
+            </div>
+
+            <label
+              class="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-xl cursor-pointer transition-colors"
+              :class="form.ogImage
+                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                  : 'border-light-c bg-surface2 hover-surface2'">
+              <div class="flex flex-col items-center gap-1 text-center px-4">
+                <svg class="w-5 h-5" :class="form.ogImage ? 'text-green-600' : 'text-hint-c'"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 8h16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/>
+                </svg>
+                <p v-if="!form.ogImage" class="text-hint-c" style="font-size:12px">
+                  點擊上傳圖片 <span class="text-hint-c">(選填)</span>
+                </p>
+                <p v-else class="font-semibold text-green-700 truncate max-w-xs" style="font-size:12px">
+                  {{ ogImageName }}
+                </p>
+              </div>
+              <input type="file" accept="image/*" class="hidden" @change="onOgImageChange"/>
+            </label>
+          </div>
+
         </div>
 
         <div class="px-5 py-4 border-t border-light-c flex gap-2 justify-end sticky bottom-0 bg-surface">
@@ -206,8 +252,17 @@ const modal    = reactive({ show: false, mode: 'add' })
 const showDeleteConfirm = ref(false)
 const deleteTarget = reactive({ slug: '', title: '' })
 
-const form     = reactive({ slug: '', title: '', file: null })
-const fileName = ref('')
+const form     = reactive({ slug: '', title: '', file: null, ogImage: null })
+const fileName   = ref('')
+const ogImageName = ref('')
+
+// OG 圖片預覽相關狀態
+const ogPreviewBroken = ref(false)
+const ogPreviewVersion = ref(0)
+const resettingOg = ref(false)
+const ogPreviewUrl = computed(() =>
+  `${BASE()}/og-image/${form.slug}?v=${ogPreviewVersion.value}`
+)
 
 const showToast = (msg, error = false) => {
   toast.message = msg
@@ -227,6 +282,8 @@ const fetchList = async () => {
 const openAdd = () => {
   modal.mode = 'add'
   form.slug  = ''; form.title = ''; form.file = null; fileName.value = ''
+  form.ogImage = null; ogImageName.value = ''
+  ogPreviewBroken.value = false
   modal.show = true
 }
 
@@ -235,6 +292,9 @@ const openEdit = (page) => {
   form.slug   = page.slug
   form.title  = page.title
   form.file   = null; fileName.value = ''
+  form.ogImage = null; ogImageName.value = ''
+  ogPreviewBroken.value = false
+  ogPreviewVersion.value++
   modal.show  = true
 }
 
@@ -248,6 +308,24 @@ const onFileChange = (e) => {
   }
 }
 
+const onOgImageChange = (e) => {
+  const f = e.target.files[0]
+  if (!f) return
+  form.ogImage = f
+  ogImageName.value = f.name
+}
+
+const resetOgImage = async () => {
+  resettingOg.value = true
+  try {
+    await fetch(`${BASE()}/og-image/${form.slug}/reset`, { method: 'POST' })
+    ogPreviewBroken.value = false
+    ogPreviewVersion.value++
+    showToast('已重設為自動產生')
+  } catch { showToast('重設失敗', true) }
+  finally { resettingOg.value = false }
+}
+
 const save = async () => {
   if (!form.title.trim()) { showToast('請填寫標題', true); return }
   if (modal.mode === 'add') {
@@ -259,6 +337,7 @@ const save = async () => {
   try {
     const fd = new FormData()
     fd.append('title', form.title.trim())
+    if (form.ogImage) fd.append('ogImage', form.ogImage)
     if (modal.mode === 'add') {
       fd.append('slug', form.slug.trim())
       fd.append('file', form.file)
