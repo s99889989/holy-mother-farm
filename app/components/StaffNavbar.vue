@@ -1,3 +1,183 @@
+<script setup>
+const route = useRoute()
+const mobileOpen = ref(false)
+const menuOpen = ref(false)
+const dropOpen = ref({})
+const darkStore = useDarkModeStore()
+const isDark = computed(() => darkStore.data.dark)
+const perm = usePermission()
+const customerStore = useCustomerStore()
+const commonStore = useCommonStore()
+const customer = computed(() => customerStore.customer)
+
+const toggleDark = () => {
+  darkStore.change_dark_mode()
+}
+
+watch(() => route.path, () => {
+  mobileOpen.value = false
+  dropOpen.value = {}
+  menuOpen.value = false
+})
+
+watch(mobileOpen, (val) => {
+  if (import.meta.client) {
+    document.body.style.overflow = val ? 'hidden' : ''
+  }
+})
+
+const navGroups = [
+  {
+    label: '🌐 前台內容',
+    items: [
+      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
+      { to: '/staff/content/product', icon: '🛒', label: '商品管理', key: 'content.product' },
+      { to: '/staff/content/production', icon: '🌾', label: '產品訂購', key: 'content.production' }
+    ]
+  },
+  {
+    label: '🏢 營運管理',
+    items: [
+      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'management.asset' },
+      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
+      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
+      { to: '/staff/management/files', icon: '🗂️', label: '檔案管理', key: 'management.files' },
+      { to: '/staff/management/html-page', icon: '🌐', label: '網頁頁面', key: 'management.html-page' }
+    ]
+  },
+  {
+    label: '📦 訂單管理',
+    items: [
+      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
+      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'order.booking-orders' },
+      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
+      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' }
+    ]
+  },
+  {
+    label: '👥 人事',
+    items: [
+      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule' },
+      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
+      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual' }
+    ]
+  },
+  {
+    label: '💳 基本資料',
+    items: [
+      { to: '/staff/pos/base/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' }
+    ]
+  },
+  {
+    label: '💳 日常作業',
+    items: [
+      { to: '/staff/pos/daily/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
+      { to: '/staff/pos/daily/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
+    ]
+  },
+  {
+    label: '💳 營業分析',
+    items: [
+      { to: '/staff/pos/analysis/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.pos-sales' }
+    ]
+  },
+  {
+    label: '🖨️ 列印中心',
+    items: [
+      { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
+      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
+    ]
+  },
+  {
+    label: '📊 庫存銷售',
+    items: [
+      { to: '/staff/stock/cash-count', icon: '💵', label: '現金盤點', key: 'stock.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
+      { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
+      { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
+    ]
+  },
+  {
+    label: '🔐 權限',
+    items: [
+      { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
+      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
+    ]
+  }
+]
+
+const standaloneItems = [
+  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
+]
+
+const permStore = usePermissionStore()
+
+const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
+
+const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
+
+const visibleGroups = computed(() => {
+  if (!hasPerms.value) return []
+  return navGroups
+    .map(g => ({ ...g, items: filterItems(g.items) }))
+    .filter(g => g.items.length > 0)
+})
+
+const visibleStandaloneItems = computed(() => {
+  if (!hasPerms.value) return []
+  return filterItems(standaloneItems)
+})
+
+const activeGroup = computed(() =>
+  visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
+)
+
+function toggleDrop(label) {
+  dropOpen.value = {
+    ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
+    [label]: !dropOpen.value[label]
+  }
+  menuOpen.value = false
+}
+
+function onClickOutside(e) {
+  if (!e.target.closest('.nav-dropdown-wrap')) {
+    dropOpen.value = {}
+    menuOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', onClickOutside)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside)
+  if (import.meta.client) {
+    document.body.style.overflow = ''
+  }
+})
+
+const goProfile = () => {
+  menuOpen.value = false
+  nextTick(() => navigateTo('/staff/profile/settings'))
+}
+
+const logout = async () => {
+  try {
+    await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+  } catch { /* 即使失敗也繼續清除本地狀態 */
+  }
+  customerStore.clearCustomer()
+  usePermissionStore().clear()
+  menuOpen.value = false
+  mobileOpen.value = false
+  navigateTo('/')
+}
+</script>
+
 <template>
   <nav class="staff-nav">
     <!-- 桌機 -->
@@ -7,7 +187,7 @@
         to="/staff/home"
         class="nav-logo flex items-center gap-1 px-2 py-1 mr-1 font-bold text-lg"
       >
-        🏠 首頁
+        🏠 專區首頁
       </NuxtLink>
 
       <!-- 分類 dropdown -->
@@ -221,7 +401,7 @@
                         d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
                       />
                     </svg>
-                    首頁
+                    農莊首頁
                   </a>
                 </li>
                 <li class="nav-dropdown-divider mt-1 pt-1">
@@ -258,7 +438,7 @@
         to="/staff/home"
         class="nav-logo flex items-center gap-1.5 font-bold text-sm"
       >
-        🏠 首頁
+        🏠 專區首頁
       </NuxtLink>
       <div class="flex items-center gap-1">
         <button
@@ -517,7 +697,7 @@
                   d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
                 />
               </svg>
-              首頁
+              農莊首頁
             </a>
             <button
               class="nav-footer-btn nav-footer-btn-danger flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-colors"
@@ -544,186 +724,6 @@
     </Teleport>
   </nav>
 </template>
-
-<script setup>
-const route = useRoute()
-const mobileOpen = ref(false)
-const menuOpen = ref(false)
-const dropOpen = ref({})
-const darkStore = useDarkModeStore()
-const isDark = computed(() => darkStore.data.dark)
-const perm = usePermission()
-const customerStore = useCustomerStore()
-const commonStore = useCommonStore()
-const customer = computed(() => customerStore.customer)
-
-const toggleDark = () => {
-  darkStore.change_dark_mode()
-}
-
-watch(() => route.path, () => {
-  mobileOpen.value = false
-  dropOpen.value = {}
-  menuOpen.value = false
-})
-
-watch(mobileOpen, (val) => {
-  if (import.meta.client) {
-    document.body.style.overflow = val ? 'hidden' : ''
-  }
-})
-
-const navGroups = [
-  {
-    label: '🌐 前台內容',
-    items: [
-      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
-      { to: '/staff/content/product', icon: '🛒', label: '商品管理', key: 'content.product' },
-      { to: '/staff/content/production', icon: '🌾', label: '產品訂購', key: 'content.production' }
-    ]
-  },
-  {
-    label: '🏢 營運管理',
-    items: [
-      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'management.asset' },
-      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
-      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
-      { to: '/staff/management/files', icon: '🗂️', label: '檔案管理', key: 'management.files' },
-      { to: '/staff/management/html-page', icon: '🌐', label: '網頁頁面', key: 'management.html-page' }
-    ]
-  },
-  {
-    label: '📦 訂單管理',
-    items: [
-      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
-      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'order.booking-orders' },
-      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
-      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' }
-    ]
-  },
-  {
-    label: '👥 人事',
-    items: [
-      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule' },
-      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
-      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual' }
-    ]
-  },
-  {
-    label: '💳 基本資料',
-    items: [
-      { to: '/staff/pos/base/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' }
-    ]
-  },
-  {
-    label: '💳 日常作業',
-    items: [
-      { to: '/staff/pos/daily/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
-      { to: '/staff/pos/daily/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
-    ]
-  },
-  {
-    label: '💳 營業分析',
-    items: [
-      { to: '/staff/pos/analysis/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.pos-sales' }
-    ]
-  },
-  {
-    label: '🖨️ 列印中心',
-    items: [
-      { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
-      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
-    ]
-  },
-  {
-    label: '📊 庫存銷售',
-    items: [
-      { to: '/staff/stock/cash-count', icon: '💵', label: '現金盤點', key: 'stock.cash-count' },
-      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
-      { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
-      { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
-    ]
-  },
-  {
-    label: '🔐 權限',
-    items: [
-      { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
-      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
-    ]
-  }
-]
-
-const standaloneItems = [
-  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
-]
-
-const permStore = usePermissionStore()
-
-const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
-
-const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
-
-const visibleGroups = computed(() => {
-  if (!hasPerms.value) return []
-  return navGroups
-    .map(g => ({ ...g, items: filterItems(g.items) }))
-    .filter(g => g.items.length > 0)
-})
-
-const visibleStandaloneItems = computed(() => {
-  if (!hasPerms.value) return []
-  return filterItems(standaloneItems)
-})
-
-const activeGroup = computed(() =>
-  visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
-)
-
-function toggleDrop(label) {
-  dropOpen.value = {
-    ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
-    [label]: !dropOpen.value[label]
-  }
-  menuOpen.value = false
-}
-
-function onClickOutside(e) {
-  if (!e.target.closest('.nav-dropdown-wrap')) {
-    dropOpen.value = {}
-    menuOpen.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', onClickOutside)
-})
-onUnmounted(() => {
-  document.removeEventListener('click', onClickOutside)
-  if (import.meta.client) {
-    document.body.style.overflow = ''
-  }
-})
-
-const goProfile = () => {
-  menuOpen.value = false
-  nextTick(() => navigateTo('/staff/profile/settings'))
-}
-
-const logout = async () => {
-  try {
-    await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
-      method: 'POST',
-      credentials: 'include'
-    })
-  } catch { /* 即使失敗也繼續清除本地狀態 */
-  }
-  customerStore.clearCustomer()
-  usePermissionStore().clear()
-  menuOpen.value = false
-  mobileOpen.value = false
-  navigateTo('/')
-}
-</script>
 
 <style scoped>
   .staff-nav {
