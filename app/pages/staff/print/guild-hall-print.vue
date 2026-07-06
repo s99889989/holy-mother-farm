@@ -436,7 +436,7 @@
 <script setup>
   import { ref, reactive, computed } from 'vue'
 
-  definePageMeta({ layout: 'staff', requiredPermission: 'order.print' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'print.guild-hall-print' })
 
   /* ══════════════════════════════════
      TODO（接後端時使用）：
