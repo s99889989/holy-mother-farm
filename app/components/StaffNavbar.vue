@@ -84,6 +84,7 @@ const navGroups = [
   {
     label: '🖨️ 列印中心',
     items: [
+      { to: '/staff/print/guild-hall-print', icon: '🌿', label: '會館', key: 'print.guild-hall-print' },
       { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
       { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
     ]
