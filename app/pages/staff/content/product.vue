@@ -11,7 +11,7 @@
             <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Featured Products</p>
           </div>
         </div>
-        <button v-if="perm.can('staff.product.edit')" @click="openModal(null)"
+        <button v-if="perm.can('content.product')" @click="openModal(null)"
                 class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -65,11 +65,11 @@
               </a>
             </div>
             <div class="flex gap-1.5 mt-auto pt-1">
-              <button v-if="perm.can('staff.product.edit')" @click="openModal(item)"
+              <button v-if="perm.can('content.product')" @click="openModal(item)"
                       class="flex-1 px-2 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                 編輯
               </button>
-              <button v-if="perm.can('staff.product.edit')" @click="confirmDelete(item)"
+              <button v-if="perm.can('content.product')" @click="confirmDelete(item)"
                       class="flex-1 px-2 py-1.5 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                 刪除
               </button>

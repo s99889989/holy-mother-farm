@@ -692,16 +692,8 @@
   const currentYear = ref(today.getFullYear())
   const currentMonth = ref(today.getMonth() + 1)  // 1-based
 
-  // ── 上方資訊區收合狀態（記住使用者上次的選擇）──────────────────────
-  const PANEL_EXPANDED_KEY = 'calendar_panel_expanded'
+  // ── 上方資訊區收合狀態 ────────────────────────────────────────────
   const panelExpanded = ref(true)
-  if (import.meta.client) {
-    const saved = localStorage.getItem(PANEL_EXPANDED_KEY)
-    if (saved !== null) panelExpanded.value = saved === '1'
-  }
-  watch(panelExpanded, (v) => {
-    if (import.meta.client) localStorage.setItem(PANEL_EXPANDED_KEY, v ? '1' : '0')
-  })
 
   // ── 篩選狀態 ──────────────────────────────────────────────────────
   const filterType = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
@@ -711,6 +703,33 @@
     filterType.value = t
     filterLocation.value = ''
   }
+
+  // ── 月份 / 類型 / 地點 / 收合 狀態持久化（記住使用者上次的選擇）───
+  const CALENDAR_STATE_KEY = 'calendar_filter_state'
+  if (import.meta.client) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CALENDAR_STATE_KEY) || 'null')
+      if (saved) {
+        if (saved.year) currentYear.value = saved.year
+        if (saved.month) currentMonth.value = saved.month
+        if (saved.type) filterType.value = saved.type
+        if (saved.location !== undefined) filterLocation.value = saved.location
+        if (saved.expanded !== undefined) panelExpanded.value = saved.expanded
+      }
+    } catch {}
+  }
+
+  watch([currentYear, currentMonth, filterType, filterLocation, panelExpanded], () => {
+    if (import.meta.client) {
+      localStorage.setItem(CALENDAR_STATE_KEY, JSON.stringify({
+        year: currentYear.value,
+        month: currentMonth.value,
+        type: filterType.value,
+        location: filterLocation.value,
+        expanded: panelExpanded.value
+      }))
+    }
+  })
 
   // room 欄位去掉場地代碼前綴："P0I10201 水電實習廠" → "水電實習廠"
   function extractLocation(room) {

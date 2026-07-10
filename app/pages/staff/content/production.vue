@@ -11,7 +11,7 @@
             <p class="text-xs text-hint-c mt-0.5 hidden sm:block">Production Items</p>
           </div>
         </div>
-        <button v-if="perm.can('staff.product.edit')" @click="openModal(null)"
+        <button v-if="perm.can('content.production')" @click="openModal(null)"
                 class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
