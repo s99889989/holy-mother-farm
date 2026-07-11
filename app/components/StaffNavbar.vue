@@ -72,6 +72,7 @@ const navGroups = [
   {
     label: '💳 日常作業',
     items: [
+      { to: '/staff/pos/daily/pos-accounting', icon: '💰', label: '帳務管理', key: 'pos.pos-accounting' },
       { to: '/staff/pos/daily/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
       { to: '/staff/pos/daily/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
     ]
