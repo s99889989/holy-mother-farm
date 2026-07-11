@@ -1,14 +1,21 @@
 <template>
   <div class="page-wrap">
     <div class="page-header">
-      <h1 class="page-title">商品管理</h1>
+      <h1 class="page-title">
+        商品管理
+      </h1>
       <span class="page-sub">共 {{ total }} 項商品</span>
     </div>
 
     <!-- 篩選列 -->
     <div class="filter-bar">
       <div class="type-tabs">
-        <button :class="['tab', { active: selectedType === '' }]" @click="selectType('')">全部</button>
+        <button
+          :class="['tab', { active: selectedType === '' }]"
+          @click="selectType('')"
+        >
+          全部
+        </button>
         <button
           v-for="t in types"
           :key="t.typeNo"
@@ -19,111 +26,169 @@
         </button>
       </div>
       <div class="search-row">
-        <input v-model="search" placeholder="搜尋商品名稱…" class="search-input" @keyup.enter="fetchItems(1)" />
-        <button class="btn-primary" @click="fetchItems(1)">搜尋</button>
-        <button v-if="search" class="btn-ghost" @click="search = ''; fetchItems(1)">清除</button>
+        <input
+          v-model="search"
+          placeholder="搜尋商品名稱…"
+          class="search-input"
+          @keyup.enter="fetchItems(1)"
+        >
+        <button
+          class="btn-primary"
+          @click="fetchItems(1)"
+        >
+          搜尋
+        </button>
+        <button
+          v-if="search"
+          class="btn-ghost"
+          @click="search = ''; fetchItems(1)"
+        >
+          清除
+        </button>
       </div>
     </div>
 
     <!-- 載入中 -->
-    <div v-if="loading" class="loading">載入中…</div>
+    <div
+      v-if="loading"
+      class="loading"
+    >
+      載入中…
+    </div>
 
     <!-- 商品表格 -->
-    <div v-else class="table-wrap">
+    <div
+      v-else
+      class="table-wrap"
+    >
       <table class="data-table">
         <thead>
-        <tr>
-          <th>類別</th>
-          <th>品號</th>
-          <th>商品名稱</th>
-          <th class="text-right">定價</th>
-          <th class="text-right">優惠價</th>
-          <th class="text-right">員工價</th>
-          <th>類型</th>
-        </tr>
+          <tr>
+            <th>類別</th>
+            <th>品號</th>
+            <th>商品名稱</th>
+            <th class="text-right">
+              定價
+            </th>
+            <th class="text-right">
+              優惠價
+            </th>
+            <th class="text-right">
+              員工價
+            </th>
+            <th>類型</th>
+          </tr>
         </thead>
         <tbody>
-        <tr v-for="item in items" :key="item.rNo">
-          <td><span class="type-badge">{{ item.typeName }}</span></td>
-          <td class="text-muted">{{ item.itemNo }}</td>
-          <td class="item-name">{{ item.itemName }}</td>
-          <td class="text-right text-price">{{ formatPrice(item.price1) }}</td>
-          <td class="text-right text-muted">{{ formatPrice(item.price2) }}</td>
-          <td class="text-right text-muted">{{ formatPrice(item.price3) }}</td>
-          <td><span :class="['item-type', getTypeClass(item.itemType)]">{{ item.itemType }}</span></td>
-        </tr>
+          <tr
+            v-for="item in items"
+            :key="item.rNo"
+          >
+            <td><span class="type-badge">{{ item.typeName }}</span></td>
+            <td class="text-muted">
+              {{ item.itemNo }}
+            </td>
+            <td class="item-name">
+              {{ item.itemName }}
+            </td>
+            <td class="text-right text-price">
+              {{ formatPrice(item.price1) }}
+            </td>
+            <td class="text-right text-muted">
+              {{ formatPrice(item.price2) }}
+            </td>
+            <td class="text-right text-muted">
+              {{ formatPrice(item.price3) }}
+            </td>
+            <td><span :class="['item-type', getTypeClass(item.itemType)]">{{ item.itemType }}</span></td>
+          </tr>
         </tbody>
       </table>
     </div>
 
     <!-- 分頁 -->
-    <div v-if="totalPages > 1" class="pagination">
-      <button :disabled="currentPage === 1" class="page-btn" @click="fetchItems(currentPage - 1)">‹ 上一頁</button>
+    <div
+      v-if="totalPages > 1"
+      class="pagination"
+    >
+      <button
+        :disabled="currentPage === 1"
+        class="page-btn"
+        @click="fetchItems(currentPage - 1)"
+      >
+        ‹ 上一頁
+      </button>
       <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 頁</span>
-      <button :disabled="currentPage === totalPages" class="page-btn" @click="fetchItems(currentPage + 1)">下一頁 ›</button>
+      <button
+        :disabled="currentPage === totalPages"
+        class="page-btn"
+        @click="fetchItems(currentPage + 1)"
+      >
+        下一頁 ›
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  definePageMeta({ layout: 'staff', requiredPermission: 'pos.pos-menu' })
+definePageMeta({ layout: 'staff', requiredPermission: 'pos.pos-menu' })
 
-  interface MenuType { typeNo: string; typeName: string }
-  interface MenuItem {
-    rNo: string; typeNo: string; typeName: string; itemNo: string
-    itemName: string; price1: string; price2: string; price3: string; itemType: string
-  }
+interface MenuType { typeNo: string, typeName: string }
+interface MenuItem {
+  rNo: string; typeNo: string; typeName: string; itemNo: string
+  itemName: string; price1: string; price2: string; price3: string; itemType: string
+}
 
-  const commonStore = useCommonStore()
-  const apiBase = computed(() => commonStore.data.main_url)
+const commonStore = useCommonStore()
+const apiBase = computed(() => commonStore.data.main_url)
 
-  const types = ref<MenuType[]>([])
-  const items = ref<MenuItem[]>([])
-  const total = ref(0)
-  const totalPages = ref(1)
-  const currentPage = ref(1)
-  const selectedType = ref('')
-  const search = ref('')
-  const loading = ref(false)
+const types = ref<MenuType[]>([])
+const items = ref<MenuItem[]>([])
+const total = ref(0)
+const totalPages = ref(1)
+const currentPage = ref(1)
+const selectedType = ref('')
+const search = ref('')
+const loading = ref(false)
 
-  async function fetchTypes() {
-    types.value = await $fetch<MenuType[]>(`${apiBase.value}/holy/bksql/menu/types`, { credentials: 'include' }) ?? []
-  }
+async function fetchTypes() {
+  types.value = await $fetch<MenuType[]>(`${apiBase.value}/holy/bksql/menu/types`, { credentials: 'include' }) ?? []
+}
 
-  async function fetchItems(page: number) {
-    loading.value = true
-    currentPage.value = page
-    try {
-      const data = await $fetch<{ items: MenuItem[], total: number, totalPages: number }>(
-        `${apiBase.value}/holy/bksql/menu/items`,
-          { credentials: 'include', query: { typeNo: selectedType.value, search: search.value, page } }
-      )
-      items.value = data?.items ?? []
-      total.value = data?.total ?? 0
-      totalPages.value = data?.totalPages ?? 1
-    } finally { loading.value = false }
-  }
+async function fetchItems(page: number) {
+  loading.value = true
+  currentPage.value = page
+  try {
+    const data = await $fetch<{ items: MenuItem[], total: number, totalPages: number }>(
+      `${apiBase.value}/holy/bksql/menu/items`,
+      { credentials: 'include', query: { typeNo: selectedType.value, search: search.value, page } }
+    )
+    items.value = data?.items ?? []
+    total.value = data?.total ?? 0
+    totalPages.value = data?.totalPages ?? 1
+  } finally { loading.value = false }
+}
 
-  function selectType(typeNo: string) {
-    selectedType.value = typeNo
-    search.value = ''
-    fetchItems(1)
-  }
+function selectType(typeNo: string) {
+  selectedType.value = typeNo
+  search.value = ''
+  fetchItems(1)
+}
 
-  function formatPrice(p: string) {
-    const n = parseFloat(p)
-    if (!n || n === 0) return '-'
-    return `$${n.toLocaleString()}`
-  }
+function formatPrice(p: string) {
+  const n = parseFloat(p)
+  if (!n || n === 0) return '-'
+  return `$${n.toLocaleString()}`
+}
 
-  function getTypeClass(t: string) {
-    if (t === 'S1' || t === 'S2') return 'type-s'
-    if (t === '-') return 'type-dash'
-    return 'type-other'
-  }
+function getTypeClass(t: string) {
+  if (t === 'S1' || t === 'S2') return 'type-s'
+  if (t === '-') return 'type-dash'
+  return 'type-other'
+}
 
-  await fetchTypes()
-  await fetchItems(1)
+await fetchTypes()
+await fetchItems(1)
 </script>
 
 <style scoped>

@@ -64,23 +64,35 @@ const navGroups = [
     ]
   },
   {
-    label: '💳 基本資料',
-    items: [
-      { to: '/staff/pos/base/pos-menu', icon: '🛍️', label: '商品管理', key: 'pos.pos-menu' }
-    ]
-  },
-  {
     label: '💳 日常作業',
     items: [
-      { to: '/staff/pos/daily/pos-accounting', icon: '💰', label: '帳務管理', key: 'pos.pos-accounting' },
-      { to: '/staff/pos/daily/pos-sell', icon: '💰', label: '商品販賣', key: 'pos.pos-sell' },
-      { to: '/staff/pos/daily/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.pos-stock' }
+      { to: '/staff/pos/daily/sales', icon: '💰', label: '商品販賣', key: 'pos.daily.sales' },
+      { to: '/staff/pos/daily/account-inquiry', icon: '💰', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
+      { to: '/staff/pos/daily/stock', icon: '📦', label: '庫存管理', key: 'pos.daily.stock' }
     ]
   },
   {
     label: '💳 營業分析',
     items: [
-      { to: '/staff/pos/analysis/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.pos-sales' }
+      { to: '/staff/pos/analyze/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.analyze.pos-sales' }
+    ]
+  },
+  {
+    label: '💳 設置',
+    items: [
+      { to: '/staff/pos/settings/menu-setting', icon: '🛍️', label: '品項設置', key: 'pos.settings.menu-setting' },
+      { to: '/staff/pos/settings/materials-setting', icon: '🛍️', label: '物料設置', key: 'pos.settings.materials-setting' },
+      { to: '/staff/pos/settings/database-setting', icon: '📈', label: '資料庫設置', key: 'pos.settings.database-setting' },
+      { to: '/staff/pos/settings/equipment-setting', icon: '🛍️', label: '設備設置', key: 'pos.settings.equipment-setting' }
+    ]
+  },
+  {
+    label: '💳 其他',
+    items: [
+      { to: '/staff/pos/other/pos-menu', icon: '📈', label: '商品管理', key: 'pos.other.pos-menu' },
+      { to: '/staff/pos/other/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.other.pos-sales' },
+      { to: '/staff/pos/other/pos-sell', icon: '📈', label: '商品販賣', key: 'pos.other.pos-sell' },
+      { to: '/staff/pos/other/pos-stock', icon: '📈', label: '庫存管理', key: 'pos.other.pos-stock' }
     ]
   },
   {
