@@ -1,4 +1,4 @@
-<script lang="ts">
+<script setup lang="ts">
 definePageMeta({ layout: 'staff', requiredPermission: 'pos.settings.equipment-setting' })
 </script>
 
