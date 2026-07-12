@@ -31,6 +31,12 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// 點擊日期欄位時直接跳出日曆選單，不用特地點小圖示（不支援的瀏覽器會靜默失敗，退回原生行為）
+function openDatePicker(e: Event) {
+  const el = e.target as HTMLInputElement & { showPicker?: () => void }
+  el.showPicker?.()
+}
+
 function formatQty(n: number) {
   if (n === null || n === undefined) return '-'
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -57,6 +63,9 @@ function switchToItems() {
 
 function switchToIo() {
   tab.value = 'io'
+  ioSelectedCategory.value = ''
+  fetchIoItems(1)
+  fetchIoDatesWithRecords()
 }
 
 // ══════════════════ 庫存盤點 ══════════════════
@@ -391,41 +400,124 @@ interface IoCartLine {
 }
 
 const ioDate = ref(todayStr())
+
+// 內嵌迷你日曆（取代原生 date input 的彈出視窗，直接顯示在畫面上方便點選）
+const ioCalendarViewDate = ref(new Date())
+
+const ioCalendarLabel = computed(() =>
+  `${ioCalendarViewDate.value.getFullYear()} 年 ${ioCalendarViewDate.value.getMonth() + 1} 月`
+)
+
+const ioCalendarDays = computed(() => {
+  const year = ioCalendarViewDate.value.getFullYear()
+  const month = ioCalendarViewDate.value.getMonth()
+  const startOffset = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: (number | null)[] = []
+  for (let i = 0; i < startOffset; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  return cells
+})
+
+function ioCalPrevMonth() {
+  const d = new Date(ioCalendarViewDate.value)
+  d.setMonth(d.getMonth() - 1)
+  ioCalendarViewDate.value = d
+}
+
+function ioCalNextMonth() {
+  const d = new Date(ioCalendarViewDate.value)
+  d.setMonth(d.getMonth() + 1)
+  ioCalendarViewDate.value = d
+}
+
+function ioCalDayStr(day: number) {
+  const y = ioCalendarViewDate.value.getFullYear()
+  const m = ioCalendarViewDate.value.getMonth()
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function ioCalSelectDay(day: number | null) {
+  if (!day) return
+  ioDate.value = ioCalDayStr(day)
+}
+
+function ioCalIsSelected(day: number | null) {
+  return !!day && ioCalDayStr(day) === ioDate.value
+}
+
+function ioCalIsToday(day: number | null) {
+  if (!day) return false
+  const t = new Date()
+  return day === t.getDate()
+    && ioCalendarViewDate.value.getMonth() === t.getMonth()
+    && ioCalendarViewDate.value.getFullYear() === t.getFullYear()
+}
+
+// 該月份有進出庫紀錄的日期集合，用來在日曆上顯示紅點提示
+const ioDatesWithRecords = ref<Set<string>>(new Set())
+
+async function fetchIoDatesWithRecords() {
+  try {
+    const year = ioCalendarViewDate.value.getFullYear()
+    const month = ioCalendarViewDate.value.getMonth() + 1
+    const res = await $fetch<string[] | { error: string }>(
+      `${apiBase.value}/holy/bk35sql/stock/io-dates`,
+      { credentials: 'include', query: { year, month } }
+    )
+    ioDatesWithRecords.value = Array.isArray(res) ? new Set(res) : new Set()
+  } catch {
+    // 抓不到紅點提示不影響主要功能，安靜失敗即可
+    ioDatesWithRecords.value = new Set()
+  }
+}
+
+function ioCalHasRecord(day: number | null) {
+  return !!day && ioDatesWithRecords.value.has(ioCalDayStr(day))
+}
+
+watch(ioCalendarViewDate, fetchIoDatesWithRecords)
 const ioSearch = ref('')
-const ioMatType = ref('')
-const ioSearchResults = ref<StockRow[]>([])
-const ioSearchLoading = ref(false)
-const ioSearchError = ref('')
+const ioSelectedCategory = ref('') // 空字串 = 全部分類
+const ioItems = ref<StockRow[]>([])
+const ioItemsLoading = ref(false)
+const ioItemsError = ref('')
+const ioItemPage = ref(1)
+const ioItemTotalPages = ref(1)
 const ioCart = ref<IoCartLine[]>([])
 const ioSubmitLoading = ref(false)
 const ioSubmitError = ref('')
 const ioSubmitSuccess = ref('')
 
-async function searchIoMaterial() {
-  if (!ioSearch.value.trim() && !ioMatType.value) {
-    ioSearchResults.value = []
-    return
-  }
-  ioSearchLoading.value = true
-  ioSearchError.value = ''
+async function fetchIoItems(p: number) {
+  ioItemsLoading.value = true
+  ioItemsError.value = ''
+  ioItemPage.value = p
   try {
-    const query: Record<string, any> = { page: 1, pageSize: 20, search: ioSearch.value }
-    if (ioMatType.value) query.matType = ioMatType.value
+    const query: Record<string, any> = { page: p, pageSize: 30, search: ioSearch.value }
+    if (ioSelectedCategory.value) query.matType = ioSelectedCategory.value
     const res = await $fetch<ListResponse>(
       `${apiBase.value}/holy/bk35sql/stock/list`,
       { credentials: 'include', query }
     )
     if (res?.error) {
-      ioSearchError.value = res.error
-      ioSearchResults.value = []
+      ioItemsError.value = res.error
+      ioItems.value = []
+      ioItemTotalPages.value = 1
     } else {
-      ioSearchResults.value = res?.rows ?? []
+      ioItems.value = res?.rows ?? []
+      ioItemTotalPages.value = res?.totalPages ?? 1
     }
   } catch (e: any) {
-    ioSearchError.value = e?.message ?? '搜尋失敗'
+    ioItemsError.value = e?.message ?? '載入失敗'
   } finally {
-    ioSearchLoading.value = false
+    ioItemsLoading.value = false
   }
+}
+
+function selectIoCategory(cat: string) {
+  ioSelectedCategory.value = cat
+  fetchIoItems(1)
 }
 
 function addToCart(row: StockRow) {
@@ -524,8 +616,8 @@ fetchMatTypes()
           <option value="">全部分類</option>
           <option v-for="t in matTypeOptions" :key="t" :value="t">{{ t }}</option>
         </select>
-        <label class="inline-label">起：<input v-model="dateFrom" type="date" class="date-input"></label>
-        <label class="inline-label">迄：<input v-model="dateTo" type="date" class="date-input"></label>
+        <label class="inline-label">起：<input v-model="dateFrom" type="date" class="date-input" @click="openDatePicker"></label>
+        <label class="inline-label">迄：<input v-model="dateTo" type="date" class="date-input" @click="openDatePicker"></label>
         <button class="btn-primary" @click="fetchList(1)">查詢</button>
         <button class="btn-ghost" @click="resetSearch">清除</button>
         <span class="total-hint">共 {{ total }} 筆</span>
@@ -735,77 +827,125 @@ fetchMatTypes()
 
     <!-- ══════════════════ 進出庫頁籤 ══════════════════ -->
     <template v-else>
-      <p class="hint-banner">
-        指定日期後，右邊搜尋物料加入清單，可以一次設定多筆入庫／轉入／轉出／不良，最後一次送出。
-        每一筆都會在 MATIO 新增一筆獨立記錄，日期就是下面指定的日期，不是送出當下的時間。
-      </p>
-
-      <div class="form-row" style="max-width: 240px">
-        <label class="form-label">日期</label>
-        <input v-model="ioDate" type="date" class="form-input">
-      </div>
-
       <div class="io-layout">
-        <!-- 左：待送出清單 -->
-        <div class="section io-cart-col">
-          <h2 class="section-title">待送出清單（{{ ioCart.length }} 筆）</h2>
-
-          <div v-if="ioCart.length === 0" class="empty-hint">尚未加入任何物料，從右邊搜尋後點「＋加入」</div>
-
-          <div v-for="(line, i) in ioCart" :key="line.matNo" class="io-cart-line">
-            <div class="io-cart-name">{{ line.matName }}（{{ line.matUnit || '' }}）</div>
-            <div class="tab-switch tab-switch-4">
-              <button
-                v-for="t in ADJUST_TYPES"
-                :key="t.value"
-                :class="['sw-tab', { active: line.type === t.value }]"
-                @click="line.type = t.value"
-              >
-                {{ t.label }}
-              </button>
+        <!-- 左：日期日曆 + 待送出清單 -->
+        <div class="io-left-col">
+          <div class="section">
+            <h2 class="section-title">日期</h2>
+            <div class="mini-calendar">
+              <div class="mini-cal-header">
+                <button class="btn-ghost small" @click="ioCalPrevMonth">‹</button>
+                <span>{{ ioCalendarLabel }}</span>
+                <button class="btn-ghost small" @click="ioCalNextMonth">›</button>
+              </div>
+              <div class="mini-cal-weekdays">
+                <span v-for="w in ['日', '一', '二', '三', '四', '五', '六']" :key="w">{{ w }}</span>
+              </div>
+              <div class="mini-cal-days">
+                <button
+                  v-for="(day, i) in ioCalendarDays"
+                  :key="i"
+                  type="button"
+                  class="mini-cal-day"
+                  :class="{ empty: !day, selected: ioCalIsSelected(day), today: ioCalIsToday(day) }"
+                  :disabled="!day"
+                  @click="ioCalSelectDay(day)"
+                >
+                  {{ day }}
+                  <span v-if="ioCalHasRecord(day)" class="mini-cal-dot" />
+                </button>
+              </div>
+              <div class="mini-cal-selected">已選日期：{{ ioDate }}　<span class="mini-cal-dot-hint">● 當天有進出庫紀錄</span></div>
             </div>
-            <input v-model.number="line.qty" type="number" min="0" step="0.01" class="form-input io-qty-input" placeholder="數量">
-            <input v-model="line.remark" class="form-input io-remark-input" placeholder="備註（選填）">
-            <button class="btn-danger small" @click="removeFromCart(i)">移除</button>
           </div>
 
-          <div v-if="ioSubmitError" class="error-box">{{ ioSubmitError }}</div>
-          <div v-if="ioSubmitSuccess" class="success-box">✓ {{ ioSubmitSuccess }}</div>
+          <div class="section io-cart-col">
+            <h2 class="section-title">待送出清單（{{ ioCart.length }} 筆）</h2>
 
-          <div class="form-actions">
-            <button class="btn-primary" :disabled="ioCart.length === 0 || ioSubmitLoading" @click="submitIoCart">
-              {{ ioSubmitLoading ? '送出中…' : `確認送出全部（${ioCart.length} 筆）` }}
-            </button>
+            <div v-if="ioCart.length === 0" class="empty-hint">尚未加入任何物料，從右邊搜尋後點「＋加入」</div>
+
+            <div v-for="(line, i) in ioCart" :key="line.matNo" class="io-cart-line">
+              <div class="io-cart-name">{{ line.matName }}（{{ line.matUnit || '' }}）</div>
+              <div class="tab-switch tab-switch-4">
+                <button
+                  v-for="t in ADJUST_TYPES"
+                  :key="t.value"
+                  :class="['sw-tab', { active: line.type === t.value }]"
+                  @click="line.type = t.value"
+                >
+                  {{ t.label }}
+                </button>
+              </div>
+              <input v-model.number="line.qty" type="number" min="0" step="0.01" class="form-input io-qty-input" placeholder="數量">
+              <input v-model="line.remark" class="form-input io-remark-input" placeholder="備註（選填）">
+              <button class="btn-danger small" @click="removeFromCart(i)">移除</button>
+            </div>
+
+            <div v-if="ioSubmitError" class="error-box">{{ ioSubmitError }}</div>
+            <div v-if="ioSubmitSuccess" class="success-box">✓ {{ ioSubmitSuccess }}</div>
+
+            <div class="form-actions">
+              <button class="btn-primary" :disabled="ioCart.length === 0 || ioSubmitLoading" @click="submitIoCart">
+                {{ ioSubmitLoading ? '送出中…' : `確認送出全部（${ioCart.length} 筆）` }}
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- 右：搜尋物料 -->
+        <!-- 右：分類瀏覽 + 物料選取 -->
         <div class="section io-search-col">
-          <h2 class="section-title">搜尋物料</h2>
+          <h2 class="section-title">選擇物料</h2>
+
+          <div class="io-category-grid">
+            <button
+              :class="['io-category-btn', { active: ioSelectedCategory === '' }]"
+              @click="selectIoCategory('')"
+            >
+              全部
+            </button>
+            <button
+              v-for="t in matTypeOptions"
+              :key="t"
+              :class="['io-category-btn', { active: ioSelectedCategory === t }]"
+              @click="selectIoCategory(t)"
+            >
+              {{ t }}
+            </button>
+          </div>
 
           <div class="filter-bar">
             <input
               v-model="ioSearch"
-              placeholder="搜尋物料名稱 / 料號…"
+              placeholder="在目前分類內搜尋名稱 / 料號…"
               class="search-input"
-              @keyup.enter="searchIoMaterial"
+              @keyup.enter="fetchIoItems(1)"
             >
-            <button class="btn-primary" @click="searchIoMaterial">搜尋</button>
+            <button class="btn-primary" @click="fetchIoItems(1)">查詢</button>
           </div>
-          <select v-model="ioMatType" class="date-input" style="width: 100%" @change="searchIoMaterial">
-            <option value="">全部分類</option>
-            <option v-for="t in matTypeOptions" :key="t" :value="t">{{ t }}</option>
-          </select>
 
-          <div v-if="ioSearchLoading" class="loading">搜尋中…</div>
-          <div v-else-if="ioSearchError" class="error-box">{{ ioSearchError }}</div>
-          <div v-else-if="ioSearchResults.length" class="search-result-list">
-            <div v-for="row in ioSearchResults" :key="row.matNo" class="search-result-item">
-              <span>{{ row.matName }}（{{ row.matNo }}，{{ row.matUnit || '單位未設' }}）</span>
-              <button class="btn-ghost small" @click="addToCart(row)">＋ 加入</button>
+          <div v-if="ioItemsLoading" class="loading">載入中…</div>
+          <div v-else-if="ioItemsError" class="error-box">{{ ioItemsError }}</div>
+          <template v-else>
+            <div v-if="ioItems.length === 0" class="empty-hint">這個分類目前沒有物料</div>
+            <div v-else class="io-item-grid">
+              <button
+                v-for="row in ioItems"
+                :key="row.matNo"
+                class="io-item-btn"
+                :class="{ 'in-cart': ioCart.some(l => l.matNo === row.matNo) }"
+                @click="addToCart(row)"
+              >
+                {{ row.matName }}
+                <span v-if="ioCart.some(l => l.matNo === row.matNo)" class="io-item-badge">已加入</span>
+              </button>
             </div>
-          </div>
-          <div v-else class="empty-hint">輸入關鍵字或選分類後按搜尋</div>
+
+            <div v-if="ioItemTotalPages > 1" class="pagination-bar">
+              <button class="page-btn" :disabled="ioItemPage === 1" @click="fetchIoItems(ioItemPage - 1)">‹ 上一頁</button>
+              <span class="page-info">第 {{ ioItemPage }} / {{ ioItemTotalPages }} 頁</span>
+              <button class="page-btn" :disabled="ioItemPage === ioItemTotalPages" @click="fetchIoItems(ioItemPage + 1)">下一頁 ›</button>
+            </div>
+          </template>
         </div>
       </div>
     </template>
@@ -824,7 +964,7 @@ fetchMatTypes()
 
         <div class="form-row">
           <label class="form-label">日期</label>
-          <input v-model="adjustDate" type="date" class="form-input">
+          <input v-model="adjustDate" type="date" class="form-input" @click="openDatePicker">
         </div>
 
         <div class="form-row">
@@ -865,7 +1005,7 @@ fetchMatTypes()
 </template>
 
 <style scoped>
-.page-wrap { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.page-wrap { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
 
@@ -924,7 +1064,7 @@ fetchMatTypes()
 .form-input:focus { border-color: var(--accent); }
 .form-input:disabled { opacity: 0.6; }
 
-.section { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
+.section { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; max-width: 560px; }
 .form-actions { display: flex; gap: 8px; padding-top: 4px; }
 
 .tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; width: fit-content; }
@@ -935,15 +1075,35 @@ fetchMatTypes()
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; }
 
 /* 進出庫頁籤 */
-.io-layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-.io-cart-col { flex: 1 1 380px; max-width: none; }
-.io-search-col { flex: 1 1 320px; max-width: none; }
-.search-result-list { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); padding: 8px; max-height: 420px; overflow-y: auto; }
-.search-result-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; font-size: 13px; color: var(--text); border-radius: var(--radius-sm); }
-.search-result-item:hover { background: var(--accent-light); }
+.io-layout { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.io-left-col { display: flex; flex-direction: column; gap: 12px; flex: 0 1 400px; max-width: 400px; }
+.io-cart-col { max-width: none; }
+.io-search-col { flex: 1 1 500px; max-width: none; }
+.io-category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.io-category-btn { padding: 10px 6px; font-size: 13px; font-weight: 600; border: 1px solid #d4c72a; border-radius: var(--radius-sm); background: #fff9c4; color: #5c5220; cursor: pointer; text-align: center; }
+.io-category-btn:hover { background: #fff59d; }
+.io-category-btn.active { background: #fbc02d; border-color: #f9a825; color: #4a3f00; }
+.io-item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; max-height: 420px; overflow-y: auto; padding: 2px; }
+.io-item-btn { position: relative; padding: 12px 8px; font-size: 12px; line-height: 1.4; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); cursor: pointer; text-align: center; min-height: 56px; }
+.io-item-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+.io-item-btn.in-cart { border-color: #1e7e34; background: #e6f4ea; }
+.io-item-badge { display: block; margin-top: 4px; font-size: 10px; font-weight: 700; color: #1e7e34; }
 .io-cart-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
 .io-cart-line:last-of-type { border-bottom: none; }
 .io-cart-name { font-size: 13px; font-weight: 600; color: var(--text); min-width: 160px; }
 .io-qty-input { width: 100px; }
-.io-remark-input { flex: 1; min-width: 140px; }
+/* 迷你日曆（進出庫頁籤用） */
+.mini-calendar { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.mini-cal-header { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text); }
+.mini-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--text-hint); }
+.mini-cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.mini-cal-day { position: relative; aspect-ratio: 1; border: none; background: transparent; border-radius: var(--radius-sm); font-size: 12px; color: var(--text); cursor: pointer; }
+.mini-cal-day:hover:not(:disabled) { background: var(--accent-light); }
+.mini-cal-day.empty { visibility: hidden; cursor: default; }
+.mini-cal-day.today { border: 1px solid var(--accent); }
+.mini-cal-day.selected { background: var(--accent); color: #fff; font-weight: 700; }
+.mini-cal-dot { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: #e53935; }
+.mini-cal-day.selected .mini-cal-dot { background: #fff; }
+.mini-cal-selected { font-size: 12px; color: var(--text-hint); text-align: center; padding-top: 2px; border-top: 1px solid var(--border-light); }
+.mini-cal-dot-hint { color: #e53935; }
 </style>

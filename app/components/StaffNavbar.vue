@@ -81,7 +81,6 @@ const navGroups = [
     label: '💳 設置',
     items: [
       { to: '/staff/pos/settings/menu-setting', icon: '🛍️', label: '品項設置', key: 'pos.settings.menu-setting' },
-      { to: '/staff/pos/settings/materials-setting', icon: '🛍️', label: '物料設置', key: 'pos.settings.materials-setting' },
       { to: '/staff/pos/settings/database-setting', icon: '📈', label: '資料庫設置', key: 'pos.settings.database-setting' },
       { to: '/staff/pos/settings/equipment-setting', icon: '🛍️', label: '設備設置', key: 'pos.settings.equipment-setting' }
     ]
