@@ -4,6 +4,12 @@ definePageMeta({ layout: 'staff', requiredPermission: 'pos.pos-accounting' })
 const commonStore = useCommonStore()
 const apiBase = computed(() => commonStore.data.main_url)
 
+// 上傳分段用：直接打家中主機，不走 nuxt.config.ts 的 /api routeRules proxy。
+// 這條代理是為了讓一般 API 請求變成同網域第一方 cookie（解 iOS ITP 問題），
+// 但上傳這幾支端點不需要帶登入態 cookie，直接繞過代理就能避開
+// Netlify Function 6MB 請求本體的硬性上限，不用切成一堆小分段。
+const directApiBase = useRuntimeConfig().public.apiBase
+
 const tab = ref<'maintain' | 'browse'>('maintain')
 
 // 資料庫暫停/開啟狀態，兩個頁籤共用同一份（composables/useBk35DbStatus.ts）
@@ -76,7 +82,10 @@ function onFileChange(e: Event) {
 // Cloudflare 代理對單次請求本體有 100MB 上限，超過會在代理層被擋掉，
 // 回傳一個空的 500，連後端 controller 都進不去。這裡把每片切到遠低於
 // 100MB，留足夠的安全邊界（multipart 表單本身也有一點額外開銷）。
-const CHUNK_SIZE = 15 * 1024 * 1024 // 15MB
+// 不再受 Netlify Function 6MB 限制（因為直接繞過 proxy 打家中主機），
+// 分段大小可以放大一點，減少來回次數；上限還是要顧到後端
+// application.properties 的 spring.servlet.multipart.max-file-size（目前 200MB）
+const CHUNK_SIZE = 20 * 1024 * 1024 // 20MB
 
 function makeUploadId() {
   // crypto.randomUUID() 在 https / localhost 才有，保險起見加個 fallback
@@ -127,10 +136,17 @@ async function uploadFileInChunks(
     formData.append('totalChunks', String(totalChunks))
     formData.append('targetFileName', targetFileName)
 
-    const res = await $fetch<Record<string, any>>(
-      `${apiBase.value}/holy/bk35sql/admin/upload-chunk`,
-      { method: 'POST', credentials: 'include', body: formData }
-    )
+    let res: Record<string, any> | undefined
+    try {
+      res = await $fetch<Record<string, any>>(
+        `${directApiBase}/holy/bk35sql/admin/upload-chunk`,
+        { method: 'POST', credentials: 'omit', body: formData }
+      )
+    } catch (err: any) {
+      // 把是第幾片失敗、原始錯誤內容都帶出來，不然畫面上只會看到一個看不出所以然的 500
+      const detail = err?.data?.error ?? err?.message ?? '未知錯誤'
+      throw new Error(`分段 ${chunkIndex + 1}/${totalChunks}（共 ${(blob.size / 1024 / 1024).toFixed(1)}MB，已傳 ${(end / 1024 / 1024).toFixed(1)}MB）上傳例外：${detail}`)
+    }
     if (!res?.ok) {
       throw new Error(res?.error ?? `分段 ${chunkIndex + 1}/${totalChunks} 上傳失敗`)
     }
@@ -145,8 +161,8 @@ async function uploadFileInChunks(
   finishForm.append('compressed', String(compressed))
 
   const finishRes = await $fetch<Record<string, any>>(
-    `${apiBase.value}/holy/bk35sql/admin/upload-finish`,
-    { method: 'POST', credentials: 'include', body: finishForm }
+    `${directApiBase}/holy/bk35sql/admin/upload-finish`,
+    { method: 'POST', credentials: 'omit', body: finishForm }
   )
   if (!finishRes?.ok) {
     throw new Error(finishRes?.error ?? '檔案組裝失敗')
@@ -789,6 +805,5 @@ await checkStatus()
 .schema-table-detail { border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 4px 0; }
 .schema-table-detail summary { cursor: pointer; padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--text); }
 .schema-table-detail summary:hover { color: var(--accent); }
-
 .schema-table-detail .table-wrap { margin: 0 12px 10px; border: none; }
 </style>
