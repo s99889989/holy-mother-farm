@@ -19,6 +19,7 @@ export const useCommonStore = defineStore('useFamilyStore', () => {
   // 完全不用改，因為它們組合出來的字串自動變成 `/api/holy/xxx`。
   const data = reactive({
     main_url: '/api',
+    cookie_url: '/api',
     google_client_id: '441605672654-9j73r51g6j2mar17ptblhskfvard1em9.apps.googleusercontent.com'
   })
   return { data }
