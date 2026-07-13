@@ -789,5 +789,6 @@ await checkStatus()
 .schema-table-detail { border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 4px 0; }
 .schema-table-detail summary { cursor: pointer; padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--text); }
 .schema-table-detail summary:hover { color: var(--accent); }
+
 .schema-table-detail .table-wrap { margin: 0 12px 10px; border: none; }
 </style>
