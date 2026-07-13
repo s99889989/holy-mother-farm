@@ -73,6 +73,66 @@ function onFileChange(e: Event) {
   selectedFiles.value = files.map(file => ({ file, target: matchTarget(file.name) }))
 }
 
+// Cloudflare 代理對單次請求本體有 100MB 上限，超過會在代理層被擋掉，
+// 回傳一個空的 500，連後端 controller 都進不去。這裡把每片切到遠低於
+// 100MB，留足夠的安全邊界（multipart 表單本身也有一點額外開銷）。
+const CHUNK_SIZE = 15 * 1024 * 1024 // 15MB
+
+function makeUploadId() {
+  // crypto.randomUUID() 在 https / localhost 才有，保險起見加個 fallback
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+// 單一檔案的分段上傳：切片 → 逐片上傳到 /upload-chunk → 全部完成後呼叫 /upload-finish 組裝
+// onProgress(chunkIndex, totalChunks) 讓外層更新畫面上的進度文字
+async function uploadFileInChunks(
+  file: File,
+  targetFileName: string,
+  onProgress: (chunkIndex: number, totalChunks: number) => void
+): Promise<Record<string, any>> {
+  const uploadId = makeUploadId()
+  const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE))
+
+  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+    onProgress(chunkIndex, totalChunks)
+    const start = chunkIndex * CHUNK_SIZE
+    const end = Math.min(file.size, start + CHUNK_SIZE)
+    const blob = file.slice(start, end)
+
+    const formData = new FormData()
+    formData.append('file', blob, file.name)
+    formData.append('uploadId', uploadId)
+    formData.append('chunkIndex', String(chunkIndex))
+    formData.append('totalChunks', String(totalChunks))
+    formData.append('targetFileName', targetFileName)
+
+    const res = await $fetch<Record<string, any>>(
+      `${apiBase.value}/holy/bk35sql/admin/upload-chunk`,
+      { method: 'POST', credentials: 'include', body: formData }
+    )
+    if (!res?.ok) {
+      throw new Error(res?.error ?? `分段 ${chunkIndex + 1}/${totalChunks} 上傳失敗`)
+    }
+  }
+
+  onProgress(totalChunks, totalChunks)
+
+  const finishForm = new FormData()
+  finishForm.append('uploadId', uploadId)
+  finishForm.append('totalChunks', String(totalChunks))
+  finishForm.append('targetFileName', targetFileName)
+
+  const finishRes = await $fetch<Record<string, any>>(
+    `${apiBase.value}/holy/bk35sql/admin/upload-finish`,
+    { method: 'POST', credentials: 'include', body: finishForm }
+  )
+  if (!finishRes?.ok) {
+    throw new Error(finishRes?.error ?? '檔案組裝失敗')
+  }
+  return finishRes
+}
+
 async function confirmAndUpload() {
   if (!validFiles.value.length) return
 
@@ -86,16 +146,13 @@ async function confirmAndUpload() {
 
   for (let i = 0; i < validFiles.value.length; i++) {
     const item = validFiles.value[i]
-    uploadProgress.value = `${i + 1}/${validFiles.value.length}：${item.file.name}`
     try {
-      const formData = new FormData()
-      formData.append('file', item.file)
-      formData.append('targetFileName', item.target as string)
-
-      const res = await $fetch<Record<string, any>>(
-        `${apiBase.value}/holy/bk35sql/admin/upload`,
-        { method: 'POST', credentials: 'include', body: formData }
-      )
+      const res = await uploadFileInChunks(item.file, item.target as string, (chunkIndex, totalChunks) => {
+        const percent = Math.round((chunkIndex / totalChunks) * 100)
+        uploadProgress.value = totalChunks > 1
+          ? `${i + 1}/${validFiles.value.length}：${item.file.name}（分段 ${Math.min(chunkIndex + 1, totalChunks)}/${totalChunks}，${percent}%）`
+          : `${i + 1}/${validFiles.value.length}：${item.file.name}`
+      })
       results.push({ label: item.file.name, ok: !!res?.ok, ...res })
     } catch (e: any) {
       results.push({ label: item.file.name, ok: false, error: e?.message ?? '上傳失敗' })
