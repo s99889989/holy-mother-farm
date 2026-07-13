@@ -84,24 +84,44 @@ function makeUploadId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-// 單一檔案的分段上傳：切片 → 逐片上傳到 /upload-chunk → 全部完成後呼叫 /upload-finish 組裝
-// onProgress(chunkIndex, totalChunks) 讓外層更新畫面上的進度文字
+// 上傳前先把整個檔案用瀏覽器原生的 CompressionStream 壓成 gzip，再切片上傳。
+// 除了省流量，binary 內容變成亂碼狀，也能避開像 Cloudflare WAF 把資料庫檔案裡
+// 夾帶的文字內容（stored procedure、欄位名稱等）誤判成攻擊特徵而擋掉的狀況。
+// 瀏覽器不支援 CompressionStream 時自動退回不壓縮，行為跟原本一樣。
+async function maybeCompressFile(file: File): Promise<{ blob: Blob; compressed: boolean }> {
+  if (typeof CompressionStream === 'undefined') {
+    return { blob: file, compressed: false }
+  }
+  try {
+    const compressedStream = file.stream().pipeThrough(new CompressionStream('gzip'))
+    const compressedBlob = await new Response(compressedStream).blob()
+    return { blob: compressedBlob, compressed: true }
+  } catch {
+    return { blob: file, compressed: false }
+  }
+}
+
+// 單一檔案的分段上傳：（可選）壓縮 → 切片 → 逐片上傳到 /upload-chunk → 全部完成後呼叫 /upload-finish 組裝並視需要解壓縮
+// onProgress(stage, chunkIndex, totalChunks) 讓外層更新畫面上的進度文字
 async function uploadFileInChunks(
   file: File,
   targetFileName: string,
-  onProgress: (chunkIndex: number, totalChunks: number) => void
+  onProgress: (stage: 'compressing' | 'uploading', chunkIndex: number, totalChunks: number) => void
 ): Promise<Record<string, any>> {
+  onProgress('compressing', 0, 1)
+  const { blob, compressed } = await maybeCompressFile(file)
+
   const uploadId = makeUploadId()
-  const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE))
+  const totalChunks = Math.max(1, Math.ceil(blob.size / CHUNK_SIZE))
 
   for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-    onProgress(chunkIndex, totalChunks)
+    onProgress('uploading', chunkIndex, totalChunks)
     const start = chunkIndex * CHUNK_SIZE
-    const end = Math.min(file.size, start + CHUNK_SIZE)
-    const blob = file.slice(start, end)
+    const end = Math.min(blob.size, start + CHUNK_SIZE)
+    const chunkBlob = blob.slice(start, end)
 
     const formData = new FormData()
-    formData.append('file', blob, file.name)
+    formData.append('file', chunkBlob, file.name)
     formData.append('uploadId', uploadId)
     formData.append('chunkIndex', String(chunkIndex))
     formData.append('totalChunks', String(totalChunks))
@@ -116,12 +136,13 @@ async function uploadFileInChunks(
     }
   }
 
-  onProgress(totalChunks, totalChunks)
+  onProgress('uploading', totalChunks, totalChunks)
 
   const finishForm = new FormData()
   finishForm.append('uploadId', uploadId)
   finishForm.append('totalChunks', String(totalChunks))
   finishForm.append('targetFileName', targetFileName)
+  finishForm.append('compressed', String(compressed))
 
   const finishRes = await $fetch<Record<string, any>>(
     `${apiBase.value}/holy/bk35sql/admin/upload-finish`,
@@ -147,7 +168,11 @@ async function confirmAndUpload() {
   for (let i = 0; i < validFiles.value.length; i++) {
     const item = validFiles.value[i]
     try {
-      const res = await uploadFileInChunks(item.file, item.target as string, (chunkIndex, totalChunks) => {
+      const res = await uploadFileInChunks(item.file, item.target as string, (stage, chunkIndex, totalChunks) => {
+        if (stage === 'compressing') {
+          uploadProgress.value = `${i + 1}/${validFiles.value.length}：${item.file.name}（壓縮中…）`
+          return
+        }
         const percent = Math.round((chunkIndex / totalChunks) * 100)
         uploadProgress.value = totalChunks > 1
           ? `${i + 1}/${validFiles.value.length}：${item.file.name}（分段 ${Math.min(chunkIndex + 1, totalChunks)}/${totalChunks}，${percent}%）`
