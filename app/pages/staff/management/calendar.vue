@@ -1251,13 +1251,11 @@
     `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
   )
 
-  // 切換月份時重新載入備注，並重置篩選
+  // 切換月份時重新載入備注（類型 / 地點篩選維持不變，跨月份記住）
   watch(currentYearMonth, () => {
     fetchNotes()
     fetchGoogleEvents()
     noteEditIdx.value = -1
-    filterType.value = '全部'
-    filterLocation.value = ''
   })
 
   async function fetchNotes() {
