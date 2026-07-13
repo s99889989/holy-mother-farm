@@ -13,6 +13,7 @@ interface MenuItem {
   itemType: string | null
   price: number
   itemCode: string | null
+  openCode: string | null
 }
 
 interface CartLine {
@@ -23,6 +24,7 @@ interface CartLine {
   itemCode: string | null
   price: number
   qty: number
+  isCustomPrice: boolean
 }
 
 const commonStore = useCommonStore()
@@ -95,8 +97,17 @@ const filteredItems = computed(() => {
 
 const cart = ref<CartLine[]>([])
 
-function addToCart(item: MenuItem) {
-  const existing = cart.value.find(l => l.itemNo === item.itemNo && l.typeNo === item.typeNo)
+function addToCart(item: MenuItem, customPrice?: number) {
+  const isCustom = item.openCode === 'Y'
+  if (isCustom && customPrice === undefined) {
+    openCustomPricePad(item)
+    return
+  }
+  const finalPrice = isCustom ? (customPrice ?? 0) : item.price
+  // 時價品項每次都當成新的一列（同品項不同金額不能合併），一般品項才合併累加數量
+  const existing = !isCustom
+    ? cart.value.find(l => l.itemNo === item.itemNo && l.typeNo === item.typeNo && !l.isCustomPrice)
+    : undefined
   if (existing) {
     existing.qty += 1
   } else {
@@ -106,10 +117,49 @@ function addToCart(item: MenuItem) {
       itemName: item.itemName,
       itemType: item.itemType,
       itemCode: item.itemCode,
-      price: item.price,
-      qty: 1
+      price: finalPrice,
+      qty: 1,
+      isCustomPrice: isCustom
     })
   }
+}
+
+// ══════════════════ 時價品項：金額鍵盤 ══════════════════
+
+const showCustomPricePad = ref(false)
+const customPriceTarget = ref<MenuItem | null>(null)
+const customPriceInput = ref('')
+
+function openCustomPricePad(item: MenuItem) {
+  customPriceTarget.value = item
+  customPriceInput.value = ''
+  showCustomPricePad.value = true
+}
+
+function closeCustomPricePad() {
+  showCustomPricePad.value = false
+  customPriceTarget.value = null
+}
+
+function padPress(key: string) {
+  if (key === 'clear') {
+    customPriceInput.value = ''
+    return
+  }
+  if (key === 'back') {
+    customPriceInput.value = customPriceInput.value.slice(0, -1)
+    return
+  }
+  if (key === '.' && customPriceInput.value.includes('.')) return
+  customPriceInput.value += key
+}
+
+function confirmCustomPrice() {
+  const price = Number(customPriceInput.value)
+  if (!customPriceTarget.value || !price || price <= 0) return
+  addToCart(customPriceTarget.value, price)
+  showCustomPricePad.value = false
+  customPriceTarget.value = null
 }
 
 function incQty(line: CartLine) {
@@ -267,10 +317,12 @@ await fetchItems()
               v-for="item in filteredItems"
               :key="`${item.typeNo}-${item.itemNo}`"
               class="pos-item-btn"
+              :class="{ 'is-open-price': item.openCode === 'Y' }"
               @click="addToCart(item)"
             >
               <span class="pos-item-name">{{ item.itemName }}</span>
-              <span class="pos-item-price">${{ formatMoney(item.price) }}</span>
+              <span v-if="item.openCode === 'Y'" class="pos-item-price pos-item-open-tag">時價</span>
+              <span v-else class="pos-item-price">${{ formatMoney(item.price) }}</span>
             </button>
           </div>
         </div>
@@ -311,6 +363,31 @@ await fetchItems()
         </div>
       </div>
     </template>
+
+    <!-- ══════════════════ 時價品項金額鍵盤 ══════════════════ -->
+    <div v-if="showCustomPricePad" class="modal-overlay" @click.self="closeCustomPricePad">
+      <div class="modal-box numpad-box">
+        <div class="modal-header">
+          <h2 class="section-title">{{ customPriceTarget?.itemName }} — 請輸入金額</h2>
+          <button class="btn-ghost small" @click="closeCustomPricePad">✕ 關閉</button>
+        </div>
+
+        <div class="numpad-display">{{ customPriceInput || '0' }}</div>
+
+        <div class="numpad-grid">
+          <button v-for="k in ['7', '8', '9']" :key="k" class="numpad-key" @click="padPress(k)">{{ k }}</button>
+          <button class="numpad-key numpad-key-action" @click="padPress('back')">⌫</button>
+          <button v-for="k in ['4', '5', '6']" :key="k" class="numpad-key" @click="padPress(k)">{{ k }}</button>
+          <button class="numpad-key numpad-key-action" @click="padPress('clear')">清除</button>
+          <button v-for="k in ['1', '2', '3']" :key="k" class="numpad-key" @click="padPress(k)">{{ k }}</button>
+          <button class="numpad-key numpad-key-action" @click="closeCustomPricePad">離開</button>
+          <button class="numpad-key" @click="padPress('0')">0</button>
+          <button class="numpad-key" @click="padPress('00')">00</button>
+          <button class="numpad-key" @click="padPress('.')">.</button>
+          <button class="numpad-key numpad-key-confirm" @click="confirmCustomPrice">確定</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ══════════════════ 結帳彈窗 ══════════════════ -->
     <div v-if="showCheckout" class="modal-overlay" @click.self="checkoutResult ? null : closeCheckout()">
@@ -437,6 +514,17 @@ await fetchItems()
 .pos-total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 15px; font-weight: 700; color: var(--text); }
 .pos-total-amt { font-size: 20px; color: var(--accent); }
 .pos-checkout-btn { width: 100%; padding: 12px; font-size: 15px; font-weight: 700; }
+
+.pos-item-btn.is-open-price { border-color: #f9a825; background: #fffbe6; }
+.pos-item-open-tag { color: #b8860b; font-weight: 700; }
+
+.numpad-box { width: min(340px, 100%); }
+.numpad-display { font-size: 28px; font-weight: 700; text-align: right; padding: 12px 14px; background: var(--surface2); border-radius: var(--radius-sm); color: var(--text); }
+.numpad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.numpad-key { padding: 16px 0; font-size: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); cursor: pointer; }
+.numpad-key:hover { border-color: var(--accent); background: var(--accent-light); }
+.numpad-key-action { font-size: 13px; color: var(--text-muted); }
+.numpad-key-confirm { background: var(--accent); color: #fff; font-weight: 700; grid-column: span 1; }
 
 /* 結帳彈窗 */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 24px; }
