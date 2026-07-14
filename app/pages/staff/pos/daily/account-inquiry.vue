@@ -119,6 +119,13 @@ const TABLE_MAP: Record<string, string> = {
   check: 'OCHECK'
 }
 
+// 各頁籤用來做時段篩選、也用來做預設排序依據的日期欄位
+// （後端 /holy/bk35sql/data/:table 已支援 dateColumn + dateFrom/dateTo + sortOrder，見 Bk35SqlServerController）
+const DATE_COLUMN_MAP: Record<string, string> = {
+  invoice: 'InvDate',
+  check: 'OPDate'
+}
+
 // 帳單瀏覽為預設頁籤
 const view = ref<'invoice' | 'check'>('check')
 const search = ref('')
@@ -134,13 +141,8 @@ const error = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
 
-// 排序方向：預設 desc（新增資料顯示在最前面）
-// ⚠️ 後端 /holy/bk35sql/data/:table 目前只支援 search 自由文字搜尋，沒有結構化的
-// 排序參數，所以這裡改用「反轉分頁映射」在前端做到新資料在前：
-// 後端本身是照主鍵（RNo）由小到大分頁，新資料在伺服器的最後一頁。
-// desc 模式下，畫面第 1 頁 = 打伺服器最後一頁，畫面第 2 頁 = 打伺服器倒數第二頁……
-// 並把每頁拿到的 rows 反轉，這樣不用抓全部資料，只需要先知道 totalPages。
-// 之後如果後端加了 sortOrder 參數，這段轉換邏輯可以整段移除，改回直接傳給後端。
+// 排序方向：預設 desc（新增資料顯示在最前面）。直接交給後端的 sortOrder 參數處理，
+// 後端會依 DATE_COLUMN_MAP 對應的日期欄位（找不到就退回該表第一欄）做 ROW_NUMBER() 排序分頁。
 const sortOrder = ref<'desc' | 'asc'>('desc')
 
 // 跳頁輸入（頁首快速跳頁用）
@@ -164,8 +166,11 @@ async function fetchServerPage(serverPage: number): Promise<DataResponse> {
       query: {
         db: 'BKSQL',
         page: serverPage,
-        search: search.value
-        // dateFrom / dateTo 未帶：後端目前不支援結構化日期篩選，帶了也無效果
+        search: search.value,
+        dateColumn: DATE_COLUMN_MAP[view.value],
+        dateFrom: dateFrom.value || undefined,
+        dateTo: dateTo.value || undefined,
+        sortOrder: sortOrder.value
       }
     }
   )
@@ -180,29 +185,7 @@ async function fetchData(uiPage: number) {
   error.value = ''
   page.value = uiPage
   try {
-    // 換頁前若還不知道 totalPages（例如新搜尋、剛切換排序），先探測伺服器第一頁拿總頁數
-    let probeRes: DataResponse | null = null
-    if (uiPage === 1 || totalPages.value < 1) {
-      probeRes = await fetchServerPage(1)
-      if (probeRes?.error) {
-        error.value = probeRes.error
-        columns.value = []
-        rows.value = []
-        total.value = 0
-        totalPages.value = 1
-        return
-      }
-      totalPages.value = probeRes.totalPages ?? 1
-      total.value = probeRes.total ?? 0
-    }
-
-    const needReverse = sortOrder.value === 'desc'
-    const serverPage = needReverse
-      ? Math.max(1, totalPages.value - uiPage + 1)
-      : uiPage
-
-    // 如果剛好就是探測時打到的那頁，直接重用，不用再打一次
-    const res = probeRes && serverPage === 1 ? probeRes : await fetchServerPage(serverPage)
+    const res = await fetchServerPage(uiPage)
 
     if (res?.error) {
       error.value = res.error
@@ -212,11 +195,9 @@ async function fetchData(uiPage: number) {
       totalPages.value = 1
     } else {
       columns.value = res?.columns ?? []
-      let r = res?.rows ?? []
-      if (needReverse) r = [...r].reverse()
-      rows.value = r
-      total.value = res?.total ?? total.value
-      totalPages.value = res?.totalPages ?? totalPages.value
+      rows.value = res?.rows ?? []
+      total.value = res?.total ?? 0
+      totalPages.value = res?.totalPages ?? 1
       if (page.value > totalPages.value) page.value = totalPages.value
     }
   } catch (e: any) {
@@ -338,11 +319,8 @@ await fetchData(1)
           @keyup.enter="fetchData(1)"
         >
 
-        <div
-          class="date-range"
-          title="後端 API 目前尚未支援日期區間篩選，這裡先保留欄位，等後端加上支援後即可生效"
-        >
-          <span class="date-range-label">時段 ⚠️</span>
+        <div class="date-range">
+          <span class="date-range-label">時段</span>
           <input
             v-model="dateFrom"
             type="date"
@@ -422,35 +400,35 @@ await fetchData(1)
       >
         <table class="data-table">
           <thead>
-            <tr>
-              <th
-                v-for="col in invoiceColumns"
-                :key="col.key"
-              >
-                {{ col.label }}
-              </th>
-            </tr>
+          <tr>
+            <th
+              v-for="col in invoiceColumns"
+              :key="col.key"
+            >
+              {{ col.label }}
+            </th>
+          </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="(row, i) in rows"
-              :key="i"
+          <tr
+            v-for="(row, i) in rows"
+            :key="i"
+          >
+            <td
+              v-for="col in invoiceColumns"
+              :key="col.key"
             >
-              <td
-                v-for="col in invoiceColumns"
-                :key="col.key"
-              >
-                {{ formatInvoiceCell(row, col) }}
-              </td>
-            </tr>
-            <tr v-if="rows.length === 0">
-              <td
-                :colspan="invoiceColumns.length"
-                class="empty-cell"
-              >
-                查無資料
-              </td>
-            </tr>
+              {{ formatInvoiceCell(row, col) }}
+            </td>
+          </tr>
+          <tr v-if="rows.length === 0">
+            <td
+              :colspan="invoiceColumns.length"
+              class="empty-cell"
+            >
+              查無資料
+            </td>
+          </tr>
           </tbody>
         </table>
       </div>
@@ -462,35 +440,35 @@ await fetchData(1)
       >
         <table class="data-table">
           <thead>
-            <tr>
-              <th
-                v-for="col in displayCheckColumns"
-                :key="col"
-              >
-                {{ checkColLabel(col) }}
-              </th>
-            </tr>
+          <tr>
+            <th
+              v-for="col in displayCheckColumns"
+              :key="col"
+            >
+              {{ checkColLabel(col) }}
+            </th>
+          </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="(row, i) in rows"
-              :key="i"
+          <tr
+            v-for="(row, i) in rows"
+            :key="i"
+          >
+            <td
+              v-for="col in displayCheckColumns"
+              :key="col"
             >
-              <td
-                v-for="col in displayCheckColumns"
-                :key="col"
-              >
-                {{ formatCheckCell(row, col) }}
-              </td>
-            </tr>
-            <tr v-if="rows.length === 0">
-              <td
-                :colspan="displayCheckColumns.length || 1"
-                class="empty-cell"
-              >
-                查無資料
-              </td>
-            </tr>
+              {{ formatCheckCell(row, col) }}
+            </td>
+          </tr>
+          <tr v-if="rows.length === 0">
+            <td
+              :colspan="displayCheckColumns.length || 1"
+              class="empty-cell"
+            >
+              查無資料
+            </td>
+          </tr>
           </tbody>
         </table>
       </div>
@@ -536,52 +514,52 @@ await fetchData(1)
 </template>
 
 <style scoped>
-  .page-wrap { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-  .page-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
+.page-wrap { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.page-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
 
-  .tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
-  .sw-tab { padding: 6px 16px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; }
-  .sw-tab.active { background: var(--accent); color: #fff; }
+.tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.sw-tab { padding: 6px 16px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; }
+.sw-tab.active { background: var(--accent); color: #fff; }
 
-  .hint-banner { font-size: 12px; color: var(--text-hint); background: var(--surface2); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 8px 12px; margin: 0; }
-  .paused-banner { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
-  .btn-ghost.small { padding: 4px 10px; font-size: 12px; }
+.hint-banner { font-size: 12px; color: var(--text-hint); background: var(--surface2); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 8px 12px; margin: 0; }
+.paused-banner { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
+.btn-ghost.small { padding: 4px 10px; font-size: 12px; }
 
-  .filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .search-input { width: 220px; padding: 7px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
-  .search-input:focus { border-color: var(--accent); }
+.filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.search-input { width: 220px; padding: 7px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+.search-input:focus { border-color: var(--accent); }
 
-  .date-range { display: flex; align-items: center; gap: 6px; }
-  .date-range-label { font-size: 13px; color: var(--text-muted); }
-  .date-range-sep { font-size: 13px; color: var(--text-hint); }
-  .date-input { padding: 6px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
-  .date-input:focus { border-color: var(--accent); }
+.date-range { display: flex; align-items: center; gap: 6px; }
+.date-range-label { font-size: 13px; color: var(--text-muted); }
+.date-range-sep { font-size: 13px; color: var(--text-hint); }
+.date-input { padding: 6px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+.date-input:focus { border-color: var(--accent); }
 
-  .btn-primary { padding: 7px 16px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-  .btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-  .total-hint { font-size: 13px; color: var(--text-hint); }
+.btn-primary { padding: 7px 16px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+.btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+.total-hint { font-size: 13px; color: var(--text-hint); }
 
-  .page-jump-group { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-  .page-jump-label { font-size: 12px; color: var(--text-hint); white-space: nowrap; }
-  .page-jump-input { width: 56px; padding: 6px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; text-align: center; }
-  .page-jump-input:focus { border-color: var(--accent); }
+.page-jump-group { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.page-jump-label { font-size: 12px; color: var(--text-hint); white-space: nowrap; }
+.page-jump-input { width: 56px; padding: 6px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; text-align: center; }
+.page-jump-input:focus { border-color: var(--accent); }
 
-  .loading { color: var(--text-hint); font-size: 14px; }
-  .error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; }
-  .empty-cell { text-align: center; color: var(--text-hint); padding: 24px 0 !important; }
+.loading { color: var(--text-hint); font-size: 14px; }
+.error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; }
+.empty-cell { text-align: center; color: var(--text-hint); padding: 24px 0 !important; }
 
-  .table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .data-table th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
-  .data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
-  .data-table tr:last-child td { border-bottom: none; }
-  .data-table tr:hover td { background: var(--accent-light); }
-  .text-muted { color: var(--text-muted); font-size: 12px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+.data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--accent-light); }
+.text-muted { color: var(--text-muted); font-size: 12px; }
 
-  .pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
-  .page-btn { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text); }
-  .page-btn:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
-  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .page-info { font-size: 13px; color: var(--text-muted); }
+.pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
+.page-btn { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text); }
+.page-btn:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { font-size: 13px; color: var(--text-muted); }
 </style>
