@@ -1,637 +1,700 @@
 <script setup lang="ts">
-  definePageMeta({ layout: 'staff', requiredPermission: 'pos.analyze.sales-analysis' })
+definePageMeta({ layout: 'staff', requiredPermission: 'pos.analyze.pos-sales' })
 
-  // ══════════════════════════════════════════════════════════════════
-  // 這頁目前沒有專屬的後端彙總 API，是用現成的通用端點
-  // （/holy/bk35sql/tables、/holy/bk35sql/schema/{table}、/holy/bk35sql/data/{table}）
-  // 在前端把資料表裡的「每一筆訂單/帳單」依日期加總成月報表。
-  // 因為每個資料表的欄位命名不一定一樣，所以底下「欄位對應設定」讓你自己
-  // 選日期欄位、以及每一個分類（餐廳現金、小舖信用卡…）要加總哪個資料庫欄位。
-  // 設定會存在瀏覽器 localStorage，下次進來會記得。
-  // 之後如果後端補了專門的彙總 API，這支頁面的「抓資料＋加總」那段可以整個換掉。
-  // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// 對應後端新增的 Bk35SalesAnalysisController（/holy/bk35sql/sales-analysis/*）
+// 三支報表：期間進銷存彙總表、類別銷售統計表、單品明細統計表。
+// 後端還沒部署的話這頁三個頁籤都會顯示查詢失敗，屬正常現象，等後端上線即可。
+// ══════════════════════════════════════════════════════════════════
 
-  interface DataResponse {
-    columns: string[]
-    rows: Record<string, any>[]
-    total: number
-    page: number
-    pageSize: number
-    totalPages: number
-    error?: string
-  }
+interface InventoryRow {
+  matNo: string
+  matType: string | null
+  matName: string
+  matUnit: string | null
+  beginQty: number
+  inQty: number
+  transferInQty: number
+  transferOutQty: number
+  scrapQty: number
+  saleQty: number
+  endQty: number
+  stocktakeQty: number
+  orderQty: number
+}
+interface InventoryResponse {
+  rows: InventoryRow[]
+  totals: Omit<InventoryRow, 'matNo' | 'matType' | 'matName' | 'matUnit'>
+  error?: string
+}
 
-  interface SchemaColumn {
-    name: string
-    type: string
-    maxLength: number | null
-    numericPrecision: number | null
-    numericScale: number | null
-    nullable: boolean
-  default: string | null
-  }
+interface CategoryItem {
+  itemName: string
+  qty: number
+  amt: number
+  staffQty: number
+  staffAmt: number
+  vipQty: number
+  vipAmt: number
+  totalQty: number
+  totalAmt: number
+}
+interface CategoryGroup {
+  typeNo: number
+  typeName: string
+  items: CategoryItem[]
+  totalQty: number
+  totalAmt: number
+  sumQty: number
+  sumAmt: number
+  sumStaffQty: number
+  sumStaffAmt: number
+  sumVipQty: number
+  sumVipAmt: number
+}
+interface CategoryResponse {
+  categories: CategoryGroup[]
+  grandTotalQty: number
+  grandTotalAmt: number
+  tier1TotalQty: number
+  tier2TotalQty: number
+  tier3TotalQty: number
+  error?: string
+}
 
-  interface SchemaResponse {
-    table: string
-    columns: SchemaColumn[]
-    primaryKeys: string[]
-    error?: string
-  }
+interface DetailTransaction {
+  date: string
+  shiftName: string | null
+  checkNo: string | null
+  custTotal: number | null
+  tblName: string | null
+  itemName: string
+  vipNote: string | null
+  qty: number
+  amt: number
+}
+interface DetailGroup {
+  itemName: string
+  transactions: DetailTransaction[]
+  totalQty: number
+  totalAmt: number
+}
+interface DetailResponse {
+  groups: DetailGroup[]
+  grandTotalQty: number
+  grandTotalAmt: number
+  error?: string
+}
 
-  interface CategoryConfig {
-    key: string
-    label: string
-    column: string
-  }
+const commonStore = useCommonStore()
+const apiBase = computed(() => commonStore.data.main_url)
+const { bksqlAttached: dbAttached, checkStatus } = useBk35DbStatus()
 
-  const commonStore = useCommonStore()
-  const apiBase = computed(() => commonStore.data.main_url)
+function formatMoney(n: number | null | undefined) {
+  if (n === null || n === undefined || isNaN(n)) return '0'
+  return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })
+}
+function formatQty(n: number | null | undefined) {
+  if (n === null || n === undefined || isNaN(n)) return '0'
+  return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
 
-  // 資料庫暫停/開啟狀態（跨頁面共用快取，見 composables/useBk35DbStatus.ts）
-  const { bk35menuAttached, bksqlAttached, checkStatus } = useBk35DbStatus()
+function todayStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function firstOfMonthStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+function openDatePicker(e: Event) {
+  const el = e.target as HTMLInputElement & { showPicker?: () => void }
+  el.showPicker?.()
+}
 
-  function formatMoney(n: number) {
-    if (n === null || n === undefined || isNaN(n)) return '0'
-    return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })
-  }
+// 快速選月：因為這幾張報表大部分時候都是抓「一整個月」，這個下拉會把
+// 起訖日期直接改成該月第一天到最後一天，仍然共用同一組 dateFrom/dateTo，
+// 使用者要自訂區間的話，改用日期欄位就好，不會互相打架。
+function currentMonthStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+const quickMonth = ref(currentMonthStr())
 
-  function currentMonthStr() {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  }
+function applyQuickMonth() {
+  const [y, m] = quickMonth.value.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  dateFrom.value = `${y}-${String(m).padStart(2, '0')}-01`
+  dateTo.value = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  runAll()
+}
 
-  // ══════════════════ 資料表 + 欄位選擇 ══════════════════
+function shiftQuickMonth(delta: number) {
+  const [y, m] = quickMonth.value.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  quickMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  applyQuickMonth()
+}
 
-  const browseDb = ref<'BK35MENU' | 'BKSQL'>('BKSQL')
-  const browseDbAttached = computed(() =>
-    browseDb.value === 'BK35MENU' ? bk35menuAttached.value : bksqlAttached.value
-  )
+const tab = ref<'inventory' | 'category' | 'detail'>('inventory')
+const dateFrom = ref(firstOfMonthStr())
+const dateTo = ref(todayStr())
 
-  const tables = ref<string[]>([])
-  const tablesLoading = ref(false)
-  const tablesError = ref('')
+// POSID 對照（業主已確認）：001=小舖、002=餐廳、003=市集。
+// 只影響「類別銷售統計表」「單品明細統計表」（查 ORDERI/OCHECK）；
+// 「期間進銷存彙總表」查 MATIO，沒有 POSID 欄位，不受此篩選影響。
+const POSID_OPTIONS = [
+  { value: '', label: '全部賣場' },
+  { value: '002', label: '餐廳（002）' },
+  { value: '001', label: '小舖（001）' },
+  { value: '003', label: '市集（003）' }
+]
+const posId = ref('')
 
-  async function fetchTables() {
-    if (browseDbAttached.value === false) return
-    tablesLoading.value = true
-    tablesError.value = ''
-    try {
-      const res = await $fetch<string[] | { error: string }>(
-        `${apiBase.value}/holy/bk35sql/tables`,
-          { credentials: 'include', query: { db: browseDb.value } }
-      )
-      if (Array.isArray(res)) {
-        tables.value = res
-      } else {
-        tablesError.value = res?.error ?? '取得資料表清單失敗'
-        tables.value = []
-      }
-    } catch (e: any) {
-      tablesError.value = e?.message ?? '取得資料表清單失敗'
-    } finally {
-      tablesLoading.value = false
-    }
-  }
+function switchTab(t: 'inventory' | 'category' | 'detail') {
+  tab.value = t
+  if (t === 'inventory' && !inventoryRows.value.length) runInventory()
+  if (t === 'category' && !categoryGroups.value.length) runCategory()
+  if (t === 'detail' && !detailGroups.value.length) runDetail()
+}
 
-  function onDbChange() {
-    selectedTable.value = ''
-    availableColumns.value = []
-    fetchTables()
-  }
+function runAll() {
+  if (tab.value === 'inventory') runInventory()
+  else if (tab.value === 'category') runCategory()
+  else runDetail()
+}
 
-  const selectedTable = ref('')
-  const availableColumns = ref<string[]>([])
-  const columnsLoading = ref(false)
-  const columnsError = ref('')
+// ══════════════════ ① 期間進銷存彙總表 ══════════════════
 
-  async function fetchColumns() {
-    if (!selectedTable.value) {
-      availableColumns.value = []
-      return
-    }
-    columnsLoading.value = true
-    columnsError.value = ''
-    try {
-      const res = await $fetch<SchemaResponse>(
-        `${apiBase.value}/holy/bk35sql/schema/${selectedTable.value}`,
-          { credentials: 'include', query: { db: browseDb.value } }
-      )
-      if (res?.error) {
-        columnsError.value = res.error
-        availableColumns.value = []
-      } else {
-        availableColumns.value = (res?.columns ?? []).map(c => c.name)
-      }
-    } catch (e: any) {
-      columnsError.value = e?.message ?? '取得欄位結構失敗'
-      availableColumns.value = []
-    } finally {
-      columnsLoading.value = false
-    }
-  }
+const invSearch = ref('')
+const inventoryRows = ref<InventoryRow[]>([])
+const inventoryTotals = ref<InventoryResponse['totals'] | null>(null)
+const invLoading = ref(false)
+const invError = ref('')
 
-  function onTableChange() {
-    fetchColumns()
-    saveMapping()
-  }
-
-  // ══════════════════ 欄位對應設定（存 localStorage） ══════════════════
-
-  const STORAGE_KEY = 'posSalesAnalysisMappingV1'
-
-  const dateColumn = ref('')
-  const categories = ref<CategoryConfig[]>([
-    { key: 'c1', label: '餐廳現金', column: '' },
-    { key: 'c2', label: '小舖信用卡', column: '' },
-    { key: 'c3', label: '宅配代收款', column: '' },
-    { key: 'c4', label: '宅配匯款', column: '' },
-    { key: 'c5', label: '簽帳（賒帳）', column: '' },
-    { key: 'c6', label: '折讓', column: '' },
-    { key: 'c7', label: '消費券／生日券', column: '' }
-  ])
-  const totalMode = ref<'auto' | 'column'>('auto')
-  const totalColumn = ref('')
-
-  let catSeq = 8
-  function addCategory() {
-    categories.value.push({ key: `c${catSeq++}`, label: '新欄位', column: '' })
-  }
-  function removeCategory(key: string) {
-    categories.value = categories.value.filter(c => c.key !== key)
-  }
-
-  function saveMapping() {
-    if (typeof window === 'undefined') return
-    const payload = {
-      db: browseDb.value,
-      table: selectedTable.value,
-      dateColumn: dateColumn.value,
-      categories: categories.value,
-      totalMode: totalMode.value,
-      totalColumn: totalColumn.value,
-      useSearchFilter: useSearchFilter.value,
-      maxPages: maxPages.value
-    }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-    } catch {
-      // localStorage 存不進去（無痕模式等）就算了，不影響本次操作
-    }
-  }
-
-  function loadMapping() {
-    if (typeof window === 'undefined') return
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (!raw) return
-      const saved = JSON.parse(raw)
-      if (saved.db) browseDb.value = saved.db
-      if (saved.table) selectedTable.value = saved.table
-      if (saved.dateColumn) dateColumn.value = saved.dateColumn
-      if (Array.isArray(saved.categories) && saved.categories.length) {
-        categories.value = saved.categories
-        catSeq = categories.value.length + 1
-      }
-      if (saved.totalMode) totalMode.value = saved.totalMode
-      if (saved.totalColumn) totalColumn.value = saved.totalColumn
-      if (typeof saved.useSearchFilter === 'boolean') useSearchFilter.value = saved.useSearchFilter
-      if (saved.maxPages) maxPages.value = saved.maxPages
-    } catch {
-      // 存的格式壞掉就當作沒有設定，用預設值
-    }
-  }
-
-  const showMappingPanel = ref(true)
-
-  // ══════════════════ 抓資料策略 ══════════════════
-  // 後端 /holy/bk35sql/data/{table} 只支援 search 自由文字搜尋 + 固定分頁，沒有結構化日期篩選。
-  // 預設用「月份字串」（例如 2026-04）當 search 關鍵字縮小範圍，抓取比較快；
-  // 但若日期欄位在資料庫裡的文字表示法搜不到月份字串，可以關掉這個選項，
-  // 改成整張表逐頁掃描、在前端依日期欄位篩選（比較慢，大資料表要注意頁數上限）。
-
-  const useSearchFilter = ref(true)
-  const maxPages = ref(200)
-
-  async function fetchServerPage(p: number, search: string): Promise<DataResponse> {
-    return await $fetch<DataResponse>(
-      `${apiBase.value}/holy/bk35sql/data/${selectedTable.value}`,
-        { credentials: 'include', query: { db: browseDb.value, page: p, search } }
+async function runInventory() {
+  if (dbAttached.value === false) return
+  invLoading.value = true
+  invError.value = ''
+  try {
+    const res = await $fetch<InventoryResponse>(
+      `${apiBase.value}/holy/bk35sql/sales-analysis/inventory-summary`,
+      { credentials: 'include', query: { dateFrom: dateFrom.value, dateTo: dateTo.value, search: invSearch.value } }
     )
-  }
-
-  async function fetchAllRelevantRows(): Promise<{ rows: Record<string, any>[]; truncated: boolean }> {
-    const all: Record<string, any>[] = []
-    const searchTerm = useSearchFilter.value ? monthStr.value : ''
-    let page = 1
-    let totalPages = 1
-    let truncated = false
-    do {
-      const res = await fetchServerPage(page, searchTerm)
-      if (res?.error) throw new Error(res.error)
-      all.push(...(res?.rows ?? []))
-      totalPages = res?.totalPages ?? 1
-      if (page >= maxPages.value && page < totalPages) {
-        truncated = true
-        break
-      }
-      page++
-    } while (page <= totalPages)
-    return { rows: all, truncated }
-  }
-
-  // ══════════════════ 月報表產生 ══════════════════
-
-  interface DayRow {
-    dateStr: string
-    day: number
-    weekday: string
-    isWeekend: boolean
-    values: Record<string, number>
-    total: number
-  }
-
-  const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
-
-  const monthStr = ref(currentMonthStr())
-  const loading = ref(false)
-  const error = ref('')
-  const reportRows = ref<DayRow[]>([])
-  const reportTotals = ref<Record<string, number>>({})
-  const grandTotal = ref(0)
-  const fetchedRowCount = ref(0)
-  const matchedRowCount = ref(0)
-  const wasTruncated = ref(false)
-  const lastRunAt = ref('')
-
-  function parseDateCell(raw: any): string | null {
-    if (raw === null || raw === undefined || raw === '') return null
-    const d = new Date(raw)
-    if (isNaN(d.getTime())) return null
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
-
-  function numOrZero(raw: any): number {
-    if (raw === null || raw === undefined || raw === '') return 0
-    const n = Number(raw)
-    return isNaN(n) ? 0 : n
-  }
-
-  async function runReport() {
-    if (dbAttached.value === false) {
-      error.value = '資料庫目前已暫停（Detach），請聯繫管理員開啟後再查詢。'
-      return
+    if (res?.error) {
+      invError.value = res.error
+      inventoryRows.value = []
+      inventoryTotals.value = null
+    } else {
+      inventoryRows.value = res?.rows ?? []
+      inventoryTotals.value = res?.totals ?? null
     }
-    if (!selectedTable.value) {
-      error.value = '請先選擇要統計的資料表'
-      return
-    }
-    if (!dateColumn.value) {
-      error.value = '請先在欄位對應設定裡選擇日期欄位'
-      return
-    }
-
-    loading.value = true
-    error.value = ''
-    reportRows.value = []
-    saveMapping()
-
-    try {
-      const { rows: rawRows, truncated } = await fetchAllRelevantRows()
-      fetchedRowCount.value = rawRows.length
-      wasTruncated.value = truncated
-
-      const [y, m] = monthStr.value.split('-').map(Number)
-      const daysInMonth = new Date(y, m, 0).getDate()
-
-      const buckets = new Map<string, DayRow>()
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        const dow = new Date(y, m - 1, day).getDay()
-        const values: Record<string, number> = {}
-        categories.value.forEach(c => { values[c.key] = 0 })
-        buckets.set(dateStr, {
-          dateStr,
-          day,
-          weekday: WEEKDAYS[dow],
-          isWeekend: dow === 0 || dow === 6,
-          values,
-          total: 0
-        })
-      }
-
-      let matched = 0
-      for (const row of rawRows) {
-        const dateStr = parseDateCell(row[dateColumn.value])
-        if (!dateStr || !buckets.has(dateStr)) continue
-        matched++
-        const bucket = buckets.get(dateStr)!
-        for (const cat of categories.value) {
-          if (cat.column) bucket.values[cat.key] += numOrZero(row[cat.column])
-        }
-        if (totalMode.value === 'column' && totalColumn.value) {
-          bucket.total += numOrZero(row[totalColumn.value])
-        }
-      }
-      matchedRowCount.value = matched
-
-      const totals: Record<string, number> = {}
-      categories.value.forEach(c => { totals[c.key] = 0 })
-      let grand = 0
-      for (const bucket of buckets.values()) {
-        if (totalMode.value === 'auto') {
-          bucket.total = categories.value.reduce((s, c) => s + bucket.values[c.key], 0)
-        }
-        categories.value.forEach(c => { totals[c.key] += bucket.values[c.key] })
-        grand += bucket.total
-      }
-      reportTotals.value = totals
-      grandTotal.value = grand
-      reportRows.value = [...buckets.values()]
-      lastRunAt.value = new Date().toLocaleString()
-    } catch (e: any) {
-      error.value = e?.message ?? '載入資料失敗'
-    } finally {
-      loading.value = false
-    }
+  } catch (e: any) {
+    invError.value = e?.message ?? '載入失敗'
+  } finally {
+    invLoading.value = false
   }
+}
 
-  // ══════════════════ CSV 匯出 ══════════════════
+function slashDate(d: string) {
+  return d ? d.replaceAll('-', '/') : d
+}
+function posIdLabel() {
+  const found = POSID_OPTIONS.find(o => o.value === posId.value)
+  return found && found.value ? found.label : ''
+}
+// 對應原始報表的金額欄位格式：千分位逗號、含逗號時要加引號避免被 CSV 拆欄；
+// 該欄位對應的數量為 0 時顯示空白（原始報表的慣例），數量非 0 才顯示金額（即使金額剛好是 0）。
+function csvAmtCell(amt: number, qty: number) {
+  if (!qty) return ''
+  const s = Math.round(amt).toLocaleString()
+  return s.includes(',') ? `"${s}"` : s
+}
+function csvTotalAmtCell(amt: number) {
+  const s = Math.round(amt).toLocaleString()
+  return s.includes(',') ? `"${s}"` : s
+}
 
-  function exportCsv() {
-    if (!reportRows.value.length) return
-    const headers = ['日期', '星期', ...categories.value.map(c => c.label), '總計']
-    const lines = [headers.join(',')]
-    for (const r of reportRows.value) {
-      const cells = [
-        r.dateStr,
-        r.weekday,
-        ...categories.value.map(c => String(r.values[c.key] ?? 0)),
-        String(r.total)
-      ]
-      lines.push(cells.join(','))
+function exportInventoryCsv() {
+  if (!inventoryRows.value.length) return
+  const headers = ['物料名稱', '期初量', '入庫', '轉入', '轉出', '損耗', '銷售', '庫存量', '盤盈虧', '訂貨']
+  const lines = [
+    '期間進銷存彙總表',
+    `列印期間:${slashDate(dateFrom.value)} - ${slashDate(dateTo.value)}`,
+    headers.join(',')
+  ]
+  for (const r of inventoryRows.value) {
+    lines.push([r.matName, r.beginQty, r.inQty, r.transferInQty, r.transferOutQty, r.scrapQty, r.saleQty, r.endQty, r.stocktakeQty, r.orderQty].join(','))
+  }
+  if (inventoryTotals.value) {
+    const t = inventoryTotals.value
+    lines.push(['合計', t.beginQty, t.inQty, t.transferInQty, t.transferOutQty, t.scrapQty, t.saleQty, t.endQty, t.stocktakeQty, t.orderQty].join(','))
+  }
+  downloadCsv(lines, `期間進銷存彙總表_${dateFrom.value}_${dateTo.value}.csv`)
+}
+
+// ══════════════════ ② 類別銷售統計表 ══════════════════
+
+const categoryGroups = ref<CategoryGroup[]>([])
+const grandTotalQty = ref(0)
+const grandTotalAmt = ref(0)
+const tier1TotalQty = ref(0)
+const tier2TotalQty = ref(0)
+const tier3TotalQty = ref(0)
+const catLoading = ref(false)
+const catError = ref('')
+
+async function runCategory() {
+  if (dbAttached.value === false) return
+  catLoading.value = true
+  catError.value = ''
+  try {
+    const res = await $fetch<CategoryResponse>(
+      `${apiBase.value}/holy/bk35sql/sales-analysis/category-sales`,
+      { credentials: 'include', query: { dateFrom: dateFrom.value, dateTo: dateTo.value, posId: posId.value || undefined } }
+    )
+    if (res?.error) {
+      catError.value = res.error
+      categoryGroups.value = []
+    } else {
+      categoryGroups.value = res?.categories ?? []
+      grandTotalQty.value = res?.grandTotalQty ?? 0
+      grandTotalAmt.value = res?.grandTotalAmt ?? 0
+      tier1TotalQty.value = res?.tier1TotalQty ?? 0
+      tier2TotalQty.value = res?.tier2TotalQty ?? 0
+      tier3TotalQty.value = res?.tier3TotalQty ?? 0
+    }
+  } catch (e: any) {
+    catError.value = e?.message ?? '載入失敗'
+  } finally {
+    catLoading.value = false
+  }
+}
+
+function exportCategoryCsv() {
+  if (!categoryGroups.value.length) return
+  const headers = ['菜  式 名 稱', '數量', '金額', '員工', '金額(2)', '9折貴賓', '金額(3)', '本項數', '本項金額']
+  const lines = [
+    '類別銷售統計表' + (posIdLabel() ? `（${posIdLabel()}）` : ''),
+    `統計日期: ${slashDate(dateFrom.value)} 至 ${slashDate(dateTo.value)}`
+  ]
+  for (const g of categoryGroups.value) {
+    lines.push(`類　別: ${g.typeName}`)
+    lines.push(headers.join(','))
+    for (const it of g.items) {
+      lines.push([
+        it.itemName,
+        it.qty,
+        csvAmtCell(it.amt, it.qty),
+        it.staffQty,
+        csvAmtCell(it.staffAmt, it.staffQty),
+        it.vipQty,
+        csvAmtCell(it.vipAmt, it.vipQty),
+        it.totalQty,
+        csvTotalAmtCell(it.totalAmt)
+      ].join(','))
     }
     lines.push([
-      '合計', '',
-      ...categories.value.map(c => String(reportTotals.value[c.key] ?? 0)),
-      String(grandTotal.value)
+      '　　　　合　計:',
+      g.sumQty, g.sumAmt, g.sumStaffQty, g.sumStaffAmt, g.sumVipQty, g.sumVipAmt, g.totalQty, ''
     ].join(','))
-
-    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `銷售分析_${selectedTable.value}_${monthStr.value}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    lines.push([
+      '', '', '', '', '', '', '', '總計', csvTotalAmtCell(g.totalAmt)
+    ].join(','))
   }
+  lines.push(`價別1總數量: ${tier1TotalQty.value.toLocaleString()}`)
+  lines.push(`價別2總數量: ${tier2TotalQty.value.toLocaleString()}`)
+  lines.push(`價別3總數量: ${tier3TotalQty.value.toLocaleString()}`)
+  lines.push(`總計數量: ${grandTotalQty.value.toLocaleString()}　總計金額: ${grandTotalAmt.value.toLocaleString()}`)
+  downloadCsv(lines, `類別銷售統計表_${dateFrom.value}_${dateTo.value}.csv`)
+}
 
-  onMounted(async () => {
-    loadMapping()
-    await checkStatus()
-    await fetchTables()
-    if (selectedTable.value) {
-      await fetchColumns()
+// ══════════════════ ③ 單品明細統計表 ══════════════════
+// 這張主要是印出來看的，所以不分頁：一次抓整個期間，依品項分組。
+
+const detailSearch = ref('')
+const detailGroups = ref<DetailGroup[]>([])
+const detailGrandQty = ref(0)
+const detailGrandAmt = ref(0)
+const detailLoading = ref(false)
+const detailError = ref('')
+
+async function runDetail() {
+  if (dbAttached.value === false) return
+  detailLoading.value = true
+  detailError.value = ''
+  try {
+    const res = await $fetch<DetailResponse>(
+      `${apiBase.value}/holy/bk35sql/sales-analysis/item-detail`,
+      { credentials: 'include', query: { dateFrom: dateFrom.value, dateTo: dateTo.value, search: detailSearch.value, posId: posId.value || undefined } }
+    )
+    if (res?.error) {
+      detailError.value = res.error
+      detailGroups.value = []
+    } else {
+      detailGroups.value = res?.groups ?? []
+      detailGrandQty.value = res?.grandTotalQty ?? 0
+      detailGrandAmt.value = res?.grandTotalAmt ?? 0
     }
-  })
+  } catch (e: any) {
+    detailError.value = e?.message ?? '載入失敗'
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function formatDate(d: string) {
+  if (!d) return '-'
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return d
+  return `${dt.getMonth() + 1}/${dt.getDate()}`
+}
+
+function exportDetailCsv() {
+  if (!detailGroups.value.length) return
+  const headers = ['日期', '班別', '帳單號', '客數', '桌號', '項目', '備註(VIP)', '數量', '金額']
+  const lines = [
+    '單品明細統計表' + (posIdLabel() ? `（${posIdLabel()}）` : ''),
+    `營業期間: ${slashDate(dateFrom.value)} 至 ${slashDate(dateTo.value)}`
+  ]
+  for (const g of detailGroups.value) {
+    lines.push(headers.join(','))
+    for (const t of g.transactions) {
+      lines.push([formatDate(t.date), t.shiftName ?? '', t.checkNo ?? '', t.custTotal ?? '', t.tblName ?? '', t.itemName, t.vipNote ?? '', t.qty, t.amt].join(','))
+    }
+    lines.push(['', '', '', '', '', `  ${g.itemName}`, '合計', g.totalQty, g.totalAmt].join(','))
+    lines.push('')
+  }
+  lines.push(`總計數量: ${detailGrandQty.value.toLocaleString()}　總計金額: ${detailGrandAmt.value.toLocaleString()}`)
+  downloadCsv(lines, `單品明細統計表_${dateFrom.value}_${dateTo.value}.csv`)
+}
+
+function printDetail() {
+  window.print()
+}
+
+function downloadCsv(lines: string[], filename: string) {
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+onMounted(async () => {
+  await checkStatus()
+  runInventory()
+})
 </script>
 
 <template>
   <div class="page-wrap">
-    <div class="page-header">
+    <div class="page-header no-print">
       <h1 class="page-title">銷售分析</h1>
-      <span class="beta-badge">以通用資料表 API 手動彙總 · 待補專屬後端</span>
+      <div class="tab-switch">
+        <button :class="['sw-tab', { active: tab === 'inventory' }]" @click="switchTab('inventory')">期間進銷存彙總表</button>
+        <button :class="['sw-tab', { active: tab === 'category' }]" @click="switchTab('category')">類別銷售統計表</button>
+        <button :class="['sw-tab', { active: tab === 'detail' }]" @click="switchTab('detail')">單品明細統計表</button>
+      </div>
     </div>
 
-    <div v-if="dbAttached === false" class="paused-banner">
+    <div v-if="dbAttached === false" class="paused-banner no-print">
       ⏸ 資料庫目前已暫停（Detach），查詢功能暫時無法使用，請聯繫管理員開啟資料庫後再試。
     </div>
 
-    <p class="hint-banner">
-      這頁目前還沒有專屬的後端彙總 API，是用「瀏覽資料表」的通用端點在前端手動加總。
-      請先在下方「欄位對應設定」選擇要統計的資料表、日期欄位，以及每個分類要加總的欄位，
-      設定會自動存在瀏覽器裡，下次不用重設。之後補了專屬 API 可以再把這段換掉。
-    </p>
+    <div class="section filter-section no-print">
+      <div class="filter-bar">
+        <label class="inline-label">
+          <span class="form-label">快速選月</span>
+          <button class="month-nav-btn" title="上個月" @click="shiftQuickMonth(-1)">‹</button>
+          <input v-model="quickMonth" type="month" class="date-input" @change="applyQuickMonth">
+          <button class="month-nav-btn" title="下個月" @click="shiftQuickMonth(1)">›</button>
+        </label>
 
-    <!-- ══════════════════ 欄位對應設定 ══════════════════ -->
-    <div class="section">
-      <div class="section-header">
-        <h2 class="section-title">欄位對應設定</h2>
-        <button class="btn-ghost small" @click="showMappingPanel = !showMappingPanel">
-          {{ showMappingPanel ? '收合' : '展開' }}
-        </button>
+        <span class="filter-divider"></span>
+
+        <label class="inline-label">
+          <span class="form-label">起</span>
+          <input v-model="dateFrom" type="date" class="date-input" @click="openDatePicker">
+        </label>
+        <label class="inline-label">
+          <span class="form-label">迄</span>
+          <input v-model="dateTo" type="date" class="date-input" @click="openDatePicker">
+        </label>
+
+        <label v-if="tab === 'category' || tab === 'detail'" class="inline-label">
+          <span class="form-label">賣場</span>
+          <select v-model="posId" class="date-input">
+            <option v-for="o in POSID_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+          </select>
+        </label>
+
+        <input
+          v-if="tab === 'inventory'"
+          v-model="invSearch"
+          class="search-input"
+          placeholder="搜尋物料名稱／料號／分類"
+          @keyup.enter="runInventory"
+        >
+        <input
+          v-if="tab === 'detail'"
+          v-model="detailSearch"
+          class="search-input"
+          placeholder="搜尋品項名稱（可留空查全部）"
+          @keyup.enter="runDetail"
+        >
+
+        <button class="btn-primary" @click="runAll">查詢</button>
       </div>
+    </div>
 
-      <template v-if="showMappingPanel">
-        <div class="form-row-inline">
-          <div class="form-row">
-            <label class="form-label">資料庫</label>
-            <select v-model="browseDb" class="form-select" @change="onDbChange">
-              <option value="BKSQL">BKSQL</option>
-              <option value="BK35MENU">BK35MENU</option>
-            </select>
-          </div>
+    <!-- ══════════════════ ① 期間進銷存彙總表 ══════════════════ -->
+    <template v-if="tab === 'inventory'">
+      <div class="section-actions">
+        <button class="btn-ghost small" :disabled="!inventoryRows.length" @click="exportInventoryCsv">匯出 CSV</button>
+      </div>
+      <p v-if="invLoading" class="loading">查詢中…</p>
+      <p v-else-if="invError" class="error-box">{{ invError }}</p>
 
-          <div class="form-row">
-            <label class="form-label">資料表</label>
-            <select v-model="selectedTable" class="form-select" :disabled="tablesLoading" @change="onTableChange">
-              <option value="">請選擇資料表</option>
-              <option v-for="t in tables" :key="t" :value="t">{{ t }}</option>
-            </select>
-          </div>
+      <div v-else-if="inventoryRows.length" class="table-wrap">
+        <table class="report-table">
+          <thead>
+          <tr>
+            <th>物料名稱</th>
+            <th class="num-cell">期初量</th>
+            <th class="num-cell">入庫</th>
+            <th class="num-cell">轉入</th>
+            <th class="num-cell">轉出</th>
+            <th class="num-cell">損耗</th>
+            <th class="num-cell">銷售</th>
+            <th class="num-cell">庫存量</th>
+            <th class="num-cell">盤盈虧</th>
+            <th class="num-cell">訂貨</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr v-for="r in inventoryRows" :key="r.matNo">
+            <td>{{ r.matName }}</td>
+            <td class="num-cell">{{ formatQty(r.beginQty) }}</td>
+            <td class="num-cell">{{ formatQty(r.inQty) }}</td>
+            <td class="num-cell">{{ formatQty(r.transferInQty) }}</td>
+            <td class="num-cell">{{ formatQty(r.transferOutQty) }}</td>
+            <td class="num-cell">{{ formatQty(r.scrapQty) }}</td>
+            <td class="num-cell">{{ formatQty(r.saleQty) }}</td>
+            <td class="num-cell total-cell">{{ formatQty(r.endQty) }}</td>
+            <td class="num-cell">{{ formatQty(r.stocktakeQty) }}</td>
+            <td class="num-cell">{{ formatQty(r.orderQty) }}</td>
+          </tr>
+          </tbody>
+          <tfoot v-if="inventoryTotals">
+          <tr class="totals-row">
+            <td>合計</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.beginQty) }}</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.inQty) }}</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.transferInQty) }}</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.transferOutQty) }}</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.scrapQty) }}</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.saleQty) }}</td>
+            <td class="num-cell total-cell">{{ formatQty(inventoryTotals.endQty) }}</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.stocktakeQty) }}</td>
+            <td class="num-cell">{{ formatQty(inventoryTotals.orderQty) }}</td>
+          </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p v-else class="empty-hint">請設定期間後按「查詢」</p>
+    </template>
 
-          <div class="form-row">
-            <label class="form-label">日期欄位</label>
-            <select v-model="dateColumn" class="form-select" :disabled="!availableColumns.length" @change="saveMapping">
-              <option value="">請選擇日期欄位</option>
-              <option v-for="c in availableColumns" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </div>
-        </div>
+    <!-- ══════════════════ ② 類別銷售統計表 ══════════════════ -->
+    <template v-if="tab === 'category'">
+      <div class="section-actions">
+        <span class="total-hint">總數量 {{ formatQty(grandTotalQty) }}　總金額 ${{ formatMoney(grandTotalAmt) }}</span>
+        <button class="btn-ghost small" :disabled="!categoryGroups.length" @click="exportCategoryCsv">匯出 CSV</button>
+      </div>
+      <p v-if="catLoading" class="loading">查詢中…</p>
+      <p v-else-if="catError" class="error-box">{{ catError }}</p>
 
-        <p v-if="tablesLoading || columnsLoading" class="loading">載入欄位中…</p>
-        <p v-if="tablesError" class="error-box">{{ tablesError }}</p>
-        <p v-if="columnsError" class="error-box">{{ columnsError }}</p>
-
-        <div class="mapping-table-wrap">
-          <table class="mapping-table">
+      <div v-else-if="categoryGroups.length" class="category-groups">
+        <div v-for="g in categoryGroups" :key="g.typeNo" class="table-wrap category-block">
+          <div class="category-heading">類　別：{{ g.typeName }}</div>
+          <table class="report-table">
             <thead>
             <tr>
-              <th>分類名稱</th>
-              <th>對應欄位（加總用）</th>
-              <th></th>
+              <th>菜式名稱</th>
+              <th class="num-cell">數量</th>
+              <th class="num-cell">金額</th>
+              <th class="num-cell">員工</th>
+              <th class="num-cell">金額(2)</th>
+              <th class="num-cell">9折貴賓</th>
+              <th class="num-cell">金額(3)</th>
+              <th class="num-cell">本項數</th>
+              <th class="num-cell">本項金額</th>
             </tr>
             </thead>
             <tbody>
-            <tr v-for="cat in categories" :key="cat.key">
-              <td>
-                <input v-model="cat.label" class="form-input" placeholder="分類名稱" @change="saveMapping">
-              </td>
-              <td>
-                <select v-model="cat.column" class="form-select" :disabled="!availableColumns.length" @change="saveMapping">
-                  <option value="">（不加總）</option>
-                  <option v-for="c in availableColumns" :key="c" :value="c">{{ c }}</option>
-                </select>
-              </td>
-              <td>
-                <button class="btn-ghost small" @click="removeCategory(cat.key); saveMapping()">移除</button>
-              </td>
+            <tr v-for="it in g.items" :key="it.itemName">
+              <td>{{ it.itemName }}</td>
+              <td class="num-cell">{{ formatQty(it.qty) }}</td>
+              <td class="num-cell">{{ formatMoney(it.amt) }}</td>
+              <td class="num-cell">{{ formatQty(it.staffQty) }}</td>
+              <td class="num-cell">{{ formatMoney(it.staffAmt) }}</td>
+              <td class="num-cell">{{ formatQty(it.vipQty) }}</td>
+              <td class="num-cell">{{ formatMoney(it.vipAmt) }}</td>
+              <td class="num-cell total-cell">{{ formatQty(it.totalQty) }}</td>
+              <td class="num-cell total-cell">{{ formatMoney(it.totalAmt) }}</td>
             </tr>
             </tbody>
+            <tfoot>
+            <tr class="totals-row">
+              <td>合　計:</td>
+              <td class="num-cell">{{ formatQty(g.sumQty) }}</td>
+              <td class="num-cell">{{ formatMoney(g.sumAmt) }}</td>
+              <td class="num-cell">{{ formatQty(g.sumStaffQty) }}</td>
+              <td class="num-cell">{{ formatMoney(g.sumStaffAmt) }}</td>
+              <td class="num-cell">{{ formatQty(g.sumVipQty) }}</td>
+              <td class="num-cell">{{ formatMoney(g.sumVipAmt) }}</td>
+              <td class="num-cell">{{ formatQty(g.totalQty) }}</td>
+              <td></td>
+            </tr>
+            <tr class="totals-row">
+              <td colspan="7"></td>
+              <td class="num-cell">總計</td>
+              <td class="num-cell total-cell">{{ formatMoney(g.totalAmt) }}</td>
+            </tr>
+            </tfoot>
           </table>
         </div>
-        <button class="btn-ghost small" @click="addCategory">＋ 新增分類欄位</button>
-
-        <div class="form-row-inline">
-          <div class="form-row">
-            <label class="form-label">總計欄位</label>
-            <div class="tab-switch">
-              <button :class="['sw-tab', { active: totalMode === 'auto' }]" @click="totalMode = 'auto'; saveMapping()">
-                自動加總各分類
-              </button>
-              <button :class="['sw-tab', { active: totalMode === 'column' }]" @click="totalMode = 'column'; saveMapping()">
-                指定資料庫欄位
-              </button>
-            </div>
-          </div>
-          <div v-if="totalMode === 'column'" class="form-row">
-            <label class="form-label">總計對應欄位</label>
-            <select v-model="totalColumn" class="form-select" :disabled="!availableColumns.length" @change="saveMapping">
-              <option value="">請選擇欄位</option>
-              <option v-for="c in availableColumns" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </div>
+        <div class="tier-footer">
+          <span>價別1總數量: {{ formatQty(tier1TotalQty) }}</span>
+          <span>價別2總數量: {{ formatQty(tier2TotalQty) }}</span>
+          <span>價別3總數量: {{ formatQty(tier3TotalQty) }}</span>
         </div>
-
-        <div class="form-row-inline">
-          <label class="inline-checkbox">
-            <input v-model="useSearchFilter" type="checkbox" @change="saveMapping">
-            用月份字串（例如 {{ monthStr }}）當搜尋關鍵字縮小抓取範圍（較快，但若日期欄位文字格式搜不到月份字串會漏資料）
-          </label>
-        </div>
-        <div v-if="!useSearchFilter" class="form-row-inline">
-          <div class="form-row">
-            <label class="form-label">最多掃描頁數上限</label>
-            <input v-model.number="maxPages" type="number" min="1" class="form-input small-input" @change="saveMapping">
-          </div>
-          <p class="section-hint">關掉搜尋加速時會逐頁掃描整張表，資料量大時請留意頁數上限，避免等太久。</p>
-        </div>
-      </template>
-    </div>
-
-    <!-- ══════════════════ 月份選擇 + 查詢 ══════════════════ -->
-    <div class="section">
-      <div class="form-row-inline">
-        <div class="form-row">
-          <label class="form-label">統計月份</label>
-          <input v-model="monthStr" type="month" class="form-input">
-        </div>
-        <button class="btn-primary" :disabled="loading" @click="runReport">
-          {{ loading ? '查詢中…' : '產生月報表' }}
-        </button>
-        <button class="btn-ghost" :disabled="!reportRows.length" @click="exportCsv">
-          匯出 CSV
-        </button>
       </div>
+      <p v-else class="empty-hint">請設定期間後按「查詢」</p>
+    </template>
+    <template v-if="tab === 'detail'">
+      <div class="section-actions no-print">
+        <span class="total-hint">共 {{ detailGroups.length }} 個品項　總數量 {{ formatQty(detailGrandQty) }}　總金額 ${{ formatMoney(detailGrandAmt) }}</span>
+        <div class="btn-group">
+          <button class="btn-ghost small" :disabled="!detailGroups.length" @click="printDetail">列印</button>
+          <button class="btn-ghost small" :disabled="!detailGroups.length" @click="exportDetailCsv">匯出 CSV</button>
+        </div>
+      </div>
+      <p v-if="detailLoading" class="loading no-print">查詢中，這張報表資料量較大，可能要等一下…</p>
+      <p v-else-if="detailError" class="error-box no-print">{{ detailError }}</p>
 
-      <p v-if="lastRunAt" class="section-hint">
-        最後查詢時間：{{ lastRunAt }}　抓取 {{ fetchedRowCount }} 筆原始資料，其中 {{ matchedRowCount }} 筆落在 {{ monthStr }}
-        <span v-if="wasTruncated" class="warn-text">（已達掃描頁數上限，資料可能不完整，可調高上限重試）</span>
-      </p>
-
-      <p v-if="error" class="error-box">{{ error }}</p>
-      <p v-if="loading" class="loading">查詢中，資料量大時可能要等一下…</p>
-    </div>
-
-    <!-- ══════════════════ 報表結果 ══════════════════ -->
-    <div v-if="reportRows.length" class="table-wrap">
-      <table class="report-table">
-        <thead>
-        <tr>
-          <th>日期</th>
-          <th>星期</th>
-          <th v-for="cat in categories" :key="cat.key">{{ cat.label }}</th>
-          <th>總計</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="r in reportRows" :key="r.dateStr" :class="{ weekend: r.isWeekend }">
-          <td>{{ monthStr }}-{{ String(r.day).padStart(2, '0') }}</td>
-          <td>{{ r.weekday }}</td>
-          <td v-for="cat in categories" :key="cat.key" class="num-cell">{{ formatMoney(r.values[cat.key]) }}</td>
-          <td class="num-cell total-cell">{{ formatMoney(r.total) }}</td>
-        </tr>
-        </tbody>
-        <tfoot>
-        <tr class="totals-row">
-          <td colspan="2">合計</td>
-          <td v-for="cat in categories" :key="cat.key" class="num-cell">{{ formatMoney(reportTotals[cat.key]) }}</td>
-          <td class="num-cell total-cell">{{ formatMoney(grandTotal) }}</td>
-        </tr>
-        </tfoot>
-      </table>
-    </div>
-
-    <div v-else-if="!loading && lastRunAt" class="empty-hint">
-      這個月份查無符合條件的資料。
-    </div>
+      <div v-else-if="detailGroups.length" class="table-wrap print-area">
+        <table class="report-table detail-table">
+          <thead>
+          <tr>
+            <th>日期</th>
+            <th>班別</th>
+            <th>帳單號</th>
+            <th class="num-cell">客數</th>
+            <th>桌號</th>
+            <th>項目</th>
+            <th>備註(VIP)</th>
+            <th class="num-cell">數量</th>
+            <th class="num-cell">金額</th>
+          </tr>
+          </thead>
+          <tbody>
+          <template v-for="g in detailGroups" :key="g.itemName">
+            <tr v-for="(t, i) in g.transactions" :key="g.itemName + '-' + i">
+              <td>{{ formatDate(t.date) }}</td>
+              <td>{{ t.shiftName || '' }}</td>
+              <td>{{ t.checkNo || '' }}</td>
+              <td class="num-cell">{{ t.custTotal ?? '' }}</td>
+              <td>{{ t.tblName || '' }}</td>
+              <td>{{ t.itemName }}</td>
+              <td>{{ t.vipNote || '' }}</td>
+              <td class="num-cell">{{ formatQty(t.qty) }}</td>
+              <td class="num-cell">{{ formatMoney(t.amt) }}</td>
+            </tr>
+            <tr class="totals-row group-subtotal">
+              <td colspan="5"></td>
+              <td>{{ g.itemName }}</td>
+              <td>合計</td>
+              <td class="num-cell">{{ formatQty(g.totalQty) }}</td>
+              <td class="num-cell total-cell">{{ formatMoney(g.totalAmt) }}</td>
+            </tr>
+          </template>
+          </tbody>
+        </table>
+      </div>
+      <p v-else class="empty-hint">請設定期間後按「查詢」</p>
+    </template>
   </div>
 </template>
 
 <style scoped>
-  .page-wrap { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-  .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
-  .beta-badge { font-size: 11px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 999px; padding: 3px 10px; }
+.page-wrap { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.page-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+.page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
 
-  .hint-banner { font-size: 12px; color: var(--text-hint); background: var(--surface2); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 10px 14px; margin: 0; line-height: 1.6; }
-  .paused-banner { font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
+.tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; flex-wrap: wrap; }
+.sw-tab { padding: 7px 16px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.sw-tab.active { background: var(--accent); color: #fff; }
 
-  .section { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
-  .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .section-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 0; }
-  .section-hint { font-size: 12px; color: var(--text-hint); margin: 0; line-height: 1.6; }
-  .warn-text { color: #c0392b; font-weight: 600; }
+.paused-banner { font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
 
-  .form-row-inline { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-  .form-row { display: flex; flex-direction: column; gap: 4px; }
-  .form-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
-  .form-input { padding: 8px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
-  .form-input:focus { border-color: var(--accent); }
-  .form-input.small-input { width: 100px; }
-  .form-select { padding: 8px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; min-width: 180px; }
-  .form-select:focus { border-color: var(--accent); }
-  .form-select:disabled { opacity: 0.5; }
+.section { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 14px 16px; }
+.filter-section { padding: 12px 16px; }
+.filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.filter-divider { width: 1px; align-self: stretch; background: var(--border-light); margin: 0 2px; }
+.month-nav-btn { width: 26px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; }
+.month-nav-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.inline-label { display: flex; align-items: center; gap: 6px; }
+.form-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.date-input { padding: 6px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+.search-input { width: 220px; padding: 7px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+.search-input:focus, .date-input:focus { border-color: var(--accent); }
 
-  .inline-checkbox { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.btn-primary { padding: 7px 16px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+.btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-ghost.small { padding: 4px 10px; font-size: 12px; }
 
-  .tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; width: fit-content; }
-  .sw-tab { padding: 6px 14px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; }
-  .sw-tab.active { background: var(--accent); color: #fff; }
+.section-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.total-hint { font-size: 13px; color: var(--text-hint); }
 
-  .btn-primary { padding: 8px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-  .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-ghost.small { padding: 4px 10px; font-size: 12px; }
+.loading { color: var(--text-hint); font-size: 13px; margin: 8px 0; }
+.error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; margin: 0; }
+.empty-hint { color: var(--text-hint); font-size: 13px; padding: 24px 0; text-align: center; }
 
-  .loading { color: var(--text-hint); font-size: 13px; margin: 0; }
-  .error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; margin: 0; }
-  .empty-hint { color: var(--text-hint); font-size: 13px; padding: 24px 0; text-align: center; }
+.table-wrap { display: inline-block; max-width: 100%; overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); vertical-align: top; align-self: flex-start; }
+.report-table { width: auto; border-collapse: collapse; font-size: 13px; }
+.report-table th { background: var(--surface2); padding: 9px 16px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+.report-table td { padding: 8px 16px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
+.report-table tr:last-child td { border-bottom: none; }
+.report-table tr:hover td { background: var(--accent-light); }
+.num-cell { text-align: right; font-variant-numeric: tabular-nums; min-width: 90px; }
+.total-cell { font-weight: 700; color: var(--accent); }
+.totals-row td { font-weight: 700; background: var(--surface2); border-top: 2px solid var(--border); }
 
-  .mapping-table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
-  .mapping-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .mapping-table th { background: var(--surface2); padding: 8px 12px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); }
-  .mapping-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-light); }
-  .mapping-table tr:last-child td { border-bottom: none; }
+.category-groups { display: flex; flex-direction: column; gap: 14px; }
+.category-block { padding-top: 0; }
+.category-heading { font-size: 14px; font-weight: 700; color: var(--text); background: var(--surface2); padding: 8px 14px; border-bottom: 1px solid var(--border-light); }
+.tier-footer { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: var(--text-muted); padding: 4px 4px; }
 
-  .table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); }
-  .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .report-table th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
-  .report-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
-  .report-table tr:last-child td { border-bottom: none; }
-  .report-table tr:hover td { background: var(--accent-light); }
-  .report-table tr.weekend td { background: var(--surface2); }
-  .num-cell { text-align: right; font-variant-numeric: tabular-nums; }
-  .total-cell { font-weight: 700; color: var(--accent); }
-  .totals-row td { font-weight: 700; background: var(--surface2); border-top: 2px solid var(--border); }
+.pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
+.page-btn { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text); }
+.page-btn:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { font-size: 13px; color: var(--text-muted); }
+
+.btn-group { display: flex; gap: 8px; }
+.group-subtotal td { font-weight: 700; background: var(--surface2); }
+
+/* 單品明細統計表主要是印出來看的：列印時只留報表本身，其餘操作介面都隱藏，
+   表頭用 thead { display: table-header-group } 讓瀏覽器每頁自動重複表頭。 */
+@media print {
+  .no-print { display: none !important; }
+  .page-wrap { padding: 0; }
+  .print-area { border: none; }
+  .detail-table thead { display: table-header-group; }
+  .detail-table tr { break-inside: avoid; }
+}
 </style>
