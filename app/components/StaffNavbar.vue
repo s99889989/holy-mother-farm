@@ -74,7 +74,7 @@ const navGroups = [
   {
     label: '📊 營業分析',
     items: [
-      { to: '/staff/pos/analyze/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.analyze.pos-sales' }
+      { to: '/staff/pos/analyze/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.analyze.sales-analysis' }
     ]
   },
   {
