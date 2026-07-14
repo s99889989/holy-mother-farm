@@ -113,18 +113,10 @@ function formatCheckCell(row: Record<string, any>, key: string) {
 const commonStore = useCommonStore()
 const apiBase = computed(() => commonStore.data.main_url)
 
-// BKSQL 資料庫裡的表：發票資料 -> INVOICE，帳單瀏覽 -> OCHECK（已依實際 schema 確認，非 M_CHECK）
-const TABLE_MAP: Record<string, string> = {
-  invoice: 'INVOICE',
-  check: 'OCHECK'
-}
-
-// 各頁籤用來做時段篩選、也用來做預設排序依據的日期欄位
-// （後端 /holy/bk35sql/data/:table 已支援 dateColumn + dateFrom/dateTo + sortOrder，見 Bk35SqlServerController）
-const DATE_COLUMN_MAP: Record<string, string> = {
-  invoice: 'InvDate',
-  check: 'OPDate'
-}
+// 帳務查詢固定用 BKSQL 資料庫，後端已依頁籤名稱各自開好專屬端點：
+// /holy/bk35sql/account-inquiry/check、/holy/bk35sql/account-inquiry/invoice
+// （見 Bk35AccountInquiryController），table 名稱與日期欄位對應都收斂在後端，
+// 前端不再需要維護 TABLE_MAP / DATE_COLUMN_MAP。
 
 // 帳單瀏覽為預設頁籤
 const view = ref<'invoice' | 'check'>('check')
@@ -142,7 +134,7 @@ const dateFrom = ref('')
 const dateTo = ref('')
 
 // 排序方向：預設 desc（新增資料顯示在最前面）。直接交給後端的 sortOrder 參數處理，
-// 後端會依 DATE_COLUMN_MAP 對應的日期欄位（找不到就退回該表第一欄）做 ROW_NUMBER() 排序分頁。
+// 後端固定依該頁籤的日期欄位（check 用 OPDate、invoice 用 InvDate）做 ROW_NUMBER() 排序分頁。
 const sortOrder = ref<'desc' | 'asc'>('desc')
 
 // 跳頁輸入（頁首快速跳頁用）
@@ -160,14 +152,12 @@ async function recheckStatus() {
 
 async function fetchServerPage(serverPage: number): Promise<DataResponse> {
   return await $fetch<DataResponse>(
-    `${apiBase.value}/holy/bk35sql/data/${TABLE_MAP[view.value]}`,
+    `${apiBase.value}/holy/bk35sql/account-inquiry/${view.value}`,
     {
       credentials: 'include',
       query: {
-        db: 'BKSQL',
         page: serverPage,
         search: search.value,
-        dateColumn: DATE_COLUMN_MAP[view.value],
         dateFrom: dateFrom.value || undefined,
         dateTo: dateTo.value || undefined,
         sortOrder: sortOrder.value
