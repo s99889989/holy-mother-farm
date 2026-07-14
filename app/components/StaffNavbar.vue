@@ -64,25 +64,25 @@ const navGroups = [
     ]
   },
   {
-    label: '💳 日常作業',
+    label: '🛒 日常作業',
     items: [
-      { to: '/staff/pos/daily/sales', icon: '💰', label: '商品販賣', key: 'pos.daily.sales' },
-      { to: '/staff/pos/daily/account-inquiry', icon: '💰', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
+      { to: '/staff/pos/daily/sales', icon: '🛍️', label: '商品販賣', key: 'pos.daily.sales' },
+      { to: '/staff/pos/daily/account-inquiry', icon: '🧾', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
       { to: '/staff/pos/daily/stock', icon: '📦', label: '庫存管理', key: 'pos.daily.stock' }
     ]
   },
   {
-    label: '💳 營業分析',
+    label: '📊 營業分析',
     items: [
       { to: '/staff/pos/analyze/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.analyze.pos-sales' }
     ]
   },
   {
-    label: '💳 設置',
+    label: '⚙️ 系統設定',
     items: [
-      { to: '/staff/pos/settings/menu-setting', icon: '🛍️', label: '品項設置', key: 'pos.settings.menu-setting' },
-      { to: '/staff/pos/settings/database-setting', icon: '📈', label: '資料庫設置', key: 'pos.settings.database-setting' },
-      { to: '/staff/pos/settings/equipment-setting', icon: '🛍️', label: '設備設置', key: 'pos.settings.equipment-setting' }
+      { to: '/staff/pos/settings/menu-setting', icon: '🍽️', label: '品項設置', key: 'pos.settings.menu-setting' },
+      { to: '/staff/pos/settings/database-setting', icon: '🗄️', label: '資料庫設置', key: 'pos.settings.database-setting' },
+      { to: '/staff/pos/settings/equipment-setting', icon: '🖨️', label: '設備設置', key: 'pos.settings.equipment-setting' }
     ]
   },
   {
