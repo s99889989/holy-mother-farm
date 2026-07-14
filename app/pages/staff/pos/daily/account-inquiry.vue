@@ -37,17 +37,90 @@
     { key: 'FileDate', label: '建檔時間', type: 'datetime' }
   ]
 
+  // 帳單瀏覽欄位中文對照表 —— 已依實際 BKSQL schema（dbo.OCHECK）確認欄位名稱，非猜測。
+  // 依 卡爾 指定的欄位清單與順序精簡顯示，只保留下面這些欄位：
+  // 營業日期、帳單號碼、結帳時間、小計、結帳金額、現金、付款別、客戶編號、會員編號、
+  // 付款金額1~4（實際意義分別是信用卡/宅配代收/宅配匯款/機關簽帳）、作業人員、POSID、備註說明、建檔時間、更修時間。
+  interface CheckColMeta {
+    label: string
+    type?: 'date' | 'datetime' | 'money' | 'posid'
+  }
+  const CHECK_COLUMN_META: Record<string, CheckColMeta> = {
+    OPDate: { label: '營業日期', type: 'date' },
+    CheckNo: { label: '帳單號碼' },
+    BillTime: { label: '結帳時間' },
+    OrderAmt: { label: '小計', type: 'money' },
+    CheckAmt: { label: '結帳金額', type: 'money' },
+    CashAmt: { label: '現金', type: 'money' },
+    PayType: { label: '付款別' },
+    CustNo: { label: '客戶編號' },
+    VIPNo: { label: '會員編號' },
+    PayAmt1: { label: '信用卡', type: 'money' },
+    PayAmt2: { label: '宅配代收', type: 'money' },
+    PayAmt3: { label: '宅配匯款', type: 'money' },
+    PayAmt4: { label: '機關簽帳', type: 'money' },
+    UserID: { label: '作業人員' },
+    POSID: { label: 'POSID', type: 'posid' },
+    Remark: { label: '備註說明' },
+    FileDate: { label: '建檔時間', type: 'datetime' },
+    UpdDate: { label: '更修時間', type: 'datetime' }
+  }
+
+  // POSID 對照的店別名稱
+  const POSID_LABELS: Record<string, string> = {
+    '001': '小舖',
+    '002': '餐廳',
+    '003': '市集'
+  }
+  const CHECK_COLUMN_ORDER = Object.keys(CHECK_COLUMN_META)
+
+  // 只顯示 CHECK_COLUMN_META 對照表中有定義、且後端真的有回傳的欄位，並依對照表的順序排列
+  // （不再 fallback 顯示未列在對照表中的原始欄位，讓畫面比照舊系統精簡呈現）
+  const displayCheckColumns = computed(() => {
+    return CHECK_COLUMN_ORDER.filter(key => columns.value.includes(key))
+  })
+
+  function checkColLabel(key: string) {
+    return CHECK_COLUMN_META[key]?.label ?? key
+  }
+
+  function formatCheckCell(row: Record<string, any>, key: string) {
+    const raw = row[key]
+    if (raw === null || raw === undefined || raw === '') return '-'
+    const type = CHECK_COLUMN_META[key]?.type
+    if (type === 'date') {
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return raw
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+    }
+    if (type === 'datetime') {
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return raw
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} `
+        + `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+    }
+    if (type === 'money') {
+      const n = Number(raw)
+      return isNaN(n) ? raw : n.toLocaleString()
+    }
+    if (type === 'posid') {
+      const name = POSID_LABELS[String(raw)]
+      return name ? `${raw} ${name}` : raw
+    }
+    return raw
+  }
+
   const commonStore = useCommonStore()
   const apiBase = computed(() => commonStore.data.main_url)
 
-  // BKSQL 資料庫裡的表：發票資料 -> INVOICE，帳單瀏覽 -> M_CHECK
-  // 若實際表名不同（例如 M_CHECK 查不到資料），麻煩告訴 Claude 實際表名再調整
+  // BKSQL 資料庫裡的表：發票資料 -> INVOICE，帳單瀏覽 -> OCHECK（已依實際 schema 確認，非 M_CHECK）
   const TABLE_MAP: Record<string, string> = {
     invoice: 'INVOICE',
-    check: 'M_CHECK'
+    check: 'OCHECK'
   }
 
-  const view = ref<'invoice' | 'check'>('invoice')
+  // 帳單瀏覽為預設頁籤
+  const view = ref<'invoice' | 'check'>('check')
   const search = ref('')
   const page = ref(1)
   const totalPages = ref(1)
@@ -222,16 +295,16 @@
       </h1>
       <div class="tab-switch">
         <button
-          :class="['sw-tab', { active: view === 'invoice' }]"
-          @click="switchView('invoice')"
-        >
-          發票資料
-        </button>
-        <button
           :class="['sw-tab', { active: view === 'check' }]"
           @click="switchView('check')"
         >
           帳單瀏覽
+        </button>
+        <button
+          :class="['sw-tab', { active: view === 'invoice' }]"
+          @click="switchView('invoice')"
+        >
+          發票資料
         </button>
       </div>
     </div>
@@ -254,7 +327,7 @@
         v-if="view === 'check'"
         class="hint-banner"
       >
-        「帳單瀏覽」欄位為資料庫原始欄位名稱（M_CHECK 表名尚未確認，若查不到資料請告訴 Claude 實際表名）。
+        「帳單瀏覽」使用 OCHECK 表，欄位已依指定清單精簡並重新命名（付款金額1~4 分別顯示為信用卡/宅配代收/宅配匯款/機關簽帳，POSID 會附上店別名稱）。
       </p>
 
       <div class="filter-bar">
@@ -382,7 +455,7 @@
         </table>
       </div>
 
-      <!-- 帳單瀏覽：欄位尚未確認，動態顯示資料庫原始欄位 -->
+      <!-- 帳單瀏覽：依 CHECK_COLUMN_META 對照表顯示中文標題與格式化後的內容 -->
       <div
         v-else
         class="table-wrap"
@@ -391,10 +464,10 @@
           <thead>
           <tr>
             <th
-              v-for="col in columns"
+              v-for="col in displayCheckColumns"
               :key="col"
             >
-              {{ col }}
+              {{ checkColLabel(col) }}
             </th>
           </tr>
           </thead>
@@ -404,19 +477,15 @@
             :key="i"
           >
             <td
-              v-for="col in columns"
+              v-for="col in displayCheckColumns"
               :key="col"
             >
-                <span
-                  v-if="row[col] === null || row[col] === undefined"
-                  class="text-muted"
-                >-</span>
-              <span v-else>{{ row[col] }}</span>
+              {{ formatCheckCell(row, col) }}
             </td>
           </tr>
           <tr v-if="rows.length === 0">
             <td
-              :colspan="columns.length || 1"
+              :colspan="displayCheckColumns.length || 1"
               class="empty-cell"
             >
               查無資料
