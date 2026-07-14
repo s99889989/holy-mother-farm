@@ -1,15 +1,5 @@
 <script setup lang="ts">
-  definePageMeta({ layout: 'staff', requiredPermission: 'pos.daily.pos-sales' })
-
-  // ══════════════════════════════════════════════════════════════════
-  // 這頁目前沒有專屬的後端彙總 API，是用現成的通用端點
-  // （/holy/bk35sql/tables、/holy/bk35sql/schema/{table}、/holy/bk35sql/data/{table}）
-  // 在前端把資料表裡的「每一筆訂單/帳單」依日期加總成月報表。
-  // 因為每個資料表的欄位命名不一定一樣，所以底下「欄位對應設定」讓你自己
-  // 選日期欄位、以及每一個分類（餐廳現金、小舖信用卡…）要加總哪個資料庫欄位。
-  // 設定會存在瀏覽器 localStorage，下次進來會記得。
-  // 之後如果後端補了專門的彙總 API，這支頁面的「抓資料＋加總」那段可以整個換掉。
-  // ══════════════════════════════════════════════════════════════════
+  definePageMeta({ layout: 'staff', requiredPermission: 'pos.account-inquiry' })
 
   interface DataResponse {
     columns: string[]
@@ -21,333 +11,141 @@
     error?: string
   }
 
-  interface SchemaColumn {
-    name: string
-    type: string
-    maxLength: number | null
-    numericPrecision: number | null
-    numericScale: number | null
-    nullable: boolean
-  default: string | null
-  }
-
-  interface SchemaResponse {
-    table: string
-    columns: SchemaColumn[]
-    primaryKeys: string[]
-    error?: string
-  }
-
-  interface CategoryConfig {
+  interface InvoiceCol {
     key: string
     label: string
-    column: string
+    type?: 'date' | 'datetime' | 'money'
   }
+
+  // 對照 dbo.INVOICE 實際欄位（來自 SSMS 截圖）
+  const invoiceColumns: InvoiceCol[] = [
+    { key: 'RNo', label: '序號' },
+    { key: 'DelMark', label: '作廢' },
+    { key: 'InvNo', label: '發票號碼' },
+    { key: 'BNo', label: '客戶統編' },
+    { key: 'CheckNo', label: '帳單號' },
+    { key: 'InvMonth', label: '發票月份' },
+    { key: 'InvDate', label: '發票日期', type: 'date' },
+    { key: 'InvType', label: '類別' },
+    { key: 'OPDate', label: '營業日期', type: 'date' },
+    { key: 'SCharge', label: '服務費', type: 'money' },
+    { key: 'InvAmt', label: '發票金額', type: 'money' },
+    { key: 'UserID', label: '作業人員' },
+    { key: 'Remark', label: '備註說明' },
+    { key: 'CardType', label: '卡別' },
+    { key: 'POSID', label: 'POSID' },
+    { key: 'FileDate', label: '建檔時間', type: 'datetime' }
+  ]
 
   const commonStore = useCommonStore()
   const apiBase = computed(() => commonStore.data.main_url)
 
+  // BKSQL 資料庫裡的表：發票資料 -> INVOICE，帳單瀏覽 -> M_CHECK
+  // 若實際表名不同（例如 M_CHECK 查不到資料），麻煩告訴 Claude 實際表名再調整
+  const TABLE_MAP: Record<string, string> = {
+    invoice: 'INVOICE',
+    check: 'M_CHECK'
+  }
+
+  const view = ref<'invoice' | 'check'>('invoice')
+  const search = ref('')
+  const page = ref(1)
+  const totalPages = ref(1)
+  const total = ref(0)
+  const columns = ref<string[]>([])
+  const rows = ref<Record<string, any>[]>([])
+  const loading = ref(false)
+  const error = ref('')
+
+  // 時段篩選（依 InvDate / OPDate 或後端對應的主要日期欄位）
+  const dateFrom = ref('')
+  const dateTo = ref('')
+
+  // 排序方向：預設 desc（新增資料顯示在最前面）
+  // ⚠️ 後端 /holy/bk35sql/data/:table 目前只支援 search 自由文字搜尋，沒有結構化的
+  // 排序參數，所以這裡改用「反轉分頁映射」在前端做到新資料在前：
+  // 後端本身是照主鍵（RNo）由小到大分頁，新資料在伺服器的最後一頁。
+  // desc 模式下，畫面第 1 頁 = 打伺服器最後一頁，畫面第 2 頁 = 打伺服器倒數第二頁……
+  // 並把每頁拿到的 rows 反轉，這樣不用抓全部資料，只需要先知道 totalPages。
+  // 之後如果後端加了 sortOrder 參數，這段轉換邏輯可以整段移除，改回直接傳給後端。
+  const sortOrder = ref<'desc' | 'asc'>('desc')
+
+  // 跳頁輸入（頁首快速跳頁用）
+  const pageJumpInput = ref('')
+
   // 資料庫暫停/開啟狀態（跨頁面共用快取，見 composables/useBk35DbStatus.ts）
-  const { bk35menuAttached, bksqlAttached, checkStatus } = useBk35DbStatus()
+  const { bksqlAttached: dbAttached, checkStatus } = useBk35DbStatus()
 
-  function formatMoney(n: number) {
-    if (n === null || n === undefined || isNaN(n)) return '0'
-    return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })
-  }
-
-  function currentMonthStr() {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  }
-
-  // ══════════════════ 資料表 + 欄位選擇 ══════════════════
-
-  const browseDb = ref<'BK35MENU' | 'BKSQL'>('BKSQL')
-  const browseDbAttached = computed(() =>
-    browseDb.value === 'BK35MENU' ? bk35menuAttached.value : bksqlAttached.value
-  )
-
-  const tables = ref<string[]>([])
-  const tablesLoading = ref(false)
-  const tablesError = ref('')
-
-  async function fetchTables() {
-    if (browseDbAttached.value === false) return
-    tablesLoading.value = true
-    tablesError.value = ''
-    try {
-      const res = await $fetch<string[] | { error: string }>(
-        `${apiBase.value}/holy/bk35sql/tables`,
-          { credentials: 'include', query: { db: browseDb.value } }
-      )
-      if (Array.isArray(res)) {
-        tables.value = res
-      } else {
-        tablesError.value = res?.error ?? '取得資料表清單失敗'
-        tables.value = []
-      }
-    } catch (e: any) {
-      tablesError.value = e?.message ?? '取得資料表清單失敗'
-    } finally {
-      tablesLoading.value = false
+  async function recheckStatus() {
+    await checkStatus(true)
+    if (dbAttached.value !== false) {
+      fetchData(1)
     }
   }
 
-  function onDbChange() {
-    selectedTable.value = ''
-    availableColumns.value = []
-    fetchTables()
-  }
-
-  const selectedTable = ref('')
-  const availableColumns = ref<string[]>([])
-  const columnsLoading = ref(false)
-  const columnsError = ref('')
-
-  async function fetchColumns() {
-    if (!selectedTable.value) {
-      availableColumns.value = []
-      return
-    }
-    columnsLoading.value = true
-    columnsError.value = ''
-    try {
-      const res = await $fetch<SchemaResponse>(
-        `${apiBase.value}/holy/bk35sql/schema/${selectedTable.value}`,
-          { credentials: 'include', query: { db: browseDb.value } }
-      )
-      if (res?.error) {
-        columnsError.value = res.error
-        availableColumns.value = []
-      } else {
-        availableColumns.value = (res?.columns ?? []).map(c => c.name)
-      }
-    } catch (e: any) {
-      columnsError.value = e?.message ?? '取得欄位結構失敗'
-      availableColumns.value = []
-    } finally {
-      columnsLoading.value = false
-    }
-  }
-
-  function onTableChange() {
-    fetchColumns()
-    saveMapping()
-  }
-
-  // ══════════════════ 欄位對應設定（存 localStorage） ══════════════════
-
-  const STORAGE_KEY = 'posSalesAnalysisMappingV1'
-
-  const dateColumn = ref('')
-  const categories = ref<CategoryConfig[]>([
-    { key: 'c1', label: '餐廳現金', column: '' },
-    { key: 'c2', label: '小舖信用卡', column: '' },
-    { key: 'c3', label: '宅配代收款', column: '' },
-    { key: 'c4', label: '宅配匯款', column: '' },
-    { key: 'c5', label: '簽帳（賒帳）', column: '' },
-    { key: 'c6', label: '折讓', column: '' },
-    { key: 'c7', label: '消費券／生日券', column: '' }
-  ])
-  const totalMode = ref<'auto' | 'column'>('auto')
-  const totalColumn = ref('')
-
-  let catSeq = 8
-  function addCategory() {
-    categories.value.push({ key: `c${catSeq++}`, label: '新欄位', column: '' })
-  }
-  function removeCategory(key: string) {
-    categories.value = categories.value.filter(c => c.key !== key)
-  }
-
-  function saveMapping() {
-    if (typeof window === 'undefined') return
-    const payload = {
-      db: browseDb.value,
-      table: selectedTable.value,
-      dateColumn: dateColumn.value,
-      categories: categories.value,
-      totalMode: totalMode.value,
-      totalColumn: totalColumn.value,
-      useSearchFilter: useSearchFilter.value,
-      maxPages: maxPages.value
-    }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-    } catch {
-      // localStorage 存不進去（無痕模式等）就算了，不影響本次操作
-    }
-  }
-
-  function loadMapping() {
-    if (typeof window === 'undefined') return
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (!raw) return
-      const saved = JSON.parse(raw)
-      if (saved.db) browseDb.value = saved.db
-      if (saved.table) selectedTable.value = saved.table
-      if (saved.dateColumn) dateColumn.value = saved.dateColumn
-      if (Array.isArray(saved.categories) && saved.categories.length) {
-        categories.value = saved.categories
-        catSeq = categories.value.length + 1
-      }
-      if (saved.totalMode) totalMode.value = saved.totalMode
-      if (saved.totalColumn) totalColumn.value = saved.totalColumn
-      if (typeof saved.useSearchFilter === 'boolean') useSearchFilter.value = saved.useSearchFilter
-      if (saved.maxPages) maxPages.value = saved.maxPages
-    } catch {
-      // 存的格式壞掉就當作沒有設定，用預設值
-    }
-  }
-
-  const showMappingPanel = ref(true)
-
-  // ══════════════════ 抓資料策略 ══════════════════
-  // 後端 /holy/bk35sql/data/{table} 只支援 search 自由文字搜尋 + 固定分頁，沒有結構化日期篩選。
-  // 預設用「月份字串」（例如 2026-04）當 search 關鍵字縮小範圍，抓取比較快；
-  // 但若日期欄位在資料庫裡的文字表示法搜不到月份字串，可以關掉這個選項，
-  // 改成整張表逐頁掃描、在前端依日期欄位篩選（比較慢，大資料表要注意頁數上限）。
-
-  const useSearchFilter = ref(true)
-  const maxPages = ref(200)
-
-  async function fetchServerPage(p: number, search: string): Promise<DataResponse> {
+  async function fetchServerPage(serverPage: number): Promise<DataResponse> {
     return await $fetch<DataResponse>(
-      `${apiBase.value}/holy/bk35sql/data/${selectedTable.value}`,
-        { credentials: 'include', query: { db: browseDb.value, page: p, search } }
+      `${apiBase.value}/holy/bk35sql/data/${TABLE_MAP[view.value]}`,
+        {
+          credentials: 'include',
+          query: {
+            db: 'BKSQL',
+            page: serverPage,
+            search: search.value
+            // dateFrom / dateTo 未帶：後端目前不支援結構化日期篩選，帶了也無效果
+          }
+        }
     )
   }
 
-  async function fetchAllRelevantRows(): Promise<{ rows: Record<string, any>[]; truncated: boolean }> {
-    const all: Record<string, any>[] = []
-    const searchTerm = useSearchFilter.value ? monthStr.value : ''
-    let page = 1
-    let totalPages = 1
-    let truncated = false
-    do {
-      const res = await fetchServerPage(page, searchTerm)
-      if (res?.error) throw new Error(res.error)
-      all.push(...(res?.rows ?? []))
-      totalPages = res?.totalPages ?? 1
-      if (page >= maxPages.value && page < totalPages) {
-        truncated = true
-        break
-      }
-      page++
-    } while (page <= totalPages)
-    return { rows: all, truncated }
-  }
-
-  // ══════════════════ 月報表產生 ══════════════════
-
-  interface DayRow {
-    dateStr: string
-    day: number
-    weekday: string
-    isWeekend: boolean
-    values: Record<string, number>
-    total: number
-  }
-
-  const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
-
-  const monthStr = ref(currentMonthStr())
-  const loading = ref(false)
-  const error = ref('')
-  const reportRows = ref<DayRow[]>([])
-  const reportTotals = ref<Record<string, number>>({})
-  const grandTotal = ref(0)
-  const fetchedRowCount = ref(0)
-  const matchedRowCount = ref(0)
-  const wasTruncated = ref(false)
-  const lastRunAt = ref('')
-
-  function parseDateCell(raw: any): string | null {
-    if (raw === null || raw === undefined || raw === '') return null
-    const d = new Date(raw)
-    if (isNaN(d.getTime())) return null
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
-
-  function numOrZero(raw: any): number {
-    if (raw === null || raw === undefined || raw === '') return 0
-    const n = Number(raw)
-    return isNaN(n) ? 0 : n
-  }
-
-  async function runReport() {
+  async function fetchData(uiPage: number) {
     if (dbAttached.value === false) {
-      error.value = '資料庫目前已暫停（Detach），請聯繫管理員開啟後再查詢。'
+      // 資料庫已暫停，不用實際打 API 等它逾時，畫面上會顯示暫停 banner
       return
     }
-    if (!selectedTable.value) {
-      error.value = '請先選擇要統計的資料表'
-      return
-    }
-    if (!dateColumn.value) {
-      error.value = '請先在欄位對應設定裡選擇日期欄位'
-      return
-    }
-
     loading.value = true
     error.value = ''
-    reportRows.value = []
-    saveMapping()
-
+    page.value = uiPage
     try {
-      const { rows: rawRows, truncated } = await fetchAllRelevantRows()
-      fetchedRowCount.value = rawRows.length
-      wasTruncated.value = truncated
-
-      const [y, m] = monthStr.value.split('-').map(Number)
-      const daysInMonth = new Date(y, m, 0).getDate()
-
-      const buckets = new Map<string, DayRow>()
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        const dow = new Date(y, m - 1, day).getDay()
-        const values: Record<string, number> = {}
-        categories.value.forEach(c => { values[c.key] = 0 })
-        buckets.set(dateStr, {
-          dateStr,
-          day,
-          weekday: WEEKDAYS[dow],
-          isWeekend: dow === 0 || dow === 6,
-          values,
-          total: 0
-        })
+      // 換頁前若還不知道 totalPages（例如新搜尋、剛切換排序），先探測伺服器第一頁拿總頁數
+      let probeRes: DataResponse | null = null
+      if (uiPage === 1 || totalPages.value < 1) {
+        probeRes = await fetchServerPage(1)
+        if (probeRes?.error) {
+          error.value = probeRes.error
+          columns.value = []
+          rows.value = []
+          total.value = 0
+          totalPages.value = 1
+          return
+        }
+        totalPages.value = probeRes.totalPages ?? 1
+        total.value = probeRes.total ?? 0
       }
 
-      let matched = 0
-      for (const row of rawRows) {
-        const dateStr = parseDateCell(row[dateColumn.value])
-        if (!dateStr || !buckets.has(dateStr)) continue
-        matched++
-        const bucket = buckets.get(dateStr)!
-        for (const cat of categories.value) {
-          if (cat.column) bucket.values[cat.key] += numOrZero(row[cat.column])
-        }
-        if (totalMode.value === 'column' && totalColumn.value) {
-          bucket.total += numOrZero(row[totalColumn.value])
-        }
-      }
-      matchedRowCount.value = matched
+      const needReverse = sortOrder.value === 'desc'
+      const serverPage = needReverse
+        ? Math.max(1, totalPages.value - uiPage + 1)
+        : uiPage
 
-      const totals: Record<string, number> = {}
-      categories.value.forEach(c => { totals[c.key] = 0 })
-      let grand = 0
-      for (const bucket of buckets.values()) {
-        if (totalMode.value === 'auto') {
-          bucket.total = categories.value.reduce((s, c) => s + bucket.values[c.key], 0)
-        }
-        categories.value.forEach(c => { totals[c.key] += bucket.values[c.key] })
-        grand += bucket.total
+      // 如果剛好就是探測時打到的那頁，直接重用，不用再打一次
+      const res = probeRes && serverPage === 1 ? probeRes : await fetchServerPage(serverPage)
+
+      if (res?.error) {
+        error.value = res.error
+        columns.value = []
+        rows.value = []
+        total.value = 0
+        totalPages.value = 1
+      } else {
+        columns.value = res?.columns ?? []
+        let r = res?.rows ?? []
+        if (needReverse) r = [...r].reverse()
+        rows.value = r
+        total.value = res?.total ?? total.value
+        totalPages.value = res?.totalPages ?? totalPages.value
+        if (page.value > totalPages.value) page.value = totalPages.value
       }
-      reportTotals.value = totals
-      grandTotal.value = grand
-      reportRows.value = [...buckets.values()]
-      lastRunAt.value = new Date().toLocaleString()
     } catch (e: any) {
       error.value = e?.message ?? '載入資料失敗'
     } finally {
@@ -355,283 +153,366 @@
     }
   }
 
-  // ══════════════════ CSV 匯出 ══════════════════
-
-  function exportCsv() {
-    if (!reportRows.value.length) return
-    const headers = ['日期', '星期', ...categories.value.map(c => c.label), '總計']
-    const lines = [headers.join(',')]
-    for (const r of reportRows.value) {
-      const cells = [
-        r.dateStr,
-        r.weekday,
-        ...categories.value.map(c => String(r.values[c.key] ?? 0)),
-        String(r.total)
-      ]
-      lines.push(cells.join(','))
-    }
-    lines.push([
-      '合計', '',
-      ...categories.value.map(c => String(reportTotals.value[c.key] ?? 0)),
-      String(grandTotal.value)
-    ].join(','))
-
-    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `銷售分析_${selectedTable.value}_${monthStr.value}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  function switchView(v: 'invoice' | 'check') {
+    view.value = v
+    search.value = ''
+    fetchData(1)
   }
 
-  onMounted(async () => {
-    loadMapping()
-    await checkStatus()
-    await fetchTables()
-    if (selectedTable.value) {
-      await fetchColumns()
+  function resetSearch() {
+    search.value = ''
+    dateFrom.value = ''
+    dateTo.value = ''
+    sortOrder.value = 'desc'
+    fetchData(1)
+  }
+
+  function toggleSortOrder() {
+    sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+    fetchData(1)
+  }
+
+  function goFirstPage() {
+    if (page.value !== 1) fetchData(1)
+  }
+
+  function goLastPage() {
+    if (page.value !== totalPages.value) fetchData(totalPages.value)
+  }
+
+  function jumpToPage() {
+    const p = parseInt(pageJumpInput.value, 10)
+    if (!isNaN(p) && p >= 1 && p <= totalPages.value && p !== page.value) {
+      fetchData(p)
     }
-  })
+    pageJumpInput.value = ''
+  }
+
+  function formatInvoiceCell(row: Record<string, any>, col: InvoiceCol) {
+    const raw = row[col.key]
+    if (raw === null || raw === undefined || raw === '') return '-'
+
+    if (col.type === 'date') {
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return raw
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+    }
+    if (col.type === 'datetime') {
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return raw
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} `
+        + `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+    }
+    if (col.type === 'money') {
+      const n = Number(raw)
+      return isNaN(n) ? raw : n.toLocaleString()
+    }
+    return raw
+  }
+
+  await checkStatus()
+  await fetchData(1)
 </script>
 
 <template>
   <div class="page-wrap">
     <div class="page-header">
-      <h1 class="page-title">銷售分析</h1>
-      <span class="beta-badge">以通用資料表 API 手動彙總 · 待補專屬後端</span>
+      <h1 class="page-title">
+        帳務查詢
+      </h1>
+      <div class="tab-switch">
+        <button
+          :class="['sw-tab', { active: view === 'invoice' }]"
+          @click="switchView('invoice')"
+        >
+          發票資料
+        </button>
+        <button
+          :class="['sw-tab', { active: view === 'check' }]"
+          @click="switchView('check')"
+        >
+          帳單瀏覽
+        </button>
+      </div>
     </div>
 
-    <div v-if="dbAttached === false" class="paused-banner">
+    <div
+      v-if="dbAttached === false"
+      class="paused-banner"
+    >
       ⏸ 資料庫目前已暫停（Detach），查詢功能暫時無法使用，請聯繫管理員開啟資料庫後再試。
+      <button
+        class="btn-ghost small"
+        @click="recheckStatus"
+      >
+        重新檢查
+      </button>
     </div>
 
-    <p class="hint-banner">
-      這頁目前還沒有專屬的後端彙總 API，是用「瀏覽資料表」的通用端點在前端手動加總。
-      請先在下方「欄位對應設定」選擇要統計的資料表、日期欄位，以及每個分類要加總的欄位，
-      設定會自動存在瀏覽器裡，下次不用重設。之後補了專屬 API 可以再把這段換掉。
-    </p>
-
-    <!-- ══════════════════ 欄位對應設定 ══════════════════ -->
-    <div class="section">
-      <div class="section-header">
-        <h2 class="section-title">欄位對應設定</h2>
-        <button class="btn-ghost small" @click="showMappingPanel = !showMappingPanel">
-          {{ showMappingPanel ? '收合' : '展開' }}
-        </button>
-      </div>
-
-      <template v-if="showMappingPanel">
-        <div class="form-row-inline">
-          <div class="form-row">
-            <label class="form-label">資料庫</label>
-            <select v-model="browseDb" class="form-select" @change="onDbChange">
-              <option value="BKSQL">BKSQL</option>
-              <option value="BK35MENU">BK35MENU</option>
-            </select>
-          </div>
-
-          <div class="form-row">
-            <label class="form-label">資料表</label>
-            <select v-model="selectedTable" class="form-select" :disabled="tablesLoading" @change="onTableChange">
-              <option value="">請選擇資料表</option>
-              <option v-for="t in tables" :key="t" :value="t">{{ t }}</option>
-            </select>
-          </div>
-
-          <div class="form-row">
-            <label class="form-label">日期欄位</label>
-            <select v-model="dateColumn" class="form-select" :disabled="!availableColumns.length" @change="saveMapping">
-              <option value="">請選擇日期欄位</option>
-              <option v-for="c in availableColumns" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </div>
-        </div>
-
-        <p v-if="tablesLoading || columnsLoading" class="loading">載入欄位中…</p>
-        <p v-if="tablesError" class="error-box">{{ tablesError }}</p>
-        <p v-if="columnsError" class="error-box">{{ columnsError }}</p>
-
-        <div class="mapping-table-wrap">
-          <table class="mapping-table">
-            <thead>
-            <tr>
-              <th>分類名稱</th>
-              <th>對應欄位（加總用）</th>
-              <th></th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-for="cat in categories" :key="cat.key">
-              <td>
-                <input v-model="cat.label" class="form-input" placeholder="分類名稱" @change="saveMapping">
-              </td>
-              <td>
-                <select v-model="cat.column" class="form-select" :disabled="!availableColumns.length" @change="saveMapping">
-                  <option value="">（不加總）</option>
-                  <option v-for="c in availableColumns" :key="c" :value="c">{{ c }}</option>
-                </select>
-              </td>
-              <td>
-                <button class="btn-ghost small" @click="removeCategory(cat.key); saveMapping()">移除</button>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
-        <button class="btn-ghost small" @click="addCategory">＋ 新增分類欄位</button>
-
-        <div class="form-row-inline">
-          <div class="form-row">
-            <label class="form-label">總計欄位</label>
-            <div class="tab-switch">
-              <button :class="['sw-tab', { active: totalMode === 'auto' }]" @click="totalMode = 'auto'; saveMapping()">
-                自動加總各分類
-              </button>
-              <button :class="['sw-tab', { active: totalMode === 'column' }]" @click="totalMode = 'column'; saveMapping()">
-                指定資料庫欄位
-              </button>
-            </div>
-          </div>
-          <div v-if="totalMode === 'column'" class="form-row">
-            <label class="form-label">總計對應欄位</label>
-            <select v-model="totalColumn" class="form-select" :disabled="!availableColumns.length" @change="saveMapping">
-              <option value="">請選擇欄位</option>
-              <option v-for="c in availableColumns" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row-inline">
-          <label class="inline-checkbox">
-            <input v-model="useSearchFilter" type="checkbox" @change="saveMapping">
-            用月份字串（例如 {{ monthStr }}）當搜尋關鍵字縮小抓取範圍（較快，但若日期欄位文字格式搜不到月份字串會漏資料）
-          </label>
-        </div>
-        <div v-if="!useSearchFilter" class="form-row-inline">
-          <div class="form-row">
-            <label class="form-label">最多掃描頁數上限</label>
-            <input v-model.number="maxPages" type="number" min="1" class="form-input small-input" @change="saveMapping">
-          </div>
-          <p class="section-hint">關掉搜尋加速時會逐頁掃描整張表，資料量大時請留意頁數上限，避免等太久。</p>
-        </div>
-      </template>
-    </div>
-
-    <!-- ══════════════════ 月份選擇 + 查詢 ══════════════════ -->
-    <div class="section">
-      <div class="form-row-inline">
-        <div class="form-row">
-          <label class="form-label">統計月份</label>
-          <input v-model="monthStr" type="month" class="form-input">
-        </div>
-        <button class="btn-primary" :disabled="loading" @click="runReport">
-          {{ loading ? '查詢中…' : '產生月報表' }}
-        </button>
-        <button class="btn-ghost" :disabled="!reportRows.length" @click="exportCsv">
-          匯出 CSV
-        </button>
-      </div>
-
-      <p v-if="lastRunAt" class="section-hint">
-        最後查詢時間：{{ lastRunAt }}　抓取 {{ fetchedRowCount }} 筆原始資料，其中 {{ matchedRowCount }} 筆落在 {{ monthStr }}
-        <span v-if="wasTruncated" class="warn-text">（已達掃描頁數上限，資料可能不完整，可調高上限重試）</span>
+    <template v-else>
+      <p
+        v-if="view === 'check'"
+        class="hint-banner"
+      >
+        「帳單瀏覽」欄位為資料庫原始欄位名稱（M_CHECK 表名尚未確認，若查不到資料請告訴 Claude 實際表名）。
       </p>
 
-      <p v-if="error" class="error-box">{{ error }}</p>
-      <p v-if="loading" class="loading">查詢中，資料量大時可能要等一下…</p>
-    </div>
+      <div class="filter-bar">
+        <input
+          v-model="search"
+          placeholder="搜尋內容…"
+          class="search-input"
+          @keyup.enter="fetchData(1)"
+        >
 
-    <!-- ══════════════════ 報表結果 ══════════════════ -->
-    <div v-if="reportRows.length" class="table-wrap">
-      <table class="report-table">
-        <thead>
-        <tr>
-          <th>日期</th>
-          <th>星期</th>
-          <th v-for="cat in categories" :key="cat.key">{{ cat.label }}</th>
-          <th>總計</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="r in reportRows" :key="r.dateStr" :class="{ weekend: r.isWeekend }">
-          <td>{{ monthStr }}-{{ String(r.day).padStart(2, '0') }}</td>
-          <td>{{ r.weekday }}</td>
-          <td v-for="cat in categories" :key="cat.key" class="num-cell">{{ formatMoney(r.values[cat.key]) }}</td>
-          <td class="num-cell total-cell">{{ formatMoney(r.total) }}</td>
-        </tr>
-        </tbody>
-        <tfoot>
-        <tr class="totals-row">
-          <td colspan="2">合計</td>
-          <td v-for="cat in categories" :key="cat.key" class="num-cell">{{ formatMoney(reportTotals[cat.key]) }}</td>
-          <td class="num-cell total-cell">{{ formatMoney(grandTotal) }}</td>
-        </tr>
-        </tfoot>
-      </table>
-    </div>
+        <div
+          class="date-range"
+          title="後端 API 目前尚未支援日期區間篩選，這裡先保留欄位，等後端加上支援後即可生效"
+        >
+          <span class="date-range-label">時段 ⚠️</span>
+          <input
+            v-model="dateFrom"
+            type="date"
+            class="date-input"
+          >
+          <span class="date-range-sep">～</span>
+          <input
+            v-model="dateTo"
+            type="date"
+            class="date-input"
+          >
+        </div>
 
-    <div v-else-if="!loading && lastRunAt" class="empty-hint">
-      這個月份查無符合條件的資料。
-    </div>
+        <button
+          class="btn-primary"
+          @click="fetchData(1)"
+        >
+          查詢
+        </button>
+        <button
+          class="btn-ghost"
+          @click="resetSearch"
+        >
+          清除
+        </button>
+        <button
+          class="btn-ghost"
+          title="切換排序方向"
+          @click="toggleSortOrder"
+        >
+          {{ sortOrder === 'desc' ? '新→舊' : '舊→新' }}
+        </button>
+
+        <span class="total-hint">共 {{ total }} 筆</span>
+
+        <div
+          v-if="totalPages > 1"
+          class="page-jump-group"
+        >
+          <span class="page-jump-label">跳至第</span>
+          <input
+            v-model="pageJumpInput"
+            type="number"
+            min="1"
+            :max="totalPages"
+            class="page-jump-input"
+            :placeholder="String(page)"
+            @keyup.enter="jumpToPage"
+          >
+          <span class="page-jump-label">頁 / 共 {{ totalPages }} 頁</span>
+          <button
+            class="btn-ghost small"
+            @click="jumpToPage"
+          >
+            前往
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-if="loading"
+        class="loading"
+      >
+        載入中…
+      </div>
+      <div
+        v-else-if="error"
+        class="error-box"
+      >
+        {{ error }}
+      </div>
+
+      <!-- 發票資料：固定欄位 + 中文表頭，對應舊系統畫面 -->
+      <div
+        v-else-if="view === 'invoice'"
+        class="table-wrap"
+      >
+        <table class="data-table">
+          <thead>
+          <tr>
+            <th
+              v-for="col in invoiceColumns"
+              :key="col.key"
+            >
+              {{ col.label }}
+            </th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr
+            v-for="(row, i) in rows"
+            :key="i"
+          >
+            <td
+              v-for="col in invoiceColumns"
+              :key="col.key"
+            >
+              {{ formatInvoiceCell(row, col) }}
+            </td>
+          </tr>
+          <tr v-if="rows.length === 0">
+            <td
+              :colspan="invoiceColumns.length"
+              class="empty-cell"
+            >
+              查無資料
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 帳單瀏覽：欄位尚未確認，動態顯示資料庫原始欄位 -->
+      <div
+        v-else
+        class="table-wrap"
+      >
+        <table class="data-table">
+          <thead>
+          <tr>
+            <th
+              v-for="col in columns"
+              :key="col"
+            >
+              {{ col }}
+            </th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr
+            v-for="(row, i) in rows"
+            :key="i"
+          >
+            <td
+              v-for="col in columns"
+              :key="col"
+            >
+                <span
+                  v-if="row[col] === null || row[col] === undefined"
+                  class="text-muted"
+                >-</span>
+              <span v-else>{{ row[col] }}</span>
+            </td>
+          </tr>
+          <tr v-if="rows.length === 0">
+            <td
+              :colspan="columns.length || 1"
+              class="empty-cell"
+            >
+              查無資料
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        v-if="totalPages > 1"
+        class="pagination"
+      >
+        <button
+          :disabled="page === 1"
+          class="page-btn"
+          title="第一頁"
+          @click="goFirstPage"
+        >
+          « 第一頁
+        </button>
+        <button
+          :disabled="page === 1"
+          class="page-btn"
+          @click="fetchData(page - 1)"
+        >
+          ‹ 上一頁
+        </button>
+        <span class="page-info">第 {{ page }} / {{ totalPages }} 頁</span>
+        <button
+          :disabled="page === totalPages"
+          class="page-btn"
+          @click="fetchData(page + 1)"
+        >
+          下一頁 ›
+        </button>
+        <button
+          :disabled="page === totalPages"
+          class="page-btn"
+          title="最後一頁"
+          @click="goLastPage"
+        >
+          最後一頁 »
+        </button>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
-  .page-wrap { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-  .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .page-wrap { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .page-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
-  .beta-badge { font-size: 11px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 999px; padding: 3px 10px; }
 
-  .hint-banner { font-size: 12px; color: var(--text-hint); background: var(--surface2); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 10px 14px; margin: 0; line-height: 1.6; }
-  .paused-banner { font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
-
-  .section { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
-  .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .section-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 0; }
-  .section-hint { font-size: 12px; color: var(--text-hint); margin: 0; line-height: 1.6; }
-  .warn-text { color: #c0392b; font-weight: 600; }
-
-  .form-row-inline { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-  .form-row { display: flex; flex-direction: column; gap: 4px; }
-  .form-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
-  .form-input { padding: 8px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
-  .form-input:focus { border-color: var(--accent); }
-  .form-input.small-input { width: 100px; }
-  .form-select { padding: 8px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; min-width: 180px; }
-  .form-select:focus { border-color: var(--accent); }
-  .form-select:disabled { opacity: 0.5; }
-
-  .inline-checkbox { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
-
-  .tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; width: fit-content; }
-  .sw-tab { padding: 6px 14px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; }
+  .tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .sw-tab { padding: 6px 16px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; }
   .sw-tab.active { background: var(--accent); color: #fff; }
 
-  .btn-primary { padding: 8px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-  .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+  .hint-banner { font-size: 12px; color: var(--text-hint); background: var(--surface2); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 8px 12px; margin: 0; }
+  .paused-banner { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
   .btn-ghost.small { padding: 4px 10px; font-size: 12px; }
 
-  .loading { color: var(--text-hint); font-size: 13px; margin: 0; }
-  .error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; margin: 0; }
-  .empty-hint { color: var(--text-hint); font-size: 13px; padding: 24px 0; text-align: center; }
+  .filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .search-input { width: 220px; padding: 7px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+  .search-input:focus { border-color: var(--accent); }
 
-  .mapping-table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
-  .mapping-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .mapping-table th { background: var(--surface2); padding: 8px 12px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); }
-  .mapping-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-light); }
-  .mapping-table tr:last-child td { border-bottom: none; }
+  .date-range { display: flex; align-items: center; gap: 6px; }
+  .date-range-label { font-size: 13px; color: var(--text-muted); }
+  .date-range-sep { font-size: 13px; color: var(--text-hint); }
+  .date-input { padding: 6px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+  .date-input:focus { border-color: var(--accent); }
+
+  .btn-primary { padding: 7px 16px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+  .btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+  .total-hint { font-size: 13px; color: var(--text-hint); }
+
+  .page-jump-group { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .page-jump-label { font-size: 12px; color: var(--text-hint); white-space: nowrap; }
+  .page-jump-input { width: 56px; padding: 6px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; text-align: center; }
+  .page-jump-input:focus { border-color: var(--accent); }
+
+  .loading { color: var(--text-hint); font-size: 14px; }
+  .error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; }
+  .empty-cell { text-align: center; color: var(--text-hint); padding: 24px 0 !important; }
 
   .table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); }
-  .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .report-table th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
-  .report-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
-  .report-table tr:last-child td { border-bottom: none; }
-  .report-table tr:hover td { background: var(--accent-light); }
-  .report-table tr.weekend td { background: var(--surface2); }
-  .num-cell { text-align: right; font-variant-numeric: tabular-nums; }
-  .total-cell { font-weight: 700; color: var(--accent); }
-  .totals-row td { font-weight: 700; background: var(--surface2); border-top: 2px solid var(--border); }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+  .data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--accent-light); }
+  .text-muted { color: var(--text-muted); font-size: 12px; }
+
+  .pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
+  .page-btn { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text); }
+  .page-btn:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .page-info { font-size: 13px; color: var(--text-muted); }
 </style>
