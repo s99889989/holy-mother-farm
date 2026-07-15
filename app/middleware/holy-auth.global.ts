@@ -67,20 +67,20 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   // ── 取得所需 key（由各頁面 definePageMeta 宣告）─────────────────
-  const requiredKey = to.meta.requiredPermission as string | undefined
-  if (!requiredKey) return
-
-  const permissionStore = usePermissionStore()
-  const commonStore = useCommonStore()
-  const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
-
-  if (!permissionStore.loaded) {
-    await permissionStore.load(customerId, commonStore.data.main_url)
-  } else {
-    permissionStore.load(customerId, commonStore.data.main_url, true)
-  }
-
-  if (!permissionStore.can(requiredKey)) {
-    return navigateTo('/')
-  }
+  // const requiredKey = to.meta.requiredPermission as string | undefined
+  // if (!requiredKey) return
+  //
+  // const permissionStore = usePermissionStore()
+  // const commonStore = useCommonStore()
+  // const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
+  //
+  // if (!permissionStore.loaded) {
+  //   await permissionStore.load(customerId, commonStore.data.main_url)
+  // } else {
+  //   permissionStore.load(customerId, commonStore.data.main_url, true)
+  // }
+  //
+  // if (!permissionStore.can(requiredKey)) {
+  //   return navigateTo('/')
+  // }
 })
