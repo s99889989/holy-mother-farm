@@ -191,7 +191,7 @@
   // 前端不再需要維護 TABLE_MAP / DATE_COLUMN_MAP。
 
   // 帳單瀏覽為預設頁籤
-  const view = ref<'invoice' | 'check' | 'report'>('check')
+  const view = ref<'invoice' | 'check' | 'report' | 'staffMeal'>('check')
   const search = ref('')
   const page = ref(1)
   const totalPages = ref(1)
@@ -785,12 +785,14 @@
     }
   }
 
-  function switchView(v: 'invoice' | 'check' | 'report') {
+  function switchView(v: 'invoice' | 'check' | 'report' | 'staffMeal') {
     view.value = v
     if (v === 'report') {
       if (monthlyRows.value.length === 0 && !monthlyLoading.value) {
         fetchMonthlyReport()
       }
+    } else if (v === 'staffMeal') {
+      loadStaffMonth()
     } else {
       search.value = ''
       fetchData(1)
@@ -853,6 +855,255 @@
     return raw
   }
 
+  // ------------------------------------------------------------------
+  // 包月員工：對照紙本「田園餐廳 OOO年OO月 包月員工名單」表格
+  // （序號／姓名／繳費日期／繳費方式／帳單號碼／發票號碼）。
+  // 資料來源：跟月報表的消費券生日券一樣，用「單品明細統計表」API
+  // （/holy/bk35sql/sales-analysis/item-detail）以品項名稱關鍵字「包月」查詢，
+  // 抓到的每筆交易（帳單號碼、日期、金額）就是一位員工的包月繳費紀錄；
+  // 再用帳單號碼去比對「帳單瀏覽」(OCHECK) 判斷用什麼方式付款（現金/信用卡/…），
+  // 比對「發票資料」(INVOICE) 抓對應發票號碼，姓名取該筆帳單的 VIPNo（會員編號）。
+  // 純顯示、不快取：每次切換月份都直接重新比對，確保資料永遠是最新的，不會有舊資料殘留。
+  // ------------------------------------------------------------------
+  interface MonthlyStaffEntry {
+    id: string
+    seq: number
+    name: string
+    payDate: string // 繳費日期，例如 '7/2'
+    payMethod: string // 繳費方式（金額），例如 '現1000'、'現500 卡500'
+    checkNo: string // 帳單號碼
+    invoiceNo: string // 發票號碼，沒有可填 'X'
+  }
+
+  const STAFF_MEAL_ITEM_KEYWORD = '包月'
+
+  // 依 dateFrom/dateTo 把整個月的「發票資料」全部分頁抓完（用來比對帳單號碼 -> 發票號碼）
+  async function fetchAllInvoiceRowsForMonth(year: number, month: number): Promise<Record<string, any>[]> {
+    const mm = String(month).padStart(2, '0')
+    const lastDay = new Date(year, month, 0).getDate()
+    const from = `${year}-${mm}-01`
+    const to = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
+
+    let allRows: Record<string, any>[] = []
+    let currentPage = 1
+    let totalPagesLocal = 1
+    const MAX_PAGES = 200
+
+    do {
+      const res = await $fetch<DataResponse>(
+        `${apiBase.value}/holy/bk35sql/account-inquiry/invoice`,
+          {
+            credentials: 'include',
+            query: {
+              page: currentPage,
+              search: '',
+              dateFrom: from,
+              dateTo: to,
+              sortOrder: 'asc'
+            }
+          }
+      )
+      if (res?.error) throw new Error(res.error)
+      allRows = allRows.concat(res?.rows ?? [])
+      totalPagesLocal = res?.totalPages ?? 1
+      currentPage++
+    } while (currentPage <= totalPagesLocal && currentPage <= MAX_PAGES)
+
+    return allRows
+  }
+
+  // 依帳單的 CashAmt/PayAmt1~4 組出「繳費方式」文字。包月費用固定，現金/信用卡（及其他已知
+  // 付款欄位）沒付到的差額，視為用「員工消費券」折抵，例如「現200 消費券800」「卡500 消費券500」。
+  function describeStaffPayMethod(checkRow: Record<string, any> | undefined, packageAmt: number): string {
+    const cash = Number(checkRow?.CashAmt) || 0
+    const credit = Number(checkRow?.PayAmt1) || 0
+    const delegatedCollect = Number(checkRow?.PayAmt2) || 0
+    const delegatedRemit = Number(checkRow?.PayAmt3) || 0
+    const creditAccount = Number(checkRow?.PayAmt4) || 0
+
+    const parts: string[] = []
+    if (cash) parts.push(`現${cash.toLocaleString()}`)
+    if (credit) parts.push(`卡${credit.toLocaleString()}`)
+    if (delegatedCollect) parts.push(`宅收${delegatedCollect.toLocaleString()}`)
+    if (delegatedRemit) parts.push(`宅匯${delegatedRemit.toLocaleString()}`)
+    if (creditAccount) parts.push(`簽${creditAccount.toLocaleString()}`)
+
+    const knownPaid = cash + credit + delegatedCollect + delegatedRemit + creditAccount
+    const coupon = Math.round((packageAmt - knownPaid) * 100) / 100
+    if (coupon > 0) parts.push(`消費券${coupon.toLocaleString()}`)
+
+    return parts.join(' ')
+  }
+
+  // 用「單品明細統計表」抓品項名稱包含「包月」的交易，比對帳單瀏覽/發票資料，組出整月包月員工名單
+  async function fetchStaffMealAutoRows(year: number, month: number): Promise<MonthlyStaffEntry[]> {
+    const mm = String(month).padStart(2, '0')
+    const lastDay = new Date(year, month, 0).getDate()
+    const from = `${year}-${mm}-01`
+    const to = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
+
+    const [itemRes, checkRows, invoiceRows] = await Promise.all([
+      $fetch<any>(`${apiBase.value}/holy/bk35sql/sales-analysis/item-detail`, {
+        credentials: 'include',
+        query: { dateFrom: from, dateTo: to, search: STAFF_MEAL_ITEM_KEYWORD }
+      }),
+      fetchAllCheckRowsForMonth(year, month),
+      fetchAllInvoiceRowsForMonth(year, month)
+    ])
+
+    if (itemRes?.error) throw new Error(itemRes.error)
+
+    const checkByNo = new Map<string, Record<string, any>>()
+    for (const r of checkRows) {
+      if (r.CheckNo) checkByNo.set(String(r.CheckNo), r)
+    }
+    const invoiceByCheckNo = new Map<string, string>()
+    for (const r of invoiceRows) {
+      if (r.CheckNo) invoiceByCheckNo.set(String(r.CheckNo), String(r.InvNo ?? '') || 'X')
+    }
+
+    const entries: MonthlyStaffEntry[] = []
+    const seenCheckNo = new Set<string>()
+    let seq = 1
+    const groups = itemRes?.groups ?? []
+    for (const g of groups) {
+      for (const t of g.transactions ?? []) {
+        if (!t?.date || !t?.checkNo) continue
+        const checkNo = String(t.checkNo)
+        if (seenCheckNo.has(checkNo)) continue // 帳單號碼重複（資料庫本身的重複資料），只留第一筆
+        seenCheckNo.add(checkNo)
+
+        const d = new Date(t.date)
+        const dateLabel = isNaN(d.getTime()) ? String(t.date) : `${d.getMonth() + 1}/${d.getDate()}`
+        const checkRow = checkByNo.get(checkNo)
+        entries.push({
+          id: checkNo,
+          seq: seq++,
+          name: checkRow?.VIPNo ? String(checkRow.VIPNo) : '',
+          payDate: dateLabel,
+          payMethod: describeStaffPayMethod(checkRow, Number(t.amt) || 0),
+          checkNo,
+          invoiceNo: invoiceByCheckNo.get(checkNo) ?? 'X'
+        })
+      }
+    }
+
+    return entries
+  }
+
+  const staffYear = ref(new Date().getFullYear())
+  const staffMonth = ref(new Date().getMonth() + 1)
+  const staffEntries = ref<MonthlyStaffEntry[]>([])
+  const staffRocYear = computed(() => staffYear.value - 1911)
+  const staffLoading = ref(false)
+  const staffError = ref('')
+
+  const staffMonthInputValue = computed({
+    get: () => `${staffYear.value}-${String(staffMonth.value).padStart(2, '0')}`,
+    set: (v: string) => {
+      if (!v) return
+      const [y, m] = v.split('-').map(Number)
+      if (y && m) {
+        staffYear.value = y
+        staffMonth.value = m
+        loadStaffMonth()
+      }
+    }
+  })
+
+  function staffPrevMonth() {
+    if (staffMonth.value === 1) {
+      staffMonth.value = 12
+      staffYear.value -= 1
+    } else {
+      staffMonth.value -= 1
+    }
+    loadStaffMonth()
+  }
+
+  function staffNextMonth() {
+    if (staffMonth.value === 12) {
+      staffMonth.value = 1
+      staffYear.value += 1
+    } else {
+      staffMonth.value += 1
+    }
+    loadStaffMonth()
+  }
+
+  function staffThisMonth() {
+    staffYear.value = new Date().getFullYear()
+    staffMonth.value = new Date().getMonth() + 1
+    loadStaffMonth()
+  }
+
+  // 載入該月名單：每次切換月份、進入頁籤都直接重新從系統比對，不快取，
+  // 確保姓名/繳費方式等欄位一定是根據目前帳單瀏覽/發票資料最新算出來的，不會有舊資料。
+  async function loadStaffMonth() {
+    if (dbAttached.value === false) return
+
+    staffLoading.value = true
+    staffError.value = ''
+    try {
+      staffEntries.value = await fetchStaffMealAutoRows(staffYear.value, staffMonth.value)
+    } catch (e: any) {
+      staffError.value = e?.message ?? '自動比對失敗，請確認網路或稍後再試'
+      staffEntries.value = []
+    } finally {
+      staffLoading.value = false
+    }
+  }
+
+  // 匯出這個月的包月員工名單（Excel，比照紙本表格欄位）
+  async function downloadStaffMealReport() {
+    downloading.value = true
+    try {
+      const ExcelJS = (await import('exceljs')).default
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('包月員工名單')
+
+      ws.mergeCells(1, 1, 1, 6)
+      const titleCell = ws.getCell(1, 1)
+      titleCell.value = `田園餐廳　民國 ${staffRocYear.value} 年 ${staffMonth.value} 月　包月員工名單`
+      titleCell.font = { bold: true, size: 14 }
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+      ws.getRow(1).height = 24
+
+      const headers = ['序號', '姓名', '繳費日期', '繳費方式', '帳單號碼', '發票號碼']
+      headers.forEach((h, i) => {
+        const cell = ws.getCell(2, i + 1)
+        cell.value = h
+        cell.font = { bold: true }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = THIN_BORDER as any
+      })
+
+      staffEntries.value.forEach((e, idx) => {
+        const r = 3 + idx
+        const values = [e.seq, e.name, e.payDate, e.payMethod, e.checkNo, e.invoiceNo || 'X']
+        values.forEach((v, ci) => {
+          const cell = ws.getCell(r, ci + 1)
+          cell.value = v as any
+          cell.alignment = { horizontal: ci === 1 ? 'left' : 'center' }
+          cell.border = THIN_BORDER as any
+        })
+      })
+
+      ws.getColumn(1).width = 8
+      ws.getColumn(2).width = 14
+      ws.getColumn(3).width = 12
+      ws.getColumn(4).width = 16
+      ws.getColumn(5).width = 20
+      ws.getColumn(6).width = 16
+
+      const buffer = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      triggerBlobDownload(blob, `${staffRocYear.value}年${staffMonth.value}月份包月員工名單.xlsx`)
+    } finally {
+      downloading.value = false
+    }
+  }
+
   await checkStatus()
   await fetchData(1)
 </script>
@@ -882,6 +1133,12 @@
         >
           月報表
         </button>
+        <button
+          :class="['sw-tab', { active: view === 'staffMeal' }]"
+          @click="switchView('staffMeal')"
+        >
+          包月員工
+        </button>
       </div>
     </div>
 
@@ -907,7 +1164,7 @@
       </p>
 
       <div
-        v-if="view !== 'report'"
+        v-if="view === 'check' || view === 'invoice'"
         class="quick-tools"
       >
         <div class="month-switch">
@@ -959,14 +1216,14 @@
       </div>
 
       <p
-        v-if="view !== 'report' && posidFilter"
+        v-if="(view === 'check' || view === 'invoice') && posidFilter"
         class="hint-banner"
       >
         已依 POSID（{{ POSID_LABELS[posidFilter] }}）篩選：系統會先抓取符合搜尋/時段條件的完整資料再依 POSID 篩選及分頁，若時段範圍很大讀取會較久。
       </p>
 
       <div
-        v-if="view !== 'report'"
+        v-if="view === 'check' || view === 'invoice'"
         class="filter-bar"
       >
         <input
@@ -1229,6 +1486,124 @@
         </div>
       </div>
 
+      <!-- 包月員工：自動比對品項明細 + 帳單瀏覽 + 發票資料，純顯示，不快取 -->
+      <div
+        v-else-if="view === 'staffMeal'"
+        class="report-panel"
+      >
+        <div class="month-switch">
+          <button
+            class="btn-ghost small"
+            title="上個月"
+            @click="staffPrevMonth"
+          >
+            ‹ 上月
+          </button>
+          <input
+            v-model="staffMonthInputValue"
+            type="month"
+            class="month-input"
+          >
+          <button
+            class="btn-ghost small"
+            title="下個月"
+            @click="staffNextMonth"
+          >
+            下月 ›
+          </button>
+          <button
+            class="btn-ghost small"
+            @click="staffThisMonth"
+          >
+            本月
+          </button>
+          <span
+            v-if="!staffLoading"
+            class="record-count-hint"
+          >（共 {{ staffEntries.length }} 人）</span>
+        </div>
+
+        <p class="hint-banner">
+          「繳費日期/帳單號碼/金額」自動用「單品明細統計表」比對品項名稱含「包月」的交易取得，
+          「發票號碼」比對發票資料，「姓名」取帳單瀏覽(OCHECK)的會員編號(VIPNo)帶入；如果該筆帳單
+          沒有登記會員編號，姓名會是空白。「繳費方式」用帳單的現金/信用卡欄位組出，包月費用（品項金額）
+          扣掉現金/信用卡付的部分，差額視為用員工消費券折抵，例如「現200 消費券800」。
+          每次切換月份都會重新比對，資料永遠是最新的。
+        </p>
+
+        <p
+          v-if="staffError"
+          class="hint-banner warn-banner"
+        >
+          ⚠️ {{ staffError }}
+        </p>
+
+        <div class="download-bar">
+          <button
+            class="btn-ghost small"
+            :disabled="staffLoading"
+            @click="loadStaffMonth"
+          >
+            {{ staffLoading ? '比對中…' : '重新整理' }}
+          </button>
+          <button
+            class="btn-primary small"
+            :disabled="downloading || staffEntries.length === 0"
+            @click="downloadStaffMealReport"
+          >
+            {{ downloading ? '產生中…' : '下載本月名單（Excel）' }}
+          </button>
+        </div>
+
+        <div
+          v-if="staffLoading"
+          class="loading"
+        >
+          比對中…
+        </div>
+
+        <div
+          v-else
+          class="table-wrap"
+        >
+          <table class="data-table report-table staff-meal-table">
+            <thead>
+            <tr>
+              <th>序號</th>
+              <th>姓名</th>
+              <th>繳費日期</th>
+              <th>繳費方式</th>
+              <th>帳單號碼</th>
+              <th>發票號碼</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr
+              v-for="entry in staffEntries"
+              :key="entry.id"
+            >
+              <td class="seq-cell">
+                {{ entry.seq }}
+              </td>
+              <td>{{ entry.name || '-' }}</td>
+              <td>{{ entry.payDate }}</td>
+              <td>{{ entry.payMethod }}</td>
+              <td>{{ entry.checkNo }}</td>
+              <td>{{ entry.invoiceNo }}</td>
+            </tr>
+            <tr v-if="staffEntries.length === 0">
+              <td
+                colspan="6"
+                class="empty-cell"
+              >
+                本月尚無包月繳費紀錄
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- 帳單瀏覽：依 CHECK_COLUMN_META 對照表顯示中文標題與格式化後的內容 -->
       <div
         v-else
@@ -1270,7 +1645,7 @@
       </div>
 
       <div
-        v-if="view !== 'report' && totalPages > 1"
+        v-if="(view === 'check' || view === 'invoice') && totalPages > 1"
         class="pagination"
       >
         <button
@@ -1378,6 +1753,9 @@
   .report-table td:nth-child(1), .report-table td:nth-child(2) { text-align: center; }
   .report-table .col-total { font-weight: 700; color: var(--accent); }
   .report-table tfoot .totals-row td { font-weight: 700; background: var(--surface2); border-top: 2px solid var(--border); }
+
+  .staff-meal-table th, .staff-meal-table td { text-align: center; }
+  .staff-meal-table .seq-cell { font-weight: 600; color: var(--text-muted); }
 
 
   .pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
