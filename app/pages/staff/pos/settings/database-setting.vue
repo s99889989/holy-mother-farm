@@ -110,12 +110,32 @@ async function maybeCompressFile(file: File): Promise<{ blob: Blob; compressed: 
   }
 }
 
-// 單一檔案的分段上傳：（可選）壓縮 → 切片 → 逐片上傳到 /upload-chunk → 全部完成後呼叫 /upload-finish 組裝並視需要解壓縮
+// 判斷一個 fetch/File 讀取錯誤，是不是「本機檔案被鎖定使用中」造成的（例如本機
+// SQL Server / BK35 POS 還開著這個資料庫檔案），是的話附上明確的中文提示，
+// 不要只留下一句看不出所以然的「未知錯誤」或「Failed to fetch」
+function describeUploadError(err: any): string {
+  const rawName = err?.name ?? ''
+  const rawMessage = err?.data?.error ?? err?.message ?? String(err ?? '')
+  const isLocked = /notreadable|being used by another process|access is denied|permission denied|拒絕存取|使用中/i
+    .test(`${rawName} ${rawMessage}`)
+  const detail = rawMessage || '未知錯誤'
+  if (isLocked) {
+    return `${detail}\n（這通常代表這台電腦上的檔案目前被其他程式鎖定，例如本機還開著 SQL Server / BK35 POS 正在使用這個資料庫檔案。請先在「這台電腦」上關閉該程式或停用資料庫連線，再重新選擇檔案。）`
+  }
+  return detail
+}
+
+// 單一檔案的分段上傳：（可選）壓縮 → 切片 → 逐片上傳到 chunkEndpoint → 全部完成後呼叫
+// finishEndpoint 組裝並視需要解壓縮。targetFieldName 讓這支函式同時給「覆蓋 mdf/ldf」
+// （欄位是 targetFileName）跟「上傳 .bak 還原」（欄位是 targetDb）兩種流程共用。
 // onProgress(stage, chunkIndex, totalChunks) 讓外層更新畫面上的進度文字
 async function uploadFileInChunks(
   file: File,
-  targetFileName: string,
-  onProgress: (stage: 'compressing' | 'uploading', chunkIndex: number, totalChunks: number) => void
+  targetValue: string,
+  onProgress: (stage: 'compressing' | 'uploading', chunkIndex: number, totalChunks: number) => void,
+  chunkEndpoint: string = '/holy/bk35sql/admin/upload-chunk',
+  finishEndpoint: string = '/holy/bk35sql/admin/upload-finish',
+  targetFieldName: string = 'targetFileName'
 ): Promise<Record<string, any>> {
   onProgress('compressing', 0, 1)
   const { blob, compressed } = await maybeCompressFile(file)
@@ -134,17 +154,17 @@ async function uploadFileInChunks(
     formData.append('uploadId', uploadId)
     formData.append('chunkIndex', String(chunkIndex))
     formData.append('totalChunks', String(totalChunks))
-    formData.append('targetFileName', targetFileName)
+    formData.append(targetFieldName, targetValue)
 
     let res: Record<string, any> | undefined
     try {
       res = await $fetch<Record<string, any>>(
-        `${directApiBase}/holy/bk35sql/admin/upload-chunk`,
+        `${directApiBase}${chunkEndpoint}`,
         { method: 'POST', credentials: 'omit', body: formData }
       )
     } catch (err: any) {
       // 把是第幾片失敗、原始錯誤內容都帶出來，不然畫面上只會看到一個看不出所以然的 500
-      const detail = err?.data?.error ?? err?.message ?? '未知錯誤'
+      const detail = describeUploadError(err)
       throw new Error(`分段 ${chunkIndex + 1}/${totalChunks}（共 ${(blob.size / 1024 / 1024).toFixed(1)}MB，已傳 ${(end / 1024 / 1024).toFixed(1)}MB）上傳例外：${detail}`)
     }
     if (!res?.ok) {
@@ -157,15 +177,20 @@ async function uploadFileInChunks(
   const finishForm = new FormData()
   finishForm.append('uploadId', uploadId)
   finishForm.append('totalChunks', String(totalChunks))
-  finishForm.append('targetFileName', targetFileName)
+  finishForm.append(targetFieldName, targetValue)
   finishForm.append('compressed', String(compressed))
 
-  const finishRes = await $fetch<Record<string, any>>(
-    `${directApiBase}/holy/bk35sql/admin/upload-finish`,
-    { method: 'POST', credentials: 'omit', body: finishForm }
-  )
+  let finishRes: Record<string, any> | undefined
+  try {
+    finishRes = await $fetch<Record<string, any>>(
+      `${directApiBase}${finishEndpoint}`,
+      { method: 'POST', credentials: 'omit', body: finishForm }
+    )
+  } catch (err: any) {
+    throw new Error(describeUploadError(err))
+  }
   if (!finishRes?.ok) {
-    throw new Error(finishRes?.error ?? '檔案組裝失敗')
+    throw new Error(finishRes?.error ?? '檔案組裝／還原失敗')
   }
   return finishRes
 }
@@ -205,6 +230,66 @@ async function confirmAndUpload() {
   uploadProgress.value = ''
   selectedFiles.value = []
   if (fileInput.value) fileInput.value.value = ''
+}
+
+// ══════════════════ 資料庫還原（.bak，運作中也能上傳） ══════════════════
+// 用途：如果要上傳的那台電腦本機的資料庫還在運作中，.mdf/.ldf 會被獨佔鎖定，
+// 連複製都做不到。這條路徑改成先在本機用 SQL Server 自己的 BACKUP DATABASE
+// 產生 .bak（資料庫可以繼續開著，不受外部鎖定影響），上傳這份 .bak，
+// 由伺服器執行 RESTORE DATABASE ... WITH REPLACE 覆蓋回正式資料庫。
+// RESTORE 前伺服器會自動把目標資料庫切成單人模式踢掉現有連線，
+// 所以伺服器端也不需要事先手動「暫停資料庫」。
+
+const restoreTargetDb = ref<'BK35MENU' | 'BKSQL'>('BKSQL')
+const restoreFile = ref<File | null>(null)
+const restoreFileInput = ref<HTMLInputElement | null>(null)
+const restoreLoading = ref(false)
+const restoreProgress = ref('')
+const restoreResult = ref<Record<string, any> | null>(null)
+
+function onRestoreFileChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  restoreFile.value = target.files?.[0] ?? null
+  restoreResult.value = null
+}
+
+async function confirmAndRestore() {
+  if (!restoreFile.value) return
+  const ok = confirm(
+    `確定要用「${restoreFile.value.name}」還原覆蓋 ${restoreTargetDb.value} 嗎？\n\n這會強制中斷該資料庫目前所有連線並整個覆蓋掉，此動作無法復原。`
+  )
+  if (!ok) return
+
+  restoreLoading.value = true
+  restoreResult.value = null
+  try {
+    const res = await uploadFileInChunks(
+      restoreFile.value,
+      restoreTargetDb.value,
+      (stage, chunkIndex, totalChunks) => {
+        if (stage === 'compressing') {
+          restoreProgress.value = `${restoreFile.value?.name}（壓縮中…）`
+          return
+        }
+        const percent = Math.round((chunkIndex / totalChunks) * 100)
+        restoreProgress.value = totalChunks > 1
+          ? `分段 ${Math.min(chunkIndex + 1, totalChunks)}/${totalChunks}，${percent}%（上傳完成後開始還原，資料庫較大時可能要好幾分鐘，請耐心等候）`
+          : `上傳中…（上傳完成後開始還原，資料庫較大時可能要好幾分鐘，請耐心等候）`
+      },
+      '/holy/bk35sql/admin/restore-chunk',
+      '/holy/bk35sql/admin/restore-finish',
+      'targetDb'
+    )
+    restoreResult.value = res
+  } catch (e: any) {
+    restoreResult.value = { ok: false, error: e?.message ?? '還原失敗' }
+  } finally {
+    restoreLoading.value = false
+    restoreProgress.value = ''
+    restoreFile.value = null
+    if (restoreFileInput.value) restoreFileInput.value.value = ''
+    await checkStatus(true)
+  }
 }
 
 function formatSize(bytes: number) {
@@ -522,6 +607,35 @@ await checkStatus()
           <span class="result-label">{{ r.label }}</span>
         </div>
         <pre class="output-box">{{ formatResults(lastResults) }}</pre>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">上傳備份還原（.bak，來源資料庫運作中也能上傳）</h2>
+        <p class="section-hint">
+          如果「要上傳檔案的那台電腦」本機資料庫還在運作中，直接複製 .mdf/.ldf 會因為檔案被鎖定而失敗（連複製都做不到）。
+          這裡改成：先在本機用 SQL Server 的「備份」功能產生 .bak 檔（資料庫可以繼續開著，不受影響），上傳這份 .bak，
+          由伺服器自動執行還原覆蓋。還原前伺服器會自動強制中斷該資料庫目前所有連線，<strong>不需要事先「暫停資料庫」</strong>，
+          但也代表還原當下該資料庫會短暫無法使用，請避開營業／使用中的時段。
+        </p>
+        <div class="upload-row">
+          <select v-model="restoreTargetDb" class="table-select" :disabled="restoreLoading">
+            <option value="BK35MENU">BK35MENU</option>
+            <option value="BKSQL">BKSQL</option>
+          </select>
+          <input ref="restoreFileInput" type="file" class="file-input" accept=".bak" :disabled="restoreLoading" @change="onRestoreFileChange" />
+          <button class="btn-danger" :disabled="!restoreFile || restoreLoading" @click="confirmAndRestore">
+            {{ restoreLoading ? `還原中…（${restoreProgress}）` : `上傳並還原覆蓋 ${restoreTargetDb}` }}
+          </button>
+        </div>
+        <p v-if="restoreFile" class="section-hint">已選擇：{{ restoreFile.name }}（{{ formatSize(restoreFile.size) }}）→ 將還原覆蓋 <strong>{{ restoreTargetDb }}</strong></p>
+
+        <template v-if="restoreResult">
+          <div class="result-item">
+            <span :class="['result-badge', restoreResult.ok ? 'ok' : 'fail']">{{ restoreResult.ok ? '成功' : '失敗' }}</span>
+            <span class="result-label">{{ restoreResult.ok ? `已還原 ${restoreResult.targetDb}` : (restoreResult.error ?? '還原失敗') }}</span>
+          </div>
+          <pre class="output-box">{{ JSON.stringify(restoreResult, null, 2) }}</pre>
+        </template>
       </div>
     </template>
 
