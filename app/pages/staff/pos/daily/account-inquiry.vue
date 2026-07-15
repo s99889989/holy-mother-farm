@@ -84,11 +84,10 @@
   // 宅配匯款=PayAmt3、簽帳(除帳)=PayAmt4。
   // 折讓目前系統中沒有確認過的欄位名稱，先放常見候選欄位（見 REPORT_CATEGORIES
   // 的 fields），抓不到會在畫面上顯示提醒，之後卡爾確認正確欄位名稱後改 fields 陣列即可。
-  // 消費券／生日券系統完全沒有資料來源，合併成單一欄「消費券/生日券」，
-  // 每日金額由卡爾手動輸入，存在瀏覽器 localStorage（key 見 MANUAL_STORAGE_KEY），
-  // 換月份/切換頁籤都不會遺失，但僅存在該台瀏覽器（無後端，無法跨裝置同步）。
-  // 每一列「總計」不再是固定數字，而是即時加總各分類欄位（rowTotal），
-  // 這樣手動改消費券/生日券數字時，畫面上的總計與合計會立即跟著變。
+  // 消費券生日券合併成單一欄，改用另一支「單品明細統計表」API
+  // （/holy/bk35sql/sales-analysis/item-detail）以品項名稱關鍵字「員工消費券」
+  // 「員工生日券」查詢並依日期加總金額，自動帶入（見 fetchCouponBirthdayAutoMap）。
+  // 每一列「總計」不再是固定數字，而是即時加總各分類欄位（rowTotal）。
   // ------------------------------------------------------------------
   type ReportColorGroup = 'restaurant' | 'market' | 'shop' | 'delegated' | 'creditAccount' | 'discount' | 'coupon' | 'total'
 
@@ -106,7 +105,7 @@
     delegatedRemit: number
     creditAccount: number
     discount: number
-    couponBirthday: number // 消費券 + 生日券合併欄位，手動輸入
+    couponBirthday: number // 消費券生日券合併欄位，自動從單品明細抓取
   }
 
   interface ReportCategory {
@@ -130,7 +129,7 @@
     { key: 'delegatedRemit', label: '宅配匯款', fields: ['PayAmt3'], color: 'delegated' },
     { key: 'creditAccount', label: '簽帳(除帳)', fields: ['PayAmt4'], color: 'creditAccount' },
     { key: 'discount', label: '折讓', fields: ['DiscAmt', 'DiscountAmt', 'Discount'], color: 'discount' },
-    { key: 'couponBirthday', label: '消費券/生日券', manual: true, color: 'coupon' }
+    { key: 'couponBirthday', label: '消費券生日券', manual: true, color: 'coupon' }
   ]
 
   // 分類色系對照（匯出 Excel 儲存格底色）：每個分類都用不重複的顏色，總計欄再另外獨立一色
@@ -141,8 +140,8 @@
     delegated: 'C8E6C9', // 綠：宅配代收款/宅配匯款
     creditAccount: 'F8BBD0', // 粉：簽帳(除帳)
     discount: 'D7CCC8', // 灰褐：折讓
-    coupon: 'FFF59D', // 黃：消費券/生日券
-    total: 'B2DFDB' // 青綠：總計（跟消費券/生日券的黃色區分開）
+    coupon: 'FFF59D', // 黃：消費券生日券
+    total: 'B2DFDB' // 青綠：總計（跟消費券生日券的黃色區分開）
   }
 
 
@@ -375,7 +374,7 @@
     fetchMonthlyReport()
   }
 
-  // 該月實際抓到的原始欄位清單（用來判斷折讓/消費券/生日券等欄位是否存在）
+  // 該月實際抓到的原始欄位清單（用來判斷折讓等欄位是否存在）
   const reportColumns = ref<string[]>([])
   // 該月彙總用到的原始帳單筆數（顯示用，讓卡爾知道有沒有抓到資料）
   const reportRecordCount = ref(0)
@@ -418,6 +417,49 @@
     return allRows
   }
 
+  // 依 dateFrom/dateTo 用「單品明細統計表」API（/holy/bk35sql/sales-analysis/item-detail）
+  // 以品項名稱關鍵字「消費券」「生日」查詢，把符合的品項交易依日期加總金額，
+  // 自動算出每天的消費券生日券金額。
+  // 這是另一支後端（Bk35SalesAnalysisController），如果還沒部署，這裡會 catch 掉錯誤，
+  // 自動退回「該天顯示 0，卡爾可以手動輸入覆蓋」的舊行為，不會讓整張月報表掛掉。
+  const COUPON_BIRTHDAY_KEYWORDS = ['消費券', '生日']
+
+  async function fetchCouponBirthdayAutoMap(year: number, month: number): Promise<Record<string, number>> {
+    const mm = String(month).padStart(2, '0')
+    const lastDay = new Date(year, month, 0).getDate()
+    const from = `${year}-${mm}-01`
+    const to = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
+
+    const dailyTotals: Record<string, number> = {}
+
+    for (const keyword of COUPON_BIRTHDAY_KEYWORDS) {
+      try {
+        const res = await $fetch<any>(
+          `${apiBase.value}/holy/bk35sql/sales-analysis/item-detail`,
+            {
+              credentials: 'include',
+              query: { dateFrom: from, dateTo: to, search: keyword }
+            }
+        )
+        if (res?.error) continue
+        const groups = res?.groups ?? []
+        for (const g of groups) {
+          for (const t of g.transactions ?? []) {
+            if (!t?.date) continue
+            const d = new Date(t.date)
+            if (isNaN(d.getTime())) continue
+            const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + Math.abs(Number(t.amt) || 0)
+          }
+        }
+      } catch {
+        // 這支 API 還沒上線或查詢失敗時，忽略該關鍵字，不影響其他關鍵字或整張報表
+      }
+    }
+
+    return dailyTotals
+  }
+
   // 依 fields 候選清單，找出這筆原始資料中第一個有值的欄位金額
   function pickFieldValue(row: Record<string, any>, fields: string[]): number {
     for (const f of fields) {
@@ -429,37 +471,6 @@
     return 0
   }
 
-  // ---------------- 消費券/生日券手動輸入：存在瀏覽器 localStorage ----------------
-  const MANUAL_STORAGE_KEY = 'posAccountInquiry.couponBirthdayManualEntries.v1'
-
-  function loadManualEntries(): Record<string, number> {
-    if (typeof window === 'undefined') return {}
-    try {
-      const raw = window.localStorage.getItem(MANUAL_STORAGE_KEY)
-      return raw ? JSON.parse(raw) : {}
-    } catch {
-      return {}
-    }
-  }
-
-  function saveManualEntry(dateKey: string, value: number) {
-    if (typeof window === 'undefined') return
-    try {
-      const all = loadManualEntries()
-      all[dateKey] = value
-      window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(all))
-    } catch {
-      // 忽略寫入失敗（例如無痕模式關閉了 localStorage）
-    }
-  }
-
-  // 手動輸入「消費券/生日券」欄位時觸發：更新畫面並立即存檔
-  function onCouponBirthdayChange(row: MonthlyReportRow, raw: string | number) {
-    const n = Number(raw)
-    row.couponBirthday = isNaN(n) ? 0 : n
-    saveManualEntry(row.dateKey, row.couponBirthday)
-  }
-
   function buildEmptyReportRow(dateLabel: string, weekday: string, dateKey: string): MonthlyReportRow {
     const row: any = { date: dateLabel, weekday, dateKey }
     for (const cat of REPORT_CATEGORIES) row[cat.key] = 0
@@ -467,17 +478,21 @@
   }
 
   // 把整月原始帳單資料依「日期 + POSID」彙總成畫面用的月報表列（含沒有交易的日期，顯示 0）
-  // 消費券/生日券欄位不從帳單資料計算，改套用 localStorage 中先前手動輸入的值。
-  function aggregateMonthlyReport(rawRows: Record<string, any>[], year: number, month: number): MonthlyReportRow[] {
+  // 消費券生日券不從帳單(OCHECK)資料計算，直接採用 autoCouponMap（單品明細自動抓取的金額）。
+  function aggregateMonthlyReport(
+    rawRows: Record<string, any>[],
+    autoCouponMap: Record<string, number>,
+    year: number,
+    month: number
+  ): MonthlyReportRow[] {
     const lastDay = new Date(year, month, 0).getDate()
     const dayMap = new Map<number, MonthlyReportRow>()
-    const manualEntries = loadManualEntries()
 
     for (let d = 1; d <= lastDay; d++) {
       const weekday = WEEKDAY_LABELS[new Date(year, month - 1, d).getDay()]
       const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
       const row = buildEmptyReportRow(`${month}/${d}`, weekday, dateKey)
-      row.couponBirthday = manualEntries[dateKey] ?? 0
+      row.couponBirthday = autoCouponMap[dateKey] ?? 0
       dayMap.set(d, row)
     }
 
@@ -491,7 +506,7 @@
 
       const posid = String(row.POSID ?? '')
       for (const cat of REPORT_CATEGORIES) {
-        if (cat.manual) continue // 消費券/生日券手動輸入，不從帳單資料覆蓋
+        if (cat.manual) continue // 消費券生日券另外用單品明細自動抓取，不從帳單資料覆蓋
         if (cat.posid && cat.posid !== posid) continue
         const val = pickFieldValue(row, cat.fields ?? [])
         ;(entry as any)[cat.key] += val
@@ -506,9 +521,12 @@
     monthlyLoading.value = true
     monthlyError.value = ''
     try {
-      const rawRows = await fetchAllCheckRowsForMonth(reportYear.value, reportMonth.value)
+      const [rawRows, autoCouponMap] = await Promise.all([
+        fetchAllCheckRowsForMonth(reportYear.value, reportMonth.value),
+        fetchCouponBirthdayAutoMap(reportYear.value, reportMonth.value)
+      ])
       reportRecordCount.value = rawRows.length
-      monthlyRows.value = aggregateMonthlyReport(rawRows, reportYear.value, reportMonth.value)
+      monthlyRows.value = aggregateMonthlyReport(rawRows, autoCouponMap, reportYear.value, reportMonth.value)
     } catch (e: any) {
       monthlyError.value = e?.message ?? '載入月報表失敗'
       monthlyRows.value = []
@@ -518,18 +536,18 @@
   }
 
   // 找出目前抓不到對應原始欄位的分類（折讓最有可能對不到），畫面上會提醒卡爾確認正確欄位名稱
-  // 消費券/生日券是手動輸入欄位，不需要（也無法）比對後端欄位，排除在提醒之外。
+  // 消費券生日券改用單品明細自動抓取，不需要（也無法）比對 OCHECK 欄位，排除在提醒之外。
   const unresolvedCategories = computed(() => {
     if (reportColumns.value.length === 0) return []
     return REPORT_CATEGORIES.filter(cat => !cat.manual && !(cat.fields ?? []).some(f => reportColumns.value.includes(f)))
   })
 
-  // 單一列的「總計」：即時加總各分類欄位，手動改消費券/生日券數字時會立即反映
+  // 單一列的「總計」：即時加總各分類欄位
   function rowTotal(row: MonthlyReportRow): number {
     return REPORT_CATEGORIES.reduce((sum, cat) => sum + (Number((row as any)[cat.key]) || 0), 0)
   }
 
-  // 逐欄合計（依畫面上目前每一列的數值即時加總，包含手動輸入的消費券/生日券）
+  // 逐欄合計（依畫面上目前每一列的數值即時加總）
   const monthlyTotals = computed(() => {
     const t: Record<string, number> = {}
     for (const cat of REPORT_CATEGORIES) t[cat.key] = 0
@@ -1118,8 +1136,7 @@
         </p>
 
         <p class="hint-banner">
-          「消費券/生日券」欄位為手動輸入（系統無此資料來源），輸入後會自動存在這台瀏覽器（localStorage），
-          切換月份/頁籤都不會遺失；但僅存在這台裝置，換電腦或清除瀏覽器資料需要重新輸入。
+          「消費券生日券」欄位會自動從「單品明細統計表」抓取品項名稱包含「消費券」「生日」的交易金額加總（模糊比對）。
         </p>
 
         <div class="download-bar">
@@ -1177,16 +1194,7 @@
                 v-for="cat in REPORT_CATEGORIES"
                 :key="cat.key"
               >
-                <input
-                  v-if="cat.manual"
-                  type="number"
-                  class="manual-input"
-                  :value="(row as any)[cat.key]"
-                  @change="onCouponBirthdayChange(row, ($event.target as HTMLInputElement).value)"
-                >
-                <template v-else>
-                  {{ formatReportMoney((row as any)[cat.key]) }}
-                </template>
+                {{ formatReportMoney((row as any)[cat.key]) }}
               </td>
               <td class="col-total">
                 {{ formatReportMoney(rowTotal(row)) }}
@@ -1371,8 +1379,6 @@
   .report-table .col-total { font-weight: 700; color: var(--accent); }
   .report-table tfoot .totals-row td { font-weight: 700; background: var(--surface2); border-top: 2px solid var(--border); }
 
-  .manual-input { width: 84px; padding: 4px 6px; font-size: 13px; text-align: right; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); }
-  .manual-input:focus { border-color: var(--accent); outline: none; }
 
   .pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
   .page-btn { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text); }
