@@ -191,7 +191,7 @@
   // 前端不再需要維護 TABLE_MAP / DATE_COLUMN_MAP。
 
   // 帳單瀏覽為預設頁籤
-  const view = ref<'invoice' | 'check' | 'report' | 'staffMeal'>('check')
+  const view = ref<'invoice' | 'check' | 'report' | 'staffMeal' | 'daily'>('check')
   const search = ref('')
   const page = ref(1)
   const totalPages = ref(1)
@@ -797,7 +797,7 @@
     }
   }
 
-  function switchView(v: 'invoice' | 'check' | 'report' | 'staffMeal') {
+  function switchView(v: 'invoice' | 'check' | 'report' | 'staffMeal' | 'daily') {
     view.value = v
     if (v === 'report') {
       if (monthlyRows.value.length === 0 && !monthlyLoading.value) {
@@ -805,6 +805,8 @@
       }
     } else if (v === 'staffMeal') {
       loadStaffMonth()
+    } else if (v === 'daily') {
+      loadDailyReport()
     } else {
       search.value = ''
       fetchData(1)
@@ -1127,6 +1129,524 @@
     }
   }
 
+  // ------------------------------------------------------------------
+  // 日報表：對照 POS 匯出的「日報表YYYYMMDD.csv」格式（部門別營收、折價項目、
+  // 帳單/發票統計、逐筆明細），完全由「帳單瀏覽」「發票資料」「單品明細統計表」
+  // 這三個既有資料源比對組出，不需要新的後端 API。已用實際範例驗證：
+  // 折價項目（單品明細裡金額為負數的品項）加總，跟月報表消費券生日券欄位對得起來；
+  // 部門別營收合計，跟月報表當天的總計欄位對得起來。
+  // 明細表格對照：帳單瀏覽逐筆資料 + 帳單號碼比對發票號碼 + 帳單號碼比對單品明細
+  // 折抵金額（券/抵扣）。原始報表的「單號」「桌別」「班」「桌菜」欄位系統無對應資料，
+  // 這裡略過；「券/抵扣」是用單品明細負數品項依帳單號碼加總出來的，非原始欄位。
+  // ------------------------------------------------------------------
+  interface DailyCategoryRow {
+    typeName: string
+    amt: number
+    percent: number
+  }
+
+  interface DailyDiscountRow {
+    itemName: string
+    qty: number
+    amt: number // 負值
+  }
+
+  interface DailyDetailRow {
+    checkNo: string
+    invoiceNo: string
+    vip: string
+    total: number
+    cash: number
+    credit: number
+    delegatedCollect: number
+    delegatedRemit: number
+    other: number
+    coupon: number
+  }
+
+  interface DailySummary {
+    dateStr: string // 'YYYY-MM-DD'
+    dateLabel: string // '2026/07/01(三)'
+    categories: DailyCategoryRow[]
+    categoryTotal: number
+    dedupedRevenueTotal: number // 用去重複後的單品明細重新加總的營收，供比對用
+    revenueMismatch: boolean // categoryTotal 跟 dedupedRevenueTotal 對不起來（可能後端聚合有重複列）
+    discounts: DailyDiscountRow[]
+    discountTotal: number // 負值
+    netRevenue: number
+    checkCount: number
+    avgAmount: number
+    posTotal: number
+    invoiceCount: number
+    invoiceVoidCount: number
+    invoiceTotalAmt: number
+    invoiceCashAmt: number
+    invoiceCreditAmt: number
+    invoiceOtherAmt: number
+    invoiceRanges: string[]
+    details: DailyDetailRow[]
+  }
+
+  const dailyDate = ref(todayDateStr())
+  const dailyLoading = ref(false)
+  const dailyError = ref('')
+  const dailySummary = ref<DailySummary | null>(null)
+
+  function todayDateStr() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  function dailyPrevDay() {
+    const d = new Date(dailyDate.value)
+    d.setDate(d.getDate() - 1)
+    dailyDate.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    loadDailyReport()
+  }
+
+  function dailyNextDay() {
+    const d = new Date(dailyDate.value)
+    d.setDate(d.getDate() + 1)
+    dailyDate.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    loadDailyReport()
+  }
+
+  function dailyToday() {
+    dailyDate.value = todayDateStr()
+    loadDailyReport()
+  }
+
+  // 依 dateFrom/dateTo 把「帳單瀏覽」或「發票資料」全部分頁抓完（通用版，供日報表使用單日區間）
+  async function fetchAllRowsForRange(viewName: 'check' | 'invoice', from: string, to: string): Promise<Record<string, any>[]> {
+    let allRows: Record<string, any>[] = []
+    let currentPage = 1
+    let totalPagesLocal = 1
+    const MAX_PAGES = 200
+
+    do {
+      const res = await $fetch<DataResponse>(
+        `${apiBase.value}/holy/bk35sql/account-inquiry/${viewName}`,
+          {
+            credentials: 'include',
+            query: { page: currentPage, search: '', dateFrom: from, dateTo: to, sortOrder: 'asc' }
+          }
+      )
+      if (res?.error) throw new Error(res.error)
+      allRows = allRows.concat(res?.rows ?? [])
+      totalPagesLocal = res?.totalPages ?? 1
+      currentPage++
+    } while (currentPage <= totalPagesLocal && currentPage <= MAX_PAGES)
+
+    return allRows
+  }
+
+  // 把發票號碼（例如 DQ06213300）依前綴＋連續數字分組成範圍字串（例如 DQ06213300-06213305）
+  function buildInvoiceRanges(invNos: string[]): string[] {
+    interface Parsed { raw: string; prefix: string; numStr: string; num: number }
+    const parsed: Parsed[] = []
+    for (const inv of invNos) {
+      const m = String(inv).match(/^([A-Za-z]+)(\d+)$/)
+      if (!m) continue
+      parsed.push({ raw: inv, prefix: m[1], numStr: m[2], num: parseInt(m[2], 10) })
+    }
+    parsed.sort((a, b) => (a.prefix === b.prefix ? a.num - b.num : a.prefix.localeCompare(b.prefix)))
+
+    const ranges: string[] = []
+    let i = 0
+    while (i < parsed.length) {
+      let j = i
+      while (j + 1 < parsed.length && parsed[j + 1].prefix === parsed[i].prefix && parsed[j + 1].num === parsed[j].num + 1) {
+        j++
+      }
+      ranges.push(i === j ? parsed[i].raw : `${parsed[i].prefix}${parsed[i].numStr}-${parsed[j].numStr}`)
+      i = j + 1
+    }
+    return ranges
+  }
+
+  const WEEKDAY_LABELS_FULL = ['日', '一', '二', '三', '四', '五', '六']
+
+  // ---- 部門代碼對照：查 xxCODE 資料表（CodeType=KPTYPE），對應 database-setting.vue
+  // 用的通用查表端點 /holy/bk35sql/data/{table}?db=...&search=...。
+  // category-sales 回傳的 typeName 如果已經是「代碼-中文名稱」（含中文字），直接沿用；
+  // 如果只有純代碼，就用這份對照表補上中文名稱。抓不到就原樣顯示代碼，不影響其他功能。
+  let deptCodeMapCache: Record<string, string> | null = null
+
+  async function fetchDeptCodeMap(): Promise<Record<string, string>> {
+    if (deptCodeMapCache) return deptCodeMapCache
+    try {
+      let allRows: Record<string, any>[] = []
+      let currentPage = 1
+      let totalPagesLocal = 1
+      const MAX_PAGES = 20
+      do {
+        const res = await $fetch<DataResponse>(
+          `${apiBase.value}/holy/bk35sql/data/xxCODE`,
+            { credentials: 'include', query: { db: 'BKSQL', page: currentPage, search: 'KPTYPE' } }
+        )
+        if (res?.error) throw new Error(res.error)
+        allRows = allRows.concat(res?.rows ?? [])
+        totalPagesLocal = res?.totalPages ?? 1
+        currentPage++
+      } while (currentPage <= totalPagesLocal && currentPage <= MAX_PAGES)
+
+      const map: Record<string, string> = {}
+      for (const r of allRows) {
+        if (String(r.CodeType ?? '').trim() !== 'KPTYPE') continue // search 可能是模糊比對，篩選確保只留部門代碼
+        const code = String(r.Code ?? '').trim()
+        const dscp = String(r.Dscp ?? '').trim()
+        if (code) map[code] = dscp
+      }
+      deptCodeMapCache = map
+      return map
+    } catch {
+      return {} // 查不到（例如這支端點還沒對這個 db 開放）就沿用原本的 typeName，不影響其他功能
+    }
+  }
+
+  // 卡爾確認：部門代碼欄位是 RefKPType（對應 ORDERI.RefKPType），不是 typeNo（那個是
+  // category-sales 內部的分類序號，純數字，跟 KPTYPE 代碼對不起來）。因為不確定後端
+  // 這支 API 實際回傳的欄位大小寫（RefKPType／refKPType／refKpType 都有可能），
+  // 呼叫端會把這幾種寫法都傳進來，這裡依序嘗試，第一個有值的採用。
+  // typeName 已解析成功時是中文名稱（例如「烘焙」），解析不出來時後端會回傳
+  // 「（未分類 TypeNo=N)」這種本身就含中文字的佔位字串——這裡要先排除這種佔位字串，
+  // 不能只憑「有沒有中文字」判斷是不是已經是正常名稱，否則會誤判成功放行。
+  function resolveDeptName(refKPType: any, typeNo: any, typeName: string, deptMap: Record<string, string>): string {
+    const trimmedName = (typeName ?? '').trim()
+    const isPlaceholder = /未分類/.test(trimmedName) || trimmedName === ''
+
+    const codeFromRefKPType = refKPType !== undefined && refKPType !== null ? String(refKPType).trim() : ''
+    if (codeFromRefKPType && deptMap[codeFromRefKPType]) return `${codeFromRefKPType}-${deptMap[codeFromRefKPType]}`
+
+    if (!isPlaceholder && /[\u4e00-\u9fff]/.test(trimmedName)) return trimmedName // 已經是正常的中文名稱，直接用
+
+    const codeFromNo = typeNo !== undefined && typeNo !== null ? String(typeNo).trim() : ''
+    if (codeFromNo && deptMap[codeFromNo]) return `${codeFromNo}-${deptMap[codeFromNo]}`
+    if (!isPlaceholder && trimmedName && deptMap[trimmedName]) return `${trimmedName}-${deptMap[trimmedName]}`
+
+    const fallbackCode = codeFromRefKPType || codeFromNo
+    return fallbackCode ? `未分類(代碼=${fallbackCode})` : (trimmedName || '未分類')
+  }
+
+  async function loadDailyReport() {
+    if (dbAttached.value === false) return
+    dailyLoading.value = true
+    dailyError.value = ''
+    dailySummary.value = null
+    try {
+      const dateStr = dailyDate.value
+      const [categoryRes, itemRes, checkRows, invoiceRows, deptMap] = await Promise.all([
+        $fetch<any>(`${apiBase.value}/holy/bk35sql/sales-analysis/category-sales`, {
+          credentials: 'include',
+          query: { dateFrom: dateStr, dateTo: dateStr }
+        }),
+        $fetch<any>(`${apiBase.value}/holy/bk35sql/sales-analysis/item-detail`, {
+          credentials: 'include',
+          query: { dateFrom: dateStr, dateTo: dateStr, search: '' }
+        }),
+        fetchAllRowsForRange('check', dateStr, dateStr),
+        fetchAllRowsForRange('invoice', dateStr, dateStr),
+        fetchDeptCodeMap()
+      ])
+
+      if (categoryRes?.error) throw new Error(categoryRes.error)
+      if (itemRes?.error) throw new Error(itemRes.error)
+
+      // ---- 部門別營收 ----
+      // category-sales 實測發現會把「折價」也當成一筆未分類項目一起回傳（金額為負數，
+      // 跟折價項目的金額對得起來），這在語意上不該算進部門別營收，這裡直接排除負數項目
+      // （折價已經在下面「折價項目」區塊單獨呈現），categoryTotal 只加總真正的部門營收。
+      const rawCategories = ((categoryRes?.categories ?? []) as any[]).filter(c => (Number(c.totalAmt) || 0) > 0)
+      const categoryTotal = rawCategories.reduce((s, c) => s + (Number(c.totalAmt) || 0), 0)
+      const categories: DailyCategoryRow[] = rawCategories
+        .map(c => ({
+          typeName: resolveDeptName(c.RefKPType ?? c.refKPType ?? c.refKpType, c.typeNo, String(c.typeName ?? ''), deptMap),
+          amt: Number(c.totalAmt) || 0,
+          percent: categoryTotal > 0 ? (Number(c.totalAmt) || 0) / categoryTotal * 100 : 0
+        }))
+        .filter(c => c.amt !== 0)
+
+      // ---- 單品明細去重複：ORDERI 原始資料觀察到會有完全相同的重複列（同帳單號碼、同品項、
+      // 同金額、同數量、同時間戳記），用組合鍵去重複，只算第一筆，比照包月員工頁籤的做法 ----
+      const seenItemTxKeys = new Set<string>()
+      const dedupedTransactions: { checkNo: string; itemName: string; amt: number; qty: number }[] = []
+      const groups = (itemRes?.groups ?? []) as any[]
+      for (const g of groups) {
+        for (const t of g.transactions ?? []) {
+          const itemName = String(g.itemName ?? t?.itemName ?? '')
+          const amt = Number(t?.amt) || 0
+          const qty = Number(t?.qty) || 0
+          const checkNo = t?.checkNo ? String(t.checkNo) : ''
+          const txKey = `${checkNo}|${itemName}|${amt}|${qty}|${t?.date ?? ''}`
+          if (seenItemTxKeys.has(txKey)) continue // 重複列，只算第一筆
+          seenItemTxKeys.add(txKey)
+          dedupedTransactions.push({ checkNo, itemName, amt, qty })
+        }
+      }
+
+      // ---- 折價項目：去重複後的單品明細裡金額為負數的品項，依品項名稱分組；同時記錄每筆帳單號碼對應的折抵金額 ----
+      const discountMap = new Map<string, { qty: number; amt: number }>()
+      const discountByCheckNo = new Map<string, number>()
+      for (const t of dedupedTransactions) {
+        if (t.amt >= 0) continue
+        const entry = discountMap.get(t.itemName) ?? { qty: 0, amt: 0 }
+        entry.qty += t.qty
+        entry.amt += t.amt
+        discountMap.set(t.itemName, entry)
+
+        if (t.checkNo) {
+          discountByCheckNo.set(t.checkNo, (discountByCheckNo.get(t.checkNo) ?? 0) + Math.abs(t.amt))
+        }
+      }
+      const discounts: DailyDiscountRow[] = Array.from(discountMap.entries()).map(([itemName, v]) => ({
+        itemName,
+        qty: v.qty,
+        amt: v.amt
+      }))
+      const discountTotal = discounts.reduce((s, d) => s + d.amt, 0)
+
+      // ---- 用去重複後的單品明細重新加總一次當天總營收，跟 category-sales 回傳的總額比對 ----
+      // category-sales 是後端已經 SUM 好的數字，前端拿不到逐筆明細沒辦法反過去去重複；
+      // 這裡只能做「總數對不對得起來」的驗證，對不起來就提醒卡爾去查後端聚合邏輯是否也有重複列問題。
+      const dedupedRevenueTotal = dedupedTransactions.filter(t => t.amt > 0).reduce((s, t) => s + t.amt, 0)
+
+      // ---- 帳單瀏覽統計 ----
+      const checkCount = checkRows.length
+      const posTotal = checkRows.reduce((s, r) => s + (Number(r.CheckAmt) || 0), 0)
+      const avgAmount = checkCount > 0 ? posTotal / checkCount : 0
+
+      // ---- 發票資料統計 ----
+      const isVoid = (r: Record<string, any>) => {
+        const v = String(r.DelMark ?? '').trim().toUpperCase()
+        return v === 'Y' || v === '1' || v === 'TRUE'
+      }
+      const invoiceCount = invoiceRows.length
+      const invoiceVoidCount = invoiceRows.filter(isVoid).length
+      const validInvoiceRows = invoiceRows.filter(r => !isVoid(r))
+      const invoiceTotalAmt = validInvoiceRows.reduce((s, r) => s + (Number(r.InvAmt) || 0), 0)
+
+      const checkByNo = new Map<string, Record<string, any>>()
+      for (const r of checkRows) {
+        if (r.CheckNo) checkByNo.set(String(r.CheckNo), r)
+      }
+      let invoiceCashAmt = 0
+      let invoiceCreditAmt = 0
+      let invoiceOtherAmt = 0
+      for (const r of validInvoiceRows) {
+        const cr = r.CheckNo ? checkByNo.get(String(r.CheckNo)) : undefined
+        const amt = Number(r.InvAmt) || 0
+        const cash = Number(cr?.CashAmt) || 0
+        const credit = Number(cr?.PayAmt1) || 0
+        if (cash >= credit && cash > 0) invoiceCashAmt += amt
+        else if (credit > 0) invoiceCreditAmt += amt
+        else invoiceOtherAmt += amt
+      }
+      const invoiceRanges = buildInvoiceRanges(validInvoiceRows.map(r => String(r.InvNo ?? '')).filter(Boolean))
+
+      // ---- 逐筆明細（帳單瀏覽為主，比對發票號碼、單品明細折抵金額） ----
+      const invoiceByCheckNo = new Map<string, string>()
+      for (const r of invoiceRows) {
+        if (r.CheckNo) invoiceByCheckNo.set(String(r.CheckNo), String(r.InvNo ?? '') || 'X')
+      }
+      const details: DailyDetailRow[] = checkRows
+        .map(r => {
+          const checkNo = String(r.CheckNo ?? '')
+          return {
+            checkNo,
+            invoiceNo: invoiceByCheckNo.get(checkNo) ?? 'X',
+            vip: r.VIPNo ? String(r.VIPNo) : '',
+            total: Number(r.CheckAmt) || 0,
+            cash: Number(r.CashAmt) || 0,
+            credit: Number(r.PayAmt1) || 0,
+            delegatedCollect: Number(r.PayAmt2) || 0,
+            delegatedRemit: Number(r.PayAmt3) || 0,
+            other: Number(r.PayAmt4) || 0,
+            coupon: discountByCheckNo.get(checkNo) ?? 0
+          }
+        })
+        .sort((a, b) => a.checkNo.localeCompare(b.checkNo))
+
+      const d = new Date(dateStr)
+      const dateLabel = isNaN(d.getTime())
+        ? dateStr
+        : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}(${WEEKDAY_LABELS_FULL[d.getDay()]})`
+
+      // 容許 1 元以內的四捨五入誤差，超過才視為真的對不起來
+      const revenueMismatch = Math.abs(categoryTotal - dedupedRevenueTotal) > 1
+
+      dailySummary.value = {
+        dateStr,
+        dateLabel,
+        categories,
+        categoryTotal,
+        dedupedRevenueTotal,
+        revenueMismatch,
+        discounts,
+        discountTotal,
+        netRevenue: categoryTotal + discountTotal,
+        checkCount,
+        avgAmount,
+        posTotal,
+        invoiceCount,
+        invoiceVoidCount,
+        invoiceTotalAmt,
+        invoiceCashAmt,
+        invoiceCreditAmt,
+        invoiceOtherAmt,
+        invoiceRanges,
+        details
+      }
+    } catch (e: any) {
+      dailyError.value = e?.message ?? '載入日報表失敗'
+    } finally {
+      dailyLoading.value = false
+    }
+  }
+
+  function formatDailyMoney(v: number) {
+    return Math.round(v).toLocaleString()
+  }
+
+  // 匯出日報表（Excel，比照 POS 匯出格式的段落結構，並加上標題/顏色/框線）
+  async function downloadDailyReport() {
+    const s = dailySummary.value
+    if (!s) return
+    downloading.value = true
+    try {
+      const ExcelJS = (await import('exceljs')).default
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('日報表')
+
+      let row = 1
+      const titleCell = ws.getCell(row, 1)
+      ws.mergeCells(row, 1, row, 3)
+      titleCell.value = `日報表　營業日: ${s.dateLabel}`
+      titleCell.font = { bold: true, size: 14 }
+      titleCell.alignment = { horizontal: 'center' }
+      row += 2
+
+      ws.getCell(row, 1).value = '部門別'
+      ws.getCell(row, 2).value = '金額'
+      ws.getCell(row, 3).value = '比率'
+      ws.getRow(row).font = { bold: true }
+      row++
+      for (const c of s.categories) {
+        ws.getCell(row, 1).value = c.typeName
+        ws.getCell(row, 2).value = c.amt
+        ws.getCell(row, 2).numFmt = '#,##0'
+        ws.getCell(row, 3).value = `${String(Math.round(c.percent)).padStart(2, '0')}%`
+        row++
+      }
+      ws.getCell(row, 1).value = '各部門合計'
+      ws.getCell(row, 2).value = s.categoryTotal
+      ws.getCell(row, 2).numFmt = '#,##0'
+      ws.getRow(row).font = { bold: true }
+      row += 2
+
+      if (s.discounts.length > 0) {
+        ws.getCell(row, 1).value = '折價項目'
+        ws.getCell(row, 2).value = '數量'
+        ws.getCell(row, 3).value = '金額'
+        ws.getRow(row).font = { bold: true }
+        row++
+        for (const dItem of s.discounts) {
+          ws.getCell(row, 1).value = dItem.itemName
+          ws.getCell(row, 2).value = dItem.qty
+          ws.getCell(row, 3).value = dItem.amt
+          ws.getCell(row, 3).numFmt = '#,##0'
+          row++
+        }
+        ws.getCell(row, 1).value = '折價合計'
+        ws.getCell(row, 3).value = s.discountTotal
+        ws.getCell(row, 3).numFmt = '#,##0'
+        ws.getRow(row).font = { bold: true }
+        row += 2
+      }
+
+      const summaryLines: [string, number | string][] = [
+        ['營收淨額', s.netRevenue],
+        ['帳單數', s.checkCount],
+        ['平均金額', Math.round(s.avgAmount)],
+        ['POS結帳總額', s.posTotal],
+        ['發票張數(含作廢)', s.invoiceCount],
+        ['作廢張數', s.invoiceVoidCount],
+        ['發票總計金額', s.invoiceTotalAmt],
+        ['現金發票金額', s.invoiceCashAmt],
+        ['刷卡發票金額', s.invoiceCreditAmt],
+        ['其它發票金額', s.invoiceOtherAmt]
+      ]
+      for (const [label, val] of summaryLines) {
+        ws.getCell(row, 1).value = label
+        ws.getCell(row, 1).font = { bold: true }
+        ws.getCell(row, 2).value = val
+        if (typeof val === 'number') ws.getCell(row, 2).numFmt = '#,##0'
+        row++
+      }
+      row++
+
+      if (s.invoiceRanges.length > 0) {
+        ws.getCell(row, 1).value = '發票起迄號碼'
+        ws.getRow(row).font = { bold: true }
+        row++
+        for (const range of s.invoiceRanges) {
+          ws.getCell(row, 1).value = range
+          row++
+        }
+        row++
+      }
+
+      const detailHeaderRow = row
+      const detailHeaders = ['帳單號碼', '發票號', 'VIP', '收款金額', '現金', '信用卡', '宅配代收', '宅配匯款', '其它', '券/抵扣']
+      detailHeaders.forEach((h, i) => {
+        const cell = ws.getCell(detailHeaderRow, i + 1)
+        cell.value = h
+        cell.font = { bold: true }
+        cell.alignment = { horizontal: 'center' }
+        cell.border = THIN_BORDER as any
+      })
+      row++
+      for (const d of s.details) {
+        const values = [d.checkNo, d.invoiceNo, d.vip, d.total, d.cash, d.credit, d.delegatedCollect, d.delegatedRemit, d.other, d.coupon]
+        values.forEach((v, i) => {
+          const cell = ws.getCell(row, i + 1)
+          cell.value = v as any
+          if (i >= 3) cell.numFmt = '#,##0'
+          cell.border = THIN_BORDER as any
+        })
+        row++
+      }
+      const detailTotalsRow = row
+      ws.getCell(detailTotalsRow, 1).value = '合計'
+      ws.getCell(detailTotalsRow, 1).font = { bold: true }
+      const sumCols: (keyof DailyDetailRow)[] = ['total', 'cash', 'credit', 'delegatedCollect', 'delegatedRemit', 'other', 'coupon']
+      sumCols.forEach((key, i) => {
+        const cell = ws.getCell(detailTotalsRow, 4 + i)
+        cell.value = s.details.reduce((sum, d) => sum + (d[key] as number), 0)
+        cell.numFmt = '#,##0'
+        cell.font = { bold: true }
+      })
+
+      ws.getColumn(1).width = 16
+      ws.getColumn(2).width = 14
+      ws.getColumn(3).width = 12
+      for (let i = 4; i <= 10; i++) ws.getColumn(i).width = 12
+
+      ws.pageSetup = {
+        orientation: 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.3, right: 0.3, top: 0.3, bottom: 0.3, header: 0, footer: 0 }
+      } as any
+
+      const buffer = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      triggerBlobDownload(blob, `日報表${s.dateStr.replaceAll('-', '')}.xlsx`)
+    } finally {
+      downloading.value = false
+    }
+  }
+
   await checkStatus()
   await fetchData(1)
 </script>
@@ -1161,6 +1681,12 @@
           @click="switchView('staffMeal')"
         >
           包月員工
+        </button>
+        <button
+          :class="['sw-tab', { active: view === 'daily' }]"
+          @click="switchView('daily')"
+        >
+          日報表
         </button>
       </div>
     </div>
@@ -1627,6 +2153,283 @@
         </div>
       </div>
 
+      <!-- 日報表：比對帳單瀏覽/發票資料/單品明細組出，比照 POS 匯出格式 -->
+      <div
+        v-else-if="view === 'daily'"
+        class="report-panel"
+      >
+        <div class="month-switch">
+          <button
+            class="btn-ghost small"
+            title="前一天"
+            @click="dailyPrevDay"
+          >
+            ‹ 前一天
+          </button>
+          <input
+            v-model="dailyDate"
+            type="date"
+            class="month-input"
+            @change="loadDailyReport"
+          >
+          <button
+            class="btn-ghost small"
+            title="後一天"
+            @click="dailyNextDay"
+          >
+            後一天 ›
+          </button>
+          <button
+            class="btn-ghost small"
+            @click="dailyToday"
+          >
+            今天
+          </button>
+        </div>
+
+        <p class="hint-banner">
+          此頁完全由「帳單瀏覽」「發票資料」「單品明細統計表」比對組出，非原始 POS 日報表匯出檔：
+          部門別營收來自類別銷售統計（已排除金額為負數的項目，那是折價，不是部門，改顯示在下面「折價項目」），
+          名稱是用 RefKPType 部門代碼查 xxCODE 資料表（CodeType=KPTYPE）補上中文名稱，查不到會顯示
+          「未分類(代碼=X)」，代表這個代碼在 xxCODE 裡沒有對應資料，需要請後端/資料庫確認；折價項目是
+          單品明細裡金額為負的品項，明細表格的「券/抵扣」是依帳單號碼加總折價品項算出的，原始報表的
+          「單號」「桌別」「班」「桌菜」欄位無對應資料來源，這裡沒有呈現。
+        </p>
+
+        <p
+          v-if="dailyError"
+          class="hint-banner warn-banner"
+        >
+          ⚠️ {{ dailyError }}
+        </p>
+
+        <p
+          v-if="dailySummary && dailySummary.revenueMismatch"
+          class="hint-banner warn-banner"
+        >
+          ⚠️ 部門別營收合計（{{ formatDailyMoney(dailySummary.categoryTotal) }}）跟用單品明細去重複後重新加總的營收
+          （{{ formatDailyMoney(dailySummary.dedupedRevenueTotal) }}）對不起來，差 {{ formatDailyMoney(Math.abs(dailySummary.categoryTotal - dailySummary.dedupedRevenueTotal)) }} 元。
+          折價項目已經去重複，但「部門別營收」是後端 category-sales 直接算好的總數，前端沒有逐筆資料可以去重複，
+          可能是後端聚合時也把重複列一起算進去了，建議請後端檢查 ORDERI 這天是否有重複資料。
+        </p>
+
+        <div class="download-bar">
+          <button
+            class="btn-ghost small"
+            :disabled="dailyLoading"
+            @click="loadDailyReport"
+          >
+            {{ dailyLoading ? '載入中…' : '重新整理' }}
+          </button>
+          <button
+            class="btn-primary small"
+            :disabled="downloading || !dailySummary"
+            @click="downloadDailyReport"
+          >
+            {{ downloading ? '產生中…' : '下載日報表（Excel）' }}
+          </button>
+        </div>
+
+        <div
+          v-if="dailyLoading"
+          class="loading"
+        >
+          載入中…
+        </div>
+
+        <template v-else-if="dailySummary">
+          <h3 class="daily-section-title">
+            部門別營收
+          </h3>
+          <div class="table-wrap">
+            <table class="data-table report-table">
+              <thead>
+              <tr>
+                <th>部門別</th>
+                <th>金額</th>
+                <th>比率</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr
+                v-for="c in dailySummary.categories"
+                :key="c.typeName"
+              >
+                <td class="text-left">
+                  {{ c.typeName }}
+                </td>
+                <td>{{ formatDailyMoney(c.amt) }}</td>
+                <td>{{ Math.round(c.percent) }}%</td>
+              </tr>
+              <tr v-if="dailySummary.categories.length === 0">
+                <td
+                  colspan="3"
+                  class="empty-cell"
+                >
+                  當天無營收資料
+                </td>
+              </tr>
+              </tbody>
+              <tfoot v-if="dailySummary.categories.length > 0">
+              <tr class="totals-row">
+                <td class="text-left">
+                  各部門合計
+                </td>
+                <td>{{ formatDailyMoney(dailySummary.categoryTotal) }}</td>
+                <td></td>
+              </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <template v-if="dailySummary.discounts.length > 0">
+            <h3 class="daily-section-title">
+              折價項目
+            </h3>
+            <div class="table-wrap">
+              <table class="data-table report-table">
+                <thead>
+                <tr>
+                  <th>項目</th>
+                  <th>數量</th>
+                  <th>金額</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr
+                  v-for="dItem in dailySummary.discounts"
+                  :key="dItem.itemName"
+                >
+                  <td class="text-left">
+                    {{ dItem.itemName }}
+                  </td>
+                  <td>{{ dItem.qty }}</td>
+                  <td>{{ formatDailyMoney(dItem.amt) }}</td>
+                </tr>
+                </tbody>
+                <tfoot>
+                <tr class="totals-row">
+                  <td
+                    colspan="2"
+                    class="text-left"
+                  >
+                    折價合計
+                  </td>
+                  <td>{{ formatDailyMoney(dailySummary.discountTotal) }}</td>
+                </tr>
+                </tfoot>
+              </table>
+            </div>
+          </template>
+
+          <h3 class="daily-section-title">
+            營收總覽
+          </h3>
+          <div class="daily-summary-grid">
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">營收淨額</span>
+              <span class="daily-summary-value">{{ formatDailyMoney(dailySummary.netRevenue) }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">帳單數</span>
+              <span class="daily-summary-value">{{ dailySummary.checkCount }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">平均金額</span>
+              <span class="daily-summary-value">{{ formatDailyMoney(dailySummary.avgAmount) }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">POS結帳總額</span>
+              <span class="daily-summary-value">{{ formatDailyMoney(dailySummary.posTotal) }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">發票張數(含作廢)</span>
+              <span class="daily-summary-value">{{ dailySummary.invoiceCount }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">作廢張數</span>
+              <span class="daily-summary-value">{{ dailySummary.invoiceVoidCount }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">發票總計金額</span>
+              <span class="daily-summary-value">{{ formatDailyMoney(dailySummary.invoiceTotalAmt) }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">現金發票金額</span>
+              <span class="daily-summary-value">{{ formatDailyMoney(dailySummary.invoiceCashAmt) }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">刷卡發票金額</span>
+              <span class="daily-summary-value">{{ formatDailyMoney(dailySummary.invoiceCreditAmt) }}</span>
+            </div>
+            <div class="daily-summary-item">
+              <span class="daily-summary-label">其它發票金額</span>
+              <span class="daily-summary-value">{{ formatDailyMoney(dailySummary.invoiceOtherAmt) }}</span>
+            </div>
+          </div>
+
+          <template v-if="dailySummary.invoiceRanges.length > 0">
+            <h3 class="daily-section-title">
+              發票起迄號碼
+            </h3>
+            <div class="invoice-ranges">
+              <span
+                v-for="range in dailySummary.invoiceRanges"
+                :key="range"
+                class="invoice-range-chip"
+              >{{ range }}</span>
+            </div>
+          </template>
+
+          <h3 class="daily-section-title">
+            明細（{{ dailySummary.details.length }} 筆）
+          </h3>
+          <div class="table-wrap">
+            <table class="data-table report-table">
+              <thead>
+              <tr>
+                <th>帳單號碼</th>
+                <th>發票號</th>
+                <th>VIP</th>
+                <th>收款金額</th>
+                <th>現金</th>
+                <th>信用卡</th>
+                <th>宅配代收</th>
+                <th>宅配匯款</th>
+                <th>其它</th>
+                <th>券/抵扣</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr
+                v-for="d in dailySummary.details"
+                :key="d.checkNo"
+              >
+                <td>{{ d.checkNo }}</td>
+                <td>{{ d.invoiceNo }}</td>
+                <td>{{ d.vip || '-' }}</td>
+                <td>{{ formatDailyMoney(d.total) }}</td>
+                <td>{{ formatDailyMoney(d.cash) }}</td>
+                <td>{{ formatDailyMoney(d.credit) }}</td>
+                <td>{{ formatDailyMoney(d.delegatedCollect) }}</td>
+                <td>{{ formatDailyMoney(d.delegatedRemit) }}</td>
+                <td>{{ formatDailyMoney(d.other) }}</td>
+                <td>{{ formatDailyMoney(d.coupon) }}</td>
+              </tr>
+              <tr v-if="dailySummary.details.length === 0">
+                <td
+                  colspan="10"
+                  class="empty-cell"
+                >
+                  當天無帳單資料
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
+
       <!-- 帳單瀏覽：依 CHECK_COLUMN_META 對照表顯示中文標題與格式化後的內容 -->
       <div
         v-else
@@ -1779,6 +2582,15 @@
 
   .staff-meal-table th, .staff-meal-table td { text-align: center; }
   .staff-meal-table .seq-cell { font-weight: 600; color: var(--text-muted); }
+
+  .text-left { text-align: left !important; }
+  .daily-section-title { margin: 4px 0 0; font-size: 15px; font-weight: 700; color: var(--text); }
+  .daily-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+  .daily-summary-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
+  .daily-summary-label { font-size: 12px; color: var(--text-hint); }
+  .daily-summary-value { font-size: 16px; font-weight: 700; color: var(--text); }
+  .invoice-ranges { display: flex; flex-wrap: wrap; gap: 6px; }
+  .invoice-range-chip { font-size: 12px; padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border-light); border-radius: 999px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 
   .pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
