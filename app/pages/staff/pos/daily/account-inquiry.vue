@@ -701,6 +701,18 @@
       ws.getColumn(2).width = 6
       for (let i = 3; i <= totalColIndex; i++) ws.getColumn(i).width = 13
 
+      // 列印設定：橫向、縮放至單頁寬高，並明確指定列印範圍，避免多印出空白的第二張
+      const lastColLetter = colLetter(totalColIndex)
+      ws.pageSetup = {
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 1,
+        margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.3, header: 0, footer: 0 },
+        printArea: `A1:${lastColLetter}${totalsRowIndex}`,
+        horizontalCentered: true
+      } as any
+
       const buffer = await wb.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       triggerBlobDownload(blob, `${reportFileLabel.value}總營收報表.xlsx`)
@@ -1095,6 +1107,17 @@
       ws.getColumn(4).width = 16
       ws.getColumn(5).width = 20
       ws.getColumn(6).width = 16
+
+      const lastRow = 2 + staffEntries.value.length
+      ws.pageSetup = {
+        orientation: 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 1,
+        margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.3, header: 0, footer: 0 },
+        printArea: `A1:F${lastRow}`,
+        horizontalCentered: true
+      } as any
 
       const buffer = await wb.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
