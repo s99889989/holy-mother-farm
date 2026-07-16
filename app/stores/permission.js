@@ -8,17 +8,19 @@ export const usePermissionStore = defineStore('permission', () => {
   const loadedId = ref(null)
 
   // ── 單次 fetch（內部用）──────────────────────────────────────────
+  // 這裡不再對 401/403/404 做特殊處理，一律當成錯誤丟出去，交給
+  // load() 統一處理重試邏輯。原本的寫法是「401 就直接回傳 {}」，
+  // 這會導致單次的、可能只是暫時性的 401（例如手機背景很久後網路
+  // 重新連線、cookie 還沒完全帶上）被立刻當成「這個人真的沒有權限」，
+  // 完全繞過下面的重試機制。
   const fetchPerms = async (customerId, baseUrl) => {
     const query = customerId ? `?customerId=${customerId}` : ''
     const res   = await fetch(`${baseUrl}/holy/permission/my-perms${query}`)
 
     if (!res.ok) {
-      // 401/403/404：後端明確表示「這個人沒有權限資料」，視為真的是空的
-      if (res.status === 401 || res.status === 403 || res.status === 404) {
-        return {}
-      }
-      // 其他狀況（5xx 等）視為暫時性錯誤，交給上層重試
-      throw new Error(`my-perms ${res.status}`)
+      const err = new Error(`my-perms ${res.status}`)
+      err.status = res.status
+      throw err
     }
 
     const data = await res.json()
@@ -29,36 +31,49 @@ export const usePermissionStore = defineStore('permission', () => {
   // silent=true 時：背景刷新，失敗不動舊資料、不擋畫面
   //
   // 重要：iOS Safari 常會在背景把分頁整頁丟棄重載，App 切回前景時
-  // 網路堆疊可能還沒完全就緒，這時第一次 fetch 特別容易失敗。
-  // 過去的寫法是「失敗就把 perms 清空」，等於把一次偶發的網路問題
-  // 誤判成「使用者真的沒有權限」，造成畫面上的選單整個消失。
+  // 網路堆疊可能還沒完全就緒，這時第一次 fetch 特別容易失敗——包括
+  // 拿到 401（session cookie 還沒正確帶上，不代表真的沒登入）。
+  // 過去的寫法是「失敗就把 perms 清空」，等於把一次偶發的網路/連線
+  // 問題誤判成「使用者真的沒有權限」，造成畫面上的選單整個消失。
   // 現在的策略：
-  //   1. 失敗先重試一次（等一下讓網路恢復）
-  //   2. 兩次都失敗 → 保留舊的 perms（可能是 localStorage 裡還算新鮮
-  //      的快取），loaded 維持 false，讓下一次有機會（換頁 / 回到前景）
-  //      再重試，而不是直接把畫面清空
+  //   1. 任何失敗（含 401/403/404）先重試一次（等一下讓網路/cookie 恢復）
+  //   2. 兩次都失敗，且都是 401/403/404 → 才視為後端明確表示「真的沒有
+  //      權限資料」，把 perms 設為空物件
+  //   3. 兩次都失敗，但不是（全都是）401/403/404（例如網路斷線、5xx）
+  //      → 保留舊的 perms（可能是 localStorage 裡還算新鮮的快取），
+  //      loaded 維持 false，讓下一次有機會（換頁 / 回到前景）再重試，
+  //      而不是直接把畫面清空
   const load = async (customerId, baseUrl, silent = false) => {
     const id = customerId != null ? String(customerId) : null
     if (loaded.value && loadedId.value === id && !silent) return
 
-    try {
-      const data = await fetchPerms(customerId, baseUrl)
-      perms.value    = data
-      loadedId.value = id
-      loaded.value   = true
-      return
-    } catch {
-      // 第一次失敗，稍等一下再試一次
+    let lastErr = null
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt === 1) {
+        // 第一次失敗後，稍等一下再試一次
+        await new Promise(resolve => setTimeout(resolve, 1200))
+      }
+      try {
+        const data = await fetchPerms(customerId, baseUrl)
+        perms.value    = data
+        loadedId.value = id
+        loaded.value   = true
+        return
+      } catch (err) {
+        lastErr = err
+      }
     }
 
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1200))
-      const data = await fetchPerms(customerId, baseUrl)
-      perms.value    = data
+    // 兩次都失敗
+    const status = lastErr?.status
+    if (status === 401 || status === 403 || status === 404) {
+      // 連續兩次都明確表示沒有權限資料，才真的視為空的
+      perms.value    = {}
       loadedId.value = id
       loaded.value   = true
-    } catch {
-      // 兩次都失敗：不清空既有 perms，維持 loaded = false
+    } else {
+      // 網路斷線 / 5xx 等暫時性錯誤：不清空既有 perms，維持 loaded = false
       // 讓下次導覽或 visibilitychange 時還能再拉一次
       loaded.value = false
     }

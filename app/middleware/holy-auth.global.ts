@@ -58,10 +58,23 @@ export default defineNuxtRouteMiddleware(async (to) => {
       const res = await fetch(commonStore.data.main_url + '/holy/customer/me', {
         credentials: 'include'
       })
-      if (!res.ok) return forceLogout(customerStore, commonStore.data.main_url)
-      const data = await res.json()
-      if (data.error) return forceLogout(customerStore, commonStore.data.main_url)
+
+      // 後端明確表示「沒有這個登入」，才是真的 session 失效
+      if (res.status === 401 || res.status === 403) {
+        return forceLogout(customerStore, commonStore.data.main_url)
+      }
+
+      if (!res.ok) {
+        // 5xx / 502 / 503 / 504 等閘道逾時，通常是行動網路訊號差、
+        // 連線還沒就緒造成的暫時性問題，跟登入狀態無關。
+        // 不強制登出，只重置 lastCheckedAt，讓下次導覽再驗證一次。
+        lastCheckedAt = 0
+      } else {
+        const data = await res.json()
+        if (data.error) return forceLogout(customerStore, commonStore.data.main_url)
+      }
     } catch {
+      // fetch 本身失敗（離線、逾時）：同樣不強制登出，等下次再檢查
       lastCheckedAt = 0
     }
   }

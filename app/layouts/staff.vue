@@ -40,7 +40,11 @@ async function checkSessionOnVisible() {
     const res = await fetch(commonStore.data.main_url + '/holy/customer/me', {
       credentials: 'include'
     })
-    if (!res.ok) {
+
+    // 只有後端明確表示「沒有這個登入」（401/403）才是真的 session 失效。
+    // 手機從背景切回前景那一刻，網路堆疊常常還沒完全就緒，這時
+    // 拿到的可能是 5xx / 閘道逾時，跟登入狀態無關，不該直接登出。
+    if (res.status === 401 || res.status === 403) {
       customerStore.clearCustomer()
       permissionStore.clear()
       try {
@@ -52,12 +56,17 @@ async function checkSessionOnVisible() {
       window.location.href = '/'
       return
     }
+
+    if (!res.ok) {
+      // 5xx / 502 / 503 / 504 等暫時性錯誤：不確定 session 是否有效，
+      // 保守起見不登出，直接往下走照常補拉權限（權限 store 自己有重試機制）
+    }
   } catch {
-    // 網路錯誤不強制登出，等下次再檢查
+    // fetch 本身失敗（離線、逾時）：網路錯誤不強制登出，等下次再檢查
     return
   }
 
-  // session 沒問題 → 補拉權限（非 silent 只在還沒載入成功時才會真的擋，
+  // session 沒問題（或無法確認，但選擇不登出）→ 補拉權限（非 silent 只在還沒載入成功時才會真的擋，
   // 已經 loaded=true 的話 load() 內部會直接以 silent 方式背景刷新）
   if (!permissionStore.loaded) {
     await loadPerms(false)
@@ -84,7 +93,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style src="~/assets/css/main.css" />
+<style src="~/assets/css/main.css"/>
 <style>
 @media print {
   #staff-scroll-wrap {
