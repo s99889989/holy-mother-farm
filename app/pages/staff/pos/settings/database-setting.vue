@@ -1,533 +1,535 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'pos.pos-accounting' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'pos.pos-accounting' })
 
-const commonStore = useCommonStore()
-const apiBase = computed(() => commonStore.data.main_url)
+  const commonStore = useCommonStore()
+  const apiBase = computed(() => commonStore.data.main_url)
 
-// 上傳分段用：直接打家中主機，不走 nuxt.config.ts 的 /api routeRules proxy。
-// 這條代理是為了讓一般 API 請求變成同網域第一方 cookie（解 iOS ITP 問題），
-// 但上傳這幾支端點不需要帶登入態 cookie，直接繞過代理就能避開
-// Netlify Function 6MB 請求本體的硬性上限，不用切成一堆小分段。
-const directApiBase = useRuntimeConfig().public.apiBase
+  // 上傳分段用：直接打家中主機，不走 nuxt.config.ts 的 /api routeRules proxy。
+  // 這條代理是為了讓一般 API 請求變成同網域第一方 cookie（解 iOS ITP 問題），
+  // 但上傳這幾支端點不需要帶登入態 cookie，直接繞過代理就能避開
+  // Netlify Function 6MB 請求本體的硬性上限，不用切成一堆小分段。
+  const directApiBase = useRuntimeConfig().public.apiBase
 
-const tab = ref<'maintain' | 'browse'>('maintain')
+  const tab = ref<'maintain' | 'browse'>('maintain')
 
-// 資料庫暫停/開啟狀態，兩個頁籤共用同一份（composables/useBk35DbStatus.ts）
-const { bk35menuAttached, bksqlAttached, checking, checkStatus } = useBk35DbStatus()
+  // 資料庫暫停/開啟狀態，兩個頁籤共用同一份（composables/useBk35DbStatus.ts）
+  const { bk35menuAttached, bksqlAttached, checking, checkStatus } = useBk35DbStatus()
 
-function switchToBrowse() {
-  tab.value = 'browse'
-  // 切過去時如果還沒抓過資料表清單，順便抓一次
-  if (browseDbAttached.value !== false && tables.value.length === 0 && !tablesLoading.value) {
-    fetchTables()
+  function switchToBrowse() {
+    tab.value = 'browse'
+    // 切過去時如果還沒抓過資料表清單，順便抓一次
+    if (browseDbAttached.value !== false && tables.value.length === 0 && !tablesLoading.value) {
+      fetchTables()
+    }
   }
-}
 
-// ══════════════════ 資料庫維護 ══════════════════
+  // ══════════════════ 資料庫維護 ══════════════════
 
-const actionLoading = ref(false)
-const uploadLoading = ref(false)
-const uploadProgress = ref('')
-const lastResults = ref<ActionResult[]>([])
+  const actionLoading = ref(false)
+  const uploadLoading = ref(false)
+  const uploadProgress = ref('')
+  const lastResults = ref<ActionResult[]>([])
 
-interface ActionResult {
-  label: string
-  ok: boolean
-  [key: string]: any
-}
-
-async function confirmAndRun(action: 'detach' | 'attach', label: string) {
-  const ok = confirm(`確定要執行「${label}」嗎？這會直接影響正式使用的資料庫。`)
-  if (!ok) return
-
-  actionLoading.value = true
-  lastResults.value = []
-  try {
-    const res = await $fetch<Record<string, any>>(
-      `${apiBase.value}/holy/bk35sql/admin/${action}`,
-      { method: 'POST', credentials: 'include', query: { confirm: true } }
-    )
-    lastResults.value = [{ label, ok: !!res?.ok, ...res }]
-  } catch (e: any) {
-    lastResults.value = [{ label, ok: false, error: e?.message ?? '執行失敗' }]
-  } finally {
-    actionLoading.value = false
-    await checkStatus(true)
+  interface ActionResult {
+    label: string
+    ok: boolean
+      [key: string]: any
   }
-}
 
-const ALLOWED_FILENAMES = ['bk35menu.mdf', 'bk35menu.ldf', 'bksql.mdf', 'bksql.ldf']
+  async function confirmAndRun(action: 'detach' | 'attach', label: string) {
+    const ok = confirm(`確定要執行「${label}」嗎？這會直接影響正式使用的資料庫。`)
+    if (!ok) return
 
-interface FileWithTarget {
-  file: File
-  target: string | null
-}
-
-const selectedFiles = ref<FileWithTarget[]>([])
-const fileInput = ref<HTMLInputElement | null>(null)
-const validFiles = computed(() => selectedFiles.value.filter(f => f.target))
-
-function matchTarget(fileName: string): string | null {
-  const lower = fileName.toLowerCase()
-  const match = ALLOWED_FILENAMES.find(n => n.toLowerCase() === lower)
-  return match ?? null
-}
-
-function onFileChange(e: Event) {
-  const target = e.target as HTMLInputElement
-  const files = Array.from(target.files ?? [])
-  selectedFiles.value = files.map(file => ({ file, target: matchTarget(file.name) }))
-}
-
-// Cloudflare 代理對單次請求本體有 100MB 上限，超過會在代理層被擋掉，
-// 回傳一個空的 500，連後端 controller 都進不去。這裡把每片切到遠低於
-// 100MB，留足夠的安全邊界（multipart 表單本身也有一點額外開銷）。
-// 不再受 Netlify Function 6MB 限制（因為直接繞過 proxy 打家中主機），
-// 分段大小可以放大一點，減少來回次數；上限還是要顧到後端
-// application.properties 的 spring.servlet.multipart.max-file-size（目前 200MB）
-const CHUNK_SIZE = 20 * 1024 * 1024 // 20MB
-
-function makeUploadId() {
-  // crypto.randomUUID() 在 https / localhost 才有，保險起見加個 fallback
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-// 上傳前先把整個檔案用瀏覽器原生的 CompressionStream 壓成 gzip，再切片上傳。
-// 除了省流量，binary 內容變成亂碼狀，也能避開像 Cloudflare WAF 把資料庫檔案裡
-// 夾帶的文字內容（stored procedure、欄位名稱等）誤判成攻擊特徵而擋掉的狀況。
-// 瀏覽器不支援 CompressionStream 時自動退回不壓縮，行為跟原本一樣。
-async function maybeCompressFile(file: File): Promise<{ blob: Blob; compressed: boolean }> {
-  if (typeof CompressionStream === 'undefined') {
-    return { blob: file, compressed: false }
-  }
-  try {
-    const compressedStream = file.stream().pipeThrough(new CompressionStream('gzip'))
-    const compressedBlob = await new Response(compressedStream).blob()
-    return { blob: compressedBlob, compressed: true }
-  } catch {
-    return { blob: file, compressed: false }
-  }
-}
-
-// 判斷一個 fetch/File 讀取錯誤，是不是「本機檔案被鎖定使用中」造成的（例如本機
-// SQL Server / BK35 POS 還開著這個資料庫檔案），是的話附上明確的中文提示，
-// 不要只留下一句看不出所以然的「未知錯誤」或「Failed to fetch」
-function describeUploadError(err: any): string {
-  const rawName = err?.name ?? ''
-  const rawMessage = err?.data?.error ?? err?.message ?? String(err ?? '')
-  const isLocked = /notreadable|being used by another process|access is denied|permission denied|拒絕存取|使用中/i
-    .test(`${rawName} ${rawMessage}`)
-  const detail = rawMessage || '未知錯誤'
-  if (isLocked) {
-    return `${detail}\n（這通常代表這台電腦上的檔案目前被其他程式鎖定，例如本機還開著 SQL Server / BK35 POS 正在使用這個資料庫檔案。請先在「這台電腦」上關閉該程式或停用資料庫連線，再重新選擇檔案。）`
-  }
-  return detail
-}
-
-// 單一檔案的分段上傳：（可選）壓縮 → 切片 → 逐片上傳到 chunkEndpoint → 全部完成後呼叫
-// finishEndpoint 組裝並視需要解壓縮。targetFieldName 讓這支函式同時給「覆蓋 mdf/ldf」
-// （欄位是 targetFileName）跟「上傳 .bak 還原」（欄位是 targetDb）兩種流程共用。
-// onProgress(stage, chunkIndex, totalChunks) 讓外層更新畫面上的進度文字
-async function uploadFileInChunks(
-  file: File,
-  targetValue: string,
-  onProgress: (stage: 'compressing' | 'uploading', chunkIndex: number, totalChunks: number) => void,
-  chunkEndpoint: string = '/holy/bk35sql/admin/upload-chunk',
-  finishEndpoint: string = '/holy/bk35sql/admin/upload-finish',
-  targetFieldName: string = 'targetFileName'
-): Promise<Record<string, any>> {
-  onProgress('compressing', 0, 1)
-  const { blob, compressed } = await maybeCompressFile(file)
-
-  const uploadId = makeUploadId()
-  const totalChunks = Math.max(1, Math.ceil(blob.size / CHUNK_SIZE))
-
-  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-    onProgress('uploading', chunkIndex, totalChunks)
-    const start = chunkIndex * CHUNK_SIZE
-    const end = Math.min(blob.size, start + CHUNK_SIZE)
-    const chunkBlob = blob.slice(start, end)
-
-    const formData = new FormData()
-    formData.append('file', chunkBlob, file.name)
-    formData.append('uploadId', uploadId)
-    formData.append('chunkIndex', String(chunkIndex))
-    formData.append('totalChunks', String(totalChunks))
-    formData.append(targetFieldName, targetValue)
-
-    let res: Record<string, any> | undefined
+    actionLoading.value = true
+    lastResults.value = []
     try {
-      res = await $fetch<Record<string, any>>(
-        `${directApiBase}${chunkEndpoint}`,
-        { method: 'POST', credentials: 'omit', body: formData }
+      const res = await $fetch<Record<string, any>>(
+        `${apiBase.value}/holy/bk35sql/admin/${action}`,
+          { method: 'POST', credentials: 'include', query: { confirm: true } }
+      )
+      lastResults.value = [{ label, ok: !!res?.ok, ...res }]
+    } catch (e: any) {
+      lastResults.value = [{ label, ok: false, error: e?.message ?? '執行失敗' }]
+    } finally {
+      actionLoading.value = false
+      await checkStatus(true)
+    }
+  }
+
+  const ALLOWED_FILENAMES = ['bk35menu.mdf', 'bk35menu.ldf', 'bksql.mdf', 'bksql.ldf']
+
+  interface FileWithTarget {
+    file: File
+    target: string | null
+  }
+
+  const selectedFiles = ref<FileWithTarget[]>([])
+  const fileInput = ref<HTMLInputElement | null>(null)
+  const validFiles = computed(() => selectedFiles.value.filter(f => f.target))
+
+  function matchTarget(fileName: string): string | null {
+    const lower = fileName.toLowerCase()
+    const match = ALLOWED_FILENAMES.find(n => n.toLowerCase() === lower)
+    return match ?? null
+  }
+
+  function onFileChange(e: Event) {
+    const target = e.target as HTMLInputElement
+    const files = Array.from(target.files ?? [])
+    selectedFiles.value = files.map(file => ({ file, target: matchTarget(file.name) }))
+  }
+
+  // Cloudflare 代理對單次請求本體有 100MB 上限，超過會在代理層被擋掉，
+  // 回傳一個空的 500，連後端 controller 都進不去。這裡把每片切到遠低於
+  // 100MB，留足夠的安全邊界（multipart 表單本身也有一點額外開銷）。
+  // 不再受 Netlify Function 6MB 限制（因為直接繞過 proxy 打家中主機），
+  // 分段大小可以放大一點，減少來回次數；上限還是要顧到後端
+  // application.properties 的 spring.servlet.multipart.max-file-size（目前 200MB）
+  const CHUNK_SIZE = 20 * 1024 * 1024 // 20MB
+
+  function makeUploadId() {
+    // crypto.randomUUID() 在 https / localhost 才有，保險起見加個 fallback
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+
+  // 上傳前先把整個檔案用瀏覽器原生的 CompressionStream 壓成 gzip，再切片上傳。
+  // 除了省流量，binary 內容變成亂碼狀，也能避開像 Cloudflare WAF 把資料庫檔案裡
+  // 夾帶的文字內容（stored procedure、欄位名稱等）誤判成攻擊特徵而擋掉的狀況。
+  // 瀏覽器不支援 CompressionStream 時自動退回不壓縮，行為跟原本一樣。
+  async function maybeCompressFile(file: File): Promise<{ blob: Blob; compressed: boolean }> {
+    if (typeof CompressionStream === 'undefined') {
+      return { blob: file, compressed: false }
+    }
+    try {
+      const compressedStream = file.stream().pipeThrough(new CompressionStream('gzip'))
+      const compressedBlob = await new Response(compressedStream).blob()
+      return { blob: compressedBlob, compressed: true }
+    } catch {
+      return { blob: file, compressed: false }
+    }
+  }
+
+  // 判斷一個 fetch/File 讀取錯誤，是不是「本機檔案被鎖定使用中」造成的（例如本機
+  // SQL Server / BK35 POS 還開著這個資料庫檔案），是的話附上明確的中文提示，
+  // 不要只留下一句看不出所以然的「未知錯誤」或「Failed to fetch」
+  function describeUploadError(err: any): string {
+    const rawName = err?.name ?? ''
+    const rawMessage = err?.data?.error ?? err?.message ?? String(err ?? '')
+    const isLocked = /notreadable|being used by another process|access is denied|permission denied|拒絕存取|使用中/i
+      .test(`${rawName} ${rawMessage}`)
+    const detail = rawMessage || '未知錯誤'
+    if (isLocked) {
+      return `${detail}\n（這通常代表這台電腦上的檔案目前被其他程式鎖定，例如本機還開著 SQL Server / BK35 POS 正在使用這個資料庫檔案。請先在「這台電腦」上關閉該程式或停用資料庫連線，再重新選擇檔案。）`
+    }
+    return detail
+  }
+
+  // 單一檔案的分段上傳：（可選）壓縮 → 切片 → 逐片上傳到 chunkEndpoint → 全部完成後呼叫
+  // finishEndpoint 組裝並視需要解壓縮。targetFieldName 讓這支函式同時給「覆蓋 mdf/ldf」
+  // （欄位是 targetFileName）跟「上傳 .bak 還原」（欄位是 targetDb）兩種流程共用。
+  // onProgress(stage, chunkIndex, totalChunks) 讓外層更新畫面上的進度文字
+  async function uploadFileInChunks(
+    file: File,
+    targetValue: string,
+    onProgress: (stage: 'compressing' | 'uploading', chunkIndex: number, totalChunks: number) => void,
+    chunkEndpoint: string = '/holy/bk35sql/admin/upload-chunk',
+    finishEndpoint: string = '/holy/bk35sql/admin/upload-finish',
+    targetFieldName: string = 'targetFileName'
+  ): Promise<Record<string, any>> {
+    onProgress('compressing', 0, 1)
+    const { blob, compressed } = await maybeCompressFile(file)
+
+    const uploadId = makeUploadId()
+    const totalChunks = Math.max(1, Math.ceil(blob.size / CHUNK_SIZE))
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      onProgress('uploading', chunkIndex, totalChunks)
+      const start = chunkIndex * CHUNK_SIZE
+      const end = Math.min(blob.size, start + CHUNK_SIZE)
+      const chunkBlob = blob.slice(start, end)
+
+      const formData = new FormData()
+      formData.append('file', chunkBlob, file.name)
+      formData.append('uploadId', uploadId)
+      formData.append('chunkIndex', String(chunkIndex))
+      formData.append('totalChunks', String(totalChunks))
+      formData.append(targetFieldName, targetValue)
+
+      let res: Record<string, any> | undefined
+      try {
+        res = await $fetch<Record<string, any>>(
+          `${directApiBase}${chunkEndpoint}`,
+            { method: 'POST', credentials: 'omit', body: formData }
+        )
+      } catch (err: any) {
+        // 把是第幾片失敗、原始錯誤內容都帶出來，不然畫面上只會看到一個看不出所以然的 500
+        const detail = describeUploadError(err)
+        throw new Error(`分段 ${chunkIndex + 1}/${totalChunks}（共 ${(blob.size / 1024 / 1024).toFixed(1)}MB，已傳 ${(end / 1024 / 1024).toFixed(1)}MB）上傳例外：${detail}`)
+      }
+      if (!res?.ok) {
+        throw new Error(res?.error ?? `分段 ${chunkIndex + 1}/${totalChunks} 上傳失敗`)
+      }
+    }
+
+    onProgress('uploading', totalChunks, totalChunks)
+
+    const finishForm = new FormData()
+    finishForm.append('uploadId', uploadId)
+    finishForm.append('totalChunks', String(totalChunks))
+    finishForm.append(targetFieldName, targetValue)
+    finishForm.append('compressed', String(compressed))
+
+    let finishRes: Record<string, any> | undefined
+    try {
+      finishRes = await $fetch<Record<string, any>>(
+        `${directApiBase}${finishEndpoint}`,
+          { method: 'POST', credentials: 'omit', body: finishForm }
       )
     } catch (err: any) {
-      // 把是第幾片失敗、原始錯誤內容都帶出來，不然畫面上只會看到一個看不出所以然的 500
-      const detail = describeUploadError(err)
-      throw new Error(`分段 ${chunkIndex + 1}/${totalChunks}（共 ${(blob.size / 1024 / 1024).toFixed(1)}MB，已傳 ${(end / 1024 / 1024).toFixed(1)}MB）上傳例外：${detail}`)
+      throw new Error(describeUploadError(err))
     }
-    if (!res?.ok) {
-      throw new Error(res?.error ?? `分段 ${chunkIndex + 1}/${totalChunks} 上傳失敗`)
+    if (!finishRes?.ok) {
+      const err: any = new Error(finishRes?.error ?? '檔案組裝／還原失敗')
+      err.responseData = finishRes
+      throw err
     }
+    return finishRes
   }
 
-  onProgress('uploading', totalChunks, totalChunks)
+  async function confirmAndUpload() {
+    if (!validFiles.value.length) return
 
-  const finishForm = new FormData()
-  finishForm.append('uploadId', uploadId)
-  finishForm.append('totalChunks', String(totalChunks))
-  finishForm.append(targetFieldName, targetValue)
-  finishForm.append('compressed', String(compressed))
+    const fileList = validFiles.value.map(f => `${f.file.name} → ${f.target}`).join('\n')
+    const ok = confirm(`確定要上傳並覆蓋以下 ${validFiles.value.length} 個檔案嗎？此動作無法復原：\n\n${fileList}`)
+    if (!ok) return
 
-  let finishRes: Record<string, any> | undefined
-  try {
-    finishRes = await $fetch<Record<string, any>>(
-      `${directApiBase}${finishEndpoint}`,
-      { method: 'POST', credentials: 'omit', body: finishForm }
+    uploadLoading.value = true
+    lastResults.value = []
+    const results: ActionResult[] = []
+
+    for (let i = 0; i < validFiles.value.length; i++) {
+      const item = validFiles.value[i]
+      try {
+        const res = await uploadFileInChunks(item.file, item.target as string, (stage, chunkIndex, totalChunks) => {
+          if (stage === 'compressing') {
+            uploadProgress.value = `${i + 1}/${validFiles.value.length}：${item.file.name}（壓縮中…）`
+            return
+          }
+          const percent = Math.round((chunkIndex / totalChunks) * 100)
+          uploadProgress.value = totalChunks > 1
+            ? `${i + 1}/${validFiles.value.length}：${item.file.name}（分段 ${Math.min(chunkIndex + 1, totalChunks)}/${totalChunks}，${percent}%）`
+            : `${i + 1}/${validFiles.value.length}：${item.file.name}`
+        })
+        results.push({ label: item.file.name, ok: !!res?.ok, ...res })
+      } catch (e: any) {
+        results.push({ label: item.file.name, ok: false, error: e?.message ?? '上傳失敗' })
+      }
+    }
+
+    lastResults.value = results
+    uploadLoading.value = false
+    uploadProgress.value = ''
+    selectedFiles.value = []
+    if (fileInput.value) fileInput.value.value = ''
+  }
+
+  // ══════════════════ 資料庫還原（.bak，運作中也能上傳） ══════════════════
+  // 用途：如果要上傳的那台電腦本機的資料庫還在運作中，.mdf/.ldf 會被獨佔鎖定，
+  // 連複製都做不到。這條路徑改成先在本機用 SQL Server 自己的 BACKUP DATABASE
+  // 產生 .bak（資料庫可以繼續開著，不受外部鎖定影響），上傳這份 .bak，
+  // 由伺服器執行 RESTORE DATABASE ... WITH REPLACE 覆蓋回正式資料庫。
+  // RESTORE 前伺服器會自動把目標資料庫切成單人模式踢掉現有連線，
+  // 所以伺服器端也不需要事先手動「暫停資料庫」。
+
+  const restoreTargetDb = ref<'BK35MENU' | 'BKSQL'>('BKSQL')
+  const restoreFile = ref<File | null>(null)
+  const restoreFileInput = ref<HTMLInputElement | null>(null)
+  const restoreLoading = ref(false)
+  const restoreProgress = ref('')
+  const restoreResult = ref<Record<string, any> | null>(null)
+
+  function onRestoreFileChange(e: Event) {
+    const target = e.target as HTMLInputElement
+    restoreFile.value = target.files?.[0] ?? null
+    restoreResult.value = null
+  }
+
+  async function confirmAndRestore() {
+    if (!restoreFile.value) return
+    const ok = confirm(
+      `確定要用「${restoreFile.value.name}」還原覆蓋 ${restoreTargetDb.value} 嗎？\n\n這會強制中斷該資料庫目前所有連線並整個覆蓋掉，此動作無法復原。`
     )
-  } catch (err: any) {
-    throw new Error(describeUploadError(err))
-  }
-  if (!finishRes?.ok) {
-    throw new Error(finishRes?.error ?? '檔案組裝／還原失敗')
-  }
-  return finishRes
-}
+    if (!ok) return
 
-async function confirmAndUpload() {
-  if (!validFiles.value.length) return
-
-  const fileList = validFiles.value.map(f => `${f.file.name} → ${f.target}`).join('\n')
-  const ok = confirm(`確定要上傳並覆蓋以下 ${validFiles.value.length} 個檔案嗎？此動作無法復原：\n\n${fileList}`)
-  if (!ok) return
-
-  uploadLoading.value = true
-  lastResults.value = []
-  const results: ActionResult[] = []
-
-  for (let i = 0; i < validFiles.value.length; i++) {
-    const item = validFiles.value[i]
+    restoreLoading.value = true
+    restoreResult.value = null
     try {
-      const res = await uploadFileInChunks(item.file, item.target as string, (stage, chunkIndex, totalChunks) => {
-        if (stage === 'compressing') {
-          uploadProgress.value = `${i + 1}/${validFiles.value.length}：${item.file.name}（壓縮中…）`
-          return
-        }
-        const percent = Math.round((chunkIndex / totalChunks) * 100)
-        uploadProgress.value = totalChunks > 1
-          ? `${i + 1}/${validFiles.value.length}：${item.file.name}（分段 ${Math.min(chunkIndex + 1, totalChunks)}/${totalChunks}，${percent}%）`
-          : `${i + 1}/${validFiles.value.length}：${item.file.name}`
-      })
-      results.push({ label: item.file.name, ok: !!res?.ok, ...res })
+      const res = await uploadFileInChunks(
+        restoreFile.value,
+        restoreTargetDb.value,
+        (stage, chunkIndex, totalChunks) => {
+          if (stage === 'compressing') {
+            restoreProgress.value = `${restoreFile.value?.name}（壓縮中…）`
+            return
+          }
+          const percent = Math.round((chunkIndex / totalChunks) * 100)
+          restoreProgress.value = totalChunks > 1
+            ? `分段 ${Math.min(chunkIndex + 1, totalChunks)}/${totalChunks}，${percent}%（上傳完成後開始還原，資料庫較大時可能要好幾分鐘，請耐心等候）`
+            : `上傳中…（上傳完成後開始還原，資料庫較大時可能要好幾分鐘，請耐心等候）`
+        },
+        '/holy/bk35sql/admin/restore-chunk',
+        '/holy/bk35sql/admin/restore-finish',
+        'targetDb'
+      )
+      restoreResult.value = res
     } catch (e: any) {
-      results.push({ label: item.file.name, ok: false, error: e?.message ?? '上傳失敗' })
+      restoreResult.value = e?.responseData ?? { ok: false, error: e?.message ?? '還原失敗' }
+    } finally {
+      restoreLoading.value = false
+      restoreProgress.value = ''
+      restoreFile.value = null
+      if (restoreFileInput.value) restoreFileInput.value.value = ''
+      await checkStatus(true)
     }
   }
 
-  lastResults.value = results
-  uploadLoading.value = false
-  uploadProgress.value = ''
-  selectedFiles.value = []
-  if (fileInput.value) fileInput.value.value = ''
-}
+  function formatSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  }
 
-// ══════════════════ 資料庫還原（.bak，運作中也能上傳） ══════════════════
-// 用途：如果要上傳的那台電腦本機的資料庫還在運作中，.mdf/.ldf 會被獨佔鎖定，
-// 連複製都做不到。這條路徑改成先在本機用 SQL Server 自己的 BACKUP DATABASE
-// 產生 .bak（資料庫可以繼續開著，不受外部鎖定影響），上傳這份 .bak，
-// 由伺服器執行 RESTORE DATABASE ... WITH REPLACE 覆蓋回正式資料庫。
-// RESTORE 前伺服器會自動把目標資料庫切成單人模式踢掉現有連線，
-// 所以伺服器端也不需要事先手動「暫停資料庫」。
+  function formatResults(results: ActionResult[]) {
+    return JSON.stringify(results, null, 2)
+  }
 
-const restoreTargetDb = ref<'BK35MENU' | 'BKSQL'>('BKSQL')
-const restoreFile = ref<File | null>(null)
-const restoreFileInput = ref<HTMLInputElement | null>(null)
-const restoreLoading = ref(false)
-const restoreProgress = ref('')
-const restoreResult = ref<Record<string, any> | null>(null)
+  // ══════════════════ 資料庫瀏覽 ══════════════════
 
-function onRestoreFileChange(e: Event) {
-  const target = e.target as HTMLInputElement
-  restoreFile.value = target.files?.[0] ?? null
-  restoreResult.value = null
-}
+  interface DataResponse {
+    columns: string[]
+    rows: Record<string, any>[]
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+    error?: string
+  }
 
-async function confirmAndRestore() {
-  if (!restoreFile.value) return
-  const ok = confirm(
-    `確定要用「${restoreFile.value.name}」還原覆蓋 ${restoreTargetDb.value} 嗎？\n\n這會強制中斷該資料庫目前所有連線並整個覆蓋掉，此動作無法復原。`
+  const tables = ref<string[]>([])
+  const tablesLoading = ref(false)
+  const tablesError = ref('')
+
+  // 瀏覽頁籤目前選擇的資料庫，對應不同的暫停狀態
+  const browseDb = ref<'BK35MENU' | 'BKSQL'>('BK35MENU')
+  const browseDbAttached = computed(() =>
+    browseDb.value === 'BK35MENU' ? bk35menuAttached.value : bksqlAttached.value
   )
-  if (!ok) return
 
-  restoreLoading.value = true
-  restoreResult.value = null
-  try {
-    const res = await uploadFileInChunks(
-      restoreFile.value,
-      restoreTargetDb.value,
-      (stage, chunkIndex, totalChunks) => {
-        if (stage === 'compressing') {
-          restoreProgress.value = `${restoreFile.value?.name}（壓縮中…）`
-          return
-        }
-        const percent = Math.round((chunkIndex / totalChunks) * 100)
-        restoreProgress.value = totalChunks > 1
-          ? `分段 ${Math.min(chunkIndex + 1, totalChunks)}/${totalChunks}，${percent}%（上傳完成後開始還原，資料庫較大時可能要好幾分鐘，請耐心等候）`
-          : `上傳中…（上傳完成後開始還原，資料庫較大時可能要好幾分鐘，請耐心等候）`
-      },
-      '/holy/bk35sql/admin/restore-chunk',
-      '/holy/bk35sql/admin/restore-finish',
-      'targetDb'
-    )
-    restoreResult.value = res
-  } catch (e: any) {
-    restoreResult.value = { ok: false, error: e?.message ?? '還原失敗' }
-  } finally {
-    restoreLoading.value = false
-    restoreProgress.value = ''
-    restoreFile.value = null
-    if (restoreFileInput.value) restoreFileInput.value.value = ''
-    await checkStatus(true)
-  }
-}
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-function formatResults(results: ActionResult[]) {
-  return JSON.stringify(results, null, 2)
-}
-
-// ══════════════════ 資料庫瀏覽 ══════════════════
-
-interface DataResponse {
-  columns: string[]
-  rows: Record<string, any>[]
-  total: number
-  page: number
-  pageSize: number
-  totalPages: number
-  error?: string
-}
-
-const tables = ref<string[]>([])
-const tablesLoading = ref(false)
-const tablesError = ref('')
-
-// 瀏覽頁籤目前選擇的資料庫，對應不同的暫停狀態
-const browseDb = ref<'BK35MENU' | 'BKSQL'>('BK35MENU')
-const browseDbAttached = computed(() =>
-  browseDb.value === 'BK35MENU' ? bk35menuAttached.value : bksqlAttached.value
-)
-
-function onDbChange() {
-  selectedTable.value = ''
-  tables.value = []
-  columns.value = []
-  rows.value = []
-  search.value = ''
-  if (browseDbAttached.value !== false) {
-    fetchTables()
-  }
-}
-
-async function fetchTables() {
-  if (browseDbAttached.value === false) {
-    tablesLoading.value = false
-    return
-  }
-  tablesLoading.value = true
-  tablesError.value = ''
-  try {
-    const res = await $fetch<string[] | { error: string }>(
-      `${apiBase.value}/holy/bk35sql/tables`,
-      { credentials: 'include', query: { db: browseDb.value } }
-    )
-    if (Array.isArray(res)) {
-      tables.value = res
-    } else {
-      tablesError.value = res?.error ?? '取得資料表清單失敗'
+  function onDbChange() {
+    selectedTable.value = ''
+    tables.value = []
+    columns.value = []
+    rows.value = []
+    search.value = ''
+    if (browseDbAttached.value !== false) {
+      fetchTables()
     }
-  } catch (e: any) {
-    tablesError.value = e?.message ?? '取得資料表清單失敗'
-  } finally {
-    tablesLoading.value = false
   }
-}
 
-const selectedTable = ref('')
-const search = ref('')
-const page = ref(1)
-const totalPages = ref(1)
-const total = ref(0)
-const columns = ref<string[]>([])
-const rows = ref<Record<string, any>[]>([])
-const dataLoading = ref(false)
-const dataError = ref('')
-
-async function fetchData(p: number) {
-  if (!selectedTable.value) return
-  dataLoading.value = true
-  dataError.value = ''
-  page.value = p
-  try {
-    const res = await $fetch<DataResponse>(
-      `${apiBase.value}/holy/bk35sql/data/${selectedTable.value}`,
-      { credentials: 'include', query: { db: browseDb.value, page: p, search: search.value } }
-    )
-    if (res?.error) {
-      dataError.value = res.error
-      columns.value = []
-      rows.value = []
-      total.value = 0
-      totalPages.value = 1
-    } else {
-      columns.value = res?.columns ?? []
-      rows.value = res?.rows ?? []
-      total.value = res?.total ?? 0
-      totalPages.value = res?.totalPages ?? 1
+  async function fetchTables() {
+    if (browseDbAttached.value === false) {
+      tablesLoading.value = false
+      return
     }
-  } catch (e: any) {
-    dataError.value = e?.message ?? '載入資料失敗'
-  } finally {
-    dataLoading.value = false
+    tablesLoading.value = true
+    tablesError.value = ''
+    try {
+      const res = await $fetch<string[] | { error: string }>(
+        `${apiBase.value}/holy/bk35sql/tables`,
+          { credentials: 'include', query: { db: browseDb.value } }
+      )
+      if (Array.isArray(res)) {
+        tables.value = res
+      } else {
+        tablesError.value = res?.error ?? '取得資料表清單失敗'
+      }
+    } catch (e: any) {
+      tablesError.value = e?.message ?? '取得資料表清單失敗'
+    } finally {
+      tablesLoading.value = false
+    }
   }
-}
 
-function onTableChange() {
-  search.value = ''
-  fetchData(1)
-  showSchema.value = false
-}
+  const selectedTable = ref('')
+  const search = ref('')
+  const page = ref(1)
+  const totalPages = ref(1)
+  const total = ref(0)
+  const columns = ref<string[]>([])
+  const rows = ref<Record<string, any>[]>([])
+  const dataLoading = ref(false)
+  const dataError = ref('')
 
-function resetSearch() {
-  search.value = ''
-  fetchData(1)
-}
+  async function fetchData(p: number) {
+    if (!selectedTable.value) return
+    dataLoading.value = true
+    dataError.value = ''
+    page.value = p
+    try {
+      const res = await $fetch<DataResponse>(
+        `${apiBase.value}/holy/bk35sql/data/${selectedTable.value}`,
+          { credentials: 'include', query: { db: browseDb.value, page: p, search: search.value } }
+      )
+      if (res?.error) {
+        dataError.value = res.error
+        columns.value = []
+        rows.value = []
+        total.value = 0
+        totalPages.value = 1
+      } else {
+        columns.value = res?.columns ?? []
+        rows.value = res?.rows ?? []
+        total.value = res?.total ?? 0
+        totalPages.value = res?.totalPages ?? 1
+      }
+    } catch (e: any) {
+      dataError.value = e?.message ?? '載入資料失敗'
+    } finally {
+      dataLoading.value = false
+    }
+  }
 
-// ══════════════════ 欄位結構查看 ══════════════════
-// 對應後端新增的 GET /holy/bk35sql/schema/{table} 端點，
-// 不撈資料列，只回傳欄位型別/長度/是否可為 NULL/主鍵，方便規劃新功能時直接複製貼給 Claude 參考。
+  function onTableChange() {
+    search.value = ''
+    fetchData(1)
+    showSchema.value = false
+  }
 
-interface SchemaColumn {
-  name: string
-  type: string
-  maxLength: number | null
-  numericPrecision: number | null
-  numericScale: number | null
-  nullable: boolean
+  function resetSearch() {
+    search.value = ''
+    fetchData(1)
+  }
+
+  // ══════════════════ 欄位結構查看 ══════════════════
+  // 對應後端新增的 GET /holy/bk35sql/schema/{table} 端點，
+  // 不撈資料列，只回傳欄位型別/長度/是否可為 NULL/主鍵，方便規劃新功能時直接複製貼給 Claude 參考。
+
+  interface SchemaColumn {
+    name: string
+    type: string
+    maxLength: number | null
+    numericPrecision: number | null
+    numericScale: number | null
+    nullable: boolean
   default: string | null
-}
-interface SchemaResponse {
-  table: string
-  columns: SchemaColumn[]
-  primaryKeys: string[]
-  error?: string
-}
+  }
+  interface SchemaResponse {
+    table: string
+    columns: SchemaColumn[]
+    primaryKeys: string[]
+    error?: string
+  }
 
-const showSchema = ref(false)
-const schemaLoading = ref(false)
-const schemaError = ref('')
-const schemaResult = ref<SchemaResponse | null>(null)
-const copyLabel = ref('複製 JSON')
+  const showSchema = ref(false)
+  const schemaLoading = ref(false)
+  const schemaError = ref('')
+  const schemaResult = ref<SchemaResponse | null>(null)
+  const copyLabel = ref('複製 JSON')
 
-async function fetchSchema() {
-  if (!selectedTable.value) return
-  showSchema.value = true
-  schemaLoading.value = true
-  schemaError.value = ''
-  schemaResult.value = null
-  try {
-    const res = await $fetch<SchemaResponse>(
-      `${apiBase.value}/holy/bk35sql/schema/${selectedTable.value}`,
-      { credentials: 'include', query: { db: browseDb.value } }
-    )
-    if (res?.error) {
-      schemaError.value = res.error
-    } else {
-      schemaResult.value = res
+  async function fetchSchema() {
+    if (!selectedTable.value) return
+    showSchema.value = true
+    schemaLoading.value = true
+    schemaError.value = ''
+    schemaResult.value = null
+    try {
+      const res = await $fetch<SchemaResponse>(
+        `${apiBase.value}/holy/bk35sql/schema/${selectedTable.value}`,
+          { credentials: 'include', query: { db: browseDb.value } }
+      )
+      if (res?.error) {
+        schemaError.value = res.error
+      } else {
+        schemaResult.value = res
+      }
+    } catch (e: any) {
+      schemaError.value = e?.message ?? '取得欄位結構失敗'
+    } finally {
+      schemaLoading.value = false
     }
-  } catch (e: any) {
-    schemaError.value = e?.message ?? '取得欄位結構失敗'
-  } finally {
-    schemaLoading.value = false
   }
-}
 
-function closeSchema() {
-  showSchema.value = false
-}
-
-async function copySchemaJson() {
-  if (!schemaResult.value) return
-  try {
-    await navigator.clipboard.writeText(JSON.stringify(schemaResult.value, null, 2))
-    copyLabel.value = '已複製 ✓'
-    setTimeout(() => { copyLabel.value = '複製 JSON' }, 1500)
-  } catch {
-    copyLabel.value = '複製失敗，請手動選取文字'
+  function closeSchema() {
+    showSchema.value = false
   }
-}
 
-// ══════════════════ 全部資料表結構（一次匯出） ══════════════════
-// 對應後端新增的 GET /holy/bk35sql/schema-all 端點，一次撈整個資料庫所有表的結構，
-// 不用像上面單表查詢一樣一張一張點。
-
-interface SchemaAllResponse {
-  db: string
-  tableCount: number
-  tables: Record<string, { columns: SchemaColumn[]; primaryKeys: string[] }>
-  error?: string
-}
-
-const showSchemaAll = ref(false)
-const schemaAllLoading = ref(false)
-const schemaAllError = ref('')
-const schemaAllResult = ref<SchemaAllResponse | null>(null)
-const copyAllLabel = ref('複製全部 JSON')
-
-async function fetchSchemaAll() {
-  showSchemaAll.value = true
-  schemaAllLoading.value = true
-  schemaAllError.value = ''
-  schemaAllResult.value = null
-  try {
-    const res = await $fetch<SchemaAllResponse>(
-      `${apiBase.value}/holy/bk35sql/schema-all`,
-      { credentials: 'include', query: { db: browseDb.value } }
-    )
-    if (res?.error) {
-      schemaAllError.value = res.error
-    } else {
-      schemaAllResult.value = res
+  async function copySchemaJson() {
+    if (!schemaResult.value) return
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(schemaResult.value, null, 2))
+      copyLabel.value = '已複製 ✓'
+      setTimeout(() => { copyLabel.value = '複製 JSON' }, 1500)
+    } catch {
+      copyLabel.value = '複製失敗，請手動選取文字'
     }
-  } catch (e: any) {
-    schemaAllError.value = e?.message ?? '取得全部欄位結構失敗'
-  } finally {
-    schemaAllLoading.value = false
   }
-}
 
-function closeSchemaAll() {
-  showSchemaAll.value = false
-}
+  // ══════════════════ 全部資料表結構（一次匯出） ══════════════════
+  // 對應後端新增的 GET /holy/bk35sql/schema-all 端點，一次撈整個資料庫所有表的結構，
+  // 不用像上面單表查詢一樣一張一張點。
 
-async function copySchemaAllJson() {
-  if (!schemaAllResult.value) return
-  try {
-    await navigator.clipboard.writeText(JSON.stringify(schemaAllResult.value, null, 2))
-    copyAllLabel.value = '已複製 ✓'
-    setTimeout(() => { copyAllLabel.value = '複製全部 JSON' }, 1500)
-  } catch {
-    copyAllLabel.value = '複製失敗，請手動選取文字'
+  interface SchemaAllResponse {
+    db: string
+    tableCount: number
+    tables: Record<string, { columns: SchemaColumn[]; primaryKeys: string[] }>
+    error?: string
   }
-}
 
-await checkStatus()
+  const showSchemaAll = ref(false)
+  const schemaAllLoading = ref(false)
+  const schemaAllError = ref('')
+  const schemaAllResult = ref<SchemaAllResponse | null>(null)
+  const copyAllLabel = ref('複製全部 JSON')
+
+  async function fetchSchemaAll() {
+    showSchemaAll.value = true
+    schemaAllLoading.value = true
+    schemaAllError.value = ''
+    schemaAllResult.value = null
+    try {
+      const res = await $fetch<SchemaAllResponse>(
+        `${apiBase.value}/holy/bk35sql/schema-all`,
+          { credentials: 'include', query: { db: browseDb.value } }
+      )
+      if (res?.error) {
+        schemaAllError.value = res.error
+      } else {
+        schemaAllResult.value = res
+      }
+    } catch (e: any) {
+      schemaAllError.value = e?.message ?? '取得全部欄位結構失敗'
+    } finally {
+      schemaAllLoading.value = false
+    }
+  }
+
+  function closeSchemaAll() {
+    showSchemaAll.value = false
+  }
+
+  async function copySchemaAllJson() {
+    if (!schemaAllResult.value) return
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(schemaAllResult.value, null, 2))
+      copyAllLabel.value = '已複製 ✓'
+      setTimeout(() => { copyAllLabel.value = '複製全部 JSON' }, 1500)
+    } catch {
+      copyAllLabel.value = '複製失敗，請手動選取文字'
+    }
+  }
+
+  await checkStatus()
 </script>
 
 <template>
@@ -833,91 +835,91 @@ await checkStatus()
 </template>
 
 <style scoped>
-.page-wrap { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-.page-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
+  .page-wrap { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .page-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
 
-.tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
-.sw-tab { padding: 6px 16px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; }
-.sw-tab.active { background: var(--accent); color: #fff; }
+  .tab-switch { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .sw-tab { padding: 6px 16px; font-size: 13px; border: none; background: var(--surface); color: var(--text-muted); cursor: pointer; }
+  .sw-tab.active { background: var(--accent); color: #fff; }
 
-.status-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.status-card { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 16px 20px; }
-.status-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-.status-value { font-size: 16px; font-weight: 700; }
-.status-value.ok { color: #1e7e34; }
-.status-value.off { color: #c0392b; }
+  .status-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .status-card { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 16px 20px; }
+  .status-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .status-value { font-size: 16px; font-weight: 700; }
+  .status-value.ok { color: #1e7e34; }
+  .status-value.off { color: #c0392b; }
 
-.warning-box { font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; line-height: 1.6; }
+  .warning-box { font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; line-height: 1.6; }
 
-.section { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-.section-title { font-size: 14px; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px; }
-.section-hint { font-size: 12px; color: var(--text-hint); margin: 0; line-height: 1.6; }
+  .section { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .section-title { font-size: 14px; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 8px; }
+  .section-hint { font-size: 12px; color: var(--text-hint); margin: 0; line-height: 1.6; }
 
-.action-row { display: flex; gap: 10px; flex-wrap: wrap; }
-.btn-primary { padding: 8px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-danger { padding: 8px 18px; background: #c0392b; color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+  .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-primary { padding: 8px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger { padding: 8px 18px; background: #c0392b; color: #fff; border: none; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+  .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { padding: 7px 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+  .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.upload-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.file-input { font-size: 13px; }
+  .upload-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .file-input { font-size: 13px; }
 
-.file-preview-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.file-preview-list li { font-size: 12px; color: var(--text-muted); background: var(--surface2); border-radius: var(--radius-sm); padding: 6px 10px; }
-.file-preview-list li.invalid { background: #fdecea; color: #c0392b; }
-.file-preview-list li strong { color: var(--text); }
-.invalid-hint { font-weight: 600; }
+  .file-preview-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .file-preview-list li { font-size: 12px; color: var(--text-muted); background: var(--surface2); border-radius: var(--radius-sm); padding: 6px 10px; }
+  .file-preview-list li.invalid { background: #fdecea; color: #c0392b; }
+  .file-preview-list li strong { color: var(--text); }
+  .invalid-hint { font-weight: 600; }
 
-.result-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.result-label { color: var(--text); }
+  .result-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .result-label { color: var(--text); }
 
-.result-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-.result-badge.ok { background: #e6f4ea; color: #1e7e34; }
-.result-badge.fail { background: #fdecea; color: #c0392b; }
-.output-box { background: #1e1e1e; color: #d4d4d4; font-size: 12px; padding: 12px 14px; border-radius: var(--radius-sm); overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0; max-height: 320px; overflow-y: auto; }
+  .result-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  .result-badge.ok { background: #e6f4ea; color: #1e7e34; }
+  .result-badge.fail { background: #fdecea; color: #c0392b; }
+  .output-box { background: #1e1e1e; color: #d4d4d4; font-size: 12px; padding: 12px 14px; border-radius: var(--radius-sm); overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0; max-height: 320px; overflow-y: auto; }
 
-.paused-banner { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
+  .paused-banner { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 12px 16px; }
 
-.filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.table-select { padding: 7px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; min-width: 200px; }
-.table-select:focus { border-color: var(--accent); }
-.search-input { width: 220px; padding: 7px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
-.search-input:focus { border-color: var(--accent); }
-.search-input:disabled, .table-select:disabled { opacity: 0.5; }
-.total-hint { font-size: 13px; color: var(--text-hint); }
+  .filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .table-select { padding: 7px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; min-width: 200px; }
+  .table-select:focus { border-color: var(--accent); }
+  .search-input { width: 220px; padding: 7px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input:disabled, .table-select:disabled { opacity: 0.5; }
+  .total-hint { font-size: 13px; color: var(--text-hint); }
 
-.loading { color: var(--text-hint); font-size: 14px; }
-.error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; }
-.empty-hint { color: var(--text-hint); font-size: 14px; padding: 24px 0; text-align: center; }
-.empty-cell { text-align: center; color: var(--text-hint); padding: 24px 0 !important; }
+  .loading { color: var(--text-hint); font-size: 14px; }
+  .error-box { color: #c0392b; font-size: 13px; background: #fdecea; border: 1px solid #f5c6cb; border-radius: var(--radius-sm); padding: 10px 14px; }
+  .empty-hint { color: var(--text-hint); font-size: 14px; padding: 24px 0; text-align: center; }
+  .empty-cell { text-align: center; color: var(--text-hint); padding: 24px 0 !important; }
 
-.table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
-.data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
-.data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: var(--accent-light); }
-.text-muted { color: var(--text-muted); font-size: 12px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+  .data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-light); color: var(--text); white-space: nowrap; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--accent-light); }
+  .text-muted { color: var(--text-muted); font-size: 12px; }
 
-.pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
-.page-btn { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text); }
-.page-btn:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-info { font-size: 13px; color: var(--text-muted); }
+  .pagination { display: flex; align-items: center; gap: 12px; justify-content: center; }
+  .page-btn { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text); }
+  .page-btn:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .page-info { font-size: 13px; color: var(--text-muted); }
 
-/* 欄位結構彈窗 */
-.btn-ghost.small, .btn-primary.small { padding: 4px 10px; font-size: 12px; }
-.schema-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 24px; }
-.schema-modal { background: var(--surface); border-radius: var(--radius); padding: 20px 24px; width: min(720px, 100%); max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
-.schema-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.schema-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.pk-badge { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
-.schema-json { max-height: 260px; }
-.schema-table-detail { border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 4px 0; }
-.schema-table-detail summary { cursor: pointer; padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--text); }
-.schema-table-detail summary:hover { color: var(--accent); }
-.schema-table-detail .table-wrap { margin: 0 12px 10px; border: none; }
+  /* 欄位結構彈窗 */
+  .btn-ghost.small, .btn-primary.small { padding: 4px 10px; font-size: 12px; }
+  .schema-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 24px; }
+  .schema-modal { background: var(--surface); border-radius: var(--radius); padding: 20px 24px; width: min(720px, 100%); max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  .schema-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .schema-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .pk-badge { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
+  .schema-json { max-height: 260px; }
+  .schema-table-detail { border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 4px 0; }
+  .schema-table-detail summary { cursor: pointer; padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--text); }
+  .schema-table-detail summary:hover { color: var(--accent); }
+  .schema-table-detail .table-wrap { margin: 0 12px 10px; border: none; }
 </style>
