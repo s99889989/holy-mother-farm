@@ -671,12 +671,12 @@
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <div
-            class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-base font-bold flex-shrink-0">
+            class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white text-base md:text-lg font-bold flex-shrink-0">
             📋
           </div>
           <div>
-            <h1 class="font-bold text-base-c leading-none text-base sm:text-lg">工作手冊</h1>
-            <p class="text-sm text-hint-c mt-0.5 hidden sm:block">聖母健康農莊</p>
+            <h1 class="font-bold text-base-c leading-none text-base sm:text-lg md:text-xl">工作手冊</h1>
+            <p class="text-sm md:text-base text-hint-c mt-0.5 hidden sm:block">聖母健康農莊</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -684,7 +684,7 @@
           <button v-if="editMode"
                   @click="saveSop"
                   :disabled="saving"
-                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border bg-green-700 border-green-700 text-white hover:bg-green-800 transition-all disabled:opacity-50">
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm md:text-base font-medium border bg-green-700 border-green-700 text-white hover:bg-green-800 transition-all disabled:opacity-50">
             <svg v-if="!saving" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
@@ -697,7 +697,7 @@
           </button>
           <!-- Edit Mode toggle -->
           <button @click="editMode = !editMode"
-                  :class="['flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all',
+                  :class="['flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm md:text-base font-medium border transition-all',
  editMode
  ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
  : 'bg-surface2 border-light-c text-hint-c']">
@@ -718,7 +718,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
       </svg>
-      <span class="text-base">載入中…</span>
+      <span class="text-base md:text-lg">載入中…</span>
     </div>
 
     <div v-else class="w-full px-3 sm:px-4 py-4 sm:py-6 flex flex-col md:flex-row gap-4 items-start">
@@ -733,22 +733,22 @@
               <template v-if="editMode && editingLabelId === group.id">
                 <input :id="'label-input-'+group.id" v-model="editingLabelVal"
                        @blur="commitLabel(group)" @keyup.enter="commitLabel(group)"
-                       class="flex-1 text-sm font-semibold uppercase tracking-wider bg-surface2 rounded px-1 py-0.5 outline-none text-muted-c w-full"/>
+                       class="flex-1 text-sm md:text-base font-semibold uppercase tracking-wider bg-surface2 rounded px-1 py-0.5 outline-none text-muted-c w-full"/>
               </template>
               <template v-else>
-                <span :class="['flex-1 text-sm font-semibold uppercase tracking-wider text-hint-c truncate',
+                <span :class="['flex-1 text-sm md:text-base font-semibold uppercase tracking-wider text-hint-c truncate',
  editMode ? 'cursor-pointer hover-text-muted' : '']"
                       @click="editMode && startEditLabel(group.id, group.label)">{{ group.label }}</span>
               </template>
               <template v-if="editMode">
                 <button @click="moveGroup(gIdx, -1)"
-                        class="text-hint-c hover:text-hint-c text-sm px-0.5" title="上移">↑
+                        class="text-hint-c hover:text-hint-c text-sm md:text-base px-0.5" title="上移">↑
                 </button>
                 <button @click="moveGroup(gIdx, 1)"
-                        class="text-hint-c hover:text-hint-c text-sm px-0.5" title="下移">↓
+                        class="text-hint-c hover:text-hint-c text-sm md:text-base px-0.5" title="下移">↓
                 </button>
                 <button @click="deleteGroup(gIdx)"
-                        class="text-red-300 dark:text-red-700 hover:text-red-500 text-sm px-0.5" title="刪除分類">×
+                        class="text-red-300 dark:text-red-700 hover:text-red-500 text-sm md:text-base px-0.5" title="刪除分類">×
                 </button>
               </template>
             </div>
@@ -756,7 +756,7 @@
             <!-- Pages -->
             <div v-for="(page, pIdx) in group.pages" :key="page.id"
                  class="flex items-center group/page">
-              <a :class="['flex-1 flex items-center gap-2 px-3 py-2 text-base cursor-pointer transition-colors border-l-2 min-w-0',
+              <a :class="['flex-1 flex items-center gap-2 px-3 py-2 text-base md:text-lg cursor-pointer transition-colors border-l-2 min-w-0',
  activePageId === page.id
  ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-medium'
  : 'border-transparent text-muted-c hover-surface2']"
@@ -768,24 +768,24 @@
                 <template v-if="editMode && editingLabelId === page.id">
                   <input :id="'label-input-'+page.id" v-model="editingLabelVal"
                          @blur="commitLabel(page)" @keyup.enter="commitLabel(page)"
-                         class="flex-1 min-w-0 text-sm bg-surface2 rounded px-1 py-0.5 outline-none"/>
+                         class="flex-1 min-w-0 text-sm md:text-base bg-surface2 rounded px-1 py-0.5 outline-none"/>
                 </template>
                 <template v-else>
-                  <span class="truncate text-sm"
+                  <span class="truncate text-sm md:text-base"
                         @dblclick="editMode && startEditLabel(page.id, page.label)">{{ page.label }}</span>
                 </template>
               </a>
               <template v-if="editMode">
                 <div class="flex flex-col pr-1 md:opacity-0 md:group-hover/page:opacity-100 transition-opacity">
                   <button @click="movePage(group, pIdx, -1)"
-                          class="text-hint-c hover:text-hint-c text-sm leading-none">↑
+                          class="text-hint-c hover:text-hint-c text-sm md:text-base leading-none">↑
                   </button>
                   <button @click="movePage(group, pIdx, 1)"
-                          class="text-hint-c hover:text-hint-c text-sm leading-none">↓
+                          class="text-hint-c hover:text-hint-c text-sm md:text-base leading-none">↓
                   </button>
                 </div>
                 <button @click="deletePage(group, pIdx)"
-                        class="pr-2 text-red-300 hover:text-red-500 text-sm md:opacity-0 md:group-hover/page:opacity-100 transition-opacity">
+                        class="pr-2 text-red-300 hover:text-red-500 text-sm md:text-base md:opacity-0 md:group-hover/page:opacity-100 transition-opacity">
                   ×
                 </button>
               </template>
@@ -794,7 +794,7 @@
             <!-- Add page -->
             <div v-if="editMode" class="px-3 pb-2 pt-1">
               <button @click="addPage(group)"
-                      class="w-full text-sm text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
+                      class="w-full text-sm md:text-base text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
                 ＋ 新增頁面
               </button>
             </div>
@@ -803,7 +803,7 @@
           <!-- Add group -->
           <div v-if="editMode" class="px-3 py-2 border-t border-light-c">
             <button @click="addGroup"
-                    class="w-full text-sm text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
+                    class="w-full text-sm md:text-base text-hint-c hover:text-green-600 dark:hover:text-green-400 border border-dashed border-light-c rounded-lg py-1 transition-colors">
               ＋ 新增分類
             </button>
           </div>
@@ -814,7 +814,7 @@
       <div class="md:hidden w-full">
         <div class="flex gap-2 mb-2">
           <select v-model="activePageId"
-                  class="flex-1 min-w-0 text-base border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none">
+                  class="flex-1 min-w-0 text-base md:text-lg border border-light-c rounded-xl px-3 py-2 bg-surface text-base-c outline-none">
             <optgroup v-for="g in sopData.groups" :key="g.id" :label="g.label">
               <option v-for="p in g.pages" :key="p.id" :value="p.id">{{ p.label }}</option>
             </optgroup>
@@ -823,11 +823,11 @@
           <template v-if="editMode">
             <button
               @click="sopData.groups.length && addPage(sopData.groups[sopData.groups.findIndex(g => g.pages.some(p => p.id === activePageId)) >= 0 ? sopData.groups.findIndex(g => g.pages.some(p => p.id === activePageId)) : 0])"
-              class="px-3 py-2 rounded-xl border border-dashed border-light-c text-hint-c hover:text-green-600 text-sm whitespace-nowrap">
+              class="px-3 py-2 rounded-xl border border-dashed border-light-c text-hint-c hover:text-green-600 text-sm md:text-base whitespace-nowrap">
               ＋頁面
             </button>
             <button @click="addGroup"
-                    class="px-3 py-2 rounded-xl border border-dashed border-light-c text-hint-c hover:text-green-600 text-sm whitespace-nowrap">
+                    class="px-3 py-2 rounded-xl border border-dashed border-light-c text-hint-c hover:text-green-600 text-sm md:text-base whitespace-nowrap">
               ＋分類
             </button>
           </template>
@@ -841,7 +841,7 @@
           <!-- Page header -->
           <div class="mb-4 flex items-start justify-between gap-2">
             <div>
-              <h2 class="text-lg font-bold text-base-c">{{ activePage.label }}</h2>
+              <h2 class="text-lg md:text-xl font-bold text-base-c">{{ activePage.label }}</h2>
             </div>
           </div>
 
@@ -852,8 +852,8 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                     d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-            <p class="text-base">這個頁面還沒有內容</p>
-            <p v-if="!editMode" class="text-sm mt-1">開啟右上角「編輯模式」來新增區塊</p>
+            <p class="text-base md:text-lg">這個頁面還沒有內容</p>
+            <p v-if="!editMode" class="text-sm md:text-base mt-1">開啟右上角「編輯模式」來新增區塊</p>
           </div>
 
           <!-- Blocks -->
@@ -862,14 +862,14 @@
             <!-- Block edit controls -->
             <div v-if="editMode"
                  class="absolute -top-2 -right-2 z-10 flex items-center gap-1 md:opacity-0 md:group-hover/block:opacity-100 transition-opacity bg-surface rounded-xl border border-light-c shadow-sm px-1.5 py-1">
-              <button @click="moveBlock(activePage, bIdx, -1)" class="text-hint-c hover:text-muted-c text-sm px-1"
+              <button @click="moveBlock(activePage, bIdx, -1)" class="text-hint-c hover:text-muted-c text-sm md:text-base px-1"
                       title="上移">↑
               </button>
-              <button @click="moveBlock(activePage, bIdx, 1)" class="text-hint-c hover:text-muted-c text-sm px-1"
+              <button @click="moveBlock(activePage, bIdx, 1)" class="text-hint-c hover:text-muted-c text-sm md:text-base px-1"
                       title="下移">↓
               </button>
               <span class="text-base-c dark:text-muted-c">|</span>
-              <button @click="deleteBlock(activePage, bIdx)" class="text-red-400 hover:text-red-600 text-sm px-1"
+              <button @click="deleteBlock(activePage, bIdx)" class="text-red-400 hover:text-red-600 text-sm md:text-base px-1"
                       title="刪除">🗑
               </button>
             </div>
@@ -879,11 +879,11 @@
               <SopCard :title="block.title" :badge="block.badge" :badge-type="block.badgeType">
                 <div v-if="editMode" class="flex gap-2 mb-3 flex-wrap">
                   <input v-model="block.title" placeholder="標題"
-                         class="flex-1 min-w-0 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="flex-1 min-w-0 px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <input v-model="block.badge" placeholder="標籤"
-                         class="w-24 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="w-24 px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <select v-model="block.badgeType"
-                          class="px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
+                          class="px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
                     <option value="green">綠</option>
                     <option value="orange">橙</option>
                     <option value="gray">灰</option>
@@ -903,33 +903,33 @@
                     </div>
                     <template v-if="editMode">
                       <input v-model="item.text"
-                             class="flex-1 min-w-0 px-2 py-0.5 text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                             class="flex-1 min-w-0 px-2 py-0.5 text-base md:text-lg border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                       <div
                         class="flex gap-0.5 md:opacity-0 md:group-hover/item:opacity-100 transition-opacity flex-shrink-0">
                         <button @click="moveCheckItem(block, iIdx, -1)"
-                                class="text-hint-c hover:text-hint-c text-sm px-0.5">↑
+                                class="text-hint-c hover:text-hint-c text-sm md:text-base px-0.5">↑
                         </button>
                         <button @click="moveCheckItem(block, iIdx, 1)"
-                                class="text-hint-c hover:text-hint-c text-sm px-0.5">↓
+                                class="text-hint-c hover:text-hint-c text-sm md:text-base px-0.5">↓
                         </button>
                         <button @click="deleteCheckItem(block, iIdx)"
-                                class="text-red-300 hover:text-red-500 text-sm px-0.5">×
+                                class="text-red-300 hover:text-red-500 text-sm md:text-base px-0.5">×
                         </button>
                       </div>
                     </template>
                     <span v-else
-                          :class="['flex-1 text-base leading-relaxed', item.done ? 'line-through text-hint-c' : 'text-base-c']">{{
+                          :class="['flex-1 text-base md:text-lg leading-relaxed', item.done ? 'line-through text-hint-c' : 'text-base-c']">{{
                         item.text
                       }}</span>
                   </li>
                 </ul>
                 <div class="flex items-center justify-between mt-2">
                   <button v-if="editMode" @click="addCheckItem(block)"
-                          class="text-sm text-green-600 dark:text-green-400 hover:underline">＋ 新增項目
+                          class="text-sm md:text-base text-green-600 dark:text-green-400 hover:underline">＋ 新增項目
                   </button>
                   <div v-else/>
                   <button @click="block.items.forEach(i => i.done = false)"
-                          class="text-sm text-hint-c hover-text-muted px-2 py-1 rounded-lg hover-surface2 transition-colors">
+                          class="text-sm md:text-base text-hint-c hover-text-muted px-2 py-1 rounded-lg hover-surface2 transition-colors">
                     ↺ 重置
                   </button>
                 </div>
@@ -941,11 +941,11 @@
               <SopCard :title="block.title" :badge="block.badge" :badge-type="block.badgeType">
                 <div v-if="editMode" class="flex gap-2 mb-3 flex-wrap">
                   <input v-model="block.title" placeholder="標題"
-                         class="flex-1 min-w-0 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="flex-1 min-w-0 px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <input v-model="block.badge" placeholder="標籤"
-                         class="w-24 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                         class="w-24 px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   <select v-model="block.badgeType"
-                          class="px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
+                          class="px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none">
                     <option value="green">綠</option>
                     <option value="orange">橙</option>
                     <option value="gray">灰</option>
@@ -954,21 +954,21 @@
                 <ol class="space-y-3">
                   <li v-for="(item, iIdx) in block.items" :key="item.id" class="flex gap-3 group/step">
                     <span
-                      class="w-6 h-6 rounded-full bg-green-700 text-white text-sm font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{
+                      class="w-6 h-6 rounded-full bg-green-700 text-white text-sm md:text-base font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{{
                         iIdx + 1
                       }}</span>
                     <div class="flex-1 min-w-0">
                       <template v-if="editMode">
                         <input v-model="item.title" placeholder="步驟標題"
-                               class="w-full px-2 py-1 text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-1"/>
+                               class="w-full px-2 py-1 text-base md:text-lg border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-1"/>
                         <textarea v-model="item.desc" v-auto-resize @input="resizeTextarea($event.target)"
                                   placeholder="步驟說明（選填）" rows="2"
-                                  class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none overflow-hidden"/>
+                                  class="w-full px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none overflow-hidden"/>
                       </template>
                       <template v-else>
-                        <p class="text-base font-medium text-base-c">{{ item.title }}</p>
+                        <p class="text-base md:text-lg font-medium text-base-c">{{ item.title }}</p>
                         <p v-if="item.desc"
-                           class="text-sm text-hint-c mt-0.5 whitespace-pre-line">{{
+                           class="text-sm md:text-base text-hint-c mt-0.5 whitespace-pre-line">{{
                           item.desc
                           }}</p>
                       </template>
@@ -976,19 +976,19 @@
                     <div v-if="editMode"
                          class="flex gap-0.5 md:opacity-0 md:group-hover/step:opacity-100 transition-opacity flex-shrink-0 pt-1">
                       <button @click="moveStepItem(block, iIdx, -1)"
-                              class="text-hint-c hover:text-hint-c text-sm px-0.5">↑
+                              class="text-hint-c hover:text-hint-c text-sm md:text-base px-0.5">↑
                       </button>
                       <button @click="moveStepItem(block, iIdx, 1)"
-                              class="text-hint-c hover:text-hint-c text-sm px-0.5">↓
+                              class="text-hint-c hover:text-hint-c text-sm md:text-base px-0.5">↓
                       </button>
                       <button @click="deleteStepItem(block, iIdx)"
-                              class="text-red-300 hover:text-red-500 text-sm px-0.5">×
+                              class="text-red-300 hover:text-red-500 text-sm md:text-base px-0.5">×
                       </button>
                     </div>
                   </li>
                 </ol>
                 <button v-if="editMode" @click="addStepItem(block)"
-                        class="mt-3 text-sm text-green-600 dark:text-green-400 hover:underline">＋ 新增步驟
+                        class="mt-3 text-sm md:text-base text-green-600 dark:text-green-400 hover:underline">＋ 新增步驟
                 </button>
               </SopCard>
             </template>
@@ -1002,9 +1002,9 @@
                 <template v-if="editMode">
                   <div class="flex gap-2 mb-2 flex-wrap">
                     <input v-model="block.title" placeholder="標題"
-                           class="flex-1 min-w-0 px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-base-c outline-none font-semibold"/>
+                           class="flex-1 min-w-0 px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface text-base-c outline-none font-semibold"/>
                     <select v-model="block.variant"
-                            class="px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-base-c outline-none">
+                            class="px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface text-base-c outline-none">
                       <option value="info">藍色</option>
                       <option value="warn">橙色</option>
                       <option value="default">灰色</option>
@@ -1012,15 +1012,15 @@
                   </div>
                   <textarea v-model="block.content" v-auto-resize @input="resizeTextarea($event.target)"
                             placeholder="內容（換行用 Enter）" rows="3"
-                            class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-none overflow-hidden"/>
+                            class="w-full px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-none overflow-hidden"/>
                 </template>
                 <template v-else>
-                  <p :class="['text-base font-semibold mb-1',
+                  <p :class="['text-base md:text-lg font-semibold mb-1',
  block.variant==='warn' ? 'text-orange-700 dark:text-orange-300' :
  block.variant==='info' ? 'text-blue-700 dark:text-blue-300' : 'text-base-c']">
                     {{ block.title }}
                   </p>
-                  <p :class="['text-sm leading-relaxed whitespace-pre-line',
+                  <p :class="['text-sm md:text-base leading-relaxed whitespace-pre-line',
  block.variant==='warn' ? 'text-orange-600 dark:text-orange-400' :
  block.variant==='info' ? 'text-blue-600 dark:text-blue-400' : 'text-hint-c']">
                     {{ block.content }}
@@ -1036,14 +1036,14 @@
                 <div class="flex items-center gap-3 px-4 py-3 border-b border-light-c">
                   <template v-if="editMode">
                     <input v-model="block.title" placeholder="標題"
-                           class="flex-1 px-2 py-1 text-base font-semibold border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
+                           class="flex-1 px-2 py-1 text-base md:text-lg font-semibold border border-light-c rounded-lg bg-surface2 text-base-c outline-none"/>
                   </template>
-                  <span v-else class="flex-1 font-semibold text-base-c text-base">{{
+                  <span v-else class="flex-1 font-semibold text-base-c text-base md:text-lg">{{
                       block.title || '圖片'
                     }}</span>
                   <button v-if="editMode"
                           @click="openImgLib(block)"
-                          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 transition-colors">
+                          class="flex items-center gap-1.5 px-3 py-1.5 text-sm md:text-base font-medium rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -1059,7 +1059,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
-                    <p class="text-sm">{{ editMode ? '點擊上方「插入圖片」從資源庫選取' : '尚無圖片' }}</p>
+                    <p class="text-sm md:text-base">{{ editMode ? '點擊上方「插入圖片」從資源庫選取' : '尚無圖片' }}</p>
                   </div>
                   <!-- Grid -->
                   <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1075,24 +1075,24 @@
                       <div class="px-2 py-1.5">
                         <template v-if="editMode">
                           <input v-model="img.caption" placeholder="說明文字（選填）"
-                                 class="w-full text-sm bg-transparent outline-none text-hint-c"/>
+                                 class="w-full text-sm md:text-base bg-transparent outline-none text-hint-c"/>
                         </template>
-                        <p v-else-if="img.caption" class="text-sm text-hint-c truncate">
+                        <p v-else-if="img.caption" class="text-sm md:text-base text-hint-c truncate">
                           {{ img.caption }}</p>
                       </div>
                       <!-- Edit controls -->
                       <div v-if="editMode"
                            class="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
                         <button @click="moveImg(block, iIdx, -1)"
-                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-sm hover:bg-black/80">
+                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-sm md:text-base hover:bg-black/80">
                           ←
                         </button>
                         <button @click="moveImg(block, iIdx, 1)"
-                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-sm hover:bg-black/80">
+                                class="w-6 h-6 flex items-center justify-center bg-black/60 text-white rounded-lg text-sm md:text-base hover:bg-black/80">
                           →
                         </button>
                         <button @click="removeImg(block, iIdx)"
-                                class="w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-600">
+                                class="w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-sm md:text-base hover:bg-red-600">
                           ×
                         </button>
                       </div>
@@ -1350,7 +1350,7 @@
           <div v-if="editMode" class="mt-2">
             <div v-if="!blockPickerOpen">
               <button @click="blockPickerOpen = true"
-                      class="w-full py-2.5 text-base text-hint-c hover:text-green-600 dark:hover:text-green-400 border-2 border-dashed border-light-c rounded-2xl transition-colors flex items-center justify-center gap-2">
+                      class="w-full py-2.5 text-base md:text-lg text-hint-c hover:text-green-600 dark:hover:text-green-400 border-2 border-dashed border-light-c rounded-2xl transition-colors flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -1359,7 +1359,7 @@
             </div>
             <div v-else
                  class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
-              <p class="text-sm font-semibold text-hint-c mb-3">選擇區塊類型</p>
+              <p class="text-sm md:text-base font-semibold text-hint-c mb-3">選擇區塊類型</p>
               <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <button v-for="bt in [
                   { type:'checklist', icon:'☑️', label:'Checklist', desc:'可打勾的清單' },
@@ -1370,13 +1370,13 @@
                 ]" :key="bt.type"
                         @click="addBlock(activePage, bt.type)"
                         class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-light-c hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all cursor-pointer text-center">
-                  <span class="text-2xl">{{ bt.icon }}</span>
-                  <span class="text-sm font-semibold text-base-c">{{ bt.label }}</span>
-                  <span class="text-sm text-hint-c">{{ bt.desc }}</span>
+                  <span class="text-2xl md:text-3xl">{{ bt.icon }}</span>
+                  <span class="text-sm md:text-base font-semibold text-base-c">{{ bt.label }}</span>
+                  <span class="text-sm md:text-base text-hint-c">{{ bt.desc }}</span>
                 </button>
               </div>
               <button @click="blockPickerOpen = false"
-                      class="mt-3 text-sm text-hint-c hover:text-muted-c w-full text-center">取消
+                      class="mt-3 text-sm md:text-base text-hint-c hover:text-muted-c w-full text-center">取消
               </button>
             </div>
           </div>
@@ -1385,7 +1385,7 @@
 
         <!-- No page selected -->
         <div v-else class="flex flex-col items-center justify-center py-24 text-hint-c">
-          <p class="text-base">請從左側選擇頁面</p>
+          <p class="text-base md:text-lg">請從左側選擇頁面</p>
         </div>
       </div>
     </div>
@@ -1393,7 +1393,7 @@
     <!-- Toast -->
     <transition name="fade">
       <div v-if="toast.show"
-           class="fixed bottom-6 right-6 bg-accent-solid text-white text-base px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+           class="fixed bottom-6 right-6 bg-accent-solid text-white text-base md:text-lg px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
         <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
@@ -1417,15 +1417,15 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
-              <span class="font-semibold text-base-c flex-1 text-base">選取圖片</span>
+              <span class="font-semibold text-base-c flex-1 text-base md:text-lg">選取圖片</span>
               <button @click="imgLibOpen = false"
-                      class="text-hint-c hover:text-muted-c text-xl leading-none flex-shrink-0">
+                      class="text-hint-c hover:text-muted-c text-xl md:text-2xl leading-none flex-shrink-0">
                 ×
               </button>
             </div>
             <!-- Row 2: upload + search -->
             <div class="flex items-center gap-2">
-              <label :class="['flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border transition-colors cursor-pointer flex-shrink-0',
+              <label :class="['flex items-center gap-1.5 px-3 py-1.5 text-sm md:text-base font-medium rounded-xl border transition-colors cursor-pointer flex-shrink-0',
  imgUploading
  ? 'border-light-c bg-surface2 text-hint-c cursor-not-allowed'
  : 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100']">
@@ -1442,7 +1442,7 @@
                        @change="uploadImgFiles"/>
               </label>
               <input v-model="imgLibSearch" placeholder="搜尋…"
-                     class="flex-1 min-w-0 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"/>
+                     class="flex-1 min-w-0 px-3 py-1.5 text-sm md:text-base border border-light-c rounded-xl bg-surface2 text-base-c outline-none"/>
             </div>
           </div>
 
@@ -1453,7 +1453,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0114.13-3.36M20 15a9 9 0 01-14.13 3.36"/>
               </svg>
-              <span class="text-base">載入中…</span>
+              <span class="text-base md:text-lg">載入中…</span>
             </div>
             <div v-else-if="imgLibFiltered.length === 0"
                  class="flex flex-col items-center justify-center py-16 text-hint-c">
@@ -1461,7 +1461,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
-              <p class="text-base">尚無圖片，點擊右上角上傳</p>
+              <p class="text-base md:text-lg">尚無圖片，點擊右上角上傳</p>
             </div>
             <div v-else class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
               <div v-for="img in imgLibFiltered" :key="img.url"
@@ -1473,12 +1473,12 @@
                        class="w-full h-full object-cover group-hover/imgsel:scale-105 transition-transform duration-200"/>
                   <div
                     class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 opacity-0 group-hover/imgsel:opacity-100 transition-opacity">
-                    <p class="text-sm text-white truncate">{{ img.displayName || img.originalName }}</p>
+                    <p class="text-sm md:text-base text-white truncate">{{ img.displayName || img.originalName }}</p>
                   </div>
                 </button>
                 <!-- Delete button -->
                 <button @click.stop="deleteLibImg(img)"
-                        class="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-sm opacity-0 group-hover/imgsel:opacity-100 transition-opacity hover:bg-red-600 z-10">
+                        class="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-red-500/80 text-white rounded-lg text-sm md:text-base opacity-0 group-hover/imgsel:opacity-100 transition-opacity hover:bg-red-600 z-10">
                   ×
                 </button>
               </div>
@@ -1488,9 +1488,9 @@
           <!-- Modal footer -->
           <div
             class="px-4 py-2.5 border-t border-light-c flex-shrink-0 flex items-center justify-between">
-            <span class="text-sm text-hint-c">共 {{ imgLibFiltered.length }} 張圖片・點擊圖片即可插入</span>
+            <span class="text-sm md:text-base text-hint-c">共 {{ imgLibFiltered.length }} 張圖片・點擊圖片即可插入</span>
             <button @click="imgLibOpen = false"
-                    class="px-3 py-1.5 text-sm rounded-xl border border-light-c text-hint-c hover-surface2 transition-colors">
+                    class="px-3 py-1.5 text-sm md:text-base rounded-xl border border-light-c text-hint-c hover-surface2 transition-colors">
               關閉
             </button>
           </div>
