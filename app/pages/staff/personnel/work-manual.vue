@@ -1,641 +1,658 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'personnel.work-manual' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'personnel.work-manual' })
 
-import { ref, reactive, computed, h, nextTick, onMounted } from 'vue'
+  import { ref, reactive, computed, h, nextTick, onMounted } from 'vue'
 
 
 
-useHead({title: 'SOP 手冊 — 聖母健康農莊'})
+  useHead({title: 'SOP 手冊 — 聖母健康農莊'})
 
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/staff/sop'
+  const commonStore = useCommonStore()
+  const BASE = () => commonStore.data.main_url + '/holy/staff/sop'
 
-// ─────────────────────────────────────────
-// Edit Mode
-// ─────────────────────────────────────────
-const editMode = ref(false)
-
-// ─────────────────────────────────────────
-// Inline components
-// ─────────────────────────────────────────
-const SopCard = {
-  props: {title: String, badge: String, badgeType: {default: 'gray'}},
-  setup(props, {slots}) {
-    const open = ref(true)
-    const bc = {
-      green: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-      orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-      gray: 'bg-surface2 text-hint-c dark:text-hint-c'
-    }
-    return () => h('div', {class: 'bg-surface rounded-2xl border border-light-c shadow-sm mb-3 overflow-hidden'}, [
-      h('div', {
-        class: 'flex items-center gap-3 px-4 py-3 cursor-pointer hover-surface2/60 transition-colors select-none border-b border-light-c',
-        onClick: () => {
-          open.value = !open.value
-        }
-      }, [
-        h('span', {class: 'flex-1 font-semibold text-base-c text-base'}, props.title),
-        props.badge ? h('span', {class: `text-sm font-medium px-2 py-0.5 rounded-full ${bc[props.badgeType] || bc.gray}`}, props.badge) : null,
-        h('svg', {
-          class: `w-4 h-4 text-hint-c transition-transform duration-200 ${open.value ? 'rotate-180' : ''}`,
-          fill: 'none',
-          stroke: 'currentColor',
-          viewBox: '0 0 24 24'
-        }, [h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          'stroke-width': 2,
-          d: 'M19 9l-7 7-7-7'
-        })]),
-      ]),
-      open.value ? h('div', {class: 'px-4 py-3'}, slots.default?.()) : null,
-    ])
-  },
-}
-
-// ─────────────────────────────────────────
-// SOP Data model
-// ─────────────────────────────────────────
-let _uid = 1000
-const uid = () => String(++_uid)
-
-const sopData = reactive({groups: []})
-const loading = ref(true)
-const saving = ref(false)
-
-// ─── 載入 API ───────────────────────────
-async function loadSop() {
-  loading.value = true
-  try {
-    const res = await fetch(`${BASE()}/load`)
-    const data = await res.json()
-    if (data.error) {
-      showToast('載入失敗：' + data.error);
-      return
-    }
-    sopData.groups = data.groups || []
-    if (sopData.groups.length > 0) {
-      activePageId.value = sopData.groups[0].pages?.[0]?.id || ''
-    }
-  } catch (e) {
-    showToast('載入失敗，請確認伺服器')
-  } finally {
-    loading.value = false
+  // ─────────────────────────────────────────
+  // Auto-resize textarea directive（依內容自動調整高度）
+  // ─────────────────────────────────────────
+  function resizeTextarea(el) {
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
   }
-}
 
-// ─── 儲存 API ───────────────────────────
-async function saveSop() {
-  saving.value = true
-  try {
-    const payload = JSON.stringify({groups: sopData.groups})
-    const res = await fetch(`${BASE()}/save`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: payload,
+  const vAutoResize = {
+    mounted(el) {
+      resizeTextarea(el)
+    },
+    updated(el) {
+      resizeTextarea(el)
+    },
+  }
+
+  // ─────────────────────────────────────────
+  // Edit Mode
+  // ─────────────────────────────────────────
+  const editMode = ref(false)
+
+  // ─────────────────────────────────────────
+  // Inline components
+  // ─────────────────────────────────────────
+  const SopCard = {
+    props: {title: String, badge: String, badgeType: {default: 'gray'}},
+    setup(props, {slots}) {
+      const open = ref(true)
+      const bc = {
+        green: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+        orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+        gray: 'bg-surface2 text-hint-c dark:text-hint-c'
+      }
+      return () => h('div', {class: 'bg-surface rounded-2xl border border-light-c shadow-sm mb-3 overflow-hidden'}, [
+        h('div', {
+          class: 'flex items-center gap-3 px-4 py-3 cursor-pointer hover-surface2/60 transition-colors select-none border-b border-light-c',
+          onClick: () => {
+            open.value = !open.value
+          }
+        }, [
+          h('span', {class: 'flex-1 font-semibold text-base-c text-base'}, props.title),
+          props.badge ? h('span', {class: `text-sm font-medium px-2 py-0.5 rounded-full ${bc[props.badgeType] || bc.gray}`}, props.badge) : null,
+          h('svg', {
+            class: `w-4 h-4 text-hint-c transition-transform duration-200 ${open.value ? 'rotate-180' : ''}`,
+            fill: 'none',
+            stroke: 'currentColor',
+            viewBox: '0 0 24 24'
+          }, [h('path', {
+            'stroke-linecap': 'round',
+            'stroke-linejoin': 'round',
+            'stroke-width': 2,
+            d: 'M19 9l-7 7-7-7'
+          })]),
+        ]),
+        open.value ? h('div', {class: 'px-4 py-3'}, slots.default?.()) : null,
+      ])
+    },
+  }
+
+  // ─────────────────────────────────────────
+  // SOP Data model
+  // ─────────────────────────────────────────
+  let _uid = 1000
+  const uid = () => String(++_uid)
+
+  const sopData = reactive({groups: []})
+  const loading = ref(true)
+  const saving = ref(false)
+
+  // ─── 載入 API ───────────────────────────
+  async function loadSop() {
+    loading.value = true
+    try {
+      const res = await fetch(`${BASE()}/load`)
+      const data = await res.json()
+      if (data.error) {
+        showToast('載入失敗：' + data.error);
+        return
+      }
+      sopData.groups = data.groups || []
+      if (sopData.groups.length > 0) {
+        activePageId.value = sopData.groups[0].pages?.[0]?.id || ''
+      }
+    } catch (e) {
+      showToast('載入失敗，請確認伺服器')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ─── 儲存 API ───────────────────────────
+  async function saveSop() {
+    saving.value = true
+    try {
+      const payload = JSON.stringify({groups: sopData.groups})
+      const res = await fetch(`${BASE()}/save`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: payload,
+      })
+      const data = await res.json()
+      if (data.error) {
+        showToast('儲存失敗：' + data.error);
+        return
+      }
+      showToast(`✅ 已儲存（v${data.version}）`)
+    } catch (e) {
+      showToast('儲存失敗，請確認伺服器')
+    } finally {
+      saving.value = false
+    }
+  }
+
+  onMounted(loadSop)
+
+  // ── flattened page list ──
+  const allPages = computed(() => sopData.groups.flatMap(g => g.pages.map(p => ({...p, groupId: g.id}))))
+  const activePageId = ref('')
+  const activePage = computed(() => allPages.value.find(p => p.id === activePageId.value) || null)
+
+  // ─────────────────────────────────────────
+  // Sidebar edit helpers
+  // ─────────────────────────────────────────
+  const editingLabelId = ref(null)
+  const editingLabelVal = ref('')
+
+  function startEditLabel(id, val) {
+    editingLabelId.value = id
+    editingLabelVal.value = val
+    nextTick(() => {
+      document.getElementById('label-input-' + id)?.focus()
     })
-    const data = await res.json()
-    if (data.error) {
-      showToast('儲存失敗：' + data.error);
-      return
-    }
-    showToast(`✅ 已儲存（v${data.version}）`)
-  } catch (e) {
-    showToast('儲存失敗，請確認伺服器')
-  } finally {
-    saving.value = false
   }
-}
 
-onMounted(loadSop)
+  function commitLabel(thing) {
+    thing.label = editingLabelVal.value.trim() || thing.label
+    editingLabelId.value = null
+  }
 
-// ── flattened page list ──
-const allPages = computed(() => sopData.groups.flatMap(g => g.pages.map(p => ({...p, groupId: g.id}))))
-const activePageId = ref('')
-const activePage = computed(() => allPages.value.find(p => p.id === activePageId.value) || null)
+  function addGroup() {
+    sopData.groups.push({id: 'g' + uid(), label: '新分類', pages: []})
+  }
 
-// ─────────────────────────────────────────
-// Sidebar edit helpers
-// ─────────────────────────────────────────
-const editingLabelId = ref(null)
-const editingLabelVal = ref('')
+  function deleteGroup(gIdx) {
+    sopData.groups.splice(gIdx, 1)
+  }
 
-function startEditLabel(id, val) {
-  editingLabelId.value = id
-  editingLabelVal.value = val
-  nextTick(() => {
-    document.getElementById('label-input-' + id)?.focus()
+  function addPage(group) {
+    const id = 'p' + uid()
+    group.pages.push({id, label: '新頁面', icon: [['circle', {cx: 12, cy: 12, r: 10}]], blocks: []})
+    activePageId.value = id
+  }
+
+  function deletePage(group, pIdx) {
+    const pid = group.pages[pIdx].id
+    group.pages.splice(pIdx, 1)
+    if (activePageId.value === pid) activePageId.value = allPages.value[0]?.id || ''
+  }
+
+  function moveGroup(idx, dir) {
+    const arr = sopData.groups
+    const target = idx + dir
+    if (target < 0 || target >= arr.length) return
+      ;
+    [arr[idx], arr[target]] = [arr[target], arr[idx]]
+  }
+
+  function movePage(group, idx, dir) {
+    const arr = group.pages
+    const target = idx + dir
+    if (target < 0 || target >= arr.length) return
+      ;
+    [arr[idx], arr[target]] = [arr[target], arr[idx]]
+  }
+
+  // ─────────────────────────────────────────
+  // Block edit helpers
+  // ─────────────────────────────────────────
+  const blockPickerOpen = ref(false)
+
+  function addBlock(page, type) {
+    const id = 'b' + uid()
+    if (type === 'checklist') page.blocks.push({type, id, title: '新 Checklist', badge: '', badgeType: 'gray', items: []})
+    else if (type === 'steps') page.blocks.push({type, id, title: '新步驟說明', badge: '', badgeType: 'gray', items: []})
+    else if (type === 'note') page.blocks.push({type, id, title: '新備註', content: '', variant: 'info'})
+    else if (type === 'flowchart') page.blocks.push({type, id, title: '新流程圖', nodes: [], edges: []})
+    else if (type === 'image') page.blocks.push({type, id, title: '圖片', images: []})
+    blockPickerOpen.value = false
+  }
+
+  function deleteBlock(page, bIdx) {
+    page.blocks.splice(bIdx, 1)
+  }
+
+  function moveBlock(page, idx, dir) {
+    const arr = page.blocks
+    const t = idx + dir
+    if (t < 0 || t >= arr.length) return
+      ;
+    [arr[idx], arr[t]] = [arr[t], arr[idx]]
+  }
+
+  // checklist block helpers
+  function addCheckItem(block) {
+    block.items.push({id: 'ci' + uid(), text: '新項目', done: false})
+  }
+
+  function deleteCheckItem(block, idx) {
+    block.items.splice(idx, 1)
+  }
+
+  function moveCheckItem(block, idx, dir) {
+    const t = idx + dir
+    if (t < 0 || t >= block.items.length) return
+      ;
+    [block.items[idx], block.items[t]] = [block.items[t], block.items[idx]]
+  }
+
+  // steps block helpers
+  function addStepItem(block) {
+    block.items.push({id: 'si' + uid(), title: '新步驟', desc: ''})
+  }
+
+  function deleteStepItem(block, idx) {
+    block.items.splice(idx, 1)
+  }
+
+  function moveStepItem(block, idx, dir) {
+    const t = idx + dir
+    if (t < 0 || t >= block.items.length) return
+      ;
+    [block.items[idx], block.items[t]] = [block.items[t], block.items[idx]]
+  }
+
+  // ─────────────────────────────────────────
+  // 圖片資料庫 (SOP 專屬，固定路徑)
+  // holymotherfarm/staff/personnel/sop/images/
+  // ─────────────────────────────────────────
+  const imgLibOpen = ref(false)
+  const imgLibBlock = ref(null)
+  const imgLibList = ref([])
+  const imgLibLoading = ref(false)
+  const imgLibSearch = ref('')
+  const imgUploading = ref(false)
+
+  const imgLibFiltered = computed(() => {
+    if (!imgLibSearch.value.trim()) return imgLibList.value
+    const kw = imgLibSearch.value.toLowerCase()
+    return imgLibList.value.filter(i =>
+      (i.displayName || i.originalName || '').toLowerCase().includes(kw)
+    )
   })
-}
 
-function commitLabel(thing) {
-  thing.label = editingLabelVal.value.trim() || thing.label
-  editingLabelId.value = null
-}
-
-function addGroup() {
-  sopData.groups.push({id: 'g' + uid(), label: '新分類', pages: []})
-}
-
-function deleteGroup(gIdx) {
-  sopData.groups.splice(gIdx, 1)
-}
-
-function addPage(group) {
-  const id = 'p' + uid()
-  group.pages.push({id, label: '新頁面', icon: [['circle', {cx: 12, cy: 12, r: 10}]], blocks: []})
-  activePageId.value = id
-}
-
-function deletePage(group, pIdx) {
-  const pid = group.pages[pIdx].id
-  group.pages.splice(pIdx, 1)
-  if (activePageId.value === pid) activePageId.value = allPages.value[0]?.id || ''
-}
-
-function moveGroup(idx, dir) {
-  const arr = sopData.groups
-  const target = idx + dir
-  if (target < 0 || target >= arr.length) return
-    ;
-  [arr[idx], arr[target]] = [arr[target], arr[idx]]
-}
-
-function movePage(group, idx, dir) {
-  const arr = group.pages
-  const target = idx + dir
-  if (target < 0 || target >= arr.length) return
-    ;
-  [arr[idx], arr[target]] = [arr[target], arr[idx]]
-}
-
-// ─────────────────────────────────────────
-// Block edit helpers
-// ─────────────────────────────────────────
-const blockPickerOpen = ref(false)
-
-function addBlock(page, type) {
-  const id = 'b' + uid()
-  if (type === 'checklist') page.blocks.push({type, id, title: '新 Checklist', badge: '', badgeType: 'gray', items: []})
-  else if (type === 'steps') page.blocks.push({type, id, title: '新步驟說明', badge: '', badgeType: 'gray', items: []})
-  else if (type === 'note') page.blocks.push({type, id, title: '新備註', content: '', variant: 'info'})
-  else if (type === 'flowchart') page.blocks.push({type, id, title: '新流程圖', nodes: [], edges: []})
-  else if (type === 'image') page.blocks.push({type, id, title: '圖片', images: []})
-  blockPickerOpen.value = false
-}
-
-function deleteBlock(page, bIdx) {
-  page.blocks.splice(bIdx, 1)
-}
-
-function moveBlock(page, idx, dir) {
-  const arr = page.blocks
-  const t = idx + dir
-  if (t < 0 || t >= arr.length) return
-    ;
-  [arr[idx], arr[t]] = [arr[t], arr[idx]]
-}
-
-// checklist block helpers
-function addCheckItem(block) {
-  block.items.push({id: 'ci' + uid(), text: '新項目', done: false})
-}
-
-function deleteCheckItem(block, idx) {
-  block.items.splice(idx, 1)
-}
-
-function moveCheckItem(block, idx, dir) {
-  const t = idx + dir
-  if (t < 0 || t >= block.items.length) return
-    ;
-  [block.items[idx], block.items[t]] = [block.items[t], block.items[idx]]
-}
-
-// steps block helpers
-function addStepItem(block) {
-  block.items.push({id: 'si' + uid(), title: '新步驟', desc: ''})
-}
-
-function deleteStepItem(block, idx) {
-  block.items.splice(idx, 1)
-}
-
-function moveStepItem(block, idx, dir) {
-  const t = idx + dir
-  if (t < 0 || t >= block.items.length) return
-    ;
-  [block.items[idx], block.items[t]] = [block.items[t], block.items[idx]]
-}
-
-// ─────────────────────────────────────────
-// 圖片資料庫 (SOP 專屬，固定路徑)
-// holymotherfarm/staff/personnel/sop/images/
-// ─────────────────────────────────────────
-const imgLibOpen = ref(false)
-const imgLibBlock = ref(null)
-const imgLibList = ref([])
-const imgLibLoading = ref(false)
-const imgLibSearch = ref('')
-const imgUploading = ref(false)
-
-const imgLibFiltered = computed(() => {
-  if (!imgLibSearch.value.trim()) return imgLibList.value
-  const kw = imgLibSearch.value.toLowerCase()
-  return imgLibList.value.filter(i =>
-    (i.displayName || i.originalName || '').toLowerCase().includes(kw)
-  )
-})
-
-async function openImgLib(block) {
-  imgLibBlock.value = block
-  imgLibOpen.value = true
-  imgLibSearch.value = ''
-  await loadImgList()
-}
-
-async function loadImgList() {
-  imgLibLoading.value = true
-  try {
-    const res = await fetch(`${BASE()}/images/list`)
-    imgLibList.value = await res.json()
-  } catch {
-    imgLibList.value = []
-  } finally {
-    imgLibLoading.value = false
+  async function openImgLib(block) {
+    imgLibBlock.value = block
+    imgLibOpen.value = true
+    imgLibSearch.value = ''
+    await loadImgList()
   }
-}
 
-async function uploadImgFiles(event) {
-  const files = event.target.files
-  if (!files || files.length === 0) return
-  imgUploading.value = true
-  try {
-    const fd = new FormData()
-    for (const f of files) fd.append('files', f)
-    const res = await fetch(`${BASE()}/images/upload`, {method: 'POST', body: fd})
-    const data = await res.json()
-    // 插入到清單最前面
-    imgLibList.value = [...(Array.isArray(data) ? data : []), ...imgLibList.value]
-    showToast(`上傳 ${Array.isArray(data) ? data.length : 0} 張圖片`)
-  } catch {
-    showToast('上傳失敗')
-  } finally {
-    imgUploading.value = false
-    event.target.value = ''
-  }
-}
-
-async function deleteLibImg(img) {
-  if (!confirm(`確定刪除「${img.originalName}」？`)) return
-  try {
-    await fetch(`${BASE()}/images/remove?fileName=` + encodeURIComponent(img.fileName), {method: 'DELETE'})
-    imgLibList.value = imgLibList.value.filter(i => i.fileName !== img.fileName)
-    showToast('已刪除圖片')
-  } catch {
-    showToast('刪除失敗')
-  }
-}
-
-function selectImg(img) {
-  if (!imgLibBlock.value) return
-  const block = imgLibBlock.value
-  if (!block.images) block.images = []
-  // 避免重複插入
-  if (!block.images.find(i => i.url === img.url)) {
-    block.images.push({
-      url: img.url,
-      thumbUrl: img.thumbUrl || img.url,
-      displayName: img.displayName || img.originalName || '',
-      caption: '',
-    })
-  }
-  imgLibOpen.value = false
-  showToast('圖片已插入')
-}
-
-function removeImg(block, idx) {
-  block.images.splice(idx, 1)
-}
-
-function moveImg(block, idx, dir) {
-  const t = idx + dir
-  if (t < 0 || t >= block.images.length) return
-    ;
-  [block.images[idx], block.images[t]] = [block.images[t], block.images[idx]]
-}
-
-// ─────────────────────────────────────────
-// Flowchart engine (per-block state)
-// ─────────────────────────────────────────
-const PALETTES = {
-  customer: {fill: '#085041', stroke: '#5DCAA5', text: '#9FE1CB'},
-  order: {fill: '#3C3489', stroke: '#AFA9EC', text: '#CECBF6'},
-  payment: {fill: '#633806', stroke: '#EF9F27', text: '#FAC775'},
-  invoice: {fill: '#27500A', stroke: '#97C459', text: '#C0DD97'},
-  receipt: {fill: '#712B13', stroke: '#F0997B', text: '#F5C4B3'},
-  neutral: {fill: '#444441', stroke: '#B4B2A9', text: '#D3D1C7'},
-}
-const LEGEND = [
-  {label: '顧客類型', palette: 'customer'},
-  {label: '訂單建立', palette: 'order'},
-  {label: '付款方式', palette: 'payment'},
-  {label: '電子發票', palette: 'invoice'},
-  {label: '紙本帳單', palette: 'receipt'},
-  {label: '其他', palette: 'neutral'},
-]
-
-const fcState = reactive({})
-
-function getFc(block) {
-  if (!fcState[block.id]) {
-    // nextId 從現有節點/邊的最大數字開始，避免新增時 id 碰撞
-    const allIds = [
-      ...block.nodes.map(n => n.id),
-      ...block.edges.map(e => e.id),
-    ]
-    const maxNum = allIds.reduce((m, id) => {
-      const num = parseInt(id.replace(/\D/g, ''), 10)
-      return isNaN(num) ? m : Math.max(m, num)
-    }, 200)
-    fcState[block.id] = {
-      selected: null,
-      selectedEdgeId: null,
-      addingEdge: null,
-      svgRef: null,
-      viewSvgRef: null,
-      nextId: maxNum,
-      zoom: 100,
+  async function loadImgList() {
+    imgLibLoading.value = true
+    try {
+      const res = await fetch(`${BASE()}/images/list`)
+      imgLibList.value = await res.json()
+    } catch {
+      imgLibList.value = []
+    } finally {
+      imgLibLoading.value = false
     }
   }
-  return fcState[block.id]
-}
 
-const pal = p => PALETTES[p] || PALETTES.neutral
-
-function nodeCx(n) {
-  return n.x + n.w / 2
-}
-
-function nodeCy(n) {
-  return n.y + n.h / 2
-}
-
-function edgePoints(block, e) {
-  const f = block.nodes.find(n => n.id === e.from)
-  const t = block.nodes.find(n => n.id === e.to)
-  if (!f || !t) return ''
-  const fx = nodeCx(f), fy = f.y + f.h
-  const tx = nodeCx(t), ty = t.y
-  const mx = e.mid ? e.mid.x : (fx + tx) / 2
-  const my = e.mid ? e.mid.y : fy + (ty - fy) * 0.5
-  return `M${fx},${fy} L${fx},${my} L${tx},${my} L${tx},${ty}`
-}
-
-function edgeMid(block, e) {
-  const f = block.nodes.find(n => n.id === e.from)
-  const t = block.nodes.find(n => n.id === e.to)
-  if (!f || !t) return {x: 0, y: 0}
-  const fx = nodeCx(f), fy = f.y + f.h
-  const tx = nodeCx(t), ty = t.y
-  return {x: e.mid ? e.mid.x : (fx + tx) / 2, y: e.mid ? e.mid.y : fy + (ty - fy) * 0.5}
-}
-
-function diamondPts(n) {
-  const cx = nodeCx(n), cy = nodeCy(n)
-  return `${cx},${n.y} ${n.x + n.w},${cy} ${cx},${n.y + n.h} ${n.x},${cy}`
-}
-
-function fcViewBox(block) {
-  const ns = block.nodes
-  if (!ns.length) return '0 0 680 200'
-  const pad = 40
-  const minX = ns.reduce((m, n) => Math.min(m, n.x), Infinity) - pad
-  const minY = ns.reduce((m, n) => Math.min(m, n.y), Infinity) - pad
-  const maxX = ns.reduce((m, n) => Math.max(m, n.x + n.w), -Infinity) + pad
-  const maxY = ns.reduce((m, n) => Math.max(m, n.y + n.h), -Infinity) + pad + 60
-  return `${minX} ${minY} ${maxX - minX} ${maxY - minY}`
-}
-
-function fcLegendY(block) {
-  return block.nodes.reduce((m, n) => Math.max(m, n.y + n.h), -Infinity) + 20
-}
-
-function fcSelectNode(block, id) {
-  const s = getFc(block)
-  if (s.addingEdge) {
-    if (s.addingEdge.fromId !== id) {
-      block.edges.push({id: 'e' + (++s.nextId), from: s.addingEdge.fromId, to: id, label: '', mid: null})
-    }
-    s.addingEdge = null;
-    return
-  }
-  s.selectedEdgeId = null
-  s.selected = s.selected === id ? null : id
-}
-
-function fcSelectEdge(block, id) {
-  const s = getFc(block)
-  if (s.addingEdge) return
-  s.selected = null
-  s.selectedEdgeId = s.selectedEdgeId === id ? null : id
-}
-
-function fcAddNode(block) {
-  // 清掉任何殘留的節點 mouseup handler，避免按鈕 mousedown → mouseup 觸發舊 select
-  window.removeEventListener('mouseup', _fcNodeMouseUp)
-  _pendingSelectBlock = null
-  _pendingSelectNodeId = null
-  const s = getFc(block)
-  const id = 'n' + (++s.nextId)
-  // 放在現有節點最下方，避免疊到現有節點
-  const maxY = block.nodes.length
-    ? block.nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0) + 40
-    : 100
-  const cx = block.nodes.length
-    ? block.nodes.reduce((sum, n) => sum + n.x + n.w / 2, 0) / block.nodes.length
-    : 300
-  block.nodes.push({id, type: 'rect', label: '新節點', x: Math.round(cx - 60), y: maxY, w: 120, h: 40, palette: 'neutral', sub: ''})
-  s.selected = id
-}
-
-function fcDeleteSelected(block) {
-  const s = getFc(block)
-  if (s.selectedEdgeId) {
-    fcDeleteEdge(block, s.selectedEdgeId);
-    return
-  }
-  if (!s.selected) return
-  const idx = block.nodes.findIndex(n => n.id === s.selected)
-  if (idx >= 0) block.nodes.splice(idx, 1)
-  for (let i = block.edges.length - 1; i >= 0; i--) {
-    if (block.edges[i].from === s.selected || block.edges[i].to === s.selected) block.edges.splice(i, 1)
-  }
-  s.selected = null
-}
-
-function fcDeleteEdge(block, id) {
-  const s = getFc(block)
-  const idx = block.edges.findIndex(e => e.id === id)
-  if (idx >= 0) block.edges.splice(idx, 1)
-  if (s.selectedEdgeId === id) s.selectedEdgeId = null
-}
-
-function fcResetEdgeMid(block, eid) {
-  const e = block.edges.find(e => e.id === eid)
-  if (e) e.mid = null
-}
-
-// drag nodes
-let dragging = null
-let _dragMoved = false
-let _pendingSelectBlock = null   // 待 mouseup 確認 select 的 block
-let _pendingSelectNodeId = null  // 待 mouseup 確認 select 的 nodeId
-
-function _fcNodeMouseUp() {
-  window.removeEventListener('mousemove', onDrag)
-  window.removeEventListener('mouseup', _fcNodeMouseUp)
-  if (!_dragMoved && _pendingSelectBlock && _pendingSelectNodeId) {
-    fcSelectNode(_pendingSelectBlock, _pendingSelectNodeId)
-  }
-  dragging = null
-  _dragMoved = false
-  _pendingSelectBlock = null
-  _pendingSelectNodeId = null
-}
-
-// 合併 drag + select：mousedown 啟動，mouseup 判斷是否移動後決定是否 select
-function fcNodeMouseDown(e, block, nodeId, svgEl) {
-  e.preventDefault()
-  // 先清掉上一輪可能殘留的 listener
-  window.removeEventListener('mouseup', _fcNodeMouseUp)
-
-  const pt = svgEl.createSVGPoint()
-  const n = block.nodes.find(x => x.id === nodeId)
-  if (!n) return
-  const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
-  pt.x = cp.x; pt.y = cp.y
-  const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
-  dragging = {block, nodeId, svgEl, ox: sp.x - n.x, oy: sp.y - n.y, startX: sp.x, startY: sp.y}
-  _dragMoved = false
-  _pendingSelectBlock = block
-  _pendingSelectNodeId = nodeId
-
-  window.addEventListener('mousemove', onDrag)
-  window.addEventListener('mouseup', _fcNodeMouseUp)
-}
-
-function fcDragStart(e, block, nodeId, svgEl) {
-  e.preventDefault()
-  const pt = svgEl.createSVGPoint()
-  const n = block.nodes.find(x => x.id === nodeId)
-  if (!n) return
-  const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
-  pt.x = cp.x;
-  pt.y = cp.y
-  const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
-  dragging = {block, nodeId, svgEl, ox: sp.x - n.x, oy: sp.y - n.y, startX: sp.x, startY: sp.y}
-  _dragMoved = false
-  window.addEventListener('mousemove', onDrag)
-  window.addEventListener('mouseup', endDrag)
-  window.addEventListener('touchmove', onDrag, {passive: false})
-  window.addEventListener('touchend', endDrag)
-}
-
-function onDrag(e) {
-  if (!dragging) return;
-  e.preventDefault()
-  const pt = dragging.svgEl.createSVGPoint()
-  const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
-  pt.x = cp.x;
-  pt.y = cp.y
-  const sp = pt.matrixTransform(dragging.svgEl.getScreenCTM().inverse())
-  const n = dragging.block.nodes.find(x => x.id === dragging.nodeId)
-  if (n) {
-    n.x = sp.x - dragging.ox;
-    n.y = sp.y - dragging.oy
-    // 移動超過 4px 才算真正拖動，避免誤判
-    if (Math.abs(sp.x - dragging.startX) > 4 || Math.abs(sp.y - dragging.startY) > 4) {
-      _dragMoved = true
+  async function uploadImgFiles(event) {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+    imgUploading.value = true
+    try {
+      const fd = new FormData()
+      for (const f of files) fd.append('files', f)
+      const res = await fetch(`${BASE()}/images/upload`, {method: 'POST', body: fd})
+      const data = await res.json()
+      // 插入到清單最前面
+      imgLibList.value = [...(Array.isArray(data) ? data : []), ...imgLibList.value]
+      showToast(`上傳 ${Array.isArray(data) ? data.length : 0} 張圖片`)
+    } catch {
+      showToast('上傳失敗')
+    } finally {
+      imgUploading.value = false
+      event.target.value = ''
     }
   }
-}
 
-function endDrag() {
-  dragging = null
-  window.removeEventListener('mousemove', onDrag)
-  window.removeEventListener('mouseup', endDrag)
-  window.removeEventListener('touchmove', onDrag)
-  window.removeEventListener('touchend', endDrag)
-}
-
-// drag waypoints
-let draggingWp = null
-
-function fcWpStart(e, block, eid, svgEl) {
-  e.preventDefault();
-  e.stopPropagation()
-  const edge = block.edges.find(x => x.id === eid)
-  if (!edge) return
-  if (!edge.mid) {
-    const m = edgeMid(block, edge);
-    edge.mid = {x: m.x, y: m.y}
+  async function deleteLibImg(img) {
+    if (!confirm(`確定刪除「${img.originalName}」？`)) return
+    try {
+      await fetch(`${BASE()}/images/remove?fileName=` + encodeURIComponent(img.fileName), {method: 'DELETE'})
+      imgLibList.value = imgLibList.value.filter(i => i.fileName !== img.fileName)
+      showToast('已刪除圖片')
+    } catch {
+      showToast('刪除失敗')
+    }
   }
-  const pt = svgEl.createSVGPoint()
-  const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
-  pt.x = cp.x;
-  pt.y = cp.y
-  const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
-  draggingWp = {block, eid, svgEl, ox: sp.x - edge.mid.x, oy: sp.y - edge.mid.y}
-  window.addEventListener('mousemove', onWpDrag)
-  window.addEventListener('mouseup', endWpDrag)
-  window.addEventListener('touchmove', onWpDrag, {passive: false})
-  window.addEventListener('touchend', endWpDrag)
-}
 
-function onWpDrag(e) {
-  if (!draggingWp) return;
-  e.preventDefault()
-  const pt = draggingWp.svgEl.createSVGPoint()
-  const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
-  pt.x = cp.x;
-  pt.y = cp.y
-  const sp = pt.matrixTransform(draggingWp.svgEl.getScreenCTM().inverse())
-  const edge = draggingWp.block.edges.find(x => x.id === draggingWp.eid)
-  if (edge) edge.mid = {x: sp.x - draggingWp.ox, y: sp.y - draggingWp.oy}
-}
+  function selectImg(img) {
+    if (!imgLibBlock.value) return
+    const block = imgLibBlock.value
+    if (!block.images) block.images = []
+    // 避免重複插入
+    if (!block.images.find(i => i.url === img.url)) {
+      block.images.push({
+        url: img.url,
+        thumbUrl: img.thumbUrl || img.url,
+        displayName: img.displayName || img.originalName || '',
+        caption: '',
+      })
+    }
+    imgLibOpen.value = false
+    showToast('圖片已插入')
+  }
 
-function endWpDrag() {
-  draggingWp = null
-  window.removeEventListener('mousemove', onWpDrag)
-  window.removeEventListener('mouseup', endWpDrag)
-  window.removeEventListener('touchmove', onWpDrag)
-  window.removeEventListener('touchend', endWpDrag)
-}
+  function removeImg(block, idx) {
+    block.images.splice(idx, 1)
+  }
 
-function fcExport(block) {
-  const s = getFc(block)
-  const svgEl = editMode.value ? s.svgRef : s.viewSvgRef
-  if (!svgEl) return
-  const blob = new Blob(['<?xml version="1.0"?>\n' + svgEl.cloneNode(true).outerHTML], {type: 'image/svg+xml'})
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = (block.title || 'flowchart') + '.svg';
-  a.click()
-}
+  function moveImg(block, idx, dir) {
+    const t = idx + dir
+    if (t < 0 || t >= block.images.length) return
+      ;
+    [block.images[idx], block.images[t]] = [block.images[t], block.images[idx]]
+  }
 
-// toast
-const toast = reactive({show: false, message: ''})
-let toastTimer = null
+  // ─────────────────────────────────────────
+  // Flowchart engine (per-block state)
+  // ─────────────────────────────────────────
+  const PALETTES = {
+    customer: {fill: '#085041', stroke: '#5DCAA5', text: '#9FE1CB'},
+    order: {fill: '#3C3489', stroke: '#AFA9EC', text: '#CECBF6'},
+    payment: {fill: '#633806', stroke: '#EF9F27', text: '#FAC775'},
+    invoice: {fill: '#27500A', stroke: '#97C459', text: '#C0DD97'},
+    receipt: {fill: '#712B13', stroke: '#F0997B', text: '#F5C4B3'},
+    neutral: {fill: '#444441', stroke: '#B4B2A9', text: '#D3D1C7'},
+  }
+  const LEGEND = [
+    {label: '顧客類型', palette: 'customer'},
+    {label: '訂單建立', palette: 'order'},
+    {label: '付款方式', palette: 'payment'},
+    {label: '電子發票', palette: 'invoice'},
+    {label: '紙本帳單', palette: 'receipt'},
+    {label: '其他', palette: 'neutral'},
+  ]
 
-function showToast(msg) {
-  toast.message = msg;
-  toast.show = true
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => {
-    toast.show = false
-  }, 2500)
-}
+  const fcState = reactive({})
+
+  function getFc(block) {
+    if (!fcState[block.id]) {
+      // nextId 從現有節點/邊的最大數字開始，避免新增時 id 碰撞
+      const allIds = [
+        ...block.nodes.map(n => n.id),
+        ...block.edges.map(e => e.id),
+      ]
+      const maxNum = allIds.reduce((m, id) => {
+        const num = parseInt(id.replace(/\D/g, ''), 10)
+        return isNaN(num) ? m : Math.max(m, num)
+      }, 200)
+      fcState[block.id] = {
+        selected: null,
+        selectedEdgeId: null,
+        addingEdge: null,
+        svgRef: null,
+        viewSvgRef: null,
+        nextId: maxNum,
+        zoom: 100,
+      }
+    }
+    return fcState[block.id]
+  }
+
+  const pal = p => PALETTES[p] || PALETTES.neutral
+
+  function nodeCx(n) {
+    return n.x + n.w / 2
+  }
+
+  function nodeCy(n) {
+    return n.y + n.h / 2
+  }
+
+  function edgePoints(block, e) {
+    const f = block.nodes.find(n => n.id === e.from)
+    const t = block.nodes.find(n => n.id === e.to)
+    if (!f || !t) return ''
+    const fx = nodeCx(f), fy = f.y + f.h
+    const tx = nodeCx(t), ty = t.y
+    const mx = e.mid ? e.mid.x : (fx + tx) / 2
+    const my = e.mid ? e.mid.y : fy + (ty - fy) * 0.5
+    return `M${fx},${fy} L${fx},${my} L${tx},${my} L${tx},${ty}`
+  }
+
+  function edgeMid(block, e) {
+    const f = block.nodes.find(n => n.id === e.from)
+    const t = block.nodes.find(n => n.id === e.to)
+    if (!f || !t) return {x: 0, y: 0}
+    const fx = nodeCx(f), fy = f.y + f.h
+    const tx = nodeCx(t), ty = t.y
+    return {x: e.mid ? e.mid.x : (fx + tx) / 2, y: e.mid ? e.mid.y : fy + (ty - fy) * 0.5}
+  }
+
+  function diamondPts(n) {
+    const cx = nodeCx(n), cy = nodeCy(n)
+    return `${cx},${n.y} ${n.x + n.w},${cy} ${cx},${n.y + n.h} ${n.x},${cy}`
+  }
+
+  function fcViewBox(block) {
+    const ns = block.nodes
+    if (!ns.length) return '0 0 680 200'
+    const pad = 40
+    const minX = ns.reduce((m, n) => Math.min(m, n.x), Infinity) - pad
+    const minY = ns.reduce((m, n) => Math.min(m, n.y), Infinity) - pad
+    const maxX = ns.reduce((m, n) => Math.max(m, n.x + n.w), -Infinity) + pad
+    const maxY = ns.reduce((m, n) => Math.max(m, n.y + n.h), -Infinity) + pad + 60
+    return `${minX} ${minY} ${maxX - minX} ${maxY - minY}`
+  }
+
+  function fcLegendY(block) {
+    return block.nodes.reduce((m, n) => Math.max(m, n.y + n.h), -Infinity) + 20
+  }
+
+  function fcSelectNode(block, id) {
+    const s = getFc(block)
+    if (s.addingEdge) {
+      if (s.addingEdge.fromId !== id) {
+        block.edges.push({id: 'e' + (++s.nextId), from: s.addingEdge.fromId, to: id, label: '', mid: null})
+      }
+      s.addingEdge = null;
+      return
+    }
+    s.selectedEdgeId = null
+    s.selected = s.selected === id ? null : id
+  }
+
+  function fcSelectEdge(block, id) {
+    const s = getFc(block)
+    if (s.addingEdge) return
+    s.selected = null
+    s.selectedEdgeId = s.selectedEdgeId === id ? null : id
+  }
+
+  function fcAddNode(block) {
+    // 清掉任何殘留的節點 mouseup handler，避免按鈕 mousedown → mouseup 觸發舊 select
+    window.removeEventListener('mouseup', _fcNodeMouseUp)
+    _pendingSelectBlock = null
+    _pendingSelectNodeId = null
+    const s = getFc(block)
+    const id = 'n' + (++s.nextId)
+    // 放在現有節點最下方，避免疊到現有節點
+    const maxY = block.nodes.length
+      ? block.nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0) + 40
+      : 100
+    const cx = block.nodes.length
+      ? block.nodes.reduce((sum, n) => sum + n.x + n.w / 2, 0) / block.nodes.length
+      : 300
+    block.nodes.push({id, type: 'rect', label: '新節點', x: Math.round(cx - 60), y: maxY, w: 120, h: 40, palette: 'neutral', sub: ''})
+    s.selected = id
+  }
+
+  function fcDeleteSelected(block) {
+    const s = getFc(block)
+    if (s.selectedEdgeId) {
+      fcDeleteEdge(block, s.selectedEdgeId);
+      return
+    }
+    if (!s.selected) return
+    const idx = block.nodes.findIndex(n => n.id === s.selected)
+    if (idx >= 0) block.nodes.splice(idx, 1)
+    for (let i = block.edges.length - 1; i >= 0; i--) {
+      if (block.edges[i].from === s.selected || block.edges[i].to === s.selected) block.edges.splice(i, 1)
+    }
+    s.selected = null
+  }
+
+  function fcDeleteEdge(block, id) {
+    const s = getFc(block)
+    const idx = block.edges.findIndex(e => e.id === id)
+    if (idx >= 0) block.edges.splice(idx, 1)
+    if (s.selectedEdgeId === id) s.selectedEdgeId = null
+  }
+
+  function fcResetEdgeMid(block, eid) {
+    const e = block.edges.find(e => e.id === eid)
+    if (e) e.mid = null
+  }
+
+  // drag nodes
+  let dragging = null
+  let _dragMoved = false
+  let _pendingSelectBlock = null   // 待 mouseup 確認 select 的 block
+  let _pendingSelectNodeId = null  // 待 mouseup 確認 select 的 nodeId
+
+  function _fcNodeMouseUp() {
+    window.removeEventListener('mousemove', onDrag)
+    window.removeEventListener('mouseup', _fcNodeMouseUp)
+    if (!_dragMoved && _pendingSelectBlock && _pendingSelectNodeId) {
+      fcSelectNode(_pendingSelectBlock, _pendingSelectNodeId)
+    }
+    dragging = null
+    _dragMoved = false
+    _pendingSelectBlock = null
+    _pendingSelectNodeId = null
+  }
+
+  // 合併 drag + select：mousedown 啟動，mouseup 判斷是否移動後決定是否 select
+  function fcNodeMouseDown(e, block, nodeId, svgEl) {
+    e.preventDefault()
+    // 先清掉上一輪可能殘留的 listener
+    window.removeEventListener('mouseup', _fcNodeMouseUp)
+
+    const pt = svgEl.createSVGPoint()
+    const n = block.nodes.find(x => x.id === nodeId)
+    if (!n) return
+    const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
+    pt.x = cp.x; pt.y = cp.y
+    const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+    dragging = {block, nodeId, svgEl, ox: sp.x - n.x, oy: sp.y - n.y, startX: sp.x, startY: sp.y}
+    _dragMoved = false
+    _pendingSelectBlock = block
+    _pendingSelectNodeId = nodeId
+
+    window.addEventListener('mousemove', onDrag)
+    window.addEventListener('mouseup', _fcNodeMouseUp)
+  }
+
+  function fcDragStart(e, block, nodeId, svgEl) {
+    e.preventDefault()
+    const pt = svgEl.createSVGPoint()
+    const n = block.nodes.find(x => x.id === nodeId)
+    if (!n) return
+    const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
+    pt.x = cp.x;
+    pt.y = cp.y
+    const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+    dragging = {block, nodeId, svgEl, ox: sp.x - n.x, oy: sp.y - n.y, startX: sp.x, startY: sp.y}
+    _dragMoved = false
+    window.addEventListener('mousemove', onDrag)
+    window.addEventListener('mouseup', endDrag)
+    window.addEventListener('touchmove', onDrag, {passive: false})
+    window.addEventListener('touchend', endDrag)
+  }
+
+  function onDrag(e) {
+    if (!dragging) return;
+    e.preventDefault()
+    const pt = dragging.svgEl.createSVGPoint()
+    const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
+    pt.x = cp.x;
+    pt.y = cp.y
+    const sp = pt.matrixTransform(dragging.svgEl.getScreenCTM().inverse())
+    const n = dragging.block.nodes.find(x => x.id === dragging.nodeId)
+    if (n) {
+      n.x = sp.x - dragging.ox;
+      n.y = sp.y - dragging.oy
+      // 移動超過 4px 才算真正拖動，避免誤判
+      if (Math.abs(sp.x - dragging.startX) > 4 || Math.abs(sp.y - dragging.startY) > 4) {
+        _dragMoved = true
+      }
+    }
+  }
+
+  function endDrag() {
+    dragging = null
+    window.removeEventListener('mousemove', onDrag)
+    window.removeEventListener('mouseup', endDrag)
+    window.removeEventListener('touchmove', onDrag)
+    window.removeEventListener('touchend', endDrag)
+  }
+
+  // drag waypoints
+  let draggingWp = null
+
+  function fcWpStart(e, block, eid, svgEl) {
+    e.preventDefault();
+    e.stopPropagation()
+    const edge = block.edges.find(x => x.id === eid)
+    if (!edge) return
+    if (!edge.mid) {
+      const m = edgeMid(block, edge);
+      edge.mid = {x: m.x, y: m.y}
+    }
+    const pt = svgEl.createSVGPoint()
+    const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
+    pt.x = cp.x;
+    pt.y = cp.y
+    const sp = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+    draggingWp = {block, eid, svgEl, ox: sp.x - edge.mid.x, oy: sp.y - edge.mid.y}
+    window.addEventListener('mousemove', onWpDrag)
+    window.addEventListener('mouseup', endWpDrag)
+    window.addEventListener('touchmove', onWpDrag, {passive: false})
+    window.addEventListener('touchend', endWpDrag)
+  }
+
+  function onWpDrag(e) {
+    if (!draggingWp) return;
+    e.preventDefault()
+    const pt = draggingWp.svgEl.createSVGPoint()
+    const cp = e.touches ? {x: e.touches[0].clientX, y: e.touches[0].clientY} : {x: e.clientX, y: e.clientY}
+    pt.x = cp.x;
+    pt.y = cp.y
+    const sp = pt.matrixTransform(draggingWp.svgEl.getScreenCTM().inverse())
+    const edge = draggingWp.block.edges.find(x => x.id === draggingWp.eid)
+    if (edge) edge.mid = {x: sp.x - draggingWp.ox, y: sp.y - draggingWp.oy}
+  }
+
+  function endWpDrag() {
+    draggingWp = null
+    window.removeEventListener('mousemove', onWpDrag)
+    window.removeEventListener('mouseup', endWpDrag)
+    window.removeEventListener('touchmove', onWpDrag)
+    window.removeEventListener('touchend', endWpDrag)
+  }
+
+  function fcExport(block) {
+    const s = getFc(block)
+    const svgEl = editMode.value ? s.svgRef : s.viewSvgRef
+    if (!svgEl) return
+    const blob = new Blob(['<?xml version="1.0"?>\n' + svgEl.cloneNode(true).outerHTML], {type: 'image/svg+xml'})
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (block.title || 'flowchart') + '.svg';
+    a.click()
+  }
+
+  // toast
+  const toast = reactive({show: false, message: ''})
+  let toastTimer = null
+
+  function showToast(msg) {
+    toast.message = msg;
+    toast.show = true
+    if (toastTimer) clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => {
+      toast.show = false
+    }, 2500)
+  }
 </script>
 
 <template>
@@ -937,14 +954,15 @@ function showToast(msg) {
                       <template v-if="editMode">
                         <input v-model="item.title" placeholder="步驟標題"
                                class="w-full px-2 py-1 text-base border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-1"/>
-                        <textarea v-model="item.desc" placeholder="步驟說明（選填）" rows="2"
-                                  class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none"/>
+                        <textarea v-model="item.desc" v-auto-resize @input="resizeTextarea($event.target)"
+                                  placeholder="步驟說明（選填）" rows="2"
+                                  class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none overflow-hidden"/>
                       </template>
                       <template v-else>
                         <p class="text-base font-medium text-base-c">{{ item.title }}</p>
                         <p v-if="item.desc"
                            class="text-sm text-hint-c mt-0.5 whitespace-pre-line">{{
-                            item.desc
+                          item.desc
                           }}</p>
                       </template>
                     </div>
@@ -985,8 +1003,9 @@ function showToast(msg) {
                       <option value="default">灰色</option>
                     </select>
                   </div>
-                  <textarea v-model="block.content" placeholder="內容（換行用 Enter）" rows="8"
-                            class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-y"/>
+                  <textarea v-model="block.content" v-auto-resize @input="resizeTextarea($event.target)"
+                            placeholder="內容（換行用 Enter）" rows="3"
+                            class="w-full px-2 py-1 text-sm border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-none overflow-hidden"/>
                 </template>
                 <template v-else>
                   <p :class="['text-base font-semibold mb-1',
@@ -1286,11 +1305,11 @@ function showToast(msg) {
                           <p class="text-sm font-semibold text-blue-400 uppercase tracking-wide mb-2">連線屬性</p>
                           <div class="text-sm text-hint-c mb-2">
                             {{
-                              (block.nodes.find(n => n.id === block.edges.find(e => e.id === getFc(block).selectedEdgeId)?.from) || {label: '?'}).label
+                            (block.nodes.find(n => n.id === block.edges.find(e => e.id === getFc(block).selectedEdgeId)?.from) || {label: '?'}).label
                             }}
                             <span class="text-blue-400 mx-1">→</span>
                             {{
-                              (block.nodes.find(n => n.id === block.edges.find(e => e.id === getFc(block).selectedEdgeId)?.to) || {label: '?'}).label
+                            (block.nodes.find(n => n.id === block.edges.find(e => e.id === getFc(block).selectedEdgeId)?.to) || {label: '?'}).label
                             }}
                           </div>
                           <label class="block text-hint-c mb-1">標籤</label>
@@ -1476,28 +1495,28 @@ function showToast(msg) {
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.25s, transform 0.25s;
-}
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.25s, transform 0.25s;
+  }
 
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
+  .fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 
-.modal-enter-active, .modal-leave-active {
-  transition: opacity 0.2s;
-}
+  .modal-enter-active, .modal-leave-active {
+    transition: opacity 0.2s;
+  }
 
-.modal-enter-from, .modal-leave-to {
-  opacity: 0;
-}
+  .modal-enter-from, .modal-leave-to {
+    opacity: 0;
+  }
 
-.modal-enter-active .bg-white, .modal-leave-active .bg-white {
-  transition: transform 0.2s;
-}
+  .modal-enter-active .bg-white, .modal-leave-active .bg-white {
+    transition: transform 0.2s;
+  }
 
-.modal-enter-from .bg-white, .modal-leave-to .bg-white {
-  transform: scale(0.96);
-}
+  .modal-enter-from .bg-white, .modal-leave-to .bg-white {
+    transform: scale(0.96);
+  }
 </style>
