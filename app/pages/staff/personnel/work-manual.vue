@@ -73,8 +73,15 @@
   // ─────────────────────────────────────────
   // SOP Data model
   // ─────────────────────────────────────────
-  let _uid = 1000
-  const uid = () => String(++_uid)
+  // 注意：不能用「每次重新整理都歸零」的遞增計數器來產生 ID，
+  // 否則新增頁面時很容易跟後端載入回來的舊頁面 ID 撞名（例如都叫 p1001），
+  // 造成側邊欄用 activePageId === page.id 判斷選取狀態時，
+  // 兩個不同頁面因為 id 相同而同時被判定為選取。
+  // 改用 crypto.randomUUID()（不支援時退回 timestamp + random）確保永遠不會重複。
+  const uid = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+  }
 
   const sopData = reactive({groups: []})
   const loading = ref(true)
