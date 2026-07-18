@@ -9,7 +9,7 @@ definePageMeta({ layout: false })
 // 這裡的 API_BASE 要改成寫死的正式站網址，不能依賴 useCommonStore。
 const commonStore = useCommonStore?.()
 const API_BASE = computed(() =>
-  (commonStore?.data?.just_url || 'https://holymotherfarm.netlify.app') + '/holy/fire-extinguisher'
+  commonStore?.data.just_url + '/holy/fire-extinguisher'
 )
 
 const route = useRoute()
