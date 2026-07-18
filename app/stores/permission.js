@@ -3,8 +3,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const usePermissionStore = defineStore('permission', () => {
-  const perms    = ref({})
-  const loaded   = ref(false)
+  const perms = ref({})
+  const loaded = ref(false)
   const loadedId = ref(null)
 
   // ── 單次 fetch（內部用）──────────────────────────────────────────
@@ -15,7 +15,7 @@ export const usePermissionStore = defineStore('permission', () => {
   // 完全繞過下面的重試機制。
   const fetchPerms = async (customerId, baseUrl) => {
     const query = customerId ? `?customerId=${customerId}` : ''
-    const res   = await fetch(`${baseUrl}/holy/permission/my-perms${query}`)
+    const res = await fetch(`${baseUrl}/holy/permission/my-perms${query}`)
 
     if (!res.ok) {
       const err = new Error(`my-perms ${res.status}`)
@@ -56,9 +56,9 @@ export const usePermissionStore = defineStore('permission', () => {
       }
       try {
         const data = await fetchPerms(customerId, baseUrl)
-        perms.value    = data
+        perms.value = data
         loadedId.value = id
-        loaded.value   = true
+        loaded.value = true
         return
       } catch (err) {
         lastErr = err
@@ -69,9 +69,9 @@ export const usePermissionStore = defineStore('permission', () => {
     const status = lastErr?.status
     if (status === 401 || status === 403 || status === 404) {
       // 連續兩次都明確表示沒有權限資料，才真的視為空的
-      perms.value    = {}
+      perms.value = {}
       loadedId.value = id
-      loaded.value   = true
+      loaded.value = true
     } else {
       // 網路斷線 / 5xx 等暫時性錯誤：不清空既有 perms，維持 loaded = false
       // 讓下次導覽或 visibilitychange 時還能再拉一次
@@ -81,14 +81,14 @@ export const usePermissionStore = defineStore('permission', () => {
 
   // ── 登出清除 ──────────────────────────────────────────────────────
   const clear = () => {
-    perms.value    = {}
-    loaded.value   = false
+    perms.value = {}
+    loaded.value = false
     loadedId.value = null
   }
 
-  const can    = (key)      => perms.value[key] === true
-  const canAny = (...keys)  => keys.some(k => can(k))
-  const canAll = (...keys)  => keys.every(k => can(k))
+  const can = key => perms.value[key] === true
+  const canAny = (...keys) => keys.some(k => can(k))
+  const canAll = (...keys) => keys.every(k => can(k))
 
   return { perms, loaded, loadedId, load, clear, can, canAny, canAll }
 }, {

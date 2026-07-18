@@ -100,6 +100,7 @@ const navGroups = [
     items: [
       { to: '/staff/print/guild-hall-print', icon: '🌿', label: '會館訂貨', key: 'print.guild-hall-print' },
       { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
+      { to: '/staff/print/fire-extinguisher-print', icon: '🧯', label: '滅火器 QRCode', key: 'print.fire-extinguisher-print' },
       { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
     ]
   },

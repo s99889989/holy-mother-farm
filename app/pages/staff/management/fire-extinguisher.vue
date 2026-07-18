@@ -23,6 +23,16 @@
             </svg>
           </button>
           <button
+            v-if="usingSeed"
+            :disabled="importing"
+            class="px-3 py-1.5 rounded-lg border border-amber-400 text-amber-700 dark:text-amber-300 font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            style="font-size:14px"
+            @click="importSeed"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+            {{ importing ? '匯入中...' : '匯入種子資料' }}
+          </button>
+          <button
             class="px-3 py-1.5 rounded-lg bg-red-700 text-white font-semibold hover:bg-red-800 transition-colors flex items-center gap-1.5"
             style="font-size:14px"
             @click="openModal(null)"
@@ -34,9 +44,12 @@
       </div>
 
       <!-- 統計 -->
-      <div class="max-w-6xl mx-auto flex flex-wrap gap-2">
+      <div class="max-w-6xl mx-auto flex flex-wrap items-center gap-2">
         <span class="badge-stat">共 {{ items.length }} 支</span>
         <span v-for="f in floorCounts" :key="f.floor" class="badge-stat">{{ f.floor }} · {{ f.count }} 支</span>
+        <span v-if="usingSeed" class="text-amber-600 dark:text-amber-400" style="font-size:13px">
+          ⚠ 目前顯示的是本機種子資料,尚未寫入後端,請按「匯入種子資料」
+        </span>
       </div>
     </header>
 
@@ -175,168 +188,194 @@
 </template>
 
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'management.fire-extinguisher' })
+definePageMeta({ layout: 'staff', requiredPermission: 'management.fire-extinguisher' })
 
-  import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 
-  // ── Dark Mode ─────────────────────────────────────────────────────
-  const darkStore = useDarkModeStore()
-  const isDark = computed(() => darkStore.data.dark)
-  const toggleDark = () => { darkStore.change_dark_mode() }
+// ── Dark Mode ─────────────────────────────────────────────────────
+const darkStore = useDarkModeStore()
+const isDark = computed(() => darkStore.data.dark)
+const toggleDark = () => { darkStore.change_dark_mode() }
 
-  // ── API ──────────────────────────────────────────────────────────
-  const commonStore = useCommonStore()
-  const API_BASE = computed(() => commonStore.data.main_url + '/holy/fire-extinguisher')
+// ── API ──────────────────────────────────────────────────────────
+const commonStore = useCommonStore()
+const API_BASE = computed(() => commonStore.data.main_url + '/holy/fire-extinguisher')
 
-  // ── 種子資料(D 區實際清冊,API 尚未回傳前先顯示)──────────────────
-  const seedItems = [
-    { code: 'D區1F-A01', location: '服務中心', batchNo: 'FE-130104' },
-    { code: 'D區1F-A02', location: '小舖內', batchNo: 'FE-130104' },
-    { code: 'D區1F-A03', location: '香藥草教室', batchNo: 'FE-130104' },
-    { code: 'D區1F-A04', location: '香藥草廁所', batchNo: 'FE-130104' },
-    { code: 'D區1F-A05', location: '輔具正門', batchNo: 'FE-130104' },
-    { code: 'D區1F-A06', location: '輔具側門', batchNo: 'FE-130104' },
-    { code: 'D區1F-A07', location: '物管2號庫房', batchNo: 'FE-130104' },
-    { code: 'D區1F-A08', location: '物管5號庫房', batchNo: 'FE-130104' },
-    { code: 'D區1F-A09', location: '物管辦公室', batchNo: 'FE-130104' },
-    { code: 'D區1F-A010', location: '電氣機房1', batchNo: 'FE-130104' },
-    { code: 'D區1F-A011', location: '電氣機房2', batchNo: 'FE-130104' },
-    { code: 'D區2F-A12', location: '電梯1', batchNo: 'FE-130104' },
-    { code: 'D區2F-A13', location: '電梯2', batchNo: 'FE-130104' },
-    { code: 'D區2F-A14', location: '多功能教室前', batchNo: 'FE-130104' },
-    { code: 'D區2F-A15', location: '多功能教室後', batchNo: 'FE-130104' },
-    { code: 'D區2F-A16', location: '庫房1', batchNo: 'FE-130104' },
-    { code: 'D區2F-A17', location: '庫房2', batchNo: 'FE-130104' },
-    { code: 'D區2F-A18', location: '評鑑教室1', batchNo: 'FE-130104' },
-    { code: 'D區2F-A19', location: '評鑑教室2', batchNo: 'FE-130104' },
-    { code: 'D區3F-A20', location: '長照辦公室1', batchNo: 'FE-130104' },
-    { code: 'D區3F-A21', location: '長照辦公室2', batchNo: 'FE-130104' },
-    { code: 'D區3F-A22', location: '中央製水機房1', batchNo: 'FE-130104' },
-    { code: 'D區3F-A23', location: '中央製水機房2', batchNo: 'FE-130104' },
-    { code: 'D區3F-A24', location: '庫房1', batchNo: 'FE-130104' },
-    { code: 'D區3F-A25', location: '庫房2', batchNo: 'FE-130104' },
-    { code: 'D區3F-A26', location: '電梯1', batchNo: 'FE-130104' },
-    { code: 'D區BF-A27', location: '電梯2', batchNo: 'FE-130104' },
-    { code: 'D區BF-A28', location: '庫房1', batchNo: 'FE-130104' },
-    { code: 'D區BF-A29', location: '庫房2', batchNo: 'FE-130104' },
-    { code: 'D區1F-A30', location: '輔具室內', batchNo: 'FE-130104' }
-  ]
+// ── 種子資料(D 區實際清冊,API 尚未回傳前先顯示)──────────────────
+const seedItems = [
+  { code: 'D區1F-A01', location: '服務中心', batchNo: 'FE-130104' },
+  { code: 'D區1F-A02', location: '小舖內', batchNo: 'FE-130104' },
+  { code: 'D區1F-A03', location: '香藥草教室', batchNo: 'FE-130104' },
+  { code: 'D區1F-A04', location: '香藥草廁所', batchNo: 'FE-130104' },
+  { code: 'D區1F-A05', location: '輔具正門', batchNo: 'FE-130104' },
+  { code: 'D區1F-A06', location: '輔具側門', batchNo: 'FE-130104' },
+  { code: 'D區1F-A07', location: '物管2號庫房', batchNo: 'FE-130104' },
+  { code: 'D區1F-A08', location: '物管5號庫房', batchNo: 'FE-130104' },
+  { code: 'D區1F-A09', location: '物管辦公室', batchNo: 'FE-130104' },
+  { code: 'D區1F-A010', location: '電氣機房1', batchNo: 'FE-130104' },
+  { code: 'D區1F-A011', location: '電氣機房2', batchNo: 'FE-130104' },
+  { code: 'D區2F-A12', location: '電梯1', batchNo: 'FE-130104' },
+  { code: 'D區2F-A13', location: '電梯2', batchNo: 'FE-130104' },
+  { code: 'D區2F-A14', location: '多功能教室前', batchNo: 'FE-130104' },
+  { code: 'D區2F-A15', location: '多功能教室後', batchNo: 'FE-130104' },
+  { code: 'D區2F-A16', location: '庫房1', batchNo: 'FE-130104' },
+  { code: 'D區2F-A17', location: '庫房2', batchNo: 'FE-130104' },
+  { code: 'D區2F-A18', location: '評鑑教室1', batchNo: 'FE-130104' },
+  { code: 'D區2F-A19', location: '評鑑教室2', batchNo: 'FE-130104' },
+  { code: 'D區3F-A20', location: '長照辦公室1', batchNo: 'FE-130104' },
+  { code: 'D區3F-A21', location: '長照辦公室2', batchNo: 'FE-130104' },
+  { code: 'D區3F-A22', location: '中央製水機房1', batchNo: 'FE-130104' },
+  { code: 'D區3F-A23', location: '中央製水機房2', batchNo: 'FE-130104' },
+  { code: 'D區3F-A24', location: '庫房1', batchNo: 'FE-130104' },
+  { code: 'D區3F-A25', location: '庫房2', batchNo: 'FE-130104' },
+  { code: 'D區3F-A26', location: '電梯1', batchNo: 'FE-130104' },
+  { code: 'D區BF-A27', location: '電梯2', batchNo: 'FE-130104' },
+  { code: 'D區BF-A28', location: '庫房1', batchNo: 'FE-130104' },
+  { code: 'D區BF-A29', location: '庫房2', batchNo: 'FE-130104' },
+  { code: 'D區1F-A30', location: '輔具室內', batchNo: 'FE-130104' }
+]
 
-  const items = ref([])
-  const loading = ref(true)
+const items = ref([])
+const loading = ref(true)
+const usingSeed = ref(false)
+const importing = ref(false)
 
-  const fetchItems = async () => {
-    loading.value = true
-    try {
-      const list = await $fetch(`${API_BASE.value}/list`, { credentials: 'include' })
-      items.value = Array.isArray(list) && list.length ? list : seedItems
-    } catch (e) {
-      console.error(e)
+const fetchItems = async () => {
+  loading.value = true
+  try {
+    const list = await $fetch(`${API_BASE.value}/list`, { credentials: 'include' })
+    if (Array.isArray(list) && list.length) {
+      items.value = list
+      usingSeed.value = false
+    } else {
       items.value = seedItems
-    } finally {
-      loading.value = false
+      usingSeed.value = true
     }
+  } catch (e) {
+    console.error(e)
+    items.value = seedItems
+    usingSeed.value = true
+  } finally {
+    loading.value = false
   }
+}
 
-  // ── 樓層解析與篩選 ───────────────────────────────────────────────
-  const parseFloor = (code) => {
-    const m = code?.match(/(\d+F|BF\d*|B\d+F?)/i)
-    return m ? m[1].toUpperCase() : '未分類'
+// 一鍵把本機種子資料寫進後端(已存在的編號會被後端略過,不會覆蓋)
+const importSeed = async () => {
+  importing.value = true
+  try {
+    const result = await $fetch(`${API_BASE.value}/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: seedItems
+    })
+    showToast(`匯入完成:新增 ${result?.added ?? 0} 筆,略過 ${result?.skipped ?? 0} 筆`)
+    await fetchItems()
+  } catch (e) {
+    console.error(e)
+    showToast('匯入失敗')
+  } finally {
+    importing.value = false
   }
+}
 
-  const floors = computed(() => {
-    const set = new Set(items.value.map(i => parseFloor(i.code)))
-    return [...set].sort()
-  })
+// ── 樓層解析與篩選 ───────────────────────────────────────────────
+const parseFloor = (code) => {
+  const m = code?.match(/(\d+F|BF\d*|B\d+F?)/i)
+  return m ? m[1].toUpperCase() : '未分類'
+}
 
-  const floorCounts = computed(() =>
-    floors.value.map(floor => ({
-      floor,
-      count: items.value.filter(i => parseFloor(i.code) === floor).length
-    }))
-  )
+const floors = computed(() => {
+  const set = new Set(items.value.map(i => parseFloor(i.code)))
+  return [...set].sort()
+})
 
-  const activeFloor = ref(null)
-  const searchText = ref('')
+const floorCounts = computed(() =>
+  floors.value.map(floor => ({
+    floor,
+    count: items.value.filter(i => parseFloor(i.code) === floor).length
+  }))
+)
 
-  const filtered = computed(() => {
-    let list = items.value
-    if (activeFloor.value) list = list.filter(i => parseFloor(i.code) === activeFloor.value)
-    const q = searchText.value.trim().toLowerCase()
-    if (q) {
-      list = list.filter(i =>
-        i.code?.toLowerCase().includes(q) ||
-        i.location?.toLowerCase().includes(q) ||
-        i.batchNo?.toLowerCase().includes(q)
-      )
+const activeFloor = ref(null)
+const searchText = ref('')
+
+const filtered = computed(() => {
+  let list = items.value
+  if (activeFloor.value) list = list.filter(i => parseFloor(i.code) === activeFloor.value)
+  const q = searchText.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(i =>
+      i.code?.toLowerCase().includes(q) ||
+      i.location?.toLowerCase().includes(q) ||
+      i.batchNo?.toLowerCase().includes(q)
+    )
+  }
+  return list
+})
+
+// ── 新增/編輯 Modal ──────────────────────────────────────────────
+const emptyItem = () => ({ code: '', location: '', batchNo: '' })
+const modal = reactive({ show: false, isNew: true, data: emptyItem() })
+
+const openModal = (item) => {
+  modal.isNew = !item
+  modal.data = item ? { ...item } : emptyItem()
+  modal.show = true
+}
+
+const toast = reactive({ show: false, message: '' })
+const showToast = (msg) => {
+  toast.message = msg
+  toast.show = true
+  setTimeout(() => { toast.show = false }, 2500)
+}
+
+const saveItem = async () => {
+  if (!modal.data.code?.trim()) { showToast('請填寫編號'); return }
+  try {
+    if (modal.isNew) {
+      const saved = await $fetch(`${API_BASE.value}/save`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: modal.data
+      })
+      items.value.push(saved ?? { ...modal.data })
+    } else {
+      await $fetch(`${API_BASE.value}/update/${modal.data.id ?? modal.data.code}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: modal.data
+      })
+      const idx = items.value.findIndex(i => (i.id ?? i.code) === (modal.data.id ?? modal.data.code))
+      if (idx !== -1) items.value[idx] = { ...modal.data }
     }
-    return list
-  })
-
-  // ── 新增/編輯 Modal ──────────────────────────────────────────────
-  const emptyItem = () => ({ code: '', location: '', batchNo: '' })
-  const modal = reactive({ show: false, isNew: true, data: emptyItem() })
-
-  const openModal = (item) => {
-    modal.isNew = !item
-    modal.data = item ? { ...item } : emptyItem()
-    modal.show = true
+    modal.show = false
+    showToast(modal.isNew ? '新增成功' : '儲存成功')
+  } catch (e) {
+    console.error(e)
+    showToast('儲存失敗')
   }
+}
 
-  const toast = reactive({ show: false, message: '' })
-  const showToast = (msg) => {
-    toast.message = msg
-    toast.show = true
-    setTimeout(() => { toast.show = false }, 2500)
+const removeItem = async (item) => {
+  if (!confirm(`確定要刪除 ${item.code} 嗎?`)) return
+  try {
+    await $fetch(`${API_BASE.value}/remove/${item.id ?? item.code}`, { method: 'DELETE' })
+    items.value = items.value.filter(i => (i.id ?? i.code) !== (item.id ?? item.code))
+    showToast('已刪除')
+  } catch (e) {
+    console.error(e)
+    showToast('刪除失敗')
   }
+}
 
-  const saveItem = async () => {
-    if (!modal.data.code?.trim()) { showToast('請填寫編號'); return }
-    try {
-      if (modal.isNew) {
-        const saved = await $fetch(`${API_BASE.value}/save`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: modal.data
-        })
-        items.value.push(saved ?? { ...modal.data })
-      } else {
-        await $fetch(`${API_BASE.value}/update/${modal.data.id ?? modal.data.code}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: modal.data
-        })
-        const idx = items.value.findIndex(i => (i.id ?? i.code) === (modal.data.id ?? modal.data.code))
-        if (idx !== -1) items.value[idx] = { ...modal.data }
-      }
-      modal.show = false
-      showToast(modal.isNew ? '新增成功' : '儲存成功')
-    } catch (e) {
-      console.error(e)
-      showToast('儲存失敗')
-    }
-  }
-
-  const removeItem = async (item) => {
-    if (!confirm(`確定要刪除 ${item.code} 嗎?`)) return
-    try {
-      await $fetch(`${API_BASE.value}/remove/${item.id ?? item.code}`, { method: 'DELETE' })
-      items.value = items.value.filter(i => (i.id ?? i.code) !== (item.id ?? item.code))
-      showToast('已刪除')
-    } catch (e) {
-      console.error(e)
-      showToast('刪除失敗')
-    }
-  }
-
-  onMounted(fetchItems)
+onMounted(fetchItems)
 </script>
 
 <style scoped>
-  .badge-stat {
-    font-size: 13px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: var(--surface2, #f0f1ec);
-    color: var(--hint-c, #6b6f6a);
-    border: 1px solid var(--border-light-c, #dadedb);
-  }
-  .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-  .fade-enter-from, .fade-leave-to { opacity: 0; }
+.badge-stat {
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface2, #f0f1ec);
+  color: var(--hint-c, #6b6f6a);
+  border: 1px solid var(--border-light-c, #dadedb);
+}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
