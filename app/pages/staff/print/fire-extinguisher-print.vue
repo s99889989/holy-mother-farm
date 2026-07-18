@@ -8,7 +8,7 @@ const API_BASE = computed(() => commonStore.data.main_url + '/holy/fire-extingui
 
 // 巡檢頁網址前綴：掃碼後會跳去 BASE_URL + 編號
 // TODO：等巡檢頁(front/fire-extinguisher/[code].vue)真的做出來後，確認網域是否要換成正式站
-const BASE_URL = 'https://holyfarm.netlify.app/front/fire-extinguisher/'
+const BASE_URL = 'https://holymotherfarm.netlify.app/front/fire-extinguisher/'
 const PER_PAGE = 8 // 4欄 × 2列
 
 const items = ref([])
@@ -204,7 +204,7 @@ function printViaIframe() {
   flex-direction: column;
   position: sticky;
   top: 0;
-
+  max-height: calc(100vh - 49px);
   overflow: hidden;
 }
 
