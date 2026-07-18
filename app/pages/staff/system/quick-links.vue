@@ -5,28 +5,65 @@
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-20">
       <div class="max-w-2xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🔗</div>
-        <div>
+        <div class="flex-1">
           <h1 class="font-bold text-base-c leading-none" style="font-size:15px">常用網址</h1>
         </div>
+        <button
+          class="px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0"
+          :class="editMode ? 'bg-green-700 text-white' : 'bg-surface2 text-muted-c hover-surface2'"
+          style="font-size:12.5px"
+          @click="toggleEditMode"
+        >
+          {{ editMode ? '完成編輯' : '管理' }}
+        </button>
       </div>
     </header>
 
     <!-- 分類 Tab 列 -->
-    <div v-if="categories.length > 0"
+    <div v-if="categories.length > 0 || editMode"
          class="bg-surface border-b border-light-c sticky top-0 z-10">
       <div class="max-w-2xl mx-auto">
         <div class="tab-scroll flex gap-1 px-3 py-2 overflow-x-auto">
           <button
-            v-for="cat in categories" :key="cat.id"
-            class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-            :class="activeId === cat.id
- ? 'bg-green-700 text-white font-semibold'
- : 'bg-surface2 text-muted-c hover-surface2'"
+            v-for="(cat, idx) in categories" :key="cat.id"
+            class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5"
+            :class="[
+              activeId === cat.id ? 'bg-green-700 text-white font-semibold' : 'bg-surface2 text-muted-c hover-surface2',
+              editMode ? 'cursor-move' : ''
+            ]"
             style="font-size:13px"
+            :draggable="editMode"
+            @dragstart="onCatDragStart(idx)"
+            @dragover.prevent
+            @dragenter.prevent
+            @drop="onCatDrop(idx)"
             @click="activeId = cat.id"
           >
             {{ cat.name }}
-            <span class="ml-1 opacity-60" style="font-size:11px">{{ cat.links.length }}</span>
+            <span class="opacity-60" style="font-size:11px">{{ cat.links.length }}</span>
+            <template v-if="editMode">
+              <span class="icon-btn opacity-80 hover:opacity-100" @click.stop="openEditCategory(cat)">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+              </span>
+              <span class="icon-btn opacity-80 hover:opacity-100" @click.stop="deleteCategoryConfirm(cat)">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </span>
+            </template>
+          </button>
+
+          <button
+            v-if="editMode"
+            class="flex-shrink-0 px-3 py-1.5 rounded-lg border border-dashed border-light-c text-hint-c whitespace-nowrap hover-surface2"
+            style="font-size:13px"
+            @click="openAddCategory"
+          >
+            ＋ 新增分類
           </button>
         </div>
       </div>
@@ -40,8 +77,8 @@
 
       <template v-else>
 
-        <!-- 空狀態 -->
-        <div v-if="categories.length === 0"
+        <!-- 空狀態（唯讀模式且完全沒有分類） -->
+        <div v-if="categories.length === 0 && !editMode"
              class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
           <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
@@ -52,8 +89,8 @@
 
         <template v-if="activeCat">
 
-          <!-- 此分類無連結 -->
-          <div v-if="activeCat.links.length === 0"
+          <!-- 此分類無連結（唯讀模式） -->
+          <div v-if="activeCat.links.length === 0 && !editMode"
                class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm"
                style="font-size:13px">
             此分類尚無網址
@@ -61,39 +98,145 @@
 
           <!-- 卡片 Grid -->
           <div v-else class="link-grid">
-            <a
-              v-for="link in activeCat.links" :key="link.id"
-              :href="link.url" target="_blank" rel="noopener"
-              class="link-card bg-surface border border-light-c rounded-2xl p-3 flex flex-col gap-2 shadow-sm"
+            <div
+              v-for="(link, idx) in activeCat.links" :key="link.id"
+              class="link-card bg-surface border border-light-c rounded-2xl p-3 flex flex-col gap-2 shadow-sm relative"
+              :class="editMode ? 'cursor-move' : ''"
+              :draggable="editMode"
+              @dragstart="onLinkDragStart(idx)"
+              @dragover.prevent
+              @dragenter.prevent
+              @drop="onLinkDrop(idx)"
             >
-              <div class="flex items-start justify-between">
-                <div class="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  <img
-                    :src="`https://www.google.com/s2/favicons?domain=${getDomain(link.url)}&sz=64`"
-                    class="w-6 h-6 rounded"
-                    @error="onFaviconError($event, link.name)"
-                  />
+              <a
+                :href="link.url" target="_blank" rel="noopener"
+                class="flex flex-col gap-2"
+                :class="editMode ? 'pointer-events-none' : ''"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <img
+                      :src="`https://www.google.com/s2/favicons?domain=${getDomain(link.url)}&sz=64`"
+                      class="w-6 h-6 rounded"
+                      @error="onFaviconError($event, link.name)"
+                    />
+                  </div>
+                  <svg v-if="!editMode" class="w-3 h-3 text-hint-c flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
                 </div>
-                <svg class="w-3 h-3 text-hint-c flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                </svg>
-              </div>
 
-              <div>
-                <p class="font-semibold text-base-c leading-snug line-clamp-2" style="font-size:13px">
-                  {{ link.name }}
-                </p>
-                <p v-if="link.note" class="text-hint-c mt-0.5 line-clamp-1" style="font-size:11px">
-                  {{ link.note }}
-                </p>
+                <div>
+                  <p class="font-semibold text-base-c leading-snug line-clamp-2" style="font-size:13px">
+                    {{ link.name }}
+                  </p>
+                  <p v-if="link.note" class="text-hint-c mt-0.5 line-clamp-1" style="font-size:11px">
+                    {{ link.note }}
+                  </p>
+                </div>
+              </a>
+
+              <div v-if="editMode" class="absolute top-2 right-2 flex gap-1">
+                <button
+                  class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
+                  @click.stop="openEditLink(link)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <button
+                  class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
+                  @click.stop="deleteLinkConfirm(link)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
               </div>
-            </a>
+            </div>
+
+            <!-- 新增網址卡 -->
+            <button
+              v-if="editMode"
+              class="link-card border border-dashed border-light-c rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-hint-c hover-surface2"
+              style="min-height:96px"
+              @click="openAddLink"
+            >
+              <span style="font-size:22px;line-height:1;">＋</span>
+              <span style="font-size:12px;">新增網址</span>
+            </button>
           </div>
 
         </template>
       </template>
     </div>
+
+    <!-- ===== 分類 新增／編輯 Modal ===== -->
+    <div v-if="catModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeCategoryModal">
+      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
+        <h2 class="font-bold text-base-c mb-3" style="font-size:15px">{{ catModal.id ? '編輯分類' : '新增分類' }}</h2>
+
+        <label class="block text-hint-c mb-1" style="font-size:12px">分類名稱</label>
+        <input
+          v-model="catModal.name" type="text"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-1 bg-surface2 text-base-c"
+          style="font-size:13px" placeholder="例如：常用系統"
+          @keyup.enter="saveCategoryModal"
+        />
+        <p v-if="modalError" class="text-red-500 mb-2" style="font-size:11.5px">{{ modalError }}</p>
+        <div class="h-3" v-else></div>
+
+        <div class="flex justify-end gap-2 mt-2">
+          <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeCategoryModal">取消</button>
+          <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" style="font-size:13px" :disabled="saving" @click="saveCategoryModal">
+            {{ saving ? '儲存中...' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 網址 新增／編輯 Modal ===== -->
+    <div v-if="linkModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeLinkModal">
+      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
+        <h2 class="font-bold text-base-c mb-3" style="font-size:15px">{{ linkModal.id ? '編輯網址' : '新增網址' }}</h2>
+
+        <label class="block text-hint-c mb-1" style="font-size:12px">名稱</label>
+        <input
+          v-model="linkModal.name" type="text"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-3 bg-surface2 text-base-c"
+          style="font-size:13px" placeholder="例如：庫存系統"
+        />
+
+        <label class="block text-hint-c mb-1" style="font-size:12px">網址</label>
+        <input
+          v-model="linkModal.url" type="url"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-3 bg-surface2 text-base-c"
+          style="font-size:13px" placeholder="https://"
+        />
+
+        <label class="block text-hint-c mb-1" style="font-size:12px">備註（選填）</label>
+        <input
+          v-model="linkModal.note" type="text"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-1 bg-surface2 text-base-c"
+          style="font-size:13px" placeholder="簡短說明"
+          @keyup.enter="saveLinkModal"
+        />
+        <p v-if="modalError" class="text-red-500 mb-2" style="font-size:11.5px">{{ modalError }}</p>
+        <div class="h-3" v-else></div>
+
+        <div class="flex justify-end gap-2 mt-2">
+          <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeLinkModal">取消</button>
+          <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" style="font-size:13px" :disabled="saving" @click="saveLinkModal">
+            {{ saving ? '儲存中...' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -106,14 +249,20 @@ const BASE = () => commonStore.data.main_url + '/holy/links'
 const loading    = ref(false)
 const categories = ref([])
 const activeId   = ref(null)
+const editMode   = ref(false)
 
 const activeCat = computed(() => categories.value.find(c => c.id === activeId.value) ?? null)
 
+// 取得清單；若目前選取的分類仍存在則保留選取，避免每次編輯後都跳回第一個分類
 const fetchLinks = async () => {
   loading.value = true
   try {
-    categories.value = await (await fetch(`${BASE()}/list`)).json()
-    if (categories.value.length > 0) activeId.value = categories.value[0].id
+    const data = await (await fetch(`${BASE()}/list`)).json()
+    categories.value = data
+    const stillExists = categories.value.some(c => c.id === activeId.value)
+    if (!stillExists) {
+      activeId.value = categories.value.length > 0 ? categories.value[0].id : null
+    }
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
@@ -130,6 +279,170 @@ function onFaviconError(event, name) {
   span.textContent = name?.charAt(0)?.toUpperCase() || '?'
   span.style.cssText = 'font-size:16px;font-weight:700;color:#94a3b8;'
   parent.appendChild(span)
+}
+
+function toggleEditMode() {
+  editMode.value = !editMode.value
+}
+
+/* ---------------- 分類：新增／編輯／刪除 ---------------- */
+
+const catModal   = reactive({ open: false, id: null, name: '' })
+const saving     = ref(false)
+const modalError = ref('')
+
+function openAddCategory() {
+  catModal.open = true
+  catModal.id = null
+  catModal.name = ''
+  modalError.value = ''
+}
+function openEditCategory(cat) {
+  catModal.open = true
+  catModal.id = cat.id
+  catModal.name = cat.name
+  modalError.value = ''
+}
+function closeCategoryModal() {
+  catModal.open = false
+}
+async function saveCategoryModal() {
+  if (!catModal.name.trim()) {
+    modalError.value = '請輸入分類名稱'
+    return
+  }
+  saving.value = true
+  modalError.value = ''
+  try {
+    const body = { name: catModal.name.trim() }
+    if (catModal.id) body.id = catModal.id
+    await fetch(`${BASE()}/category/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    closeCategoryModal()
+    await fetchLinks()
+  } catch (e) {
+    console.error(e)
+    modalError.value = '儲存失敗，請稍後再試'
+  } finally {
+    saving.value = false
+  }
+}
+async function deleteCategoryConfirm(cat) {
+  if (!confirm(`確定要刪除分類「${cat.name}」嗎？此分類底下的網址也會一併刪除。`)) return
+  try {
+    await fetch(`${BASE()}/category/${cat.id}`, { method: 'DELETE' })
+    await fetchLinks()
+  } catch (e) { console.error(e) }
+}
+
+/* ---------------- 分類：拖曳排序 ---------------- */
+
+const dragCatIndex = ref(null)
+function onCatDragStart(idx) {
+  dragCatIndex.value = idx
+}
+async function onCatDrop(idx) {
+  if (dragCatIndex.value === null || dragCatIndex.value === idx) return
+  const arr = categories.value
+  const [moved] = arr.splice(dragCatIndex.value, 1)
+  arr.splice(idx, 0, moved)
+  dragCatIndex.value = null
+  try {
+    await fetch(`${BASE()}/sort`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'category', ids: categories.value.map(c => c.id) }),
+    })
+  } catch (e) { console.error(e) }
+}
+
+/* ---------------- 網址：新增／編輯／刪除 ---------------- */
+
+const linkModal = reactive({ open: false, catId: null, id: null, name: '', url: '', note: '' })
+
+function openAddLink() {
+  if (!activeCat.value) return
+  linkModal.open = true
+  linkModal.catId = activeCat.value.id
+  linkModal.id = null
+  linkModal.name = ''
+  linkModal.url = ''
+  linkModal.note = ''
+  modalError.value = ''
+}
+function openEditLink(link) {
+  if (!activeCat.value) return
+  linkModal.open = true
+  linkModal.catId = activeCat.value.id
+  linkModal.id = link.id
+  linkModal.name = link.name
+  linkModal.url = link.url
+  linkModal.note = link.note || ''
+  modalError.value = ''
+}
+function closeLinkModal() {
+  linkModal.open = false
+}
+async function saveLinkModal() {
+  if (!linkModal.name.trim() || !linkModal.url.trim()) {
+    modalError.value = '請輸入名稱與網址'
+    return
+  }
+  saving.value = true
+  modalError.value = ''
+  try {
+    const body = {
+      catId: linkModal.catId,
+      name: linkModal.name.trim(),
+      url: linkModal.url.trim(),
+      note: linkModal.note.trim(),
+    }
+    if (linkModal.id) body.id = linkModal.id
+    await fetch(`${BASE()}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    closeLinkModal()
+    await fetchLinks()
+  } catch (e) {
+    console.error(e)
+    modalError.value = '儲存失敗，請稍後再試'
+  } finally {
+    saving.value = false
+  }
+}
+async function deleteLinkConfirm(link) {
+  if (!activeCat.value) return
+  if (!confirm(`確定要刪除「${link.name}」嗎？`)) return
+  try {
+    await fetch(`${BASE()}/remove/${activeCat.value.id}/${link.id}`, { method: 'DELETE' })
+    await fetchLinks()
+  } catch (e) { console.error(e) }
+}
+
+/* ---------------- 網址：拖曳排序 ---------------- */
+
+const dragLinkIndex = ref(null)
+function onLinkDragStart(idx) {
+  dragLinkIndex.value = idx
+}
+async function onLinkDrop(idx) {
+  if (dragLinkIndex.value === null || dragLinkIndex.value === idx || !activeCat.value) return
+  const arr = activeCat.value.links
+  const [moved] = arr.splice(dragLinkIndex.value, 1)
+  arr.splice(idx, 0, moved)
+  dragLinkIndex.value = null
+  try {
+    await fetch(`${BASE()}/sort`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'link', catId: activeCat.value.id, ids: arr.map(l => l.id) }),
+    })
+  } catch (e) { console.error(e) }
 }
 
 onMounted(fetchLinks)
@@ -161,5 +474,15 @@ onMounted(fetchLinks)
 .link-card:hover {
   border-color: #a8d5b5;
   box-shadow: 0 2px 10px rgba(45, 106, 79, 0.1);
+}
+.icon-btn {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:active {
+  transform: scale(0.9);
 }
 </style>

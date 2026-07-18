@@ -1,7 +1,7 @@
 <script setup>
-import {ref, computed, onMounted} from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
-definePageMeta({layout: 'staff', requiredPermission: 'print.fire-extinguisher-print'})
+definePageMeta({ layout: 'staff', requiredPermission: 'print.fire-extinguisher-print' })
 
 const commonStore = useCommonStore()
 const API_BASE = computed(() => commonStore.data.main_url + '/holy/fire-extinguisher')
@@ -18,7 +18,7 @@ const selected = ref({}) // { code: boolean }
 async function loadItems() {
   loading.value = true
   try {
-    const list = await $fetch(`${API_BASE.value}/list`, {credentials: 'include'})
+    const list = await $fetch(`${API_BASE.value}/list`, { credentials: 'include' })
     items.value = Array.isArray(list) ? list : []
     items.value.forEach((i) => {
       selected.value[i.code] = true
@@ -34,7 +34,7 @@ async function loadItems() {
 onMounted(loadItems)
 
 const selectedCount = computed(() =>
-  items.value.filter((i) => selected.value[i.code]).length
+  items.value.filter(i => selected.value[i.code]).length
 )
 
 function toggleAll(val) {
@@ -51,9 +51,9 @@ async function generate() {
   generating.value = true
   sheets.value = []
 
-  const {default: QRCode} = await import('qrcode')
+  const { default: QRCode } = await import('qrcode')
 
-  const targets = items.value.filter((i) => selected.value[i.code])
+  const targets = items.value.filter(i => selected.value[i.code])
 
   const pages = []
   for (let p = 0; p < Math.ceil(targets.length / PER_PAGE); p++) {
@@ -65,9 +65,9 @@ async function generate() {
           width: 300,
           margin: 1,
           errorCorrectionLevel: 'M',
-          color: {dark: '#000000', light: '#ffffff'}
+          color: { dark: '#000000', light: '#ffffff' }
         })
-        return {code: item.code, location: item.location, qrDataUrl}
+        return { code: item.code, location: item.location, qrDataUrl }
       })
     )
     while (cells.length < PER_PAGE) cells.push(null)
@@ -144,45 +144,106 @@ function printViaIframe() {
   <div class="min-h-full lp-wrap bg-surface2">
     <aside class="lp-sidebar bg-surface border-r border-light-c">
       <div class="lp-sidebar-head border-b border-light-c">
-        <h1 class="lp-title text-base-c">🧯 滅火器 QRCode 列印</h1>
-        <p class="lp-sub text-hint-c">每張約 60 × 55mm,每頁 A4 橫排 8 張</p>
+        <h1 class="lp-title text-base-c">
+          🧯 滅火器 QRCode 列印
+        </h1>
+        <p class="lp-sub text-hint-c">
+          每張約 60 × 55mm,每頁 A4 橫排 8 張
+        </p>
       </div>
 
       <div class="lp-toolbar border-b border-light-c">
-        <button class="lp-link" @click="toggleAll(true)">全選</button>
-        <button class="lp-link" @click="toggleAll(false)">全部取消</button>
+        <button
+          class="lp-link"
+          @click="toggleAll(true)"
+        >
+          全選
+        </button>
+        <button
+          class="lp-link"
+          @click="toggleAll(false)"
+        >
+          全部取消
+        </button>
         <span class="lp-count text-hint-c">已選 {{ selectedCount }} / {{ items.length }}</span>
       </div>
 
-      <p v-if="loading" class="lp-loading text-hint-c">載入中...</p>
+      <p
+        v-if="loading"
+        class="lp-loading text-hint-c"
+      >
+        載入中...
+      </p>
 
-      <div v-else class="lp-item-list">
-        <label v-for="item in items" :key="item.code" class="lp-row">
-          <input type="checkbox" v-model="selected[item.code]" class="lp-checkbox">
+      <div
+        v-else
+        class="lp-item-list"
+      >
+        <label
+          v-for="item in items"
+          :key="item.code"
+          class="lp-row"
+        >
+          <input
+            v-model="selected[item.code]"
+            type="checkbox"
+            class="lp-checkbox"
+          >
           <span class="lp-code text-base-c">{{ item.code }}</span>
           <span class="lp-location text-hint-c">{{ item.location }}</span>
         </label>
       </div>
 
       <div class="lp-actions border-t border-light-c">
-        <button class="lp-btn-primary" :disabled="generating || selectedCount === 0" @click="generate">
+        <button
+          class="lp-btn-primary"
+          :disabled="generating || selectedCount === 0"
+          @click="generate"
+        >
           {{ generating ? '產生中...' : `產生 QR Code(${selectedCount} 張)` }}
         </button>
-        <button v-if="sheets.length" class="lp-btn-secondary" @click="printViaIframe">
+        <button
+          v-if="sheets.length"
+          class="lp-btn-secondary"
+          @click="printViaIframe"
+        >
           列印
         </button>
       </div>
     </aside>
 
     <main class="lp-preview">
-      <p v-if="!sheets.length" class="lp-empty text-hint-c">勾選滅火器後按「產生 QR Code」預覽</p>
-      <div v-else class="lp-preview-pages">
-        <div v-for="(page, pi) in sheets" :key="pi" class="lp-preview-page bg-surface border-light-c">
-          <div v-for="(cell, ci) in page" :key="ci" class="lp-preview-cell border-light-c">
+      <p
+        v-if="!sheets.length"
+        class="lp-empty text-hint-c"
+      >
+        勾選滅火器後按「產生 QR Code」預覽
+      </p>
+      <div
+        v-else
+        class="lp-preview-pages"
+      >
+        <div
+          v-for="(page, pi) in sheets"
+          :key="pi"
+          class="lp-preview-page bg-surface border-light-c"
+        >
+          <div
+            v-for="(cell, ci) in page"
+            :key="ci"
+            class="lp-preview-cell border-light-c"
+          >
             <template v-if="cell">
-              <img :src="cell.qrDataUrl" class="lp-preview-qr">
-              <div class="lp-preview-code text-base-c">{{ cell.code }}</div>
-              <div class="lp-preview-location text-hint-c">{{ cell.location }}</div>
+              <img
+                :src="cell.qrDataUrl"
+                class="lp-preview-qr"
+              >
+              <div class="lp-preview-code text-base-c">
+                {{ cell.code }}
+              </div>
+              <div class="lp-preview-location text-hint-c">
+                {{ cell.location }}
+              </div>
             </template>
           </div>
         </div>

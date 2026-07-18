@@ -53,7 +53,9 @@ const navGroups = [
       { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
       { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'order.booking-orders' },
       { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
-      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' }
+      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
+      { to: '/staff/order/rooms-setting', icon: '🍱', label: '房間管理', key: 'order.rooms-setting' },
+      { to: '/staff/order/rooms-orders', icon: '🍱', label: '訂房管理', key: 'order.rooms-orders' }
     ]
   },
   {
