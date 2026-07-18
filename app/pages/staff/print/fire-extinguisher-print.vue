@@ -141,7 +141,7 @@ function printViaIframe() {
 </script>
 
 <template>
-  <div class="lp-wrap bg-surface2">
+  <div class="min-h-full lp-wrap bg-surface2">
     <aside class="lp-sidebar bg-surface border-r border-light-c">
       <div class="lp-sidebar-head border-b border-light-c">
         <h1 class="lp-title text-base-c">🧯 滅火器 QRCode 列印</h1>
@@ -174,27 +174,27 @@ function printViaIframe() {
       </div>
     </aside>
 
-<!--    <main class="lp-preview">-->
-<!--      <p v-if="!sheets.length" class="lp-empty text-hint-c">勾選滅火器後按「產生 QR Code」預覽</p>-->
-<!--      <div v-else class="lp-preview-pages">-->
-<!--        <div v-for="(page, pi) in sheets" :key="pi" class="lp-preview-page bg-surface border-light-c">-->
-<!--          <div v-for="(cell, ci) in page" :key="ci" class="lp-preview-cell border-light-c">-->
-<!--            <template v-if="cell">-->
-<!--              <img :src="cell.qrDataUrl" class="lp-preview-qr">-->
-<!--              <div class="lp-preview-code text-base-c">{{ cell.code }}</div>-->
-<!--              <div class="lp-preview-location text-hint-c">{{ cell.location }}</div>-->
-<!--            </template>-->
-<!--          </div>-->
-<!--        </div>-->
-<!--      </div>-->
-<!--    </main>-->
+    <main class="lp-preview">
+      <p v-if="!sheets.length" class="lp-empty text-hint-c">勾選滅火器後按「產生 QR Code」預覽</p>
+      <div v-else class="lp-preview-pages">
+        <div v-for="(page, pi) in sheets" :key="pi" class="lp-preview-page bg-surface border-light-c">
+          <div v-for="(cell, ci) in page" :key="ci" class="lp-preview-cell border-light-c">
+            <template v-if="cell">
+              <img :src="cell.qrDataUrl" class="lp-preview-qr">
+              <div class="lp-preview-code text-base-c">{{ cell.code }}</div>
+              <div class="lp-preview-location text-hint-c">{{ cell.location }}</div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
 <style scoped>
 .lp-wrap {
   display: flex;
-  min-height: 100vh;
+
 }
 
 .lp-sidebar {
@@ -204,7 +204,7 @@ function printViaIframe() {
   flex-direction: column;
   position: sticky;
   top: 0;
-  height: 100vh;
+
   overflow: hidden;
 }
 
