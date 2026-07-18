@@ -322,7 +322,7 @@ ${pagesHtml}
 
 .lp-wrap {
   display: flex;
-  min-height: 100%;
+
 }
 
 /* ── 側邊欄 ── */
