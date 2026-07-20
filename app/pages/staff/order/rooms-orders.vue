@@ -151,27 +151,42 @@
             </div>
 
             <div class="panel">
-              <div v-for="grp in visibleOrderBuildings" :key="grp.id" class="mb-6 last:mb-0">
+              <div v-for="grp in visibleOrderBuildings" :key="grp.id" class="mb-8 last:mb-0">
                 <div class="flex items-center gap-2 mb-2">
                   <span class="building-badge">{{ grp.name.charAt(0) }}</span>
                   <h3 class="font-bold text-base-c" style="font-size:14px">{{ grp.name }}</h3>
                   <span class="text-hint-c" style="font-size:11.5px">共 {{ grp.rooms.length }} 間</span>
                 </div>
-                <div class="floor-grid">
-                  <div v-for="r in grp.rooms" :key="r.id" class="floor-tile" :class="orderTileClass(r)" @click="openBookingTile(r)">
-                    <div class="font-bold text-base-c" style="font-size:15px">{{ r.id }}</div>
-                    <div class="text-hint-c" style="font-size:10px">{{ r.type }}</div>
-                    <div class="mt-auto font-bold" :class="orderTileLabelClass(r)" style="font-size:10px">{{ orderTileLabel(r) }}</div>
-                  </div>
-                </div>
+                <svg
+                  :viewBox="`0 0 ${layoutOf(grp.id).width} ${layoutOf(grp.id).height}`"
+                  class="floorplan-svg"
+                  :style="{ maxWidth: layoutOf(grp.id).width + 'px' }"
+                >
+                  <rect
+                    :x="0" :y="layoutOf(grp.id).corridorY" :width="layoutOf(grp.id).width" :height="layoutOf(grp.id).corridorH"
+                    class="corridor-band"
+                  />
+                  <text
+                    :x="layoutOf(grp.id).width / 2" :y="layoutOf(grp.id).corridorY + layoutOf(grp.id).corridorH / 2 + 4"
+                    text-anchor="middle" class="corridor-label"
+                  >走廊</text>
+
+                  <g v-for="p in layoutOf(grp.id).positions" :key="p.room.id" class="room-group" @click="openBookingTile(p.room)">
+                    <rect :x="p.x" :y="p.y" :width="ROOM_W" :height="ROOM_H" rx="6" :class="['room-rect', orderTileClass(p.room)]" />
+                    <text :x="p.x + ROOM_W / 2" :y="p.y + 26" text-anchor="middle" class="room-num">{{ p.room.id }}</text>
+                    <text :x="p.x + ROOM_W / 2" :y="p.y + 43" text-anchor="middle" class="room-sub">{{ p.room.type }}</text>
+                    <text :x="p.x + ROOM_W / 2" :y="p.y + 62" text-anchor="middle" :class="['room-status', orderTileClass(p.room)]">{{ orderTileLabel(p.room) }}</text>
+                  </g>
+                </svg>
               </div>
-              <div class="flex flex-wrap gap-4 text-hint-c mt-4" style="font-size:11.5px">
+              <div class="flex flex-wrap gap-4 text-hint-c mt-2" style="font-size:11.5px">
                 <span><span class="dot" style="background:#10b981"></span>空房</span>
                 <span><span class="dot" style="background:#f59e0b"></span>待確認</span>
                 <span><span class="dot" style="background:#3b82f6"></span>已確認住房中</span>
                 <span><span class="dot" style="background:#a8a29e"></span>已下架</span>
                 <span>點擊房間可查看訂單詳情並操作</span>
               </div>
+              <p class="text-hint-c mt-2" style="font-size:11px">＊此為依房號排列的走廊示意圖，非實際建築平面圖</p>
             </div>
           </div>
         </div>
@@ -310,275 +325,313 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
 
-const commonStore = useCommonStore()
-const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
-const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
+  const commonStore = useCommonStore()
+  const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
+  const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
 
-const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toISOString().slice(0, 10)
 
-const loading   = ref(false)
-const tab       = ref('dashboard') // dashboard | orders | history
+  const loading   = ref(false)
+  const tab       = ref('dashboard') // dashboard | orders | history
 
-const buildings = ref([]) // [{id, name, rooms:[...]}]
-const bookings  = ref([]) // 全部訂單（raw）
+  const buildings = ref([]) // [{id, name, rooms:[...]}]
+  const bookings  = ref([]) // 全部訂單（raw）
 
-const rooms = computed(() =>
-  buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
-)
-
-async function fetchAll() {
-  loading.value = true
-  try {
-    const [b, o] = await Promise.all([
-      (await fetch(`${ROOMS_BASE()}/list`)).json(),
-      (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
-    ])
-    buildings.value = b
-    bookings.value = o
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
-}
-
-/* ---------------- 共用小工具 ---------------- */
-
-function nights(checkIn, checkOut) {
-  if (!checkIn || !checkOut) return 0
-  const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
-  return d > 0 ? d : 0
-}
-function statusLabel(s) {
-  return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
-}
-function statusClass(s) {
-  return {
-    unassigned: 'bg-sky-100 text-sky-700',
-    pending:    'bg-amber-100 text-amber-700',
-    confirmed:  'bg-emerald-100 text-emerald-700',
-    completed:  'bg-stone-200 text-stone-600',
-    cancelled:  'bg-rose-100 text-rose-700',
-  }[s] || 'bg-stone-100 text-stone-600'
-}
-function roomById(id) { return rooms.value.find(r => r.id === id) }
-function roomLabel(roomId) {
-  const r = roomById(roomId)
-  return r ? `${r.id} ${r.type}` : '尚未指派'
-}
-function buildingNameOf(id) {
-  const b = buildings.value.find(x => x.id === id)
-  return b ? b.name : id
-}
-function bookingTotal(b) {
-  const r = roomById(b.roomId)
-  if (!r) return 0
-  return r.price * nights(b.checkIn, b.checkOut)
-}
-function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-  return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
-}
-function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
-  return !bookings.value.some(b =>
-    b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed' &&
-    b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
+  const rooms = computed(() =>
+    buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
   )
-}
-function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
 
-/* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
-const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
-const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
-const upcomingBookings = computed(() =>
-  [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
-)
-
-/* ---------------- 訂單管理 ---------------- */
-
-const ordersView     = ref('list')
-const ordersBuilding = ref('all')
-const ordersStatus   = ref('all')
-const ordersKeyword  = ref('')
-
-const filteredOrders = computed(() => {
-  const kw = ordersKeyword.value.trim().toLowerCase()
-  return activeBookings.value
-    .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
-    .filter(b => {
-      if (ordersBuilding.value === 'all') return true
-      if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
-      return b.buildingPref === ordersBuilding.value
-    })
-    .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw))
-    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-})
-
-const visibleOrderBuildings = computed(() =>
-  ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
-)
-const unassignedForFloor = computed(() =>
-  [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-)
-
-function activeBookingForRoom(roomId) {
-  return bookings.value
-    .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
-    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))[0] || null
-}
-function orderTileClass(r) {
-  if (!r.active) return 'tile-inactive'
-  const b = activeBookingForRoom(r.id)
-  if (!b) return 'tile-vacant'
-  return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
-}
-function orderTileLabelClass(r) {
-  if (!r.active) return 'text-stone-500'
-  const b = activeBookingForRoom(r.id)
-  if (!b) return 'text-emerald-600'
-  return b.status === 'pending' ? 'text-amber-600' : 'text-blue-600'
-}
-function orderTileLabel(r) {
-  if (!r.active) return '已下架'
-  const b = activeBookingForRoom(r.id)
-  if (!b) return '空房'
-  return (b.status === 'pending' ? '待確認・' : '已確認・') + b.name
-}
-
-const tileTarget = ref(null)
-function openBookingTile(room) {
-  tileTarget.value = { room, booking: activeBookingForRoom(room.id) }
-}
-async function quickSetTile(status) {
-  if (!tileTarget.value || !tileTarget.value.booking) return
-  await setStatus(tileTarget.value.booking.id, status)
-  tileTarget.value = null
-}
-
-/* ---------------- 狀態轉換 / 刪除 ---------------- */
-
-async function setStatus(id, status) {
-  try {
-    await fetch(`${BOOKINGS_BASE()}/status`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }),
-    })
-    await fetchAll()
-  } catch (e) { console.error(e) }
-}
-async function removeBooking(id) {
-  if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
-  try {
-    await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
-    await fetchAll()
-  } catch (e) { console.error(e) }
-}
-async function restoreBooking(b) {
-  await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
-}
-
-/* ---------------- 指派房間 ---------------- */
-
-const assignTarget = ref(null)
-const assignBuildingFilter = ref('all')
-const assignError = ref('')
-
-function openAssign(booking) {
-  assignTarget.value = booking
-  assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
-  assignError.value = ''
-}
-const eligibleRooms = computed(() => {
-  if (!assignTarget.value) return []
-  const b = assignTarget.value
-  return rooms.value
-    .filter(r => r.active)
-    .filter(r => r.capacity >= b.guests)
-    .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
-    .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
-    .sort((r1, r2) => {
-      const pref = b.buildingPref
-      if (pref && pref !== 'all') {
-        if (r1.buildingId === pref && r2.buildingId !== pref) return -1
-        if (r2.buildingId === pref && r1.buildingId !== pref) return 1
-      }
-      return r1.capacity - r2.capacity || r1.price - r2.price
-    })
-})
-async function assignRoom(room) {
-  assignError.value = ''
-  try {
-    const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id }),
-    })).json()
-    if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
-    assignTarget.value = null
-    await fetchAll()
-  } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
-}
-
-/* ---------------- 訂房紀錄 ---------------- */
-
-const historyStatus  = ref('all')
-const historyKeyword = ref('')
-const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
-const filteredHistory = computed(() => {
-  const kw = historyKeyword.value.trim().toLowerCase()
-  return historyBookings.value
-    .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
-    .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw))
-    .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
-})
-const historyStats = computed(() => {
-  const completed = historyBookings.value.filter(b => b.status === 'completed')
-  const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
-  return {
-    completedCount: completed.length,
-    cancelledCount: cancelled.length,
-    totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
-    totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0),
+  async function fetchAll() {
+    loading.value = true
+    try {
+      const [b, o] = await Promise.all([
+        (await fetch(`${ROOMS_BASE()}/list`)).json(),
+        (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
+      ])
+      buildings.value = b
+      bookings.value = o
+    } catch (e) { console.error(e) }
+    finally { loading.value = false }
   }
-})
 
-onMounted(fetchAll)
+  /* ---------------- 共用小工具 ---------------- */
+
+  function nights(checkIn, checkOut) {
+    if (!checkIn || !checkOut) return 0
+    const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
+    return d > 0 ? d : 0
+  }
+  function statusLabel(s) {
+    return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
+  }
+  function statusClass(s) {
+    return {
+      unassigned: 'bg-sky-100 text-sky-700',
+      pending:    'bg-amber-100 text-amber-700',
+      confirmed:  'bg-emerald-100 text-emerald-700',
+      completed:  'bg-stone-200 text-stone-600',
+      cancelled:  'bg-rose-100 text-rose-700',
+    }[s] || 'bg-stone-100 text-stone-600'
+  }
+  function roomById(id) { return rooms.value.find(r => r.id === id) }
+  function roomLabel(roomId) {
+    const r = roomById(roomId)
+    return r ? `${r.id} ${r.type}` : '尚未指派'
+  }
+  function buildingNameOf(id) {
+    const b = buildings.value.find(x => x.id === id)
+    return b ? b.name : id
+  }
+  function bookingTotal(b) {
+    const r = roomById(b.roomId)
+    if (!r) return 0
+    return r.price * nights(b.checkIn, b.checkOut)
+  }
+  function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+    return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
+  }
+  function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
+    return !bookings.value.some(b =>
+      b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed' &&
+      b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
+    )
+  }
+  function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
+
+  /* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
+  const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
+  const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
+  const upcomingBookings = computed(() =>
+    [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
+  )
+
+  /* ---------------- 訂單管理 ---------------- */
+
+  const ordersView     = ref('list')
+  const ordersBuilding = ref('all')
+  const ordersStatus   = ref('all')
+  const ordersKeyword  = ref('')
+
+  const filteredOrders = computed(() => {
+    const kw = ordersKeyword.value.trim().toLowerCase()
+    return activeBookings.value
+      .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
+      .filter(b => {
+        if (ordersBuilding.value === 'all') return true
+        if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
+        return b.buildingPref === ordersBuilding.value
+      })
+      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  })
+
+  const visibleOrderBuildings = computed(() =>
+    ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
+  )
+  const unassignedForFloor = computed(() =>
+    [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  )
+
+  function activeBookingForRoom(roomId) {
+    return bookings.value
+      .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))[0] || null
+  }
+  function orderTileClass(r) {
+    if (!r.active) return 'tile-inactive'
+    const b = activeBookingForRoom(r.id)
+    if (!b) return 'tile-vacant'
+    return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
+  }
+  function orderTileLabel(r) {
+    if (!r.active) return '已下架'
+    const b = activeBookingForRoom(r.id)
+    if (!b) return '空房'
+    return (b.status === 'pending' ? '待確認・' : '已確認・') + b.name
+  }
+
+  /* ---------------- 平面圖：簡易走廊示意圖排版 ----------------
+     沒有實際建築圖時，依房號順序排成雙排走廊的樣子：
+     偶數 index 排上排、奇數排下排，兩排中間夾一條走廊。
+     房間位置全部用算的，新增/刪除/排序房間時會自動重排，不用手動維護座標。 */
+  const ROOM_W = 108, ROOM_H = 78, ROOM_GAP = 10, CORRIDOR_H = 46, PAD = 16
+
+  function computeLayout(roomsArr) {
+    const pairs = Math.max(Math.ceil(roomsArr.length / 2), 1)
+    const width = PAD * 2 + pairs * ROOM_W + (pairs - 1) * ROOM_GAP
+    const height = PAD * 2 + ROOM_H * 2 + CORRIDOR_H
+    const positions = roomsArr.map((room, i) => {
+      const col = Math.floor(i / 2)
+      const isTop = i % 2 === 0
+      return {
+        room,
+        x: PAD + col * (ROOM_W + ROOM_GAP),
+        y: isTop ? PAD : PAD + ROOM_H + CORRIDOR_H,
+      }
+    })
+    return { width, height, positions, corridorY: PAD + ROOM_H, corridorH: CORRIDOR_H }
+  }
+  const buildingLayouts = computed(() => {
+    const map = {}
+    for (const grp of buildings.value) map[grp.id] = computeLayout(grp.rooms)
+    return map
+  })
+  function layoutOf(buildingId) {
+    return buildingLayouts.value[buildingId] || { width: 0, height: 0, positions: [], corridorY: 0, corridorH: 0 }
+  }
+
+  const tileTarget = ref(null)
+  function openBookingTile(room) {
+    tileTarget.value = { room, booking: activeBookingForRoom(room.id) }
+  }
+  async function quickSetTile(status) {
+    if (!tileTarget.value || !tileTarget.value.booking) return
+    await setStatus(tileTarget.value.booking.id, status)
+    tileTarget.value = null
+  }
+
+  /* ---------------- 狀態轉換 / 刪除 ---------------- */
+
+  async function setStatus(id, status) {
+    try {
+      await fetch(`${BOOKINGS_BASE()}/status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }),
+      })
+      await fetchAll()
+    } catch (e) { console.error(e) }
+  }
+  async function removeBooking(id) {
+    if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
+    try {
+      await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
+      await fetchAll()
+    } catch (e) { console.error(e) }
+  }
+  async function restoreBooking(b) {
+    await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
+  }
+
+  /* ---------------- 指派房間 ---------------- */
+
+  const assignTarget = ref(null)
+  const assignBuildingFilter = ref('all')
+  const assignError = ref('')
+
+  function openAssign(booking) {
+    assignTarget.value = booking
+    assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
+    assignError.value = ''
+  }
+  const eligibleRooms = computed(() => {
+    if (!assignTarget.value) return []
+    const b = assignTarget.value
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => r.capacity >= b.guests)
+      .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
+      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
+      .sort((r1, r2) => {
+        const pref = b.buildingPref
+        if (pref && pref !== 'all') {
+          if (r1.buildingId === pref && r2.buildingId !== pref) return -1
+          if (r2.buildingId === pref && r1.buildingId !== pref) return 1
+        }
+        return r1.capacity - r2.capacity || r1.price - r2.price
+      })
+  })
+  async function assignRoom(room) {
+    assignError.value = ''
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id }),
+      })).json()
+      if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
+      assignTarget.value = null
+      await fetchAll()
+    } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
+  }
+
+  /* ---------------- 訂房紀錄 ---------------- */
+
+  const historyStatus  = ref('all')
+  const historyKeyword = ref('')
+  const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
+  const filteredHistory = computed(() => {
+    const kw = historyKeyword.value.trim().toLowerCase()
+    return historyBookings.value
+      .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
+      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw))
+      .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
+  })
+  const historyStats = computed(() => {
+    const completed = historyBookings.value.filter(b => b.status === 'completed')
+    const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
+    return {
+      completedCount: completed.length,
+      cancelledCount: cancelled.length,
+      totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
+      totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0),
+    }
+  })
+
+  onMounted(fetchAll)
 </script>
 
 <style scoped>
-.segmented { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; gap: 2px; }
-.segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-.seg-active { background: #15803d; color: #fff; }
-.w-fit { width: fit-content; }
+  .segmented { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; gap: 2px; }
+  .segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .seg-active { background: #15803d; color: #fff; }
+  .w-fit { width: fit-content; }
 
-.pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-light); background: transparent; color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-.pill-active { background: #15803d; border-color: #15803d; color: #fff; }
+  .pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-light); background: transparent; color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .pill-active { background: #15803d; border-color: #15803d; color: #fff; }
 
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-.stat-card { background: var(--surface); border-radius: 12px; padding: 14px; border-left: 4px solid #15803d; box-shadow: var(--shadow); }
-.stat-label { font-size: 11.5px; color: var(--text-hint); font-weight: 600; }
-.stat-value { font-size: 22px; font-weight: 700; color: var(--text); margin-top: 2px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat-card { background: var(--surface); border-radius: 12px; padding: 14px; border-left: 4px solid #15803d; box-shadow: var(--shadow); }
+  .stat-label { font-size: 11.5px; color: var(--text-hint); font-weight: 600; }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--text); margin-top: 2px; }
 
-.panel { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); overflow-x: auto; }
+  .panel { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); overflow-x: auto; }
 
-.select-input { padding: 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 12.5px; background: var(--surface2); color: var(--text); }
+  .select-input { padding: 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 12.5px; background: var(--surface2); color: var(--text); }
 
-.building-badge { width: 24px; height: 24px; border-radius: 6px; background: rgba(21, 128, 61, .12); color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex-shrink: 0; }
+  .building-badge { width: 24px; height: 24px; border-radius: 6px; background: rgba(21, 128, 61, .12); color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex-shrink: 0; }
 
-.floor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
-.floor-tile { border-radius: 10px; padding: 10px; cursor: pointer; min-height: 80px; display: flex; flex-direction: column; gap: 3px; border: 2px solid transparent; transition: transform .12s, box-shadow .12s; }
-.floor-tile:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
-/* 訂單狀態色屬於功能性分類色，維持固定色階、不隨深色模式變動 */
-.tile-vacant   { background: #ecfdf5; border-color: rgba(16,185,129,.3); }
-.tile-pending  { background: #fffbeb; border-color: rgba(245,158,11,.35); }
-.tile-occupied { background: #eff6ff; border-color: rgba(59,130,246,.35); }
-.tile-inactive { background: var(--surface2); opacity: .6; }
-.dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
+  .floorplan-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .corridor-band { fill: var(--surface2); }
+  .corridor-label { font-size: 11px; fill: var(--text-hint); letter-spacing: 2px; }
+  .room-group { cursor: pointer; }
+  .room-group:hover .room-rect { filter: brightness(0.97); }
+  .room-rect { stroke-width: 1.5; transition: filter .12s; }
+  /* 訂單狀態色屬於功能性分類色，維持固定色階、不隨深色模式變動 */
+  .room-rect.tile-vacant   { fill: #ecfdf5; stroke: rgba(16,185,129,.5); }
+  .room-rect.tile-pending  { fill: #fffbeb; stroke: rgba(245,158,11,.5); }
+  .room-rect.tile-occupied { fill: #eff6ff; stroke: rgba(59,130,246,.5); }
+  .room-rect.tile-inactive { fill: var(--surface2); stroke: var(--border); opacity: .7; }
+  .room-num { font-size: 14px; font-weight: 700; fill: var(--text); }
+  .room-sub { font-size: 10px; fill: var(--text-hint); }
+  .room-status { font-size: 9.5px; font-weight: 700; }
+  .room-status.tile-vacant   { fill: #059669; }
+  .room-status.tile-pending  { fill: #d97706; }
+  .room-status.tile-occupied { fill: #2563eb; }
+  .room-status.tile-inactive { fill: var(--text-hint); }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
 
-.status-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .status-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 
-.mini-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
-.mini-btn:hover { background: var(--bg); }
-.mini-primary { background: #15803d; color: #fff; }
-.mini-primary:hover { background: #15803d; filter: brightness(1.08); }
-.mini-danger { background: transparent; border: 1px solid #e11d48; color: #e11d48; }
+  .mini-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .mini-btn:hover { background: var(--bg); }
+  .mini-primary { background: #15803d; color: #fff; }
+  .mini-primary:hover { background: #15803d; filter: brightness(1.08); }
+  .mini-danger { background: transparent; border: 1px solid #e11d48; color: #e11d48; }
 
-.btn-plain { padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 13px; font-weight: 600; }
-.btn-plain:hover { background: var(--bg); }
+  .btn-plain { padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 13px; font-weight: 600; }
+  .btn-plain:hover { background: var(--bg); }
 </style>
