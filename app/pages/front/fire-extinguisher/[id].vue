@@ -5,7 +5,7 @@ import {ref, reactive, computed, onMounted} from 'vue'
 definePageMeta({layout: false})
 
 const commonStore = useCommonStore()
-const API_BASE = computed(() => commonStore.data.main_url + '/holy/fire-extinguisher')
+const API_BASE = computed(() => commonStore.data.just_url + '/holy/fire-extinguisher')
 
 const customerStore = useCustomerStore()
 const isLoggedIn = computed(() => customerStore.isLoggedIn)
