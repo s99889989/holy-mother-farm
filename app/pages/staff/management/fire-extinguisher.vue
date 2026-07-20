@@ -105,6 +105,21 @@
             顯示已停用
           </label>
 
+          <div class="flex-shrink-0 flex gap-1 bg-surface2 rounded-lg p-1">
+            <button
+              @click="registryView = 'list'"
+              class="px-3 py-1 rounded-md transition-colors"
+              :class="registryView === 'list' ? 'bg-surface text-base-c font-semibold shadow-sm' : 'text-muted-c'"
+              style="font-size:13px"
+            >清單</button>
+            <button
+              @click="registryView = 'plan'"
+              class="px-3 py-1 rounded-md transition-colors"
+              :class="registryView === 'plan' ? 'bg-surface text-base-c font-semibold shadow-sm' : 'text-muted-c'"
+              style="font-size:13px"
+            >平面圖</button>
+          </div>
+
           <div class="relative ml-auto w-full sm:w-64">
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
@@ -120,73 +135,94 @@
           </div>
         </div>
 
-        <p v-if="loading" class="text-hint-c text-center py-10" style="font-size:15px">載入中...</p>
-
-        <template v-else>
-          <p v-if="filtered.length === 0" class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm" style="font-size:15px">
-            找不到符合的滅火器
+        <!-- 平面圖檢視 -->
+        <template v-if="registryView === 'plan'">
+          <p v-if="!activeFloor" class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm" style="font-size:15px">
+            請先在上面選一個樓層,才看得到平面圖
           </p>
+          <template v-else>
+            <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden mb-4">
+              <img :src="`/fire-plans/${activeFloor}.jpg`" :alt="`${activeFloor} 平面圖`" class="w-full block" />
+            </div>
+            <div class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
+              <p class="text-hint-c mb-2" style="font-size:13px">{{ activeFloor }} 滅火器一覽(對照圖上圖示位置)</p>
+              <div class="flex flex-wrap gap-2">
+                <span v-for="item in filtered" :key="item.id" class="badge-stat font-mono">{{ item.code }} · {{ item.location }}</span>
+              </div>
+            </div>
+          </template>
+        </template>
 
-          <div v-else class="hidden md:block bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
-            <table class="w-full">
-              <thead>
-              <tr class="bg-surface2 border-b border-light-c text-hint-c" style="font-size:13px">
-                <th class="text-left px-4 py-2.5 font-semibold">項次</th>
-                <th class="text-left px-4 py-2.5 font-semibold">編號</th>
-                <th class="text-left px-4 py-2.5 font-semibold">位置</th>
-                <th class="text-left px-4 py-2.5 font-semibold">批號</th>
-                <th class="text-left px-4 py-2.5 font-semibold">狀態</th>
-                <th class="text-right px-4 py-2.5 font-semibold">操作</th>
-              </tr>
-              </thead>
-              <tbody class="divide-y divide-base">
-              <tr v-for="(item, idx) in filtered" :key="item.id" class="hover-surface2 transition-colors" :class="{ 'opacity-50': item.active === false }">
-                <td class="px-4 py-2.5 text-hint-c" style="font-size:14px">{{ idx + 1 }}</td>
-                <td class="px-4 py-2.5 font-mono font-semibold text-base-c" style="font-size:14px">{{ item.code }}</td>
-                <td class="px-4 py-2.5 text-muted-c" style="font-size:14px">{{ item.location }}</td>
-                <td class="px-4 py-2.5 text-hint-c font-mono" style="font-size:14px">{{ item.batchNo }}</td>
-                <td class="px-4 py-2.5">
-                  <span v-if="item.active === false" class="badge bad">已停用</span>
-                  <span v-else class="badge ok">使用中</span>
-                </td>
-                <td class="px-4 py-2.5 text-right whitespace-nowrap">
-                  <template v-if="item.active === false">
-                    <button class="text-green-700 dark:text-green-400 hover:underline" style="font-size:14px" @click="restoreItem(item)">還原</button>
-                  </template>
-                  <template v-else>
-                    <button class="text-blue-700 dark:text-blue-400 hover:underline mr-3" style="font-size:14px" @click="openModal(item)">編輯</button>
-                    <button class="text-red-700 dark:text-red-400 hover:underline" style="font-size:14px" @click="removeItem(item)">停用</button>
-                  </template>
-                </td>
-              </tr>
-              </tbody>
-            </table>
-          </div>
+        <!-- 清單檢視 -->
+        <template v-else>
+          <p v-if="loading" class="text-hint-c text-center py-10" style="font-size:15px">載入中...</p>
 
-          <div v-if="filtered.length" class="md:hidden space-y-2">
-            <div v-for="item in filtered" :key="item.id"
-                 class="bg-surface rounded-xl border border-light-c px-4 py-3 shadow-sm" :class="{ 'opacity-50': item.active === false }">
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2">
-                    <p class="font-mono font-semibold text-base-c" style="font-size:15px">{{ item.code }}</p>
+          <template v-else>
+            <p v-if="filtered.length === 0" class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm" style="font-size:15px">
+              找不到符合的滅火器
+            </p>
+
+            <div v-else class="hidden md:block bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+              <table class="w-full">
+                <thead>
+                <tr class="bg-surface2 border-b border-light-c text-hint-c" style="font-size:13px">
+                  <th class="text-left px-4 py-2.5 font-semibold">項次</th>
+                  <th class="text-left px-4 py-2.5 font-semibold">編號</th>
+                  <th class="text-left px-4 py-2.5 font-semibold">位置</th>
+                  <th class="text-left px-4 py-2.5 font-semibold">批號</th>
+                  <th class="text-left px-4 py-2.5 font-semibold">狀態</th>
+                  <th class="text-right px-4 py-2.5 font-semibold">操作</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-base">
+                <tr v-for="(item, idx) in filtered" :key="item.id" class="hover-surface2 transition-colors" :class="{ 'opacity-50': item.active === false }">
+                  <td class="px-4 py-2.5 text-hint-c" style="font-size:14px">{{ idx + 1 }}</td>
+                  <td class="px-4 py-2.5 font-mono font-semibold text-base-c" style="font-size:14px">{{ item.code }}</td>
+                  <td class="px-4 py-2.5 text-muted-c" style="font-size:14px">{{ item.location }}</td>
+                  <td class="px-4 py-2.5 text-hint-c font-mono" style="font-size:14px">{{ item.batchNo }}</td>
+                  <td class="px-4 py-2.5">
                     <span v-if="item.active === false" class="badge bad">已停用</span>
+                    <span v-else class="badge ok">使用中</span>
+                  </td>
+                  <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                    <template v-if="item.active === false">
+                      <button class="text-green-700 dark:text-green-400 hover:underline" style="font-size:14px" @click="restoreItem(item)">還原</button>
+                    </template>
+                    <template v-else>
+                      <button class="text-blue-700 dark:text-blue-400 hover:underline mr-3" style="font-size:14px" @click="openModal(item)">編輯</button>
+                      <button class="text-red-700 dark:text-red-400 hover:underline" style="font-size:14px" @click="removeItem(item)">停用</button>
+                    </template>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-if="filtered.length" class="md:hidden space-y-2">
+              <div v-for="item in filtered" :key="item.id"
+                   class="bg-surface rounded-xl border border-light-c px-4 py-3 shadow-sm" :class="{ 'opacity-50': item.active === false }">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <p class="font-mono font-semibold text-base-c" style="font-size:15px">{{ item.code }}</p>
+                      <span v-if="item.active === false" class="badge bad">已停用</span>
+                    </div>
+                    <p class="text-muted-c mt-0.5" style="font-size:14px">{{ item.location }}</p>
+                    <p class="text-hint-c font-mono mt-0.5" style="font-size:13px">批號 {{ item.batchNo }}</p>
                   </div>
-                  <p class="text-muted-c mt-0.5" style="font-size:14px">{{ item.location }}</p>
-                  <p class="text-hint-c font-mono mt-0.5" style="font-size:13px">批號 {{ item.batchNo }}</p>
-                </div>
-                <div class="flex flex-col items-end gap-1 flex-shrink-0">
-                  <template v-if="item.active === false">
-                    <button class="text-green-700 dark:text-green-400" style="font-size:14px" @click="restoreItem(item)">還原</button>
-                  </template>
-                  <template v-else>
-                    <button class="text-blue-700 dark:text-blue-400" style="font-size:14px" @click="openModal(item)">編輯</button>
-                    <button class="text-red-700 dark:text-red-400" style="font-size:14px" @click="removeItem(item)">停用</button>
-                  </template>
+                  <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <template v-if="item.active === false">
+                      <button class="text-green-700 dark:text-green-400" style="font-size:14px" @click="restoreItem(item)">還原</button>
+                    </template>
+                    <template v-else>
+                      <button class="text-blue-700 dark:text-blue-400" style="font-size:14px" @click="openModal(item)">編輯</button>
+                      <button class="text-red-700 dark:text-red-400" style="font-size:14px" @click="removeItem(item)">停用</button>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </template>
         </template>
       </template>
 
@@ -308,6 +344,7 @@ const toggleDark = () => { darkStore.change_dark_mode() }
 
 // ── 頁籤 ─────────────────────────────────────────────────────────
 const activeTab = ref('registry') // 'registry' | 'records'
+const registryView = ref('list')  // 'list' | 'plan'
 
 // ── API ──────────────────────────────────────────────────────────
 const commonStore = useCommonStore()
