@@ -1,54 +1,25 @@
 <template>
   <div class="min-h-full bg-surface2 transition-colors duration-300">
+
     <!-- ── Header ── -->
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="max-w-6xl mx-auto flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-red-700 flex items-center justify-center text-white text-base font-bold flex-shrink-0">
-            🧯
-          </div>
+          <div class="w-8 h-8 rounded-lg bg-red-700 flex items-center justify-center text-white text-base font-bold flex-shrink-0">🧯</div>
           <div>
-            <h1 class="font-bold text-base-c leading-none text-base sm:text-lg">
-              滅火器巡檢管理
-            </h1>
-            <p class="text-sm text-hint-c mt-0.5 hidden sm:block">
-              Fire Extinguisher Registry &amp; Inspection Records
-            </p>
+            <h1 class="font-bold text-base-c leading-none text-base sm:text-lg">滅火器巡檢管理</h1>
+            <p class="text-sm text-hint-c mt-0.5 hidden sm:block">Fire Extinguisher Registry &amp; Inspection Records</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button
-            :title="darkStore.data.display_name"
-            class="w-8 h-8 flex items-center justify-center rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
-            @click="toggleDark"
-          >
-            <svg
-              v-if="!isDark"
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-              />
+          <button :title="darkStore.data.display_name"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
+                  @click="toggleDark">
+            <svg v-if="!isDark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
             </svg>
-            <svg
-              v-else
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"
-              />
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
             </svg>
           </button>
           <template v-if="activeTab === 'registry'">
@@ -59,17 +30,7 @@
               style="font-size:14px"
               @click="importSeed"
             >
-              <svg
-                class="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              ><path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"
-              /></svg>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
               {{ importing ? '匯入中...' : '匯入種子資料' }}
             </button>
             <button
@@ -77,17 +38,7 @@
               style="font-size:14px"
               @click="openModal(null)"
             >
-              <svg
-                class="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              ><path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              /></svg>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
               新增滅火器
             </button>
           </template>
@@ -97,50 +48,28 @@
       <!-- 頁籤 -->
       <div class="max-w-6xl mx-auto flex gap-2 mb-2">
         <button
+          @click="activeTab = 'registry'"
           class="px-4 py-1.5 rounded-lg font-semibold transition-colors"
           :class="activeTab === 'registry' ? 'bg-red-700 text-white' : 'bg-surface2 text-muted-c hover-surface2'"
           style="font-size:14px"
-          @click="activeTab = 'registry'"
-        >
-          滅火器清冊
-        </button>
+        >滅火器清冊</button>
         <button
+          @click="activeTab = 'records'"
           class="px-4 py-1.5 rounded-lg font-semibold transition-colors"
           :class="activeTab === 'records' ? 'bg-red-700 text-white' : 'bg-surface2 text-muted-c hover-surface2'"
           style="font-size:14px"
-          @click="activeTab = 'records'"
-        >
-          巡檢紀錄<span
-            v-if="pendingCount"
-            class="ml-1.5 inline-flex items-center justify-center rounded-full bg-white/25 px-1.5"
-            style="font-size:11px"
-          >{{ pendingCount }}</span>
-        </button>
+        >巡檢紀錄<span v-if="pendingCount" class="ml-1.5 inline-flex items-center justify-center rounded-full bg-white/25 px-1.5" style="font-size:11px">{{ pendingCount }}</span></button>
       </div>
 
       <!-- 統計 -->
-      <div
-        v-if="activeTab === 'registry'"
-        class="max-w-6xl mx-auto flex flex-wrap items-center gap-2"
-      >
+      <div v-if="activeTab === 'registry'" class="max-w-6xl mx-auto flex flex-wrap items-center gap-2">
         <span class="badge-stat">共 {{ items.length }} 支</span>
-        <span
-          v-for="f in floorCounts"
-          :key="f.floor"
-          class="badge-stat"
-        >{{ f.floor }} · {{ f.count }} 支</span>
-        <span
-          v-if="usingSeed"
-          class="text-amber-600 dark:text-amber-400"
-          style="font-size:13px"
-        >
+        <span v-for="f in floorCounts" :key="f.floor" class="badge-stat">{{ f.floor }} · {{ f.count }} 支</span>
+        <span v-if="usingSeed" class="text-amber-600 dark:text-amber-400" style="font-size:13px">
           ⚠ 目前顯示的是本機種子資料,尚未寫入後端,請按「匯入種子資料」
         </span>
       </div>
-      <div
-        v-else
-        class="max-w-6xl mx-auto flex flex-wrap gap-2"
-      >
+      <div v-else class="max-w-6xl mx-auto flex flex-wrap gap-2">
         <span class="badge-stat">共 {{ logs.length }} 筆紀錄</span>
         <span class="badge-stat text-red-700 dark:text-red-300">待處理 {{ countByStatus('待處理') }}</span>
         <span class="badge-stat text-amber-700 dark:text-amber-300">送修中 {{ countByStatus('送修中') }}</span>
@@ -149,6 +78,7 @@
     </header>
 
     <div class="max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 py-4">
+
       <!-- ══════════════════ 滅火器清冊 ══════════════════ -->
       <template v-if="activeTab === 'registry'">
         <div class="flex flex-wrap items-center gap-2 mb-4">
@@ -159,201 +89,100 @@
               : 'bg-surface2 text-muted-c hover-surface2'"
             style="font-size:14px"
             @click="activeFloor = null"
-          >
-            全部樓層
-          </button>
+          >全部樓層</button>
           <button
-            v-for="floor in floors"
-            :key="floor"
+            v-for="floor in floors" :key="floor"
             class="flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
             :class="activeFloor === floor
               ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-semibold'
               : 'bg-surface2 text-muted-c hover-surface2'"
             style="font-size:14px"
             @click="activeFloor = floor"
-          >
-            {{ floor }}
-          </button>
+          >{{ floor }}</button>
+
+          <label class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface2 text-muted-c whitespace-nowrap cursor-pointer" style="font-size:14px">
+            <input type="checkbox" v-model="showInactive" @change="fetchItems">
+            顯示已停用
+          </label>
 
           <div class="relative ml-auto w-full sm:w-64">
-            <svg
-              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-hint-c"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"
-              />
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
             </svg>
             <input
               v-model="searchText"
               placeholder="搜尋編號、位置或批號..."
               class="w-full pl-9 pr-8 py-1.5 text-base rounded-xl border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-500"
-            >
-            <button
-              v-if="searchText"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-hint-c hover:text-muted-c"
-              @click="searchText = ''"
-            >
-              <svg
-                class="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              ><path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              /></svg>
+            />
+            <button v-if="searchText" @click="searchText = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-hint-c hover:text-muted-c">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
         </div>
 
-        <p
-          v-if="loading"
-          class="text-hint-c text-center py-10"
-          style="font-size:15px"
-        >
-          載入中...
-        </p>
+        <p v-if="loading" class="text-hint-c text-center py-10" style="font-size:15px">載入中...</p>
 
         <template v-else>
-          <p
-            v-if="filtered.length === 0"
-            class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm"
-            style="font-size:15px"
-          >
+          <p v-if="filtered.length === 0" class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm" style="font-size:15px">
             找不到符合的滅火器
           </p>
 
-          <div
-            v-else
-            class="hidden md:block bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
-          >
+          <div v-else class="hidden md:block bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
             <table class="w-full">
               <thead>
-                <tr
-                  class="bg-surface2 border-b border-light-c text-hint-c"
-                  style="font-size:13px"
-                >
-                  <th class="text-left px-4 py-2.5 font-semibold">
-                    項次
-                  </th>
-                  <th class="text-left px-4 py-2.5 font-semibold">
-                    編號
-                  </th>
-                  <th class="text-left px-4 py-2.5 font-semibold">
-                    位置
-                  </th>
-                  <th class="text-left px-4 py-2.5 font-semibold">
-                    批號
-                  </th>
-                  <th class="text-right px-4 py-2.5 font-semibold">
-                    操作
-                  </th>
-                </tr>
+              <tr class="bg-surface2 border-b border-light-c text-hint-c" style="font-size:13px">
+                <th class="text-left px-4 py-2.5 font-semibold">項次</th>
+                <th class="text-left px-4 py-2.5 font-semibold">編號</th>
+                <th class="text-left px-4 py-2.5 font-semibold">位置</th>
+                <th class="text-left px-4 py-2.5 font-semibold">批號</th>
+                <th class="text-left px-4 py-2.5 font-semibold">狀態</th>
+                <th class="text-right px-4 py-2.5 font-semibold">操作</th>
+              </tr>
               </thead>
               <tbody class="divide-y divide-base">
-                <tr
-                  v-for="(item, idx) in filtered"
-                  :key="item.id ?? item.code"
-                  class="hover-surface2 transition-colors"
-                >
-                  <td
-                    class="px-4 py-2.5 text-hint-c"
-                    style="font-size:14px"
-                  >
-                    {{ idx + 1 }}
-                  </td>
-                  <td
-                    class="px-4 py-2.5 font-mono font-semibold text-base-c"
-                    style="font-size:14px"
-                  >
-                    {{ item.code }}
-                  </td>
-                  <td
-                    class="px-4 py-2.5 text-muted-c"
-                    style="font-size:14px"
-                  >
-                    {{ item.location }}
-                  </td>
-                  <td
-                    class="px-4 py-2.5 text-hint-c font-mono"
-                    style="font-size:14px"
-                  >
-                    {{ item.batchNo }}
-                  </td>
-                  <td class="px-4 py-2.5 text-right whitespace-nowrap">
-                    <button
-                      class="text-blue-700 dark:text-blue-400 hover:underline mr-3"
-                      style="font-size:14px"
-                      @click="openModal(item)"
-                    >
-                      編輯
-                    </button>
-                    <button
-                      class="text-red-700 dark:text-red-400 hover:underline"
-                      style="font-size:14px"
-                      @click="removeItem(item)"
-                    >
-                      刪除
-                    </button>
-                  </td>
-                </tr>
+              <tr v-for="(item, idx) in filtered" :key="item.id" class="hover-surface2 transition-colors" :class="{ 'opacity-50': item.active === false }">
+                <td class="px-4 py-2.5 text-hint-c" style="font-size:14px">{{ idx + 1 }}</td>
+                <td class="px-4 py-2.5 font-mono font-semibold text-base-c" style="font-size:14px">{{ item.code }}</td>
+                <td class="px-4 py-2.5 text-muted-c" style="font-size:14px">{{ item.location }}</td>
+                <td class="px-4 py-2.5 text-hint-c font-mono" style="font-size:14px">{{ item.batchNo }}</td>
+                <td class="px-4 py-2.5">
+                  <span v-if="item.active === false" class="badge bad">已停用</span>
+                  <span v-else class="badge ok">使用中</span>
+                </td>
+                <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                  <template v-if="item.active === false">
+                    <button class="text-green-700 dark:text-green-400 hover:underline" style="font-size:14px" @click="restoreItem(item)">還原</button>
+                  </template>
+                  <template v-else>
+                    <button class="text-blue-700 dark:text-blue-400 hover:underline mr-3" style="font-size:14px" @click="openModal(item)">編輯</button>
+                    <button class="text-red-700 dark:text-red-400 hover:underline" style="font-size:14px" @click="removeItem(item)">停用</button>
+                  </template>
+                </td>
+              </tr>
               </tbody>
             </table>
           </div>
 
-          <div
-            v-if="filtered.length"
-            class="md:hidden space-y-2"
-          >
-            <div
-              v-for="item in filtered"
-              :key="item.id ?? item.code"
-              class="bg-surface rounded-xl border border-light-c px-4 py-3 shadow-sm"
-            >
+          <div v-if="filtered.length" class="md:hidden space-y-2">
+            <div v-for="item in filtered" :key="item.id"
+                 class="bg-surface rounded-xl border border-light-c px-4 py-3 shadow-sm" :class="{ 'opacity-50': item.active === false }">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
-                  <p
-                    class="font-mono font-semibold text-base-c"
-                    style="font-size:15px"
-                  >
-                    {{ item.code }}
-                  </p>
-                  <p
-                    class="text-muted-c mt-0.5"
-                    style="font-size:14px"
-                  >
-                    {{ item.location }}
-                  </p>
-                  <p
-                    class="text-hint-c font-mono mt-0.5"
-                    style="font-size:13px"
-                  >
-                    批號 {{ item.batchNo }}
-                  </p>
+                  <div class="flex items-center gap-2">
+                    <p class="font-mono font-semibold text-base-c" style="font-size:15px">{{ item.code }}</p>
+                    <span v-if="item.active === false" class="badge bad">已停用</span>
+                  </div>
+                  <p class="text-muted-c mt-0.5" style="font-size:14px">{{ item.location }}</p>
+                  <p class="text-hint-c font-mono mt-0.5" style="font-size:13px">批號 {{ item.batchNo }}</p>
                 </div>
                 <div class="flex flex-col items-end gap-1 flex-shrink-0">
-                  <button
-                    class="text-blue-700 dark:text-blue-400"
-                    style="font-size:14px"
-                    @click="openModal(item)"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    class="text-red-700 dark:text-red-400"
-                    style="font-size:14px"
-                    @click="removeItem(item)"
-                  >
-                    刪除
-                  </button>
+                  <template v-if="item.active === false">
+                    <button class="text-green-700 dark:text-green-400" style="font-size:14px" @click="restoreItem(item)">還原</button>
+                  </template>
+                  <template v-else>
+                    <button class="text-blue-700 dark:text-blue-400" style="font-size:14px" @click="openModal(item)">編輯</button>
+                    <button class="text-red-700 dark:text-red-400" style="font-size:14px" @click="removeItem(item)">停用</button>
+                  </template>
                 </div>
               </div>
             </div>
@@ -363,251 +192,94 @@
 
       <!-- ══════════════════ 巡檢紀錄 ══════════════════ -->
       <template v-else>
-        <div class="section-title">
-          異常追蹤看板 <span class="tag">直接按按鈕換狀態,不用拖拉</span>
-        </div>
+        <div class="section-title">異常追蹤看板 <span class="tag">直接按按鈕換狀態,不用拖拉</span></div>
         <div class="kanban">
-          <div
-            v-for="col in kanbanCols"
-            :key="col.key"
-            class="kanban-col"
-          >
+          <div v-for="col in kanbanCols" :key="col.key" class="kanban-col">
             <h4>{{ col.label }}<span>{{ col.items.length }}</span></h4>
-            <div
-              v-for="log in col.items"
-              :key="log.id"
-              class="issue-card"
-              :class="'col-' + col.key"
-            >
-              <div class="id">
-                {{ log.code }}
-              </div>
-              <div class="desc">
-                {{ log.note || '（無說明）' }}
-              </div>
-              <div class="meta">
-                {{ log.inspectedAt }}<span v-if="log.inspector"> · {{ log.inspector }}</span>
-              </div>
+            <div v-for="log in col.items" :key="log.id" class="issue-card" :class="'col-' + col.key">
+              <div class="id">{{ log.code }}</div>
+              <div class="desc">{{ log.note || '（無說明）' }}</div>
+              <div class="meta">{{ log.inspectedAt }}<span v-if="log.inspector"> · {{ log.inspector }}</span></div>
               <div class="issue-actions">
-                <button
-                  v-for="next in nextStatuses(col.key)"
-                  :key="next"
-                  @click="changeStatus(log, next)"
-                >
-                  {{ next }}
-                </button>
+                <button v-for="next in nextStatuses(col.key)" :key="next" @click="changeStatus(log, next)">{{ next }}</button>
               </div>
             </div>
-            <p
-              v-if="!col.items.length"
-              class="empty-hint"
-            >
-              沒有項目
-            </p>
+            <p v-if="!col.items.length" class="empty-hint">沒有項目</p>
           </div>
         </div>
 
-        <div
-          class="section-title"
-          style="margin-top:28px;"
-        >
-          全部巡檢紀錄
+        <div class="section-title" style="margin-top:28px;">全部巡檢紀錄
           <span class="tag">{{ filteredLogs.length }} / {{ logs.length }} 筆</span>
         </div>
 
         <div class="flex flex-wrap gap-2 mb-3">
-          <input
-            v-model="recordsSearch"
-            placeholder="搜尋編號..."
-            class="search-input"
-          >
-          <select
-            v-model="statusFilter"
-            class="search-input"
-            style="max-width:140px;"
-          >
-            <option value="">
-              全部狀態
-            </option>
-            <option
-              v-for="s in ['正常', '待處理', '送修中', '已更換', '已報廢']"
-              :key="s"
-              :value="s"
-            >
-              {{ s }}
-            </option>
+          <input v-model="recordsSearch" placeholder="搜尋編號..." class="search-input">
+          <select v-model="statusFilter" class="search-input" style="max-width:140px;">
+            <option value="">全部狀態</option>
+            <option v-for="s in ['正常','待處理','送修中','已更換','已報廢']" :key="s" :value="s">{{ s }}</option>
           </select>
         </div>
 
-        <p
-          v-if="logsLoading"
-          class="text-hint-c text-center py-10"
-          style="font-size:15px"
-        >
-          載入中...
-        </p>
-        <div
-          v-else
-          class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
-        >
+        <p v-if="logsLoading" class="text-hint-c text-center py-10" style="font-size:15px">載入中...</p>
+        <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
           <table class="w-full">
             <thead>
-              <tr
-                class="bg-surface2 border-b border-light-c text-hint-c"
-                style="font-size:13px"
-              >
-                <th class="text-left px-4 py-2.5 font-semibold">
-                  時間
-                </th>
-                <th class="text-left px-4 py-2.5 font-semibold">
-                  編號
-                </th>
-                <th class="text-left px-4 py-2.5 font-semibold">
-                  檢查人
-                </th>
-                <th class="text-left px-4 py-2.5 font-semibold">
-                  說明
-                </th>
-                <th class="text-left px-4 py-2.5 font-semibold">
-                  照片
-                </th>
-                <th class="text-left px-4 py-2.5 font-semibold">
-                  狀態
-                </th>
-              </tr>
+            <tr class="bg-surface2 border-b border-light-c text-hint-c" style="font-size:13px">
+              <th class="text-left px-4 py-2.5 font-semibold">時間</th>
+              <th class="text-left px-4 py-2.5 font-semibold">編號</th>
+              <th class="text-left px-4 py-2.5 font-semibold">檢查人</th>
+              <th class="text-left px-4 py-2.5 font-semibold">說明</th>
+              <th class="text-left px-4 py-2.5 font-semibold">照片</th>
+              <th class="text-left px-4 py-2.5 font-semibold">狀態</th>
+            </tr>
             </thead>
             <tbody class="divide-y divide-base">
-              <tr
-                v-for="log in filteredLogs"
-                :key="log.id"
-                class="hover-surface2 transition-colors"
-              >
-                <td
-                  class="px-4 py-2.5 font-mono text-hint-c"
-                  style="font-size:14px"
-                >
-                  {{ log.inspectedAt }}
-                </td>
-                <td
-                  class="px-4 py-2.5 font-mono font-semibold text-base-c"
-                  style="font-size:14px"
-                >
-                  {{ log.code }}
-                </td>
-                <td
-                  class="px-4 py-2.5 text-muted-c"
-                  style="font-size:14px"
-                >
-                  {{ log.inspector || '—' }}
-                </td>
-                <td
-                  class="px-4 py-2.5 text-muted-c"
-                  style="font-size:14px"
-                >
-                  {{ log.note || '—' }}
-                </td>
-                <td class="px-4 py-2.5">
-                  <a
-                    v-if="log.photoUrl"
-                    :href="log.photoUrl"
-                    target="_blank"
-                    class="text-blue-700 dark:text-blue-400 hover:underline"
-                    style="font-size:14px"
-                  >查看</a>
-                  <span
-                    v-else
-                    class="text-hint-c"
-                    style="font-size:14px"
-                  >—</span>
-                </td>
-                <td class="px-4 py-2.5">
-                  <span
-                    class="badge"
-                    :class="badgeClass(log.status)"
-                  >{{ log.status }}</span>
-                </td>
-              </tr>
-              <tr v-if="!filteredLogs.length">
-                <td
-                  colspan="6"
-                  class="px-4 py-8 text-center text-hint-c"
-                  style="font-size:14px"
-                >
-                  沒有符合的紀錄
-                </td>
-              </tr>
+            <tr v-for="log in filteredLogs" :key="log.id" class="hover-surface2 transition-colors">
+              <td class="px-4 py-2.5 font-mono text-hint-c" style="font-size:14px">{{ log.inspectedAt }}</td>
+              <td class="px-4 py-2.5 font-mono font-semibold text-base-c" style="font-size:14px">{{ log.code }}</td>
+              <td class="px-4 py-2.5 text-muted-c" style="font-size:14px">{{ log.inspector || '—' }}</td>
+              <td class="px-4 py-2.5 text-muted-c" style="font-size:14px">{{ log.note || '—' }}</td>
+              <td class="px-4 py-2.5">
+                <a v-if="log.photoUrl" :href="log.photoUrl" target="_blank" class="text-blue-700 dark:text-blue-400 hover:underline" style="font-size:14px">查看</a>
+                <span v-else class="text-hint-c" style="font-size:14px">—</span>
+              </td>
+              <td class="px-4 py-2.5"><span class="badge" :class="badgeClass(log.status)">{{ log.status }}</span></td>
+            </tr>
+            <tr v-if="!filteredLogs.length"><td colspan="6" class="px-4 py-8 text-center text-hint-c" style="font-size:14px">沒有符合的紀錄</td></tr>
             </tbody>
           </table>
         </div>
       </template>
+
     </div>
 
     <!-- ── 新增/編輯滅火器 Modal ── -->
     <transition name="fade">
-      <div
-        v-if="modal.show"
-        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4"
-        @click.self="modal.show = false"
-      >
+      <div v-if="modal.show" class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4" @click.self="modal.show = false">
         <div class="bg-surface rounded-2xl border border-light-c shadow-lg w-full max-w-sm p-5">
-          <h2
-            class="font-bold text-base-c mb-4"
-            style="font-size:17px"
-          >
-            {{ modal.isNew ? '新增滅火器' : '編輯滅火器' }}
-          </h2>
+          <h2 class="font-bold text-base-c mb-4" style="font-size:17px">{{ modal.isNew ? '新增滅火器' : '編輯滅火器' }}</h2>
 
           <div class="space-y-3">
             <div>
-              <label
-                class="text-hint-c block mb-1"
-                style="font-size:13px"
-              >編號</label>
-              <input
-                v-model="modal.data.code"
-                placeholder="例如 D區1F-A01"
-                class="w-full px-3 py-2 text-base rounded-lg border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-500 font-mono"
-              >
+              <label class="text-hint-c block mb-1" style="font-size:13px">編號</label>
+              <input v-model="modal.data.code" placeholder="例如 D區1F-A01"
+                     class="w-full px-3 py-2 text-base rounded-lg border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-500 font-mono" />
             </div>
             <div>
-              <label
-                class="text-hint-c block mb-1"
-                style="font-size:13px"
-              >位置</label>
-              <input
-                v-model="modal.data.location"
-                placeholder="例如 服務中心"
-                class="w-full px-3 py-2 text-base rounded-lg border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-500"
-              >
+              <label class="text-hint-c block mb-1" style="font-size:13px">位置</label>
+              <input v-model="modal.data.location" placeholder="例如 服務中心"
+                     class="w-full px-3 py-2 text-base rounded-lg border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
-              <label
-                class="text-hint-c block mb-1"
-                style="font-size:13px"
-              >批號</label>
-              <input
-                v-model="modal.data.batchNo"
-                placeholder="例如 FE-130104"
-                class="w-full px-3 py-2 text-base rounded-lg border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-500 font-mono"
-              >
+              <label class="text-hint-c block mb-1" style="font-size:13px">批號</label>
+              <input v-model="modal.data.batchNo" placeholder="例如 FE-130104"
+                     class="w-full px-3 py-2 text-base rounded-lg border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-500 font-mono" />
             </div>
           </div>
 
           <div class="flex gap-2 mt-5">
-            <button
-              class="flex-1 py-2 rounded-lg border border-light-c text-muted-c hover-surface2 transition-colors"
-              style="font-size:15px"
-              @click="modal.show = false"
-            >
-              取消
-            </button>
-            <button
-              class="flex-1 py-2 rounded-lg bg-red-700 text-white font-semibold hover:bg-red-800 transition-colors"
-              style="font-size:15px"
-              @click="saveItem"
-            >
-              儲存
-            </button>
+            <button class="flex-1 py-2 rounded-lg border border-light-c text-muted-c hover-surface2 transition-colors" style="font-size:15px" @click="modal.show = false">取消</button>
+            <button class="flex-1 py-2 rounded-lg bg-red-700 text-white font-semibold hover:bg-red-800 transition-colors" style="font-size:15px" @click="saveItem">儲存</button>
           </div>
         </div>
       </div>
@@ -615,32 +287,19 @@
 
     <!-- ── Toast ── -->
     <transition name="fade">
-      <div
-        v-if="toast.show"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface border border-light-c shadow-lg rounded-xl px-4 py-2.5 text-base-c z-50 flex items-center gap-2"
-        style="font-size:14px"
-      >
-        <svg
-          class="w-4 h-4 text-green-600"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        ><path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M5 13l4 4L19 7"
-        /></svg>
+      <div v-if="toast.show" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface border border-light-c shadow-lg rounded-xl px-4 py-2.5 text-base-c z-50 flex items-center gap-2" style="font-size:14px">
+        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {{ toast.message }}
       </div>
     </transition>
+
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-
 definePageMeta({ layout: 'staff', requiredPermission: 'management.fire-extinguisher' })
+
+import { ref, reactive, computed, onMounted } from 'vue'
 
 // ── Dark Mode ─────────────────────────────────────────────────────
 const darkStore = useDarkModeStore()
@@ -702,11 +361,15 @@ const items = ref([])
 const loading = ref(true)
 const usingSeed = ref(false)
 const importing = ref(false)
+const showInactive = ref(false)
 
 const fetchItems = async () => {
   loading.value = true
   try {
-    const list = await $fetch(`${API_BASE.value}/list`, { credentials: 'include' })
+    const list = await $fetch(`${API_BASE.value}/list`, {
+      credentials: 'include',
+      query: showInactive.value ? { includeInactive: true } : {}
+    })
     if (Array.isArray(list) && list.length) {
       items.value = list
       usingSeed.value = false
@@ -765,9 +428,9 @@ const filtered = computed(() => {
   const q = searchText.value.trim().toLowerCase()
   if (q) {
     list = list.filter(i =>
-      i.code?.toLowerCase().includes(q)
-      || i.location?.toLowerCase().includes(q)
-      || i.batchNo?.toLowerCase().includes(q)
+      i.code?.toLowerCase().includes(q) ||
+      i.location?.toLowerCase().includes(q) ||
+      i.batchNo?.toLowerCase().includes(q)
     )
   }
   return list
@@ -789,13 +452,15 @@ const saveItem = async () => {
       const saved = await $fetch(`${API_BASE.value}/save`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: modal.data
       })
-      items.value.push(saved ?? { ...modal.data })
+      if (saved?.error) { showToast(saved.error); return }
+      items.value.push(saved)
     } else {
-      await $fetch(`${API_BASE.value}/update/${modal.data.id ?? modal.data.code}`, {
+      const updated = await $fetch(`${API_BASE.value}/update/${modal.data.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: modal.data
       })
-      const idx = items.value.findIndex(i => (i.id ?? i.code) === (modal.data.id ?? modal.data.code))
-      if (idx !== -1) items.value[idx] = { ...modal.data }
+      if (updated?.error) { showToast(updated.error); return }
+      const idx = items.value.findIndex(i => i.id === modal.data.id)
+      if (idx !== -1) items.value[idx] = updated
     }
     modal.show = false
     showToast(modal.isNew ? '新增成功' : '儲存成功')
@@ -805,15 +470,32 @@ const saveItem = async () => {
   }
 }
 
+// 停用(軟刪除):資料還在,只是預設清冊不顯示,巡檢紀錄不會斷
 const removeItem = async (item) => {
-  if (!confirm(`確定要刪除 ${item.code} 嗎?`)) return
+  if (!confirm(`確定要停用 ${item.code} 嗎?停用後預設清冊不會顯示,但巡檢歷史紀錄還查得到,之後也可以還原。`)) return
   try {
-    await $fetch(`${API_BASE.value}/remove/${item.id ?? item.code}`, { method: 'DELETE' })
-    items.value = items.value.filter(i => (i.id ?? i.code) !== (item.id ?? item.code))
-    showToast('已刪除')
+    await $fetch(`${API_BASE.value}/remove/${item.id}`, { method: 'DELETE' })
+    if (showInactive.value) {
+      item.active = false
+    } else {
+      items.value = items.value.filter(i => i.id !== item.id)
+    }
+    showToast('已停用')
   } catch (e) {
     console.error(e)
-    showToast('刪除失敗')
+    showToast('停用失敗')
+  }
+}
+
+const restoreItem = async (item) => {
+  try {
+    const updated = await $fetch(`${API_BASE.value}/restore/${item.id}`, { method: 'PUT' })
+    const idx = items.value.findIndex(i => i.id === item.id)
+    if (idx !== -1) items.value[idx] = updated
+    showToast('已還原')
+  } catch (e) {
+    console.error(e)
+    showToast('還原失敗')
   }
 }
 
@@ -835,17 +517,17 @@ const fetchLogs = async () => {
   }
 }
 
-const countByStatus = status => logs.value.filter(l => l.status === status).length
+const countByStatus = (status) => logs.value.filter(l => l.status === status).length
 const pendingCount = computed(() => countByStatus('待處理'))
 
 const kanbanCols = computed(() => [
-  { key: 'todo', label: '待處理', items: logs.value.filter(l => l.status === '待處理') },
-  { key: 'doing', label: '送修中', items: logs.value.filter(l => l.status === '送修中') },
+  { key: 'todo',     label: '待處理', items: logs.value.filter(l => l.status === '待處理') },
+  { key: 'doing',    label: '送修中', items: logs.value.filter(l => l.status === '送修中') },
   { key: 'replaced', label: '已更換', items: logs.value.filter(l => l.status === '已更換') },
   { key: 'scrapped', label: '已報廢', items: logs.value.filter(l => l.status === '已報廢') }
 ])
 
-const nextStatuses = colKey => ({
+const nextStatuses = (colKey) => ({
   todo: ['送修中', '已更換', '已報廢'],
   doing: ['已更換', '已報廢'],
   replaced: [],
@@ -877,8 +559,8 @@ const filteredLogs = computed(() => {
   return list
 })
 
-const badgeClass = status => ({
-  正常: 'ok', 已更換: 'ok', 待處理: 'bad', 已報廢: 'muted', 送修中: 'warn'
+const badgeClass = (status) => ({
+  '正常': 'ok', '已更換': 'ok', '待處理': 'bad', '已報廢': 'muted', '送修中': 'warn'
 }[status] || 'muted')
 
 onMounted(() => { fetchItems(); fetchLogs() })
