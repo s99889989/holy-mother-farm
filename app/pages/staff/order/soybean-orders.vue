@@ -264,15 +264,16 @@ function soymilkItemsLabel(order) {
   return items.map(i => `${i.volume}ml×${i.qty}`).join('、')
 }
 
-// 計算金額（豆漿 $50/袋）
+// 計算金額（豆漿：每滿 800cc 算一份 $50，不滿 800cc 至少算一份）
+function soymilkItemPrice(volume, qty) {
+  const units = Math.max(1, Math.floor((volume || 0) / 800))
+  return units * 50 * (qty || 0)
+}
+
 function calcTotal(order) {
-  let smQty = 0
-  if (Array.isArray(order.soymilkItems) && order.soymilkItems.length > 0) {
-    smQty = order.soymilkItems.reduce((s, i) => s + (i.qty || 0), 0)
-  } else {
-    smQty = order.soymilkQty || 0
-  }
-  return smQty * 50 + (order.tofuQty || 0) * 50
+  const items = normalizeSoymilkItems(order)
+  const soymilkTotal = items.reduce((s, i) => s + soymilkItemPrice(i.volume, i.qty), 0)
+  return soymilkTotal + (order.tofuQty || 0) * 50
 }
 
 // 新建一個空豆漿項目
@@ -458,8 +459,8 @@ const adjTofuQty = (form, delta) => {
 
 // 計算 form 的小計
 function formTotal(form) {
-  const sm = form.soymilkItems.reduce((s, i) => s + (i.qty || 0), 0)
-  return sm * 50 + (form.tofuQty || 0) * 50
+  const sm = form.soymilkItems.reduce((s, i) => s + soymilkItemPrice(resolveVol(i), i.qty), 0)
+  return sm + (form.tofuQty || 0) * 50
 }
 
 // 解析容量（-1 表示自訂）
