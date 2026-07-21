@@ -193,6 +193,7 @@ onMounted(() => {
   fetchHints()
   fetchClosedDates()
   fetchBusinessDaysSchedule()
+  fetchNotifySettings()
   autoRefreshTimer = setInterval(fetchData, 30000)
 })
 onUnmounted(() => clearInterval(autoRefreshTimer))
@@ -532,6 +533,57 @@ const submitCreate = async () => {
 const showHintSettings = ref(false)
 const hintSaving = ref(false)
 const hintSaved = ref(false)
+
+// ── 新訂單通知（LINE / Discord，獨立設定，不沿用其他功能的設定）───
+const notifyEnabled = ref(false)
+const notifyLineAccessToken = ref('')
+const notifyLineGroupId = ref('')
+const notifyDiscordWebhook = ref('')
+const notifySaving = ref(false)
+const notifySaved = ref(false)
+
+const fetchNotifySettings = async () => {
+  try {
+    const res = await fetch(`${BASE.value}/admin/settings/notify`, {credentials: 'include'})
+    const data = await res.json()
+    if (!data.error) {
+      notifyEnabled.value = !!data.enabled
+      notifyLineAccessToken.value = data.lineAccessToken || ''
+      notifyLineGroupId.value = data.lineGroupId || ''
+      notifyDiscordWebhook.value = data.discordWebhook || ''
+    }
+  } catch {
+  }
+}
+
+const saveNotifySettings = async () => {
+  notifySaving.value = true
+  notifySaved.value = false
+  try {
+    const res = await fetch(`${BASE.value}/admin/settings/notify`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({
+        enabled: notifyEnabled.value,
+        lineAccessToken: notifyLineAccessToken.value.trim(),
+        lineGroupId: notifyLineGroupId.value.trim(),
+        discordWebhook: notifyDiscordWebhook.value.trim()
+      })
+    })
+    const data = await res.json()
+    if (data.error) {
+      alert('儲存失敗：' + data.error);
+      return
+    }
+    notifySaved.value = true
+    setTimeout(() => notifySaved.value = false, 2000)
+  } catch {
+    alert('儲存失敗')
+  } finally {
+    notifySaving.value = false
+  }
+}
 
 const HINT_STATUSES = ['待確認', '已確認', '已取貨', '已取消']
 const hintBadgeClass = s => ({
@@ -1331,6 +1383,94 @@ const submitEdit = async () => {
                   </button>
                 </div>
               </div>
+            </div>
+
+          </div>
+        </div>
+      </Transition>
+      <!-- ── 新訂單通知設定面板 ── -->
+      <Transition name="hint-panel">
+        <div
+          v-if="showHintSettings"
+          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+        >
+          <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
+            <svg
+              class="w-4 h-4 text-hint-c"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+            <span class="text-sm font-semibold text-base-c">新訂單通知</span>
+            <span class="text-xs text-hint-c">（客戶送出訂單時，發送訊息到 LINE 群組／Discord 頻道）</span>
+          </div>
+          <div class="p-4 space-y-4">
+
+            <!-- 開關 -->
+            <label class="flex items-center gap-2 cursor-pointer w-fit">
+              <input
+                v-model="notifyEnabled"
+                type="checkbox"
+                class="w-4 h-4 rounded accent-green-700"
+              >
+              <span class="text-sm font-medium text-base-c">啟用新訂單通知</span>
+            </label>
+
+            <!-- 獨立設定：不沿用其他功能的 LINE↔Discord 設定 -->
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-medium text-hint-c mb-1">LINE Channel Access Token</label>
+                <input
+                  v-model="notifyLineAccessToken"
+                  type="text"
+                  placeholder="用來發送 LINE 訊息的 Channel Access Token"
+                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                >
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-hint-c mb-1">LINE 群組 ID</label>
+                <input
+                  v-model="notifyLineGroupId"
+                  type="text"
+                  placeholder="例如：Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                >
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-hint-c mb-1">Discord Webhook URL</label>
+                <input
+                  v-model="notifyDiscordWebhook"
+                  type="text"
+                  placeholder="https://discord.com/api/webhooks/..."
+                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                >
+              </div>
+            </div>
+            <p class="text-xs text-hint-c">LINE 跟 Discord 可以只設定一邊（例如只想發 Discord，LINE 的兩個欄位留空即可），留空的那邊不會發送。這裡是豆製品訂單專用的獨立設定，跟其他功能無關。</p>
+
+            <div class="flex items-center gap-3">
+              <button
+                :disabled="notifySaving"
+                class="px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors font-medium"
+                @click="saveNotifySettings"
+              >
+                {{ notifySaving ? '儲存中…' : '儲存通知設定' }}
+              </button>
+              <Transition name="fade">
+                <p v-if="notifySaved" class="text-xs text-emerald-600 flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12" />
+                  </svg>
+                  已更新
+                </p>
+              </Transition>
             </div>
 
           </div>
