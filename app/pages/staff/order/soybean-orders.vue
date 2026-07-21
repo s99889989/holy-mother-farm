@@ -534,23 +534,29 @@ const showHintSettings = ref(false)
 const hintSaving = ref(false)
 const hintSaved = ref(false)
 
-// ── 新訂單通知（LINE / Discord，獨立設定，不沿用其他功能的設定）───
-const notifyEnabled = ref(false)
+// ── LINE / Discord 連線設定（獨立設定，不沿用其他功能的設定）───
 const notifyLineAccessToken = ref('')
 const notifyLineGroupId = ref('')
 const notifyDiscordWebhook = ref('')
 const notifySaving = ref(false)
 const notifySaved = ref(false)
 
+// 取貨提醒：前一天彙整當天所有訂單，合併成一則訊息發送
+const reminderEnabled = ref(false)
+const reminderHour = ref(18)
+const reminderTesting = ref(false)
+const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => i)
+
 const fetchNotifySettings = async () => {
   try {
     const res = await fetch(`${BASE.value}/admin/settings/notify`, {credentials: 'include'})
     const data = await res.json()
     if (!data.error) {
-      notifyEnabled.value = !!data.enabled
       notifyLineAccessToken.value = data.lineAccessToken || ''
       notifyLineGroupId.value = data.lineGroupId || ''
       notifyDiscordWebhook.value = data.discordWebhook || ''
+      reminderEnabled.value = !!data.reminderEnabled
+      reminderHour.value = data.reminderHour ?? 18
     }
   } catch {
   }
@@ -565,10 +571,11 @@ const saveNotifySettings = async () => {
       headers: {'Content-Type': 'application/json'},
       credentials: 'include',
       body: JSON.stringify({
-        enabled: notifyEnabled.value,
         lineAccessToken: notifyLineAccessToken.value.trim(),
         lineGroupId: notifyLineGroupId.value.trim(),
-        discordWebhook: notifyDiscordWebhook.value.trim()
+        discordWebhook: notifyDiscordWebhook.value.trim(),
+        reminderEnabled: reminderEnabled.value,
+        reminderHour: reminderHour.value
       })
     })
     const data = await res.json()
@@ -582,6 +589,23 @@ const saveNotifySettings = async () => {
     alert('儲存失敗')
   } finally {
     notifySaving.value = false
+  }
+}
+
+// 手動測試取貨提醒：立即檢查「明天」是否有訂單並發送，不受設定的提醒時間限制
+const testReminder = async () => {
+  reminderTesting.value = true
+  try {
+    const res = await fetch(`${BASE.value}/admin/reminder/test`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+    const data = await res.json()
+    alert(data.error ? '測試失敗：' + data.error : data.message)
+  } catch {
+    alert('測試失敗')
+  } finally {
+    reminderTesting.value = false
   }
 }
 
@@ -1388,7 +1412,7 @@ const submitEdit = async () => {
           </div>
         </div>
       </Transition>
-      <!-- ── 新訂單通知設定面板 ── -->
+      <!-- ── 取貨提醒設定面板 ── -->
       <Transition name="hint-panel">
         <div
           v-if="showHintSettings"
@@ -1408,20 +1432,10 @@ const submitEdit = async () => {
                 d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
               />
             </svg>
-            <span class="text-sm font-semibold text-base-c">新訂單通知</span>
-            <span class="text-xs text-hint-c">（客戶送出訂單時，發送訊息到 LINE 群組／Discord 頻道）</span>
+            <span class="text-sm font-semibold text-base-c">LINE / Discord 取貨提醒</span>
+            <span class="text-xs text-hint-c">（每天固定時間，把隔天所有客戶的訂單合併發送到 LINE 群組／Discord 頻道）</span>
           </div>
           <div class="p-4 space-y-4">
-
-            <!-- 開關 -->
-            <label class="flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                v-model="notifyEnabled"
-                type="checkbox"
-                class="w-4 h-4 rounded accent-green-700"
-              >
-              <span class="text-sm font-medium text-base-c">啟用新訂單通知</span>
-            </label>
 
             <!-- 獨立設定：不沿用其他功能的 LINE↔Discord 設定 -->
             <div class="grid gap-3 sm:grid-cols-2">
@@ -1454,6 +1468,39 @@ const submitEdit = async () => {
               </div>
             </div>
             <p class="text-xs text-hint-c">LINE 跟 Discord 可以只設定一邊（例如只想發 Discord，LINE 的兩個欄位留空即可），留空的那邊不會發送。這裡是豆製品訂單專用的獨立設定，跟其他功能無關。</p>
+
+            <!-- 取貨提醒 -->
+            <div class="pt-4 border-t border-light-c">
+              <label class="flex items-center gap-2 cursor-pointer w-fit mb-3">
+                <input
+                  v-model="reminderEnabled"
+                  type="checkbox"
+                  class="w-4 h-4 rounded accent-green-700"
+                >
+                <span class="text-sm font-medium text-base-c">啟用取貨提醒</span>
+                <span class="text-xs text-hint-c">（每天固定時間，把隔天所有客戶的訂單合併成一則訊息發送）</span>
+              </label>
+              <div class="flex items-center gap-2 flex-wrap">
+                <label class="text-xs text-hint-c">每天</label>
+                <select
+                  v-model.number="reminderHour"
+                  class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ String(h).padStart(2, '0') }}:00</option>
+                </select>
+                <span class="text-xs text-hint-c">檢查隔天訂單並發送提醒</span>
+                <button
+                  :disabled="reminderTesting"
+                  class="ml-auto px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
+                  @click="testReminder"
+                >
+                  {{ reminderTesting ? '測試中…' : '立即測試發送（明天）' }}
+                </button>
+              </div>
+              <p class="text-xs text-hint-c mt-1.5">
+                測試按鈕會忽略上面設定的時間，直接檢查明天有沒有訂單並馬上發送；如果明天沒有訂單就不會發送任何訊息。
+              </p>
+            </div>
 
             <div class="flex items-center gap-3">
               <button
