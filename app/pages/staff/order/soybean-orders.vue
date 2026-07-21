@@ -541,8 +541,9 @@ const notifyDiscordWebhook = ref('')
 const notifySaving = ref(false)
 const notifySaved = ref(false)
 
-// 取貨提醒：前一天彙整當天所有訂單，合併成一則訊息發送
-const reminderEnabled = ref(false)
+// 取貨提醒：前一天彙整當天所有訂單，合併成一則訊息發送（LINE、Discord 各自獨立開關）
+const reminderLineEnabled = ref(false)
+const reminderDiscordEnabled = ref(false)
 const reminderHour = ref(18)
 const reminderTesting = ref(false)
 const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => i)
@@ -555,7 +556,8 @@ const fetchNotifySettings = async () => {
       notifyLineAccessToken.value = data.lineAccessToken || ''
       notifyLineGroupId.value = data.lineGroupId || ''
       notifyDiscordWebhook.value = data.discordWebhook || ''
-      reminderEnabled.value = !!data.reminderEnabled
+      reminderLineEnabled.value = !!data.reminderLineEnabled
+      reminderDiscordEnabled.value = !!data.reminderDiscordEnabled
       reminderHour.value = data.reminderHour ?? 18
     }
   } catch {
@@ -574,7 +576,8 @@ const saveNotifySettings = async () => {
         lineAccessToken: notifyLineAccessToken.value.trim(),
         lineGroupId: notifyLineGroupId.value.trim(),
         discordWebhook: notifyDiscordWebhook.value.trim(),
-        reminderEnabled: reminderEnabled.value,
+        reminderLineEnabled: reminderLineEnabled.value,
+        reminderDiscordEnabled: reminderDiscordEnabled.value,
         reminderHour: reminderHour.value
       })
     })
@@ -1471,15 +1474,26 @@ const submitEdit = async () => {
 
             <!-- 取貨提醒 -->
             <div class="pt-4 border-t border-light-c">
-              <label class="flex items-center gap-2 cursor-pointer w-fit mb-3">
-                <input
-                  v-model="reminderEnabled"
-                  type="checkbox"
-                  class="w-4 h-4 rounded accent-green-700"
-                >
-                <span class="text-sm font-medium text-base-c">啟用取貨提醒</span>
-                <span class="text-xs text-hint-c">（每天固定時間，把隔天所有客戶的訂單合併成一則訊息發送）</span>
-              </label>
+              <p class="text-sm font-medium text-base-c mb-1">啟用取貨提醒</p>
+              <p class="text-xs text-hint-c mb-3">每天固定時間，把隔天所有客戶的訂單合併成一則訊息發送；LINE、Discord 可以分開開關。</p>
+              <div class="flex items-center gap-5 mb-3">
+                <label class="flex items-center gap-2 cursor-pointer w-fit">
+                  <input
+                    v-model="reminderLineEnabled"
+                    type="checkbox"
+                    class="w-4 h-4 rounded accent-green-700"
+                  >
+                  <span class="text-sm font-medium text-base-c">LINE 提醒</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer w-fit">
+                  <input
+                    v-model="reminderDiscordEnabled"
+                    type="checkbox"
+                    class="w-4 h-4 rounded accent-green-700"
+                  >
+                  <span class="text-sm font-medium text-base-c">Discord 提醒</span>
+                </label>
+              </div>
               <div class="flex items-center gap-2 flex-wrap">
                 <label class="text-xs text-hint-c">每天</label>
                 <select
