@@ -132,31 +132,53 @@
 
   const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
 
-  // ── 選單是空的輕量保險 ──────────────────────────────────────────────
+  // ── 選單是空的背景自動重試 ────────────────────────────────────────────
   // session/權限的重驗證（visibilitychange 時打 /me、補拉權限）已經統一
   // 交給 layouts/staff.vue 的 checkSessionOnVisible 處理，這裡不再重複
   // 監聽 visibilitychange，避免兩邊同時呼叫 permStore.load() 互相競爭。
-  // navbar 這裡只保留最後一道保險：元件掛載當下（或切換使用者時），
-  // 如果已登入但選單剛好是空的，靜默補拉一次，不特別處理背景/前景切換。
-  let permRetryCount = 0
-  const MAX_PERM_AUTO_RETRY = 3
+  // 但如果訊號很差（例如只有 1-2 格），fetch 常常是逾時/網路錯誤而不是
+  // 明確的 401/403，這種情況本來就不該被登出，只能一直重試等網路恢復。
+  // 這裡在 navbar 端做：選單空著的時候，每隔固定秒數背景補拉一次，
+  // 直到選單有內容（成功）或元件卸載（使用者離開這頁）為止。
+  const PERM_RETRY_INTERVAL_MS = 6000
+  let permRetryTimer = null
+
+  const stopPermRetryLoop = () => {
+    if (permRetryTimer) {
+      clearInterval(permRetryTimer)
+      permRetryTimer = null
+    }
+  }
+
+  const startPermRetryLoop = () => {
+    if (permRetryTimer) return // 已經在跑了，不重複啟動
+    permRetryTimer = setInterval(() => {
+      if (!customer.value || hasPerms.value) {
+        stopPermRetryLoop()
+        return
+      }
+      permStore.load(customer.value.id, commonStore.data.main_url, true)
+    }, PERM_RETRY_INTERVAL_MS)
+  }
 
   const ensurePermsLoaded = async () => {
     if (!customer.value) return
     if (hasPerms.value) return
-    if (permRetryCount >= MAX_PERM_AUTO_RETRY) return
-    permRetryCount++
     await permStore.load(customer.value.id, commonStore.data.main_url, true)
+    if (!hasPerms.value) {
+      // 這次補拉還是空的：啟動背景重試迴圈，持續打到成功為止
+      startPermRetryLoop()
+    }
   }
 
   watch(hasPerms, (val) => {
-    // 補拉成功後歸零計數，避免之後真的斷線時被計數上限卡住
-    if (val) permRetryCount = 0
+    // 選單有內容了，停止背景重試
+    if (val) stopPermRetryLoop()
   })
 
   watch(customer, (val) => {
-    // 換人登入/登出時重置計數，讓新的一輪重試機制生效
-    permRetryCount = 0
+    // 換人登入/登出時，先停掉舊的重試迴圈，重新檢查一次
+    stopPermRetryLoop()
     if (val) ensurePermsLoaded()
   })
 
@@ -199,6 +221,7 @@
   })
   onUnmounted(() => {
     document.removeEventListener('click', onClickOutside)
+    stopPermRetryLoop()
     if (import.meta.client) {
       document.body.style.overflow = ''
     }
