@@ -1,5 +1,4 @@
 <script setup>
-import {usePermissionStore} from '~/stores/permission.js'
 
 useHead({
   meta: [
@@ -26,8 +25,17 @@ useSeoMeta({
   twitterCard: 'summary_large_image'
 })
 
-const permissionStore = usePermissionStore()
-permissionStore.clear()
+// ── 找到選單持續空白的真正原因 ────────────────────────────────────
+// permission.js 特地把 perms persist 到 localStorage，註解寫得很清楚：
+// 「重整/重開時 navbar 有舊值先撐著，拉完再更新」。
+// 但這裡原本無條件呼叫 permissionStore.clear()，等於每次 app 完整
+// 重新啟動（包含 iOS Safari 背景太久把分頁整頁丟棄重載的情況）都會
+// 先把剛從 localStorage 復原的 perms 洗成空的，逼著畫面從零開始，
+// 完全依賴這次網路請求要成功——訊號不好時就會卡在空選單，跟
+// StaffNavbar / permission store 裡做了多少次重試都無關。
+// 登出時已經在各自的 logout 流程裡明確呼叫 permissionStore.clear()
+// (見 layouts/staff.vue、StaffNavbar.vue、middleware/holy-auth.global.ts)，
+// 這裡不需要、也不應該再重複清一次，所以直接移除這行與相關 import。
 
 const router = useRouter()
 router.beforeEach((to, from) => {
