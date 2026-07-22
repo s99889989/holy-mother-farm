@@ -358,6 +358,7 @@ const updateStatus = async (order, newStatus) => {
 const statusClass = s => ({
   待確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700',
   已確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700',
+  已付款: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700',
   已取貨: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700',
   已取消: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500'
 }[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c')
@@ -386,7 +387,7 @@ const pickupLabel = (order) => {
   return `${label} ${m}/${d}`
 }
 
-const STATUSES = ['待確認', '已確認', '已取貨', '已取消']
+const STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
 
 // ── 刪除 ──────────────────────────────────────────────────────────
 const deleteModal = ref({show: false, order: null, submitting: false})
@@ -612,10 +613,11 @@ const testReminder = async () => {
   }
 }
 
-const HINT_STATUSES = ['待確認', '已確認', '已取貨', '已取消']
+const HINT_STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
 const hintBadgeClass = s => ({
   待確認: 'bg-amber-100 text-amber-700',
   已確認: 'bg-emerald-100 text-emerald-700',
+  已付款: 'bg-blue-100 text-blue-700',
   已取貨: 'bg-teal-100 text-teal-700',
   已取消: 'bg-red-100 text-red-500'
 }[s] || 'bg-surface2 text-hint-c')
@@ -623,6 +625,7 @@ const hintBadgeClass = s => ({
 const hints = ref({
   待確認: '我們已收到您的預約，將盡快來電確認。',
   已確認: '訂單已確認，請於取貨日前來取貨！',
+  已付款: '已收到您的付款，感謝您的訂購！',
   已取貨: '感謝您的訂購，歡迎再次訂購！',
   已取消: '此筆訂單已取消，歡迎再次訂購。'
 })
