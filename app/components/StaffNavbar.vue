@@ -1,199 +1,228 @@
 <script setup>
-const route = useRoute()
-const mobileOpen = ref(false)
-const menuOpen = ref(false)
-const dropOpen = ref({})
-const darkStore = useDarkModeStore()
-const isDark = computed(() => darkStore.data.dark)
-const perm = usePermission()
-const customerStore = useCustomerStore()
-const commonStore = useCommonStore()
-const customer = computed(() => customerStore.customer)
+  const route = useRoute()
+  const mobileOpen = ref(false)
+  const menuOpen = ref(false)
+  const dropOpen = ref({})
+  const darkStore = useDarkModeStore()
+  const isDark = computed(() => darkStore.data.dark)
+  const perm = usePermission()
+  const customerStore = useCustomerStore()
+  const commonStore = useCommonStore()
+  const customer = computed(() => customerStore.customer)
 
-const toggleDark = () => {
-  darkStore.change_dark_mode()
-}
-
-watch(() => route.path, () => {
-  mobileOpen.value = false
-  dropOpen.value = {}
-  menuOpen.value = false
-})
-
-watch(mobileOpen, (val) => {
-  if (import.meta.client) {
-    document.body.style.overflow = val ? 'hidden' : ''
+  const toggleDark = () => {
+    darkStore.change_dark_mode()
   }
-})
 
-const navGroups = [
-  {
-    label: '🌐 前台內容',
-    items: [
-      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
-      { to: '/staff/content/product', icon: '🛒', label: '商品管理', key: 'content.product' },
-      { to: '/staff/content/production', icon: '🌾', label: '產品訂購', key: 'content.production' }
-    ]
-  },
-  {
-    label: '🏢 營運管理',
-    items: [
-      { to: '/staff/management/lemon-sauce-inventory', icon: '🗂️', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' },
-      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'management.asset' },
-      { to: '/staff/management/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'management.fire-extinguisher' },
-      { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
-      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
-      { to: '/staff/management/files', icon: '🗂️', label: '檔案管理', key: 'management.files' },
-      { to: '/staff/management/html-page', icon: '🌐', label: '網頁頁面', key: 'management.html-page' }
-    ]
-  },
-  {
-    label: '📦 訂單管理',
-    items: [
-      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
-      { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'order.booking-orders' },
-      { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
-      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
-      { to: '/staff/order/rooms-setting', icon: '🍱', label: '房間管理', key: 'order.rooms-setting' },
-      { to: '/staff/order/rooms-orders', icon: '🍱', label: '訂房管理', key: 'order.rooms-orders' }
-    ]
-  },
-  {
-    label: '👥 人事',
-    items: [
-      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule' },
-      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
-      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual' }
-    ]
-  },
-  {
-    label: '🛒 日常作業',
-    items: [
-      { to: '/staff/pos/daily/sales', icon: '🛍️', label: '商品販賣', key: 'pos.daily.sales' },
-      { to: '/staff/pos/daily/account-inquiry', icon: '🧾', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
-      { to: '/staff/pos/daily/stock', icon: '📦', label: '庫存管理', key: 'pos.daily.stock' }
-    ]
-  },
-  {
-    label: '📊 營業分析',
-    items: [
-      { to: '/staff/pos/analyze/sales-analysis', icon: '📈', label: '銷售報表', key: 'pos.analyze.sales-analysis' }
-    ]
-  },
-  {
-    label: '⚙️ 系統設定',
-    items: [
-      { to: '/staff/pos/settings/menu-setting', icon: '🍽️', label: '品項設置', key: 'pos.settings.menu-setting' },
-      { to: '/staff/pos/settings/database-setting', icon: '🗄️', label: '資料庫設置', key: 'pos.settings.database-setting' },
-      { to: '/staff/pos/settings/equipment-setting', icon: '🖨️', label: '設備設置', key: 'pos.settings.equipment-setting' }
-    ]
-  },
-  {
-    label: '💳 其他',
-    items: [
-      { to: '/staff/pos/other/pos-menu', icon: '📈', label: '商品管理', key: 'pos.other.pos-menu' },
-      { to: '/staff/pos/other/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.other.pos-sales' },
-      { to: '/staff/pos/other/pos-sell', icon: '📈', label: '商品販賣', key: 'pos.other.pos-sell' },
-      { to: '/staff/pos/other/pos-stock', icon: '📈', label: '庫存管理', key: 'pos.other.pos-stock' }
-    ]
-  },
-  {
-    label: '🖨️ 列印中心',
-    items: [
-      { to: '/staff/print/guild-hall-print', icon: '🌿', label: '會館訂貨', key: 'print.guild-hall-print' },
-      { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
-      { to: '/staff/print/fire-extinguisher-print', icon: '🧯', label: '滅火器 QRCode', key: 'print.fire-extinguisher-print' },
-      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
-    ]
-  },
-  {
-    label: '📊 庫存銷售',
-    items: [
-      { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
-      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
-      { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
-      { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
-    ]
-  },
-  {
-    label: '🔐 權限',
-    items: [
-      { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
-      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
-    ]
-  }
-]
-
-const standaloneItems = [
-  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
-]
-
-const permStore = usePermissionStore()
-
-const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
-
-const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
-
-const visibleGroups = computed(() => {
-  if (!hasPerms.value) return []
-  return navGroups
-    .map(g => ({ ...g, items: filterItems(g.items) }))
-    .filter(g => g.items.length > 0)
-})
-
-const visibleStandaloneItems = computed(() => {
-  if (!hasPerms.value) return []
-  return filterItems(standaloneItems)
-})
-
-const activeGroup = computed(() =>
-  visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
-)
-
-function toggleDrop(label) {
-  dropOpen.value = {
-    ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
-    [label]: !dropOpen.value[label]
-  }
-  menuOpen.value = false
-}
-
-function onClickOutside(e) {
-  if (!e.target.closest('.nav-dropdown-wrap')) {
+  watch(() => route.path, () => {
+    mobileOpen.value = false
     dropOpen.value = {}
     menuOpen.value = false
-  }
-}
+  })
 
-onMounted(() => {
-  document.addEventListener('click', onClickOutside)
-})
-onUnmounted(() => {
-  document.removeEventListener('click', onClickOutside)
-  if (import.meta.client) {
-    document.body.style.overflow = ''
-  }
-})
+  watch(mobileOpen, (val) => {
+    if (import.meta.client) {
+      document.body.style.overflow = val ? 'hidden' : ''
+    }
+  })
 
-const goProfile = () => {
-  menuOpen.value = false
-  nextTick(() => navigateTo('/staff/profile/settings'))
-}
+  const navGroups = [
+    {
+      label: '🌐 前台內容',
+      items: [
+        { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
+        { to: '/staff/content/product', icon: '🛒', label: '商品管理', key: 'content.product' },
+        { to: '/staff/content/production', icon: '🌾', label: '產品訂購', key: 'content.production' }
+      ]
+    },
+    {
+      label: '🏢 營運管理',
+      items: [
+        { to: '/staff/management/lemon-sauce-inventory', icon: '🗂️', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' },
+        { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'management.asset' },
+        { to: '/staff/management/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'management.fire-extinguisher' },
+        { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
+        { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
+        { to: '/staff/management/files', icon: '🗂️', label: '檔案管理', key: 'management.files' },
+        { to: '/staff/management/html-page', icon: '🌐', label: '網頁頁面', key: 'management.html-page' }
+      ]
+    },
+    {
+      label: '📦 訂單管理',
+      items: [
+        { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
+        { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'order.booking-orders' },
+        { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
+        { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
+        { to: '/staff/order/rooms-setting', icon: '🍱', label: '房間管理', key: 'order.rooms-setting' },
+        { to: '/staff/order/rooms-orders', icon: '🍱', label: '訂房管理', key: 'order.rooms-orders' }
+      ]
+    },
+    {
+      label: '👥 人事',
+      items: [
+        { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule' },
+        { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
+        { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual' }
+      ]
+    },
+    {
+      label: '🛒 日常作業',
+      items: [
+        { to: '/staff/pos/daily/sales', icon: '🛍️', label: '商品販賣', key: 'pos.daily.sales' },
+        { to: '/staff/pos/daily/account-inquiry', icon: '🧾', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
+        { to: '/staff/pos/daily/stock', icon: '📦', label: '庫存管理', key: 'pos.daily.stock' }
+      ]
+    },
+    {
+      label: '📊 營業分析',
+      items: [
+        { to: '/staff/pos/analyze/sales-analysis', icon: '📈', label: '銷售報表', key: 'pos.analyze.sales-analysis' }
+      ]
+    },
+    {
+      label: '⚙️ 系統設定',
+      items: [
+        { to: '/staff/pos/settings/menu-setting', icon: '🍽️', label: '品項設置', key: 'pos.settings.menu-setting' },
+        { to: '/staff/pos/settings/database-setting', icon: '🗄️', label: '資料庫設置', key: 'pos.settings.database-setting' },
+        { to: '/staff/pos/settings/equipment-setting', icon: '🖨️', label: '設備設置', key: 'pos.settings.equipment-setting' }
+      ]
+    },
+    {
+      label: '💳 其他',
+      items: [
+        { to: '/staff/pos/other/pos-menu', icon: '📈', label: '商品管理', key: 'pos.other.pos-menu' },
+        { to: '/staff/pos/other/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.other.pos-sales' },
+        { to: '/staff/pos/other/pos-sell', icon: '📈', label: '商品販賣', key: 'pos.other.pos-sell' },
+        { to: '/staff/pos/other/pos-stock', icon: '📈', label: '庫存管理', key: 'pos.other.pos-stock' }
+      ]
+    },
+    {
+      label: '🖨️ 列印中心',
+      items: [
+        { to: '/staff/print/guild-hall-print', icon: '🌿', label: '會館訂貨', key: 'print.guild-hall-print' },
+        { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
+        { to: '/staff/print/fire-extinguisher-print', icon: '🧯', label: '滅火器 QRCode', key: 'print.fire-extinguisher-print' },
+        { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
+      ]
+    },
+    {
+      label: '📊 庫存銷售',
+      items: [
+        { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
+        { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
+        { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
+        { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
+      ]
+    },
+    {
+      label: '🔐 權限',
+      items: [
+        { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
+        { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
+      ]
+    }
+  ]
 
-const logout = async () => {
-  try {
-    await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
-      method: 'POST',
-      credentials: 'include'
-    })
-  } catch { /* 即使失敗也繼續清除本地狀態 */
+  const standaloneItems = [
+    { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
+  ]
+
+  const permStore = usePermissionStore()
+
+  const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
+
+  // ── 選單是空的輕量保險 ──────────────────────────────────────────────
+  // session/權限的重驗證（visibilitychange 時打 /me、補拉權限）已經統一
+  // 交給 layouts/staff.vue 的 checkSessionOnVisible 處理，這裡不再重複
+  // 監聽 visibilitychange，避免兩邊同時呼叫 permStore.load() 互相競爭。
+  // navbar 這裡只保留最後一道保險：元件掛載當下（或切換使用者時），
+  // 如果已登入但選單剛好是空的，靜默補拉一次，不特別處理背景/前景切換。
+  let permRetryCount = 0
+  const MAX_PERM_AUTO_RETRY = 3
+
+  const ensurePermsLoaded = async () => {
+    if (!customer.value) return
+    if (hasPerms.value) return
+    if (permRetryCount >= MAX_PERM_AUTO_RETRY) return
+    permRetryCount++
+    await permStore.load(customer.value.id, commonStore.data.main_url, true)
   }
-  customerStore.clearCustomer()
-  usePermissionStore().clear()
-  menuOpen.value = false
-  mobileOpen.value = false
-  navigateTo('/')
-}
+
+  watch(hasPerms, (val) => {
+    // 補拉成功後歸零計數，避免之後真的斷線時被計數上限卡住
+    if (val) permRetryCount = 0
+  })
+
+  watch(customer, (val) => {
+    // 換人登入/登出時重置計數，讓新的一輪重試機制生效
+    permRetryCount = 0
+    if (val) ensurePermsLoaded()
+  })
+
+  const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
+
+  const visibleGroups = computed(() => {
+    if (!hasPerms.value) return []
+    return navGroups
+      .map(g => ({ ...g, items: filterItems(g.items) }))
+      .filter(g => g.items.length > 0)
+  })
+
+  const visibleStandaloneItems = computed(() => {
+    if (!hasPerms.value) return []
+    return filterItems(standaloneItems)
+  })
+
+  const activeGroup = computed(() =>
+    visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
+  )
+
+  function toggleDrop(label) {
+    dropOpen.value = {
+      ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
+      [label]: !dropOpen.value[label]
+    }
+    menuOpen.value = false
+  }
+
+  function onClickOutside(e) {
+    if (!e.target.closest('.nav-dropdown-wrap')) {
+      dropOpen.value = {}
+      menuOpen.value = false
+    }
+  }
+
+  onMounted(() => {
+    document.addEventListener('click', onClickOutside)
+    ensurePermsLoaded()
+  })
+  onUnmounted(() => {
+    document.removeEventListener('click', onClickOutside)
+    if (import.meta.client) {
+      document.body.style.overflow = ''
+    }
+  })
+
+  const goProfile = () => {
+    menuOpen.value = false
+    nextTick(() => navigateTo('/staff/profile/settings'))
+  }
+
+  const logout = async () => {
+    try {
+      await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch { /* 即使失敗也繼續清除本地狀態 */
+    }
+    customerStore.clearCustomer()
+    usePermissionStore().clear()
+    menuOpen.value = false
+    mobileOpen.value = false
+    navigateTo('/')
+  }
 </script>
 
 <template>
