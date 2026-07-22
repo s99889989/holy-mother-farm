@@ -41,8 +41,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (hasAdminAuth) return
 
-  if (to.path.startsWith('/staff') && !customerStore.isLoggedIn) {
-    return navigateTo('/')
+  if (to.path.startsWith('/staff')) {
+    // 未登入 → 一律擋
+    if (!customerStore.isLoggedIn) return navigateTo('/')
+
+    // 已登入但登入後端不再擋 guest（course 報名等前台功能需要 guest 也能登入），
+    // 所以這裡要補上「guest 不能進 /staff」的判斷，不能只靠 nav 選單隱藏，
+    // 否則 guest 直接打網址還是能看到頁面內容。
+    // guest 本來就不該待在這個員工後台專案裡，直接導去真正的對外官網。
+    if (customerStore.group === 'guest') {
+      return navigateTo('https://holyfarm.netlify.app/', { external: true })
+    }
   }
 
   // ── Cookie 有效性驗證 ────────────────────────────────────────────

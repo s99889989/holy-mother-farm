@@ -44,6 +44,7 @@ const navGroups = [
       { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
       { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
       { to: '/staff/management/files', icon: '🗂️', label: '檔案管理', key: 'management.files' },
+      { to: '/staff/management/course', icon: '📚', label: '課程報名', key: 'management.course' },
       { to: '/staff/management/html-page', icon: '🌐', label: '網頁頁面', key: 'management.html-page' }
     ]
   },

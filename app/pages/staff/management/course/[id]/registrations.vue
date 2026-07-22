@@ -1,0 +1,324 @@
+<script setup>
+import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+
+definePageMeta({ layout: 'staff' })
+
+const BASE_URL = useRuntimeConfig().public.apiBase
+const thumbUrl = (path, width = 400) =>
+  path ? `${BASE_URL}/holy${path}?width=${width}` : ''
+
+const route = useRoute()
+const courseId = route.params.id
+const store = useCourseRegistrationStore()
+
+const loading = ref(true)
+const saving = ref(false)
+
+const toast = reactive({ show: false, message: '', error: false })
+const showToast = (msg, error = false) => {
+  toast.message = msg; toast.error = error; toast.show = true
+  setTimeout(() => toast.show = false, 2500)
+}
+
+onMounted(async () => {
+  loading.value = true
+  await store.fetchCourse(courseId)
+  loading.value = false
+})
+
+const isDisplayImage = (type) => type === 'display_image'
+const NOTE_SUFFIX = '__note'
+
+// ── 手動新增/編輯 ────────────────────────────────────────────
+const modal = reactive({ show: false, mode: 'add' })
+const form = reactive({ id: '', displayName: '', answers: {} })
+
+const blankAnswers = () => {
+  const answers = {}
+  store.currentCourse.fields.forEach(f => {
+    if (isDisplayImage(f.type)) return
+    answers[f.id] = f.type === 'checkbox' ? [] : ''
+    if (f.allowNote) answers[f.id + NOTE_SUFFIX] = ''
+  })
+  return answers
+}
+
+const openAdd = () => {
+  form.id = ''; form.displayName = ''
+  form.answers = blankAnswers()
+  modal.mode = 'add'; modal.show = true
+}
+const openEdit = (reg) => {
+  form.id = reg.id; form.displayName = reg.displayName
+  form.answers = {}
+  store.currentCourse.fields.forEach(f => {
+    if (isDisplayImage(f.type)) return
+    form.answers[f.id] = reg.answers?.[f.id] ?? (f.type === 'checkbox' ? [] : '')
+    if (f.allowNote) form.answers[f.id + NOTE_SUFFIX] = reg.answers?.[f.id + NOTE_SUFFIX] ?? ''
+  })
+  modal.mode = 'edit'; modal.show = true
+}
+
+const save = async () => {
+  saving.value = true
+  try {
+    if (modal.mode === 'add') {
+      await store.addRegistration(courseId, form.displayName, form.answers)
+    } else {
+      await store.updateRegistration(courseId, form.id, form.displayName, form.answers)
+    }
+    showToast('已儲存')
+    modal.show = false
+  } catch {
+    showToast('儲存失敗', true)
+  } finally {
+    saving.value = false
+  }
+}
+
+const showDeleteConfirm = ref(false)
+const deleteTarget = ref(null)
+const askRemove = (reg) => { deleteTarget.value = reg; showDeleteConfirm.value = true }
+const confirmRemove = async () => {
+  try {
+    await store.removeRegistration(courseId, deleteTarget.value.id)
+    showToast('已刪除')
+  } catch {
+    showToast('刪除失敗', true)
+  } finally {
+    showDeleteConfirm.value = false
+  }
+}
+
+const toggle = async (reg) => {
+  try {
+    await store.toggle(courseId, reg.id)
+  } catch {
+    showToast('操作失敗', true)
+  }
+}
+
+const resetAll = async () => {
+  try {
+    await store.reset(courseId)
+    showToast('已重置所有簽到狀態')
+  } catch {
+    showToast('操作失敗', true)
+  }
+}
+
+const answerDisplay = (reg, field) => {
+  const v = reg.answers?.[field.id]
+  if (Array.isArray(v)) return v.join('、') || '—'
+  if (v === undefined || v === null || v === '') return '—'
+  return v
+}
+
+const answerFields = computed(() => (store.currentCourse?.fields ?? []).filter(f => !isDisplayImage(f.type)))
+</script>
+
+<template>
+  <div class="min-h-full" style="background: var(--surface2)">
+    <div class="max-w-5xl mx-auto px-4 py-6">
+      <NuxtLink :to="`/staff/management/course/${courseId}`" class="text-sm mb-4 inline-block" style="color: var(--text-hint)">
+        ← 返回課程設定
+      </NuxtLink>
+
+      <div v-if="loading" class="text-center py-16" style="color: var(--text-hint)">載入中…</div>
+
+      <template v-else>
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h1 class="text-xl font-bold" style="color: var(--text-base)">
+              {{ store.currentCourse?.name }} — 報名名單
+            </h1>
+            <p class="text-sm mt-1" style="color: var(--text-hint)">
+              共 {{ store.totalRegistered }} 人報名，已簽到 {{ store.pickedCount }} 人
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button
+              class="px-3 py-2 rounded-lg border text-xs"
+              style="border-color: var(--border-light); color: var(--text-muted)"
+              @click="resetAll"
+            >
+              重置簽到
+            </button>
+            <button
+              class="px-4 py-2 rounded-lg text-sm text-white"
+              style="background: var(--accent)"
+              @click="openAdd"
+            >
+              ＋ 手動新增
+            </button>
+          </div>
+        </div>
+
+        <div v-if="!store.currentCourse?.registrations?.length" class="text-center py-16" style="color: var(--text-hint)">
+          目前還沒有人報名
+        </div>
+
+        <div v-else class="overflow-x-auto rounded-2xl border" style="border-color: var(--border-light)">
+          <table class="w-full text-sm" style="background: var(--surface)">
+            <thead>
+            <tr style="border-bottom: 1px solid var(--border-light)">
+              <th class="text-left px-3 py-2" style="color: var(--text-hint)">簽到</th>
+              <th class="text-left px-3 py-2" style="color: var(--text-hint)">姓名</th>
+              <th
+                v-for="f in answerFields"
+                :key="f.id"
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                {{ f.label }}
+              </th>
+              <th class="text-left px-3 py-2" style="color: var(--text-hint)">報名時間</th>
+              <th class="text-left px-3 py-2" style="color: var(--text-hint)">身份</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr
+              v-for="reg in store.currentCourse.registrations"
+              :key="reg.id"
+              style="border-bottom: 1px solid var(--border-light)"
+            >
+              <td class="px-3 py-2">
+                <input type="checkbox" :checked="reg.picked" @change="toggle(reg)">
+              </td>
+              <td class="px-3 py-2" style="color: var(--text-base)">{{ reg.displayName || '—' }}</td>
+              <td v-for="f in answerFields" :key="f.id" class="px-3 py-2" style="color: var(--text-muted)">
+                {{ answerDisplay(reg, f) }}
+              </td>
+              <td class="px-3 py-2" style="color: var(--text-hint)">{{ reg.submittedAt || '—' }}</td>
+              <td class="px-3 py-2" style="color: var(--text-hint)">
+                {{ reg.customerId ? '自行報名' : '後台建立' }}
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap">
+                <button class="text-xs mr-2" style="color: var(--accent)" @click="openEdit(reg)">編輯</button>
+                <button class="text-xs text-red-500" @click="askRemove(reg)">刪除</button>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </div>
+
+    <!-- 新增/編輯報名 Modal -->
+    <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 overflow-y-auto py-8">
+      <div class="w-full max-w-md rounded-2xl p-5" style="background: var(--surface)">
+        <h2 class="font-bold mb-3" style="color: var(--text-base)">
+          {{ modal.mode === 'add' ? '手動新增報名' : '編輯報名資料' }}
+        </h2>
+
+        <label class="block text-xs mb-1" style="color: var(--text-hint)">姓名</label>
+        <input
+          v-model="form.displayName"
+          type="text"
+          class="w-full border rounded-lg px-3 py-2 mb-3"
+          style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+        >
+
+        <div v-for="f in answerFields" :key="f.id" class="mb-3">
+          <label class="block text-xs mb-1" style="color: var(--text-hint)">
+            {{ f.label }}<span v-if="f.required" class="text-red-500">＊</span>
+          </label>
+
+          <input
+            v-if="f.type === 'text' || f.type === 'date'"
+            v-model="form.answers[f.id]"
+            :type="f.type === 'date' ? 'date' : 'text'"
+            class="w-full border rounded-lg px-3 py-2"
+            style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+          >
+          <textarea
+            v-else-if="f.type === 'textarea'"
+            v-model="form.answers[f.id]"
+            rows="2"
+            class="w-full border rounded-lg px-3 py-2"
+            style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+          />
+          <select
+            v-else-if="f.type === 'select'"
+            v-model="form.answers[f.id]"
+            class="w-full border rounded-lg px-3 py-2"
+            style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+          >
+            <option value="">請選擇</option>
+            <option v-for="opt in f.options" :key="opt" :value="opt">{{ opt }}</option>
+          </select>
+          <div v-else-if="f.type === 'radio'" class="flex flex-col gap-1">
+            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm" style="color: var(--text-muted)">
+              <input v-model="form.answers[f.id]" type="radio" :value="opt"> {{ opt }}
+            </label>
+          </div>
+          <div v-else-if="f.type === 'checkbox'" class="flex flex-col gap-1">
+            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm" style="color: var(--text-muted)">
+              <input v-model="form.answers[f.id]" type="checkbox" :value="opt"> {{ opt }}
+            </label>
+          </div>
+
+          <input
+            v-if="f.allowNote"
+            v-model="form.answers[f.id + '__note']"
+            type="text"
+            placeholder="其他，請說明"
+            class="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
+            style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+          >
+        </div>
+
+        <div class="flex gap-2 mt-2">
+          <button
+            class="flex-1 py-2 rounded-lg border text-sm"
+            style="border-color: var(--border-light); color: var(--text-muted)"
+            @click="modal.show = false"
+          >
+            取消
+          </button>
+          <button
+            class="flex-1 py-2 rounded-lg text-sm text-white"
+            style="background: var(--accent)"
+            :disabled="saving"
+            @click="save"
+          >
+            {{ saving ? '儲存中…' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 刪除確認 -->
+    <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div class="w-full max-w-sm rounded-2xl p-5" style="background: var(--surface)">
+        <h2 class="font-bold mb-2" style="color: var(--text-base)">刪除報名紀錄</h2>
+        <p class="text-sm mb-4" style="color: var(--text-muted)">
+          確定要刪除「{{ deleteTarget?.displayName || '此筆' }}」的報名紀錄嗎？
+        </p>
+        <div class="flex gap-2">
+          <button
+            class="flex-1 py-2 rounded-lg border text-sm"
+            style="border-color: var(--border-light); color: var(--text-muted)"
+            @click="showDeleteConfirm = false"
+          >
+            取消
+          </button>
+          <button class="flex-1 py-2 rounded-lg text-sm text-white bg-red-500" @click="confirmRemove">
+            確定刪除
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <Transition name="fade">
+      <div
+        v-if="toast.show"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm text-white z-50"
+        :style="{ background: toast.error ? '#ef4444' : 'var(--accent)' }"
+      >
+        {{ toast.message }}
+      </div>
+    </Transition>
+  </div>
+</template>
