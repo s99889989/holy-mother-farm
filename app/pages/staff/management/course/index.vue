@@ -1,23 +1,28 @@
 <script setup>
-import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff', requiredPermission: 'management.course' })
+definePageMeta({layout: 'staff'})
 
-const BASE_URL = useRuntimeConfig().public.apiBase
-const thumbUrl = (path, width = 400) =>
-  path ? `${BASE_URL}/holy${path}?width=${width}` : ''
+const commonStore = useCommonStore()
+const imgUrl = (path) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return commonStore.data.main_url + path
+}
 
 const store = useCourseRegistrationStore()
 const loading = ref(false)
 const saving = ref(false)
-const toast = reactive({ show: false, message: '', error: false })
-const modal = reactive({ show: false })
-const form = reactive({ name: '' })
+const toast = reactive({show: false, message: '', error: false})
+const modal = reactive({show: false})
+const form = reactive({name: ''})
 const showDeleteConfirm = ref(false)
-const deleteTarget = reactive({ id: '', name: '' })
+const deleteTarget = reactive({id: '', name: ''})
 
 const showToast = (msg, error = false) => {
-  toast.message = msg; toast.error = error; toast.show = true
+  toast.message = msg;
+  toast.error = error;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -109,7 +114,7 @@ const capacityLabel = (course) => {
             <div
               class="h-32 bg-cover bg-center"
               style="background-color: var(--surface2)"
-              :style="course.coverImage ? { backgroundImage: `url(${thumbUrl(course.coverImage)})` } : {}"
+              :style="course.coverImage ? { backgroundImage: `url(${imgUrl(course.coverImage)})` } : {}"
             />
           </NuxtLink>
           <div class="p-4 flex-1 flex flex-col gap-2">

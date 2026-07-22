@@ -16,6 +16,11 @@ const commonStore = useCommonStore()
 
 const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
+const imgUrl = (path) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return commonStore.data.main_url + path
+}
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -201,7 +206,7 @@ useHead(() => ({
         <div
           v-if="course.coverImage"
           class="h-44 rounded-2xl bg-cover bg-center mb-4"
-          :style="{ backgroundImage: `url(${course.coverImage})` }"
+          :style="{ backgroundImage: `url(${imgUrl(course.coverImage)})` }"
         />
 
         <h1 class="text-xl font-bold text-stone-800">{{ course.name }}</h1>

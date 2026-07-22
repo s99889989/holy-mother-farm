@@ -3,9 +3,12 @@ import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
 definePageMeta({ layout: 'staff' })
 
-const BASE_URL = useRuntimeConfig().public.apiBase
-const thumbUrl = (path, width = 800) =>
-  path ? `${BASE_URL}/holy${path}?width=${width}` : ''
+const commonStore = useCommonStore()
+const imgUrl = (path) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return commonStore.data.main_url + path
+}
 
 const route = useRoute()
 const courseId = route.params.id
@@ -130,7 +133,7 @@ const saveFields = async () => {
 }
 
 // ── 分享連結 ──────────────────────────────────────────────────
-const shareUrl = computed(() => `${BASE_URL}/holy/course-reg/share/${courseId}`)
+const shareUrl = computed(() => `${commonStore.data.main_url}/holy/course-reg/share/${courseId}`)
 const copyShareUrl = async () => {
   try {
     await navigator.clipboard.writeText(shareUrl.value)
@@ -159,7 +162,7 @@ const copyShareUrl = async () => {
             <div
               class="h-40 rounded-xl bg-cover bg-center flex items-center justify-center cursor-pointer"
               style="background-color: var(--surface2)"
-              :style="store.currentCourse?.coverImage ? { backgroundImage: `url(${thumbUrl(store.currentCourse.coverImage)})` } : {}"
+              :style="store.currentCourse?.coverImage ? { backgroundImage: `url(${imgUrl(store.currentCourse.coverImage)})` } : {}"
               @click="pickCover"
             >
               <span v-if="!store.currentCourse?.coverImage" class="text-sm" style="color: var(--text-hint)">

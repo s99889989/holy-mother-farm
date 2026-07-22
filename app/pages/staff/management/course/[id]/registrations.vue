@@ -1,11 +1,7 @@
 <script setup>
-import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff' })
-
-const BASE_URL = useRuntimeConfig().public.apiBase
-const thumbUrl = (path, width = 400) =>
-  path ? `${BASE_URL}/holy${path}?width=${width}` : ''
+definePageMeta({layout: 'staff'})
 
 const route = useRoute()
 const courseId = route.params.id
@@ -14,9 +10,11 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
-const toast = reactive({ show: false, message: '', error: false })
+const toast = reactive({show: false, message: '', error: false})
 const showToast = (msg, error = false) => {
-  toast.message = msg; toast.error = error; toast.show = true
+  toast.message = msg;
+  toast.error = error;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -30,8 +28,8 @@ const isDisplayImage = (type) => type === 'display_image'
 const NOTE_SUFFIX = '__note'
 
 // ── 手動新增/編輯 ────────────────────────────────────────────
-const modal = reactive({ show: false, mode: 'add' })
-const form = reactive({ id: '', displayName: '', answers: {} })
+const modal = reactive({show: false, mode: 'add'})
+const form = reactive({id: '', displayName: '', answers: {}})
 
 const blankAnswers = () => {
   const answers = {}
@@ -44,19 +42,23 @@ const blankAnswers = () => {
 }
 
 const openAdd = () => {
-  form.id = ''; form.displayName = ''
+  form.id = '';
+  form.displayName = ''
   form.answers = blankAnswers()
-  modal.mode = 'add'; modal.show = true
+  modal.mode = 'add';
+  modal.show = true
 }
 const openEdit = (reg) => {
-  form.id = reg.id; form.displayName = reg.displayName
+  form.id = reg.id;
+  form.displayName = reg.displayName
   form.answers = {}
   store.currentCourse.fields.forEach(f => {
     if (isDisplayImage(f.type)) return
     form.answers[f.id] = reg.answers?.[f.id] ?? (f.type === 'checkbox' ? [] : '')
     if (f.allowNote) form.answers[f.id + NOTE_SUFFIX] = reg.answers?.[f.id + NOTE_SUFFIX] ?? ''
   })
-  modal.mode = 'edit'; modal.show = true
+  modal.mode = 'edit';
+  modal.show = true
 }
 
 const save = async () => {
@@ -78,7 +80,10 @@ const save = async () => {
 
 const showDeleteConfirm = ref(false)
 const deleteTarget = ref(null)
-const askRemove = (reg) => { deleteTarget.value = reg; showDeleteConfirm.value = true }
+const askRemove = (reg) => {
+  deleteTarget.value = reg;
+  showDeleteConfirm.value = true
+}
 const confirmRemove = async () => {
   try {
     await store.removeRegistration(courseId, deleteTarget.value.id)
@@ -120,7 +125,8 @@ const answerFields = computed(() => (store.currentCourse?.fields ?? []).filter(f
 <template>
   <div class="min-h-full" style="background: var(--surface2)">
     <div class="max-w-5xl mx-auto px-4 py-6">
-      <NuxtLink :to="`/staff/management/course/${courseId}`" class="text-sm mb-4 inline-block" style="color: var(--text-hint)">
+      <NuxtLink :to="`/staff/management/course/${courseId}`" class="text-sm mb-4 inline-block"
+                style="color: var(--text-hint)">
         ← 返回課程設定
       </NuxtLink>
 
@@ -154,7 +160,8 @@ const answerFields = computed(() => (store.currentCourse?.fields ?? []).filter(f
           </div>
         </div>
 
-        <div v-if="!store.currentCourse?.registrations?.length" class="text-center py-16" style="color: var(--text-hint)">
+        <div v-if="!store.currentCourse?.registrations?.length" class="text-center py-16"
+             style="color: var(--text-hint)">
           目前還沒有人報名
         </div>
 
@@ -206,7 +213,8 @@ const answerFields = computed(() => (store.currentCourse?.fields ?? []).filter(f
     </div>
 
     <!-- 新增/編輯報名 Modal -->
-    <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 overflow-y-auto py-8">
+    <div v-if="modal.show"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 overflow-y-auto py-8">
       <div class="w-full max-w-md rounded-2xl p-5" style="background: var(--surface)">
         <h2 class="font-bold mb-3" style="color: var(--text-base)">
           {{ modal.mode === 'add' ? '手動新增報名' : '編輯報名資料' }}
@@ -249,12 +257,14 @@ const answerFields = computed(() => (store.currentCourse?.fields ?? []).filter(f
             <option v-for="opt in f.options" :key="opt" :value="opt">{{ opt }}</option>
           </select>
           <div v-else-if="f.type === 'radio'" class="flex flex-col gap-1">
-            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm" style="color: var(--text-muted)">
+            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm"
+                   style="color: var(--text-muted)">
               <input v-model="form.answers[f.id]" type="radio" :value="opt"> {{ opt }}
             </label>
           </div>
           <div v-else-if="f.type === 'checkbox'" class="flex flex-col gap-1">
-            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm" style="color: var(--text-muted)">
+            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm"
+                   style="color: var(--text-muted)">
               <input v-model="form.answers[f.id]" type="checkbox" :value="opt"> {{ opt }}
             </label>
           </div>

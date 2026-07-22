@@ -596,11 +596,12 @@ const saveNotifySettings = async () => {
   }
 }
 
-// 手動測試取貨提醒：立即檢查「明天」是否有訂單並發送，不受設定的提醒時間限制
-const testReminder = async () => {
+// 手動測試取貨提醒：立即檢查指定日期是否有訂單並發送，不受設定的提醒時間限制
+// offsetDays：1＝明天（正常提醒對象），0＝今天（取貨當天，方便臨時確認名單）
+const testReminder = async (offsetDays = 1) => {
   reminderTesting.value = true
   try {
-    const res = await fetch(`${BASE.value}/admin/reminder/test`, {
+    const res = await fetch(`${BASE.value}/admin/reminder/test?offsetDays=${offsetDays}`, {
       method: 'POST',
       credentials: 'include'
     })
@@ -1506,16 +1507,25 @@ const submitEdit = async () => {
                   <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ String(h).padStart(2, '0') }}:00</option>
                 </select>
                 <span class="text-xs text-hint-c">檢查隔天訂單並發送提醒</span>
-                <button
-                  :disabled="reminderTesting"
-                  class="ml-auto px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
-                  @click="testReminder"
-                >
-                  {{ reminderTesting ? '測試中…' : '立即測試發送（明天）' }}
-                </button>
+                <div class="ml-auto flex items-center gap-2">
+                  <button
+                    :disabled="reminderTesting"
+                    class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
+                    @click="testReminder(0)"
+                  >
+                    {{ reminderTesting ? '測試中…' : '立即測試發送（今天）' }}
+                  </button>
+                  <button
+                    :disabled="reminderTesting"
+                    class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
+                    @click="testReminder(1)"
+                  >
+                    {{ reminderTesting ? '測試中…' : '立即測試發送（明天）' }}
+                  </button>
+                </div>
               </div>
               <p class="text-xs text-hint-c mt-1.5">
-                測試按鈕會忽略上面設定的時間，直接檢查明天有沒有訂單並馬上發送；如果明天沒有訂單就不會發送任何訊息。
+                測試按鈕會忽略上面設定的時間，直接檢查該日期有沒有訂單並馬上發送；沒有訂單就不會發送任何訊息。「今天」是給取貨當天想臨時再次確認名單用的，正常的提醒排程只會檢查「明天」。
               </p>
             </div>
 
@@ -2161,7 +2171,7 @@ const submitEdit = async () => {
                   <button
                     v-for="s in STATUSES"
                     :key="s"
-                    :class="createForm.status === s ? statusClass(s) + 'ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
+                    :class="createForm.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
                     class="transition-all cursor-pointer"
                     @click="createForm.status = s"
                   >
@@ -2449,7 +2459,7 @@ const submitEdit = async () => {
                   <button
                     v-for="s in STATUSES"
                     :key="s"
-                    :class="editForm.status === s ? statusClass(s) + 'ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
+                    :class="editForm.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
                     class="transition-all cursor-pointer"
                     @click="editForm.status = s"
                   >
