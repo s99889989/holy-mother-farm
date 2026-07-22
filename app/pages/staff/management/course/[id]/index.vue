@@ -133,7 +133,8 @@ const saveFields = async () => {
 }
 
 // ── 分享連結 ──────────────────────────────────────────────────
-const shareUrl = computed(() => `${commonStore.data.main_url}/holy/course-reg/share/${courseId}`)
+const BASE_URL = useRuntimeConfig().public.apiBase
+const shareUrl = computed(() => `${BASE_URL}/holy/course-reg/share/${courseId}`)
 const copyShareUrl = async () => {
   try {
     await navigator.clipboard.writeText(shareUrl.value)
