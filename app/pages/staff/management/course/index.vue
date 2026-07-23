@@ -1,83 +1,91 @@
 <script setup>
-import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
+  import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
-definePageMeta({layout: 'staff'})
+  definePageMeta({ layout: 'staff' })
 
-const commonStore = useCommonStore()
-const imgUrl = (path) => {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return commonStore.data.main_url + path
-}
-
-const store = useCourseRegistrationStore()
-const loading = ref(false)
-const saving = ref(false)
-const toast = reactive({show: false, message: '', error: false})
-const modal = reactive({show: false})
-const form = reactive({name: ''})
-const showDeleteConfirm = ref(false)
-const deleteTarget = reactive({id: '', name: ''})
-
-const showToast = (msg, error = false) => {
-  toast.message = msg;
-  toast.error = error;
-  toast.show = true
-  setTimeout(() => toast.show = false, 2500)
-}
-
-onMounted(async () => {
-  loading.value = true
-  await store.fetchCourses()
-  loading.value = false
-})
-
-const openAdd = () => {
-  form.name = ''
-  modal.show = true
-}
-const save = async () => {
-  if (!form.name.trim()) {
-    showToast('請填寫課程名稱', true)
-    return
+  const commonStore = useCommonStore()
+  const imgUrl = (path) => {
+    if (!path) return ''
+    if (path.startsWith('http')) return path
+    return commonStore.data.main_url + path
   }
-  saving.value = true
-  try {
-    const id = await store.addCourse(form.name, '')
-    showToast('新增成功')
-    modal.show = false
-    await navigateTo(`/staff/management/course/${id}`)
-  } catch {
-    showToast('新增失敗', true)
-  } finally {
-    saving.value = false
+  // 分享連結要複製給人貼到 LINE/FB，一定要是絕對網址
+  const BASE_URL = useRuntimeConfig().public.apiBase
+  const copyShareLink = async (course) => {
+    try {
+      await navigator.clipboard.writeText(`${BASE_URL}/holy/course-reg/share/${course.id}`)
+      showToast('分享連結已複製')
+    } catch {
+      showToast('複製失敗，請手動選取', true)
+    }
   }
-}
 
-const askDelete = (course) => {
-  deleteTarget.id = course.id
-  deleteTarget.name = course.name
-  showDeleteConfirm.value = true
-}
-const confirmDelete = async () => {
-  try {
-    await store.removeCourse(deleteTarget.id)
-    showToast('已刪除')
-  } catch {
-    showToast('刪除失敗', true)
-  } finally {
-    showDeleteConfirm.value = false
+  const store = useCourseRegistrationStore()
+  const loading = ref(false)
+  const saving = ref(false)
+  const toast = reactive({ show: false, message: '', error: false })
+  const modal = reactive({ show: false })
+  const form = reactive({ name: '' })
+  const showDeleteConfirm = ref(false)
+  const deleteTarget = reactive({ id: '', name: '' })
+
+  const showToast = (msg, error = false) => {
+    toast.message = msg; toast.error = error; toast.show = true
+    setTimeout(() => toast.show = false, 2500)
   }
-}
 
-const deadlineLabel = (course) => {
-  if (!course.registrationDeadline) return '不限時間'
-  return `截止 ${course.registrationDeadline}`
-}
-const capacityLabel = (course) => {
-  if (!course.maxCapacity) return `已報名 ${course.registrations?.length ?? 0} 人（不限名額）`
-  return `已報名 ${course.registrations?.length ?? 0} / ${course.maxCapacity} 人`
-}
+  onMounted(async () => {
+    loading.value = true
+    await store.fetchCourses()
+    loading.value = false
+  })
+
+  const openAdd = () => {
+    form.name = ''
+    modal.show = true
+  }
+  const save = async () => {
+    if (!form.name.trim()) {
+      showToast('請填寫課程名稱', true)
+      return
+    }
+    saving.value = true
+    try {
+      const id = await store.addCourse(form.name, '')
+      showToast('新增成功')
+      modal.show = false
+      await navigateTo(`/staff/management/course/${id}`)
+    } catch {
+      showToast('新增失敗', true)
+    } finally {
+      saving.value = false
+    }
+  }
+
+  const askDelete = (course) => {
+    deleteTarget.id = course.id
+    deleteTarget.name = course.name
+    showDeleteConfirm.value = true
+  }
+  const confirmDelete = async () => {
+    try {
+      await store.removeCourse(deleteTarget.id)
+      showToast('已刪除')
+    } catch {
+      showToast('刪除失敗', true)
+    } finally {
+      showDeleteConfirm.value = false
+    }
+  }
+
+  const deadlineLabel = (course) => {
+    if (!course.registrationDeadline) return '不限時間'
+    return `截止 ${course.registrationDeadline}`
+  }
+  const capacityLabel = (course) => {
+    if (!course.maxCapacity) return `已報名 ${course.registrations?.length ?? 0} 人（不限名額）`
+    return `已報名 ${course.registrations?.length ?? 0} / ${course.maxCapacity} 人`
+  }
 </script>
 
 <template>
@@ -126,18 +134,36 @@ const capacityLabel = (course) => {
             <div class="flex gap-2 mt-auto pt-2">
               <NuxtLink
                 :to="`/staff/management/course/${course.id}`"
-                class="flex-1 text-center text-xs py-2 rounded-lg border"
+                class="flex-1 text-center text-sm py-2 rounded-lg border"
                 style="border-color: var(--border-light); color: var(--text-muted)"
               >
                 編輯課程
               </NuxtLink>
               <NuxtLink
                 :to="`/staff/management/course/${course.id}/registrations`"
-                class="flex-1 text-center text-xs py-2 rounded-lg border"
+                class="flex-1 text-center text-sm py-2 rounded-lg border"
                 style="border-color: var(--border-light); color: var(--text-muted)"
               >
                 報名名單
               </NuxtLink>
+            </div>
+            <div class="flex gap-2">
+              <button
+                class="flex-1 text-xs py-2 rounded-lg border"
+                style="border-color: var(--border-light); color: var(--accent)"
+                @click="copyShareLink(course)"
+              >
+                🔗 複製分享連結
+              </button>
+              <a
+                :href="`${BASE_URL}/holy/course-reg/share/${course.id}`"
+                target="_blank"
+                rel="noopener"
+                class="text-xs py-2 px-3 rounded-lg border flex items-center"
+                style="border-color: var(--border-light); color: var(--text-muted)"
+              >
+                開啟
+              </a>
               <button
                 class="text-xs py-2 px-3 rounded-lg border text-red-500"
                 style="border-color: var(--border-light)"
