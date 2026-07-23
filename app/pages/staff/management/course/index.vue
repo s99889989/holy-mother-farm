@@ -155,6 +155,15 @@
               >
                 🔗 複製分享連結
               </button>
+              <a
+                :href="`${BASE_URL}/holy/course-reg/share/${course.id}`"
+                target="_blank"
+                rel="noopener"
+                class="text-xs py-2 px-3 rounded-lg border flex items-center"
+                style="border-color: var(--border-light); color: var(--text-muted)"
+              >
+                開啟
+              </a>
               <button
                 class="text-xs py-2 px-3 rounded-lg border text-red-500"
                 style="border-color: var(--border-light)"
