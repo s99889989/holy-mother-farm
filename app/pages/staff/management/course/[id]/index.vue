@@ -17,6 +17,7 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
+
 const toast = reactive({ show: false, message: '', error: false })
 const showToast = (msg, error = false) => {
   toast.message = msg; toast.error = error; toast.show = true
