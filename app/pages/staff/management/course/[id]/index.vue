@@ -102,13 +102,30 @@
 
   const addField = () => {
     fieldsDraft.value.push({
-      id: '', label: '', type: 'text', required: false,
-      allowNote: false, options: [], imageUrl: '', order: fieldsDraft.value.length
+      // 立刻給一個暫時 id（不等後端存檔才產生），這樣後面新增的欄位才能馬上
+      // 設定「顯示條件」指到這個還沒儲存的欄位；儲存後後端會沿用這個 id。
+      id: 'f_' + Math.random().toString(36).slice(2, 10),
+      label: '', type: 'text', required: false,
+      allowNote: false, options: [], imageUrl: '', order: fieldsDraft.value.length,
+      dependsOn: '', dependsOnValue: ''
     })
   }
   const removeField = (idx) => fieldsDraft.value.splice(idx, 1)
   const addOption = (field) => field.options.push('')
   const removeOption = (field, idx) => field.options.splice(idx, 1)
+
+  // 顯示條件只能選「排在自己前面、而且是單選/多選/下拉」的欄位，避免互相依賴
+  const priorChoiceFields = (idx) => fieldsDraft.value.filter((f, i) => i < idx && needsOptions(f.type))
+  const fieldOptionsById = (id) => fieldsDraft.value.find(f => f.id === id)?.options ?? []
+  // 欄位順序調整、刪除都可能讓原本設定的顯示條件失效（依賴到後面的欄位、或依賴的欄位被刪了），
+  // 存檔前清掉這種不合法的條件設定
+  const cleanInvalidConditions = () => {
+    fieldsDraft.value.forEach((f, idx) => {
+      if (!f.dependsOn) return
+      const stillValid = priorChoiceFields(idx).some(pf => pf.id === f.dependsOn)
+      if (!stillValid) { f.dependsOn = ''; f.dependsOnValue = '' }
+    })
+  }
 
   const moveField = (idx, dir) => {
     const target = idx + dir
@@ -120,6 +137,7 @@
   const savingFields = ref(false)
   const saveFields = async () => {
     savingFields.value = true
+    cleanInvalidConditions()
     try {
       await store.updateFields(courseId, fieldsDraft.value)
       await store.fetchCourse(courseId)
@@ -288,6 +306,35 @@
                 <button class="text-xs px-2" style="color: var(--text-hint)" @click="removeOption(field, oi)">✕</button>
               </div>
               <button class="text-xs" style="color: var(--accent)" @click="addOption(field)">＋ 新增選項</button>
+            </div>
+
+            <!-- 顯示條件：只有選到指定值時，這個欄位才會出現在報名表單上 -->
+            <div
+              v-if="priorChoiceFields(idx).length > 0"
+              class="flex items-center flex-wrap gap-2 text-xs mb-2 pb-2"
+              style="border-bottom: 1px dashed var(--border-light); color: var(--text-muted)"
+            >
+              <span>顯示條件</span>
+              <select
+                v-model="field.dependsOn"
+                class="border rounded-lg px-2 py-1"
+                style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                @change="field.dependsOnValue = ''"
+              >
+                <option value="">一律顯示</option>
+                <option v-for="pf in priorChoiceFields(idx)" :key="pf.id" :value="pf.id">
+                  當「{{ pf.label || '未命名欄位' }}」＝
+                </option>
+              </select>
+              <select
+                v-if="field.dependsOn"
+                v-model="field.dependsOnValue"
+                class="border rounded-lg px-2 py-1"
+                style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+              >
+                <option value="">請選擇值</option>
+                <option v-for="opt in fieldOptionsById(field.dependsOn)" :key="opt" :value="opt">{{ opt }}</option>
+              </select>
             </div>
 
             <div class="flex items-center justify-between text-xs" style="color: var(--text-muted)">
