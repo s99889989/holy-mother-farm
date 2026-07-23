@@ -1,132 +1,132 @@
 <script setup>
-  import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
-  definePageMeta({ layout: 'staff' })
+definePageMeta({ layout: 'staff' })
 
-  const route = useRoute()
-  const courseId = route.params.id
-  const store = useCourseRegistrationStore()
+const route = useRoute()
+const courseId = route.params.id
+const store = useCourseRegistrationStore()
 
-  const loading = ref(true)
-  const saving = ref(false)
+const loading = ref(true)
+const saving = ref(false)
 
-  const toast = reactive({ show: false, message: '', error: false })
-  const showToast = (msg, error = false) => {
-    toast.message = msg; toast.error = error; toast.show = true
-    setTimeout(() => toast.show = false, 2500)
-  }
+const toast = reactive({ show: false, message: '', error: false })
+const showToast = (msg, error = false) => {
+  toast.message = msg; toast.error = error; toast.show = true
+  setTimeout(() => toast.show = false, 2500)
+}
 
-  onMounted(async () => {
-    loading.value = true
-    await store.fetchCourse(courseId)
-    loading.value = false
+onMounted(async () => {
+  loading.value = true
+  await store.fetchCourse(courseId)
+  loading.value = false
+})
+
+const isDisplayImage = (type) => type === 'display_image'
+const NOTE_SUFFIX = '__note'
+
+// ── 手動新增/編輯 ────────────────────────────────────────────
+const modal = reactive({ show: false, mode: 'add' })
+const form = reactive({ id: '', displayName: '', answers: {} })
+
+const blankAnswers = () => {
+  const answers = {}
+  store.currentCourse.fields.forEach(f => {
+    if (isDisplayImage(f.type)) return
+    answers[f.id] = f.type === 'checkbox' ? [] : ''
+    if (f.allowNote) answers[f.id + NOTE_SUFFIX] = ''
   })
+  return answers
+}
 
-  const isDisplayImage = (type) => type === 'display_image'
-  const NOTE_SUFFIX = '__note'
+const openAdd = () => {
+  form.id = ''; form.displayName = ''
+  form.answers = blankAnswers()
+  modal.mode = 'add'; modal.show = true
+}
+const openEdit = (reg) => {
+  form.id = reg.id; form.displayName = reg.displayName
+  form.answers = {}
+  store.currentCourse.fields.forEach(f => {
+    if (isDisplayImage(f.type)) return
+    form.answers[f.id] = reg.answers?.[f.id] ?? (f.type === 'checkbox' ? [] : '')
+    if (f.allowNote) form.answers[f.id + NOTE_SUFFIX] = reg.answers?.[f.id + NOTE_SUFFIX] ?? ''
+  })
+  modal.mode = 'edit'; modal.show = true
+}
 
-  // ── 手動新增/編輯 ────────────────────────────────────────────
-  const modal = reactive({ show: false, mode: 'add' })
-  const form = reactive({ id: '', displayName: '', answers: {} })
-
-  const blankAnswers = () => {
-    const answers = {}
-    store.currentCourse.fields.forEach(f => {
-      if (isDisplayImage(f.type)) return
-      answers[f.id] = f.type === 'checkbox' ? [] : ''
-      if (f.allowNote) answers[f.id + NOTE_SUFFIX] = ''
-    })
-    return answers
-  }
-
-  const openAdd = () => {
-    form.id = ''; form.displayName = ''
-    form.answers = blankAnswers()
-    modal.mode = 'add'; modal.show = true
-  }
-  const openEdit = (reg) => {
-    form.id = reg.id; form.displayName = reg.displayName
-    form.answers = {}
-    store.currentCourse.fields.forEach(f => {
-      if (isDisplayImage(f.type)) return
-      form.answers[f.id] = reg.answers?.[f.id] ?? (f.type === 'checkbox' ? [] : '')
-      if (f.allowNote) form.answers[f.id + NOTE_SUFFIX] = reg.answers?.[f.id + NOTE_SUFFIX] ?? ''
-    })
-    modal.mode = 'edit'; modal.show = true
-  }
-
-  const save = async () => {
-    saving.value = true
-    try {
-      if (modal.mode === 'add') {
-        await store.addRegistration(courseId, form.displayName, form.answers)
-      } else {
-        await store.updateRegistration(courseId, form.id, form.displayName, form.answers)
-      }
-      showToast('已儲存')
-      modal.show = false
-    } catch {
-      showToast('儲存失敗', true)
-    } finally {
-      saving.value = false
+const save = async () => {
+  saving.value = true
+  try {
+    if (modal.mode === 'add') {
+      await store.addRegistration(courseId, form.displayName, form.answers)
+    } else {
+      await store.updateRegistration(courseId, form.id, form.displayName, form.answers)
     }
+    showToast('已儲存')
+    modal.show = false
+  } catch {
+    showToast('儲存失敗', true)
+  } finally {
+    saving.value = false
   }
+}
 
-  const showDeleteConfirm = ref(false)
-  const deleteTarget = ref(null)
-  const askRemove = (reg) => { deleteTarget.value = reg; showDeleteConfirm.value = true }
-  const confirmRemove = async () => {
-    try {
-      await store.removeRegistration(courseId, deleteTarget.value.id)
-      showToast('已刪除')
-    } catch {
-      showToast('刪除失敗', true)
-    } finally {
-      showDeleteConfirm.value = false
-    }
+const showDeleteConfirm = ref(false)
+const deleteTarget = ref(null)
+const askRemove = (reg) => { deleteTarget.value = reg; showDeleteConfirm.value = true }
+const confirmRemove = async () => {
+  try {
+    await store.removeRegistration(courseId, deleteTarget.value.id)
+    showToast('已刪除')
+  } catch {
+    showToast('刪除失敗', true)
+  } finally {
+    showDeleteConfirm.value = false
   }
+}
 
-  const toggle = async (reg) => {
-    try {
-      await store.toggle(courseId, reg.id)
-    } catch {
-      showToast('操作失敗', true)
-    }
+const toggle = async (reg) => {
+  try {
+    await store.toggle(courseId, reg.id)
+  } catch {
+    showToast('操作失敗', true)
   }
+}
 
-  const resetAll = async () => {
-    try {
-      await store.reset(courseId)
-      showToast('已重置所有簽到狀態')
-    } catch {
-      showToast('操作失敗', true)
-    }
+const resetAll = async () => {
+  try {
+    await store.reset(courseId)
+    showToast('已重置所有簽到狀態')
+  } catch {
+    showToast('操作失敗', true)
   }
+}
 
-  const answerDisplay = (reg, field) => {
-    const v = reg.answers?.[field.id]
-    if (Array.isArray(v)) return v.join('、') || '—'
-    if (v === undefined || v === null || v === '') return '—'
-    return v
-  }
+const answerDisplay = (reg, field) => {
+  const v = reg.answers?.[field.id]
+  if (Array.isArray(v)) return v.join('、') || '—'
+  if (v === undefined || v === null || v === '') return '—'
+  return v
+}
 
-  const answerFields = computed(() => (store.currentCourse?.fields ?? []).filter(f => !isDisplayImage(f.type)))
-  const isFieldVisible = (f) => {
-    if (!f.dependsOn) return true
-    const v = form.answers[f.dependsOn]
-    if (Array.isArray(v)) return v.includes(f.dependsOnValue)
-    return v === f.dependsOnValue
-  }
-  // 只有手動新增/編輯的表單要套用條件顯示；報名名單表格的欄位維持全部顯示，
-  // 沒填到的條件欄位自然會顯示「—」
-  const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisible))
+const answerFields = computed(() => (store.currentCourse?.fields ?? []).filter(f => !isDisplayImage(f.type)))
+const isFieldVisible = (f) => {
+  if (!f.dependsOn) return true
+  const v = form.answers[f.dependsOn]
+  if (Array.isArray(v)) return v.includes(f.dependsOnValue)
+  return v === f.dependsOnValue
+}
+// 只有手動新增/編輯的表單要套用條件顯示；報名名單表格的欄位維持全部顯示，
+// 沒填到的條件欄位自然會顯示「—」
+const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisible))
 </script>
 
 <template>
   <div class="min-h-full" style="background: var(--surface2)">
     <div class="max-w-5xl mx-auto px-4 py-6">
-      <NuxtLink :to="`/staff/management/course/${courseId}`" class="text-sm mb-4 inline-block" style="color: var(--text-hint)">
-        ← 返回課程設定
+      <NuxtLink to="/staff/management/course" class="text-sm mb-4 inline-block" style="color: var(--text-hint)">
+        ← 返回課程列表
       </NuxtLink>
 
       <div v-if="loading" class="text-center py-16" style="color: var(--text-hint)">載入中…</div>

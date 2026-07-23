@@ -1,7 +1,7 @@
 <script setup>
-import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff' })
+definePageMeta({layout: 'staff'})
 
 const commonStore = useCommonStore()
 const imgUrl = (path) => {
@@ -17,10 +17,11 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
-
-const toast = reactive({ show: false, message: '', error: false })
+const toast = reactive({show: false, message: '', error: false})
 const showToast = (msg, error = false) => {
-  toast.message = msg; toast.error = error; toast.show = true
+  toast.message = msg;
+  toast.error = error;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -90,14 +91,14 @@ const onCoverChange = async (e) => {
 
 // ── 欄位編輯器 ────────────────────────────────────────────────
 const FIELD_TYPES = [
-  { value: 'text', label: '單行文字' },
-  { value: 'textarea', label: '多行文字' },
-  { value: 'radio', label: '單選' },
-  { value: 'checkbox', label: '多選' },
-  { value: 'select', label: '下拉選單' },
-  { value: 'date', label: '日期' },
-  { value: 'image', label: '圖片上傳（報名者填答）' },
-  { value: 'display_image', label: '純展示圖片（不算答案）' }
+  {value: 'text', label: '單行文字'},
+  {value: 'textarea', label: '多行文字'},
+  {value: 'radio', label: '單選'},
+  {value: 'checkbox', label: '多選'},
+  {value: 'select', label: '下拉選單'},
+  {value: 'date', label: '日期'},
+  {value: 'image', label: '圖片上傳（報名者填答）'},
+  {value: 'display_image', label: '純展示圖片（不算答案）'}
 ]
 const needsOptions = (type) => ['radio', 'checkbox', 'select'].includes(type)
 
@@ -112,8 +113,11 @@ const addField = () => {
   })
 }
 const removeField = (idx) => fieldsDraft.value.splice(idx, 1)
-const fieldDeleteConfirm = reactive({ show: false, idx: -1 })
-const askRemoveField = (idx) => { fieldDeleteConfirm.idx = idx; fieldDeleteConfirm.show = true }
+const fieldDeleteConfirm = reactive({show: false, idx: -1})
+const askRemoveField = (idx) => {
+  fieldDeleteConfirm.idx = idx;
+  fieldDeleteConfirm.show = true
+}
 const confirmRemoveField = () => {
   removeField(fieldDeleteConfirm.idx)
   fieldDeleteConfirm.show = false
@@ -130,7 +134,10 @@ const cleanInvalidConditions = () => {
   fieldsDraft.value.forEach((f, idx) => {
     if (!f.dependsOn) return
     const stillValid = priorChoiceFields(idx).some(pf => pf.id === f.dependsOn)
-    if (!stillValid) { f.dependsOn = ''; f.dependsOnValue = '' }
+    if (!stillValid) {
+      f.dependsOn = '';
+      f.dependsOnValue = ''
+    }
   })
 }
 
@@ -170,7 +177,8 @@ const saveFields = async () => {
       <template v-else>
         <div class="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
           <!-- 基本資訊 -->
-          <div class="rounded-2xl border p-5 mb-5" style="background: var(--surface); border-color: var(--border-light)">
+          <div class="rounded-2xl border p-5 mb-5"
+               style="background: var(--surface); border-color: var(--border-light)">
             <h2 class="font-bold mb-4" style="color: var(--text-base)">基本資訊</h2>
 
             <div class="mb-4">
@@ -252,7 +260,8 @@ const saveFields = async () => {
           </div>
 
           <!-- 表單欄位編輯器 -->
-          <div class="rounded-2xl border p-5 mb-5" style="background: var(--surface); border-color: var(--border-light)">
+          <div class="rounded-2xl border p-5 mb-5"
+               style="background: var(--surface); border-color: var(--border-light)">
             <div class="flex items-center justify-between mb-4">
               <h2 class="font-bold text-lg" style="color: var(--text-base)">報名表單欄位</h2>
               <button
@@ -311,7 +320,8 @@ const saveFields = async () => {
                     class="flex-1 border rounded-lg px-3 py-1 text-sm"
                     style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                   >
-                  <button class="text-xs px-2" style="color: var(--text-hint)" @click="removeOption(field, oi)">✕</button>
+                  <button class="text-xs px-2" style="color: var(--text-hint)" @click="removeOption(field, oi)">✕
+                  </button>
                 </div>
                 <button class="text-xs" style="color: var(--accent)" @click="addOption(field)">＋ 新增選項</button>
               </div>
@@ -372,14 +382,6 @@ const saveFields = async () => {
             </button>
           </div>
         </div>
-
-        <NuxtLink
-          :to="`/staff/management/course/${courseId}/registrations`"
-          class="block text-center py-3 rounded-xl border text-sm"
-          style="border-color: var(--border-light); color: var(--text-muted)"
-        >
-          查看報名名單（{{ store.totalRegistered }} 人）
-        </NuxtLink>
       </template>
     </div>
 
