@@ -139,7 +139,7 @@ const handleCredential = async (response) => {
       // 載入權限，用 staff.home 判斷是否為員工 group
       await permissionStore.load(data.id, commonStore.data.main_url)
       if (!permissionStore.can('staff.home')) {
-        error.value = '此帳號非員工帳號，無法登入員工後台'
+        error.value = '目前無法登錄員工後台,煩請找吳宣澔協助設定權限,謝謝。'
         customerStore.clearCustomer()
         permissionStore.clear()
         await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})

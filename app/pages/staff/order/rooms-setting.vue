@@ -90,7 +90,7 @@
           </div>
         </div>
 
-        <!-- 平面圖檢視：有實際平面圖的棟別用照片＋定位點，沒有的棟別 fallback 成走廊示意圖 -->
+        <!-- 平面圖檢視：有實際座標的棟別用真實比例的線框圖，沒有座標的棟別 fallback 成走廊示意圖 -->
         <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
           <div v-for="grp in visibleBuildings" :key="grp.id" class="mb-8 last:mb-0">
             <div class="flex items-center gap-2 mb-2">
@@ -99,20 +99,60 @@
               <span class="text-hint-c" style="font-size:11.5px">共 {{ grp.rooms.length }} 間・單層</span>
             </div>
 
-            <!-- 實際平面圖：照片 + 定位點 -->
-            <div v-if="floorplanImage(grp.id)" class="floorplan-photo">
-              <img :src="floorplanImage(grp.id)" alt="" class="floorplan-img">
-              <div
-                v-for="r in grp.rooms.filter(r => r.posX != null && r.posY != null)" :key="r.id"
-                class="hotspot" :class="tileClass(r)"
-                :style="{ left: r.posX + '%', top: r.posY + '%' }"
-                @click="openRoomDetail(grp, r)"
-              >
-                <span class="hotspot-num">{{ r.id }}</span>
-              </div>
-            </div>
+            <!-- 實際座標線框圖：房塊照真實平面圖比例定位，不用照片當底圖 -->
+            <svg
+              v-if="realLayoutOf(grp).positions.length"
+              :viewBox="`0 0 ${realLayoutOf(grp).width} ${realLayoutOf(grp).height}`"
+              class="floorplan-svg"
+              :style="{ maxWidth: realLayoutOf(grp).width + 'px' }"
+            >
+              <rect :x="0" :y="0" :width="realLayoutOf(grp).width" :height="realLayoutOf(grp).height" class="floor-outline" rx="8" />
 
-            <!-- 走廊示意圖（沒有實際平面圖時的 fallback） -->
+              <!-- 走廊留白：排與排之間有間隙的地方畫一條貫穿的淺色走廊帶 -->
+              <rect
+                v-for="(c, i) in realLayoutOf(grp).corridorBands" :key="'band' + i"
+                :x="realLayoutOf(grp).minX - 10" :y="c.top"
+                :width="realLayoutOf(grp).maxX - realLayoutOf(grp).minX + 20" :height="c.bottom - c.top"
+                class="corridor-band-real"
+              />
+
+              <!-- 房間之間的共用隔間牆 -->
+              <line
+                v-for="(w, i) in realLayoutOf(grp).walls" :key="'w' + i"
+                :x1="w.x" :y1="w.y1" :x2="w.x" :y2="w.y2" class="partition-wall"
+              />
+
+              <line
+                v-for="(c, i) in realLayoutOf(grp).connectors" :key="'c' + i"
+                :x1="c.x1" :y1="c.y1" :x2="c.x2" :y2="c.y2" class="corridor-connector"
+              />
+
+              <g v-for="p in realLayoutOf(grp).positions" :key="p.room.id" class="room-group" @click="openRoomDetail(grp, p.room)">
+                <rect :x="p.x" :y="p.y" :width="p.w" :height="p.h" rx="2" :class="['room-rect', tileClass(p.room)]" />
+                <text :x="p.x + p.w/2" :y="p.y + p.h/2 + 4" text-anchor="middle" class="room-block-num">{{ p.room.id }}</text>
+                <title>{{ p.room.id }} ・ {{ tileLabel(p.room) }}</title>
+              </g>
+
+              <!-- 門符號：房間面向走廊那一側的開門弧線記號 -->
+              <g v-for="(d, i) in realLayoutOf(grp).doors" :key="'d' + i" class="door-mark">
+                <line
+                  :x1="d.x - d.w/2" :y1="d.y" :x2="d.x + d.w/2" :y2="d.y"
+                  class="door-gap"
+                />
+                <path
+                  v-if="d.dir === 'up'"
+                  :d="`M ${d.x - d.w/2} ${d.y} A ${d.w} ${d.w} 0 0 1 ${d.x + d.w/2} ${d.y - d.w}`"
+                  class="door-swing"
+                />
+                <path
+                  v-else
+                  :d="`M ${d.x - d.w/2} ${d.y} A ${d.w} ${d.w} 0 0 0 ${d.x + d.w/2} ${d.y + d.w}`"
+                  class="door-swing"
+                />
+              </g>
+            </svg>
+
+            <!-- 走廊示意圖（沒有座標時的 fallback） -->
             <svg
               v-else
               :viewBox="`0 0 ${layoutOf(grp.id).width} ${layoutOf(grp.id).height}`"
@@ -142,7 +182,7 @@
             <span><span class="dot" style="background:#a8a29e"></span>已下架</span>
             <span>點擊房間可查看詳情與快速編輯</span>
           </div>
-          <p class="text-hint-c mt-2" style="font-size:11px">＊快樂運動館、合力居、愛加倍為實際平面圖定位；懇親房目前無平面圖，暫以走廊示意圖顯示</p>
+          <p class="text-hint-c mt-2" style="font-size:11px">＊快樂運動館、合力居、愛加倍已依實際平面圖比例定位；懇親房目前無座標資料，暫以走廊示意圖顯示</p>
         </div>
       </template>
     </div>
@@ -298,16 +338,143 @@
     return buildingLayouts.value[buildingId] || { width: 0, height: 0, positions: [], corridorY: 0, corridorH: 0 }
   }
 
-  // 有實際平面圖照片的棟別，圖檔放在 Nuxt 專案的 public/floorplans/ 底下。
-  // 合力居跟愛加倍畫在同一張圖上，所以共用同一個檔案。
-  // 沒有列在這裡的棟別（例如懇親房）會自動 fallback 成走廊示意圖。
-  const FLOORPLAN_IMAGES = {
-    A: '/floorplans/happy-hall.jpg',
-    B: '/floorplans/cooperation-hall.jpg',
-    C: '/floorplans/cooperation-hall.jpg',
+  // 有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox，
+  // 這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。
+  // 合力居跟愛加倍是畫在同一張圖上量出來的座標，所以共用同一組尺寸。
+  const REAL_CANVAS = {
+    A: { w: 1365, h: 768 },
+    B: { w: 1195, h: 896 },
+    C: { w: 1195, h: 896 },
   }
-  function floorplanImage(buildingId) {
-    return FLOORPLAN_IMAGES[buildingId] || null
+
+  // 把「房間中心點座標」轉成「房間方塊」的線框圖排版：
+  // 1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
+  // 2. 排內依 x 座標排序，相鄰房間如果間距夠近就以中點為共用牆（貼在一起，像真的隔間牆）；
+  //    間距太遠（樓梯間、走廊轉角等）就保留原本的間隙，不會硬黏在一起
+  // 3. 排與排之間的上下邊界用同樣的邏輯處理
+  // 這樣畫出來是彼此相連的房間方塊，而不是各自漂浮的小色塊。
+  function buildWireframe(rooms, canvasW, canvasH) {
+    const pts = rooms.map(r => ({ room: r, x: r.posX / 100 * canvasW, y: r.posY / 100 * canvasH }))
+
+    const ROW_EPS = canvasH * 0.06
+    const rows = []
+    for (const p of [...pts].sort((a, b) => a.y - b.y)) {
+      const row = rows.find(row => Math.abs(row.reduce((s, r) => s + r.y, 0) / row.length - p.y) < ROW_EPS)
+      if (row) row.push(p)
+      else rows.push([p])
+    }
+    rows.forEach(row => row.sort((a, b) => a.x - b.x))
+    rows.sort((a, b) => (a.reduce((s, r) => s + r.y, 0) / a.length) - (b.reduce((s, r) => s + r.y, 0) / b.length))
+
+    const rowCenters = rows.map(row => row.reduce((s, r) => s + r.y, 0) / row.length)
+    const GAP_THRESH_Y = canvasH * 0.10
+    const DEFAULT_HALF_H = canvasH * 0.028
+    const rowBounds = rows.map((row, i) => {
+      const cy = rowCenters[i]
+      const top = i === 0
+        ? cy - DEFAULT_HALF_H
+        : (cy - rowCenters[i - 1] < GAP_THRESH_Y ? (cy + rowCenters[i - 1]) / 2 : cy - DEFAULT_HALF_H)
+      const bottom = i === rows.length - 1
+        ? cy + DEFAULT_HALF_H
+        : (rowCenters[i + 1] - cy < GAP_THRESH_Y ? (cy + rowCenters[i + 1]) / 2 : cy + DEFAULT_HALF_H)
+      return [top, bottom]
+    })
+
+    const GAP_THRESH_X = canvasW * 0.09
+    const DEFAULT_HALF_W = canvasW * 0.022
+    const positions = []
+    rows.forEach((row, ri) => {
+      const [top, bottom] = rowBounds[ri]
+      row.forEach((p, i) => {
+        const left = i === 0
+          ? p.x - DEFAULT_HALF_W
+          : (p.x - row[i - 1].x < GAP_THRESH_X ? (p.x + row[i - 1].x) / 2 : p.x - DEFAULT_HALF_W)
+        const right = i === row.length - 1
+          ? p.x + DEFAULT_HALF_W
+          : (row[i + 1].x - p.x < GAP_THRESH_X ? (p.x + row[i + 1].x) / 2 : p.x + DEFAULT_HALF_W)
+        positions.push({ room: p.room, x: left, y: top, w: right - left, h: bottom - top })
+      })
+    })
+
+    // 走廊連接線：用最小生成樹（MST）把所有房間連成一整片，不管是同排/同列還是隔著樓梯間，
+    // 全部都會有一條線接起來，畫出來才會像平面圖裡「房間彼此相連」的樣子，而不是一塊塊分開飄著。
+    // 線畫在房塊「下面」，房塊蓋住線的兩端，視覺上就像走廊接到房間牆上。
+    const connectors = buildMST(pts)
+
+    // ---- 建築感元素：走廊留白 + 房間隔間牆 + 門符號 ----
+    // 走廊：排與排之間如果有明顯留白（沒有貼在一起），畫成一條貫穿整層的淺色走廊帶
+    const corridorBands = []
+    for (let i = 0; i < rowBounds.length - 1; i++) {
+      const gapTop = rowBounds[i][1]
+      const gapBottom = rowBounds[i + 1][0]
+      if (gapBottom - gapTop > 4) corridorBands.push({ top: gapTop, bottom: gapBottom })
+    }
+    const minX = Math.min(...positions.map(p => p.x))
+    const maxX = Math.max(...positions.map(p => p.x + p.w))
+
+    // 隔間牆：同一排相鄰房間如果緊貼（中間沒有走廊），畫一條共用牆的分隔線
+    const walls = []
+    rows.forEach(row => {
+      const rowPositions = positions.filter(p => row.some(r => r.room === p.room))
+        .sort((a, b) => a.x - b.x)
+      for (let i = 0; i < rowPositions.length - 1; i++) {
+        const a = rowPositions[i], b = rowPositions[i + 1]
+        if (b.x - (a.x + a.w) < 6) walls.push({ x: a.x + a.w, y1: a.y, y2: a.y + a.h })
+      }
+    })
+
+    // 門符號：房間邊界貼著走廊帶的那一側，畫一個開門弧線記號
+    const doors = []
+    for (const p of positions) {
+      const facesTop = corridorBands.some(c => Math.abs(p.y - c.bottom) < 3)
+      const facesBottom = corridorBands.some(c => Math.abs((p.y + p.h) - c.top) < 3)
+      const dx = p.x + p.w / 2
+      const doorW = Math.min(18, p.w * 0.4)
+      if (facesTop) doors.push({ room: p.room, x: dx, y: p.y, w: doorW, dir: 'up' })
+      else if (facesBottom) doors.push({ room: p.room, x: dx, y: p.y + p.h, w: doorW, dir: 'down' })
+    }
+
+    return { positions, connectors, corridorBands, walls, doors, minX, maxX }
+  }
+
+  function buildMST(pts) {
+    const n = pts.length
+    if (n <= 1) return []
+    const inTree = new Array(n).fill(false)
+    const minDist = new Array(n).fill(Infinity)
+    const parent = new Array(n).fill(-1)
+    minDist[0] = 0
+    for (let iter = 0; iter < n; iter++) {
+      let u = -1
+      for (let i = 0; i < n; i++) {
+        if (!inTree[i] && (u === -1 || minDist[i] < minDist[u])) u = i
+      }
+      inTree[u] = true
+      for (let v = 0; v < n; v++) {
+        if (!inTree[v]) {
+          const d = Math.hypot(pts[u].x - pts[v].x, pts[u].y - pts[v].y)
+          if (d < minDist[v]) { minDist[v] = d; parent[v] = u }
+        }
+      }
+    }
+    const edges = []
+    for (let i = 0; i < n; i++) {
+      if (parent[i] !== -1) edges.push({ x1: pts[parent[i]].x, y1: pts[parent[i]].y, x2: pts[i].x, y2: pts[i].y })
+    }
+    return edges
+  }
+
+  function realLayoutOf(grp) {
+    const canvas = REAL_CANVAS[grp.id]
+    const positioned = grp.rooms.filter(r => r.posX != null && r.posY != null)
+    if (!canvas || positioned.length === 0) {
+      return { width: 0, height: 0, positions: [], connectors: [], corridorBands: [], walls: [], doors: [], minX: 0, maxX: 0 }
+    }
+    return {
+      width: canvas.w,
+      height: canvas.h,
+      ...buildWireframe(positioned, canvas.w, canvas.h),
+    }
   }
 
   function activeBookingForRoom(roomId) {
@@ -448,22 +615,25 @@
     flex-shrink: 0;
     padding: 6px 14px;
     border-radius: 999px;
-    border: 1px solid var(--border-light);
-    background: transparent;
+    border: 1px solid var(--border);
+    background: var(--surface2);
     color: var(--text-muted);
     font-size: 12.5px;
     font-weight: 700;
     white-space: nowrap;
   }
-  .pill-btn.border-dashed { border-style: dashed; }
+  .pill-btn:hover { border-color: var(--accent); color: var(--text); }
+  .pill-btn.border-dashed { border-style: dashed; background: transparent; }
   .pill-active {
     background: #15803d;
     border-color: #15803d;
     color: #fff;
   }
+  .pill-active:hover { border-color: #15803d; color: #fff; }
   .segmented {
     display: flex;
     background: var(--surface2);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 3px;
     gap: 2px;
@@ -477,7 +647,8 @@
     font-size: 12.5px;
     font-weight: 700;
   }
-  .seg-active {
+  .segmented button:hover { background: var(--border-light); color: var(--text); }
+  .seg-active, .seg-active:hover {
     background: #15803d;
     color: #fff;
   }
@@ -507,49 +678,39 @@
     transition: left .15s;
   }
   .toggle-on::after { left: 18px; }
-  .floorplan-photo {
-    position: relative;
-    width: 100%;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid var(--border-light);
-  }
-  .floorplan-img {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-  .hotspot {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    min-width: 34px;
-    height: 22px;
-    padding: 0 6px;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border: 2px solid #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,.35);
-    transition: transform .12s;
-  }
-  .hotspot:hover { transform: translate(-50%, -50%) scale(1.15); z-index: 5; }
-  .hotspot-num {
-    font-size: 10.5px;
-    font-weight: 700;
-    color: #fff;
-    white-space: nowrap;
-  }
-  /* 房間狀態色屬於功能性分類色，維持固定色階、不隨深色模式變動 */
-  .hotspot.tile-vacant   { background: #10b981; }
-  .hotspot.tile-occupied { background: #3b82f6; }
-  .hotspot.tile-inactive { background: #a8a29e; }
-
   .floorplan-svg {
     width: 100%;
     height: auto;
     display: block;
+  }
+  .floor-outline {
+    fill: var(--surface2);
+    stroke: var(--text);
+    stroke-width: 2.5;
+  }
+  .corridor-band-real {
+    fill: var(--surface);
+    opacity: .6;
+  }
+  .partition-wall {
+    stroke: var(--text);
+    stroke-width: 1.2;
+    opacity: .7;
+  }
+  .door-gap {
+    stroke: var(--surface);
+    stroke-width: 3;
+  }
+  .door-swing {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .corridor-connector {
+    stroke: var(--border);
+    stroke-width: 5;
+    stroke-linecap: round;
+    opacity: .35;
   }
   .corridor-band {
     fill: var(--surface2);
@@ -562,17 +723,19 @@
   .room-group {
     cursor: pointer;
   }
-  .room-group:hover .room-rect {
-    filter: brightness(0.97);
-  }
   .room-rect {
+    fill: var(--surface);
     stroke-width: 1.5;
-    transition: filter .12s;
+    transition: stroke-width .15s, filter .15s;
   }
-  /* 房間狀態色屬於功能性分類色，維持固定色階、不隨深色模式變動 */
-  .room-rect.tile-vacant   { fill: #ecfdf5; stroke: rgba(16,185,129,.5); }
-  .room-rect.tile-occupied { fill: #eff6ff; stroke: rgba(59,130,246,.5); }
-  .room-rect.tile-inactive { fill: var(--surface2); stroke: var(--border); opacity: .7; }
+  /* 房間狀態用邊框顏色表示（功能性分類色，不隨深色模式變動），
+     底色維持線框圖的中性色，滑鼠移上去邊框會變粗、發亮，而不是整塊變成按鈕感的實心色塊 */
+  .room-rect.tile-vacant   { stroke: #10b981; }
+  .room-rect.tile-occupied { stroke: #3b82f6; }
+  .room-rect.tile-inactive { stroke: #a8a29e; stroke-dasharray: 3 2; }
+  .room-group:hover .room-rect.tile-vacant   { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(16,185,129,.9)); }
+  .room-group:hover .room-rect.tile-occupied { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(59,130,246,.9)); }
+  .room-group:hover .room-rect.tile-inactive { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(168,162,158,.9)); }
   .room-num {
     font-size: 14px;
     font-weight: 700;
@@ -588,7 +751,13 @@
   }
   .room-status.tile-vacant   { fill: #059669; }
   .room-status.tile-occupied { fill: #2563eb; }
-  .room-status.tile-inactive { fill: var(--text-hint); }
+  .room-status.tile-inactive { fill: #78716c; }
+  .room-block-num {
+    font-size: 9.5px;
+    font-weight: 700;
+    fill: var(--text);
+    pointer-events: none;
+  }
   .dot {
     width: 9px; height: 9px; border-radius: 3px; display: inline-block;
     margin-right: 5px; vertical-align: middle;

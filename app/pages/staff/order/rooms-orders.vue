@@ -158,20 +158,22 @@
                   <span class="text-hint-c" style="font-size:11.5px">共 {{ grp.rooms.length }} 間</span>
                 </div>
 
-                <!-- 實際平面圖：照片 + 定位點 -->
-                <div v-if="floorplanImage(grp.id)" class="floorplan-photo">
-                  <img :src="floorplanImage(grp.id)" alt="" class="floorplan-img">
-                  <div
-                    v-for="r in grp.rooms.filter(r => r.posX != null && r.posY != null)" :key="r.id"
-                    class="hotspot" :class="orderTileClass(r)"
-                    :style="{ left: r.posX + '%', top: r.posY + '%' }"
-                    @click="openBookingTile(r)"
-                  >
-                    <span class="hotspot-num">{{ r.id }}</span>
-                  </div>
-                </div>
+                <!-- 實際座標線框圖：房塊照真實平面圖比例定位，不用照片當底圖 -->
+                <svg
+                  v-if="realLayoutOf(grp).positions.length"
+                  :viewBox="`0 0 ${realLayoutOf(grp).width} ${realLayoutOf(grp).height}`"
+                  class="floorplan-svg"
+                  :style="{ maxWidth: realLayoutOf(grp).width + 'px' }"
+                >
+                  <rect :x="0" :y="0" :width="realLayoutOf(grp).width" :height="realLayoutOf(grp).height" class="floor-outline" rx="8" />
+                  <g v-for="p in realLayoutOf(grp).positions" :key="p.room.id" class="room-group" @click="openBookingTile(p.room)">
+                    <rect :x="p.x" :y="p.y" :width="p.w" :height="p.h" rx="4" :class="['room-rect', orderTileClass(p.room)]" />
+                    <text :x="p.x + p.w/2" :y="p.y + p.h/2 + 4" text-anchor="middle" class="room-block-num">{{ p.room.id }}</text>
+                    <title>{{ p.room.id }} ・ {{ orderTileLabel(p.room) }}</title>
+                  </g>
+                </svg>
 
-                <!-- 走廊示意圖（沒有實際平面圖時的 fallback） -->
+                <!-- 走廊示意圖（沒有座標時的 fallback） -->
                 <svg
                   v-else
                   :viewBox="`0 0 ${layoutOf(grp.id).width} ${layoutOf(grp.id).height}`"
@@ -202,7 +204,7 @@
                 <span><span class="dot" style="background:#a8a29e"></span>已下架</span>
                 <span>點擊房間可查看訂單詳情並操作</span>
               </div>
-              <p class="text-hint-c mt-2" style="font-size:11px">＊快樂運動館、合力居、愛加倍為實際平面圖定位；懇親房目前無平面圖，暫以走廊示意圖顯示</p>
+              <p class="text-hint-c mt-2" style="font-size:11px">＊快樂運動館、合力居、愛加倍已依實際平面圖比例定位；懇親房目前無座標資料，暫以走廊示意圖顯示</p>
             </div>
           </div>
         </div>
@@ -498,15 +500,75 @@
     return buildingLayouts.value[buildingId] || { width: 0, height: 0, positions: [], corridorY: 0, corridorH: 0 }
   }
 
-  // 有實際平面圖照片的棟別；合力居跟愛加倍畫在同一張圖上，共用同一個檔案。
-  // 沒有列在這裡的棟別（例如懇親房）會自動 fallback 成走廊示意圖。
-  const FLOORPLAN_IMAGES = {
-    A: '/floorplans/happy-hall.jpg',
-    B: '/floorplans/cooperation-hall.jpg',
-    C: '/floorplans/cooperation-hall.jpg',
+  // 有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox，
+  // 這樣房間的相對間距、比例才會跟實際平面圖一致。
+  // 合力居跟愛加倍是畫在同一張圖上量出來的座標，所以共用同一組尺寸。
+  const REAL_CANVAS = {
+    A: { w: 1365, h: 768 },
+    B: { w: 1195, h: 896 },
+    C: { w: 1195, h: 896 },
   }
-  function floorplanImage(buildingId) {
-    return FLOORPLAN_IMAGES[buildingId] || null
+
+  // 把「房間中心點座標」轉成「房間方塊」的線框圖排版：
+  // 1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
+  // 2. 排內依 x 座標排序，相鄰房間如果間距夠近就以中點為共用牆（貼在一起，像真的隔間牆）；
+  //    間距太遠（樓梯間、走廊轉角等）就保留原本的間隙，不會硬黏在一起
+  // 3. 排與排之間的上下邊界用同樣的邏輯處理
+  // 這樣畫出來是彼此相連的房間方塊，而不是各自漂浮的小色塊。
+  function buildWireframe(rooms, canvasW, canvasH) {
+    const pts = rooms.map(r => ({ room: r, x: r.posX / 100 * canvasW, y: r.posY / 100 * canvasH }))
+
+    const ROW_EPS = canvasH * 0.06
+    const rows = []
+    for (const p of [...pts].sort((a, b) => a.y - b.y)) {
+      const row = rows.find(row => Math.abs(row.reduce((s, r) => s + r.y, 0) / row.length - p.y) < ROW_EPS)
+      if (row) row.push(p)
+      else rows.push([p])
+    }
+    rows.forEach(row => row.sort((a, b) => a.x - b.x))
+    rows.sort((a, b) => (a.reduce((s, r) => s + r.y, 0) / a.length) - (b.reduce((s, r) => s + r.y, 0) / b.length))
+
+    const rowCenters = rows.map(row => row.reduce((s, r) => s + r.y, 0) / row.length)
+    const GAP_THRESH_Y = canvasH * 0.10
+    const DEFAULT_HALF_H = canvasH * 0.028
+    const rowBounds = rows.map((row, i) => {
+      const cy = rowCenters[i]
+      const top = i === 0
+        ? cy - DEFAULT_HALF_H
+        : (cy - rowCenters[i - 1] < GAP_THRESH_Y ? (cy + rowCenters[i - 1]) / 2 : cy - DEFAULT_HALF_H)
+      const bottom = i === rows.length - 1
+        ? cy + DEFAULT_HALF_H
+        : (rowCenters[i + 1] - cy < GAP_THRESH_Y ? (cy + rowCenters[i + 1]) / 2 : cy + DEFAULT_HALF_H)
+      return [top, bottom]
+    })
+
+    const GAP_THRESH_X = canvasW * 0.09
+    const DEFAULT_HALF_W = canvasW * 0.022
+    const positions = []
+    rows.forEach((row, ri) => {
+      const [top, bottom] = rowBounds[ri]
+      row.forEach((p, i) => {
+        const left = i === 0
+          ? p.x - DEFAULT_HALF_W
+          : (p.x - row[i - 1].x < GAP_THRESH_X ? (p.x + row[i - 1].x) / 2 : p.x - DEFAULT_HALF_W)
+        const right = i === row.length - 1
+          ? p.x + DEFAULT_HALF_W
+          : (row[i + 1].x - p.x < GAP_THRESH_X ? (p.x + row[i + 1].x) / 2 : p.x + DEFAULT_HALF_W)
+        positions.push({ room: p.room, x: left, y: top, w: right - left, h: bottom - top })
+      })
+    })
+    return positions
+  }
+
+  function realLayoutOf(grp) {
+    const canvas = REAL_CANVAS[grp.id]
+    const positioned = grp.rooms.filter(r => r.posX != null && r.posY != null)
+    if (!canvas || positioned.length === 0) return { width: 0, height: 0, positions: [] }
+    return {
+      width: canvas.w,
+      height: canvas.h,
+      positions: buildWireframe(positioned, canvas.w, canvas.h),
+    }
   }
 
   const tileTarget = ref(null)
@@ -608,13 +670,15 @@
 </script>
 
 <style scoped>
-  .segmented { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; gap: 2px; }
+  .segmented { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
   .segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-  .seg-active { background: #15803d; color: #fff; }
+  .segmented button:hover { background: var(--border-light); color: var(--text); }
+  .seg-active, .seg-active:hover { background: #15803d; color: #fff; }
   .w-fit { width: fit-content; }
 
-  .pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-light); background: transparent; color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-  .pill-active { background: #15803d; border-color: #15803d; color: #fff; }
+  .pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .pill-btn:hover { border-color: var(--accent); color: var(--text); }
+  .pill-active, .pill-active:hover { background: #15803d; border-color: #15803d; color: #fff; }
 
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .stat-card { background: var(--surface); border-radius: 12px; padding: 14px; border-left: 4px solid #15803d; box-shadow: var(--shadow); }
@@ -627,59 +691,34 @@
 
   .building-badge { width: 24px; height: 24px; border-radius: 6px; background: rgba(21, 128, 61, .12); color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex-shrink: 0; }
 
-  .floorplan-photo {
-    position: relative;
-    width: 100%;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid var(--border-light);
-  }
-  .floorplan-img { width: 100%; height: auto; display: block; }
-  .hotspot {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    min-width: 34px;
-    height: 22px;
-    padding: 0 6px;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border: 2px solid #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,.35);
-    transition: transform .12s;
-  }
-  .hotspot:hover { transform: translate(-50%, -50%) scale(1.15); z-index: 5; }
-  .hotspot-num { font-size: 10.5px; font-weight: 700; color: #fff; white-space: nowrap; }
-  /* 訂單狀態色屬於功能性分類色，維持固定色階、不隨深色模式變動 */
-  .hotspot.tile-vacant   { background: #10b981; }
-  .hotspot.tile-pending  { background: #f59e0b; }
-  .hotspot.tile-occupied { background: #3b82f6; }
-  .hotspot.tile-inactive { background: #a8a29e; }
-
   .floorplan-svg {
     width: 100%;
     height: auto;
     display: block;
   }
+  .floor-outline { fill: var(--surface2); stroke: var(--border-light); stroke-width: 1.5; }
   .corridor-band { fill: var(--surface2); }
   .corridor-label { font-size: 11px; fill: var(--text-hint); letter-spacing: 2px; }
   .room-group { cursor: pointer; }
-  .room-group:hover .room-rect { filter: brightness(0.97); }
-  .room-rect { stroke-width: 1.5; transition: filter .12s; }
-  /* 訂單狀態色屬於功能性分類色，維持固定色階、不隨深色模式變動 */
-  .room-rect.tile-vacant   { fill: #ecfdf5; stroke: rgba(16,185,129,.5); }
-  .room-rect.tile-pending  { fill: #fffbeb; stroke: rgba(245,158,11,.5); }
-  .room-rect.tile-occupied { fill: #eff6ff; stroke: rgba(59,130,246,.5); }
-  .room-rect.tile-inactive { fill: var(--surface2); stroke: var(--border); opacity: .7; }
+  .room-rect { fill: var(--surface); stroke-width: 1.5; transition: stroke-width .15s, filter .15s; }
+  /* 訂單狀態用邊框顏色表示（功能性分類色，不隨深色模式變動），
+     底色維持線框圖的中性色，滑鼠移上去邊框會變粗、發亮，而不是整塊變成按鈕感的實心色塊 */
+  .room-rect.tile-vacant   { stroke: #10b981; }
+  .room-rect.tile-pending  { stroke: #f59e0b; }
+  .room-rect.tile-occupied { stroke: #3b82f6; }
+  .room-rect.tile-inactive { stroke: #a8a29e; stroke-dasharray: 3 2; }
+  .room-group:hover .room-rect.tile-vacant   { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(16,185,129,.9)); }
+  .room-group:hover .room-rect.tile-pending  { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(245,158,11,.9)); }
+  .room-group:hover .room-rect.tile-occupied { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(59,130,246,.9)); }
+  .room-group:hover .room-rect.tile-inactive { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(168,162,158,.9)); }
   .room-num { font-size: 14px; font-weight: 700; fill: var(--text); }
   .room-sub { font-size: 10px; fill: var(--text-hint); }
   .room-status { font-size: 9.5px; font-weight: 700; }
   .room-status.tile-vacant   { fill: #059669; }
   .room-status.tile-pending  { fill: #d97706; }
   .room-status.tile-occupied { fill: #2563eb; }
-  .room-status.tile-inactive { fill: var(--text-hint); }
+  .room-status.tile-inactive { fill: #78716c; }
+  .room-block-num { font-size: 9.5px; font-weight: 700; fill: var(--text); pointer-events: none; }
   .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
 
   .status-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
