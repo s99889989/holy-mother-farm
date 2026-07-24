@@ -1,4 +1,5 @@
 <script setup>
+// 專案holy-mother-farm 位置staff/management/course/[id]/index.vue
 import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
 definePageMeta({layout: 'staff'})
@@ -19,8 +20,8 @@ const saving = ref(false)
 
 const toast = reactive({show: false, message: '', error: false})
 const showToast = (msg, error = false) => {
-  toast.message = msg;
-  toast.error = error;
+  toast.message = msg
+  toast.error = error
   toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
@@ -29,6 +30,7 @@ const nameInput = ref('')
 const descriptionInput = ref('')
 const deadlineInput = ref('')
 const capacityInput = ref(0)
+const requireLoginInput = ref(true)
 const fieldsDraft = ref([])
 const coverUploading = ref(false)
 
@@ -47,6 +49,7 @@ onMounted(async () => {
   descriptionInput.value = c?.description ?? ''
   deadlineInput.value = (c?.registrationDeadline ?? '').replace(' ', 'T')
   capacityInput.value = c?.maxCapacity ?? 0
+  requireLoginInput.value = c?.requireLogin ?? true
   fieldsDraft.value = JSON.parse(JSON.stringify(c?.fields ?? []))
   loading.value = false
   await nextTick()
@@ -61,6 +64,7 @@ const saveInfo = async () => {
     const deadline = deadlineInput.value ? deadlineInput.value.replace('T', ' ') : ''
     await store.updateDeadline(courseId, deadline)
     await store.updateCapacity(courseId, capacityInput.value)
+    await store.updateRequireLogin(courseId, requireLoginInput.value)
     await store.fetchCourse(courseId)
     showToast('已儲存')
   } catch {
@@ -100,7 +104,7 @@ const FIELD_TYPES = [
   {value: 'image', label: '圖片上傳（報名者填答）'},
   {value: 'display_image', label: '純展示圖片（不算答案）'}
 ]
-const needsOptions = (type) => ['radio', 'checkbox', 'select'].includes(type)
+const needsOptions = type => ['radio', 'checkbox', 'select'].includes(type)
 
 const addField = () => {
   fieldsDraft.value.push({
@@ -112,22 +116,22 @@ const addField = () => {
     dependsOn: '', dependsOnValue: ''
   })
 }
-const removeField = (idx) => fieldsDraft.value.splice(idx, 1)
+const removeField = idx => fieldsDraft.value.splice(idx, 1)
 const fieldDeleteConfirm = reactive({show: false, idx: -1})
 const askRemoveField = (idx) => {
-  fieldDeleteConfirm.idx = idx;
+  fieldDeleteConfirm.idx = idx
   fieldDeleteConfirm.show = true
 }
 const confirmRemoveField = () => {
   removeField(fieldDeleteConfirm.idx)
   fieldDeleteConfirm.show = false
 }
-const addOption = (field) => field.options.push('')
+const addOption = field => field.options.push('')
 const removeOption = (field, idx) => field.options.splice(idx, 1)
 
 // 顯示條件只能選「排在自己前面、而且是單選/多選/下拉」的欄位，避免互相依賴
-const priorChoiceFields = (idx) => fieldsDraft.value.filter((f, i) => i < idx && needsOptions(f.type))
-const fieldOptionsById = (id) => fieldsDraft.value.find(f => f.id === id)?.options ?? []
+const priorChoiceFields = idx => fieldsDraft.value.filter((f, i) => i < idx && needsOptions(f.type))
+const fieldOptionsById = id => fieldsDraft.value.find(f => f.id === id)?.options ?? []
 // 欄位順序調整、刪除都可能讓原本設定的顯示條件失效（依賴到後面的欄位、或依賴的欄位被刪了），
 // 存檔前清掉這種不合法的條件設定
 const cleanInvalidConditions = () => {
@@ -135,7 +139,7 @@ const cleanInvalidConditions = () => {
     if (!f.dependsOn) return
     const stillValid = priorChoiceFields(idx).some(pf => pf.id === f.dependsOn)
     if (!stillValid) {
-      f.dependsOn = '';
+      f.dependsOn = ''
       f.dependsOnValue = ''
     }
   })
@@ -166,20 +170,40 @@ const saveFields = async () => {
 </script>
 
 <template>
-  <div class="min-h-full" style="background: var(--surface2)">
+  <div
+    class="min-h-full"
+    style="background: var(--surface2)"
+  >
     <div class="max-w-6xl mx-auto px-4 py-6">
-      <NuxtLink to="/staff/management/course" class="text-sm mb-4 inline-block" style="color: var(--text-hint)">
+      <NuxtLink
+        to="/staff/management/course"
+        class="text-sm mb-4 inline-block"
+        style="color: var(--text-hint)"
+      >
         ← 返回課程列表
       </NuxtLink>
 
-      <div v-if="loading" class="text-center py-16" style="color: var(--text-hint)">載入中…</div>
+      <div
+        v-if="loading"
+        class="text-center py-16"
+        style="color: var(--text-hint)"
+      >
+        載入中…
+      </div>
 
       <template v-else>
         <div class="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
           <!-- 基本資訊 -->
-          <div class="rounded-2xl border p-5 mb-5"
-               style="background: var(--surface); border-color: var(--border-light)">
-            <h2 class="font-bold mb-4" style="color: var(--text-base)">基本資訊</h2>
+          <div
+            class="rounded-2xl border p-5 mb-5"
+            style="background: var(--surface); border-color: var(--border-light)"
+          >
+            <h2
+              class="font-bold mb-4"
+              style="color: var(--text-base)"
+            >
+              基本資訊
+            </h2>
 
             <div class="mb-4">
               <div
@@ -199,17 +223,33 @@ const saveFields = async () => {
                 style="background-color: var(--surface2)"
                 @click="pickCover"
               >
-              <span class="text-sm" style="color: var(--text-hint)">
-                {{ coverUploading ? '上傳中…' : '點擊上傳封面圖' }}
-              </span>
+                <span
+                  class="text-sm"
+                  style="color: var(--text-hint)"
+                >
+                  {{ coverUploading ? '上傳中…' : '點擊上傳封面圖' }}
+                </span>
               </div>
-              <p v-if="store.currentCourse?.coverImage" class="text-xs mt-1.5" style="color: var(--text-hint)">
+              <p
+                v-if="store.currentCourse?.coverImage"
+                class="text-xs mt-1.5"
+                style="color: var(--text-hint)"
+              >
                 {{ coverUploading ? '上傳中…' : '點擊圖片可更換封面' }}
               </p>
-              <input ref="coverInput" type="file" accept="image/*" class="hidden" @change="onCoverChange">
+              <input
+                ref="coverInput"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="onCoverChange"
+              >
             </div>
 
-            <label class="block text-xs mb-1" style="color: var(--text-hint)">課程名稱</label>
+            <label
+              class="block text-xs mb-1"
+              style="color: var(--text-hint)"
+            >課程名稱</label>
             <input
               v-model="nameInput"
               type="text"
@@ -217,7 +257,10 @@ const saveFields = async () => {
               style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
             >
 
-            <label class="block text-xs mb-1" style="color: var(--text-hint)">課程說明</label>
+            <label
+              class="block text-xs mb-1"
+              style="color: var(--text-hint)"
+            >課程說明</label>
             <textarea
               ref="descriptionTextarea"
               v-model="descriptionInput"
@@ -229,7 +272,10 @@ const saveFields = async () => {
 
             <div class="grid grid-cols-2 gap-3 mb-4">
               <div>
-                <label class="block text-xs mb-1" style="color: var(--text-hint)">報名截止時間（留空 = 不限）</label>
+                <label
+                  class="block text-xs mb-1"
+                  style="color: var(--text-hint)"
+                >報名截止時間（留空 = 不限）</label>
                 <input
                   v-model="deadlineInput"
                   type="datetime-local"
@@ -238,7 +284,10 @@ const saveFields = async () => {
                 >
               </div>
               <div>
-                <label class="block text-xs mb-1" style="color: var(--text-hint)">名額上限（0 = 不限）</label>
+                <label
+                  class="block text-xs mb-1"
+                  style="color: var(--text-hint)"
+                >名額上限（0 = 不限）</label>
                 <input
                   v-model.number="capacityInput"
                   type="number"
@@ -248,6 +297,23 @@ const saveFields = async () => {
                 >
               </div>
             </div>
+
+            <label
+              class="flex items-center gap-2 text-sm mb-4 cursor-pointer"
+              style="color: var(--text-base)"
+            >
+              <input
+                v-model="requireLoginInput"
+                type="checkbox"
+              >
+              需要登入才能填寫報名表單
+            </label>
+            <p
+              class="text-xs -mt-3 mb-4"
+              style="color: var(--text-hint)"
+            >
+              取消勾選後，前台不會再擋「請先登入」，任何人都能直接填表送出報名（無法追蹤重複報名，也無法自行修改／取消）。
+            </p>
 
             <button
               class="px-4 py-2 rounded-lg text-sm text-white"
@@ -260,10 +326,17 @@ const saveFields = async () => {
           </div>
 
           <!-- 表單欄位編輯器 -->
-          <div class="rounded-2xl border p-5 mb-5"
-               style="background: var(--surface); border-color: var(--border-light)">
+          <div
+            class="rounded-2xl border p-5 mb-5"
+            style="background: var(--surface); border-color: var(--border-light)"
+          >
             <div class="flex items-center justify-between mb-4">
-              <h2 class="font-bold text-lg" style="color: var(--text-base)">報名表單欄位</h2>
+              <h2
+                class="font-bold text-lg"
+                style="color: var(--text-base)"
+              >
+                報名表單欄位
+              </h2>
               <button
                 class="text-xs px-3 py-1.5 rounded-lg border"
                 style="border-color: var(--border-light); color: var(--text-muted)"
@@ -273,7 +346,11 @@ const saveFields = async () => {
               </button>
             </div>
 
-            <p v-if="fieldsDraft.length === 0" class="text-sm text-center py-6" style="color: var(--text-hint)">
+            <p
+              v-if="fieldsDraft.length === 0"
+              class="text-sm text-center py-6"
+              style="color: var(--text-hint)"
+            >
               還沒有自訂欄位，報名者只需要用 Google 帳號登入即可報名。
             </p>
 
@@ -296,7 +373,13 @@ const saveFields = async () => {
                   class="border rounded-lg px-2 py-1.5 text-sm"
                   style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                 >
-                  <option v-for="t in FIELD_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
+                  <option
+                    v-for="t in FIELD_TYPES"
+                    :key="t.value"
+                    :value="t.value"
+                  >
+                    {{ t.label }}
+                  </option>
                 </select>
               </div>
 
@@ -311,8 +394,15 @@ const saveFields = async () => {
               >
 
               <!-- 選項（單選/多選/下拉） -->
-              <div v-if="needsOptions(field.type)" class="mb-2">
-                <div v-for="(opt, oi) in field.options" :key="oi" class="flex items-center gap-2 mb-1">
+              <div
+                v-if="needsOptions(field.type)"
+                class="mb-2"
+              >
+                <div
+                  v-for="(opt, oi) in field.options"
+                  :key="oi"
+                  class="flex items-center gap-2 mb-1"
+                >
                   <input
                     v-model="field.options[oi]"
                     type="text"
@@ -320,10 +410,21 @@ const saveFields = async () => {
                     class="flex-1 border rounded-lg px-3 py-1 text-sm"
                     style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                   >
-                  <button class="text-xs px-2" style="color: var(--text-hint)" @click="removeOption(field, oi)">✕
+                  <button
+                    class="text-xs px-2"
+                    style="color: var(--text-hint)"
+                    @click="removeOption(field, oi)"
+                  >
+                    ✕
                   </button>
                 </div>
-                <button class="text-xs" style="color: var(--accent)" @click="addOption(field)">＋ 新增選項</button>
+                <button
+                  class="text-xs"
+                  style="color: var(--accent)"
+                  @click="addOption(field)"
+                >
+                  ＋ 新增選項
+                </button>
               </div>
 
               <!-- 顯示條件：只有選到指定值時，這個欄位才會出現在報名表單上 -->
@@ -339,8 +440,14 @@ const saveFields = async () => {
                   style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                   @change="field.dependsOnValue = ''"
                 >
-                  <option value="">一律顯示</option>
-                  <option v-for="pf in priorChoiceFields(idx)" :key="pf.id" :value="pf.id">
+                  <option value="">
+                    一律顯示
+                  </option>
+                  <option
+                    v-for="pf in priorChoiceFields(idx)"
+                    :key="pf.id"
+                    :value="pf.id"
+                  >
                     當「{{ pf.label || '未命名欄位' }}」＝
                   </option>
                 </select>
@@ -350,24 +457,62 @@ const saveFields = async () => {
                   class="border rounded-lg px-2 py-1"
                   style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                 >
-                  <option value="">請選擇值</option>
-                  <option v-for="opt in fieldOptionsById(field.dependsOn)" :key="opt" :value="opt">{{ opt }}</option>
+                  <option value="">
+                    請選擇值
+                  </option>
+                  <option
+                    v-for="opt in fieldOptionsById(field.dependsOn)"
+                    :key="opt"
+                    :value="opt"
+                  >
+                    {{ opt }}
+                  </option>
                 </select>
               </div>
 
-              <div class="flex items-center justify-between text-sm" style="color: var(--text-muted)">
+              <div
+                class="flex items-center justify-between text-sm"
+                style="color: var(--text-muted)"
+              >
                 <div class="flex items-center gap-4">
-                  <label v-if="field.type !== 'display_image'" class="flex items-center gap-1">
-                    <input v-model="field.required" type="checkbox"> 必填
+                  <label
+                    v-if="field.type !== 'display_image'"
+                    class="flex items-center gap-1"
+                  >
+                    <input
+                      v-model="field.required"
+                      type="checkbox"
+                    > 必填
                   </label>
-                  <label v-if="needsOptions(field.type)" class="flex items-center gap-1">
-                    <input v-model="field.allowNote" type="checkbox"> 加開「其他，請說明」
+                  <label
+                    v-if="needsOptions(field.type)"
+                    class="flex items-center gap-1"
+                  >
+                    <input
+                      v-model="field.allowNote"
+                      type="checkbox"
+                    > 加開「其他，請說明」
                   </label>
                 </div>
                 <div class="flex items-center gap-2">
-                  <button :disabled="idx === 0" @click="moveField(idx, -1)">↑</button>
-                  <button :disabled="idx === fieldsDraft.length - 1" @click="moveField(idx, 1)">↓</button>
-                  <button class="text-red-500" @click="askRemoveField(idx)">刪除欄位</button>
+                  <button
+                    :disabled="idx === 0"
+                    @click="moveField(idx, -1)"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    :disabled="idx === fieldsDraft.length - 1"
+                    @click="moveField(idx, 1)"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    class="text-red-500"
+                    @click="askRemoveField(idx)"
+                  >
+                    刪除欄位
+                  </button>
                 </div>
               </div>
             </div>
@@ -386,10 +531,24 @@ const saveFields = async () => {
     </div>
 
     <!-- 刪除欄位確認 -->
-    <div v-if="fieldDeleteConfirm.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div class="w-full max-w-sm rounded-2xl p-5" style="background: var(--surface)">
-        <h2 class="font-bold mb-2" style="color: var(--text-base)">刪除欄位</h2>
-        <p class="text-sm mb-4" style="color: var(--text-muted)">
+    <div
+      v-if="fieldDeleteConfirm.show"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+    >
+      <div
+        class="w-full max-w-sm rounded-2xl p-5"
+        style="background: var(--surface)"
+      >
+        <h2
+          class="font-bold mb-2"
+          style="color: var(--text-base)"
+        >
+          刪除欄位
+        </h2>
+        <p
+          class="text-sm mb-4"
+          style="color: var(--text-muted)"
+        >
           確定要刪除「{{ fieldsDraft[fieldDeleteConfirm.idx]?.label || '這個欄位' }}」嗎？其他欄位設定的顯示條件如果依賴它，也會一併失效。
         </p>
         <div class="flex gap-2">
@@ -400,7 +559,10 @@ const saveFields = async () => {
           >
             取消
           </button>
-          <button class="flex-1 py-2 rounded-lg text-sm text-white bg-red-500" @click="confirmRemoveField">
+          <button
+            class="flex-1 py-2 rounded-lg text-sm text-white bg-red-500"
+            @click="confirmRemoveField"
+          >
             確定刪除
           </button>
         </div>

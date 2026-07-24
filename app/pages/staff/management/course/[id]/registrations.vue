@@ -1,4 +1,5 @@
 <script setup>
+// 專案holy-mother-farm 位置staff/management/course/[id]/registrations.vue
 import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
 definePageMeta({ layout: 'staff' })
@@ -22,7 +23,7 @@ onMounted(async () => {
   loading.value = false
 })
 
-const isDisplayImage = (type) => type === 'display_image'
+const isDisplayImage = type => type === 'display_image'
 const NOTE_SUFFIX = '__note'
 
 // ── 手動新增/編輯 ────────────────────────────────────────────
@@ -31,7 +32,7 @@ const form = reactive({ id: '', displayName: '', answers: {} })
 
 const blankAnswers = () => {
   const answers = {}
-  store.currentCourse.fields.forEach(f => {
+  store.currentCourse.fields.forEach((f) => {
     if (isDisplayImage(f.type)) return
     answers[f.id] = f.type === 'checkbox' ? [] : ''
     if (f.allowNote) answers[f.id + NOTE_SUFFIX] = ''
@@ -47,7 +48,7 @@ const openAdd = () => {
 const openEdit = (reg) => {
   form.id = reg.id; form.displayName = reg.displayName
   form.answers = {}
-  store.currentCourse.fields.forEach(f => {
+  store.currentCourse.fields.forEach((f) => {
     if (isDisplayImage(f.type)) return
     form.answers[f.id] = reg.answers?.[f.id] ?? (f.type === 'checkbox' ? [] : '')
     if (f.allowNote) form.answers[f.id + NOTE_SUFFIX] = reg.answers?.[f.id + NOTE_SUFFIX] ?? ''
@@ -123,21 +124,40 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
 </script>
 
 <template>
-  <div class="min-h-full" style="background: var(--surface2)">
+  <div
+    class="min-h-full"
+    style="background: var(--surface2)"
+  >
     <div class="max-w-5xl mx-auto px-4 py-6">
-      <NuxtLink to="/staff/management/course" class="text-sm mb-4 inline-block" style="color: var(--text-hint)">
+      <NuxtLink
+        to="/staff/management/course"
+        class="text-sm mb-4 inline-block"
+        style="color: var(--text-hint)"
+      >
         ← 返回課程列表
       </NuxtLink>
 
-      <div v-if="loading" class="text-center py-16" style="color: var(--text-hint)">載入中…</div>
+      <div
+        v-if="loading"
+        class="text-center py-16"
+        style="color: var(--text-hint)"
+      >
+        載入中…
+      </div>
 
       <template v-else>
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h1 class="text-xl font-bold" style="color: var(--text-base)">
+            <h1
+              class="text-xl font-bold"
+              style="color: var(--text-base)"
+            >
               {{ store.currentCourse?.name }} — 報名名單
             </h1>
-            <p class="text-sm mt-1" style="color: var(--text-hint)">
+            <p
+              class="text-sm mt-1"
+              style="color: var(--text-hint)"
+            >
               共 {{ store.totalRegistered }} 人報名，已簽到 {{ store.pickedCount }} 人
             </p>
           </div>
@@ -159,51 +179,115 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
           </div>
         </div>
 
-        <div v-if="!store.currentCourse?.registrations?.length" class="text-center py-16" style="color: var(--text-hint)">
+        <div
+          v-if="!store.currentCourse?.registrations?.length"
+          class="text-center py-16"
+          style="color: var(--text-hint)"
+        >
           目前還沒有人報名
         </div>
 
-        <div v-else class="overflow-x-auto rounded-2xl border" style="border-color: var(--border-light)">
-          <table class="w-full text-sm" style="background: var(--surface)">
+        <div
+          v-else
+          class="overflow-x-auto rounded-2xl border"
+          style="border-color: var(--border-light)"
+        >
+          <table
+            class="w-full text-sm"
+            style="background: var(--surface)"
+          >
             <thead>
-            <tr style="border-bottom: 1px solid var(--border-light)">
-              <th class="text-left px-3 py-2" style="color: var(--text-hint)">簽到</th>
-              <th class="text-left px-3 py-2" style="color: var(--text-hint)">姓名</th>
-              <th
-                v-for="f in answerFields"
-                :key="f.id"
-                class="text-left px-3 py-2"
-                style="color: var(--text-hint)"
-              >
-                {{ f.label }}
-              </th>
-              <th class="text-left px-3 py-2" style="color: var(--text-hint)">報名時間</th>
-              <th class="text-left px-3 py-2" style="color: var(--text-hint)">身份</th>
-              <th class="px-3 py-2"></th>
-            </tr>
+              <tr style="border-bottom: 1px solid var(--border-light)">
+                <th
+                  class="text-left px-3 py-2"
+                  style="color: var(--text-hint)"
+                >
+                  簽到
+                </th>
+                <th
+                  class="text-left px-3 py-2"
+                  style="color: var(--text-hint)"
+                >
+                  姓名
+                </th>
+                <th
+                  v-for="f in answerFields"
+                  :key="f.id"
+                  class="text-left px-3 py-2"
+                  style="color: var(--text-hint)"
+                >
+                  {{ f.label }}
+                </th>
+                <th
+                  class="text-left px-3 py-2"
+                  style="color: var(--text-hint)"
+                >
+                  報名時間
+                </th>
+                <th
+                  class="text-left px-3 py-2"
+                  style="color: var(--text-hint)"
+                >
+                  身份
+                </th>
+                <th class="px-3 py-2" />
+              </tr>
             </thead>
             <tbody>
-            <tr
-              v-for="reg in store.currentCourse.registrations"
-              :key="reg.id"
-              style="border-bottom: 1px solid var(--border-light)"
-            >
-              <td class="px-3 py-2">
-                <input type="checkbox" :checked="reg.picked" @change="toggle(reg)">
-              </td>
-              <td class="px-3 py-2" style="color: var(--text-base)">{{ reg.displayName || '—' }}</td>
-              <td v-for="f in answerFields" :key="f.id" class="px-3 py-2" style="color: var(--text-muted)">
-                {{ answerDisplay(reg, f) }}
-              </td>
-              <td class="px-3 py-2" style="color: var(--text-hint)">{{ reg.submittedAt || '—' }}</td>
-              <td class="px-3 py-2" style="color: var(--text-hint)">
-                {{ reg.customerId ? '自行報名' : '後台建立' }}
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap">
-                <button class="text-xs mr-2" style="color: var(--accent)" @click="openEdit(reg)">編輯</button>
-                <button class="text-xs text-red-500" @click="askRemove(reg)">刪除</button>
-              </td>
-            </tr>
+              <tr
+                v-for="reg in store.currentCourse.registrations"
+                :key="reg.id"
+                style="border-bottom: 1px solid var(--border-light)"
+              >
+                <td class="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    :checked="reg.picked"
+                    @change="toggle(reg)"
+                  >
+                </td>
+                <td
+                  class="px-3 py-2"
+                  style="color: var(--text-base)"
+                >
+                  {{ reg.displayName || '—' }}
+                </td>
+                <td
+                  v-for="f in answerFields"
+                  :key="f.id"
+                  class="px-3 py-2"
+                  style="color: var(--text-muted)"
+                >
+                  {{ answerDisplay(reg, f) }}
+                </td>
+                <td
+                  class="px-3 py-2"
+                  style="color: var(--text-hint)"
+                >
+                  {{ reg.submittedAt || '—' }}
+                </td>
+                <td
+                  class="px-3 py-2"
+                  style="color: var(--text-hint)"
+                >
+                  {{ reg.customerId ? '自行報名' : '後台建立' }}
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                  <button
+                    class="text-xs mr-2"
+                    style="color: var(--accent)"
+                    @click="openEdit(reg)"
+                  >
+                    編輯
+                  </button>
+                  <button
+                    class="text-xs text-red-500"
+                    @click="askRemove(reg)"
+                  >
+                    刪除
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -211,13 +295,25 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
     </div>
 
     <!-- 新增/編輯報名 Modal -->
-    <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 overflow-y-auto py-8">
-      <div class="w-full max-w-md rounded-2xl p-5" style="background: var(--surface)">
-        <h2 class="font-bold mb-3" style="color: var(--text-base)">
+    <div
+      v-if="modal.show"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 overflow-y-auto py-8"
+    >
+      <div
+        class="w-full max-w-md rounded-2xl p-5"
+        style="background: var(--surface)"
+      >
+        <h2
+          class="font-bold mb-3"
+          style="color: var(--text-base)"
+        >
           {{ modal.mode === 'add' ? '手動新增報名' : '編輯報名資料' }}
         </h2>
 
-        <label class="block text-xs mb-1" style="color: var(--text-hint)">姓名</label>
+        <label
+          class="block text-xs mb-1"
+          style="color: var(--text-hint)"
+        >姓名</label>
         <input
           v-model="form.displayName"
           type="text"
@@ -225,9 +321,19 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
           style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
         >
 
-        <div v-for="f in visibleFormFields" :key="f.id" class="mb-3">
-          <label class="block text-xs mb-1" style="color: var(--text-hint)">
-            {{ f.label }}<span v-if="f.required" class="text-red-500">＊</span>
+        <div
+          v-for="f in visibleFormFields"
+          :key="f.id"
+          class="mb-3"
+        >
+          <label
+            class="block text-xs mb-1"
+            style="color: var(--text-hint)"
+          >
+            {{ f.label }}<span
+              v-if="f.required"
+              class="text-red-500"
+            >＊</span>
           </label>
 
           <input
@@ -250,17 +356,49 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
             class="w-full border rounded-lg px-3 py-2"
             style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
           >
-            <option value="">請選擇</option>
-            <option v-for="opt in f.options" :key="opt" :value="opt">{{ opt }}</option>
+            <option value="">
+              請選擇
+            </option>
+            <option
+              v-for="opt in f.options"
+              :key="opt"
+              :value="opt"
+            >
+              {{ opt }}
+            </option>
           </select>
-          <div v-else-if="f.type === 'radio'" class="flex flex-col gap-1">
-            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm" style="color: var(--text-muted)">
-              <input v-model="form.answers[f.id]" type="radio" :value="opt"> {{ opt }}
+          <div
+            v-else-if="f.type === 'radio'"
+            class="flex flex-col gap-1"
+          >
+            <label
+              v-for="opt in f.options"
+              :key="opt"
+              class="flex items-center gap-2 text-sm"
+              style="color: var(--text-muted)"
+            >
+              <input
+                v-model="form.answers[f.id]"
+                type="radio"
+                :value="opt"
+              > {{ opt }}
             </label>
           </div>
-          <div v-else-if="f.type === 'checkbox'" class="flex flex-col gap-1">
-            <label v-for="opt in f.options" :key="opt" class="flex items-center gap-2 text-sm" style="color: var(--text-muted)">
-              <input v-model="form.answers[f.id]" type="checkbox" :value="opt"> {{ opt }}
+          <div
+            v-else-if="f.type === 'checkbox'"
+            class="flex flex-col gap-1"
+          >
+            <label
+              v-for="opt in f.options"
+              :key="opt"
+              class="flex items-center gap-2 text-sm"
+              style="color: var(--text-muted)"
+            >
+              <input
+                v-model="form.answers[f.id]"
+                type="checkbox"
+                :value="opt"
+              > {{ opt }}
             </label>
           </div>
 
@@ -295,10 +433,24 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
     </div>
 
     <!-- 刪除確認 -->
-    <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div class="w-full max-w-sm rounded-2xl p-5" style="background: var(--surface)">
-        <h2 class="font-bold mb-2" style="color: var(--text-base)">刪除報名紀錄</h2>
-        <p class="text-sm mb-4" style="color: var(--text-muted)">
+    <div
+      v-if="showDeleteConfirm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+    >
+      <div
+        class="w-full max-w-sm rounded-2xl p-5"
+        style="background: var(--surface)"
+      >
+        <h2
+          class="font-bold mb-2"
+          style="color: var(--text-base)"
+        >
+          刪除報名紀錄
+        </h2>
+        <p
+          class="text-sm mb-4"
+          style="color: var(--text-muted)"
+        >
           確定要刪除「{{ deleteTarget?.displayName || '此筆' }}」的報名紀錄嗎？
         </p>
         <div class="flex gap-2">
@@ -309,7 +461,10 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
           >
             取消
           </button>
-          <button class="flex-1 py-2 rounded-lg text-sm text-white bg-red-500" @click="confirmRemove">
+          <button
+            class="flex-1 py-2 rounded-lg text-sm text-white bg-red-500"
+            @click="confirmRemove"
+          >
             確定刪除
           </button>
         </div>

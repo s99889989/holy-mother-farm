@@ -16,7 +16,7 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
   getters: {
     totalRegistered: (state) => state.currentCourse?.registrations?.length ?? 0,
     pickedCount: (state) =>
-        state.currentCourse?.registrations?.filter(r => r.picked).length ?? 0
+      state.currentCourse?.registrations?.filter(r => r.picked).length ?? 0
   },
 
   actions: {
@@ -72,6 +72,14 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ maxCapacity })
+      })
+    },
+    async updateRequireLogin(id, requireLogin) {
+      await fetch(`${this._base()}/${id}/require-login`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requireLogin })
       })
     },
     // fields: 完整陣列覆寫 [{ id, label, type, required, options, order }]
