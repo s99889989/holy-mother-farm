@@ -90,7 +90,7 @@
           </div>
         </div>
 
-        <!-- 平面圖檢視（簡易走廊示意圖，非實際建築圖） -->
+        <!-- 平面圖檢視：有實際平面圖的棟別用照片＋定位點，沒有的棟別 fallback 成走廊示意圖 -->
         <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
           <div v-for="grp in visibleBuildings" :key="grp.id" class="mb-8 last:mb-0">
             <div class="flex items-center gap-2 mb-2">
@@ -98,7 +98,23 @@
               <h3 class="font-bold text-base-c" style="font-size:14px">{{ grp.name }}</h3>
               <span class="text-hint-c" style="font-size:11.5px">共 {{ grp.rooms.length }} 間・單層</span>
             </div>
+
+            <!-- 實際平面圖：照片 + 定位點 -->
+            <div v-if="floorplanImage(grp.id)" class="floorplan-photo">
+              <img :src="floorplanImage(grp.id)" alt="" class="floorplan-img">
+              <div
+                v-for="r in grp.rooms.filter(r => r.posX != null && r.posY != null)" :key="r.id"
+                class="hotspot" :class="tileClass(r)"
+                :style="{ left: r.posX + '%', top: r.posY + '%' }"
+                @click="openRoomDetail(grp, r)"
+              >
+                <span class="hotspot-num">{{ r.id }}</span>
+              </div>
+            </div>
+
+            <!-- 走廊示意圖（沒有實際平面圖時的 fallback） -->
             <svg
+              v-else
               :viewBox="`0 0 ${layoutOf(grp.id).width} ${layoutOf(grp.id).height}`"
               class="floorplan-svg"
               :style="{ maxWidth: layoutOf(grp.id).width + 'px' }"
@@ -126,7 +142,7 @@
             <span><span class="dot" style="background:#a8a29e"></span>已下架</span>
             <span>點擊房間可查看詳情與快速編輯</span>
           </div>
-          <p class="text-hint-c mt-2" style="font-size:11px">＊此為依房號排列的走廊示意圖，非實際建築平面圖</p>
+          <p class="text-hint-c mt-2" style="font-size:11px">＊快樂運動館、合力居、愛加倍為實際平面圖定位；懇親房目前無平面圖，暫以走廊示意圖顯示</p>
         </div>
       </template>
     </div>
@@ -280,6 +296,18 @@
   })
   function layoutOf(buildingId) {
     return buildingLayouts.value[buildingId] || { width: 0, height: 0, positions: [], corridorY: 0, corridorH: 0 }
+  }
+
+  // 有實際平面圖照片的棟別，圖檔放在 Nuxt 專案的 public/floorplans/ 底下。
+  // 合力居跟愛加倍畫在同一張圖上，所以共用同一個檔案。
+  // 沒有列在這裡的棟別（例如懇親房）會自動 fallback 成走廊示意圖。
+  const FLOORPLAN_IMAGES = {
+    A: '/floorplans/happy-hall.jpg',
+    B: '/floorplans/cooperation-hall.jpg',
+    C: '/floorplans/cooperation-hall.jpg',
+  }
+  function floorplanImage(buildingId) {
+    return FLOORPLAN_IMAGES[buildingId] || null
   }
 
   function activeBookingForRoom(roomId) {
@@ -479,6 +507,45 @@
     transition: left .15s;
   }
   .toggle-on::after { left: 18px; }
+  .floorplan-photo {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+  }
+  .floorplan-img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .hotspot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    min-width: 34px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.35);
+    transition: transform .12s;
+  }
+  .hotspot:hover { transform: translate(-50%, -50%) scale(1.15); z-index: 5; }
+  .hotspot-num {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+  }
+  /* 房間狀態色屬於功能性分類色，維持固定色階、不隨深色模式變動 */
+  .hotspot.tile-vacant   { background: #10b981; }
+  .hotspot.tile-occupied { background: #3b82f6; }
+  .hotspot.tile-inactive { background: #a8a29e; }
+
   .floorplan-svg {
     width: 100%;
     height: auto;
