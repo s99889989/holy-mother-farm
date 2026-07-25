@@ -1,8 +1,8 @@
 <script setup>
 // 專案holy-mother-farm 位置staff/management/course/[id]/index.vue
-import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
+import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
-definePageMeta({layout: 'staff'})
+definePageMeta({ layout: 'staff' })
 
 const commonStore = useCommonStore()
 const imgUrl = (path) => {
@@ -18,7 +18,7 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
-const toast = reactive({show: false, message: '', error: false})
+const toast = reactive({ show: false, message: '', error: false })
 const showToast = (msg, error = false) => {
   toast.message = msg
   toast.error = error
@@ -33,6 +33,12 @@ const capacityInput = ref(0)
 const requireLoginInput = ref(true)
 const fieldsDraft = ref([])
 const coverUploading = ref(false)
+
+// ── 繳費設定（人工核對版）────────────────────────────────────
+const paymentEnabledInput = ref(false)
+const paymentInfoInput = ref('')
+const priceOptionsDraft = ref([])
+const savingPayment = ref(false)
 
 const descriptionTextarea = ref(null)
 const autoGrow = (el) => {
@@ -50,6 +56,9 @@ onMounted(async () => {
   deadlineInput.value = (c?.registrationDeadline ?? '').replace(' ', 'T')
   capacityInput.value = c?.maxCapacity ?? 0
   requireLoginInput.value = c?.requireLogin ?? true
+  paymentEnabledInput.value = c?.paymentEnabled ?? false
+  paymentInfoInput.value = c?.paymentInfo ?? ''
+  priceOptionsDraft.value = JSON.parse(JSON.stringify(c?.priceOptions ?? []))
   fieldsDraft.value = JSON.parse(JSON.stringify(c?.fields ?? []))
   loading.value = false
   await nextTick()
@@ -74,6 +83,30 @@ const saveInfo = async () => {
   }
 }
 
+// ── 繳費設定 ─────────────────────────────────────────────────
+const addPriceOption = () => {
+  priceOptionsDraft.value.push({
+    id: 'p_' + Math.random().toString(36).slice(2, 10), // 暫時 id，儲存後後端會沿用
+    label: '', amount: 0
+  })
+}
+const removePriceOption = idx => priceOptionsDraft.value.splice(idx, 1)
+
+const savePayment = async () => {
+  savingPayment.value = true
+  try {
+    await store.updatePaymentSettings(courseId, paymentEnabledInput.value, paymentInfoInput.value)
+    await store.updatePriceOptions(courseId, priceOptionsDraft.value)
+    await store.fetchCourse(courseId)
+    priceOptionsDraft.value = JSON.parse(JSON.stringify(store.currentCourse?.priceOptions ?? []))
+    showToast('繳費設定已儲存')
+  } catch {
+    showToast('儲存失敗', true)
+  } finally {
+    savingPayment.value = false
+  }
+}
+
 // ── 封面圖 ────────────────────────────────────────────────────
 const coverInput = ref(null)
 const pickCover = () => coverInput.value?.click()
@@ -95,14 +128,14 @@ const onCoverChange = async (e) => {
 
 // ── 欄位編輯器 ────────────────────────────────────────────────
 const FIELD_TYPES = [
-  {value: 'text', label: '單行文字'},
-  {value: 'textarea', label: '多行文字'},
-  {value: 'radio', label: '單選'},
-  {value: 'checkbox', label: '多選'},
-  {value: 'select', label: '下拉選單'},
-  {value: 'date', label: '日期'},
-  {value: 'image', label: '圖片上傳（報名者填答）'},
-  {value: 'display_image', label: '純展示圖片（不算答案）'}
+  { value: 'text', label: '單行文字' },
+  { value: 'textarea', label: '多行文字' },
+  { value: 'radio', label: '單選' },
+  { value: 'checkbox', label: '多選' },
+  { value: 'select', label: '下拉選單' },
+  { value: 'date', label: '日期' },
+  { value: 'image', label: '圖片上傳（報名者填答）' },
+  { value: 'display_image', label: '純展示圖片（不算答案）' }
 ]
 const needsOptions = type => ['radio', 'checkbox', 'select'].includes(type)
 
@@ -117,7 +150,7 @@ const addField = () => {
   })
 }
 const removeField = idx => fieldsDraft.value.splice(idx, 1)
-const fieldDeleteConfirm = reactive({show: false, idx: -1})
+const fieldDeleteConfirm = reactive({ show: false, idx: -1 })
 const askRemoveField = (idx) => {
   fieldDeleteConfirm.idx = idx
   fieldDeleteConfirm.show = true
@@ -322,6 +355,114 @@ const saveFields = async () => {
               @click="saveInfo"
             >
               {{ saving ? '儲存中…' : '儲存基本資訊' }}
+            </button>
+          </div>
+
+          <!-- 繳費設定（人工核對版，不接金流） -->
+          <div
+            class="rounded-2xl border p-5 mb-5"
+            style="background: var(--surface); border-color: var(--border-light)"
+          >
+            <h2
+              class="font-bold mb-1"
+              style="color: var(--text-base)"
+            >
+              繳費設定
+            </h2>
+            <p
+              class="text-xs mb-4"
+              style="color: var(--text-hint)"
+            >
+              不接第三方金流，報名者匯款後由後台人工核對、手動勾選已收款；未繳費不影響報名成立，也不會被算進名額。
+            </p>
+
+            <label
+              class="flex items-center gap-2 text-sm mb-3 cursor-pointer"
+              style="color: var(--text-base)"
+            >
+              <input
+                v-model="paymentEnabledInput"
+                type="checkbox"
+              >
+              開啟繳費追蹤（報名表單會多一步「選擇價格」）
+            </label>
+
+            <template v-if="paymentEnabledInput">
+              <label
+                class="block text-xs mb-1"
+                style="color: var(--text-hint)"
+              >收款資訊（顯示給報名者看，例如銀行代碼／戶名／帳號）</label>
+              <textarea
+                v-model="paymentInfoInput"
+                rows="2"
+                class="w-full border rounded-lg px-3 py-2 mb-4 resize-none"
+                style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+              />
+
+              <div class="flex items-center justify-between mb-2">
+                <label
+                  class="block text-xs"
+                  style="color: var(--text-hint)"
+                >價格選項（例如早鳥價／現場價，至少要有一個報名者才選得到）</label>
+                <button
+                  class="text-xs px-2 py-1 rounded-lg border"
+                  style="border-color: var(--border-light); color: var(--text-muted)"
+                  @click="addPriceOption"
+                >
+                  ＋ 新增價格
+                </button>
+              </div>
+
+              <div
+                v-for="(p, idx) in priceOptionsDraft"
+                :key="idx"
+                class="flex items-center gap-2 mb-2"
+              >
+                <input
+                  v-model="p.label"
+                  type="text"
+                  placeholder="價格名稱，例如：早鳥價"
+                  class="flex-1 border rounded-lg px-3 py-1.5 text-sm"
+                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                >
+                <div class="flex items-center gap-1">
+                  <span
+                    class="text-sm"
+                    style="color: var(--text-hint)"
+                  >$</span>
+                  <input
+                    v-model.number="p.amount"
+                    type="number"
+                    min="0"
+                    class="w-24 border rounded-lg px-2 py-1.5 text-sm"
+                    style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  >
+                </div>
+                <button
+                  class="text-xs px-2"
+                  style="color: var(--text-hint)"
+                  @click="removePriceOption(idx)"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p
+                v-if="priceOptionsDraft.length === 0"
+                class="text-xs mb-2"
+                style="color: var(--text-hint)"
+              >
+                還沒有任何價格選項，報名者會看不到可以選的價格，請先新增至少一個。
+              </p>
+            </template>
+
+            <button
+              class="px-4 py-2 rounded-lg text-sm text-white mt-2"
+              style="background: var(--accent)"
+              :disabled="savingPayment"
+              @click="savePayment"
+            >
+              {{ savingPayment ? '儲存中…' : '儲存繳費設定' }}
             </button>
           </div>
 

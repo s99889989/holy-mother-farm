@@ -1,8 +1,8 @@
 <script setup>
 // 專案holy-mother-farm 位置staff/management/course/[id]/registrations.vue
-import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff' })
+definePageMeta({layout: 'staff'})
 
 const route = useRoute()
 const courseId = route.params.id
@@ -11,9 +11,11 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
-const toast = reactive({ show: false, message: '', error: false })
+const toast = reactive({show: false, message: '', error: false})
 const showToast = (msg, error = false) => {
-  toast.message = msg; toast.error = error; toast.show = true
+  toast.message = msg;
+  toast.error = error;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -26,9 +28,29 @@ onMounted(async () => {
 const isDisplayImage = type => type === 'display_image'
 const NOTE_SUFFIX = '__note'
 
+// ── 繳費（人工核對版）────────────────────────────────────────
+// 已收款總金額，本地從 registrations 算，跟 store 的 totalRegistered/pickedCount
+// 用同一套做法，不用等後端多回傳一個欄位
+const paidAmountSum = computed(() =>
+  (store.currentCourse?.registrations ?? [])
+    .filter(r => r.paid)
+    .reduce((sum, r) => sum + (r.amount || 0), 0)
+)
+const priceLabelOf = (reg) => {
+  if (!reg.priceOptionId) return '—'
+  return reg.amount ? `${reg.priceLabel || '未命名價格'}（$${reg.amount}）` : (reg.priceLabel || '—')
+}
+const togglePaid = async (reg) => {
+  try {
+    await store.togglePaid(courseId, reg.id)
+  } catch {
+    showToast('操作失敗', true)
+  }
+}
+
 // ── 手動新增/編輯 ────────────────────────────────────────────
-const modal = reactive({ show: false, mode: 'add' })
-const form = reactive({ id: '', displayName: '', answers: {} })
+const modal = reactive({show: false, mode: 'add'})
+const form = reactive({id: '', displayName: '', answers: {}, priceOptionId: '', paymentNote: '', paid: false})
 
 const blankAnswers = () => {
   const answers = {}
@@ -41,26 +63,36 @@ const blankAnswers = () => {
 }
 
 const openAdd = () => {
-  form.id = ''; form.displayName = ''
+  form.id = '';
+  form.displayName = ''
   form.answers = blankAnswers()
-  modal.mode = 'add'; modal.show = true
+  form.priceOptionId = '';
+  form.paymentNote = '';
+  form.paid = false
+  modal.mode = 'add';
+  modal.show = true
 }
 const openEdit = (reg) => {
-  form.id = reg.id; form.displayName = reg.displayName
+  form.id = reg.id;
+  form.displayName = reg.displayName
   form.answers = {}
   store.currentCourse.fields.forEach((f) => {
     if (isDisplayImage(f.type)) return
     form.answers[f.id] = reg.answers?.[f.id] ?? (f.type === 'checkbox' ? [] : '')
     if (f.allowNote) form.answers[f.id + NOTE_SUFFIX] = reg.answers?.[f.id + NOTE_SUFFIX] ?? ''
   })
-  modal.mode = 'edit'; modal.show = true
+  modal.mode = 'edit';
+  modal.show = true
 }
 
 const save = async () => {
   saving.value = true
   try {
     if (modal.mode === 'add') {
-      await store.addRegistration(courseId, form.displayName, form.answers)
+      const payment = store.currentCourse?.paymentEnabled
+        ? {priceOptionId: form.priceOptionId, paymentNote: form.paymentNote, paid: form.paid}
+        : null
+      await store.addRegistration(courseId, form.displayName, form.answers, payment)
     } else {
       await store.updateRegistration(courseId, form.id, form.displayName, form.answers)
     }
@@ -75,7 +107,10 @@ const save = async () => {
 
 const showDeleteConfirm = ref(false)
 const deleteTarget = ref(null)
-const askRemove = (reg) => { deleteTarget.value = reg; showDeleteConfirm.value = true }
+const askRemove = (reg) => {
+  deleteTarget.value = reg;
+  showDeleteConfirm.value = true
+}
 const confirmRemove = async () => {
   try {
     await store.removeRegistration(courseId, deleteTarget.value.id)
@@ -159,6 +194,9 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
               style="color: var(--text-hint)"
             >
               共 {{ store.totalRegistered }} 人報名，已簽到 {{ store.pickedCount }} 人
+              <template v-if="store.currentCourse?.paymentEnabled">
+                ・已收 ${{ paidAmountSum }} 元
+              </template>
             </p>
           </div>
           <div class="flex gap-2">
@@ -197,97 +235,131 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
             style="background: var(--surface)"
           >
             <thead>
-              <tr style="border-bottom: 1px solid var(--border-light)">
-                <th
-                  class="text-left px-3 py-2"
-                  style="color: var(--text-hint)"
-                >
-                  簽到
-                </th>
-                <th
-                  class="text-left px-3 py-2"
-                  style="color: var(--text-hint)"
-                >
-                  姓名
-                </th>
-                <th
-                  v-for="f in answerFields"
-                  :key="f.id"
-                  class="text-left px-3 py-2"
-                  style="color: var(--text-hint)"
-                >
-                  {{ f.label }}
-                </th>
-                <th
-                  class="text-left px-3 py-2"
-                  style="color: var(--text-hint)"
-                >
-                  報名時間
-                </th>
-                <th
-                  class="text-left px-3 py-2"
-                  style="color: var(--text-hint)"
-                >
-                  身份
-                </th>
-                <th class="px-3 py-2" />
-              </tr>
+            <tr style="border-bottom: 1px solid var(--border-light)">
+              <th
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                簽到
+              </th>
+              <th
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                姓名
+              </th>
+              <th
+                v-for="f in answerFields"
+                :key="f.id"
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                {{ f.label }}
+              </th>
+              <th
+                v-if="store.currentCourse?.paymentEnabled"
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                價格
+              </th>
+              <th
+                v-if="store.currentCourse?.paymentEnabled"
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                已收款
+              </th>
+              <th
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                報名時間
+              </th>
+              <th
+                class="text-left px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                身份
+              </th>
+              <th class="px-3 py-2"/>
+            </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="reg in store.currentCourse.registrations"
-                :key="reg.id"
-                style="border-bottom: 1px solid var(--border-light)"
+            <tr
+              v-for="reg in store.currentCourse.registrations"
+              :key="reg.id"
+              style="border-bottom: 1px solid var(--border-light)"
+            >
+              <td class="px-3 py-2">
+                <input
+                  type="checkbox"
+                  :checked="reg.picked"
+                  @change="toggle(reg)"
+                >
+              </td>
+              <td
+                class="px-3 py-2"
+                style="color: var(--text-base)"
               >
-                <td class="px-3 py-2">
+                {{ reg.displayName || '—' }}
+              </td>
+              <td
+                v-for="f in answerFields"
+                :key="f.id"
+                class="px-3 py-2"
+                style="color: var(--text-muted)"
+              >
+                {{ answerDisplay(reg, f) }}
+              </td>
+              <td
+                v-if="store.currentCourse?.paymentEnabled"
+                class="px-3 py-2"
+                style="color: var(--text-muted)"
+              >
+                {{ priceLabelOf(reg) }}
+              </td>
+              <td
+                v-if="store.currentCourse?.paymentEnabled"
+                class="px-3 py-2"
+              >
+                <label class="flex items-center gap-1.5 text-xs" style="color: var(--text-muted)">
                   <input
                     type="checkbox"
-                    :checked="reg.picked"
-                    @change="toggle(reg)"
+                    :checked="reg.paid"
+                    @change="togglePaid(reg)"
                   >
-                </td>
-                <td
-                  class="px-3 py-2"
-                  style="color: var(--text-base)"
+                  {{ reg.paid ? `已收（${reg.paidAt || ''}）` : '未收' }}
+                </label>
+              </td>
+              <td
+                class="px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                {{ reg.submittedAt || '—' }}
+              </td>
+              <td
+                class="px-3 py-2"
+                style="color: var(--text-hint)"
+              >
+                {{ reg.customerId ? '自行報名' : '後台建立' }}
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap">
+                <button
+                  class="text-xs mr-2"
+                  style="color: var(--accent)"
+                  @click="openEdit(reg)"
                 >
-                  {{ reg.displayName || '—' }}
-                </td>
-                <td
-                  v-for="f in answerFields"
-                  :key="f.id"
-                  class="px-3 py-2"
-                  style="color: var(--text-muted)"
+                  編輯
+                </button>
+                <button
+                  class="text-xs text-red-500"
+                  @click="askRemove(reg)"
                 >
-                  {{ answerDisplay(reg, f) }}
-                </td>
-                <td
-                  class="px-3 py-2"
-                  style="color: var(--text-hint)"
-                >
-                  {{ reg.submittedAt || '—' }}
-                </td>
-                <td
-                  class="px-3 py-2"
-                  style="color: var(--text-hint)"
-                >
-                  {{ reg.customerId ? '自行報名' : '後台建立' }}
-                </td>
-                <td class="px-3 py-2 whitespace-nowrap">
-                  <button
-                    class="text-xs mr-2"
-                    style="color: var(--accent)"
-                    @click="openEdit(reg)"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    class="text-xs text-red-500"
-                    @click="askRemove(reg)"
-                  >
-                    刪除
-                  </button>
-                </td>
-              </tr>
+                  刪除
+                </button>
+              </td>
+            </tr>
             </tbody>
           </table>
         </div>
@@ -321,6 +393,46 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
           style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
         >
 
+        <!-- 繳費：只有「手動新增」（現場報名）才順便填，編輯既有報名不動繳費狀態，
+             繳費狀態統一在名單表格用「已收款」checkbox 切換 -->
+        <div
+          v-if="modal.mode === 'add' && store.currentCourse?.paymentEnabled"
+          class="mb-3 p-3 rounded-lg"
+          style="background: var(--surface2)"
+        >
+          <label
+            class="block text-xs mb-1"
+            style="color: var(--text-hint)"
+          >價格</label>
+          <select
+            v-model="form.priceOptionId"
+            class="w-full border rounded-lg px-3 py-2 mb-2 text-sm"
+            style="border-color: var(--border-light); background: var(--surface); color: var(--text-base)"
+          >
+            <option value="">
+              不選（現場報名先不記金額）
+            </option>
+            <option
+              v-for="p in store.currentCourse.priceOptions"
+              :key="p.id"
+              :value="p.id"
+            >
+              {{ p.label }}（${{ p.amount }}）
+            </option>
+          </select>
+          <input
+            v-model="form.paymentNote"
+            type="text"
+            placeholder="繳費備註（選填，例如匯款後五碼）"
+            class="w-full border rounded-lg px-3 py-2 mb-2 text-sm"
+            style="border-color: var(--border-light); background: var(--surface); color: var(--text-base)"
+          >
+          <label class="flex items-center gap-2 text-sm" style="color: var(--text-muted)">
+            <input v-model="form.paid" type="checkbox">
+            現場已經收款
+          </label>
+        </div>
+
         <div
           v-for="f in visibleFormFields"
           :key="f.id"
@@ -331,9 +443,9 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
             style="color: var(--text-hint)"
           >
             {{ f.label }}<span
-              v-if="f.required"
-              class="text-red-500"
-            >＊</span>
+            v-if="f.required"
+            class="text-red-500"
+          >＊</span>
           </label>
 
           <input
