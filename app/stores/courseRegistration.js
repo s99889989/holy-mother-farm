@@ -99,6 +99,19 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
         body: JSON.stringify(priceOptions)
       })
     },
+    async uploadPaymentInfoImage(id, file) {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${this._base()}/${id}/payment-info-image`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      })
+      return await res.text()
+    },
+    async removePaymentInfoImage(id) {
+      await fetch(`${this._base()}/${id}/payment-info-image`, { method: 'DELETE', credentials: 'include' })
+    },
     // fields: 完整陣列覆寫 [{ id, label, type, required, options, order }]
     async updateFields(id, fields) {
       await fetch(`${this._base()}/${id}/fields`, {

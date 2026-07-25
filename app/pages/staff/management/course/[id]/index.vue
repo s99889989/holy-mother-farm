@@ -108,6 +108,39 @@ const savePayment = async () => {
   }
 }
 
+// 收款資訊圖片（例如轉帳 QR Code、銀行帳戶截圖）：上傳/移除都是獨立 API，
+// 不用等按「儲存繳費設定」，選了檔案就直接生效
+const paymentImageInput = ref(null)
+const paymentImageUploading = ref(false)
+const pickPaymentImage = () => paymentImageInput.value?.click()
+const onPaymentImageChange = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  paymentImageUploading.value = true
+  try {
+    await store.uploadPaymentInfoImage(courseId, file)
+    await store.fetchCourse(courseId)
+    showToast('收款資訊圖片已更新')
+  } catch {
+    showToast('圖片上傳失敗', true)
+  } finally {
+    paymentImageUploading.value = false
+    e.target.value = ''
+  }
+}
+const removePaymentImage = async () => {
+  paymentImageUploading.value = true
+  try {
+    await store.removePaymentInfoImage(courseId)
+    await store.fetchCourse(courseId)
+    showToast('已移除收款資訊圖片')
+  } catch {
+    showToast('移除失敗', true)
+  } finally {
+    paymentImageUploading.value = false
+  }
+}
+
 // ── 封面圖 ────────────────────────────────────────────────────
 const coverInput = ref(null)
 const pickCover = () => coverInput.value?.click()
@@ -623,6 +656,63 @@ const saveFields = async () => {
                   class="w-full border rounded-lg px-3 py-2 mb-4 resize-none"
                   style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                 />
+
+                <label
+                  class="block text-xs mb-1"
+                  style="color: var(--text-hint)"
+                >收款資訊圖片（選填，例如轉帳 QR Code、銀行帳戶截圖）</label>
+                <div class="mb-4">
+                  <div
+                    v-if="store.currentCourse?.paymentInfoImage"
+                    class="rounded-xl overflow-hidden cursor-pointer"
+                    style="max-width: 240px"
+                    @click="pickPaymentImage"
+                  >
+                    <img
+                      :src="imgUrl(store.currentCourse.paymentInfoImage)"
+                      alt="收款資訊圖片"
+                      class="w-full h-auto block"
+                    >
+                  </div>
+                  <div
+                    v-else
+                    class="h-24 rounded-xl flex items-center justify-center cursor-pointer"
+                    style="background-color: var(--surface2); max-width: 240px"
+                    @click="pickPaymentImage"
+                  >
+                  <span
+                    class="text-sm"
+                    style="color: var(--text-hint)"
+                  >
+                    {{ paymentImageUploading ? '上傳中…' : '點擊上傳圖片' }}
+                  </span>
+                  </div>
+                  <div class="flex items-center gap-3 mt-1.5">
+                    <p
+                      v-if="store.currentCourse?.paymentInfoImage"
+                      class="text-xs"
+                      style="color: var(--text-hint)"
+                    >
+                      {{ paymentImageUploading ? '處理中…' : '點擊圖片可更換' }}
+                    </p>
+                    <button
+                      v-if="store.currentCourse?.paymentInfoImage"
+                      class="text-xs"
+                      style="color: #ef4444"
+                      :disabled="paymentImageUploading"
+                      @click="removePaymentImage"
+                    >
+                      移除圖片
+                    </button>
+                  </div>
+                  <input
+                    ref="paymentImageInput"
+                    type="file"
+                    accept="image/*"
+                    class="hidden"
+                    @change="onPaymentImageChange"
+                  >
+                </div>
 
                 <div class="flex items-center justify-between mb-2">
                   <label
