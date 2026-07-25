@@ -1,8 +1,8 @@
 <script setup>
 // 專案holy-mother-farm 位置staff/management/course/[id]/index.vue
-import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
+import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
-definePageMeta({layout: 'staff'})
+definePageMeta({ layout: 'staff' })
 
 const commonStore = useCommonStore()
 const imgUrl = (path) => {
@@ -18,7 +18,7 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
-const toast = reactive({show: false, message: '', error: false})
+const toast = reactive({ show: false, message: '', error: false })
 const showToast = (msg, error = false) => {
   toast.message = msg
   toast.error = error
@@ -129,14 +129,14 @@ const onCoverChange = async (e) => {
 
 // ── 欄位編輯器 ────────────────────────────────────────────────
 const FIELD_TYPES = [
-  {value: 'text', label: '單行文字'},
-  {value: 'textarea', label: '多行文字'},
-  {value: 'radio', label: '單選'},
-  {value: 'checkbox', label: '多選'},
-  {value: 'select', label: '下拉選單'},
-  {value: 'date', label: '日期'},
-  {value: 'image', label: '圖片上傳（報名者填答）'},
-  {value: 'display_image', label: '純展示圖片（不算答案）'}
+  { value: 'text', label: '單行文字' },
+  { value: 'textarea', label: '多行文字' },
+  { value: 'radio', label: '單選' },
+  { value: 'checkbox', label: '多選' },
+  { value: 'select', label: '下拉選單' },
+  { value: 'date', label: '日期' },
+  { value: 'image', label: '圖片上傳（報名者填答）' },
+  { value: 'display_image', label: '純展示圖片（不算答案）' }
 ]
 const needsOptions = type => ['radio', 'checkbox', 'select'].includes(type)
 
@@ -151,7 +151,7 @@ const addField = () => {
   })
 }
 const removeField = idx => fieldsDraft.value.splice(idx, 1)
-const fieldDeleteConfirm = reactive({show: false, idx: -1})
+const fieldDeleteConfirm = reactive({ show: false, idx: -1 })
 const askRemoveField = (idx) => {
   fieldDeleteConfirm.idx = idx
   fieldDeleteConfirm.show = true
@@ -244,257 +244,272 @@ const saveFields = async () => {
 
       <template v-else>
         <div class="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
-          <!-- 基本資訊 -->
-          <div
-            class="rounded-2xl border p-5 mb-5"
-            style="background: var(--surface); border-color: var(--border-light)"
-          >
-            <h2
-              class="font-bold mb-4"
-              style="color: var(--text-base)"
+          <!-- 左欄：基本資訊 -->
+          <div>
+            <!-- 基本資訊 -->
+            <div
+              class="rounded-2xl border p-5 mb-5"
+              style="background: var(--surface); border-color: var(--border-light)"
             >
-              基本資訊
-            </h2>
+              <h2
+                class="font-bold mb-4"
+                style="color: var(--text-base)"
+              >
+                基本資訊
+              </h2>
 
-            <div class="mb-4">
-              <div
-                v-if="store.currentCourse?.coverImage"
-                class="rounded-xl overflow-hidden cursor-pointer"
-                @click="pickCover"
-              >
-                <img
-                  :src="imgUrl(store.currentCourse.coverImage)"
-                  :alt="store.currentCourse.name"
-                  class="w-full h-auto block"
+              <div class="mb-4">
+                <div
+                  v-if="store.currentCourse?.coverImage"
+                  class="rounded-xl overflow-hidden cursor-pointer"
+                  @click="pickCover"
                 >
-              </div>
-              <div
-                v-else
-                class="h-40 rounded-xl flex items-center justify-center cursor-pointer"
-                style="background-color: var(--surface2)"
-                @click="pickCover"
-              >
+                  <img
+                    :src="imgUrl(store.currentCourse.coverImage)"
+                    :alt="store.currentCourse.name"
+                    class="w-full h-auto block"
+                  >
+                </div>
+                <div
+                  v-else
+                  class="h-40 rounded-xl flex items-center justify-center cursor-pointer"
+                  style="background-color: var(--surface2)"
+                  @click="pickCover"
+                >
                 <span
                   class="text-sm"
                   style="color: var(--text-hint)"
                 >
                   {{ coverUploading ? '上傳中…' : '點擊上傳封面圖' }}
                 </span>
-              </div>
-              <p
-                v-if="store.currentCourse?.coverImage"
-                class="text-xs mt-1.5"
-                style="color: var(--text-hint)"
-              >
-                {{ coverUploading ? '上傳中…' : '點擊圖片可更換封面' }}
-              </p>
-              <input
-                ref="coverInput"
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="onCoverChange"
-              >
-            </div>
-
-            <label
-              class="block text-xs mb-1"
-              style="color: var(--text-hint)"
-            >課程名稱</label>
-            <input
-              v-model="nameInput"
-              type="text"
-              class="w-full border rounded-lg px-3 py-2 mb-3"
-              style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-            >
-
-            <label
-              class="block text-xs mb-1"
-              style="color: var(--text-hint)"
-            >課程說明</label>
-            <textarea
-              ref="descriptionTextarea"
-              v-model="descriptionInput"
-              rows="3"
-              class="w-full border rounded-lg px-3 py-2 mb-3 resize-none"
-              style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-              @input="autoGrow(descriptionTextarea)"
-            />
-
-            <div class="grid grid-cols-2 gap-3 mb-4">
-              <div>
-                <label
-                  class="block text-xs mb-1"
+                </div>
+                <p
+                  v-if="store.currentCourse?.coverImage"
+                  class="text-xs mt-1.5"
                   style="color: var(--text-hint)"
-                >報名截止時間（留空 = 不限）</label>
+                >
+                  {{ coverUploading ? '上傳中…' : '點擊圖片可更換封面' }}
+                </p>
                 <input
-                  v-model="deadlineInput"
-                  type="datetime-local"
-                  class="w-full border rounded-lg px-3 py-2"
-                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  ref="coverInput"
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="onCoverChange"
                 >
               </div>
-              <div>
-                <label
-                  class="block text-xs mb-1"
-                  style="color: var(--text-hint)"
-                >名額上限（0 = 不限）</label>
-                <input
-                  v-model.number="capacityInput"
-                  type="number"
-                  min="0"
-                  class="w-full border rounded-lg px-3 py-2"
-                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-                >
-              </div>
-            </div>
 
-            <label
-              class="flex items-center gap-2 text-sm mb-4 cursor-pointer"
-              style="color: var(--text-base)"
-            >
-              <input
-                v-model="requireLoginInput"
-                type="checkbox"
-              >
-              需要登入才能填寫報名表單
-            </label>
-            <p
-              class="text-xs -mt-3 mb-4"
-              style="color: var(--text-hint)"
-            >
-              取消勾選後，前台不會再擋「請先登入」，任何人都能直接填表送出報名（無法追蹤重複報名，也無法自行修改／取消）。
-            </p>
-
-            <button
-              class="px-4 py-2 rounded-lg text-sm text-white"
-              style="background: var(--accent)"
-              :disabled="saving"
-              @click="saveInfo"
-            >
-              {{ saving ? '儲存中…' : '儲存基本資訊' }}
-            </button>
-          </div>
-
-          <!-- 繳費設定（人工核對版，不接金流） -->
-          <div
-            class="rounded-2xl border p-5 mb-5"
-            style="background: var(--surface); border-color: var(--border-light)"
-          >
-            <h2
-              class="font-bold mb-1"
-              style="color: var(--text-base)"
-            >
-              繳費設定
-            </h2>
-            <p
-              class="text-xs mb-4"
-              style="color: var(--text-hint)"
-            >
-              不接第三方金流，報名者匯款後由後台人工核對、手動勾選已收款；未繳費不影響報名成立，也不會被算進名額。
-            </p>
-
-            <label
-              class="flex items-center gap-2 text-sm mb-3 cursor-pointer"
-              style="color: var(--text-base)"
-            >
-              <input
-                v-model="paymentEnabledInput"
-                type="checkbox"
-              >
-              開啟繳費追蹤（報名表單會多一步「選擇價格」）
-            </label>
-
-            <template v-if="paymentEnabledInput">
               <label
                 class="block text-xs mb-1"
                 style="color: var(--text-hint)"
-              >收款資訊（顯示給報名者看，例如銀行代碼／戶名／帳號）</label>
-              <textarea
-                v-model="paymentInfoInput"
-                rows="2"
-                class="w-full border rounded-lg px-3 py-2 mb-4 resize-none"
+              >課程名稱</label>
+              <input
+                v-model="nameInput"
+                type="text"
+                class="w-full border rounded-lg px-3 py-2 mb-3"
                 style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+              >
+
+              <label
+                class="block text-xs mb-1"
+                style="color: var(--text-hint)"
+              >課程說明</label>
+              <textarea
+                ref="descriptionTextarea"
+                v-model="descriptionInput"
+                rows="3"
+                class="w-full border rounded-lg px-3 py-2 mb-3 resize-none"
+                style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                @input="autoGrow(descriptionTextarea)"
               />
 
-              <div class="flex items-center justify-between mb-2">
-                <label
-                  class="block text-xs"
-                  style="color: var(--text-hint)"
-                >價格選項（例如早鳥價／現場價，至少要有一個報名者才選得到）</label>
-                <button
-                  class="text-xs px-2 py-1 rounded-lg border"
-                  style="border-color: var(--border-light); color: var(--text-muted)"
-                  @click="addPriceOption"
+              <div class="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label
+                    class="block text-xs mb-1"
+                    style="color: var(--text-hint)"
+                  >報名截止時間（留空 = 不限）</label>
+                  <input
+                    v-model="deadlineInput"
+                    type="datetime-local"
+                    class="w-full border rounded-lg px-3 py-2"
+                    style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  >
+                </div>
+                <div>
+                  <label
+                    class="block text-xs mb-1"
+                    style="color: var(--text-hint)"
+                  >名額上限（0 = 不限）</label>
+                  <input
+                    v-model.number="capacityInput"
+                    type="number"
+                    min="0"
+                    class="w-full border rounded-lg px-3 py-2"
+                    style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  >
+                </div>
+              </div>
+
+              <label
+                class="flex items-center gap-2 text-sm mb-4 cursor-pointer"
+                style="color: var(--text-base)"
+              >
+                <input
+                  v-model="requireLoginInput"
+                  type="checkbox"
                 >
-                  ＋ 新增價格
+                需要登入才能填寫報名表單
+              </label>
+              <p
+                class="text-xs -mt-3 mb-4"
+                style="color: var(--text-hint)"
+              >
+                取消勾選後，前台不會再擋「請先登入」，任何人都能直接填表送出報名（無法追蹤重複報名，也無法自行修改／取消）。
+              </p>
+
+              <button
+                class="px-4 py-2 rounded-lg text-sm text-white"
+                style="background: var(--accent)"
+                :disabled="saving"
+                @click="saveInfo"
+              >
+                {{ saving ? '儲存中…' : '儲存基本資訊' }}
+              </button>
+            </div>
+          </div><!-- /左欄 -->
+
+          <!-- 右欄：表單欄位編輯器 + 繳費設定 -->
+          <div>
+            <!-- 表單欄位編輯器 -->
+            <div
+              class="rounded-2xl border p-5 mb-5"
+              style="background: var(--surface); border-color: var(--border-light)"
+            >
+              <div class="flex items-center justify-between mb-4">
+                <h2
+                  class="font-bold text-lg"
+                  style="color: var(--text-base)"
+                >
+                  報名表單欄位
+                </h2>
+                <button
+                  class="text-xs px-3 py-1.5 rounded-lg border"
+                  style="border-color: var(--border-light); color: var(--text-muted)"
+                  @click="addField"
+                >
+                  ＋ 新增欄位
                 </button>
               </div>
 
+              <p
+                v-if="fieldsDraft.length === 0"
+                class="text-sm text-center py-6"
+                style="color: var(--text-hint)"
+              >
+                還沒有自訂欄位，報名者只需要用 Google 帳號登入即可報名。
+              </p>
+
               <div
-                v-for="(p, idx) in priceOptionsDraft"
+                v-for="(field, idx) in fieldsDraft"
                 :key="idx"
-                class="border rounded-xl p-2.5 mb-2"
+                class="border rounded-xl p-3 mb-3"
                 style="border-color: var(--border-light)"
               >
-                <div class="flex items-center gap-2">
+                <div class="flex items-start gap-2 mb-2">
                   <input
-                    v-model="p.label"
+                    v-model="field.label"
                     type="text"
-                    placeholder="價格名稱，例如：早鳥價"
+                    placeholder="欄位標題，例如：姓名"
                     class="flex-1 border rounded-lg px-3 py-1.5 text-sm"
                     style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                   >
-                  <div class="flex items-center gap-1">
-                    <span
-                      class="text-sm"
-                      style="color: var(--text-hint)"
-                    >$</span>
+                  <select
+                    v-model="field.type"
+                    class="border rounded-lg px-2 py-1.5 text-sm"
+                    style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  >
+                    <option
+                      v-for="t in FIELD_TYPES"
+                      :key="t.value"
+                      :value="t.value"
+                    >
+                      {{ t.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- display_image：純展示用圖片網址 -->
+                <input
+                  v-if="field.type === 'display_image'"
+                  v-model="field.imageUrl"
+                  type="text"
+                  placeholder="圖片網址（可先用「答案圖片上傳」API 上傳後貼路徑）"
+                  class="w-full border rounded-lg px-3 py-1.5 text-sm mb-2"
+                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                >
+
+                <!-- 選項（單選/多選/下拉） -->
+                <div
+                  v-if="needsOptions(field.type)"
+                  class="mb-2"
+                >
+                  <div
+                    v-for="(opt, oi) in field.options"
+                    :key="oi"
+                    class="flex items-center gap-2 mb-1"
+                  >
                     <input
-                      v-model.number="p.amount"
-                      type="number"
-                      min="0"
-                      class="w-24 border rounded-lg px-2 py-1.5 text-sm"
+                      v-model="field.options[oi]"
+                      type="text"
+                      :placeholder="`選項 ${oi + 1}`"
+                      class="flex-1 border rounded-lg px-3 py-1 text-sm"
                       style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                     >
+                    <button
+                      class="text-xs px-2"
+                      style="color: var(--text-hint)"
+                      @click="removeOption(field, oi)"
+                    >
+                      ✕
+                    </button>
                   </div>
                   <button
-                    class="text-xs px-2"
-                    style="color: var(--text-hint)"
-                    @click="removePriceOption(idx)"
+                    class="text-xs"
+                    style="color: var(--accent)"
+                    @click="addOption(field)"
                   >
-                    ✕
+                    ＋ 新增選項
                   </button>
                 </div>
 
-                <!-- 顯示條件：只有選到指定值時，這個價格選項才會出現在報名表單上
-                     （例如「課程選擇」＝「整月」才顯示「單人 8 堂優惠」） -->
+                <!-- 顯示條件：只有選到指定值時，這個欄位才會出現在報名表單上 -->
                 <div
-                  v-if="choiceFields.length > 0"
-                  class="flex items-center flex-wrap gap-2 text-xs mt-2 pt-2"
-                  style="border-top: 1px dashed var(--border-light); color: var(--text-muted)"
+                  v-if="priorChoiceFields(idx).length > 0"
+                  class="flex items-center flex-wrap gap-2 text-sm mb-2 pb-2"
+                  style="border-bottom: 1px dashed var(--border-light); color: var(--text-muted)"
                 >
                   <span>顯示條件</span>
                   <select
-                    v-model="p.dependsOn"
+                    v-model="field.dependsOn"
                     class="border rounded-lg px-2 py-1"
                     style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-                    @change="p.dependsOnValue = ''"
+                    @change="field.dependsOnValue = ''"
                   >
                     <option value="">
                       一律顯示
                     </option>
                     <option
-                      v-for="cf in choiceFields"
-                      :key="cf.id"
-                      :value="cf.id"
+                      v-for="pf in priorChoiceFields(idx)"
+                      :key="pf.id"
+                      :value="pf.id"
                     >
-                      當「{{ cf.label || '未命名欄位' }}」＝
+                      當「{{ pf.label || '未命名欄位' }}」＝
                     </option>
                   </select>
                   <select
-                    v-if="p.dependsOn"
-                    v-model="p.dependsOnValue"
+                    v-if="field.dependsOn"
+                    v-model="field.dependsOnValue"
                     class="border rounded-lg px-2 py-1"
                     style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                   >
@@ -502,7 +517,7 @@ const saveFields = async () => {
                       請選擇值
                     </option>
                     <option
-                      v-for="opt in priceFieldOptionsById(p.dependsOn)"
+                      v-for="opt in fieldOptionsById(field.dependsOn)"
                       :key="opt"
                       :value="opt"
                     >
@@ -510,228 +525,219 @@ const saveFields = async () => {
                     </option>
                   </select>
                 </div>
+
+                <div
+                  class="flex items-center justify-between text-sm"
+                  style="color: var(--text-muted)"
+                >
+                  <div class="flex items-center gap-4">
+                    <label
+                      v-if="field.type !== 'display_image'"
+                      class="flex items-center gap-1"
+                    >
+                      <input
+                        v-model="field.required"
+                        type="checkbox"
+                      > 必填
+                    </label>
+                    <label
+                      v-if="needsOptions(field.type)"
+                      class="flex items-center gap-1"
+                    >
+                      <input
+                        v-model="field.allowNote"
+                        type="checkbox"
+                      > 加開「其他，請說明」
+                    </label>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      :disabled="idx === 0"
+                      @click="moveField(idx, -1)"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      :disabled="idx === fieldsDraft.length - 1"
+                      @click="moveField(idx, 1)"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      class="text-red-500"
+                      @click="askRemoveField(idx)"
+                    >
+                      刪除欄位
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <p
-                v-if="priceOptionsDraft.length === 0"
-                class="text-xs mb-2"
-                style="color: var(--text-hint)"
-              >
-                還沒有任何價格選項，報名者會看不到可以選的價格，請先新增至少一個。
-              </p>
-            </template>
-
-            <button
-              class="px-4 py-2 rounded-lg text-sm text-white mt-2"
-              style="background: var(--accent)"
-              :disabled="savingPayment"
-              @click="savePayment"
-            >
-              {{ savingPayment ? '儲存中…' : '儲存繳費設定' }}
-            </button>
-          </div>
-
-          <!-- 表單欄位編輯器 -->
-          <div
-            class="rounded-2xl border p-5 mb-5"
-            style="background: var(--surface); border-color: var(--border-light)"
-          >
-            <div class="flex items-center justify-between mb-4">
-              <h2
-                class="font-bold text-lg"
-                style="color: var(--text-base)"
-              >
-                報名表單欄位
-              </h2>
               <button
-                class="text-xs px-3 py-1.5 rounded-lg border"
-                style="border-color: var(--border-light); color: var(--text-muted)"
-                @click="addField"
+                class="px-4 py-2 rounded-lg text-sm text-white mt-2"
+                style="background: var(--accent)"
+                :disabled="savingFields"
+                @click="saveFields"
               >
-                ＋ 新增欄位
+                {{ savingFields ? '儲存中…' : '儲存表單欄位' }}
               </button>
             </div>
 
-            <p
-              v-if="fieldsDraft.length === 0"
-              class="text-sm text-center py-6"
-              style="color: var(--text-hint)"
-            >
-              還沒有自訂欄位，報名者只需要用 Google 帳號登入即可報名。
-            </p>
-
+            <!-- 繳費設定（人工核對版，不接金流） -->
             <div
-              v-for="(field, idx) in fieldsDraft"
-              :key="idx"
-              class="border rounded-xl p-3 mb-3"
-              style="border-color: var(--border-light)"
+              class="rounded-2xl border p-5 mb-5"
+              style="background: var(--surface); border-color: var(--border-light)"
             >
-              <div class="flex items-start gap-2 mb-2">
+              <h2
+                class="font-bold mb-1"
+                style="color: var(--text-base)"
+              >
+                繳費設定
+              </h2>
+              <p
+                class="text-xs mb-4"
+                style="color: var(--text-hint)"
+              >
+                不接第三方金流，報名者匯款後由後台人工核對、手動勾選已收款；未繳費不影響報名成立，也不會被算進名額。
+              </p>
+
+              <label
+                class="flex items-center gap-2 text-sm mb-3 cursor-pointer"
+                style="color: var(--text-base)"
+              >
                 <input
-                  v-model="field.label"
-                  type="text"
-                  placeholder="欄位標題，例如：姓名"
-                  class="flex-1 border rounded-lg px-3 py-1.5 text-sm"
-                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  v-model="paymentEnabledInput"
+                  type="checkbox"
                 >
-                <select
-                  v-model="field.type"
-                  class="border rounded-lg px-2 py-1.5 text-sm"
-                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-                >
-                  <option
-                    v-for="t in FIELD_TYPES"
-                    :key="t.value"
-                    :value="t.value"
-                  >
-                    {{ t.label }}
-                  </option>
-                </select>
-              </div>
+                開啟繳費追蹤（報名表單會多一步「選擇價格」）
+              </label>
 
-              <!-- display_image：純展示用圖片網址 -->
-              <input
-                v-if="field.type === 'display_image'"
-                v-model="field.imageUrl"
-                type="text"
-                placeholder="圖片網址（可先用「答案圖片上傳」API 上傳後貼路徑）"
-                class="w-full border rounded-lg px-3 py-1.5 text-sm mb-2"
-                style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-              >
+              <template v-if="paymentEnabledInput">
+                <label
+                  class="block text-xs mb-1"
+                  style="color: var(--text-hint)"
+                >收款資訊（顯示給報名者看，例如銀行代碼／戶名／帳號）</label>
+                <textarea
+                  v-model="paymentInfoInput"
+                  rows="2"
+                  class="w-full border rounded-lg px-3 py-2 mb-4 resize-none"
+                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                />
 
-              <!-- 選項（單選/多選/下拉） -->
-              <div
-                v-if="needsOptions(field.type)"
-                class="mb-2"
-              >
-                <div
-                  v-for="(opt, oi) in field.options"
-                  :key="oi"
-                  class="flex items-center gap-2 mb-1"
-                >
-                  <input
-                    v-model="field.options[oi]"
-                    type="text"
-                    :placeholder="`選項 ${oi + 1}`"
-                    class="flex-1 border rounded-lg px-3 py-1 text-sm"
-                    style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-                  >
-                  <button
-                    class="text-xs px-2"
+                <div class="flex items-center justify-between mb-2">
+                  <label
+                    class="block text-xs"
                     style="color: var(--text-hint)"
-                    @click="removeOption(field, oi)"
+                  >價格選項（例如早鳥價／現場價，至少要有一個報名者才選得到）</label>
+                  <button
+                    class="text-xs px-2 py-1 rounded-lg border"
+                    style="border-color: var(--border-light); color: var(--text-muted)"
+                    @click="addPriceOption"
                   >
-                    ✕
+                    ＋ 新增價格
                   </button>
                 </div>
-                <button
-                  class="text-xs"
-                  style="color: var(--accent)"
-                  @click="addOption(field)"
-                >
-                  ＋ 新增選項
-                </button>
-              </div>
 
-              <!-- 顯示條件：只有選到指定值時，這個欄位才會出現在報名表單上 -->
-              <div
-                v-if="priorChoiceFields(idx).length > 0"
-                class="flex items-center flex-wrap gap-2 text-sm mb-2 pb-2"
-                style="border-bottom: 1px dashed var(--border-light); color: var(--text-muted)"
-              >
-                <span>顯示條件</span>
-                <select
-                  v-model="field.dependsOn"
-                  class="border rounded-lg px-2 py-1"
-                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-                  @change="field.dependsOnValue = ''"
+                <div
+                  v-for="(p, idx) in priceOptionsDraft"
+                  :key="idx"
+                  class="border rounded-xl p-2.5 mb-2"
+                  style="border-color: var(--border-light)"
                 >
-                  <option value="">
-                    一律顯示
-                  </option>
-                  <option
-                    v-for="pf in priorChoiceFields(idx)"
-                    :key="pf.id"
-                    :value="pf.id"
-                  >
-                    當「{{ pf.label || '未命名欄位' }}」＝
-                  </option>
-                </select>
-                <select
-                  v-if="field.dependsOn"
-                  v-model="field.dependsOnValue"
-                  class="border rounded-lg px-2 py-1"
-                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-                >
-                  <option value="">
-                    請選擇值
-                  </option>
-                  <option
-                    v-for="opt in fieldOptionsById(field.dependsOn)"
-                    :key="opt"
-                    :value="opt"
-                  >
-                    {{ opt }}
-                  </option>
-                </select>
-              </div>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model="p.label"
+                      type="text"
+                      placeholder="價格名稱，例如：早鳥價"
+                      class="flex-1 border rounded-lg px-3 py-1.5 text-sm"
+                      style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                    >
+                    <div class="flex items-center gap-1">
+                    <span
+                      class="text-sm"
+                      style="color: var(--text-hint)"
+                    >$</span>
+                      <input
+                        v-model.number="p.amount"
+                        type="number"
+                        min="0"
+                        class="w-24 border rounded-lg px-2 py-1.5 text-sm"
+                        style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                      >
+                    </div>
+                    <button
+                      class="text-xs px-2"
+                      style="color: var(--text-hint)"
+                      @click="removePriceOption(idx)"
+                    >
+                      ✕
+                    </button>
+                  </div>
 
-              <div
-                class="flex items-center justify-between text-sm"
-                style="color: var(--text-muted)"
+                  <!-- 顯示條件：只有選到指定值時，這個價格選項才會出現在報名表單上
+                       （例如「課程選擇」＝「整月」才顯示「單人 8 堂優惠」） -->
+                  <div
+                    v-if="choiceFields.length > 0"
+                    class="flex items-center flex-wrap gap-2 text-xs mt-2 pt-2"
+                    style="border-top: 1px dashed var(--border-light); color: var(--text-muted)"
+                  >
+                    <span>顯示條件</span>
+                    <select
+                      v-model="p.dependsOn"
+                      class="border rounded-lg px-2 py-1"
+                      style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                      @change="p.dependsOnValue = ''"
+                    >
+                      <option value="">
+                        一律顯示
+                      </option>
+                      <option
+                        v-for="cf in choiceFields"
+                        :key="cf.id"
+                        :value="cf.id"
+                      >
+                        當「{{ cf.label || '未命名欄位' }}」＝
+                      </option>
+                    </select>
+                    <select
+                      v-if="p.dependsOn"
+                      v-model="p.dependsOnValue"
+                      class="border rounded-lg px-2 py-1"
+                      style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                    >
+                      <option value="">
+                        請選擇值
+                      </option>
+                      <option
+                        v-for="opt in priceFieldOptionsById(p.dependsOn)"
+                        :key="opt"
+                        :value="opt"
+                      >
+                        {{ opt }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <p
+                  v-if="priceOptionsDraft.length === 0"
+                  class="text-xs mb-2"
+                  style="color: var(--text-hint)"
+                >
+                  還沒有任何價格選項，報名者會看不到可以選的價格，請先新增至少一個。
+                </p>
+              </template>
+
+              <button
+                class="px-4 py-2 rounded-lg text-sm text-white mt-2"
+                style="background: var(--accent)"
+                :disabled="savingPayment"
+                @click="savePayment"
               >
-                <div class="flex items-center gap-4">
-                  <label
-                    v-if="field.type !== 'display_image'"
-                    class="flex items-center gap-1"
-                  >
-                    <input
-                      v-model="field.required"
-                      type="checkbox"
-                    > 必填
-                  </label>
-                  <label
-                    v-if="needsOptions(field.type)"
-                    class="flex items-center gap-1"
-                  >
-                    <input
-                      v-model="field.allowNote"
-                      type="checkbox"
-                    > 加開「其他，請說明」
-                  </label>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button
-                    :disabled="idx === 0"
-                    @click="moveField(idx, -1)"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    :disabled="idx === fieldsDraft.length - 1"
-                    @click="moveField(idx, 1)"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    class="text-red-500"
-                    @click="askRemoveField(idx)"
-                  >
-                    刪除欄位
-                  </button>
-                </div>
-              </div>
+                {{ savingPayment ? '儲存中…' : '儲存繳費設定' }}
+              </button>
             </div>
-
-            <button
-              class="px-4 py-2 rounded-lg text-sm text-white mt-2"
-              style="background: var(--accent)"
-              :disabled="savingFields"
-              @click="saveFields"
-            >
-              {{ savingFields ? '儲存中…' : '儲存表單欄位' }}
-            </button>
-          </div>
+          </div><!-- /右欄 -->
         </div>
       </template>
     </div>
