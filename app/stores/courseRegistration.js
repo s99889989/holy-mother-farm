@@ -182,6 +182,25 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
       await fetch(`${this._base()}/${id}/registration/${regId}/toggle-paid`, { method: 'PUT', credentials: 'include' })
       await this.fetchCourse(id)
     },
+    // dates: 完整陣列覆寫 ["6/30", "7/1", ...]
+    async updateSessionDates(id, dates) {
+      await fetch(`${this._base()}/${id}/session-dates`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dates })
+      })
+    },
+    // 切換某一筆報名在某個上課日期的出席狀態
+    async toggleAttendance(id, regId, date) {
+      await fetch(`${this._base()}/${id}/registration/${regId}/attendance`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date })
+      })
+      await this.fetchCourse(id)
+    },
     async reset(id) {
       await fetch(`${this._base()}/${id}/reset`, { method: 'PUT', credentials: 'include' })
       await this.fetchCourse(id)

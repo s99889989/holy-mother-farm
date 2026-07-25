@@ -40,6 +40,10 @@ const paymentInfoInput = ref('')
 const priceOptionsDraft = ref([])
 const savingPayment = ref(false)
 
+// ── 簽到日期（多堂課用）──────────────────────────────────────
+const sessionDatesDraft = ref([])
+const savingSessionDates = ref(false)
+
 const descriptionTextarea = ref(null)
 const autoGrow = (el) => {
   if (!el) return
@@ -59,6 +63,7 @@ onMounted(async () => {
   paymentEnabledInput.value = c?.paymentEnabled ?? false
   paymentInfoInput.value = c?.paymentInfo ?? ''
   priceOptionsDraft.value = JSON.parse(JSON.stringify(c?.priceOptions ?? []))
+  sessionDatesDraft.value = JSON.parse(JSON.stringify(c?.sessionDates ?? []))
   fieldsDraft.value = JSON.parse(JSON.stringify(c?.fields ?? []))
   loading.value = false
   await nextTick()
@@ -138,6 +143,27 @@ const removePaymentImage = async () => {
     showToast('移除失敗', true)
   } finally {
     paymentImageUploading.value = false
+  }
+}
+
+// ── 簽到日期（多堂課用）──────────────────────────────────────
+// 有設定日期時，報名名單頁會改成「每個日期各自勾選出席」；不設定就維持原本
+// 單一「已簽到」勾選（適合單次活動，不用特別管理日期清單）
+const addSessionDate = () => sessionDatesDraft.value.push('')
+const removeSessionDate = idx => sessionDatesDraft.value.splice(idx, 1)
+
+const saveSessionDates = async () => {
+  savingSessionDates.value = true
+  try {
+    const dates = sessionDatesDraft.value.map(d => d.trim()).filter(Boolean)
+    await store.updateSessionDates(courseId, dates)
+    await store.fetchCourse(courseId)
+    sessionDatesDraft.value = JSON.parse(JSON.stringify(store.currentCourse?.sessionDates ?? []))
+    showToast('簽到日期已儲存')
+  } catch {
+    showToast('儲存失敗', true)
+  } finally {
+    savingSessionDates.value = false
   }
 }
 
@@ -665,7 +691,6 @@ const saveFields = async () => {
                   <div
                     v-if="store.currentCourse?.paymentInfoImage"
                     class="rounded-xl overflow-hidden cursor-pointer"
-                    style="max-width: 240px"
                     @click="pickPaymentImage"
                   >
                     <img
@@ -677,7 +702,7 @@ const saveFields = async () => {
                   <div
                     v-else
                     class="h-24 rounded-xl flex items-center justify-center cursor-pointer"
-                    style="background-color: var(--surface2); max-width: 240px"
+                    style="background-color: var(--surface2)"
                     @click="pickPaymentImage"
                   >
                   <span
@@ -825,6 +850,71 @@ const saveFields = async () => {
                 @click="savePayment"
               >
                 {{ savingPayment ? '儲存中…' : '儲存繳費設定' }}
+              </button>
+            </div>
+
+            <!-- 簽到日期設定（多堂課用） -->
+            <div
+              class="rounded-2xl border p-5 mb-5"
+              style="background: var(--surface); border-color: var(--border-light)"
+            >
+              <h2
+                class="font-bold mb-1"
+                style="color: var(--text-base)"
+              >
+                簽到日期
+              </h2>
+              <p
+                class="text-xs mb-4"
+                style="color: var(--text-hint)"
+              >
+                設定這堂課的上課日期後，報名名單頁會改成每個日期各自勾選出席，用來記錄學員哪幾天有來上課；不設定就維持單一「已簽到」勾選（適合單次活動）。
+              </p>
+
+              <div
+                v-for="(d, idx) in sessionDatesDraft"
+                :key="idx"
+                class="flex items-center gap-2 mb-2"
+              >
+                <input
+                  v-model="sessionDatesDraft[idx]"
+                  type="text"
+                  placeholder="上課日期，例如：6/30"
+                  class="flex-1 border rounded-lg px-3 py-1.5 text-sm"
+                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                >
+                <button
+                  class="text-xs px-2"
+                  style="color: var(--text-hint)"
+                  @click="removeSessionDate(idx)"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p
+                v-if="sessionDatesDraft.length === 0"
+                class="text-xs mb-2"
+                style="color: var(--text-hint)"
+              >
+                還沒有設定任何上課日期。
+              </p>
+
+              <button
+                class="text-xs px-2 py-1 rounded-lg border mb-3"
+                style="border-color: var(--border-light); color: var(--text-muted)"
+                @click="addSessionDate"
+              >
+                ＋ 新增日期
+              </button>
+
+              <button
+                class="px-4 py-2 rounded-lg text-sm text-white block mt-2"
+                style="background: var(--accent)"
+                :disabled="savingSessionDates"
+                @click="saveSessionDates"
+              >
+                {{ savingSessionDates ? '儲存中…' : '儲存簽到日期' }}
               </button>
             </div>
           </div><!-- /右欄 -->
