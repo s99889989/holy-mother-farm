@@ -1,8 +1,8 @@
 <script setup>
 // 專案holy-mother-farm 位置staff/management/course/[id]/index.vue
-import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff' })
+definePageMeta({layout: 'staff'})
 
 const commonStore = useCommonStore()
 const imgUrl = (path) => {
@@ -18,7 +18,7 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
-const toast = reactive({ show: false, message: '', error: false })
+const toast = reactive({show: false, message: '', error: false})
 const showToast = (msg, error = false) => {
   toast.message = msg
   toast.error = error
@@ -87,13 +87,14 @@ const saveInfo = async () => {
 const addPriceOption = () => {
   priceOptionsDraft.value.push({
     id: 'p_' + Math.random().toString(36).slice(2, 10), // 暫時 id，儲存後後端會沿用
-    label: '', amount: 0
+    label: '', amount: 0, dependsOn: '', dependsOnValue: ''
   })
 }
 const removePriceOption = idx => priceOptionsDraft.value.splice(idx, 1)
 
 const savePayment = async () => {
   savingPayment.value = true
+  cleanInvalidPriceConditions()
   try {
     await store.updatePaymentSettings(courseId, paymentEnabledInput.value, paymentInfoInput.value)
     await store.updatePriceOptions(courseId, priceOptionsDraft.value)
@@ -128,14 +129,14 @@ const onCoverChange = async (e) => {
 
 // ── 欄位編輯器 ────────────────────────────────────────────────
 const FIELD_TYPES = [
-  { value: 'text', label: '單行文字' },
-  { value: 'textarea', label: '多行文字' },
-  { value: 'radio', label: '單選' },
-  { value: 'checkbox', label: '多選' },
-  { value: 'select', label: '下拉選單' },
-  { value: 'date', label: '日期' },
-  { value: 'image', label: '圖片上傳（報名者填答）' },
-  { value: 'display_image', label: '純展示圖片（不算答案）' }
+  {value: 'text', label: '單行文字'},
+  {value: 'textarea', label: '多行文字'},
+  {value: 'radio', label: '單選'},
+  {value: 'checkbox', label: '多選'},
+  {value: 'select', label: '下拉選單'},
+  {value: 'date', label: '日期'},
+  {value: 'image', label: '圖片上傳（報名者填答）'},
+  {value: 'display_image', label: '純展示圖片（不算答案）'}
 ]
 const needsOptions = type => ['radio', 'checkbox', 'select'].includes(type)
 
@@ -150,7 +151,7 @@ const addField = () => {
   })
 }
 const removeField = idx => fieldsDraft.value.splice(idx, 1)
-const fieldDeleteConfirm = reactive({ show: false, idx: -1 })
+const fieldDeleteConfirm = reactive({show: false, idx: -1})
 const askRemoveField = (idx) => {
   fieldDeleteConfirm.idx = idx
   fieldDeleteConfirm.show = true
@@ -174,6 +175,23 @@ const cleanInvalidConditions = () => {
     if (!stillValid) {
       f.dependsOn = ''
       f.dependsOnValue = ''
+    }
+  })
+}
+
+// 價格選項的顯示條件（例如「課程選擇」＝「整月」才出現「單人 8 堂優惠」）：
+// 價格選項不像表單欄位有排序關係，所以不用限制「只能選前面的欄位」，可以連到
+// 任何一個單選/多選/下拉欄位
+const choiceFields = computed(() => fieldsDraft.value.filter(f => needsOptions(f.type)))
+const priceFieldOptionsById = id => fieldsDraft.value.find(f => f.id === id)?.options ?? []
+// 表單欄位被刪掉或改型別後，價格選項原本設定的顯示條件可能失效，存檔前一併清掉
+const cleanInvalidPriceConditions = () => {
+  priceOptionsDraft.value.forEach(p => {
+    if (!p.dependsOn) return
+    const stillValid = choiceFields.value.some(f => f.id === p.dependsOn)
+    if (!stillValid) {
+      p.dependsOn = ''
+      p.dependsOnValue = ''
     }
   })
 }
@@ -416,35 +434,82 @@ const saveFields = async () => {
               <div
                 v-for="(p, idx) in priceOptionsDraft"
                 :key="idx"
-                class="flex items-center gap-2 mb-2"
+                class="border rounded-xl p-2.5 mb-2"
+                style="border-color: var(--border-light)"
               >
-                <input
-                  v-model="p.label"
-                  type="text"
-                  placeholder="價格名稱，例如：早鳥價"
-                  class="flex-1 border rounded-lg px-3 py-1.5 text-sm"
-                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
-                >
-                <div class="flex items-center gap-1">
-                  <span
-                    class="text-sm"
-                    style="color: var(--text-hint)"
-                  >$</span>
+                <div class="flex items-center gap-2">
                   <input
-                    v-model.number="p.amount"
-                    type="number"
-                    min="0"
-                    class="w-24 border rounded-lg px-2 py-1.5 text-sm"
+                    v-model="p.label"
+                    type="text"
+                    placeholder="價格名稱，例如：早鳥價"
+                    class="flex-1 border rounded-lg px-3 py-1.5 text-sm"
                     style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
                   >
+                  <div class="flex items-center gap-1">
+                    <span
+                      class="text-sm"
+                      style="color: var(--text-hint)"
+                    >$</span>
+                    <input
+                      v-model.number="p.amount"
+                      type="number"
+                      min="0"
+                      class="w-24 border rounded-lg px-2 py-1.5 text-sm"
+                      style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                    >
+                  </div>
+                  <button
+                    class="text-xs px-2"
+                    style="color: var(--text-hint)"
+                    @click="removePriceOption(idx)"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  class="text-xs px-2"
-                  style="color: var(--text-hint)"
-                  @click="removePriceOption(idx)"
+
+                <!-- 顯示條件：只有選到指定值時，這個價格選項才會出現在報名表單上
+                     （例如「課程選擇」＝「整月」才顯示「單人 8 堂優惠」） -->
+                <div
+                  v-if="choiceFields.length > 0"
+                  class="flex items-center flex-wrap gap-2 text-xs mt-2 pt-2"
+                  style="border-top: 1px dashed var(--border-light); color: var(--text-muted)"
                 >
-                  ✕
-                </button>
+                  <span>顯示條件</span>
+                  <select
+                    v-model="p.dependsOn"
+                    class="border rounded-lg px-2 py-1"
+                    style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                    @change="p.dependsOnValue = ''"
+                  >
+                    <option value="">
+                      一律顯示
+                    </option>
+                    <option
+                      v-for="cf in choiceFields"
+                      :key="cf.id"
+                      :value="cf.id"
+                    >
+                      當「{{ cf.label || '未命名欄位' }}」＝
+                    </option>
+                  </select>
+                  <select
+                    v-if="p.dependsOn"
+                    v-model="p.dependsOnValue"
+                    class="border rounded-lg px-2 py-1"
+                    style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  >
+                    <option value="">
+                      請選擇值
+                    </option>
+                    <option
+                      v-for="opt in priceFieldOptionsById(p.dependsOn)"
+                      :key="opt"
+                      :value="opt"
+                    >
+                      {{ opt }}
+                    </option>
+                  </select>
+                </div>
               </div>
 
               <p
