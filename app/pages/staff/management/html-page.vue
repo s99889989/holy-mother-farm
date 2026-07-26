@@ -23,6 +23,41 @@
     <!-- 內容區 -->
     <div class="max-w-2xl mx-auto px-3 sm:px-4 py-4">
 
+      <!-- 分類篩選 -->
+      <div v-if="!loading" class="flex items-center gap-2 mb-3 overflow-x-auto pb-1">
+        <button @click="categoryFilter = ''"
+                class="px-3 py-1.5 rounded-full whitespace-nowrap transition-colors flex-shrink-0"
+                :class="categoryFilter === ''
+                  ? 'bg-green-700 text-white'
+                  : 'bg-surface border border-light-c text-hint-c hover-surface2'"
+                style="font-size:12px">
+          全部 ({{ pageList.length }})
+        </button>
+        <div v-for="cat in categoryCounts" :key="cat.name"
+             class="relative flex-shrink-0 group">
+          <button @click="categoryFilter = cat.name"
+                  class="px-3 py-1.5 rounded-full whitespace-nowrap transition-colors"
+                  :class="categoryFilter === cat.name
+                    ? 'bg-green-700 text-white'
+                    : 'bg-surface border border-light-c text-hint-c hover-surface2'"
+                  style="font-size:12px">
+            {{ cat.name }} ({{ cat.count }})
+          </button>
+          <button v-if="cat.count === 0" @click="removeCategory(cat.name)"
+                  title="移除這個尚未使用的分類"
+                  class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex"
+                  style="font-size:10px; line-height:1">×</button>
+        </div>
+        <button @click="openAddCategory"
+                class="px-3 py-1.5 rounded-full whitespace-nowrap border border-dashed border-light-c text-hint-c hover-surface2 transition-colors flex-shrink-0 flex items-center gap-1"
+                style="font-size:12px">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+          </svg>
+          新增分類
+        </button>
+      </div>
+
       <!-- 載入中 -->
       <div v-if="loading" class="text-center py-8 text-hint-c" style="font-size:13px">載入中...</div>
 
@@ -34,15 +69,33 @@
           <p style="font-size:13px">目前沒有頁面，點「上傳 HTML」開始新增</p>
         </div>
 
+        <!-- 篩選後無結果 -->
+        <div v-else-if="filteredList.length === 0"
+             class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
+          <p style="font-size:13px">此分類目前沒有頁面</p>
+        </div>
+
         <!-- 列表 -->
         <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
-          <div v-for="(page, idx) in pageList" :key="page.slug">
+          <div v-for="(page, idx) in filteredList" :key="page.slug">
             <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 px-4 py-3">
               <div class="flex items-center gap-3 min-w-0">
                 <div class="text-xl flex-shrink-0">📄</div>
                 <div class="flex-1 min-w-0">
                   <p class="font-semibold text-base-c truncate" style="font-size:14px">{{ page.title }}</p>
-                  <p class="text-hint-c font-mono truncate mt-0.5" style="font-size:11px">/html/{{ page.slug }}</p>
+                  <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <p class="text-hint-c font-mono truncate" style="font-size:11px">/html/{{ page.slug }}</p>
+                    <select :value="page.category || ''"
+                            @change="quickSetCategory(page, $event.target.value)"
+                            class="px-1.5 py-0.5 rounded-md border outline-none cursor-pointer"
+                            :class="page.category
+                              ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20'
+                              : 'bg-surface2 text-hint-c border-light-c'"
+                            style="font-size:10px">
+                      <option value="">未分類</option>
+                      <option v-for="cat in allCategories" :key="cat" :value="cat">{{ cat }}</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <div class="flex gap-1.5 flex-wrap sm:flex-none sm:justify-end">
@@ -66,7 +119,7 @@
                         style="font-size:12px">刪除</button>
               </div>
             </div>
-            <div v-if="idx < pageList.length - 1"
+            <div v-if="idx < filteredList.length - 1"
                  class="border-b border-dashed border-light-c mx-4"></div>
           </div>
         </div>
@@ -98,6 +151,20 @@
             <input v-model="form.title" placeholder="顯示用的標題"
                    class="w-full px-3 py-2 rounded-xl border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-600"
                    style="font-size:14px"/>
+          </div>
+
+          <!-- 分類 -->
+          <div>
+            <label class="text-hint-c font-semibold block mb-1" style="font-size:12px">
+              分類 <span class="font-normal">— 選填，可自訂新分類</span>
+            </label>
+            <input v-model="form.category" placeholder="例如：活動頁、公告、表單"
+                   list="html-page-category-options"
+                   class="w-full px-3 py-2 rounded-xl border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-600"
+                   style="font-size:14px"/>
+            <datalist id="html-page-category-options">
+              <option v-for="cat in allCategories" :key="cat" :value="cat"/>
+            </datalist>
           </div>
 
           <!-- Slug -->
@@ -281,6 +348,26 @@
       </div>
     </div>
 
+    <!-- 新增分類 -->
+    <div v-if="categoryModal.show"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <h3 class="font-bold text-base-c mb-3" style="font-size:15px">新增分類</h3>
+        <input v-model="categoryModal.name" placeholder="例如：活動頁、公告、表單"
+               @keyup.enter="submitAddCategory"
+               class="w-full px-3 py-2 rounded-xl border border-light-c bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-600 mb-4"
+               style="font-size:14px"/>
+        <div class="flex justify-end gap-2">
+          <button @click="categoryModal.show = false"
+                  class="px-4 py-2 rounded-xl bg-surface2 text-muted-c hover-surface2 transition-colors"
+                  style="font-size:13px">取消</button>
+          <button @click="submitAddCategory" :disabled="savingCategory"
+                  class="px-4 py-2 rounded-xl bg-green-700 text-white hover:bg-green-800 disabled:opacity-50 transition-colors"
+                  style="font-size:13px">新增</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast -->
     <Transition name="fade">
       <div v-if="toast.show"
@@ -313,9 +400,89 @@ const modal = reactive({show: false, mode: 'add'})
 const showDeleteConfirm = ref(false)
 const deleteTarget = reactive({slug: '', title: ''})
 
-const form = reactive({slug: '', title: '', file: null, ogImage: null})
+const form = reactive({slug: '', title: '', category: '', file: null, ogImage: null})
 const fileName = ref('')
 const ogImageName = ref('')
+
+// ── 分類篩選 / 分類清單（後端儲存，可以在還沒有任何頁面使用前先建立） ──
+const categoryFilter = ref('')
+const allCategories = ref([]) // 來自 GET /categories：已使用過的 + 事先建立但尚未使用的
+
+const fetchCategories = async () => {
+  try {
+    allCategories.value = await (await fetch(`${BASE()}/categories`)).json()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const categoryCounts = computed(() =>
+  allCategories.value.map(name => ({
+    name,
+    count: pageList.value.filter(p => p.category === name).length
+  }))
+)
+
+const filteredList = computed(() => {
+  if (!categoryFilter.value) return pageList.value
+  return pageList.value.filter(p => p.category === categoryFilter.value)
+})
+
+// ── 新增分類 Modal ──────────────────────────────────────────
+const categoryModal = reactive({show: false, name: ''})
+const savingCategory = ref(false)
+
+const openAddCategory = () => {
+  categoryModal.name = ''
+  categoryModal.show = true
+}
+
+const submitAddCategory = async () => {
+  const name = categoryModal.name.trim()
+  if (!name) {
+    showToast('請輸入分類名稱', true)
+    return
+  }
+  savingCategory.value = true
+  try {
+    const fd = new FormData()
+    fd.append('name', name)
+    allCategories.value = await (await fetch(`${BASE()}/categories`, {method: 'POST', body: fd})).json()
+    showToast('已新增分類')
+    categoryModal.show = false
+  } catch {
+    showToast('新增分類失敗', true)
+  } finally {
+    savingCategory.value = false
+  }
+}
+
+const removeCategory = async (name) => {
+  try {
+    allCategories.value = await (await fetch(`${BASE()}/categories/${encodeURIComponent(name)}`, {method: 'DELETE'})).json()
+    if (categoryFilter.value === name) categoryFilter.value = ''
+    showToast('已移除分類')
+  } catch {
+    showToast('移除失敗', true)
+  }
+}
+
+// ── 每個項目快速切換分類（不用打開編輯 Modal） ─────────────────
+const quickSetCategory = async (page, category) => {
+  const prev = page.category
+  page.category = category
+  try {
+    const fd = new FormData()
+    fd.append('title', page.title)
+    fd.append('category', category)
+    await fetch(`${BASE()}/update/${page.slug}`, {method: 'POST', body: fd})
+    showToast('分類已更新')
+    if (category && !allCategories.value.includes(category)) allCategories.value.push(category)
+  } catch {
+    page.category = prev
+    showToast('更新分類失敗', true)
+  }
+}
 
 // OG 圖片預覽相關狀態
 const ogPreviewBroken = ref(false)
@@ -347,6 +514,7 @@ const openAdd = () => {
   modal.mode = 'add'
   form.slug = '';
   form.title = '';
+  form.category = '';
   form.file = null;
   fileName.value = ''
   form.ogImage = null;
@@ -359,6 +527,7 @@ const openEdit = (page) => {
   modal.mode = 'edit'
   form.slug = page.slug
   form.title = page.title
+  form.category = page.category || ''
   form.file = null;
   fileName.value = ''
   form.ogImage = null;
@@ -422,6 +591,7 @@ const save = async () => {
   try {
     const fd = new FormData()
     fd.append('title', form.title.trim())
+    fd.append('category', form.category.trim())
     if (form.ogImage) fd.append('ogImage', form.ogImage)
     if (modal.mode === 'add') {
       fd.append('slug', form.slug.trim())
@@ -434,6 +604,7 @@ const save = async () => {
     showToast(modal.mode === 'edit' ? '儲存成功' : '上傳成功')
     modal.show = false
     await fetchList()
+    await fetchCategories()
   } catch {
     showToast('操作失敗', true)
   } finally {
@@ -489,13 +660,14 @@ const downloadContentModal = () => {
 }
 
 // ── 內容編輯（直接在網頁上改 HTML，右側即時預覽） ──────────────
-const contentModal = reactive({show: false, slug: '', title: '', content: '', loading: false})
+const contentModal = reactive({show: false, slug: '', title: '', category: '', content: '', loading: false})
 const savingContent = ref(false)
 const previewFrame = ref(null)
 
 const openContentEditor = async (page) => {
   contentModal.slug = page.slug
   contentModal.title = page.title
+  contentModal.category = page.category || ''
   contentModal.content = ''
   contentModal.loading = true
   contentModal.show = true
@@ -531,6 +703,7 @@ const saveContent = async () => {
     const file = new File([blob], contentModal.slug + '.html', {type: 'text/html'})
     const fd = new FormData()
     fd.append('title', contentModal.title)
+    fd.append('category', contentModal.category ?? '')
     fd.append('file', file)
     await fetch(`${BASE()}/update/${contentModal.slug}`, {method: 'POST', body: fd})
     showToast('內容已儲存')
@@ -543,7 +716,10 @@ const saveContent = async () => {
   }
 }
 
-onMounted(fetchList)
+onMounted(() => {
+  fetchList()
+  fetchCategories()
+})
 </script>
 
 <style scoped>
