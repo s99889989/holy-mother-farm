@@ -1,250 +1,273 @@
 <script setup>
-/**
- * 房間平面圖元件（可共用給「房間管理」與「訂房管理」）。
- *
- * 用法：
- *   <RoomFloorplan
- *     :building="grp"                     -- { id, name, rooms: [...] } 單一棟別
- *     :bookings="bookings"                 -- 全部訂單，用來判斷房間目前狀態（可省略）
- *     :selected-id="selectedRoomId"        -- 目前選取中的房間 id（不屬於這棟就傳 null）
- *     :unavailable-ids="['A203','A205']"   -- 選填：訂房流程用，標記「此日期區間已被占用」的房間
- *     reference-date="2026-08-01"          -- 選填：以哪一天判斷「住房中」，預設今天
- *     @select="room => ..."                -- 點房間時觸發，room 為 null 代表取消選取（點第二下同一間）
- *   >
- *     <template #panel-actions="{ room }">
- *       ...這裡放這個頁面自己要的按鈕（查看詳情／編輯／指派房間...）...
- *     </template>
- *   </RoomFloorplan>
- *
- * 快樂運動館（building.id === 'A'）用實際牆面手繪 SVG 當底圖，房間用小標記釘在 posX/posY 座標上；
- * 其他棟別如果房間有 posX/posY，用推算出來的線框格局；完全沒座標資料的棟別，fallback 成雙排走廊示意圖。
- */
-const props = defineProps({
-  building: { type: Object, required: true }, // { id, name, rooms: [...] }
-  bookings: { type: Array, default: () => [] },
-  selectedId: { type: String, default: null },
-  unavailableIds: { type: Array, default: () => [] },
-  referenceDate: { type: String, default: null },
-  // 選填：想要不同的房間狀態判斷邏輯時傳入（例如訂單管理要分「待確認」跟「已確認」兩種顏色），
-  // 傳入 (room) => ({ cls, label })，cls 建議用 tile-vacant / tile-occupied / tile-pending / tile-inactive / tile-unavailable 其中一種，
-  // 沒傳的話用預設邏輯（今天是否住房中）。
-  statusResolver: { type: Function, default: null }
-})
-const emit = defineEmits(['select'])
+  /**
+   * 房間平面圖元件（可共用給「房間管理」與「訂房管理」）。
+   *
+   * 用法：
+   *   <RoomFloorplan
+   *     :building="grp"                     -- { id, name, rooms: [...] } 單一棟別
+   *     :bookings="bookings"                 -- 全部訂單，用來判斷房間目前狀態（可省略）
+   *     :selected-id="selectedRoomId"        -- 目前選取中的房間 id（不屬於這棟就傳 null）
+   *     :unavailable-ids="['A203','A205']"   -- 選填：訂房流程用，標記「此日期區間已被占用」的房間
+   *     reference-date="2026-08-01"          -- 選填：以哪一天判斷「住房中」，預設今天
+   *     @select="room => ..."                -- 點房間時觸發，room 為 null 代表取消選取（點第二下同一間）
+   *   >
+   *     <template #panel-actions="{ room }">
+   *       ...這裡放這個頁面自己要的按鈕（查看詳情／編輯／指派房間...）...
+   *     </template>
+   *   </RoomFloorplan>
+   *
+   * 快樂運動館（building.id === 'A'）、合力居／愛加倍（'B' / 'C'）用實際牆面手繪 SVG 當底圖，房間用小標記釘在 posX/posY 座標上；
+   * 其他棟別如果房間有 posX/posY，用推算出來的線框格局；完全沒座標資料的棟別，fallback 成雙排走廊示意圖。
+   */
+  const props = defineProps({
+    building: { type: Object, required: true }, // { id, name, rooms: [...] }
+    bookings: { type: Array, default: () => [] },
+    selectedId: { type: String, default: null },
+    unavailableIds: { type: Array, default: () => [] },
+    referenceDate: { type: String, default: null },
+    // 選填：想要不同的房間狀態判斷邏輯時傳入（例如訂單管理要分「待確認」跟「已確認」兩種顏色），
+    // 傳入 (room) => ({ cls, label })，cls 建議用 tile-vacant / tile-occupied / tile-pending / tile-inactive / tile-unavailable 其中一種，
+    // 沒傳的話用預設邏輯（今天是否住房中）。
+    statusResolver: { type: Function, default: null }
+  })
+  const emit = defineEmits(['select'])
 
-const today = computed(() => props.referenceDate || new Date().toISOString().slice(0, 10))
+  const today = computed(() => props.referenceDate || new Date().toISOString().slice(0, 10))
 
-/* ---------------- 房間狀態 ---------------- */
+  /* ---------------- 房間狀態 ---------------- */
 
-function activeBookingForRoom(roomId) {
-  return props.bookings
-    .filter(x => x.roomId === roomId && x.status === 'confirmed' && today.value >= x.checkIn && today.value < x.checkOut)[0] || null
-}
-function defaultTileClass(r) {
-  if (!r.active) return 'tile-inactive'
-  if (props.unavailableIds.includes(r.id)) return 'tile-unavailable'
-  return activeBookingForRoom(r.id) ? 'tile-occupied' : 'tile-vacant'
-}
-function defaultTileLabel(r) {
-  if (!r.active) return '已下架'
-  if (props.unavailableIds.includes(r.id)) return '此日期不可選'
-  return activeBookingForRoom(r.id) ? '今日住房中' : '空房可用'
-}
-function tileClass(r) {
-  return props.statusResolver ? props.statusResolver(r).cls : defaultTileClass(r)
-}
-function tileLabel(r) {
-  return props.statusResolver ? props.statusResolver(r).label : defaultTileLabel(r)
-}
-const BADGE_CLASS = {
-  'tile-vacant': 'bg-emerald-100 text-emerald-700',
-  'tile-occupied': 'bg-sky-100 text-sky-700',
-  'tile-pending': 'bg-amber-100 text-amber-700',
-  'tile-inactive': 'bg-stone-200 text-stone-600',
-  'tile-unavailable': 'bg-rose-100 text-rose-700'
-}
-function badgeClass(r) {
-  return BADGE_CLASS[tileClass(r)] || 'bg-stone-100 text-stone-600'
-}
-function isSelected(room) {
-  return props.selectedId === room.id
-}
-function handleClick(room) {
-  emit('select', isSelected(room) ? null : room)
-}
-
-const selectedRoom = computed(() => props.building.rooms.find(r => r.id === props.selectedId) || null)
-
-/* ---------------- 座標系統 ----------------
-   有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox，
-   這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。
-   合力居跟愛加倍是畫在同一張圖上量出來的座標，所以共用同一組尺寸。 */
-const REAL_CANVAS = {
-  A: { w: 1360, h: 780 }, // 快樂運動館：對應手繪平面圖的 viewBox，兩邊座標系統一致
-  B: { w: 1195, h: 896 },
-  C: { w: 1195, h: 896 }
-}
-
-// 把「房間中心點座標」轉成畫布上的實際像素點，單純依比例換算，不做牆面推算。
-// 用在已經有手繪牆面底圖的棟別（例如快樂運動館）：牆是畫死的，房間只需要一個「釘」標記其位置即可。
-const pins = computed(() => {
-  const canvas = REAL_CANVAS[props.building.id]
-  if (!canvas) return []
-  return props.building.rooms
-    .filter(r => r.posX != null && r.posY != null)
-    .map(r => ({ room: r, x: r.posX / 100 * canvas.w, y: r.posY / 100 * canvas.h }))
-})
-
-/* ---------------- 沒有手繪牆面時：依座標推算的線框格局 ----------------
-   1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
-   2. 排內依 x 座標排序，相鄰房間如果間距夠近就以中點為共用牆（貼在一起，像真的隔間牆）；
-      間距太遠（樓梯間、走廊轉角等）就保留原本的間隙，不會硬黏在一起
-   3. 排與排之間的上下邊界用同樣的邏輯處理
-   這樣畫出來是彼此相連的房間方塊，而不是各自漂浮的小色塊。 */
-function buildWireframe(rooms, canvasW, canvasH) {
-  const pts = rooms.map(r => ({ room: r, x: r.posX / 100 * canvasW, y: r.posY / 100 * canvasH }))
-
-  const ROW_EPS = canvasH * 0.06
-  const rows = []
-  for (const p of [...pts].sort((a, b) => a.y - b.y)) {
-    const row = rows.find(row => Math.abs(row.reduce((s, r) => s + r.y, 0) / row.length - p.y) < ROW_EPS)
-    if (row) row.push(p)
-    else rows.push([p])
+  function activeBookingForRoom(roomId) {
+    return props.bookings
+      .filter(x => x.roomId === roomId && x.status === 'confirmed' && today.value >= x.checkIn && today.value < x.checkOut)[0] || null
   }
-  rows.forEach(row => row.sort((a, b) => a.x - b.x))
-  rows.sort((a, b) => (a.reduce((s, r) => s + r.y, 0) / a.length) - (b.reduce((s, r) => s + r.y, 0) / b.length))
+  function defaultTileClass(r) {
+    if (!r.active) return 'tile-inactive'
+    if (props.unavailableIds.includes(r.id)) return 'tile-unavailable'
+    return activeBookingForRoom(r.id) ? 'tile-occupied' : 'tile-vacant'
+  }
+  function defaultTileLabel(r) {
+    if (!r.active) return '已下架'
+    if (props.unavailableIds.includes(r.id)) return '此日期不可選'
+    return activeBookingForRoom(r.id) ? '今日住房中' : '空房可用'
+  }
+  function tileClass(r) {
+    return props.statusResolver ? props.statusResolver(r).cls : defaultTileClass(r)
+  }
+  function tileLabel(r) {
+    return props.statusResolver ? props.statusResolver(r).label : defaultTileLabel(r)
+  }
+  const BADGE_CLASS = {
+    'tile-vacant': 'bg-emerald-100 text-emerald-700',
+    'tile-occupied': 'bg-sky-100 text-sky-700',
+    'tile-pending': 'bg-amber-100 text-amber-700',
+    'tile-inactive': 'bg-stone-200 text-stone-600',
+    'tile-unavailable': 'bg-rose-100 text-rose-700'
+  }
+  function badgeClass(r) {
+    return BADGE_CLASS[tileClass(r)] || 'bg-stone-100 text-stone-600'
+  }
+  function isSelected(room) {
+    return props.selectedId === room.id
+  }
+  function handleClick(room) {
+    emit('select', isSelected(room) ? null : room)
+  }
 
-  const rowCenters = rows.map(row => row.reduce((s, r) => s + r.y, 0) / row.length)
-  const GAP_THRESH_Y = canvasH * 0.10
-  const DEFAULT_HALF_H = canvasH * 0.028
-  const rowBounds = rows.map((row, i) => {
-    const cy = rowCenters[i]
-    const top = i === 0
-      ? cy - DEFAULT_HALF_H
-      : (cy - rowCenters[i - 1] < GAP_THRESH_Y ? (cy + rowCenters[i - 1]) / 2 : cy - DEFAULT_HALF_H)
-    const bottom = i === rows.length - 1
-      ? cy + DEFAULT_HALF_H
-      : (rowCenters[i + 1] - cy < GAP_THRESH_Y ? (cy + rowCenters[i + 1]) / 2 : cy + DEFAULT_HALF_H)
-    return [top, bottom]
+  const selectedRoom = computed(() => props.building.rooms.find(r => r.id === props.selectedId) || null)
+
+  /* ---------------- 座標系統 ----------------
+     有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox，
+     這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。
+     合力居跟愛加倍是畫在同一張圖上量出來的座標，所以共用同一組尺寸。 */
+  const REAL_CANVAS = {
+    A: { w: 1360, h: 780 }, // 快樂運動館：對應手繪平面圖的 viewBox，兩邊座標系統一致
+    B: { w: 1195, h: 896 },
+    C: { w: 1195, h: 896 }
+  }
+
+  // 把「房間中心點座標」轉成畫布上的實際像素點，單純依比例換算，不做牆面推算。
+  // 用在已經有手繪牆面底圖的棟別（例如快樂運動館）：牆是畫死的，房間只需要一個「釘」標記其位置即可。
+  const pins = computed(() => {
+    const canvas = REAL_CANVAS[props.building.id]
+    if (!canvas) return []
+    return props.building.rooms
+      .filter(r => r.posX != null && r.posY != null)
+      .map(r => ({ room: r, x: r.posX / 100 * canvas.w, y: r.posY / 100 * canvas.h }))
   })
 
-  const GAP_THRESH_X = canvasW * 0.09
-  const DEFAULT_HALF_W = canvasW * 0.022
-  const positions = []
-  rows.forEach((row, ri) => {
-    const [top, bottom] = rowBounds[ri]
-    row.forEach((p, i) => {
-      const left = i === 0
-        ? p.x - DEFAULT_HALF_W
-        : (p.x - row[i - 1].x < GAP_THRESH_X ? (p.x + row[i - 1].x) / 2 : p.x - DEFAULT_HALF_W)
-      const right = i === row.length - 1
-        ? p.x + DEFAULT_HALF_W
-        : (row[i + 1].x - p.x < GAP_THRESH_X ? (p.x + row[i + 1].x) / 2 : p.x + DEFAULT_HALF_W)
-      positions.push({ room: p.room, x: left, y: top, w: right - left, h: bottom - top })
+  /* ---------------- 合力居 / 愛加倍：依現場標註照片描繪的手繪牆面 ----------------
+     兩棟畫在同一張照片上（1195×896），所以牆面底圖也共用同一份，只有房間標記（pins）依各自棟別過濾。
+     隔間牆座標依標註照片目測描出，不是逐像素精確測量，用意是提供跟實景相近的參考底圖，不是施工圖。 */
+  function evenDividers(start, end, n) {
+    const step = (end - start) / n
+    return Array.from({ length: n + 1 }, (_, i) => start + step * i)
+  }
+  function midpoints(arr) {
+    const out = []
+    for (let i = 0; i < arr.length - 1; i++) out.push((arr[i] + arr[i + 1]) / 2)
+    return out
+  }
+  // 合力居上排：217 215 213 211 209 207 205 203 201（9 間，等分）
+  const BC_ROW1_X = evenDividers(185, 1075, 9)
+  const BC_ROW1_MID = midpoints(BC_ROW1_X)
+  // 合力居下排：214／儲藏室／212 210 208 206 204／202（202 較寬，依現場比例）
+  const BC_ROW2_X = [185, 290, 330, 465, 540, 615, 705, 785, 1075]
+  // 愛加倍：204 203 202 201（4 間，等分）
+  const BC_AJB_X = evenDividers(575, 985, 4)
+  const BC_AJB_MID = midpoints(BC_AJB_X)
+  // 避免同頁面同時畫合力居／愛加倍兩個元件實例時，SVG hatch pattern 的 id 互相衝突
+  const hatchId = `fp-hatch-${Math.random().toString(36).slice(2, 9)}`
+
+  /* ---------------- 沒有手繪牆面時：依座標推算的線框格局 ----------------
+     1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
+     2. 排內依 x 座標排序，相鄰房間如果間距夠近就以中點為共用牆（貼在一起，像真的隔間牆）；
+        間距太遠（樓梯間、走廊轉角等）就保留原本的間隙，不會硬黏在一起
+     3. 排與排之間的上下邊界用同樣的邏輯處理
+     這樣畫出來是彼此相連的房間方塊，而不是各自漂浮的小色塊。 */
+  function buildWireframe(rooms, canvasW, canvasH) {
+    const pts = rooms.map(r => ({ room: r, x: r.posX / 100 * canvasW, y: r.posY / 100 * canvasH }))
+
+    const ROW_EPS = canvasH * 0.06
+    const rows = []
+    for (const p of [...pts].sort((a, b) => a.y - b.y)) {
+      const row = rows.find(row => Math.abs(row.reduce((s, r) => s + r.y, 0) / row.length - p.y) < ROW_EPS)
+      if (row) row.push(p)
+      else rows.push([p])
+    }
+    rows.forEach(row => row.sort((a, b) => a.x - b.x))
+    rows.sort((a, b) => (a.reduce((s, r) => s + r.y, 0) / a.length) - (b.reduce((s, r) => s + r.y, 0) / b.length))
+
+    const rowCenters = rows.map(row => row.reduce((s, r) => s + r.y, 0) / row.length)
+    const GAP_THRESH_Y = canvasH * 0.10
+    const DEFAULT_HALF_H = canvasH * 0.028
+    const rowBounds = rows.map((row, i) => {
+      const cy = rowCenters[i]
+      const top = i === 0
+        ? cy - DEFAULT_HALF_H
+        : (cy - rowCenters[i - 1] < GAP_THRESH_Y ? (cy + rowCenters[i - 1]) / 2 : cy - DEFAULT_HALF_H)
+      const bottom = i === rows.length - 1
+        ? cy + DEFAULT_HALF_H
+        : (rowCenters[i + 1] - cy < GAP_THRESH_Y ? (cy + rowCenters[i + 1]) / 2 : cy + DEFAULT_HALF_H)
+      return [top, bottom]
     })
-  })
 
-  // 走廊連接線：用最小生成樹（MST）把所有房間連成一整片，不管是同排/同列還是隔著樓梯間，
-  // 全部都會有一條線接起來，畫出來才會像平面圖裡「房間彼此相連」的樣子，而不是一塊塊分開飄著。
-  // 線畫在房塊「下面」，房塊蓋住線的兩端，視覺上就像走廊接到房間牆上。
-  const connectors = buildMST(pts)
+    const GAP_THRESH_X = canvasW * 0.09
+    const DEFAULT_HALF_W = canvasW * 0.022
+    const positions = []
+    rows.forEach((row, ri) => {
+      const [top, bottom] = rowBounds[ri]
+      row.forEach((p, i) => {
+        const left = i === 0
+          ? p.x - DEFAULT_HALF_W
+          : (p.x - row[i - 1].x < GAP_THRESH_X ? (p.x + row[i - 1].x) / 2 : p.x - DEFAULT_HALF_W)
+        const right = i === row.length - 1
+          ? p.x + DEFAULT_HALF_W
+          : (row[i + 1].x - p.x < GAP_THRESH_X ? (p.x + row[i + 1].x) / 2 : p.x + DEFAULT_HALF_W)
+        positions.push({ room: p.room, x: left, y: top, w: right - left, h: bottom - top })
+      })
+    })
 
-  // ---- 建築感元素：走廊留白 + 房間隔間牆 + 門符號 ----
-  // 走廊：排與排之間如果有明顯留白（沒有貼在一起），畫成一條貫穿整層的淺色走廊帶
-  const corridorBands = []
-  for (let i = 0; i < rowBounds.length - 1; i++) {
-    const gapTop = rowBounds[i][1]
-    const gapBottom = rowBounds[i + 1][0]
-    if (gapBottom - gapTop > 4) corridorBands.push({ top: gapTop, bottom: gapBottom })
-  }
-  const minX = Math.min(...positions.map(p => p.x))
-  const maxX = Math.max(...positions.map(p => p.x + p.w))
+    // 走廊連接線：用最小生成樹（MST）把所有房間連成一整片，不管是同排/同列還是隔著樓梯間，
+    // 全部都會有一條線接起來，畫出來才會像平面圖裡「房間彼此相連」的樣子，而不是一塊塊分開飄著。
+    // 線畫在房塊「下面」，房塊蓋住線的兩端，視覺上就像走廊接到房間牆上。
+    const connectors = buildMST(pts)
 
-  // 隔間牆：同一排相鄰房間如果緊貼（中間沒有走廊），畫一條共用牆的分隔線
-  const walls = []
-  rows.forEach((row) => {
-    const rowPositions = positions.filter(p => row.some(r => r.room === p.room))
-      .sort((a, b) => a.x - b.x)
-    for (let i = 0; i < rowPositions.length - 1; i++) {
-      const a = rowPositions[i], b = rowPositions[i + 1]
-      if (b.x - (a.x + a.w) < 6) walls.push({ x: a.x + a.w, y1: a.y, y2: a.y + a.h })
+    // ---- 建築感元素：走廊留白 + 房間隔間牆 + 門符號 ----
+    // 走廊：排與排之間如果有明顯留白（沒有貼在一起），畫成一條貫穿整層的淺色走廊帶
+    const corridorBands = []
+    for (let i = 0; i < rowBounds.length - 1; i++) {
+      const gapTop = rowBounds[i][1]
+      const gapBottom = rowBounds[i + 1][0]
+      if (gapBottom - gapTop > 4) corridorBands.push({ top: gapTop, bottom: gapBottom })
     }
-  })
+    const minX = Math.min(...positions.map(p => p.x))
+    const maxX = Math.max(...positions.map(p => p.x + p.w))
 
-  // 門符號：房間邊界貼著走廊帶的那一側，畫一個開門弧線記號
-  const doors = []
-  for (const p of positions) {
-    const facesTop = corridorBands.some(c => Math.abs(p.y - c.bottom) < 3)
-    const facesBottom = corridorBands.some(c => Math.abs((p.y + p.h) - c.top) < 3)
-    const dx = p.x + p.w / 2
-    const doorW = Math.min(18, p.w * 0.4)
-    if (facesTop) doors.push({ room: p.room, x: dx, y: p.y, w: doorW, dir: 'up' })
-    else if (facesBottom) doors.push({ room: p.room, x: dx, y: p.y + p.h, w: doorW, dir: 'down' })
+    // 隔間牆：同一排相鄰房間如果緊貼（中間沒有走廊），畫一條共用牆的分隔線
+    const walls = []
+    rows.forEach((row) => {
+      const rowPositions = positions.filter(p => row.some(r => r.room === p.room))
+        .sort((a, b) => a.x - b.x)
+      for (let i = 0; i < rowPositions.length - 1; i++) {
+        const a = rowPositions[i], b = rowPositions[i + 1]
+        if (b.x - (a.x + a.w) < 6) walls.push({ x: a.x + a.w, y1: a.y, y2: a.y + a.h })
+      }
+    })
+
+    // 門符號：房間邊界貼著走廊帶的那一側，畫一個開門弧線記號
+    const doors = []
+    for (const p of positions) {
+      const facesTop = corridorBands.some(c => Math.abs(p.y - c.bottom) < 3)
+      const facesBottom = corridorBands.some(c => Math.abs((p.y + p.h) - c.top) < 3)
+      const dx = p.x + p.w / 2
+      const doorW = Math.min(18, p.w * 0.4)
+      if (facesTop) doors.push({ room: p.room, x: dx, y: p.y, w: doorW, dir: 'up' })
+      else if (facesBottom) doors.push({ room: p.room, x: dx, y: p.y + p.h, w: doorW, dir: 'down' })
+    }
+
+    return { positions, connectors, corridorBands, walls, doors, minX, maxX }
   }
 
-  return { positions, connectors, corridorBands, walls, doors, minX, maxX }
-}
-
-function buildMST(pts) {
-  const n = pts.length
-  if (n <= 1) return []
-  const inTree = new Array(n).fill(false)
-  const minDist = new Array(n).fill(Infinity)
-  const parent = new Array(n).fill(-1)
-  minDist[0] = 0
-  for (let iter = 0; iter < n; iter++) {
-    let u = -1
-    for (let i = 0; i < n; i++) {
-      if (!inTree[i] && (u === -1 || minDist[i] < minDist[u])) u = i
-    }
-    inTree[u] = true
-    for (let v = 0; v < n; v++) {
-      if (!inTree[v]) {
-        const d = Math.hypot(pts[u].x - pts[v].x, pts[u].y - pts[v].y)
-        if (d < minDist[v]) { minDist[v] = d; parent[v] = u }
+  function buildMST(pts) {
+    const n = pts.length
+    if (n <= 1) return []
+    const inTree = new Array(n).fill(false)
+    const minDist = new Array(n).fill(Infinity)
+    const parent = new Array(n).fill(-1)
+    minDist[0] = 0
+    for (let iter = 0; iter < n; iter++) {
+      let u = -1
+      for (let i = 0; i < n; i++) {
+        if (!inTree[i] && (u === -1 || minDist[i] < minDist[u])) u = i
+      }
+      inTree[u] = true
+      for (let v = 0; v < n; v++) {
+        if (!inTree[v]) {
+          const d = Math.hypot(pts[u].x - pts[v].x, pts[u].y - pts[v].y)
+          if (d < minDist[v]) { minDist[v] = d; parent[v] = u }
+        }
       }
     }
+    const edges = []
+    for (let i = 0; i < n; i++) {
+      if (parent[i] !== -1) edges.push({ x1: pts[parent[i]].x, y1: pts[parent[i]].y, x2: pts[i].x, y2: pts[i].y })
+    }
+    return edges
   }
-  const edges = []
-  for (let i = 0; i < n; i++) {
-    if (parent[i] !== -1) edges.push({ x1: pts[parent[i]].x, y1: pts[parent[i]].y, x2: pts[i].x, y2: pts[i].y })
-  }
-  return edges
-}
 
-const realLayout = computed(() => {
-  const canvas = REAL_CANVAS[props.building.id]
-  const positioned = props.building.rooms.filter(r => r.posX != null && r.posY != null)
-  if (!canvas || positioned.length === 0) {
-    return { width: 0, height: 0, positions: [], connectors: [], corridorBands: [], walls: [], doors: [], minX: 0, maxX: 0 }
-  }
-  return {
-    width: canvas.w,
-    height: canvas.h,
-    ...buildWireframe(positioned, canvas.w, canvas.h)
-  }
-})
-
-/* ---------------- 完全沒座標資料時：簡易走廊示意圖排版 ----------------
-     偶數 index 排上排、奇數排下排，兩排中間夾一條走廊。
-     房間位置全部用算的，新增/刪除/排序房間時會自動重排，不用手動維護座標。 */
-const ROOM_W = 108, ROOM_H = 78, CORRIDOR_H = 46, PAD = 16
-const fallbackLayout = computed(() => {
-  const roomsArr = props.building.rooms
-  const pairs = Math.max(Math.ceil(roomsArr.length / 2), 1)
-  const width = PAD * 2 + pairs * ROOM_W + (pairs - 1) * 10
-  const height = PAD * 2 + ROOM_H * 2 + CORRIDOR_H
-  const positions = roomsArr.map((room, i) => {
-    const col = Math.floor(i / 2)
-    const isTop = i % 2 === 0
+  const realLayout = computed(() => {
+    const canvas = REAL_CANVAS[props.building.id]
+    const positioned = props.building.rooms.filter(r => r.posX != null && r.posY != null)
+    if (!canvas || positioned.length === 0) {
+      return { width: 0, height: 0, positions: [], connectors: [], corridorBands: [], walls: [], doors: [], minX: 0, maxX: 0 }
+    }
     return {
-      room,
-      x: PAD + col * (ROOM_W + 10),
-      y: isTop ? PAD : PAD + ROOM_H + CORRIDOR_H
+      width: canvas.w,
+      height: canvas.h,
+      ...buildWireframe(positioned, canvas.w, canvas.h)
     }
   })
-  return { width, height, positions, corridorY: PAD + ROOM_H, corridorH: CORRIDOR_H }
-})
+
+  /* ---------------- 完全沒座標資料時：簡易走廊示意圖排版 ----------------
+       偶數 index 排上排、奇數排下排，兩排中間夾一條走廊。
+       房間位置全部用算的，新增/刪除/排序房間時會自動重排，不用手動維護座標。 */
+  const ROOM_W = 108, ROOM_H = 78, CORRIDOR_H = 46, PAD = 16
+  const fallbackLayout = computed(() => {
+    const roomsArr = props.building.rooms
+    const pairs = Math.max(Math.ceil(roomsArr.length / 2), 1)
+    const width = PAD * 2 + pairs * ROOM_W + (pairs - 1) * 10
+    const height = PAD * 2 + ROOM_H * 2 + CORRIDOR_H
+    const positions = roomsArr.map((room, i) => {
+      const col = Math.floor(i / 2)
+      const isTop = i % 2 === 0
+      return {
+        room,
+        x: PAD + col * (ROOM_W + 10),
+        y: isTop ? PAD : PAD + ROOM_H + CORRIDOR_H
+      }
+    })
+    return { width, height, positions, corridorY: PAD + ROOM_H, corridorH: CORRIDOR_H }
+  })
 </script>
 
 <template>
@@ -369,6 +392,288 @@ const fallbackLayout = computed(() => {
           <line x1="528" y1="720" x2="592" y2="720" />
           <line x1="528" y1="732" x2="592" y2="732" />
         </g>
+      </g>
+
+      <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上 ===== -->
+      <g
+        v-for="p in pins"
+        :key="p.room.id"
+        class="room-group"
+        @click="handleClick(p.room)"
+      >
+        <rect
+          :x="p.x - 27"
+          :y="p.y - 17"
+          width="54"
+          height="34"
+          rx="6"
+          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? 'pin-selected' : '']"
+        />
+        <text
+          :x="p.x"
+          :y="p.y + 4"
+          text-anchor="middle"
+          class="room-block-num"
+        >{{ p.room.id }}</text>
+        <title>{{ p.room.id }} ・ {{ tileLabel(p.room) }}</title>
+      </g>
+    </svg>
+
+    <!-- 合力居／愛加倍：依現場標註照片描繪的手繪牆面，兩棟共用同一張底圖，只有房間標記依棟別過濾 -->
+    <svg
+      v-else-if="building.id === 'B' || building.id === 'C'"
+      viewBox="0 0 1195 896"
+      class="floorplan-svg"
+      style="max-width:1195px"
+    >
+      <defs>
+        <pattern
+          :id="hatchId"
+          width="8"
+          height="8"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(45)"
+        >
+          <line
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="8"
+            class="fp-hatch-line"
+          />
+        </pattern>
+      </defs>
+      <g class="fp-walls">
+        <!-- ===== 合力居：上層，含右上角切角、頂層露台/走道、雙排房間 ===== -->
+        <path
+          class="fp-wall"
+          d="M185,115 L1075,115 L1120,160 L1120,420 L185,420 Z"
+        />
+        <rect
+          x="185"
+          y="120"
+          width="890"
+          height="75"
+          class="fp-hatch-rect"
+          :fill="`url(#${hatchId})`"
+        />
+        <rect
+          x="640"
+          y="128"
+          width="30"
+          height="55"
+          class="fp-wall2"
+        />
+        <rect
+          x="678"
+          y="128"
+          width="30"
+          height="55"
+          class="fp-wall2"
+        />
+
+        <!-- 上排隔間牆（217 215 213 211 209 207 205 203 201） -->
+        <line
+          v-for="(x, i) in BC_ROW1_X"
+          :key="'r1p' + i"
+          :x1="x"
+          y1="195"
+          :x2="x"
+          y2="290"
+          class="fp-wall2"
+        />
+        <path
+          v-for="(cx, i) in BC_ROW1_MID"
+          :key="'r1d' + i"
+          :d="`M${cx - 9},195 q9,18 0,32`"
+          class="fp-door"
+        />
+
+        <line
+          x1="185"
+          y1="290"
+          x2="1075"
+          y2="290"
+          class="fp-wall2"
+        />
+        <text
+          x="600"
+          y="300"
+          text-anchor="middle"
+          class="fp-building-label"
+        >合力居</text>
+
+        <!-- 下排隔間牆（214／儲藏室／212 210 208 206 204／202） -->
+        <line
+          v-for="(x, i) in BC_ROW2_X"
+          :key="'r2p' + i"
+          :x1="x"
+          y1="290"
+          :x2="x"
+          y2="420"
+          class="fp-wall2"
+        />
+        <path
+          d="M300,320 L330,300 M300,340 L330,320 M300,360 L330,340"
+          class="fp-thin"
+        />
+        <path
+          d="M556,420 q9,-18 18,0"
+          class="fp-door"
+        />
+
+        <!-- 西側外部樓梯 -->
+        <rect
+          x="75"
+          y="420"
+          width="80"
+          height="140"
+          class="fp-wall2"
+        />
+        <g class="fp-thin">
+          <line
+            v-for="n in 7"
+            :key="'stW' + n"
+            x1="83"
+            :y1="432 + (n - 1) * 16"
+            x2="147"
+            :y2="432 + (n - 1) * 16"
+          />
+        </g>
+
+        <!-- 中央樓梯（連接合力居／愛加倍樓層） -->
+        <rect
+          x="850"
+          y="430"
+          width="170"
+          height="130"
+          class="fp-wall2"
+        />
+        <g class="fp-thin">
+          <line
+            v-for="n in 7"
+            :key="'stM' + n"
+            x1="860"
+            :y1="445 + (n - 1) * 14"
+            x2="1010"
+            :y2="445 + (n - 1) * 14"
+          />
+        </g>
+        <rect
+          x="620"
+          y="480"
+          width="20"
+          height="20"
+          class="fp-thin"
+        />
+        <rect
+          x="740"
+          y="480"
+          width="20"
+          height="20"
+          class="fp-thin"
+        />
+
+        <!-- 合力居左下方開放平台／雨遮 -->
+        <rect
+          x="185"
+          y="420"
+          width="380"
+          height="410"
+          class="fp-hatch-rect"
+          :fill="`url(#${hatchId})`"
+        />
+
+        <!-- ===== 愛加倍：下層，含走道、樓梯、4 間房與公用衛浴 ===== -->
+        <rect
+          class="fp-wall"
+          x="560"
+          y="560"
+          width="530"
+          height="270"
+        />
+        <path
+          class="fp-door"
+          d="M595,562 A35,35 0 0,0 630,597"
+        />
+        <text
+          x="750"
+          y="620"
+          text-anchor="middle"
+          class="fp-building-label"
+        >愛加倍</text>
+
+        <rect
+          x="850"
+          y="565"
+          width="170"
+          height="90"
+          class="fp-wall2"
+        />
+        <g class="fp-thin">
+          <line
+            v-for="n in 5"
+            :key="'stA' + n"
+            x1="860"
+            :y1="577 + (n - 1) * 14"
+            x2="1010"
+            :y2="577 + (n - 1) * 14"
+          />
+        </g>
+
+        <line
+          x1="575"
+          y1="660"
+          x2="985"
+          y2="660"
+          class="fp-wall2"
+        />
+        <line
+          v-for="(x, i) in BC_AJB_X"
+          :key="'ajp' + i"
+          :x1="x"
+          y1="660"
+          :x2="x"
+          y2="780"
+          class="fp-wall2"
+        />
+        <path
+          v-for="(cx, i) in BC_AJB_MID"
+          :key="'ajd' + i"
+          :d="`M${cx - 9},660 q9,-18 18,0`"
+          class="fp-door"
+        />
+
+        <!-- 公用衛浴 -->
+        <rect
+          x="985"
+          y="600"
+          width="105"
+          height="80"
+          class="fp-wall2"
+        />
+        <circle
+          cx="1010"
+          cy="630"
+          r="8"
+          class="fp-thin"
+        />
+        <circle
+          cx="1010"
+          cy="655"
+          r="8"
+          class="fp-thin"
+        />
+
+        <!-- 樓下露台/走道 -->
+        <rect
+          x="575"
+          y="780"
+          width="510"
+          height="50"
+          class="fp-hatch-rect"
+          :fill="`url(#${hatchId})`"
+        />
       </g>
 
       <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上 ===== -->
@@ -699,6 +1004,24 @@ const fallbackLayout = computed(() => {
     stroke: var(--text);
     stroke-width: 1.4;
     fill: var(--surface);
+  }
+  /* 合力居／愛加倍：斜線區塊表示露台/開放平台，非室內房間範圍 */
+  .fp-hatch-rect {
+    stroke: var(--text-hint);
+    stroke-width: 1;
+    opacity: .9;
+  }
+  .fp-hatch-line {
+    stroke: var(--text-hint);
+    stroke-width: 1;
+    opacity: .55;
+  }
+  .fp-building-label {
+    font-size: 15px;
+    font-weight: 700;
+    fill: var(--text-hint);
+    letter-spacing: 2px;
+    opacity: .85;
   }
   /* 房間標記（釘在手繪牆面上，非精確格局，只表位置） */
   .room-pin {
