@@ -457,6 +457,7 @@
           <!-- 說明 -->
           <div v-if="googleDetailModal.ev.description"
                class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed google-desc-html"
+               style="white-space: pre-line"
                v-html="googleDetailModal.ev.description">
           </div>
         </div>

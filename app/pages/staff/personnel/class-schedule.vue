@@ -1,295 +1,413 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'personnel.class-schedule' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'personnel.class-schedule' })
 
-// ── API base（參考 quick-links-edit.vue 使用 commonStore）────────
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/class-schedule'
+  // ── API base（參考 quick-links-edit.vue 使用 commonStore）────────
+  const commonStore = useCommonStore()
+  const BASE = () => commonStore.data.main_url + '/holy/class-schedule'
 
-// ── 假別設定 ──────────────────────────────────────────────────────
-const LEGENDS = [
-  { code: '休', label: '休假日',         color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  { code: '例', label: '例假日',         color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' },
-  { code: '假', label: '國定假日',       color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' },
-  { code: '積', label: '積休',           color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  { code: '特', label: '特休',           color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
-  { code: '半', label: '半天',           color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
-  { code: '公', label: '公假',           color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  { code: '原', label: '原住民歲時祭儀', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
-  { code: '事', label: '事假',           color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  { code: '病', label: '病假',           color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
-  { code: '喪', label: '喪假',           color: 'bg-gray-200 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300' },
-]
+  // ── 假別設定 ──────────────────────────────────────────────────────
+  const LEGENDS = [
+    { code: '休', label: '休假日',         color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+    { code: '例', label: '例假日',         color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' },
+    { code: '假', label: '國定假日',       color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' },
+    { code: '積', label: '積休',           color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+    { code: '特', label: '特休',           color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
+    { code: '半', label: '半天',           color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+    { code: '公', label: '公假',           color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+    { code: '原', label: '原住民歲時祭儀', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
+    { code: '事', label: '事假',           color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+    { code: '病', label: '病假',           color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
+    { code: '喪', label: '喪假',           color: 'bg-gray-200 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300' },
+  ]
 
-const EXTRA_OPTIONS = [
-  { code: '加', label: '加班', color: 'bg-red-500 text-white' },
-  { code: '水', label: '澆水', color: 'bg-lime-600 text-white' }
-]
+  const EXTRA_OPTIONS = [
+    { code: '加', label: '加班', color: 'bg-red-500 text-white' },
+    { code: '水', label: '澆水', color: 'bg-lime-600 text-white' }
+  ]
 
-const EDIT_OPTIONS = [...LEGENDS, { code: 'V', label: 'V', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-700' }]
+  const EDIT_OPTIONS = [...LEGENDS, { code: 'V', label: 'V', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-700' }]
 
-const OFF_CODES = new Set(['休', '例', '假', '積', '特', '半', '公', '原', '事', '病', '喪'])
+  const OFF_CODES = new Set(['休', '例', '假', '積', '特', '半', '公', '原', '事', '病', '喪'])
 
-const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六']
+  const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六']
 
 
-// ── 工具函式 ──────────────────────────────────────────────────────
-function parseCell(val) {
-  if (!val) return { code: '', extra: '' }
-  if (typeof val === 'string') return { code: val, extra: '' }
-  return { code: val.code ?? '', extra: val.extra ?? '' }
-}
+  // ── 工具函式 ──────────────────────────────────────────────────────
+  function parseCell(val) {
+    if (!val) return { code: '', extra: '' }
+    if (typeof val === 'string') return { code: val, extra: '' }
+    return { code: val.code ?? '', extra: val.extra ?? '' }
+  }
 
-function badgeClass(codeOrVal) {
-  const code = typeof codeOrVal === 'string' ? codeOrVal : codeOrVal?.code ?? ''
-  return LEGENDS.find(l => l.code === code)?.color
-    ?? 'bg-surface2 text-muted-c'
-}
+  function badgeClass(codeOrVal) {
+    const code = typeof codeOrVal === 'string' ? codeOrVal : codeOrVal?.code ?? ''
+    return LEGENDS.find(l => l.code === code)?.color
+      ?? 'bg-surface2 text-muted-c'
+  }
 
-function extraBadgeClass(extra) {
-  return EXTRA_OPTIONS.find(e => e.code === extra)?.color ?? 'bg-accent-solid text-white'
-}
+  function extraBadgeClass(extra) {
+    return EXTRA_OPTIONS.find(e => e.code === extra)?.color ?? 'bg-accent-solid text-white'
+  }
 
-// ── 日期 ──────────────────────────────────────────────────────────
-const MONTH_KEY = 'class-schedule-currentYM'
-const _initYM = (() => {
-  try {
-    if (!import.meta.client) throw new Error()
-    const v = localStorage.getItem(MONTH_KEY)
-    if (v) {
-      const [y, m] = v.split('-').map(Number)
-      if (y >= 2020 && y <= 2099 && m >= 1 && m <= 12) return { y, m }
+  // ── 日期 ──────────────────────────────────────────────────────────
+  const MONTH_KEY = 'class-schedule-currentYM'
+  const _initYM = (() => {
+    try {
+      if (!import.meta.client) throw new Error()
+      const v = localStorage.getItem(MONTH_KEY)
+      if (v) {
+        const [y, m] = v.split('-').map(Number)
+        if (y >= 2020 && y <= 2099 && m >= 1 && m <= 12) return { y, m }
+      }
+    } catch {}
+    return { y: new Date().getFullYear(), m: new Date().getMonth() + 1 }
+  })()
+  const currentYear  = ref(_initYM.y)
+  const currentMonth = ref(_initYM.m)
+  watch([currentYear, currentMonth], ([y, m]) => {
+      try { localStorage.setItem(MONTH_KEY, `${y}-${m}`) } catch {}
     }
-  } catch {}
-  return { y: new Date().getFullYear(), m: new Date().getMonth() + 1 }
-})()
-const currentYear  = ref(_initYM.y)
-const currentMonth = ref(_initYM.m)
-watch([currentYear, currentMonth], ([y, m]) => {
-    try { localStorage.setItem(MONTH_KEY, `${y}-${m}`) } catch {}
+  )
+
+  // 假日 & 農曆從後端載入，初始值為空
+  const holidays = ref({})
+  const lunar    = ref({})
+
+  const daysInMonth = computed(() => new Date(currentYear.value, currentMonth.value, 0).getDate())
+  const days        = computed(() => Array.from({ length: daysInMonth.value }, (_, i) => i + 1))
+
+  function getWeekday(day) {
+    return new Date(currentYear.value, currentMonth.value - 1, day).getDay()
   }
-)
+  function isSaturday(day) { return getWeekday(day) === 6 }
+  function isSunday(day)   { return getWeekday(day) === 0 }
+  function isHoliday(day)  { return !!holidays.value[day] }
 
-// 假日 & 農曆從後端載入，初始值為空
-const holidays = ref({})
-const lunar    = ref({})
-
-const daysInMonth = computed(() => new Date(currentYear.value, currentMonth.value, 0).getDate())
-const days        = computed(() => Array.from({ length: daysInMonth.value }, (_, i) => i + 1))
-
-function getWeekday(day) {
-  return new Date(currentYear.value, currentMonth.value - 1, day).getDay()
-}
-function isSaturday(day) { return getWeekday(day) === 6 }
-function isSunday(day)   { return getWeekday(day) === 0 }
-function isHoliday(day)  { return !!holidays.value[day] }
-
-function dayHeaderClass(day) {
-  if (isSunday(day))   return 'text-red-500'
-  if (isSaturday(day)) return 'text-blue-500'
-  if (isHoliday(day))  return 'text-pink-500'
-  return 'text-hint-c'
-}
-function dayCellBg(day) {
-  if (isSunday(day))   return 'bg-red-50 dark:bg-red-900/10'
-  if (isSaturday(day)) return 'bg-blue-50 dark:bg-blue-900/10'
-  if (isHoliday(day))  return 'bg-pink-50 dark:bg-pink-900/10'
-  return ''
-}
-
-// ── 部門員工資料（從後端載入）────────────────────────────────────
-const departments  = ref([])
-const loading      = ref(false)
-const loadError    = ref('')
-
-async function fetchSchedule(silent = false) {
-  if (!silent) {
-    loading.value   = true
-    loadError.value = ''
+  function dayHeaderClass(day) {
+    if (isSunday(day))   return 'text-red-500'
+    if (isSaturday(day)) return 'text-blue-500'
+    if (isHoliday(day))  return 'text-pink-500'
+    return 'text-hint-c'
   }
-  try {
-    const res  = await (await fetch(`${BASE()}/${currentYear.value}/${currentMonth.value}`)).json()
-    if (!res.success) throw new Error(res.message ?? '載入失敗')
-    const data = res.data
+  function dayCellBg(day) {
+    if (isSunday(day))   return 'bg-red-50 dark:bg-red-900/10'
+    if (isSaturday(day)) return 'bg-blue-50 dark:bg-blue-900/10'
+    if (isHoliday(day))  return 'bg-pink-50 dark:bg-pink-900/10'
+    return ''
+  }
 
-    holidays.value = normalizeKeys(data.holidays ?? {})
-    lunar.value    = normalizeKeys(data.lunar    ?? {})
+  // ── 部門員工資料（從後端載入）────────────────────────────────────
+  const departments  = ref([])
+  const loading      = ref(false)
+  const loadError    = ref('')
 
-    const incoming = (data.departments ?? []).map(dept => ({
-      name:      dept.name,
-      employees: (dept.employees ?? []).map(emp => ({
-        name:     emp.name,
-        id:       String(emp.id),
-        expected: emp.expected ?? 0,
-        schedule: normalizeKeys(emp.schedule ?? {})
+  async function fetchSchedule(silent = false) {
+    if (!silent) {
+      loading.value   = true
+      loadError.value = ''
+    }
+    try {
+      const res  = await (await fetch(`${BASE()}/${currentYear.value}/${currentMonth.value}`)).json()
+      if (!res.success) throw new Error(res.message ?? '載入失敗')
+      const data = res.data
+
+      holidays.value = normalizeKeys(data.holidays ?? {})
+      lunar.value    = normalizeKeys(data.lunar    ?? {})
+
+      const incoming = (data.departments ?? []).map(dept => ({
+        name:      dept.name,
+        employees: (dept.employees ?? []).map(emp => ({
+          name:     emp.name,
+          id:       String(emp.id),
+          expected: emp.expected ?? 0,
+          schedule: normalizeKeys(emp.schedule ?? {})
+        }))
       }))
-    }))
 
-    if (silent && departments.value.length > 0) {
-      // 靜默合併：只更新有變動的 schedule 格子，不替換整個陣列避免畫面閃爍
-      for (const inDept of incoming) {
-        const localDept = departments.value.find(d => d.name === inDept.name)
-        if (!localDept) continue
-        for (const inEmp of inDept.employees) {
-          const localEmp = localDept.employees.find(e => e.id === inEmp.id)
-          if (!localEmp) continue
-          // 更新 expected
-          localEmp.expected = inEmp.expected
-          // 合併 schedule：只寫入有差異的 key，跳過佇列中待送出的格子
-          const queue = loadQueue()
-          for (const [dayStr, val] of Object.entries(inEmp.schedule)) {
-            const day = Number(dayStr)
-            const queueKey = `${currentYear.value}-${currentMonth.value}-${inEmp.id}-${day}`
-            if (queue[queueKey]) continue  // 本地有未送出變更，保留本地值
-            localEmp.schedule[day] = val
-          }
-          // 清除後端已刪除的格子（同樣跳過佇列中的）
-          for (const dayStr of Object.keys(localEmp.schedule)) {
-            const day = Number(dayStr)
-            if (!(day in inEmp.schedule)) {
+      if (silent && departments.value.length > 0) {
+        // 靜默合併：只更新有變動的 schedule 格子，不替換整個陣列避免畫面閃爍
+        for (const inDept of incoming) {
+          const localDept = departments.value.find(d => d.name === inDept.name)
+          if (!localDept) continue
+          for (const inEmp of inDept.employees) {
+            const localEmp = localDept.employees.find(e => e.id === inEmp.id)
+            if (!localEmp) continue
+            // 更新 expected
+            localEmp.expected = inEmp.expected
+            // 合併 schedule：只寫入有差異的 key，跳過佇列中待送出的格子
+            const queue = loadQueue()
+            for (const [dayStr, val] of Object.entries(inEmp.schedule)) {
+              const day = Number(dayStr)
               const queueKey = `${currentYear.value}-${currentMonth.value}-${inEmp.id}-${day}`
-              if (!loadQueue()[queueKey]) delete localEmp.schedule[day]
+              if (queue[queueKey]) continue  // 本地有未送出變更，保留本地值
+              localEmp.schedule[day] = val
+            }
+            // 清除後端已刪除的格子（同樣跳過佇列中的）
+            for (const dayStr of Object.keys(localEmp.schedule)) {
+              const day = Number(dayStr)
+              if (!(day in inEmp.schedule)) {
+                const queueKey = `${currentYear.value}-${currentMonth.value}-${inEmp.id}-${day}`
+                if (!loadQueue()[queueKey]) delete localEmp.schedule[day]
+              }
             }
           }
         }
+      } else {
+        // 初始載入或月份切換：完整替換
+        departments.value = incoming
+        if (departments.value.length && !departments.value.find(d => d.name === selectedDept.value)) {
+          selectedDept.value = departments.value[0].name
+        }
       }
-    } else {
-      // 初始載入或月份切換：完整替換
-      departments.value = incoming
-      if (departments.value.length && !departments.value.find(d => d.name === selectedDept.value)) {
-        selectedDept.value = departments.value[0].name
+    } catch (e) {
+      if (!silent) {
+        loadError.value = e.message ?? '網路錯誤'
+        showToast('載入失敗：' + loadError.value)
+        departments.value = []
+        holidays.value    = {}
+        lunar.value       = {}
       }
-    }
-  } catch (e) {
-    if (!silent) {
-      loadError.value = e.message ?? '網路錯誤'
-      showToast('載入失敗：' + loadError.value)
-      departments.value = []
-      holidays.value    = {}
-      lunar.value       = {}
-    }
-    // 靜默刷新失敗時不打擾使用者，下次再試
-  } finally {
-    if (!silent) {
-      loading.value = false
-      nextTick(() => updateTableScale())
+      // 靜默刷新失敗時不打擾使用者，下次再試
+    } finally {
+      if (!silent) {
+        loading.value = false
+        nextTick(() => updateTableScale())
+      }
     }
   }
-}
 
-// YML 解析後 key 可能是數字或字串，統一轉成數字 key
-function normalizeKeys(obj) {
-  if (!obj || typeof obj !== 'object') return {}
-  return Object.fromEntries(
-    Object.entries(obj).map(([k, v]) => [Number(k), v])
+  // YML 解析後 key 可能是數字或字串，統一轉成數字 key
+  function normalizeKeys(obj) {
+    if (!obj || typeof obj !== 'object') return {}
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [Number(k), v])
+    )
+  }
+
+  // ── 月份切換 ──────────────────────────────────────────────────────
+  function changeMonth(dir) {
+    let m = currentMonth.value + dir, y = currentYear.value
+    if (m > 12) { m = 1;  y++ }
+    if (m < 1)  { m = 12; y-- }
+    currentMonth.value = m
+    currentYear.value  = y
+    fetchSchedule()
+  }
+
+  // ── 部門 & 頁籤 ───────────────────────────────────────────────────
+  const DEPT_KEY = 'class-schedule-selectedDept'
+  const VIEW_KEY = 'class-schedule-view'
+  const selectedDept = ref('')
+  const view         = ref('table')
+  watch(selectedDept, v => { try { localStorage.setItem(DEPT_KEY, v) } catch {} })
+  watch(view,         v => { try { localStorage.setItem(VIEW_KEY, v) } catch {} })
+  const legendOpen   = ref(false)
+  const HEADER_KEY      = 'class-schedule-headerCollapsed'
+  const headerCollapsed = ref(false)
+  watch(headerCollapsed, v => { try { localStorage.setItem(HEADER_KEY, v ? '1' : '0') } catch {} })
+
+  const currentDeptEmployees = computed(
+    () => departments.value.find(d => d.name === selectedDept.value)?.employees ?? []
   )
-}
 
-// ── 月份切換 ──────────────────────────────────────────────────────
-function changeMonth(dir) {
-  let m = currentMonth.value + dir, y = currentYear.value
-  if (m > 12) { m = 1;  y++ }
-  if (m < 1)  { m = 12; y-- }
-  currentMonth.value = m
-  currentYear.value  = y
-  fetchSchedule()
-}
+  // ── 每日統計 ──────────────────────────────────────────────────────
+  function countActual(emp) {
+    return Object.values(emp.schedule).reduce((sum, v) => {
+      const code = parseCell(v).code
+      if (!OFF_CODES.has(code)) return sum
+      return sum + (code === '半' ? 0.5 : 1)
+    }, 0)
+  }
+  function dailyOffCount(day)  {
+    const emps = visibleIds.value.length
+      ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
+      : currentDeptEmployees.value
+    return emps.reduce((sum, e) => {
+      const code = parseCell(e.schedule[day]).code
+      if (!OFF_CODES.has(code)) return sum
+      return sum + (code === '半' ? 0.5 : 1)
+    }, 0)
+  }
+  function dailyWorkCount(day) {
+    const emps = visibleIds.value.length
+      ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
+      : currentDeptEmployees.value
+    return emps.length - dailyOffCount(day)
+  }
+  const totalEmployees = computed(() =>
+    visibleIds.value.length
+      ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id)).length
+      : currentDeptEmployees.value.length
+  )
 
-// ── 部門 & 頁籤 ───────────────────────────────────────────────────
-const DEPT_KEY = 'class-schedule-selectedDept'
-const VIEW_KEY = 'class-schedule-view'
-const selectedDept = ref('')
-const view         = ref('table')
-watch(selectedDept, v => { try { localStorage.setItem(DEPT_KEY, v) } catch {} })
-watch(view,         v => { try { localStorage.setItem(VIEW_KEY, v) } catch {} })
-const legendOpen   = ref(false)
-const HEADER_KEY      = 'class-schedule-headerCollapsed'
-const headerCollapsed = ref(false)
-watch(headerCollapsed, v => { try { localStorage.setItem(HEADER_KEY, v ? '1' : '0') } catch {} })
+  function fmtNum(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1) }
+  const calLeadingBlanks = computed(() => getWeekday(1))
 
-const currentDeptEmployees = computed(
-  () => departments.value.find(d => d.name === selectedDept.value)?.employees ?? []
-)
+  // ── Toast ─────────────────────────────────────────────────────────
+  const toast = reactive({ show: false, message: '', error: false })
+  function showToast(msg, error = false) {
+    toast.message = msg; toast.show = true; toast.error = error
+    setTimeout(() => toast.show = false, 2500)
+  }
 
-// ── 每日統計 ──────────────────────────────────────────────────────
-function countActual(emp) {
-  return Object.values(emp.schedule).reduce((sum, v) => {
-    const code = parseCell(v).code
-    if (!OFF_CODES.has(code)) return sum
-    return sum + (code === '半' ? 0.5 : 1)
-  }, 0)
-}
-function dailyOffCount(day)  {
-  const emps = visibleIds.value.length
-    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
-    : currentDeptEmployees.value
-  return emps.reduce((sum, e) => {
-    const code = parseCell(e.schedule[day]).code
-    if (!OFF_CODES.has(code)) return sum
-    return sum + (code === '半' ? 0.5 : 1)
-  }, 0)
-}
-function dailyWorkCount(day) {
-  const emps = visibleIds.value.length
-    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
-    : currentDeptEmployees.value
-  return emps.length - dailyOffCount(day)
-}
-const totalEmployees = computed(() =>
-  visibleIds.value.length
-    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id)).length
-    : currentDeptEmployees.value.length
-)
+  // ════════════════════════════════════════════════════════════════════
+  // ── 離線佇列 ──────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  const QUEUE_KEY  = 'class-schedule-offlineQueue'
+  const isOnline   = ref(import.meta.client ? navigator.onLine : true)
+  const isSyncing  = ref(false)
 
-function fmtNum(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1) }
-const calLeadingBlanks = computed(() => getWeekday(1))
+  // 佇列結構：Record<`${year}-${month}-${empId}-${day}`, payload>
+  // key 相同時後者覆蓋前者（同一格只保留最後一筆）
+  function loadQueue() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '{}') } catch { return {} }
+  }
+  function saveQueue(q) {
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)) } catch {}
+  }
 
-// ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({ show: false, message: '', error: false })
-function showToast(msg, error = false) {
-  toast.message = msg; toast.show = true; toast.error = error
-  setTimeout(() => toast.show = false, 2500)
-}
+  const pendingCount = ref(import.meta.client ? Object.keys(loadQueue()).length : 0)
 
-// ════════════════════════════════════════════════════════════════════
-// ── 離線佇列 ──────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════
-const QUEUE_KEY  = 'class-schedule-offlineQueue'
-const isOnline   = ref(import.meta.client ? navigator.onLine : true)
-const isSyncing  = ref(false)
+  function enqueue(payload) {
+    const q   = loadQueue()
+    const key = `${payload.year}-${payload.month}-${payload.employeeId}-${payload.day}`
+    q[key]    = payload
+    saveQueue(q)
+    pendingCount.value = Object.keys(q).length
+  }
 
-// 佇列結構：Record<`${year}-${month}-${empId}-${day}`, payload>
-// key 相同時後者覆蓋前者（同一格只保留最後一筆）
-function loadQueue() {
-  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '{}') } catch { return {} }
-}
-function saveQueue(q) {
-  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)) } catch {}
-}
+  function dequeue(key) {
+    const q = loadQueue()
+    delete q[key]
+    saveQueue(q)
+    pendingCount.value = Object.keys(q).length
+  }
 
-const pendingCount = ref(import.meta.client ? Object.keys(loadQueue()).length : 0)
+  async function flushQueue() {
+    if (isSyncing.value) return
+    const q = loadQueue()
+    if (Object.keys(q).length === 0) return
+    isSyncing.value = true
+    let failed = 0
+    for (const [key, payload] of Object.entries(q)) {
+      try {
+        const res = await (await fetch(`${BASE()}/cell`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload)
+        })).json()
+        if (!res.success) throw new Error(res.message)
+        dequeue(key)
+        _applyLocalCell(payload)
+      } catch {
+        failed++
+      }
+    }
+    isSyncing.value = false
+    const remaining = Object.keys(loadQueue()).length
+    if (remaining === 0) {
+      showToast('離線變更已全部同步')
+      _broadcast()
+    } else {
+      showToast(`同步完成，${failed} 筆失敗待重試`, true)
+    }
+  }
 
-function enqueue(payload) {
-  const q   = loadQueue()
-  const key = `${payload.year}-${payload.month}-${payload.employeeId}-${payload.day}`
-  q[key]    = payload
-  saveQueue(q)
-  pendingCount.value = Object.keys(q).length
-}
+  function _applyLocalCell(payload) {
+    for (const dept of departments.value) {
+      const emp = dept.employees.find(e => e.id === payload.employeeId)
+      if (!emp) continue
+      if (payload.code === '') {
+        delete emp.schedule[payload.day]
+      } else {
+        emp.schedule[payload.day] = payload.extra
+          ? { code: payload.code, extra: payload.extra }
+          : payload.code
+      }
+      break
+    }
+  }
 
-function dequeue(key) {
-  const q = loadQueue()
-  delete q[key]
-  saveQueue(q)
-  pendingCount.value = Object.keys(q).length
-}
+  // ── BroadcastChannel：通知同瀏覽器其他頁籤重 fetch ──────────────
+  let _bc = null
+  function _broadcast() {
+    try { _bc?.postMessage({ type: 'refetch' }) } catch {}
+  }
 
-async function flushQueue() {
-  if (isSyncing.value) return
-  const q = loadQueue()
-  if (Object.keys(q).length === 0) return
-  isSyncing.value = true
-  let failed = 0
-  for (const [key, payload] of Object.entries(q)) {
+  // ── 定時重新 fetch（60 秒，有佇列或正在編輯時跳過）─────────────
+  let _autoFetchTimer = null
+  function startAutoFetch() {
+    _autoFetchTimer = setInterval(() => {
+      if (!isOnline.value)        return
+      if (pendingCount.value > 0) return
+      if (showForm.value)         return
+      fetchSchedule(true)  // 靜默刷新，不閃畫面
+    }, 60_000)
+  }
+  function stopAutoFetch() {
+    clearInterval(_autoFetchTimer)
+    _autoFetchTimer = null
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // ── 排班編輯 Modal ────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  const showForm  = ref(false)
+  const editEmp   = ref(null)
+  const editDay   = ref(null)
+  const editCode  = ref('')
+  const editExtra = ref('')
+  const saving    = ref(false)
+
+  function openEdit(emp, day) {
+    editEmp.value       = emp
+    editDay.value       = day
+    selectedEmpId.value = emp.id
+    selectedDay.value   = day
+    const cell          = parseCell(emp.schedule[day])
+    editCode.value      = cell.code
+    editExtra.value     = cell.extra
+    showForm.value      = true
+  }
+
+  const canSetExtra = computed(() => OFF_CODES.has(editCode.value))
+
+  async function deleteEdit() {
+    editCode.value  = ''
+    editExtra.value = ''
+    await saveEdit()
+  }
+
+  async function saveEdit() {
+    if (!editEmp.value) return
+    saving.value = true
+    const extra   = canSetExtra.value ? editExtra.value : ''
+    const payload = {
+      year:       currentYear.value,
+      month:      currentMonth.value,
+      employeeId: editEmp.value.id,
+      day:        editDay.value,
+      code:       editCode.value,
+      extra
+    }
+    // 先更新本地畫面
+    if (editCode.value === '') {
+      delete editEmp.value.schedule[editDay.value]
+    } else {
+      editEmp.value.schedule[editDay.value] = extra
+        ? { code: editCode.value, extra }
+        : editCode.value
+    }
+    showForm.value = false
+
+    if (!isOnline.value) {
+      // 離線：存入佇列，同一格後者覆蓋前者
+      enqueue(payload)
+      showToast('已暫存（離線中，連線後自動同步）')
+      saving.value = false
+      return
+    }
+
     try {
       const res = await (await fetch(`${BASE()}/cell`, {
         method:  'POST',
@@ -297,584 +415,472 @@ async function flushQueue() {
         body:    JSON.stringify(payload)
       })).json()
       if (!res.success) throw new Error(res.message)
-      dequeue(key)
-      _applyLocalCell(payload)
-    } catch {
-      failed++
+      showToast('已儲存')
+      _broadcast()
+    } catch (e) {
+      // 連線但請求失敗（如伺服器暫時無回應）→ 存佇列等重試
+      enqueue(payload)
+      showToast('儲存失敗，已暫存待重試', true)
+    } finally {
+      saving.value = false
     }
   }
-  isSyncing.value = false
-  const remaining = Object.keys(loadQueue()).length
-  if (remaining === 0) {
-    showToast('離線變更已全部同步')
-    _broadcast()
-  } else {
-    showToast(`同步完成，${failed} 筆失敗待重試`, true)
-  }
-}
 
-function _applyLocalCell(payload) {
-  for (const dept of departments.value) {
-    const emp = dept.employees.find(e => e.id === payload.employeeId)
-    if (!emp) continue
-    if (payload.code === '') {
-      delete emp.schedule[payload.day]
-    } else {
-      emp.schedule[payload.day] = payload.extra
-        ? { code: payload.code, extra: payload.extra }
-        : payload.code
-    }
-    break
-  }
-}
+  const editWeekday = computed(() =>
+    editDay.value ? `星期${WEEKDAY_NAMES[getWeekday(editDay.value)]}` : ''
+  )
 
-// ── BroadcastChannel：通知同瀏覽器其他頁籤重 fetch ──────────────
-let _bc = null
-function _broadcast() {
-  try { _bc?.postMessage({ type: 'refetch' }) } catch {}
-}
 
-// ── 定時重新 fetch（60 秒，有佇列或正在編輯時跳過）─────────────
-let _autoFetchTimer = null
-function startAutoFetch() {
-  _autoFetchTimer = setInterval(() => {
-    if (!isOnline.value)        return
-    if (pendingCount.value > 0) return
-    if (showForm.value)         return
-    fetchSchedule(true)  // 靜默刷新，不閃畫面
-  }, 60_000)
-}
-function stopAutoFetch() {
-  clearInterval(_autoFetchTimer)
-  _autoFetchTimer = null
-}
 
-// ════════════════════════════════════════════════════════════════════
-// ── 排班編輯 Modal ────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════
-const showForm  = ref(false)
-const editEmp   = ref(null)
-const editDay   = ref(null)
-const editCode  = ref('')
-const editExtra = ref('')
-const saving    = ref(false)
+  // ════════════════════════════════════════════════════════════════════
+  // ── 人員設定 ──────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  const staffTab          = ref('dept')   // 'dept' | 'shift'
+  const showStaffForm     = ref(false)
+  const staffFormMode     = ref('add')
+  const staffDeleteId     = ref(null)
+  const showDeleteConfirm = ref(false)
+  const staffSaving       = ref(false)
 
-function openEdit(emp, day) {
-  editEmp.value       = emp
-  editDay.value       = day
-  selectedEmpId.value = emp.id
-  selectedDay.value   = day
-  const cell          = parseCell(emp.schedule[day])
-  editCode.value      = cell.code
-  editExtra.value     = cell.extra
-  showForm.value      = true
-}
+  const staffForm = reactive({
+    id:            '',
+    name:          '',
+    department:    '',
+    expectedLeave: 9,
+    shiftCode:     ''
+  })
 
-const canSetExtra = computed(() => OFF_CODES.has(editCode.value))
+  const deptNames = computed(() => departments.value.map(d => d.name))
 
-async function saveEdit() {
-  if (!editEmp.value) return
-  saving.value = true
-  const extra   = canSetExtra.value ? editExtra.value : ''
-  const payload = {
-    year:       currentYear.value,
-    month:      currentMonth.value,
-    employeeId: editEmp.value.id,
-    day:        editDay.value,
-    code:       editCode.value,
-    extra
-  }
-  // 先更新本地畫面
-  if (editCode.value === '') {
-    delete editEmp.value.schedule[editDay.value]
-  } else {
-    editEmp.value.schedule[editDay.value] = extra
-      ? { code: editCode.value, extra }
-      : editCode.value
-  }
-  showForm.value = false
-
-  if (!isOnline.value) {
-    // 離線：存入佇列，同一格後者覆蓋前者
-    enqueue(payload)
-    showToast('已暫存（離線中，連線後自動同步）')
-    saving.value = false
-    return
+  function openAddStaff() {
+    staffFormMode.value     = 'add'
+    staffForm.id            = ''
+    staffForm.name          = ''
+    staffForm.department    = departments.value[0]?.name ?? ''
+    staffForm.expectedLeave = 9
+    staffForm.shiftCode     = ''
+    showStaffForm.value     = true
   }
 
-  try {
-    const res = await (await fetch(`${BASE()}/cell`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload)
-    })).json()
-    if (!res.success) throw new Error(res.message)
-    showToast('已儲存')
-    _broadcast()
-  } catch (e) {
-    // 連線但請求失敗（如伺服器暫時無回應）→ 存佇列等重試
-    enqueue(payload)
-    showToast('儲存失敗，已暫存待重試', true)
-  } finally {
-    saving.value = false
+  function openEditStaff(emp, deptName) {
+    staffFormMode.value     = 'edit'
+    staffForm.id            = emp.id
+    staffForm.name          = emp.name
+    staffForm.department    = deptName
+    staffForm.expectedLeave = emp.expected
+    staffForm.shiftCode     = emp.shiftCode ?? ''
+    showStaffForm.value     = true
   }
-}
 
-const editWeekday = computed(() =>
-  editDay.value ? `星期${WEEKDAY_NAMES[getWeekday(editDay.value)]}` : ''
-)
-
-
-
-// ════════════════════════════════════════════════════════════════════
-// ── 人員設定 ──────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════
-const staffTab          = ref('dept')   // 'dept' | 'shift'
-const showStaffForm     = ref(false)
-const staffFormMode     = ref('add')
-const staffDeleteId     = ref(null)
-const showDeleteConfirm = ref(false)
-const staffSaving       = ref(false)
-
-const staffForm = reactive({
-  id:            '',
-  name:          '',
-  department:    '',
-  expectedLeave: 9,
-  shiftCode:     ''
-})
-
-const deptNames = computed(() => departments.value.map(d => d.name))
-
-function openAddStaff() {
-  staffFormMode.value     = 'add'
-  staffForm.id            = ''
-  staffForm.name          = ''
-  staffForm.department    = departments.value[0]?.name ?? ''
-  staffForm.expectedLeave = 9
-  staffForm.shiftCode     = ''
-  showStaffForm.value     = true
-}
-
-function openEditStaff(emp, deptName) {
-  staffFormMode.value     = 'edit'
-  staffForm.id            = emp.id
-  staffForm.name          = emp.name
-  staffForm.department    = deptName
-  staffForm.expectedLeave = emp.expected
-  staffForm.shiftCode     = emp.shiftCode ?? ''
-  showStaffForm.value     = true
-}
-
-async function saveStaff() {
-  if (!staffForm.name.trim() || !staffForm.id.trim()) return
-  staffSaving.value = true
-  try {
-    const body = {
-      id:            staffForm.id.trim(),
-      name:          staffForm.name.trim(),
-      department:    staffForm.department,
-      expectedLeave: staffForm.expectedLeave,
-      shiftCode:     staffForm.shiftCode
-    }
-    if (staffFormMode.value === 'add') {
-      const res = await (await fetch(`${BASE()}/employees`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })).json()
-      if (!res.success) throw new Error(res.message)
-      // 本地插入
-      const dept = departments.value.find(d => d.name === staffForm.department)
-      if (dept) dept.employees.push({ id: body.id, name: body.name, expected: body.expectedLeave, schedule: {} })
-      showToast(`已新增員工：${body.name}`)
-    } else {
-      const res = await (await fetch(`${BASE()}/employees/${body.id}?year=${currentYear.value}&month=${currentMonth.value}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })).json()
-      if (!res.success) throw new Error(res.message)
-      // 本地更新，含跨部門
-      for (const dept of departments.value) {
-        const idx = dept.employees.findIndex(e => e.id === body.id)
-        if (idx !== -1) {
-          const emp = dept.employees[idx]
-          if (dept.name !== staffForm.department) {
-            dept.employees.splice(idx, 1)
-            const newDept = departments.value.find(d => d.name === staffForm.department)
-            if (newDept) newDept.employees.push({ ...emp, name: body.name, expected: body.expectedLeave })
-          } else {
-            emp.name     = body.name
-            emp.expected = body.expectedLeave
+  async function saveStaff() {
+    if (!staffForm.name.trim() || !staffForm.id.trim()) return
+    staffSaving.value = true
+    try {
+      const body = {
+        id:            staffForm.id.trim(),
+        name:          staffForm.name.trim(),
+        department:    staffForm.department,
+        expectedLeave: staffForm.expectedLeave,
+        shiftCode:     staffForm.shiftCode
+      }
+      if (staffFormMode.value === 'add') {
+        const res = await (await fetch(`${BASE()}/employees`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })).json()
+        if (!res.success) throw new Error(res.message)
+        // 本地插入
+        const dept = departments.value.find(d => d.name === staffForm.department)
+        if (dept) dept.employees.push({ id: body.id, name: body.name, expected: body.expectedLeave, schedule: {} })
+        showToast(`已新增員工：${body.name}`)
+      } else {
+        const res = await (await fetch(`${BASE()}/employees/${body.id}?year=${currentYear.value}&month=${currentMonth.value}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })).json()
+        if (!res.success) throw new Error(res.message)
+        // 本地更新，含跨部門
+        for (const dept of departments.value) {
+          const idx = dept.employees.findIndex(e => e.id === body.id)
+          if (idx !== -1) {
+            const emp = dept.employees[idx]
+            if (dept.name !== staffForm.department) {
+              dept.employees.splice(idx, 1)
+              const newDept = departments.value.find(d => d.name === staffForm.department)
+              if (newDept) newDept.employees.push({ ...emp, name: body.name, expected: body.expectedLeave })
+            } else {
+              emp.name     = body.name
+              emp.expected = body.expectedLeave
+            }
+            break
           }
+        }
+        showToast(`已更新員工：${body.name}`)
+      }
+      showStaffForm.value = false
+    } catch (e) {
+      showToast('儲存失敗：' + (e.data?.message ?? e.message), true)
+    } finally {
+      staffSaving.value = false
+    }
+  }
+
+  function confirmDeleteStaff(empId) {
+    staffDeleteId.value     = empId
+    showDeleteConfirm.value = true
+  }
+
+  async function deleteStaff() {
+    const id = staffDeleteId.value
+    try {
+      const res = await (await fetch(`${BASE()}/employees/${id}`, { method: 'DELETE' })).json()
+      if (!res.success) throw new Error(res.message)
+      for (const dept of departments.value) {
+        const idx = dept.employees.findIndex(e => e.id === id)
+        if (idx !== -1) {
+          const name = dept.employees[idx].name
+          dept.employees.splice(idx, 1)
+          showToast(`已刪除員工：${name}`)
           break
         }
       }
-      showToast(`已更新員工：${body.name}`)
+    } catch (e) {
+      showToast('刪除失敗：' + (e.data?.message ?? e.message), true)
+    } finally {
+      showDeleteConfirm.value = false
+      staffDeleteId.value     = null
     }
-    showStaffForm.value = false
-  } catch (e) {
-    showToast('儲存失敗：' + (e.data?.message ?? e.message), true)
-  } finally {
-    staffSaving.value = false
   }
-}
 
-function confirmDeleteStaff(empId) {
-  staffDeleteId.value     = empId
-  showDeleteConfirm.value = true
-}
+  const allEmployeesFlat = computed(() =>
+    departments.value.flatMap(d => d.employees.map(e => ({ ...e, department: d.name })))
+  )
 
-async function deleteStaff() {
-  const id = staffDeleteId.value
-  try {
-    const res = await (await fetch(`${BASE()}/employees/${id}`, { method: 'DELETE' })).json()
-    if (!res.success) throw new Error(res.message)
-    for (const dept of departments.value) {
-      const idx = dept.employees.findIndex(e => e.id === id)
-      if (idx !== -1) {
-        const name = dept.employees[idx].name
-        dept.employees.splice(idx, 1)
-        showToast(`已刪除員工：${name}`)
-        break
+  // ════════════════════════════════════════════════════════════════════
+  // ── 組別管理 ──────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  const showDeptForm     = ref(false)
+  const deptFormMode     = ref('add')   // 'add' | 'rename'
+  const deptFormTarget   = ref('')      // rename 時的原名稱
+  const deptFormName     = ref('')
+  const deptSaving       = ref(false)
+  const showDeptDelete   = ref(false)
+  const deptDeleteTarget = ref('')
+
+  function openAddDept() {
+    deptFormMode.value   = 'add'
+    deptFormName.value   = ''
+    showDeptForm.value   = true
+  }
+
+  function openRenameDept(name) {
+    deptFormMode.value   = 'rename'
+    deptFormTarget.value = name
+    deptFormName.value   = name
+    showDeptForm.value   = true
+  }
+
+  async function saveDept() {
+    if (!deptFormName.value.trim()) return
+    deptSaving.value = true
+    try {
+      if (deptFormMode.value === 'add') {
+        const res = await (await fetch(`${BASE()}/departments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: deptFormName.value.trim() })
+        })).json()
+        if (!res.success) throw new Error(res.message)
+        departments.value.push({ name: deptFormName.value.trim(), employees: [] })
+        showToast(`已新增組別：${deptFormName.value}`)
+      } else {
+        const encoded = encodeURIComponent(deptFormTarget.value)
+        const res = await (await fetch(`${BASE()}/departments/${encoded}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: deptFormName.value.trim() })
+        })).json()
+        if (!res.success) throw new Error(res.message)
+        // 本地更新
+        const dept = departments.value.find(d => d.name === deptFormTarget.value)
+        if (dept) dept.name = deptFormName.value.trim()
+        if (selectedDept.value === deptFormTarget.value) selectedDept.value = deptFormName.value.trim()
+        showToast(`已更名：${deptFormTarget.value} → ${deptFormName.value}`)
       }
+      showDeptForm.value = false
+    } catch (e) {
+      showToast('操作失敗：' + (e.data?.message ?? e.message), true)
+    } finally {
+      deptSaving.value = false
     }
-  } catch (e) {
-    showToast('刪除失敗：' + (e.data?.message ?? e.message), true)
-  } finally {
-    showDeleteConfirm.value = false
-    staffDeleteId.value     = null
   }
-}
 
-const allEmployeesFlat = computed(() =>
-  departments.value.flatMap(d => d.employees.map(e => ({ ...e, department: d.name })))
-)
+  function confirmDeleteDept(name) {
+    deptDeleteTarget.value = name
+    showDeptDelete.value   = true
+  }
 
-// ════════════════════════════════════════════════════════════════════
-// ── 組別管理 ──────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════
-const showDeptForm     = ref(false)
-const deptFormMode     = ref('add')   // 'add' | 'rename'
-const deptFormTarget   = ref('')      // rename 時的原名稱
-const deptFormName     = ref('')
-const deptSaving       = ref(false)
-const showDeptDelete   = ref(false)
-const deptDeleteTarget = ref('')
-
-function openAddDept() {
-  deptFormMode.value   = 'add'
-  deptFormName.value   = ''
-  showDeptForm.value   = true
-}
-
-function openRenameDept(name) {
-  deptFormMode.value   = 'rename'
-  deptFormTarget.value = name
-  deptFormName.value   = name
-  showDeptForm.value   = true
-}
-
-async function saveDept() {
-  if (!deptFormName.value.trim()) return
-  deptSaving.value = true
-  try {
-    if (deptFormMode.value === 'add') {
-      const res = await (await fetch(`${BASE()}/departments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: deptFormName.value.trim() })
-      })).json()
+  async function deleteDept() {
+    const name = deptDeleteTarget.value
+    try {
+      const encoded = encodeURIComponent(name)
+      const res = await (await fetch(`${BASE()}/departments/${encoded}`, { method: 'DELETE' })).json()
       if (!res.success) throw new Error(res.message)
-      departments.value.push({ name: deptFormName.value.trim(), employees: [] })
-      showToast(`已新增組別：${deptFormName.value}`)
+      departments.value = departments.value.filter(d => d.name !== name)
+      if (selectedDept.value === name) selectedDept.value = departments.value[0]?.name ?? ''
+      showToast(`已刪除組別：${name}`)
+    } catch (e) {
+      showToast('刪除失敗：' + (e.data?.message ?? e.message), true)
+    } finally {
+      showDeptDelete.value   = false
+      deptDeleteTarget.value = ''
+    }
+  }
+
+
+  // ════════════════════════════════════════════════════════════════════
+  // ── 班別設定 ──────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  const shifts        = ref([])      // { code, label, start, end, breakMinutes }
+  const shiftsSaving  = ref(false)
+  const showShiftForm = ref(false)
+  const shiftForm     = reactive({ code: '', label: '', start: '', end: '', breakMinutes: 60 })
+  const shiftEditIdx  = ref(null)    // null = 新增，number = 編輯
+
+  async function fetchShifts() {
+    try {
+      const res = await (await fetch(`${BASE()}/shifts`)).json()
+      if (res.success) shifts.value = res.data ?? []
+    } catch (e) {
+      console.warn('班別載入失敗', e)
+    }
+  }
+
+  function openAddShift() {
+    shiftEditIdx.value     = null
+    shiftForm.code         = ''
+    shiftForm.label        = ''
+    shiftForm.start        = ''
+    shiftForm.end          = ''
+    shiftForm.breakMinutes = 60
+    showShiftForm.value    = true
+  }
+
+  function openEditShift(idx) {
+    shiftEditIdx.value     = idx
+    const s                = shifts.value[idx]
+    shiftForm.code         = s.code
+    shiftForm.label        = s.label
+    shiftForm.start        = s.start
+    shiftForm.end          = s.end
+    shiftForm.breakMinutes = s.breakMinutes ?? 60
+    showShiftForm.value    = true
+  }
+
+  function deleteShift(idx) {
+    shifts.value.splice(idx, 1)
+    saveShifts()
+  }
+
+  async function saveShiftForm() {
+    if (!shiftForm.code.trim() || !shiftForm.start || !shiftForm.end) return
+    const entry = {
+      code:         shiftForm.code.trim(),
+      label:        shiftForm.label.trim(),
+      start:        shiftForm.start,
+      end:          shiftForm.end,
+      breakMinutes: Number(shiftForm.breakMinutes)
+    }
+    if (shiftEditIdx.value === null) {
+      shifts.value.push(entry)
     } else {
-      const encoded = encodeURIComponent(deptFormTarget.value)
-      const res = await (await fetch(`${BASE()}/departments/${encoded}`, {
+      shifts.value.splice(shiftEditIdx.value, 1, entry)
+    }
+    showShiftForm.value = false
+    await saveShifts()
+  }
+
+  async function saveShifts() {
+    shiftsSaving.value = true
+    try {
+      const res = await (await fetch(`${BASE()}/shifts`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: deptFormName.value.trim() })
+        body: JSON.stringify(shifts.value)
       })).json()
       if (!res.success) throw new Error(res.message)
-      // 本地更新
-      const dept = departments.value.find(d => d.name === deptFormTarget.value)
-      if (dept) dept.name = deptFormName.value.trim()
-      if (selectedDept.value === deptFormTarget.value) selectedDept.value = deptFormName.value.trim()
-      showToast(`已更名：${deptFormTarget.value} → ${deptFormName.value}`)
+      showToast('班別已儲存')
+    } catch (e) {
+      showToast('儲存失敗：' + e.message, true)
+    } finally {
+      shiftsSaving.value = false
     }
-    showDeptForm.value = false
-  } catch (e) {
-    showToast('操作失敗：' + (e.data?.message ?? e.message), true)
-  } finally {
-    deptSaving.value = false
   }
-}
 
-function confirmDeleteDept(name) {
-  deptDeleteTarget.value = name
-  showDeptDelete.value   = true
-}
-
-async function deleteDept() {
-  const name = deptDeleteTarget.value
-  try {
-    const encoded = encodeURIComponent(name)
-    const res = await (await fetch(`${BASE()}/departments/${encoded}`, { method: 'DELETE' })).json()
-    if (!res.success) throw new Error(res.message)
-    departments.value = departments.value.filter(d => d.name !== name)
-    if (selectedDept.value === name) selectedDept.value = departments.value[0]?.name ?? ''
-    showToast(`已刪除組別：${name}`)
-  } catch (e) {
-    showToast('刪除失敗：' + (e.data?.message ?? e.message), true)
-  } finally {
-    showDeptDelete.value   = false
-    deptDeleteTarget.value = ''
+  // 計算實際工時（分鐘 → 小時字串）
+  function calcWorkHours(shift) {
+    if (!shift.start || !shift.end) return ''
+    const [sh, sm] = shift.start.split(':').map(Number)
+    const [eh, em] = shift.end.split(':').map(Number)
+    let total = (eh * 60 + em) - (sh * 60 + sm) - (shift.breakMinutes ?? 0)
+    if (total <= 0) return ''
+    const h = Math.floor(total / 60)
+    const m = total % 60
+    return m === 0 ? `${h}H` : `${h}H${m}M`
   }
-}
 
+  // ── 匯出 Excel ────────────────────────────────────────────────────
+  const downloading = ref(false)
 
-// ════════════════════════════════════════════════════════════════════
-// ── 班別設定 ──────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════
-const shifts        = ref([])      // { code, label, start, end, breakMinutes }
-const shiftsSaving  = ref(false)
-const showShiftForm = ref(false)
-const shiftForm     = reactive({ code: '', label: '', start: '', end: '', breakMinutes: 60 })
-const shiftEditIdx  = ref(null)    // null = 新增，number = 編輯
-
-async function fetchShifts() {
-  try {
-    const res = await (await fetch(`${BASE()}/shifts`)).json()
-    if (res.success) shifts.value = res.data ?? []
-  } catch (e) {
-    console.warn('班別載入失敗', e)
+  async function exportExcel() {
+    downloading.value = true
+    try {
+      const url = `${BASE()}/export/excel/${currentYear.value}/${currentMonth.value}`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('匯出失敗')
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `${currentYear.value}年${String(currentMonth.value).padStart(2,'0')}月班表.xlsx`
+      a.click()
+      URL.revokeObjectURL(a.href)
+      showToast('Excel 已下載')
+    } catch (e) {
+      showToast('匯出失敗：' + e.message, true)
+    } finally {
+      downloading.value = false
+    }
   }
-}
 
-function openAddShift() {
-  shiftEditIdx.value     = null
-  shiftForm.code         = ''
-  shiftForm.label        = ''
-  shiftForm.start        = ''
-  shiftForm.end          = ''
-  shiftForm.breakMinutes = 60
-  showShiftForm.value    = true
-}
+  // ── 表格容器 ref ──────────────────────────────────────────────
+  const tableWrapRef  = ref(null)
+  const scalerClipRef = ref(null)
+  const tableInnerRef = ref(null)
+  const tableScale    = ref(1)
 
-function openEditShift(idx) {
-  shiftEditIdx.value     = idx
-  const s                = shifts.value[idx]
-  shiftForm.code         = s.code
-  shiftForm.label        = s.label
-  shiftForm.start        = s.start
-  shiftForm.end          = s.end
-  shiftForm.breakMinutes = s.breakMinutes ?? 60
-  showShiftForm.value    = true
-}
-
-function deleteShift(idx) {
-  shifts.value.splice(idx, 1)
-  saveShifts()
-}
-
-async function saveShiftForm() {
-  if (!shiftForm.code.trim() || !shiftForm.start || !shiftForm.end) return
-  const entry = {
-    code:         shiftForm.code.trim(),
-    label:        shiftForm.label.trim(),
-    start:        shiftForm.start,
-    end:          shiftForm.end,
-    breakMinutes: Number(shiftForm.breakMinutes)
-  }
-  if (shiftEditIdx.value === null) {
-    shifts.value.push(entry)
-  } else {
-    shifts.value.splice(shiftEditIdx.value, 1, entry)
-  }
-  showShiftForm.value = false
-  await saveShifts()
-}
-
-async function saveShifts() {
-  shiftsSaving.value = true
-  try {
-    const res = await (await fetch(`${BASE()}/shifts`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(shifts.value)
-    })).json()
-    if (!res.success) throw new Error(res.message)
-    showToast('班別已儲存')
-  } catch (e) {
-    showToast('儲存失敗：' + e.message, true)
-  } finally {
-    shiftsSaving.value = false
-  }
-}
-
-// 計算實際工時（分鐘 → 小時字串）
-function calcWorkHours(shift) {
-  if (!shift.start || !shift.end) return ''
-  const [sh, sm] = shift.start.split(':').map(Number)
-  const [eh, em] = shift.end.split(':').map(Number)
-  let total = (eh * 60 + em) - (sh * 60 + sm) - (shift.breakMinutes ?? 0)
-  if (total <= 0) return ''
-  const h = Math.floor(total / 60)
-  const m = total % 60
-  return m === 0 ? `${h}H` : `${h}H${m}M`
-}
-
-// ── 匯出 Excel ────────────────────────────────────────────────────
-const downloading = ref(false)
-
-async function exportExcel() {
-  downloading.value = true
-  try {
-    const url = `${BASE()}/export/excel/${currentYear.value}/${currentMonth.value}`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error('匯出失敗')
-    const blob = await res.blob()
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${currentYear.value}年${String(currentMonth.value).padStart(2,'0')}月班表.xlsx`
-    a.click()
-    URL.revokeObjectURL(a.href)
-    showToast('Excel 已下載')
-  } catch (e) {
-    showToast('匯出失敗：' + e.message, true)
-  } finally {
-    downloading.value = false
-  }
-}
-
-// ── 表格容器 ref ──────────────────────────────────────────────
-const tableWrapRef  = ref(null)
-const scalerClipRef = ref(null)
-const tableInnerRef = ref(null)
-const tableScale    = ref(1)
-
-// 縮放比例：從 localStorage 讀取，預設 100，範圍 50–150
-const ZOOM_KEY = 'class-schedule-tableZoom'
-const tableZoom = ref((() => {
-  try {
-    if (!import.meta.client) return 100
-    const v = Number(localStorage.getItem(ZOOM_KEY))
-    return v >= 50 && v <= 150 ? v : 100
-  } catch { return 100 }
-})())
-watch(tableZoom, (v) => {
-  try { localStorage.setItem(ZOOM_KEY, String(v)) } catch {}
-})
-
-// ── 顯示人員篩選（班表 + 日曆共用，存 localStorage，按部門分開）──
-const VISIBLE_KEY = 'class-schedule-visibleIds'
-function loadVisibleIds(dept) {
-  try {
-    const all = JSON.parse(localStorage.getItem(VISIBLE_KEY) ?? '{}')
-    return Array.isArray(all[dept]) ? all[dept] : []
-  } catch { return [] }
-}
-function saveVisibleIds(dept, ids) {
-  try {
-    const all = JSON.parse(localStorage.getItem(VISIBLE_KEY) ?? '{}')
-    all[dept] = ids
-    localStorage.setItem(VISIBLE_KEY, JSON.stringify(all))
-  } catch {}
-}
-
-const visibleIds = ref([])
-
-// 部門切換時從 localStorage 載入該部門的設定
-watch(selectedDept, (dept) => {
-  visibleIds.value = import.meta.client ? loadVisibleIds(dept) : []
-})
-
-// visibleIds 變動時存入 localStorage
-watch(visibleIds, (ids) => {
-  if (import.meta.client) saveVisibleIds(selectedDept.value, ids)
-}, { deep: true })
-
-const tableVisibleIds = visibleIds   // 班表用（alias）
-const calSelectedIds  = visibleIds   // 日曆用（alias）
-
-const tableFilteredEmps = computed(() =>
-  visibleIds.value.length
-    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
-    : currentDeptEmployees.value
-)
-const calFilteredEmps = computed(() =>
-  visibleIds.value.length
-    ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
-    : currentDeptEmployees.value
-)
-
-// ── 欄 hover 高亮（hover 時顯示星期列）────────────────────────
-const hoveredDay = ref(null)
-const hoveredRow = ref(null)
-// 點選後持續高亮（手機無 hover，點格子後保留十字直到 modal 關閉）
-const selectedDay   = ref(null)
-const selectedEmpId = ref(null)
-
-watch(showForm, (open) => {
-  if (!open) { selectedDay.value = null; selectedEmpId.value = null }
-})
-
-function updateTableScale() {}
-
-let _tableRO = null
-function mountTableObserver() {}
-function unmountTableObserver() { _tableRO?.disconnect(); _tableRO = null }
-
-// 切回班表 view 時重新計算 scale
-watch(view, (v) => {
-  if (v === 'table') nextTick(() => updateTableScale())
-})
-
-// ── 初始載入 ─────────────────────────────────────────────────
-onMounted(() => {
-  // 從 localStorage 還原 view 和 selectedDept（放 onMounted 避免 SSR hydration mismatch）
-  try {
-    const savedView = localStorage.getItem(VIEW_KEY)
-    if (savedView && ['table', 'calendar', 'staff'].includes(savedView)) view.value = savedView
-    const savedDept = localStorage.getItem(DEPT_KEY)
-    if (savedDept) selectedDept.value = savedDept
-    headerCollapsed.value = localStorage.getItem(HEADER_KEY) === '1'
-  } catch {}
-
-  fetchSchedule()
-  fetchShifts()
-  nextTick(() => mountTableObserver())
-  startAutoFetch()
-
-  // 網路狀態監聽
-  window.addEventListener('online', () => {
-    isOnline.value = true
-    flushQueue()
-    fetchSchedule(true)  // 靜默補齊離線期間的變動
-  })
-  window.addEventListener('offline', () => {
-    isOnline.value = false
+  // 縮放比例：從 localStorage 讀取，預設 100，範圍 50–150
+  const ZOOM_KEY = 'class-schedule-tableZoom'
+  const tableZoom = ref((() => {
+    try {
+      if (!import.meta.client) return 100
+      const v = Number(localStorage.getItem(ZOOM_KEY))
+      return v >= 50 && v <= 150 ? v : 100
+    } catch { return 100 }
+  })())
+  watch(tableZoom, (v) => {
+    try { localStorage.setItem(ZOOM_KEY, String(v)) } catch {}
   })
 
-  // BroadcastChannel：接收其他頁籤的 refetch 通知
-  try {
-    _bc = new BroadcastChannel('class-schedule-sync')
-    _bc.onmessage = (e) => {
-      if (e.data?.type === 'refetch' && !showForm.value && pendingCount.value === 0) {
-        fetchSchedule(true)
+  // ── 顯示人員篩選（班表 + 日曆共用，存 localStorage，按部門分開）──
+  const VISIBLE_KEY = 'class-schedule-visibleIds'
+  function loadVisibleIds(dept) {
+    try {
+      const all = JSON.parse(localStorage.getItem(VISIBLE_KEY) ?? '{}')
+      return Array.isArray(all[dept]) ? all[dept] : []
+    } catch { return [] }
+  }
+  function saveVisibleIds(dept, ids) {
+    try {
+      const all = JSON.parse(localStorage.getItem(VISIBLE_KEY) ?? '{}')
+      all[dept] = ids
+      localStorage.setItem(VISIBLE_KEY, JSON.stringify(all))
+    } catch {}
+  }
+
+  const visibleIds = ref([])
+
+  // 部門切換時從 localStorage 載入該部門的設定
+  watch(selectedDept, (dept) => {
+    visibleIds.value = import.meta.client ? loadVisibleIds(dept) : []
+  })
+
+  // visibleIds 變動時存入 localStorage
+  watch(visibleIds, (ids) => {
+    if (import.meta.client) saveVisibleIds(selectedDept.value, ids)
+  }, { deep: true })
+
+  const tableVisibleIds = visibleIds   // 班表用（alias）
+  const calSelectedIds  = visibleIds   // 日曆用（alias）
+
+  const tableFilteredEmps = computed(() =>
+    visibleIds.value.length
+      ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
+      : currentDeptEmployees.value
+  )
+  const calFilteredEmps = computed(() =>
+    visibleIds.value.length
+      ? currentDeptEmployees.value.filter(e => visibleIds.value.includes(e.id))
+      : currentDeptEmployees.value
+  )
+
+  // ── 欄 hover 高亮（hover 時顯示星期列）────────────────────────
+  const hoveredDay = ref(null)
+  const hoveredRow = ref(null)
+  // 點選後持續高亮（手機無 hover，點格子後保留十字直到 modal 關閉）
+  const selectedDay   = ref(null)
+  const selectedEmpId = ref(null)
+
+  watch(showForm, (open) => {
+    if (!open) { selectedDay.value = null; selectedEmpId.value = null }
+  })
+
+  function updateTableScale() {}
+
+  let _tableRO = null
+  function mountTableObserver() {}
+  function unmountTableObserver() { _tableRO?.disconnect(); _tableRO = null }
+
+  // 切回班表 view 時重新計算 scale
+  watch(view, (v) => {
+    if (v === 'table') nextTick(() => updateTableScale())
+  })
+
+  // ── 初始載入 ─────────────────────────────────────────────────
+  onMounted(() => {
+    // 從 localStorage 還原 view 和 selectedDept（放 onMounted 避免 SSR hydration mismatch）
+    try {
+      const savedView = localStorage.getItem(VIEW_KEY)
+      if (savedView && ['table', 'calendar', 'staff'].includes(savedView)) view.value = savedView
+      const savedDept = localStorage.getItem(DEPT_KEY)
+      if (savedDept) selectedDept.value = savedDept
+      headerCollapsed.value = localStorage.getItem(HEADER_KEY) === '1'
+    } catch {}
+
+    fetchSchedule()
+    fetchShifts()
+    nextTick(() => mountTableObserver())
+    startAutoFetch()
+
+    // 網路狀態監聽
+    window.addEventListener('online', () => {
+      isOnline.value = true
+      flushQueue()
+      fetchSchedule(true)  // 靜默補齊離線期間的變動
+    })
+    window.addEventListener('offline', () => {
+      isOnline.value = false
+    })
+
+    // BroadcastChannel：接收其他頁籤的 refetch 通知
+    try {
+      _bc = new BroadcastChannel('class-schedule-sync')
+      _bc.onmessage = (e) => {
+        if (e.data?.type === 'refetch' && !showForm.value && pendingCount.value === 0) {
+          fetchSchedule(true)
+        }
       }
-    }
-  } catch {}
-})
+    } catch {}
+  })
 
-onUnmounted(() => {
-  unmountTableObserver()
-  stopAutoFetch()
-  window.removeEventListener('online', () => {})
-  window.removeEventListener('offline', () => {})
-  try { _bc?.close() } catch {}
-})
+  onUnmounted(() => {
+    unmountTableObserver()
+    stopAutoFetch()
+    window.removeEventListener('online', () => {})
+    window.removeEventListener('offline', () => {})
+    try { _bc?.close() } catch {}
+  })
 </script>
 
 <template>
@@ -1459,13 +1465,6 @@ onUnmounted(() => {
                   <span :class="['w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold', opt.color]">{{ opt.code }}</span>
                   <span class="text-xs text-hint-c text-center leading-tight">{{ opt.label }}</span>
                 </button>
-                <button
-                  :class="['flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all',
-         editCode === '' ? 'border-green-600 ring-2 ring-green-200 dark:ring-green-800 scale-105' : 'border-transparent hover-border']"
-                  @click="editCode = ''; editExtra = ''">
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold bg-surface2 text-hint-c">—</span>
-                  <span class="text-xs text-hint-c">清除</span>
-                </button>
               </div>
             </div>
 
@@ -1505,9 +1504,10 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 取消/儲存按鈕（固定在底部） -->
+        <!-- 刪除/儲存按鈕（固定在底部） -->
         <div class="flex gap-2 px-5 py-4 flex-shrink-0 border-t border-light-c">
-          <button class="flex-1 py-2.5 text-lg border border-light-c text-muted-c rounded-xl hover-surface2 transition-colors" @click="showForm = false">取消</button>
+          <button class="flex-1 py-2.5 text-lg border border-light-c text-red-600 rounded-xl hover-surface2 transition-colors"
+                  :disabled="saving" @click="deleteEdit">刪除</button>
           <button class="flex-1 py-2.5 text-lg bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                   :disabled="saving" @click="saveEdit">
             <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
@@ -1675,9 +1675,9 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
-/* 格子分隔線：用 CSS 變數保持深淺模式一致，透明度調低讓格線淡而不搶眼 */
-.border-cell { border-color: color-mix(in srgb, var(--border-light) 65%, transparent); border-right-width: 2px; }
+  .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+  .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+  /* 格子分隔線：用 CSS 變數保持深淺模式一致，透明度調低讓格線淡而不搶眼 */
+  .border-cell { border-color: color-mix(in srgb, var(--border-light) 65%, transparent); border-right-width: 2px; }
 
 </style>
