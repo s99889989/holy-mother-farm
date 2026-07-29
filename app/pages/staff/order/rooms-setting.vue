@@ -34,6 +34,7 @@
           <div class="segmented">
             <button :class="viewMode === 'list' ? 'seg-active' : ''" @click="viewMode = 'list'">列表檢視</button>
             <button :class="viewMode === 'floorplan' ? 'seg-active' : ''" @click="viewMode = 'floorplan'">平面圖檢視</button>
+            <button :class="viewMode === 'shape' ? 'seg-active' : ''" @click="viewMode = 'shape'">矩形對應</button>
           </div>
         </div>
 
@@ -91,7 +92,7 @@
         </div>
 
         <!-- 平面圖檢視：改用共用的 RoomFloorplan 元件（跟訂房管理共用同一份牆面/座標邏輯，避免兩邊各刻一份、版本兜不起來） -->
-        <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
+        <div v-else-if="viewMode === 'floorplan'" class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
           <div v-for="grp in visibleBuildings" :key="grp.id" class="mb-8 last:mb-0">
             <div class="flex items-center gap-2 mb-2">
               <span class="building-badge">{{ grp.name.charAt(0) }}</span>
@@ -112,8 +113,116 @@
           </div>
           <p class="text-hint-c mt-2" style="font-size:11px">＊快樂運動館、合力居、愛加倍已依實際平面圖比例定位；懇親房目前無座標資料，暫以走廊示意圖顯示</p>
         </div>
+
+        <!-- 矩形對應：指定房間 shapeId 對應，或直接拖拽調整矩形/線條位置 -->
+        <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
+          <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <p class="text-hint-c" style="font-size:12px">
+              {{ shapeEditMode === 'assign'
+              ? '點一下矩形，指定它對應到哪間房號；已對應的矩形會顯示房號並改成綠色，未對應的矩形顯示原始矩形 id。'
+              : '拖拽矩形/線條調整位置；選取後拖右下角小方塊調整矩形大小、拖端點調整線條長度，下方也可以直接輸入精確數字。' }}
+            </p>
+            <div class="segmented">
+              <button :class="shapeEditMode === 'assign' ? 'seg-active' : ''" @click="shapeEditMode = 'assign'; selectedShapeId = null">指定房間</button>
+              <button :class="shapeEditMode === 'edit' ? 'seg-active' : ''" @click="shapeEditMode = 'edit'">調整位置</button>
+            </div>
+          </div>
+
+          <div v-for="grp in visibleBuildings" :key="grp.id" class="mb-8 last:mb-0">
+            <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <div class="flex items-center gap-2">
+                <span class="building-badge">{{ grp.name.charAt(0) }}</span>
+                <h3 class="font-bold text-base-c" style="font-size:14px">{{ grp.name }}</h3>
+                <span class="text-hint-c" style="font-size:11.5px">已對應 {{ grp.rooms.filter(r => r.shapeId).length }} / {{ grp.rooms.length }} 間</span>
+              </div>
+              <div v-if="shapeEditMode === 'edit'" class="flex gap-2">
+                <button class="mini-btn" @click="addShape(grp.id, 'rect')">+ 矩形</button>
+                <button class="mini-btn" @click="addShape(grp.id, 'vline')">+ 垂直線</button>
+                <button class="mini-btn" @click="addShape(grp.id, 'hline')">+ 水平線</button>
+              </div>
+            </div>
+
+            <svg
+              v-if="shapesOf(grp.id).length || shapeEditMode === 'edit'"
+              :viewBox="`0 0 ${canvasOf(grp.id).w} ${canvasOf(grp.id).h}`"
+              class="shape-svg"
+            >
+              <template v-for="s in shapesOf(grp.id)" :key="s.id">
+                <g v-if="s.type === 'vline'">
+                  <line
+                    :x1="s.x" :y1="s.y1" :x2="s.x" :y2="s.y2"
+                    :class="['shape-wall', shapeEditMode === 'edit' ? 'shape-wall-editable' : '', selectedShapeId === s.id ? 'shape-selected' : '']"
+                    @pointerdown="onShapePointerDown($event, grp.id, s, 'move-vline')"
+                  />
+                  <template v-if="shapeEditMode === 'edit' && selectedShapeId === s.id">
+                    <circle :cx="s.x" :cy="s.y1" r="6" class="shape-handle" @pointerdown.stop="onShapePointerDown($event, grp.id, s, 'resize-vline-1')" />
+                    <circle :cx="s.x" :cy="s.y2" r="6" class="shape-handle" @pointerdown.stop="onShapePointerDown($event, grp.id, s, 'resize-vline-2')" />
+                  </template>
+                </g>
+                <g v-else-if="s.type === 'hline'">
+                  <line
+                    :x1="s.x1" :y1="s.y" :x2="s.x2" :y2="s.y"
+                    :class="['shape-wall', shapeEditMode === 'edit' ? 'shape-wall-editable' : '', selectedShapeId === s.id ? 'shape-selected' : '']"
+                    @pointerdown="onShapePointerDown($event, grp.id, s, 'move-hline')"
+                  />
+                  <template v-if="shapeEditMode === 'edit' && selectedShapeId === s.id">
+                    <circle :cx="s.x1" :cy="s.y" r="6" class="shape-handle" @pointerdown.stop="onShapePointerDown($event, grp.id, s, 'resize-hline-1')" />
+                    <circle :cx="s.x2" :cy="s.y" r="6" class="shape-handle" @pointerdown.stop="onShapePointerDown($event, grp.id, s, 'resize-hline-2')" />
+                  </template>
+                </g>
+                <g
+                  v-else-if="s.type === 'rect'"
+                  class="shape-group"
+                  @click="shapeEditMode === 'assign' && openShapeAssign(grp, s)"
+                >
+                  <rect
+                    :x="s.x" :y="s.y" :width="s.w" :height="s.h" rx="4"
+                    :class="['shape-rect', assignedRoomFor(grp, s.id) ? 'shape-assigned' : '', selectedShapeId === s.id ? 'shape-selected' : '']"
+                    @pointerdown="onShapePointerDown($event, grp.id, s, 'move-rect')"
+                  />
+                  <text
+                    :x="s.x + s.w / 2" :y="s.y + s.h / 2"
+                    text-anchor="middle" dominant-baseline="central" class="shape-label"
+                  >{{ assignedRoomFor(grp, s.id) ? assignedRoomFor(grp, s.id).id : s.id.replace('custom_', 'c') }}</text>
+                  <rect
+                    v-if="shapeEditMode === 'edit' && selectedShapeId === s.id"
+                    :x="s.x + s.w - 7" :y="s.y + s.h - 7" width="14" height="14"
+                    class="shape-handle"
+                    @pointerdown.stop="onShapePointerDown($event, grp.id, s, 'resize-rect')"
+                  />
+                </g>
+              </template>
+            </svg>
+            <p v-else class="text-hint-c" style="font-size:12px">這個棟別沒有平面圖矩形資料可供對應。</p>
+
+            <!-- 選取矩形/線條的精確數字編輯面板 -->
+            <div v-if="shapeEditMode === 'edit' && selectedShapeInGroup(grp.id)" class="shape-panel">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-base-c" style="font-size:12.5px">{{ selectedShapeInGroup(grp.id).id }}（{{ shapeTypeLabel[selectedShapeInGroup(grp.id).type] }}）</span>
+                <button class="mini-btn mini-danger" @click="deleteSelectedShape(grp.id)">刪除</button>
+              </div>
+              <div v-if="selectedShapeInGroup(grp.id).type === 'rect'" class="shape-panel-grid">
+                <label>X<input type="number" v-model.number="selectedShapeInGroup(grp.id).x" @change="commitSelectedShape(grp.id)"></label>
+                <label>Y<input type="number" v-model.number="selectedShapeInGroup(grp.id).y" @change="commitSelectedShape(grp.id)"></label>
+                <label>寬<input type="number" v-model.number="selectedShapeInGroup(grp.id).w" @change="commitSelectedShape(grp.id)"></label>
+                <label>高<input type="number" v-model.number="selectedShapeInGroup(grp.id).h" @change="commitSelectedShape(grp.id)"></label>
+              </div>
+              <div v-else-if="selectedShapeInGroup(grp.id).type === 'vline'" class="shape-panel-grid">
+                <label>X<input type="number" v-model.number="selectedShapeInGroup(grp.id).x" @change="commitSelectedShape(grp.id)"></label>
+                <label>Y1<input type="number" v-model.number="selectedShapeInGroup(grp.id).y1" @change="commitSelectedShape(grp.id)"></label>
+                <label>Y2<input type="number" v-model.number="selectedShapeInGroup(grp.id).y2" @change="commitSelectedShape(grp.id)"></label>
+              </div>
+              <div v-else class="shape-panel-grid">
+                <label>Y<input type="number" v-model.number="selectedShapeInGroup(grp.id).y" @change="commitSelectedShape(grp.id)"></label>
+                <label>X1<input type="number" v-model.number="selectedShapeInGroup(grp.id).x1" @change="commitSelectedShape(grp.id)"></label>
+                <label>X2<input type="number" v-model.number="selectedShapeInGroup(grp.id).x2" @change="commitSelectedShape(grp.id)"></label>
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
+
 
     <!-- ===== 棟別 新增/編輯 Modal ===== -->
     <div v-if="buildingModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="buildingModal.open = false">
@@ -192,10 +301,31 @@
       </div>
     </div>
 
+    <!-- ===== 矩形對應 Modal ===== -->
+    <div v-if="shapeAssign.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="shapeAssign.open = false">
+      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
+        <h2 class="font-bold text-base-c mb-3" style="font-size:15px">矩形「{{ shapeAssign.shapeId }}」對應哪間房？</h2>
+        <label class="block text-hint-c mb-1" style="font-size:12px">房號</label>
+        <select v-model="shapeAssign.roomId" class="w-full border border-light-c rounded-lg px-3 py-2 mb-3 bg-surface2 text-base-c" style="font-size:13px">
+          <option value="">－ 不指定（清除對應）－</option>
+          <option v-for="r in shapeAssignRooms" :key="r.id" :value="r.id">
+            {{ r.id }}（{{ r.type }}）{{ r.shapeId && r.shapeId !== shapeAssign.shapeId ? '・已對應 ' + r.shapeId : '' }}
+          </option>
+        </select>
+        <p class="text-hint-c mb-2" style="font-size:11.5px">如果選的房間已經對應到別的矩形，會自動把舊的對應清掉，避免一個矩形同時綁兩間房。</p>
+        <div class="flex justify-end gap-2 mt-3">
+          <button class="btn-plain" @click="shapeAssign.open = false">取消</button>
+          <button class="btn-primary" :disabled="saving" @click="saveShapeAssign">{{ saving ? '儲存中...' : '儲存' }}</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
+import { useFloorplanShapes } from '~/composables/useFloorplanShapes'
+
 definePageMeta({ layout: 'staff', requiredPermission: 'booking.rooms' })
 
 const commonStore = useCommonStore()
@@ -244,6 +374,164 @@ const detailBookings = computed(() => {
     .filter(b => b.roomId === detailTarget.value.room.id && b.status !== 'cancelled')
     .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
 })
+
+/* ---------------- 矩形對應設置 ----------------
+   「指定房間」：把平面圖矩形手動指定給某間實際房間，存成房間的 shapeId 欄位；
+                RoomFloorplan 元件之後就會直接用這個矩形畫出房間實際輪廓。
+   「調整位置」：直接在畫面上拖拽矩形/線條調整座標，即時存到後端資料庫。 */
+const { shapesOf, canvasOf, saveShape: saveShapeGeometry, deleteShape: deleteShapeGeometry } = useFloorplanShapes()
+
+function assignedRoomFor(grp, shapeId) {
+  return grp.rooms.find(r => r.shapeId === shapeId) || null
+}
+
+const shapeAssign = reactive({ open: false, buildingId: null, shapeId: '', roomId: '' })
+function openShapeAssign(grp, shape) {
+  const current = assignedRoomFor(grp, shape.id)
+  shapeAssign.open = true
+  shapeAssign.buildingId = grp.id
+  shapeAssign.shapeId = shape.id
+  shapeAssign.roomId = current ? current.id : ''
+}
+const shapeAssignRooms = computed(() => {
+  const grp = buildings.value.find(b => b.id === shapeAssign.buildingId)
+  return grp ? grp.rooms : []
+})
+async function saveShapeAssign() {
+  saving.value = true
+  try {
+    const grp = buildings.value.find(b => b.id === shapeAssign.buildingId)
+    const prevOwner = grp && assignedRoomFor(grp, shapeAssign.shapeId)
+    // 這個矩形原本對應到別的房間，先解除舊的對應，避免一個矩形同時被兩間房間占用
+    if (prevOwner && prevOwner.id !== shapeAssign.roomId) {
+      await fetch(`${ROOMS_BASE()}/shape`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildingId: shapeAssign.buildingId, id: prevOwner.id, shapeId: '' }),
+      })
+    }
+    if (shapeAssign.roomId) {
+      await fetch(`${ROOMS_BASE()}/shape`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildingId: shapeAssign.buildingId, id: shapeAssign.roomId, shapeId: shapeAssign.shapeId }),
+      })
+    }
+    shapeAssign.open = false
+    await fetchAll()
+  } catch (e) { console.error(e) }
+  finally { saving.value = false }
+}
+
+/* ---------------- 矩形對應：調整位置模式（拖拽 / 新增 / 刪除） ---------------- */
+const shapeEditMode = ref('assign') // 'assign' 指定房間 ・ 'edit' 調整位置
+const selectedShapeId = ref(null)
+const shapeTypeLabel = { rect: '矩形', vline: '垂直線', hline: '水平線' }
+
+function selectedShapeInGroup(buildingId) {
+  if (!selectedShapeId.value) return null
+  return shapesOf(buildingId).find(s => s.id === selectedShapeId.value) || null
+}
+
+// 把滑鼠螢幕座標換算成 SVG viewBox 座標（因為 svg 是用 width:100% 縮放顯示，不是 1:1 像素）
+function svgPointFromClient(svgEl, clientX, clientY) {
+  if (!svgEl) return { x: 0, y: 0 }
+  const rect = svgEl.getBoundingClientRect()
+  const vb = svgEl.viewBox.baseVal
+  if (!rect.width || !rect.height) return { x: 0, y: 0 }
+  return {
+    x: (clientX - rect.left) * (vb.width / rect.width),
+    y: (clientY - rect.top) * (vb.height / rect.height),
+  }
+}
+function round1(n) { return Math.round(n) }
+
+const dragState = reactive({ active: false, buildingId: null, shapeId: null, mode: null, svgEl: null, startPointer: { x: 0, y: 0 }, startGeom: {}, moved: false })
+
+function onShapePointerDown(e, buildingId, shape, mode) {
+  if (shapeEditMode.value !== 'edit') return
+  e.stopPropagation()
+  e.preventDefault()
+  const svgEl = e.target.closest('svg')
+  dragState.active = true
+  dragState.buildingId = buildingId
+  dragState.shapeId = shape.id
+  dragState.mode = mode
+  dragState.svgEl = svgEl
+  dragState.startPointer = svgPointFromClient(svgEl, e.clientX, e.clientY)
+  dragState.startGeom = { x: shape.x, y: shape.y, w: shape.w, h: shape.h, x1: shape.x1, x2: shape.x2, y1: shape.y1, y2: shape.y2 }
+  dragState.moved = false
+  selectedShapeId.value = shape.id
+  window.addEventListener('pointermove', onShapeWindowPointerMove)
+  window.addEventListener('pointerup', onShapeWindowPointerUp)
+}
+function onShapeWindowPointerMove(e) {
+  if (!dragState.active) return
+  const p = svgPointFromClient(dragState.svgEl, e.clientX, e.clientY)
+  const dx = p.x - dragState.startPointer.x
+  const dy = p.y - dragState.startPointer.y
+  if (Math.abs(dx) > 2 || Math.abs(dy) > 2) dragState.moved = true
+  const shape = shapesOf(dragState.buildingId).find(s => s.id === dragState.shapeId)
+  if (!shape) return
+  const g = dragState.startGeom
+  if (dragState.mode === 'move-rect') {
+    shape.x = round1(g.x + dx); shape.y = round1(g.y + dy)
+  } else if (dragState.mode === 'resize-rect') {
+    shape.w = Math.max(10, round1(g.w + dx)); shape.h = Math.max(10, round1(g.h + dy))
+  } else if (dragState.mode === 'move-vline') {
+    shape.x = round1(g.x + dx); shape.y1 = round1(g.y1 + dy); shape.y2 = round1(g.y2 + dy)
+  } else if (dragState.mode === 'resize-vline-1') {
+    shape.y1 = round1(g.y1 + dy)
+  } else if (dragState.mode === 'resize-vline-2') {
+    shape.y2 = round1(g.y2 + dy)
+  } else if (dragState.mode === 'move-hline') {
+    shape.y = round1(g.y + dy); shape.x1 = round1(g.x1 + dx); shape.x2 = round1(g.x2 + dx)
+  } else if (dragState.mode === 'resize-hline-1') {
+    shape.x1 = round1(g.x1 + dx)
+  } else if (dragState.mode === 'resize-hline-2') {
+    shape.x2 = round1(g.x2 + dx)
+  }
+}
+async function onShapeWindowPointerUp() {
+  if (!dragState.active) return
+  window.removeEventListener('pointermove', onShapeWindowPointerMove)
+  window.removeEventListener('pointerup', onShapeWindowPointerUp)
+  const buildingId = dragState.buildingId
+  const moved = dragState.moved
+  const shape = shapesOf(buildingId).find(s => s.id === dragState.shapeId)
+  dragState.active = false
+  if (shape && moved) {
+    try { await saveShapeGeometry(buildingId, shape) }
+    catch (e) { console.error(e) }
+  }
+}
+
+// 精確數字輸入框失焦/送出時呼叫，把目前的座標存到後端
+async function commitSelectedShape(buildingId) {
+  const shape = selectedShapeInGroup(buildingId)
+  if (!shape) return
+  try { await saveShapeGeometry(buildingId, shape) }
+  catch (e) { console.error(e) }
+}
+
+async function addShape(buildingId, type) {
+  const canvas = canvasOf(buildingId)
+  let shape
+  if (type === 'rect') shape = { type: 'rect', x: Math.round(canvas.w / 2 - 40), y: Math.round(canvas.h / 2 - 30), w: 80, h: 60 }
+  else if (type === 'vline') shape = { type: 'vline', x: Math.round(canvas.w / 2), y1: Math.round(canvas.h / 2 - 40), y2: Math.round(canvas.h / 2 + 40) }
+  else shape = { type: 'hline', y: Math.round(canvas.h / 2), x1: Math.round(canvas.w / 2 - 40), x2: Math.round(canvas.w / 2 + 40) }
+  try {
+    const saved = await saveShapeGeometry(buildingId, shape)
+    selectedShapeId.value = saved.id
+  } catch (e) { console.error(e) }
+}
+async function deleteSelectedShape(buildingId) {
+  if (!selectedShapeId.value) return
+  if (!confirm('確定要刪除這個矩形/線條嗎？如果有房間對應到它，那間房的對應也會一併清除。')) return
+  try {
+    await deleteShapeGeometry(buildingId, selectedShapeId.value)
+    selectedShapeId.value = null
+  } catch (e) { console.error(e) }
+}
+
 function statusLabel(s) {
   return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
 }
@@ -334,33 +622,19 @@ async function saveRoomModal() {
 async function deleteRoomConfirm(grp, r) {
   if (!confirm(`確定要刪除房間「${r.id}」嗎？`)) return
   try {
-    await fetch(`${ROOMS_BASE()}/remove/${grp.id}/${r.id}`, {method: 'DELETE'})
+    await fetch(`${ROOMS_BASE()}/remove/${grp.id}/${r.id}`, { method: 'DELETE' })
     await fetchAll()
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
-
 async function quickToggleActive(buildingId, r) {
   const nextActive = !r.active
   r.active = nextActive // 先在畫面上即時反應
   try {
     await fetch(`${ROOMS_BASE()}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        buildingId,
-        id: r.id,
-        type: r.type,
-        capacity: r.capacity,
-        bed: r.bed,
-        price: r.price,
-        active: nextActive
-      }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buildingId, id: r.id, type: r.type, capacity: r.capacity, bed: r.bed, price: r.price, active: nextActive }),
     })
-  } catch (e) {
-    console.error(e);
-    r.active = !nextActive
-  }
+  } catch (e) { console.error(e); r.active = !nextActive }
 }
 
 onMounted(fetchAll)
@@ -378,28 +652,14 @@ onMounted(fetchAll)
   font-weight: 700;
   white-space: nowrap;
 }
-
-.pill-btn:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.pill-btn.border-dashed {
-  border-style: dashed;
-  background: transparent;
-}
-
+.pill-btn:hover { border-color: var(--accent); color: var(--text); }
+.pill-btn.border-dashed { border-style: dashed; background: transparent; }
 .pill-active {
   background: #15803d;
   border-color: #15803d;
   color: #fff;
 }
-
-.pill-active:hover {
-  border-color: #15803d;
-  color: #fff;
-}
-
+.pill-active:hover { border-color: #15803d; color: #fff; }
 .segmented {
   display: flex;
   background: var(--surface2);
@@ -408,7 +668,6 @@ onMounted(fetchAll)
   padding: 3px;
   gap: 2px;
 }
-
 .segmented button {
   border: none;
   background: transparent;
@@ -418,31 +677,17 @@ onMounted(fetchAll)
   font-size: 12.5px;
   font-weight: 700;
 }
-
-.segmented button:hover {
-  background: var(--border-light);
-  color: var(--text);
-}
-
+.segmented button:hover { background: var(--border-light); color: var(--text); }
 .seg-active, .seg-active:hover {
   background: #15803d;
   color: #fff;
 }
-
 .building-badge {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: rgba(21, 128, 61, .12);
-  color: #15803d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11.5px;
-  font-weight: 700;
-  flex-shrink: 0;
+  width: 24px; height: 24px; border-radius: 6px;
+  background: rgba(21, 128, 61, .12); color: #15803d;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 700; flex-shrink: 0;
 }
-
 .icon-btn {
   cursor: pointer;
   display: inline-flex;
@@ -451,81 +696,127 @@ onMounted(fetchAll)
   color: var(--text-hint);
   opacity: .75;
 }
-
-.icon-btn:hover {
-  opacity: 1;
-}
-
+.icon-btn:hover { opacity: 1; }
 .toggle {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--border);
-  border: none;
-  flex-shrink: 0;
+  position: relative; width: 36px; height: 20px; border-radius: 999px;
+  background: var(--border); border: none; flex-shrink: 0;
 }
-
-.toggle-on {
-  background: #22c55e;
-}
-
+.toggle-on { background: #22c55e; }
 .toggle::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
   transition: left .15s;
 }
-
-.toggle-on::after {
-  left: 18px;
+.toggle-on::after { left: 18px; }
+.shape-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
 }
-
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  display: inline-block;
-  margin-right: 5px;
-  vertical-align: middle;
+.shape-wall {
+  stroke: var(--border-light);
+  stroke-width: 1.5;
 }
-
-.status-badge {
-  font-size: 11px;
+.shape-group {
+  cursor: pointer;
+}
+.shape-rect {
+  fill: var(--surface2);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  transition: fill .15s, stroke .15s, stroke-width .15s;
+  touch-action: none;
+}
+.shape-group:hover .shape-rect {
+  stroke: #15803d;
+  stroke-width: 2.5;
+}
+.shape-rect.shape-assigned {
+  fill: rgba(21, 128, 61, .12);
+  stroke: #15803d;
+}
+.shape-label {
+  font-size: 13px;
   font-weight: 700;
-  padding: 3px 9px;
+  fill: var(--text);
+  pointer-events: none;
+}
+.shape-wall-editable {
+  cursor: move;
+  stroke-width: 3;
+  touch-action: none;
+}
+.shape-selected {
+  stroke: #2563eb !important;
+  stroke-width: 3 !important;
+}
+.shape-handle {
+  fill: #2563eb;
+  stroke: #fff;
+  stroke-width: 1.5;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.shape-panel {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.shape-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-hint);
+}
+.shape-panel-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.shape-panel-grid input {
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  width: 100%;
+}
+.mini-btn {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
   border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
   white-space: nowrap;
 }
-
+.mini-btn:hover { background: var(--border-light); }
+.mini-btn.mini-danger {
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.mini-btn.mini-danger:hover { background: #fee2e2; }
+.dot {
+  width: 9px; height: 9px; border-radius: 3px; display: inline-block;
+  margin-right: 5px; vertical-align: middle;
+}
+.status-badge {
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+}
 .btn-plain {
-  padding: 7px 14px;
-  border-radius: 8px;
-  background: var(--surface2);
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
+  padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 13px; font-weight: 600;
 }
-
-.btn-plain:hover {
-  background: var(--bg);
-}
-
+.btn-plain:hover { background: var(--bg); }
 .btn-primary {
-  padding: 7px 14px;
-  border-radius: 8px;
-  background: #15803d;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
+  padding: 7px 14px; border-radius: 8px; background: #15803d; color: #fff; font-size: 13px; font-weight: 700;
 }
-
-.btn-primary:disabled {
-  opacity: .5;
-}
+.btn-primary:disabled { opacity: .5; }
 </style>
