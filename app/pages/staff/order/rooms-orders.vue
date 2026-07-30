@@ -67,31 +67,46 @@
 
           <!-- 房况總覽：後台常需要的營運數字 -->
           <div class="panel mb-4">
-            <h3 class="font-bold text-base-c mb-3" style="font-size:15px">
-              房况總覽<span class="text-hint-c" style="font-size:12px">{{ ordersBuilding === 'all' ? '（全部棟別）' : '（' + buildingNameOf(ordersBuilding) + '）' }}</span>
-            </h3>
-            <div class="stat-grid mb-4">
-              <div class="stat-card"><div class="stat-label">上架房間</div><div class="stat-value">{{ orderStats.active }}</div></div>
-              <div class="stat-card"><div class="stat-label">目前住房中</div><div class="stat-value">{{ orderStats.occupiedNow }}</div></div>
-              <div class="stat-card"><div class="stat-label">目前空房</div><div class="stat-value">{{ orderStats.vacant }}</div></div>
-              <div class="stat-card"><div class="stat-label">今日應入住</div><div class="stat-value">{{ checkinTodayCount }}</div></div>
-              <div class="stat-card"><div class="stat-label">今日應退房</div><div class="stat-value">{{ checkoutTodayCount }}</div></div>
-              <div class="stat-card"><div class="stat-label">待指派訂單</div><div class="stat-value">{{ ordersUnassignedCount }}</div></div>
-              <div class="stat-card"><div class="stat-label">待確認訂單</div><div class="stat-value">{{ ordersPendingCount }}</div></div>
-            </div>
-
-            <h4 class="font-semibold text-base-c mb-2" style="font-size:13.5px">依房型分類</h4>
-            <div class="type-summary-grid">
-              <div v-for="g in roomTypeSummary" :key="g.capacity" class="type-summary-card">
-                <div class="type-summary-title">
-                  {{ g.capacity }} 人房 <span class="text-hint-c" style="font-size:11px">（{{ g.typesLabel }}）</span>
-                </div>
-                <div class="type-summary-row"><span class="text-hint-c">上架 / 總數</span><b class="text-base-c">{{ g.active }} / {{ g.total }} 間</b></div>
-                <div class="type-summary-row"><span class="text-hint-c">住房中</span><b style="color:#2563eb">{{ g.occupiedNow }} 間</b></div>
-                <div class="type-summary-row"><span class="text-hint-c">空房可訂</span><b style="color:#15803d">{{ g.vacant }} 間</b></div>
+            <div class="flex items-center justify-between flex-wrap gap-2" :class="overviewCollapsed ? '' : 'mb-3'">
+              <div class="flex items-center gap-2">
+                <button class="collapse-btn" @click="overviewCollapsed = !overviewCollapsed" :title="overviewCollapsed ? '展開' : '收合'">{{ overviewCollapsed ? '▶' : '▼' }}</button>
+                <h3 class="font-bold text-base-c" style="font-size:15px">
+                  房况總覽<span class="text-hint-c" style="font-size:12px">{{ ordersBuilding === 'all' ? '（全部棟別）' : '（' + buildingNameOf(ordersBuilding) + '）' }}</span>
+                </h3>
               </div>
-              <div v-if="roomTypeSummary.length === 0" class="text-hint-c" style="font-size:12.5px">此棟別尚無房間資料</div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-hint-c" style="font-size:12.5px">查看日期</span>
+                <button class="mini-btn" @click="shiftViewDate(-1)">◀</button>
+                <input type="date" v-model="viewDate" class="select-input" style="padding:5px 8px">
+                <button class="mini-btn" @click="shiftViewDate(1)">▶</button>
+                <button class="mini-btn" :class="isViewingToday ? 'mini-primary' : ''" @click="resetViewDate">回到今天</button>
+              </div>
             </div>
+            <template v-if="!overviewCollapsed">
+              <p v-if="!isViewingToday" class="text-hint-c mb-3 mt-3" style="font-size:12px">目前顯示的是 {{ viewDate }} 當天的訂房狀況，不是即時狀況</p>
+              <div class="stat-grid mb-4" :class="isViewingToday ? 'mt-3' : ''">
+                <div class="stat-card"><div class="stat-label">上架房間</div><div class="stat-value">{{ orderStats.active }}</div></div>
+                <div class="stat-card"><div class="stat-label">{{ isViewingToday ? '目前住房中' : viewDate + ' 住房中' }}</div><div class="stat-value">{{ orderStats.occupiedNow }}</div></div>
+                <div class="stat-card"><div class="stat-label">{{ isViewingToday ? '目前空房' : viewDate + ' 空房' }}</div><div class="stat-value">{{ orderStats.vacant }}</div></div>
+                <div class="stat-card"><div class="stat-label">{{ isViewingToday ? '今日應入住' : viewDate + ' 應入住' }}</div><div class="stat-value">{{ checkinTodayCount }}</div></div>
+                <div class="stat-card"><div class="stat-label">{{ isViewingToday ? '今日應退房' : viewDate + ' 應退房' }}</div><div class="stat-value">{{ checkoutTodayCount }}</div></div>
+                <div class="stat-card"><div class="stat-label">待指派訂單</div><div class="stat-value">{{ ordersUnassignedCount }}</div></div>
+                <div class="stat-card"><div class="stat-label">待確認訂單</div><div class="stat-value">{{ ordersPendingCount }}</div></div>
+              </div>
+
+              <h4 class="font-semibold text-base-c mb-2" style="font-size:13.5px">依房型分類</h4>
+              <div class="type-summary-grid">
+                <div v-for="g in roomTypeSummary" :key="g.capacity" class="type-summary-card">
+                  <div class="type-summary-title">
+                    {{ g.capacity }} 人房 <span class="text-hint-c" style="font-size:11px">（{{ g.typesLabel }}）</span>
+                  </div>
+                  <div class="type-summary-row"><span class="text-hint-c">上架 / 總數</span><b class="text-base-c">{{ g.active }} / {{ g.total }} 間</b></div>
+                  <div class="type-summary-row"><span class="text-hint-c">住房中</span><b style="color:#2563eb">{{ g.occupiedNow }} 間</b></div>
+                  <div class="type-summary-row"><span class="text-hint-c">空房可訂</span><b style="color:#15803d">{{ g.vacant }} 間</b></div>
+                </div>
+                <div v-if="roomTypeSummary.length === 0" class="text-hint-c" style="font-size:12.5px">此棟別尚無房間資料</div>
+              </div>
+            </template>
           </div>
 
           <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
@@ -104,6 +119,7 @@
               <div class="segmented">
                 <button :class="ordersView === 'list' ? 'seg-active' : ''" :style="ordersView === 'list' ? segActiveStyle : ''" @click="ordersView = 'list'">列表檢視</button>
                 <button :class="ordersView === 'floorplan' ? 'seg-active' : ''" :style="ordersView === 'floorplan' ? segActiveStyle : ''" @click="ordersView = 'floorplan'">平面圖檢視</button>
+                <button :class="ordersView === 'calendar' ? 'seg-active' : ''" :style="ordersView === 'calendar' ? segActiveStyle : ''" @click="ordersView = 'calendar'">日曆檢視</button>
               </div>
             </div>
           </div>
@@ -118,7 +134,7 @@
                   <option value="pending">待確認</option>
                   <option value="confirmed">已確認（住房中）</option>
                 </select>
-                <input type="text" v-model="ordersKeyword" placeholder="搜尋房客姓名或訂單編號" class="select-input">
+                <input type="text" v-model="ordersKeyword" placeholder="搜尋房客姓名／訂單編號／房號" class="select-input">
               </div>
               <span class="text-hint-c" style="font-size:13px">共 {{ filteredOrders.length }} 筆</span>
             </div>
@@ -173,7 +189,7 @@
           </div>
 
           <!-- 平面圖檢視：改用共用的 RoomFloorplan 元件（跟房間管理共用同一份牆面/座標邏輯，避免兩邊各刻一份、版本兜不起來） -->
-          <div v-else>
+          <div v-else-if="ordersView === 'floorplan'">
             <div v-if="unassignedForFloor.length" class="panel mb-4">
               <h3 class="font-bold text-base-c mb-3" style="font-size:15px">待指派訂單（尚未對應到房間，平面圖無法顯示）</h3>
               <div class="flex flex-col gap-2">
@@ -188,6 +204,7 @@
             </div>
 
             <div class="panel">
+              <p class="text-hint-c mb-3" style="font-size:12px">平面圖顯示的是 <b class="text-base-c">{{ viewDate }}</b>{{ isViewingToday ? '（今天）' : '' }} 當天的房況，可在上方「房况總覽」切換查看日期</p>
               <div v-for="grp in visibleOrderBuildings" :key="grp.id" class="mb-8 last:mb-0">
                 <div class="flex items-center gap-2 mb-2">
                   <span class="building-badge">{{ grp.name.charAt(0) }}</span>
@@ -198,6 +215,7 @@
                 <RoomFloorplan
                   :building="grp"
                   :bookings="bookings"
+                  :reference-date="viewDate"
                   :status-resolver="orderStatusResolver"
                   @select="room => room && openBookingTile(room, grp.id)"
                 />
@@ -210,6 +228,39 @@
                 <span>點擊房間可查看訂單詳情並操作</span>
               </div>
               <p class="text-hint-c mt-2" style="font-size:12px">＊快樂運動館、合力居、愛加倍已依實際平面圖比例定位；懇親房目前無座標資料，暫以走廊示意圖顯示</p>
+            </div>
+          </div>
+
+          <!-- 日曆檢視：以月曆呈現每天有哪些訂單入住/在住/退房，點格子或訂單條可查看詳情並操作 -->
+          <div v-else class="panel">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <div class="flex items-center gap-2">
+                <button class="mini-btn" @click="shiftCalendarMonth(-1)">◀</button>
+                <h3 class="font-bold text-base-c" style="font-size:15px">{{ calendarMonthLabel }}</h3>
+                <button class="mini-btn" @click="shiftCalendarMonth(1)">▶</button>
+                <button class="mini-btn" @click="resetCalendarMonth">回到本月</button>
+              </div>
+              <div class="flex flex-wrap gap-3 text-hint-c" style="font-size:11.5px">
+                <span><span class="dot" style="background:#0284c7"></span>待指派</span>
+                <span><span class="dot" style="background:#d97706"></span>待確認</span>
+                <span><span class="dot" style="background:#059669"></span>已確認</span>
+                <span>點訂單條或「更多」可查看當日詳情並操作</span>
+              </div>
+            </div>
+
+            <div class="cal-grid cal-head">
+              <div v-for="w in ['日','一','二','三','四','五','六']" :key="w" class="cal-head-cell">{{ w }}</div>
+            </div>
+            <div class="cal-grid">
+              <div v-for="(cell, idx) in calendarCells" :key="idx" class="cal-cell" :class="{ 'cal-cell-today': cell && cell.date === today, 'cal-cell-empty': !cell }">
+                <template v-if="cell">
+                  <div class="cal-day-num" :class="cell.date === today ? 'cal-day-today' : ''">{{ cell.day }}</div>
+                  <button v-for="bk in cell.bookings.slice(0, 3)" :key="bk.id" class="cal-pill" :class="calendarPillClass(bk.status)" @click="dayTarget = cell">
+                    {{ bk.calTag ? bk.calTag + '・' : '' }}{{ bk.roomId ? roomIdOf(bk.roomId) : '待指派' }} {{ bk.name }}
+                  </button>
+                  <button v-if="cell.bookings.length > 3" class="cal-more" @click="dayTarget = cell">+{{ cell.bookings.length - 3 }} 更多</button>
+                </template>
+              </div>
             </div>
           </div>
         </div>
@@ -232,7 +283,7 @@
                   <option value="completed">已退房</option>
                   <option value="cancelled">已取消</option>
                 </select>
-                <input type="text" v-model="historyKeyword" placeholder="搜尋房客姓名或訂單編號" class="select-input">
+                <input type="text" v-model="historyKeyword" placeholder="搜尋房客姓名／訂單編號／房號" class="select-input">
               </div>
               <span class="text-hint-c" style="font-size:13px">共 {{ filteredHistory.length }} 筆</span>
             </div>
@@ -380,21 +431,23 @@
     <!-- ===== 平面圖點擊：訂單詳情 Modal ===== -->
     <div v-if="tileTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="tileTarget = null">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
-        <h2 class="font-bold text-base-c mb-3" style="font-size:16px">{{ tileTarget.room.id }} · {{ buildingNameOf(tileTarget.buildingId) }}</h2>
-        <div v-if="tileTarget.booking">
-          <div class="bg-surface2 rounded-lg p-3 mb-3" style="font-size:13.5px">
-            <div class="flex justify-between py-0.5"><span class="text-hint-c">訂單編號</span><span class="text-base-c">{{ tileTarget.booking.id }}</span></div>
-            <div class="flex justify-between py-0.5"><span class="text-hint-c">房客</span><span class="text-base-c">{{ tileTarget.booking.name }}（{{ tileTarget.booking.guests }} 人）</span></div>
-            <div class="flex justify-between py-0.5"><span class="text-hint-c">電話</span><span class="text-base-c">{{ tileTarget.booking.phone }}</span></div>
-            <div class="flex justify-between py-0.5"><span class="text-hint-c">入住 → 退房</span><span class="text-base-c">{{ tileTarget.booking.checkIn }} → {{ tileTarget.booking.checkOut }}</span></div>
-            <div class="flex justify-between py-0.5" v-if="tileTarget.booking.notes"><span class="text-hint-c">備註</span><span class="text-base-c">{{ tileTarget.booking.notes }}</span></div>
-            <div class="flex justify-between py-1 mt-1 border-t border-light-c"><span class="text-hint-c">狀態</span><span class="status-badge" :class="statusClass(tileTarget.booking.status)">{{ statusLabel(tileTarget.booking.status) }}</span></div>
-          </div>
-          <div class="flex gap-2 flex-wrap">
-            <button v-if="tileTarget.booking.status === 'pending'" class="mini-btn mini-primary" @click="quickSetTile('confirmed')">確認訂單</button>
-            <button v-if="tileTarget.booking.status === 'pending'" class="mini-btn" @click="openAssign(tileTarget.booking); tileTarget = null">更換房間</button>
-            <button v-if="tileTarget.booking.status === 'confirmed'" class="mini-btn" @click="quickSetTile('completed')">設為已退房</button>
-            <button class="mini-btn" @click="quickSetTile('cancelled')">取消訂單</button>
+        <h2 class="font-bold text-base-c mb-1" style="font-size:16px">{{ tileTarget.room.id }} · {{ buildingNameOf(tileTarget.buildingId) }}</h2>
+        <p v-if="tileTarget.bookings.length > 1" class="text-hint-c mb-3" style="font-size:12.5px">此房目前有 {{ tileTarget.bookings.length }} 筆不同時段的進行中訂單</p>
+        <div v-if="tileTarget.bookings.length">
+          <div v-for="bk in tileTarget.bookings" :key="bk.id" class="bg-surface2 rounded-lg p-3 mb-3" style="font-size:13.5px" :class="bk.checkIn <= viewDate && viewDate < bk.checkOut ? 'ring-2 ring-emerald-400' : ''">
+            <div class="flex justify-between py-0.5" v-if="bk.checkIn <= viewDate && viewDate < bk.checkOut"><span class="text-hint-c">　</span><span class="status-badge bg-emerald-100 text-emerald-700">涵蓋 {{ viewDate }}</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">訂單編號</span><span class="text-base-c">{{ bk.id }}</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">房客</span><span class="text-base-c">{{ bk.name }}（{{ bk.guests }} 人）</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">電話</span><span class="text-base-c">{{ bk.phone }}</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">入住 → 退房</span><span class="text-base-c">{{ bk.checkIn }} → {{ bk.checkOut }}</span></div>
+            <div class="flex justify-between py-0.5" v-if="bk.notes"><span class="text-hint-c">備註</span><span class="text-base-c">{{ bk.notes }}</span></div>
+            <div class="flex justify-between py-1 mt-1 border-t border-light-c"><span class="text-hint-c">狀態</span><span class="status-badge" :class="statusClass(bk.status)">{{ statusLabel(bk.status) }}</span></div>
+            <div class="flex gap-2 flex-wrap mt-2">
+              <button v-if="bk.status === 'pending'" class="mini-btn mini-primary" @click="quickSetTile(bk.id, 'confirmed')">確認訂單</button>
+              <button v-if="bk.status === 'pending'" class="mini-btn" @click="openAssign(bk); tileTarget = null">更換房間</button>
+              <button v-if="bk.status === 'confirmed'" class="mini-btn" @click="quickSetTile(bk.id, 'completed')">設為已退房</button>
+              <button class="mini-btn" @click="quickSetTile(bk.id, 'cancelled')">取消訂單</button>
+            </div>
           </div>
         </div>
         <div v-else class="text-center py-2">
@@ -407,398 +460,522 @@
       </div>
     </div>
 
+    <!-- ===== 日曆檢視點擊：當日訂單詳情 Modal ===== -->
+    <div v-if="dayTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="dayTarget = null">
+      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5 max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <h2 class="font-bold text-base-c" style="font-size:16px">{{ dayTarget.date }}</h2>
+          <button class="mini-btn mini-primary" @click="viewDate = dayTarget.date; ordersView = 'floorplan'; dayTarget = null">在平面圖查看</button>
+        </div>
+        <div v-if="dayTarget.bookings.length">
+          <div v-for="bk in dayTarget.bookings" :key="bk.id" class="bg-surface2 rounded-lg p-3 mb-3" style="font-size:13.5px">
+            <div class="flex justify-between py-0.5" v-if="bk.calTag"><span class="text-hint-c">標記</span><span class="status-badge" :class="bk.calTag === '入住' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">{{ bk.calTag }}</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">訂單編號</span><span class="text-base-c">{{ bk.id }}</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">房間</span><span class="text-base-c">{{ bk.roomId ? roomLabel(bk.roomId) : '待指派' }}</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">房客</span><span class="text-base-c">{{ bk.name }}（{{ bk.guests }} 人）</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">電話</span><span class="text-base-c">{{ bk.phone }}</span></div>
+            <div class="flex justify-between py-0.5"><span class="text-hint-c">入住 → 退房</span><span class="text-base-c">{{ bk.checkIn }} → {{ bk.checkOut }}</span></div>
+            <div class="flex justify-between py-1 mt-1 border-t border-light-c"><span class="text-hint-c">狀態</span><span class="status-badge" :class="statusClass(bk.status)">{{ statusLabel(bk.status) }}</span></div>
+            <div class="flex gap-2 flex-wrap mt-2">
+              <button v-if="!bk.roomId" class="mini-btn mini-primary" @click="openAssign(bk); dayTarget = null">指派房間</button>
+              <template v-else>
+                <button v-if="bk.status === 'pending'" class="mini-btn mini-primary" @click="quickSetDay(bk.id, 'confirmed')">確認訂單</button>
+                <button v-if="bk.status === 'pending'" class="mini-btn" @click="openAssign(bk); dayTarget = null">更換房間</button>
+                <button v-if="bk.status === 'confirmed'" class="mini-btn" @click="quickSetDay(bk.id, 'completed')">設為已退房</button>
+              </template>
+              <button class="mini-btn" @click="quickSetDay(bk.id, 'cancelled')">取消訂單</button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="text-center text-hint-c py-6" style="font-size:13px">這天沒有進行中的訂單</div>
+        <div class="flex justify-end mt-2">
+          <button class="btn-plain" @click="dayTarget = null">關閉</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
+definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
 
-  const commonStore = useCommonStore()
-  const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
-  const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
+const commonStore = useCommonStore()
+const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
+const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
 
-  const today = new Date().toISOString().slice(0, 10)
+const today = new Date().toISOString().slice(0, 10)
 
-  const loading   = ref(false)
-  const tab       = ref('dashboard') // dashboard | orders | history
-  // 行內樣式備援：避免外部/全域 CSS 蓋掉 .seg-active 的優先權，導致選中狀態沒有亮起
-  const segActiveStyle = { background: '#15803d', color: '#fff' }
+// 「查看日期」：訂單管理頁的房况總覽／平面圖，預設顯示今天的狀況，
+// 但可以切換到別的日期，回推或預覽當天／未來某天各房間的訂房狀況
+const viewDate = ref(today)
+// 房况總覽可收合，避免佔掉太多版面（尤其是手機或訂單很多棟別展開時）
+const overviewCollapsed = ref(false)
+const isViewingToday = computed(() => viewDate.value === today)
+function shiftViewDate(days) {
+  const d = new Date(viewDate.value)
+  d.setDate(d.getDate() + days)
+  viewDate.value = d.toISOString().slice(0, 10)
+}
+function resetViewDate() { viewDate.value = today }
 
-  const buildings = ref([]) // [{id, name, rooms:[...]}]
-  const bookings  = ref([]) // 全部訂單（raw）
+const loading   = ref(false)
+const tab       = ref('dashboard') // dashboard | orders | history
+// 行內樣式備援：避免外部/全域 CSS 蓋掉 .seg-active 的優先權，導致選中狀態沒有亮起
+const segActiveStyle = { background: '#15803d', color: '#fff' }
 
-  const rooms = computed(() =>
-    buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
+const buildings = ref([]) // [{id, name, rooms:[...]}]
+const bookings  = ref([]) // 全部訂單（raw）
+
+const rooms = computed(() =>
+  buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
+)
+
+async function fetchAll() {
+  loading.value = true
+  try {
+    const [b, o] = await Promise.all([
+      (await fetch(`${ROOMS_BASE()}/list`)).json(),
+      (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
+    ])
+    buildings.value = b
+    bookings.value = o
+  } catch (e) { console.error(e) }
+  finally { loading.value = false }
+}
+
+/* ---------------- 共用小工具 ---------------- */
+
+function nights(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return 0
+  const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
+  return d > 0 ? d : 0
+}
+function statusLabel(s) {
+  return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
+}
+function statusClass(s) {
+  return {
+    unassigned: 'bg-sky-100 text-sky-700',
+    pending:    'bg-amber-100 text-amber-700',
+    confirmed:  'bg-emerald-100 text-emerald-700',
+    completed:  'bg-stone-200 text-stone-600',
+    cancelled:  'bg-rose-100 text-rose-700',
+  }[s] || 'bg-stone-100 text-stone-600'
+}
+function roomById(id) { return rooms.value.find(r => r.id === id) }
+function roomLabel(roomId) {
+  const r = roomById(roomId)
+  return r ? `${r.id} ${r.type}` : '尚未指派'
+}
+function roomIdOf(roomId) {
+  const r = roomById(roomId)
+  return r ? r.id : '尚未指派'
+}
+function roomTypeOf(roomId) {
+  const r = roomById(roomId)
+  return r ? r.type : ''
+}
+/* 人數欄顯示「入住人數／房間可住人數」，例如 6 人房入住 1 位就顯示 1/6；尚未指派房間時只顯示人數 */
+function occupancyLabel(b) {
+  const r = roomById(b.roomId)
+  return r ? `${b.guests}/${r.capacity}` : `${b.guests} 人`
+}
+function buildingNameOf(id) {
+  const b = buildings.value.find(x => x.id === id)
+  return b ? b.name : id
+}
+function bookingTotal(b) {
+  const r = roomById(b.roomId)
+  if (!r) return 0
+  return r.price * nights(b.checkIn, b.checkOut)
+}
+function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+  return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
+}
+function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
+  return !bookings.value.some(b =>
+    b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed' &&
+    b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
   )
+}
+function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
 
-  async function fetchAll() {
-    loading.value = true
-    try {
-      const [b, o] = await Promise.all([
-        (await fetch(`${ROOMS_BASE()}/list`)).json(),
-        (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
-      ])
-      buildings.value = b
-      bookings.value = o
-    } catch (e) { console.error(e) }
-    finally { loading.value = false }
-  }
+/* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
+const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
+const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
+const upcomingBookings = computed(() =>
+  [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
+)
 
-  /* ---------------- 共用小工具 ---------------- */
+/* ---------------- 訂單管理 ---------------- */
 
-  function nights(checkIn, checkOut) {
-    if (!checkIn || !checkOut) return 0
-    const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
-    return d > 0 ? d : 0
-  }
-  function statusLabel(s) {
-    return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
-  }
-  function statusClass(s) {
-    return {
-      unassigned: 'bg-sky-100 text-sky-700',
-      pending:    'bg-amber-100 text-amber-700',
-      confirmed:  'bg-emerald-100 text-emerald-700',
-      completed:  'bg-stone-200 text-stone-600',
-      cancelled:  'bg-rose-100 text-rose-700',
-    }[s] || 'bg-stone-100 text-stone-600'
-  }
-  function roomById(id) { return rooms.value.find(r => r.id === id) }
-  function roomLabel(roomId) {
-    const r = roomById(roomId)
-    return r ? `${r.id} ${r.type}` : '尚未指派'
-  }
-  function roomIdOf(roomId) {
-    const r = roomById(roomId)
-    return r ? r.id : '尚未指派'
-  }
-  function roomTypeOf(roomId) {
-    const r = roomById(roomId)
-    return r ? r.type : ''
-  }
-  /* 人數欄顯示「入住人數／房間可住人數」，例如 6 人房入住 1 位就顯示 1/6；尚未指派房間時只顯示人數 */
-  function occupancyLabel(b) {
-    const r = roomById(b.roomId)
-    return r ? `${b.guests}/${r.capacity}` : `${b.guests} 人`
-  }
-  function buildingNameOf(id) {
-    const b = buildings.value.find(x => x.id === id)
-    return b ? b.name : id
-  }
-  function bookingTotal(b) {
-    const r = roomById(b.roomId)
-    if (!r) return 0
-    return r.price * nights(b.checkIn, b.checkOut)
-  }
-  function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-    return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
-  }
-  function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
-    return !bookings.value.some(b =>
-      b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed' &&
-      b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
-    )
-  }
-  function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
+const ordersView     = ref('floorplan')
+const ordersBuilding = ref('all')
+const ordersStatus   = ref('all')
+const ordersKeyword  = ref('')
 
-  /* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
-  const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
-  const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
-  const upcomingBookings = computed(() =>
-    [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
-  )
+function bookingInSelectedBuilding(b) {
+  if (ordersBuilding.value === 'all') return true
+  if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
+  return b.buildingPref === ordersBuilding.value
+}
 
-  /* ---------------- 訂單管理 ---------------- */
+const filteredOrders = computed(() => {
+  const kw = ordersKeyword.value.trim().toLowerCase()
+  return activeBookings.value
+    .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
+    .filter(bookingInSelectedBuilding)
+    .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
+    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+})
 
-  const ordersView     = ref('floorplan')
-  const ordersBuilding = ref('all')
-  const ordersStatus   = ref('all')
-  const ordersKeyword  = ref('')
-
-  function bookingInSelectedBuilding(b) {
-    if (ordersBuilding.value === 'all') return true
-    if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
-    return b.buildingPref === ordersBuilding.value
+/* 房况總覽：依棟別篩選為範圍，並依 viewDate（可切換的查看日期）判斷住房狀況 */
+function isOccupiedNow(roomId) {
+  return bookings.value.some(b => b.roomId === roomId && b.status === 'confirmed' && b.checkIn <= viewDate.value && viewDate.value < b.checkOut)
+}
+const roomsInSelectedBuilding = computed(() =>
+  ordersBuilding.value === 'all' ? rooms.value : rooms.value.filter(r => r.buildingId === ordersBuilding.value)
+)
+/* 依可住人數（X人房）分類統計：總間數／上架間數／目前住房中／空房可訂 */
+const roomTypeSummary = computed(() => {
+  const map = new Map()
+  for (const r of roomsInSelectedBuilding.value) {
+    if (!map.has(r.capacity)) map.set(r.capacity, { capacity: r.capacity, types: new Set(), total: 0, active: 0, occupiedNow: 0 })
+    const g = map.get(r.capacity)
+    g.types.add(r.type)
+    g.total++
+    if (r.active) {
+      g.active++
+      if (isOccupiedNow(r.id)) g.occupiedNow++
+    }
   }
+  return [...map.values()]
+    .sort((a, b) => a.capacity - b.capacity)
+    .map(g => ({ ...g, typesLabel: [...g.types].join('／'), vacant: g.active - g.occupiedNow }))
+})
+const orderStats = computed(() =>
+  roomTypeSummary.value.reduce((acc, g) => {
+    acc.total += g.total; acc.active += g.active; acc.occupiedNow += g.occupiedNow; acc.vacant += g.vacant
+    return acc
+  }, { total: 0, active: 0, occupiedNow: 0, vacant: 0 })
+)
+/* 應入住／應退房：依 viewDate 計算（預設今天），切換日期即可預覽/回顧當天的異動量 */
+const checkinTodayCount = computed(() =>
+  bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed' && b.checkIn === viewDate.value && bookingInSelectedBuilding(b)).length
+)
+const checkoutTodayCount = computed(() =>
+  bookings.value.filter(b => b.status === 'confirmed' && b.checkOut === viewDate.value && bookingInSelectedBuilding(b)).length
+)
+const ordersUnassignedCount = computed(() => bookings.value.filter(b => b.status === 'unassigned' && bookingInSelectedBuilding(b)).length)
+const ordersPendingCount = computed(() => bookings.value.filter(b => b.status === 'pending' && bookingInSelectedBuilding(b)).length)
 
-  const filteredOrders = computed(() => {
-    const kw = ordersKeyword.value.trim().toLowerCase()
-    return activeBookings.value
-      .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
-      .filter(bookingInSelectedBuilding)
-      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw))
-      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  })
+const visibleOrderBuildings = computed(() =>
+  ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
+)
+const unassignedForFloor = computed(() =>
+  [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+)
 
-  /* 房况總覽：依棟別篩選為範圍 */
-  function isOccupiedNow(roomId) {
-    return bookings.value.some(b => b.roomId === roomId && b.status === 'confirmed' && b.checkIn <= today && today < b.checkOut)
+// 同一間房可以有多筆「日期不重疊」的進行中訂單（例如 201 房 7/31~8/2 一筆、8/21~8/26 另一筆），
+// 所以這裡回傳的是「全部」進行中訂單（依入住日期排序），不是只有一筆
+function roomBookingsForRoom(roomId) {
+  return bookings.value
+    .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
+    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+}
+// 平面圖顏色／標籤要回答的是「viewDate 這一天，這間房是什麼狀態」，
+// 所以要挑的是「checkIn <= viewDate < checkOut」的那一筆，不是不分日期抓最早的一筆
+function bookingOnDate(roomId, date) {
+  return roomBookingsForRoom(roomId).find(b => b.checkIn <= date && date < b.checkOut) || null
+}
+function orderTileClass(r) {
+  if (!r.active) return 'tile-inactive'
+  const b = bookingOnDate(r.id, viewDate.value)
+  if (!b) return 'tile-vacant'
+  return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
+}
+function orderTileLabel(r) {
+  if (!r.active) return '已下架'
+  const list = roomBookingsForRoom(r.id)
+  const b = bookingOnDate(r.id, viewDate.value)
+  const more = list.length > (b ? 1 : 0) ? `（+${list.length - (b ? 1 : 0)} 筆其他時段）` : ''
+  if (!b) return '空房' + more
+  return (b.status === 'pending' ? '待確認・' : '已確認・') + b.name + more
+}
+// 給 RoomFloorplan 的 statusResolver prop：訂單管理要分「待確認」跟「已確認」兩種顏色，
+// 跟房間管理預設的「今日住房中／空房」邏輯不同，所以這裡自訂
+function orderStatusResolver(r) {
+  return { cls: orderTileClass(r), label: orderTileLabel(r) }
+}
+
+const tileTarget = ref(null)
+function openBookingTile(room, buildingId) {
+  tileTarget.value = { room, buildingId, bookings: roomBookingsForRoom(room.id) }
+}
+async function quickSetTile(bookingId, status) {
+  if (!tileTarget.value) return
+  await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
+  if (tileTarget.value) {
+    tileTarget.value = { ...tileTarget.value, bookings: roomBookingsForRoom(tileTarget.value.room.id) }
   }
-  const roomsInSelectedBuilding = computed(() =>
-    ordersBuilding.value === 'all' ? rooms.value : rooms.value.filter(r => r.buildingId === ordersBuilding.value)
-  )
-  /* 依可住人數（X人房）分類統計：總間數／上架間數／目前住房中／空房可訂 */
-  const roomTypeSummary = computed(() => {
-    const map = new Map()
-    for (const r of roomsInSelectedBuilding.value) {
-      if (!map.has(r.capacity)) map.set(r.capacity, { capacity: r.capacity, types: new Set(), total: 0, active: 0, occupiedNow: 0 })
-      const g = map.get(r.capacity)
-      g.types.add(r.type)
-      g.total++
-      if (r.active) {
-        g.active++
-        if (isOccupiedNow(r.id)) g.occupiedNow++
+}
+
+/* ---------------- 日曆檢視 ---------------- */
+
+const calendarMonth = ref(today.slice(0, 7)) // 'YYYY-MM'
+const calendarMonthLabel = computed(() => {
+  const [y, m] = calendarMonth.value.split('-')
+  return `${y} 年 ${Number(m)} 月`
+})
+function shiftCalendarMonth(diff) {
+  const [y, m] = calendarMonth.value.split('-').map(Number)
+  const d = new Date(y, m - 1 + diff, 1)
+  calendarMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+function resetCalendarMonth() { calendarMonth.value = today.slice(0, 7) }
+
+function calendarPillClass(status) {
+  return { unassigned: 'bg-sky-600', pending: 'bg-amber-600', confirmed: 'bg-emerald-600' }[status] || 'bg-stone-500'
+}
+// 某一天有哪些訂單「有關」：入住日／退房日／中間在住都算，並標記是入住還是退房，
+// 方便日曆一眼看出當天要接待誰、要送誰走
+function bookingsOnCalendarDate(date) {
+  return activeBookings.value
+    .filter(bookingInSelectedBuilding)
+    .filter(b => b.checkIn <= date && date <= b.checkOut)
+    .map(b => ({ ...b, calTag: b.checkIn === date ? '入住' : (b.checkOut === date ? '退房' : '') }))
+    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+}
+// 產生月曆格子：前後補空白湊滿整週（星期日開頭），每格帶當天日期字串與當天訂單清單
+const calendarCells = computed(() => {
+  const [y, m] = calendarMonth.value.split('-').map(Number)
+  const daysInMonth = new Date(y, m, 0).getDate()
+  const leadingBlanks = new Date(y, m - 1, 1).getDay()
+  const cells = []
+  for (let i = 0; i < leadingBlanks; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    cells.push({ day: d, date, bookings: bookingsOnCalendarDate(date) })
+  }
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
+})
+
+const dayTarget = ref(null)
+async function quickSetDay(bookingId, status) {
+  if (!dayTarget.value) return
+  await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
+  if (dayTarget.value) {
+    dayTarget.value = { ...dayTarget.value, bookings: bookingsOnCalendarDate(dayTarget.value.date) }
+  }
+}
+
+/* ---------------- 狀態轉換 / 刪除 ---------------- */
+
+async function setStatus(id, status) {
+  try {
+    await fetch(`${BOOKINGS_BASE()}/status`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }),
+    })
+    await fetchAll()
+  } catch (e) { console.error(e) }
+}
+async function removeBooking(id) {
+  if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
+  try {
+    await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
+    await fetchAll()
+  } catch (e) { console.error(e) }
+}
+async function restoreBooking(b) {
+  await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
+}
+
+/* ---------------- 指派房間 ---------------- */
+
+const assignTarget = ref(null)
+const assignBuildingFilter = ref('all')
+const assignError = ref('')
+
+function openAssign(booking) {
+  assignTarget.value = booking
+  assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
+  assignError.value = ''
+}
+const eligibleRooms = computed(() => {
+  if (!assignTarget.value) return []
+  const b = assignTarget.value
+  return rooms.value
+    .filter(r => r.active)
+    .filter(r => r.capacity >= b.guests)
+    .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
+    .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
+    .sort((r1, r2) => {
+      const pref = b.buildingPref
+      if (pref && pref !== 'all') {
+        if (r1.buildingId === pref && r2.buildingId !== pref) return -1
+        if (r2.buildingId === pref && r1.buildingId !== pref) return 1
       }
-    }
-    return [...map.values()]
-      .sort((a, b) => a.capacity - b.capacity)
-      .map(g => ({ ...g, typesLabel: [...g.types].join('／'), vacant: g.active - g.occupiedNow }))
-  })
-  const orderStats = computed(() =>
-    roomTypeSummary.value.reduce((acc, g) => {
-      acc.total += g.total; acc.active += g.active; acc.occupiedNow += g.occupiedNow; acc.vacant += g.vacant
-      return acc
-    }, { total: 0, active: 0, occupiedNow: 0, vacant: 0 })
-  )
-  /* 今日應入住／應退房：後台每天需要掌握的營運數字 */
-  const checkinTodayCount = computed(() =>
-    bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed' && b.checkIn === today && bookingInSelectedBuilding(b)).length
-  )
-  const checkoutTodayCount = computed(() =>
-    bookings.value.filter(b => b.status === 'confirmed' && b.checkOut === today && bookingInSelectedBuilding(b)).length
-  )
-  const ordersUnassignedCount = computed(() => bookings.value.filter(b => b.status === 'unassigned' && bookingInSelectedBuilding(b)).length)
-  const ordersPendingCount = computed(() => bookings.value.filter(b => b.status === 'pending' && bookingInSelectedBuilding(b)).length)
+      return r1.capacity - r2.capacity || r1.price - r2.price
+    })
+})
+async function assignRoom(room) {
+  assignError.value = ''
+  try {
+    const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id }),
+    })).json()
+    if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
+    assignTarget.value = null
+    await fetchAll()
+  } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
+}
 
-  const visibleOrderBuildings = computed(() =>
-    ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
-  )
-  const unassignedForFloor = computed(() =>
-    [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  )
+/* ---------------- 新增訂單 ---------------- */
 
-  function activeBookingForRoom(roomId) {
-    return bookings.value
-      .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
-      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))[0] || null
-  }
-  function orderTileClass(r) {
-    if (!r.active) return 'tile-inactive'
-    const b = activeBookingForRoom(r.id)
-    if (!b) return 'tile-vacant'
-    return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
-  }
-  function orderTileLabel(r) {
-    if (!r.active) return '已下架'
-    const b = activeBookingForRoom(r.id)
-    if (!b) return '空房'
-    return (b.status === 'pending' ? '待確認・' : '已確認・') + b.name
-  }
-  // 給 RoomFloorplan 的 statusResolver prop：訂單管理要分「待確認」跟「已確認」兩種顏色，
-  // 跟房間管理預設的「今日住房中／空房」邏輯不同，所以這裡自訂
-  function orderStatusResolver(r) {
-    return { cls: orderTileClass(r), label: orderTileLabel(r) }
-  }
+const createOrderTarget = ref(false)
+const newOrderError = ref('')
+const newOrder = ref({ name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' })
 
-  const tileTarget = ref(null)
-  function openBookingTile(room, buildingId) {
-    tileTarget.value = { room, booking: activeBookingForRoom(room.id), buildingId }
-  }
-  async function quickSetTile(status) {
-    if (!tileTarget.value || !tileTarget.value.booking) return
-    await setStatus(tileTarget.value.booking.id, status)
-    tileTarget.value = null
-  }
+function openCreateOrder() {
+  newOrder.value = { name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' }
+  newOrderError.value = ''
+  createOrderTarget.value = true
+}
 
-  /* ---------------- 狀態轉換 / 刪除 ---------------- */
+const eligibleRoomsForCreate = computed(() => {
+  const o = newOrder.value
+  if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
+  return rooms.value
+    .filter(r => r.active)
+    .filter(r => r.capacity >= o.guests)
+    .filter(r => o.buildingPref === 'all' || r.buildingId === o.buildingPref)
+    .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut))
+    .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+})
 
-  async function setStatus(id, status) {
-    try {
-      await fetch(`${BOOKINGS_BASE()}/status`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }),
-      })
-      await fetchAll()
-    } catch (e) { console.error(e) }
+async function createOrder() {
+  newOrderError.value = ''
+  const o = newOrder.value
+  if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
+    newOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
+    return
   }
-  async function removeBooking(id) {
-    if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
-    try {
-      await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
-      await fetchAll()
-    } catch (e) { console.error(e) }
+  if (nights(o.checkIn, o.checkOut) <= 0) {
+    newOrderError.value = '退房日期需晚於入住日期'
+    return
   }
-  async function restoreBooking(b) {
-    await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
-  }
+  try {
+    const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        checkIn: o.checkIn,
+        checkOut: o.checkOut,
+        guests: o.guests,
+        name: o.name.trim(),
+        phone: o.phone.trim(),
+        email: '',
+        buildingPref: o.buildingPref,
+        notes: o.notes.trim(),
+      }),
+    })).json()
+    if (res && res.error) { newOrderError.value = res.error; return }
 
-  /* ---------------- 指派房間 ---------------- */
-
-  const assignTarget = ref(null)
-  const assignBuildingFilter = ref('all')
-  const assignError = ref('')
-
-  function openAssign(booking) {
-    assignTarget.value = booking
-    assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
-    assignError.value = ''
-  }
-  const eligibleRooms = computed(() => {
-    if (!assignTarget.value) return []
-    const b = assignTarget.value
-    return rooms.value
-      .filter(r => r.active)
-      .filter(r => r.capacity >= b.guests)
-      .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
-      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
-      .sort((r1, r2) => {
-        const pref = b.buildingPref
-        if (pref && pref !== 'all') {
-          if (r1.buildingId === pref && r2.buildingId !== pref) return -1
-          if (r2.buildingId === pref && r1.buildingId !== pref) return 1
-        }
-        return r1.capacity - r2.capacity || r1.price - r2.price
-      })
-  })
-  async function assignRoom(room) {
-    assignError.value = ''
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+    // /request 一律建立為待指派訂單；若當下有選房間，緊接著呼叫既有的指派 API
+    if (o.roomId && res && res.id) {
+      const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id }),
+        body: JSON.stringify({ id: res.id, roomId: o.roomId }),
       })).json()
-      if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
-      assignTarget.value = null
-      await fetchAll()
-    } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
-  }
-
-  /* ---------------- 新增訂單 ---------------- */
-
-  const createOrderTarget = ref(false)
-  const newOrderError = ref('')
-  const newOrder = ref({ name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' })
-
-  function openCreateOrder() {
-    newOrder.value = { name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' }
-    newOrderError.value = ''
-    createOrderTarget.value = true
-  }
-
-  const eligibleRoomsForCreate = computed(() => {
-    const o = newOrder.value
-    if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
-    return rooms.value
-      .filter(r => r.active)
-      .filter(r => r.capacity >= o.guests)
-      .filter(r => o.buildingPref === 'all' || r.buildingId === o.buildingPref)
-      .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut))
-      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-  })
-
-  async function createOrder() {
-    newOrderError.value = ''
-    const o = newOrder.value
-    if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
-      newOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
-      return
+      if (assignRes && assignRes.error) { newOrderError.value = `訂單已建立（${res.id}），但指派房間失敗：${assignRes.error}`; await fetchAll(); return }
     }
-    if (nights(o.checkIn, o.checkOut) <= 0) {
-      newOrderError.value = '退房日期需晚於入住日期'
-      return
-    }
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          checkIn: o.checkIn,
-          checkOut: o.checkOut,
-          guests: o.guests,
-          name: o.name.trim(),
-          phone: o.phone.trim(),
-          email: '',
-          buildingPref: o.buildingPref,
-          notes: o.notes.trim(),
-        }),
-      })).json()
-      if (res && res.error) { newOrderError.value = res.error; return }
 
-      // /request 一律建立為待指派訂單；若當下有選房間，緊接著呼叫既有的指派 API
-      if (o.roomId && res && res.id) {
-        const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: res.id, roomId: o.roomId }),
-        })).json()
-        if (assignRes && assignRes.error) { newOrderError.value = `訂單已建立（${res.id}），但指派房間失敗：${assignRes.error}`; await fetchAll(); return }
-      }
+    createOrderTarget.value = false
+    await fetchAll()
+  } catch (e) { console.error(e); newOrderError.value = '新增失敗，請稍後再試' }
+}
 
-      createOrderTarget.value = false
-      await fetchAll()
-    } catch (e) { console.error(e); newOrderError.value = '新增失敗，請稍後再試' }
+/* ---------------- 訂房紀錄 ---------------- */
+
+const historyStatus  = ref('all')
+const historyKeyword = ref('')
+const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
+const filteredHistory = computed(() => {
+  const kw = historyKeyword.value.trim().toLowerCase()
+  return historyBookings.value
+    .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
+    .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
+    .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
+})
+const historyStats = computed(() => {
+  const completed = historyBookings.value.filter(b => b.status === 'completed')
+  const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
+  return {
+    completedCount: completed.length,
+    cancelledCount: cancelled.length,
+    totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
+    totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0),
   }
+})
 
-  /* ---------------- 訂房紀錄 ---------------- */
-
-  const historyStatus  = ref('all')
-  const historyKeyword = ref('')
-  const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
-  const filteredHistory = computed(() => {
-    const kw = historyKeyword.value.trim().toLowerCase()
-    return historyBookings.value
-      .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
-      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw))
-      .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
-  })
-  const historyStats = computed(() => {
-    const completed = historyBookings.value.filter(b => b.status === 'completed')
-    const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
-    return {
-      completedCount: completed.length,
-      cancelledCount: cancelled.length,
-      totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
-      totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0),
-    }
-  })
-
-  onMounted(fetchAll)
+onMounted(fetchAll)
 </script>
 
 <style scoped>
-  .segmented { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
-  .segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 13.5px; font-weight: 700; white-space: nowrap; }
-  .segmented button:hover { background: var(--border-light); color: var(--text); }
-  .seg-active, .seg-active:hover { background: #15803d; color: #fff; }
-  .w-fit { width: fit-content; }
+.segmented { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+.segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+.segmented button:hover { background: var(--border-light); color: var(--text); }
+.seg-active, .seg-active:hover { background: #15803d; color: #fff; }
+.w-fit { width: fit-content; }
 
-  .pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 13.5px; font-weight: 700; white-space: nowrap; }
-  .pill-btn:hover { border-color: var(--accent); color: var(--text); }
-  .pill-active, .pill-active:hover { background: #15803d; border-color: #15803d; color: #fff; }
+.pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+.pill-btn:hover { border-color: var(--accent); color: var(--text); }
+.pill-active, .pill-active:hover { background: #15803d; border-color: #15803d; color: #fff; }
 
-  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .stat-card { background: var(--surface); border-radius: 12px; padding: 14px; border-left: 4px solid #15803d; box-shadow: var(--shadow); }
-  .stat-label { font-size: 12.5px; color: var(--text-hint); font-weight: 600; }
-  .stat-value { font-size: 23px; font-weight: 700; color: var(--text); margin-top: 2px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat-card { background: var(--surface); border-radius: 12px; padding: 14px; border-left: 4px solid #15803d; box-shadow: var(--shadow); }
+.stat-label { font-size: 12.5px; color: var(--text-hint); font-weight: 600; }
+.stat-value { font-size: 23px; font-weight: 700; color: var(--text); margin-top: 2px; }
 
-  .type-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-  .type-summary-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
-  .type-summary-title { font-weight: 700; color: var(--text); font-size: 13.5px; margin-bottom: 6px; }
-  .type-summary-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 1.5px 0; }
+.type-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.type-summary-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.type-summary-title { font-weight: 700; color: var(--text); font-size: 13.5px; margin-bottom: 6px; }
+.type-summary-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 1.5px 0; }
 
-  .panel { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); overflow-x: auto; }
+.panel { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); overflow-x: auto; }
 
-  .select-input { padding: 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 13.5px; background: var(--surface2); color: var(--text); }
+.select-input { padding: 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 13.5px; background: var(--surface2); color: var(--text); }
 
-  .building-badge { width: 24px; height: 24px; border-radius: 6px; background: rgba(21, 128, 61, .12); color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+.building-badge { width: 24px; height: 24px; border-radius: 6px; background: rgba(21, 128, 61, .12); color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
 
-  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
+.dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
 
-  .status-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.status-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 
-  .mini-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-  .mini-btn:hover { background: var(--bg); }
-  .mini-primary { background: #15803d; color: #fff; }
-  .mini-primary:hover { background: #15803d; filter: brightness(1.08); }
-  .mini-danger { background: transparent; border: 1px solid #e11d48; color: #e11d48; }
+.mini-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.mini-btn:hover { background: var(--bg); }
+.mini-primary { background: #15803d; color: #fff; }
+.mini-primary:hover { background: #15803d; filter: brightness(1.08); }
+.mini-danger { background: transparent; border: 1px solid #e11d48; color: #e11d48; }
 
-  .btn-plain { padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 14px; font-weight: 600; }
-  .btn-plain:hover { background: var(--bg); }
+.btn-plain { padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 14px; font-weight: 600; }
+.btn-plain:hover { background: var(--bg); }
+
+.collapse-btn { width: 22px; height: 22px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.collapse-btn:hover { background: var(--bg); color: var(--text); }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.cal-head { margin-bottom: 5px; }
+.cal-head-cell { text-align: center; padding: 6px 0; font-weight: 700; font-size: 12px; color: var(--text-hint); }
+.cal-cell { min-height: 92px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: var(--surface2); display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+.cal-cell-empty { background: transparent; border-color: transparent; }
+.cal-cell-today { border-color: #15803d; box-shadow: 0 0 0 1px #15803d inset; }
+.cal-day-num { font-weight: 700; font-size: 12px; color: var(--text); margin-bottom: 1px; }
+.cal-day-today { color: #15803d; }
+.cal-pill { text-align: left; padding: 2px 6px; border-radius: 5px; color: #fff; font-size: 10.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-pill:hover { filter: brightness(1.12); }
+.cal-more { text-align: left; font-size: 10.5px; color: var(--text-hint); font-weight: 600; padding: 1px 4px; }
+.cal-more:hover { color: var(--text); }
 </style>
