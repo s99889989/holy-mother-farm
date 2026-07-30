@@ -92,6 +92,22 @@
 
         <!-- 平面圖檢視：改用共用的 RoomFloorplan 元件（跟訂房管理共用同一份牆面/座標邏輯，避免兩邊各刻一份、版本兜不起來） -->
         <div v-else class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <p v-if="editCoordsMode" class="text-hint-c" style="font-size:11.5px">
+              編輯座標模式：點選房間（僅快樂運動館／合力居／愛加倍支援）後，用方向鍵移動位置、Shift + 方向鍵調整大小
+            </p>
+            <span v-else></span>
+            <div class="flex gap-2">
+              <template v-if="editCoordsMode">
+                <button class="btn-plain" @click="cancelEditCoords">取消</button>
+                <button class="btn-primary" :disabled="savingCoords || !hasPendingCoords" @click="saveCoordEdits">
+                  {{ savingCoords ? '儲存中...' : '儲存座標' }}
+                </button>
+              </template>
+              <button v-else class="pill-btn" @click="enterEditCoords">✎ 編輯座標</button>
+            </div>
+          </div>
+
           <div v-for="grp in visibleBuildings" :key="grp.id" class="mb-8 last:mb-0">
             <div class="flex items-center gap-2 mb-2">
               <span class="building-badge">{{ grp.name.charAt(0) }}</span>
@@ -99,9 +115,13 @@
               <span class="text-hint-c" style="font-size:11.5px">共 {{ grp.rooms.length }} 間</span>
             </div>
             <RoomFloorplan
+              :ref="el => setFloorplanRef(grp.id, el)"
               :building="grp"
               :bookings="bookings"
-              @select="room => room && openRoomDetail(grp, room)"
+              :edit-mode="editCoordsMode"
+              :selected-id="editCoordsMode ? editSelectedId : null"
+              @select="room => editCoordsMode ? (editSelectedId = room ? room.id : null) : (room && openRoomDetail(grp, room))"
+              @position-change="onPositionChange"
             />
           </div>
           <div class="flex flex-wrap gap-4 text-hint-c mt-2" style="font-size:11.5px">
@@ -196,336 +216,411 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'booking.rooms' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'booking.rooms' })
 
-const commonStore = useCommonStore()
-const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
-const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
+  const commonStore = useCommonStore()
+  const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
+  const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
 
-const loading  = ref(false)
-const saving   = ref(false)
-const modalError = ref('')
+  const loading  = ref(false)
+  const saving   = ref(false)
+  const modalError = ref('')
 
-const buildings = ref([])   // [{id, name, rooms:[...]}]
-const bookings  = ref([])   // 全部訂單，用來判斷「今日住房中」與房間詳情的相關訂單
+  const buildings = ref([])   // [{id, name, rooms:[...]}]
+  const bookings  = ref([])   // 全部訂單，用來判斷「今日住房中」與房間詳情的相關訂單
 
-const buildingFilter = ref('all')
-const viewMode = ref('list')
+  const buildingFilter = ref('all')
+  const viewMode = ref('list')
 
-const totalRooms  = computed(() => buildings.value.reduce((s, b) => s + b.rooms.length, 0))
-const activeRooms = computed(() => buildings.value.reduce((s, b) => s + b.rooms.filter(r => r.active).length, 0))
+  const totalRooms  = computed(() => buildings.value.reduce((s, b) => s + b.rooms.length, 0))
+  const activeRooms = computed(() => buildings.value.reduce((s, b) => s + b.rooms.filter(r => r.active).length, 0))
 
-const visibleBuildings = computed(() =>
-  buildingFilter.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === buildingFilter.value)
-)
+  const visibleBuildings = computed(() =>
+    buildingFilter.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === buildingFilter.value)
+  )
 
-async function fetchAll() {
-  loading.value = true
-  try {
-    const [b, o] = await Promise.all([
-      (await fetch(`${ROOMS_BASE()}/list`)).json(),
-      (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
-    ])
-    buildings.value = b
-    bookings.value = o
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
-}
+  async function fetchAll() {
+    loading.value = true
+    try {
+      const [b, o] = await Promise.all([
+        (await fetch(`${ROOMS_BASE()}/list`)).json(),
+        (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
+      ])
+      buildings.value = b
+      bookings.value = o
+    } catch (e) { console.error(e) }
+    finally { loading.value = false }
+  }
 
-/* ---------------- 房間詳情 ---------------- */
+  /* ---------------- 房間詳情 ---------------- */
 
-const detailTarget = ref(null)
-function openRoomDetail(grp, room) {
-  detailTarget.value = { room, buildingId: grp.id, buildingName: grp.name }
-}
-const detailBookings = computed(() => {
-  if (!detailTarget.value) return []
-  return bookings.value
-    .filter(b => b.roomId === detailTarget.value.room.id && b.status !== 'cancelled')
-    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-})
-function statusLabel(s) {
-  return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
-}
-function statusClass(s) {
-  return {
-    unassigned: 'bg-sky-100 text-sky-700',
-    pending:    'bg-amber-100 text-amber-700',
-    confirmed:  'bg-emerald-100 text-emerald-700',
-    completed:  'bg-stone-200 text-stone-600',
-    cancelled:  'bg-rose-100 text-rose-700',
-  }[s] || 'bg-stone-100 text-stone-600'
-}
+  const detailTarget = ref(null)
+  function openRoomDetail(grp, room) {
+    detailTarget.value = { room, buildingId: grp.id, buildingName: grp.name }
+  }
+  const detailBookings = computed(() => {
+    if (!detailTarget.value) return []
+    return bookings.value
+      .filter(b => b.roomId === detailTarget.value.room.id && b.status !== 'cancelled')
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  })
+  function statusLabel(s) {
+    return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
+  }
+  function statusClass(s) {
+    return {
+      unassigned: 'bg-sky-100 text-sky-700',
+      pending:    'bg-amber-100 text-amber-700',
+      confirmed:  'bg-emerald-100 text-emerald-700',
+      completed:  'bg-stone-200 text-stone-600',
+      cancelled:  'bg-rose-100 text-rose-700',
+    }[s] || 'bg-stone-100 text-stone-600'
+  }
 
-/* ---------------- 棟別 CRUD ---------------- */
+  /* ---------------- 棟別 CRUD ---------------- */
 
-const buildingModal = reactive({ open: false, id: null, name: '' })
-function openAddBuilding() {
-  buildingModal.open = true; buildingModal.id = null; buildingModal.name = ''; modalError.value = ''
-}
-function openEditBuilding(b) {
-  buildingModal.open = true; buildingModal.id = b.id; buildingModal.name = b.name; modalError.value = ''
-}
-async function saveBuildingModal() {
-  if (!buildingModal.name.trim()) { modalError.value = '請輸入棟別名稱'; return }
-  saving.value = true
-  try {
-    const body = { name: buildingModal.name.trim() }
-    if (buildingModal.id) body.id = buildingModal.id
-    await fetch(`${ROOMS_BASE()}/building/save`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    })
-    buildingModal.open = false
-    await fetchAll()
-  } catch (e) { console.error(e); modalError.value = '儲存失敗，請稍後再試' }
-  finally { saving.value = false }
-}
-async function deleteBuildingConfirm(b) {
-  if (!confirm(`確定要刪除棟別「${b.name}」嗎？底下所有房間也會一併刪除。`)) return
-  try {
-    await fetch(`${ROOMS_BASE()}/building/${b.id}`, { method: 'DELETE' })
-    await fetchAll()
-  } catch (e) { console.error(e) }
-}
+  const buildingModal = reactive({ open: false, id: null, name: '' })
+  function openAddBuilding() {
+    buildingModal.open = true; buildingModal.id = null; buildingModal.name = ''; modalError.value = ''
+  }
+  function openEditBuilding(b) {
+    buildingModal.open = true; buildingModal.id = b.id; buildingModal.name = b.name; modalError.value = ''
+  }
+  async function saveBuildingModal() {
+    if (!buildingModal.name.trim()) { modalError.value = '請輸入棟別名稱'; return }
+    saving.value = true
+    try {
+      const body = { name: buildingModal.name.trim() }
+      if (buildingModal.id) body.id = buildingModal.id
+      await fetch(`${ROOMS_BASE()}/building/save`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      })
+      buildingModal.open = false
+      await fetchAll()
+    } catch (e) { console.error(e); modalError.value = '儲存失敗，請稍後再試' }
+    finally { saving.value = false }
+  }
+  async function deleteBuildingConfirm(b) {
+    if (!confirm(`確定要刪除棟別「${b.name}」嗎？底下所有房間也會一併刪除。`)) return
+    try {
+      await fetch(`${ROOMS_BASE()}/building/${b.id}`, { method: 'DELETE' })
+      await fetchAll()
+    } catch (e) { console.error(e) }
+  }
 
-/* ---------------- 房間 CRUD ---------------- */
+  /* ---------------- 房間 CRUD ---------------- */
 
-const roomModal = reactive({
-  open: false, buildingId: null, buildingName: '', originalId: null,
-  id: '', type: '', capacity: 2, bed: '', price: 0, active: true,
-})
-function openAddRoom(grp) {
-  roomModal.open = true
-  roomModal.buildingId = grp.id; roomModal.buildingName = grp.name
-  roomModal.originalId = null
-  roomModal.id = ''; roomModal.type = ''; roomModal.capacity = 2; roomModal.bed = ''; roomModal.price = 0; roomModal.active = true
-  modalError.value = ''
-}
-function openEditRoom(grp, r) {
-  roomModal.open = true
-  roomModal.buildingId = grp.id; roomModal.buildingName = grp.name
-  roomModal.originalId = r.id
-  roomModal.id = r.id; roomModal.type = r.type; roomModal.capacity = r.capacity
-  roomModal.bed = r.bed; roomModal.price = r.price; roomModal.active = r.active
-  modalError.value = ''
-}
-async function saveRoomModal() {
-  if (!roomModal.id.trim()) { modalError.value = '請輸入房號'; return }
-  if (!roomModal.type.trim()) { modalError.value = '請輸入房型'; return }
-  saving.value = true
-  try {
-    const body = {
-      buildingId: roomModal.buildingId,
-      id: roomModal.id.trim(),
-      type: roomModal.type.trim(),
-      capacity: roomModal.capacity,
-      bed: roomModal.bed.trim(),
-      price: roomModal.price,
-      active: roomModal.active,
+  const roomModal = reactive({
+    open: false, buildingId: null, buildingName: '', originalId: null,
+    id: '', type: '', capacity: 2, bed: '', price: 0, active: true,
+  })
+  function openAddRoom(grp) {
+    roomModal.open = true
+    roomModal.buildingId = grp.id; roomModal.buildingName = grp.name
+    roomModal.originalId = null
+    roomModal.id = ''; roomModal.type = ''; roomModal.capacity = 2; roomModal.bed = ''; roomModal.price = 0; roomModal.active = true
+    modalError.value = ''
+  }
+  function openEditRoom(grp, r) {
+    roomModal.open = true
+    roomModal.buildingId = grp.id; roomModal.buildingName = grp.name
+    roomModal.originalId = r.id
+    roomModal.id = r.id; roomModal.type = r.type; roomModal.capacity = r.capacity
+    roomModal.bed = r.bed; roomModal.price = r.price; roomModal.active = r.active
+    modalError.value = ''
+  }
+  async function saveRoomModal() {
+    if (!roomModal.id.trim()) { modalError.value = '請輸入房號'; return }
+    if (!roomModal.type.trim()) { modalError.value = '請輸入房型'; return }
+    saving.value = true
+    try {
+      const body = {
+        buildingId: roomModal.buildingId,
+        id: roomModal.id.trim(),
+        type: roomModal.type.trim(),
+        capacity: roomModal.capacity,
+        bed: roomModal.bed.trim(),
+        price: roomModal.price,
+        active: roomModal.active,
+      }
+      await fetch(`${ROOMS_BASE()}/save`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      })
+      roomModal.open = false
+      await fetchAll()
+    } catch (e) { console.error(e); modalError.value = '儲存失敗，請稍後再試' }
+    finally { saving.value = false }
+  }
+  async function deleteRoomConfirm(grp, r) {
+    if (!confirm(`確定要刪除房間「${r.id}」嗎？`)) return
+    try {
+      await fetch(`${ROOMS_BASE()}/remove/${grp.id}/${r.id}`, {method: 'DELETE'})
+      await fetchAll()
+    } catch (e) {
+      console.error(e)
     }
-    await fetch(`${ROOMS_BASE()}/save`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    })
-    roomModal.open = false
-    await fetchAll()
-  } catch (e) { console.error(e); modalError.value = '儲存失敗，請稍後再試' }
-  finally { saving.value = false }
-}
-async function deleteRoomConfirm(grp, r) {
-  if (!confirm(`確定要刪除房間「${r.id}」嗎？`)) return
-  try {
-    await fetch(`${ROOMS_BASE()}/remove/${grp.id}/${r.id}`, {method: 'DELETE'})
-    await fetchAll()
-  } catch (e) {
-    console.error(e)
   }
-}
 
-async function quickToggleActive(buildingId, r) {
-  const nextActive = !r.active
-  r.active = nextActive // 先在畫面上即時反應
-  try {
-    await fetch(`${ROOMS_BASE()}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        buildingId,
-        id: r.id,
-        type: r.type,
-        capacity: r.capacity,
-        bed: r.bed,
-        price: r.price,
-        active: nextActive
-      }),
-    })
-  } catch (e) {
-    console.error(e);
-    r.active = !nextActive
+  /* ---------------- 平面圖座標編輯 ---------------- */
+
+  const editCoordsMode = ref(false)
+  const editSelectedId = ref(null)
+  const pendingCoords = reactive({}) // roomId -> { posX, posY, pinW, pinH }（尚未存檔的調整）
+  const savingCoords = ref(false)
+  const floorplanRefs = ref({}) // buildingId -> RoomFloorplan 元件實例，離開/存檔後用來重置內部暫存座標
+
+  const hasPendingCoords = computed(() => Object.keys(pendingCoords).length > 0)
+
+  function setFloorplanRef(buildingId, el) {
+    if (el) floorplanRefs.value[buildingId] = el
   }
-}
 
-onMounted(fetchAll)
+  function enterEditCoords() {
+    editCoordsMode.value = true
+    editSelectedId.value = null
+  }
+
+  function discardCoordEdits() {
+    for (const k in pendingCoords) delete pendingCoords[k]
+    Object.values(floorplanRefs.value).forEach(el => el?.clearOverrides?.())
+  }
+
+  function cancelEditCoords() {
+    if (hasPendingCoords.value && !confirm('尚有未儲存的座標調整，確定要放棄變更嗎？')) return
+    discardCoordEdits()
+    editCoordsMode.value = false
+    editSelectedId.value = null
+  }
+
+  function onPositionChange(roomId, patch) {
+    pendingCoords[roomId] = patch
+  }
+
+  async function saveCoordEdits() {
+    const roomIds = Object.keys(pendingCoords)
+    if (!roomIds.length) return
+    savingCoords.value = true
+    try {
+      for (const grp of buildings.value) {
+        for (const r of grp.rooms) {
+          const patch = pendingCoords[r.id]
+          if (!patch) continue
+          await fetch(`${ROOMS_BASE()}/save`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              buildingId: grp.id,
+              id: r.id,
+              type: r.type,
+              capacity: r.capacity,
+              bed: r.bed,
+              price: r.price,
+              active: r.active,
+              posX: patch.posX ?? r.posX,
+              posY: patch.posY ?? r.posY,
+              pinW: patch.pinW ?? r.pinW,
+              pinH: patch.pinH ?? r.pinH,
+            }),
+          })
+        }
+      }
+      for (const k in pendingCoords) delete pendingCoords[k]
+      Object.values(floorplanRefs.value).forEach(el => el?.clearOverrides?.())
+      editCoordsMode.value = false
+      editSelectedId.value = null
+      await fetchAll()
+    } catch (e) {
+      console.error(e)
+      alert('座標儲存失敗，請稍後再試')
+    } finally {
+      savingCoords.value = false
+    }
+  }
+
+  async function quickToggleActive(buildingId, r) {
+    const nextActive = !r.active
+    r.active = nextActive // 先在畫面上即時反應
+    try {
+      await fetch(`${ROOMS_BASE()}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          buildingId,
+          id: r.id,
+          type: r.type,
+          capacity: r.capacity,
+          bed: r.bed,
+          price: r.price,
+          active: nextActive
+        }),
+      })
+    } catch (e) {
+      console.error(e);
+      r.active = !nextActive
+    }
+  }
+
+  onMounted(fetchAll)
 </script>
 
 <style scoped>
-.pill-btn {
-  flex-shrink: 0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  color: var(--text-muted);
-  font-size: 12.5px;
-  font-weight: 700;
-  white-space: nowrap;
-}
+  .pill-btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
 
-.pill-btn:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
+  .pill-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
 
-.pill-btn.border-dashed {
-  border-style: dashed;
-  background: transparent;
-}
+  .pill-btn.border-dashed {
+    border-style: dashed;
+    background: transparent;
+  }
 
-.pill-active {
-  background: #15803d;
-  border-color: #15803d;
-  color: #fff;
-}
+  .pill-active {
+    background: #15803d;
+    border-color: #15803d;
+    color: #fff;
+  }
 
-.pill-active:hover {
-  border-color: #15803d;
-  color: #fff;
-}
+  .pill-active:hover {
+    border-color: #15803d;
+    color: #fff;
+  }
 
-.segmented {
-  display: flex;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 3px;
-  gap: 2px;
-}
+  .segmented {
+    display: flex;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
 
-.segmented button {
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 12.5px;
-  font-weight: 700;
-}
+  .segmented button {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+  }
 
-.segmented button:hover {
-  background: var(--border-light);
-  color: var(--text);
-}
+  .segmented button:hover {
+    background: var(--border-light);
+    color: var(--text);
+  }
 
-.seg-active, .seg-active:hover {
-  background: #15803d;
-  color: #fff;
-}
+  .seg-active, .seg-active:hover {
+    background: #15803d;
+    color: #fff;
+  }
 
-.building-badge {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: rgba(21, 128, 61, .12);
-  color: #15803d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11.5px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
+  .building-badge {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: rgba(21, 128, 61, .12);
+    color: #15803d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
 
-.icon-btn {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-hint);
-  opacity: .75;
-}
+  .icon-btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-hint);
+    opacity: .75;
+  }
 
-.icon-btn:hover {
-  opacity: 1;
-}
+  .icon-btn:hover {
+    opacity: 1;
+  }
 
-.toggle {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--border);
-  border: none;
-  flex-shrink: 0;
-}
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--border);
+    border: none;
+    flex-shrink: 0;
+  }
 
-.toggle-on {
-  background: #22c55e;
-}
+  .toggle-on {
+    background: #22c55e;
+  }
 
-.toggle::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left .15s;
-}
+  .toggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left .15s;
+  }
 
-.toggle-on::after {
-  left: 18px;
-}
+  .toggle-on::after {
+    left: 18px;
+  }
 
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  display: inline-block;
-  margin-right: 5px;
-  vertical-align: middle;
-}
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
 
-.status-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
+  .status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
 
-.btn-plain {
-  padding: 7px 14px;
-  border-radius: 8px;
-  background: var(--surface2);
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
-}
+  .btn-plain {
+    padding: 7px 14px;
+    border-radius: 8px;
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+  }
 
-.btn-plain:hover {
-  background: var(--bg);
-}
+  .btn-plain:hover {
+    background: var(--bg);
+  }
 
-.btn-primary {
-  padding: 7px 14px;
-  border-radius: 8px;
-  background: #15803d;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-}
+  .btn-primary {
+    padding: 7px 14px;
+    border-radius: 8px;
+    background: #15803d;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+  }
 
-.btn-primary:disabled {
-  opacity: .5;
-}
+  .btn-primary:disabled {
+    opacity: .5;
+  }
 </style>
