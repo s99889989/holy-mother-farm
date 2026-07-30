@@ -1,260 +1,397 @@
 <script setup>
-/**
- * 房間平面圖元件（可共用給「房間管理」與「訂房管理」）。
- *
- * 用法：
- *   <RoomFloorplan
- *     :building="grp"                     -- { id, name, rooms: [...] } 單一棟別
- *     :bookings="bookings"                 -- 全部訂單，用來判斷房間目前狀態（可省略）
- *     :selected-id="selectedRoomId"        -- 目前選取中的房間 id（不屬於這棟就傳 null）
- *     :unavailable-ids="['A203','A205']"   -- 選填：訂房流程用，標記「此日期區間已被占用」的房間
- *     reference-date="2026-08-01"          -- 選填：以哪一天判斷「住房中」，預設今天
- *     @select="room => ..."                -- 點房間時觸發，room 為 null 代表取消選取（點第二下同一間）
- *   >
- *     <template #panel-actions="{ room }">
- *       ...這裡放這個頁面自己要的按鈕（查看詳情／編輯／指派房間...）...
- *     </template>
- *   </RoomFloorplan>
- *
- * 快樂運動館（building.id === 'A'）、合力居／愛加倍（'B' / 'C'）用實際牆面手繪 SVG 當底圖。
- * 房間如果在「房間管理 -> 矩形對應設置」指定過 shapeId，就直接用那個矩形的座標畫出房間實際外框
- * （點擊範圍＝整間房）；沒有指定過的房間，fallback 用 posX/posY 座標畫一個固定大小的小標記。
- * 其他棟別如果房間有 posX/posY，用推算出來的線框格局；完全沒座標資料的棟別，fallback 成雙排走廊示意圖。
- */
-import { useFloorplanShapes } from '~/composables/useFloorplanShapes'
+  /**
+   * 房間平面圖元件（可共用給「房間管理」與「訂房管理」）。
+   *
+   * 用法：
+   *   <RoomFloorplan
+   *     :building="grp"                     -- { id, name, rooms: [...] } 單一棟別
+   *     :bookings="bookings"                 -- 全部訂單，用來判斷房間目前狀態（可省略）
+   *     :selected-id="selectedRoomId"        -- 目前選取中的房間 id（不屬於這棟就傳 null）
+   *     :unavailable-ids="['A203','A205']"   -- 選填：訂房流程用，標記「此日期區間已被占用」的房間
+   *     reference-date="2026-08-01"          -- 選填：以哪一天判斷「住房中」，預設今天
+   *     @select="room => ..."                -- 點房間時觸發，room 為 null 代表取消選取（點第二下同一間）
+   *     :edit-mode="editMode"                -- 選填：座標編輯模式（目前僅支援 A/B/C 這種手繪牆面 pin 標記的棟別）。
+   *                                              開啟後，選取中的房間可用方向鍵移動、Shift+方向鍵調整大小；
+   *                                              調整只留在元件內部，不自動存檔
+   *     @position-change="(roomId, coords) => ..." -- 選填：editMode 下每次調整都會觸發，外層可用它收集「待存檔」的變更；
+   *                                                     真正存檔後記得呼叫這個元件的 clearOverrides()（透過 template ref）重置
+   *   >
+   *     <template #panel-actions="{ room }">
+   *       ...這裡放這個頁面自己要的按鈕（查看詳情／編輯／指派房間...）...
+   *     </template>
+   *   </RoomFloorplan>
+   *
+   * 快樂運動館（building.id === 'A'）、合力居／愛加倍（'B' / 'C'）用實際牆面手繪 SVG 當底圖，房間用小標記釘在 posX/posY 座標上；
+   * 其他棟別如果房間有 posX/posY，用推算出來的線框格局；完全沒座標資料的棟別，fallback 成雙排走廊示意圖。
+   */
+  const props = defineProps({
+    building: { type: Object, required: true }, // { id, name, rooms: [...] }
+    bookings: { type: Array, default: () => [] },
+    selectedId: { type: String, default: null },
+    unavailableIds: { type: Array, default: () => [] },
+    referenceDate: { type: String, default: null },
+    // 選填：想要不同的房間狀態判斷邏輯時傳入（例如訂單管理要分「待確認」跟「已確認」兩種顏色），
+    // 傳入 (room) => ({ cls, label })，cls 建議用 tile-vacant / tile-occupied / tile-pending / tile-inactive / tile-unavailable 其中一種，
+    // 沒傳的話用預設邏輯（今天是否住房中）。
+    statusResolver: { type: Function, default: null },
+    // 選填：座標編輯模式（目前只支援手繪牆面 pin 標記的棟別：A/B/C）。
+    // 開啟後，選取中的房間可以用方向鍵移動位置、Shift + 方向鍵調整大小；
+    // 調整結果只存在本元件內部（positionOverrides），不會自動送出，
+    // 由外層頁面監聽 @position-change 收集變更，決定何時真正存檔。
+    editMode: { type: Boolean, default: false }
+  })
+  const emit = defineEmits(['select', 'position-change'])
 
-const props = defineProps({
-  building: { type: Object, required: true }, // { id, name, rooms: [...] }
-  bookings: { type: Array, default: () => [] },
-  selectedId: { type: String, default: null },
-  unavailableIds: { type: Array, default: () => [] },
-  referenceDate: { type: String, default: null },
-  // 選填：想要不同的房間狀態判斷邏輯時傳入（例如訂單管理要分「待確認」跟「已確認」兩種顏色），
-  // 傳入 (room) => ({ cls, label })，cls 建議用 tile-vacant / tile-occupied / tile-pending / tile-inactive / tile-unavailable 其中一種，
-  // 沒傳的話用預設邏輯（今天是否住房中）。
-  statusResolver: { type: Function, default: null }
-})
-const emit = defineEmits(['select'])
+  const today = computed(() => props.referenceDate || new Date().toISOString().slice(0, 10))
 
-const today = computed(() => props.referenceDate || new Date().toISOString().slice(0, 10))
+  /* ---------------- 房間狀態 ---------------- */
 
-/* ---------------- 房間狀態 ---------------- */
-
-function activeBookingForRoom(roomId) {
-  return props.bookings
-    .filter(x => x.roomId === roomId && x.status === 'confirmed' && today.value >= x.checkIn && today.value < x.checkOut)[0] || null
-}
-function defaultTileClass(r) {
-  if (!r.active) return 'tile-inactive'
-  if (props.unavailableIds.includes(r.id)) return 'tile-unavailable'
-  return activeBookingForRoom(r.id) ? 'tile-occupied' : 'tile-vacant'
-}
-function defaultTileLabel(r) {
-  if (!r.active) return '已下架'
-  if (props.unavailableIds.includes(r.id)) return '此日期不可選'
-  return activeBookingForRoom(r.id) ? '今日住房中' : '空房可用'
-}
-function tileClass(r) {
-  return props.statusResolver ? props.statusResolver(r).cls : defaultTileClass(r)
-}
-function tileLabel(r) {
-  return props.statusResolver ? props.statusResolver(r).label : defaultTileLabel(r)
-}
-const BADGE_CLASS = {
-  'tile-vacant': 'bg-emerald-100 text-emerald-700',
-  'tile-occupied': 'bg-sky-100 text-sky-700',
-  'tile-pending': 'bg-amber-100 text-amber-700',
-  'tile-inactive': 'bg-stone-200 text-stone-600',
-  'tile-unavailable': 'bg-rose-100 text-rose-700'
-}
-function badgeClass(r) {
-  return BADGE_CLASS[tileClass(r)] || 'bg-stone-100 text-stone-600'
-}
-function isSelected(room) {
-  return props.selectedId === room.id
-}
-function handleClick(room) {
-  emit('select', isSelected(room) ? null : room)
-}
-
-const selectedRoom = computed(() => props.building.rooms.find(r => r.id === props.selectedId) || null)
-
-const { shapesOf, canvasOf, shapeRectFor } = useFloorplanShapes()
-
-/* ---------------- 座標系統 ----------------
-   有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox（定義在 useFloorplanShapes 的 REAL_CANVAS），
-   這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。 */
-
-// 房間實際輪廓：優先用 room.shapeId 對應到後台矩形對應設置指定的矩形，
-// 找不到（沒指定過、或指到的 id 不存在）的房間才 fallback 成 posX/posY 小標記。
-const roomTiles = computed(() =>
-  props.building.rooms
-    .map(r => ({ room: r, rect: shapeRectFor(props.building.id, r.shapeId) }))
-    .filter(t => t.rect)
-)
-const pins = computed(() => {
-  const canvas = canvasOf(props.building.id)
-  if (!canvas.w) return []
-  const tiledIds = new Set(roomTiles.value.map(t => t.room.id))
-  return props.building.rooms
-    .filter(r => !tiledIds.has(r.id) && r.posX != null && r.posY != null)
-    .map(r => ({ room: r, x: r.posX / 100 * canvas.w, y: r.posY / 100 * canvas.h }))
-})
-
-/* ---------------- 手繪牆面線稿（存在後端，可在房間管理「矩形對應」頁面拖拽調整） ----------------
-   每筆資料只有 type（vline 垂直線／hline 水平線／rect 矩形）+ 對應座標，沒有牆體語意
-   （分不出外牆／隔間／門窗），所以統一用同一種線條樣式畫出，見下方 template 的 shapesOf() 渲染。 */
-
-/* ---------------- 沒有手繪牆面時：依座標推算的線框格局 ----------------
-   1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
-   2. 排內依 x 座標排序，相鄰房間如果間距夠近就以中點為共用牆（貼在一起，像真的隔間牆）；
-      間距太遠（樓梯間、走廊轉角等）就保留原本的間隙，不會硬黏在一起
-   3. 排與排之間的上下邊界用同樣的邏輯處理
-   這樣畫出來是彼此相連的房間方塊，而不是各自漂浮的小色塊。 */
-function buildWireframe(rooms, canvasW, canvasH) {
-  const pts = rooms.map(r => ({ room: r, x: r.posX / 100 * canvasW, y: r.posY / 100 * canvasH }))
-
-  const ROW_EPS = canvasH * 0.06
-  const rows = []
-  for (const p of [...pts].sort((a, b) => a.y - b.y)) {
-    const row = rows.find(row => Math.abs(row.reduce((s, r) => s + r.y, 0) / row.length - p.y) < ROW_EPS)
-    if (row) row.push(p)
-    else rows.push([p])
+  function activeBookingForRoom(roomId) {
+    return props.bookings
+      .filter(x => x.roomId === roomId && x.status === 'confirmed' && today.value >= x.checkIn && today.value < x.checkOut)[0] || null
   }
-  rows.forEach(row => row.sort((a, b) => a.x - b.x))
-  rows.sort((a, b) => (a.reduce((s, r) => s + r.y, 0) / a.length) - (b.reduce((s, r) => s + r.y, 0) / b.length))
+  function defaultTileClass(r) {
+    if (!r.active) return 'tile-inactive'
+    if (props.unavailableIds.includes(r.id)) return 'tile-unavailable'
+    return activeBookingForRoom(r.id) ? 'tile-occupied' : 'tile-vacant'
+  }
+  function defaultTileLabel(r) {
+    if (!r.active) return '已下架'
+    if (props.unavailableIds.includes(r.id)) return '此日期不可選'
+    return activeBookingForRoom(r.id) ? '今日住房中' : '空房可用'
+  }
+  function tileClass(r) {
+    return props.statusResolver ? props.statusResolver(r).cls : defaultTileClass(r)
+  }
+  function tileLabel(r) {
+    return props.statusResolver ? props.statusResolver(r).label : defaultTileLabel(r)
+  }
+  const BADGE_CLASS = {
+    'tile-vacant': 'bg-emerald-100 text-emerald-700',
+    'tile-occupied': 'bg-sky-100 text-sky-700',
+    'tile-pending': 'bg-amber-100 text-amber-700',
+    'tile-inactive': 'bg-stone-200 text-stone-600',
+    'tile-unavailable': 'bg-rose-100 text-rose-700'
+  }
+  function badgeClass(r) {
+    return BADGE_CLASS[tileClass(r)] || 'bg-stone-100 text-stone-600'
+  }
+  function isSelected(room) {
+    return props.selectedId === room.id
+  }
+  function handleClick(room) {
+    emit('select', isSelected(room) ? null : room)
+  }
 
-  const rowCenters = rows.map(row => row.reduce((s, r) => s + r.y, 0) / row.length)
-  const GAP_THRESH_Y = canvasH * 0.10
-  const DEFAULT_HALF_H = canvasH * 0.028
-  const rowBounds = rows.map((row, i) => {
-    const cy = rowCenters[i]
-    const top = i === 0
-      ? cy - DEFAULT_HALF_H
-      : (cy - rowCenters[i - 1] < GAP_THRESH_Y ? (cy + rowCenters[i - 1]) / 2 : cy - DEFAULT_HALF_H)
-    const bottom = i === rows.length - 1
-      ? cy + DEFAULT_HALF_H
-      : (rowCenters[i + 1] - cy < GAP_THRESH_Y ? (cy + rowCenters[i + 1]) / 2 : cy + DEFAULT_HALF_H)
-    return [top, bottom]
+  const selectedRoom = computed(() => props.building.rooms.find(r => r.id === props.selectedId) || null)
+
+  /* ---------------- 座標編輯（editMode 專用） ----------------
+     調整結果先存在這個元件內部的 positionOverrides，不直接改 props.building.rooms
+     （props 不該被子元件直接修改）。渲染 pins 時如果某間房有 override 就蓋過原始
+     posX/posY/pinW/pinH，同時透過 @position-change 把每次異動告知外層頁面，
+     讓外層自己決定何時真正存檔、存哪些（外層也可呼叫 clearOverrides() 在取消/存檔後重置）。 */
+  const DEFAULT_PIN_W = 54, DEFAULT_PIN_H = 34
+  const positionOverrides = reactive({}) // roomId -> { posX, posY, pinW, pinH }
+
+  function currentCoords(room) {
+    const o = positionOverrides[room.id]
+    return {
+      posX: o?.posX ?? room.posX,
+      posY: o?.posY ?? room.posY,
+      pinW: o?.pinW ?? room.pinW ?? DEFAULT_PIN_W,
+      pinH: o?.pinH ?? room.pinH ?? DEFAULT_PIN_H
+    }
+  }
+  function effRoom(room) {
+    const o = positionOverrides[room.id]
+    return o ? { ...room, ...o } : room
+  }
+  function clearOverrides() {
+    for (const k in positionOverrides) delete positionOverrides[k]
+  }
+  defineExpose({ clearOverrides })
+
+  const POS_STEP = 0.15   // 方向鍵：每按一下移動幾 % 的畫布寬/高
+  const SIZE_STEP = 2     // Shift + 方向鍵：每按一下調整幾 px 的標記寬/高
+  const MIN_PIN_W = 32, MAX_PIN_W = 140
+  const MIN_PIN_H = 22, MAX_PIN_H = 100
+  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)) }
+
+  function handleKeydown(e) {
+    if (!props.editMode || !selectedRoom.value) return
+    if (!REAL_CANVAS[props.building.id]) return // 目前只支援有手繪牆面 pin 標記的棟別
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
+    e.preventDefault()
+    const room = selectedRoom.value
+    const cur = currentCoords(room)
+    if (e.shiftKey) {
+      let { pinW, pinH } = cur
+      if (e.key === 'ArrowLeft')  pinW = clamp(pinW - SIZE_STEP, MIN_PIN_W, MAX_PIN_W)
+      if (e.key === 'ArrowRight') pinW = clamp(pinW + SIZE_STEP, MIN_PIN_W, MAX_PIN_W)
+      if (e.key === 'ArrowUp')    pinH = clamp(pinH - SIZE_STEP, MIN_PIN_H, MAX_PIN_H)
+      if (e.key === 'ArrowDown')  pinH = clamp(pinH + SIZE_STEP, MIN_PIN_H, MAX_PIN_H)
+      positionOverrides[room.id] = { ...cur, pinW, pinH }
+    } else {
+      let { posX, posY } = cur
+      if (e.key === 'ArrowLeft')  posX = clamp(posX - POS_STEP, 0, 100)
+      if (e.key === 'ArrowRight') posX = clamp(posX + POS_STEP, 0, 100)
+      if (e.key === 'ArrowUp')    posY = clamp(posY - POS_STEP, 0, 100)
+      if (e.key === 'ArrowDown')  posY = clamp(posY + POS_STEP, 0, 100)
+      positionOverrides[room.id] = { ...cur, posX, posY }
+    }
+    emit('position-change', room.id, { ...positionOverrides[room.id] })
+  }
+  onMounted(() => window.addEventListener('keydown', handleKeydown))
+  onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+
+  /* ---------------- 座標系統 ----------------
+     有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox，
+     這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。
+     合力居跟愛加倍是畫在同一張圖上量出來的座標，所以共用同一組尺寸。 */
+  const REAL_CANVAS = {
+    A: { w: 1360, h: 780 }, // 快樂運動館：對應手繪平面圖的 viewBox，兩邊座標系統一致
+    B: { w: 1195, h: 896 },
+    C: { w: 1195, h: 896 }
+  }
+
+  // 把「房間中心點座標」轉成畫布上的實際像素點，單純依比例換算，不做牆面推算。
+  // 用在已經有手繪牆面底圖的棟別（例如快樂運動館）：牆是畫死的，房間只需要一個「釘」標記其位置即可。
+  const pins = computed(() => {
+    const canvas = REAL_CANVAS[props.building.id]
+    if (!canvas) return []
+    return props.building.rooms
+      .filter(r => r.posX != null && r.posY != null)
+      .map(effRoom)
+      .map(r => ({
+        room: r,
+        x: r.posX / 100 * canvas.w,
+        y: r.posY / 100 * canvas.h,
+        w: r.pinW ?? DEFAULT_PIN_W,
+        h: r.pinH ?? DEFAULT_PIN_H
+      }))
   })
 
-  const GAP_THRESH_X = canvasW * 0.09
-  const DEFAULT_HALF_W = canvasW * 0.022
-  const positions = []
-  rows.forEach((row, ri) => {
-    const [top, bottom] = rowBounds[ri]
-    row.forEach((p, i) => {
-      const left = i === 0
-        ? p.x - DEFAULT_HALF_W
-        : (p.x - row[i - 1].x < GAP_THRESH_X ? (p.x + row[i - 1].x) / 2 : p.x - DEFAULT_HALF_W)
-      const right = i === row.length - 1
-        ? p.x + DEFAULT_HALF_W
-        : (row[i + 1].x - p.x < GAP_THRESH_X ? (p.x + row[i + 1].x) / 2 : p.x + DEFAULT_HALF_W)
-      positions.push({ room: p.room, x: left, y: top, w: right - left, h: bottom - top })
+  /* ---------------- 手繪牆面線稿（依平面圖編輯工具匯出的座標繪製） ----------------
+     資料來源：用平面圖編輯工具在現場標註照片上描出牆面後匯出的座標，取代先前純目測寫死的版本。
+     每筆資料只有 type（vline 垂直線／hline 水平線／rect 矩形）+ 對應座標，沒有牆體語意
+     （分不出外牆／隔間／門窗），所以統一用同一種線條樣式畫出，見下方 template 的 WALL_SHAPES 渲染。
+     A：快樂運動館。BC：合力居／愛加倍共用同一張底圖（兩棟畫在同一張現場照片上）。 */
+  const WALL_SHAPES = {
+    A: [
+      { id: 'a_l3', type: 'vline', x: 490, y1: 113, y2: 690 },
+      { id: 'a_l6', type: 'vline', x: 800, y1: 111, y2: 687 },
+      { id: 'a_l7', type: 'vline', x: 865, y1: 111, y2: 330 },
+      { id: 'a_l8', type: 'vline', x: 960, y1: 111, y2: 330 },
+      { id: 'a_l11', type: 'vline', x: 615, y1: 292, y2: 690 },
+      { id: 'custom_40', type: 'hline', y: 112, x1: 491, x2: 1165 },
+      { id: 'custom_41', type: 'hline', y: 332, x1: 803, x2: 1165 },
+      { id: 'custom_42', type: 'rect', x: 491, y: 291, w: 123, h: 98 },
+      { id: 'custom_43', type: 'rect', x: 491, y: 390, w: 123, h: 98 },
+      { id: 'custom_44', type: 'rect', x: 491, y: 488, w: 124, h: 95 },
+      { id: 'custom_45', type: 'hline', y: 690, x1: 491, x2: 799 },
+      { id: 'custom_46', type: 'rect', x: 651, y: 290, w: 149, h: 98 },
+      { id: 'custom_47', type: 'rect', x: 653, y: 388, w: 147, h: 98 },
+      { id: 'custom_48', type: 'rect', x: 654, y: 487, w: 146, h: 97 },
+      { id: 'custom_49', type: 'rect', x: 653, y: 584, w: 147, h: 105 },
+      { id: 'custom_50', type: 'rect', x: 490, y: 112, w: 111, h: 133 },
+      { id: 'custom_51', type: 'rect', x: 602, y: 112, w: 48, h: 88 },
+      { id: 'custom_52', type: 'rect', x: 651, y: 113, w: 51, h: 87 },
+      { id: 'custom_54', type: 'vline', x: 1166, y1: 112, y2: 334 },
+      { id: 'custom_55', type: 'rect', x: 866, y: 112, w: 94, h: 174 }
+    ],
+    BC: [
+      { id: 'custom_1', type: 'vline', x: 187, y1: 204, y2: 397 },
+      { id: 'custom_2', type: 'hline', y: 202, x1: 187, x2: 1098 },
+      { id: 'custom_3', type: 'vline', x: 1056, y1: 202, y2: 394 },
+      { id: 'custom_4', type: 'hline', y: 397, x1: 188, x2: 781 },
+      { id: 'custom_5', type: 'hline', y: 395, x1: 853, x2: 1056 },
+      { id: 'custom_6', type: 'rect', x: 186, y: 204, w: 105, h: 72 },
+      { id: 'custom_7', type: 'rect', x: 292, y: 205, w: 81, h: 71 },
+      { id: 'custom_8', type: 'rect', x: 372, y: 203, w: 81, h: 73 },
+      { id: 'custom_9', type: 'rect', x: 453, y: 203, w: 84, h: 74 },
+      { id: 'custom_10', type: 'rect', x: 535, y: 201, w: 82, h: 76 },
+      { id: 'custom_11', type: 'rect', x: 618, y: 201, w: 86, h: 75 },
+      { id: 'custom_12', type: 'rect', x: 703, y: 203, w: 81, h: 73 },
+      { id: 'custom_13', type: 'rect', x: 784, y: 202, w: 85, h: 73 },
+      { id: 'custom_14', type: 'rect', x: 870, y: 202, w: 82, h: 73 },
+      { id: 'custom_15', type: 'rect', x: 188, y: 306, w: 101, h: 91 },
+      { id: 'custom_16', type: 'rect', x: 370, y: 304, w: 84, h: 93 },
+      { id: 'custom_17', type: 'rect', x: 454, y: 303, w: 82, h: 94 },
+      { id: 'custom_18', type: 'rect', x: 536, y: 304, w: 83, h: 93 },
+      { id: 'custom_19', type: 'rect', x: 619, y: 304, w: 81, h: 93 },
+      { id: 'custom_20', type: 'rect', x: 699, y: 303, w: 85, h: 93 },
+      { id: 'custom_21', type: 'rect', x: 850, y: 302, w: 106, h: 94 },
+      { id: 'custom_22', type: 'hline', y: 427, x1: 189, x2: 755 },
+      { id: 'custom_23', type: 'hline', y: 427, x1: 846, x2: 1101 },
+      { id: 'custom_24', type: 'vline', x: 1100, y1: 203, y2: 427 },
+      { id: 'custom_25', type: 'vline', x: 756, y1: 428, y2: 581 },
+      { id: 'custom_26', type: 'hline', y: 458, x1: 847, x2: 1021 },
+      { id: 'custom_27', type: 'vline', x: 848, y1: 425, y2: 459 },
+      { id: 'custom_28', type: 'hline', y: 486, x1: 848, x2: 1024 },
+      { id: 'custom_29', type: 'vline', x: 1024, y1: 486, y2: 579 },
+      { id: 'custom_30', type: 'hline', y: 581, x1: 812, x2: 1060 },
+      { id: 'custom_31', type: 'hline', y: 580, x1: 559, x2: 756 },
+      { id: 'custom_32', type: 'vline', x: 559, y1: 427, y2: 781 },
+      { id: 'custom_33', type: 'hline', y: 782, x1: 560, x2: 1061 },
+      { id: 'custom_34', type: 'vline', x: 1061, y1: 582, y2: 782 },
+      { id: 'custom_35', type: 'rect', x: 561, y: 658, w: 81, h: 123 },
+      { id: 'custom_36', type: 'rect', x: 644, y: 657, w: 81, h: 125 },
+      { id: 'custom_37', type: 'rect', x: 725, y: 658, w: 86, h: 124 },
+      { id: 'custom_38', type: 'rect', x: 811, y: 657, w: 82, h: 124 },
+      { id: 'custom_39', type: 'rect', x: 894, y: 656, w: 166, h: 127 }
+    ]
+  }
+
+  /* ---------------- 沒有手繪牆面時：依座標推算的線框格局 ----------------
+     1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
+     2. 排內依 x 座標排序，相鄰房間如果間距夠近就以中點為共用牆（貼在一起，像真的隔間牆）；
+        間距太遠（樓梯間、走廊轉角等）就保留原本的間隙，不會硬黏在一起
+     3. 排與排之間的上下邊界用同樣的邏輯處理
+     這樣畫出來是彼此相連的房間方塊，而不是各自漂浮的小色塊。 */
+  function buildWireframe(rooms, canvasW, canvasH) {
+    const pts = rooms.map(r => ({ room: r, x: r.posX / 100 * canvasW, y: r.posY / 100 * canvasH }))
+
+    const ROW_EPS = canvasH * 0.06
+    const rows = []
+    for (const p of [...pts].sort((a, b) => a.y - b.y)) {
+      const row = rows.find(row => Math.abs(row.reduce((s, r) => s + r.y, 0) / row.length - p.y) < ROW_EPS)
+      if (row) row.push(p)
+      else rows.push([p])
+    }
+    rows.forEach(row => row.sort((a, b) => a.x - b.x))
+    rows.sort((a, b) => (a.reduce((s, r) => s + r.y, 0) / a.length) - (b.reduce((s, r) => s + r.y, 0) / b.length))
+
+    const rowCenters = rows.map(row => row.reduce((s, r) => s + r.y, 0) / row.length)
+    const GAP_THRESH_Y = canvasH * 0.10
+    const DEFAULT_HALF_H = canvasH * 0.028
+    const rowBounds = rows.map((row, i) => {
+      const cy = rowCenters[i]
+      const top = i === 0
+        ? cy - DEFAULT_HALF_H
+        : (cy - rowCenters[i - 1] < GAP_THRESH_Y ? (cy + rowCenters[i - 1]) / 2 : cy - DEFAULT_HALF_H)
+      const bottom = i === rows.length - 1
+        ? cy + DEFAULT_HALF_H
+        : (rowCenters[i + 1] - cy < GAP_THRESH_Y ? (cy + rowCenters[i + 1]) / 2 : cy + DEFAULT_HALF_H)
+      return [top, bottom]
     })
-  })
 
-  // 走廊連接線：用最小生成樹（MST）把所有房間連成一整片，不管是同排/同列還是隔著樓梯間，
-  // 全部都會有一條線接起來，畫出來才會像平面圖裡「房間彼此相連」的樣子，而不是一塊塊分開飄著。
-  // 線畫在房塊「下面」，房塊蓋住線的兩端，視覺上就像走廊接到房間牆上。
-  const connectors = buildMST(pts)
+    const GAP_THRESH_X = canvasW * 0.09
+    const DEFAULT_HALF_W = canvasW * 0.022
+    const positions = []
+    rows.forEach((row, ri) => {
+      const [top, bottom] = rowBounds[ri]
+      row.forEach((p, i) => {
+        const left = i === 0
+          ? p.x - DEFAULT_HALF_W
+          : (p.x - row[i - 1].x < GAP_THRESH_X ? (p.x + row[i - 1].x) / 2 : p.x - DEFAULT_HALF_W)
+        const right = i === row.length - 1
+          ? p.x + DEFAULT_HALF_W
+          : (row[i + 1].x - p.x < GAP_THRESH_X ? (p.x + row[i + 1].x) / 2 : p.x + DEFAULT_HALF_W)
+        positions.push({ room: p.room, x: left, y: top, w: right - left, h: bottom - top })
+      })
+    })
 
-  // ---- 建築感元素：走廊留白 + 房間隔間牆 + 門符號 ----
-  // 走廊：排與排之間如果有明顯留白（沒有貼在一起），畫成一條貫穿整層的淺色走廊帶
-  const corridorBands = []
-  for (let i = 0; i < rowBounds.length - 1; i++) {
-    const gapTop = rowBounds[i][1]
-    const gapBottom = rowBounds[i + 1][0]
-    if (gapBottom - gapTop > 4) corridorBands.push({ top: gapTop, bottom: gapBottom })
-  }
-  const minX = Math.min(...positions.map(p => p.x))
-  const maxX = Math.max(...positions.map(p => p.x + p.w))
+    // 走廊連接線：用最小生成樹（MST）把所有房間連成一整片，不管是同排/同列還是隔著樓梯間，
+    // 全部都會有一條線接起來，畫出來才會像平面圖裡「房間彼此相連」的樣子，而不是一塊塊分開飄著。
+    // 線畫在房塊「下面」，房塊蓋住線的兩端，視覺上就像走廊接到房間牆上。
+    const connectors = buildMST(pts)
 
-  // 隔間牆：同一排相鄰房間如果緊貼（中間沒有走廊），畫一條共用牆的分隔線
-  const walls = []
-  rows.forEach((row) => {
-    const rowPositions = positions.filter(p => row.some(r => r.room === p.room))
-      .sort((a, b) => a.x - b.x)
-    for (let i = 0; i < rowPositions.length - 1; i++) {
-      const a = rowPositions[i], b = rowPositions[i + 1]
-      if (b.x - (a.x + a.w) < 6) walls.push({ x: a.x + a.w, y1: a.y, y2: a.y + a.h })
+    // ---- 建築感元素：走廊留白 + 房間隔間牆 + 門符號 ----
+    // 走廊：排與排之間如果有明顯留白（沒有貼在一起），畫成一條貫穿整層的淺色走廊帶
+    const corridorBands = []
+    for (let i = 0; i < rowBounds.length - 1; i++) {
+      const gapTop = rowBounds[i][1]
+      const gapBottom = rowBounds[i + 1][0]
+      if (gapBottom - gapTop > 4) corridorBands.push({ top: gapTop, bottom: gapBottom })
     }
-  })
+    const minX = Math.min(...positions.map(p => p.x))
+    const maxX = Math.max(...positions.map(p => p.x + p.w))
 
-  // 門符號：房間邊界貼著走廊帶的那一側，畫一個開門弧線記號
-  const doors = []
-  for (const p of positions) {
-    const facesTop = corridorBands.some(c => Math.abs(p.y - c.bottom) < 3)
-    const facesBottom = corridorBands.some(c => Math.abs((p.y + p.h) - c.top) < 3)
-    const dx = p.x + p.w / 2
-    const doorW = Math.min(18, p.w * 0.4)
-    if (facesTop) doors.push({ room: p.room, x: dx, y: p.y, w: doorW, dir: 'up' })
-    else if (facesBottom) doors.push({ room: p.room, x: dx, y: p.y + p.h, w: doorW, dir: 'down' })
+    // 隔間牆：同一排相鄰房間如果緊貼（中間沒有走廊），畫一條共用牆的分隔線
+    const walls = []
+    rows.forEach((row) => {
+      const rowPositions = positions.filter(p => row.some(r => r.room === p.room))
+        .sort((a, b) => a.x - b.x)
+      for (let i = 0; i < rowPositions.length - 1; i++) {
+        const a = rowPositions[i], b = rowPositions[i + 1]
+        if (b.x - (a.x + a.w) < 6) walls.push({ x: a.x + a.w, y1: a.y, y2: a.y + a.h })
+      }
+    })
+
+    // 門符號：房間邊界貼著走廊帶的那一側，畫一個開門弧線記號
+    const doors = []
+    for (const p of positions) {
+      const facesTop = corridorBands.some(c => Math.abs(p.y - c.bottom) < 3)
+      const facesBottom = corridorBands.some(c => Math.abs((p.y + p.h) - c.top) < 3)
+      const dx = p.x + p.w / 2
+      const doorW = Math.min(18, p.w * 0.4)
+      if (facesTop) doors.push({ room: p.room, x: dx, y: p.y, w: doorW, dir: 'up' })
+      else if (facesBottom) doors.push({ room: p.room, x: dx, y: p.y + p.h, w: doorW, dir: 'down' })
+    }
+
+    return { positions, connectors, corridorBands, walls, doors, minX, maxX }
   }
 
-  return { positions, connectors, corridorBands, walls, doors, minX, maxX }
-}
-
-function buildMST(pts) {
-  const n = pts.length
-  if (n <= 1) return []
-  const inTree = new Array(n).fill(false)
-  const minDist = new Array(n).fill(Infinity)
-  const parent = new Array(n).fill(-1)
-  minDist[0] = 0
-  for (let iter = 0; iter < n; iter++) {
-    let u = -1
-    for (let i = 0; i < n; i++) {
-      if (!inTree[i] && (u === -1 || minDist[i] < minDist[u])) u = i
-    }
-    inTree[u] = true
-    for (let v = 0; v < n; v++) {
-      if (!inTree[v]) {
-        const d = Math.hypot(pts[u].x - pts[v].x, pts[u].y - pts[v].y)
-        if (d < minDist[v]) { minDist[v] = d; parent[v] = u }
+  function buildMST(pts) {
+    const n = pts.length
+    if (n <= 1) return []
+    const inTree = new Array(n).fill(false)
+    const minDist = new Array(n).fill(Infinity)
+    const parent = new Array(n).fill(-1)
+    minDist[0] = 0
+    for (let iter = 0; iter < n; iter++) {
+      let u = -1
+      for (let i = 0; i < n; i++) {
+        if (!inTree[i] && (u === -1 || minDist[i] < minDist[u])) u = i
+      }
+      inTree[u] = true
+      for (let v = 0; v < n; v++) {
+        if (!inTree[v]) {
+          const d = Math.hypot(pts[u].x - pts[v].x, pts[u].y - pts[v].y)
+          if (d < minDist[v]) { minDist[v] = d; parent[v] = u }
+        }
       }
     }
+    const edges = []
+    for (let i = 0; i < n; i++) {
+      if (parent[i] !== -1) edges.push({ x1: pts[parent[i]].x, y1: pts[parent[i]].y, x2: pts[i].x, y2: pts[i].y })
+    }
+    return edges
   }
-  const edges = []
-  for (let i = 0; i < n; i++) {
-    if (parent[i] !== -1) edges.push({ x1: pts[parent[i]].x, y1: pts[parent[i]].y, x2: pts[i].x, y2: pts[i].y })
-  }
-  return edges
-}
 
-const realLayout = computed(() => {
-  const canvas = canvasOf(props.building.id)
-  const positioned = props.building.rooms.filter(r => r.posX != null && r.posY != null)
-  if (!canvas.w || positioned.length === 0) {
-    return { width: 0, height: 0, positions: [], connectors: [], corridorBands: [], walls: [], doors: [], minX: 0, maxX: 0 }
-  }
-  return {
-    width: canvas.w,
-    height: canvas.h,
-    ...buildWireframe(positioned, canvas.w, canvas.h)
-  }
-})
-
-/* ---------------- 完全沒座標資料時：簡易走廊示意圖排版 ----------------
-     偶數 index 排上排、奇數排下排，兩排中間夾一條走廊。
-     房間位置全部用算的，新增/刪除/排序房間時會自動重排，不用手動維護座標。 */
-const ROOM_W = 108, ROOM_H = 78, CORRIDOR_H = 46, PAD = 16
-const fallbackLayout = computed(() => {
-  const roomsArr = props.building.rooms
-  const pairs = Math.max(Math.ceil(roomsArr.length / 2), 1)
-  const width = PAD * 2 + pairs * ROOM_W + (pairs - 1) * 10
-  const height = PAD * 2 + ROOM_H * 2 + CORRIDOR_H
-  const positions = roomsArr.map((room, i) => {
-    const col = Math.floor(i / 2)
-    const isTop = i % 2 === 0
+  const realLayout = computed(() => {
+    const canvas = REAL_CANVAS[props.building.id]
+    const positioned = props.building.rooms.filter(r => r.posX != null && r.posY != null)
+    if (!canvas || positioned.length === 0) {
+      return { width: 0, height: 0, positions: [], connectors: [], corridorBands: [], walls: [], doors: [], minX: 0, maxX: 0 }
+    }
     return {
-      room,
-      x: PAD + col * (ROOM_W + 10),
-      y: isTop ? PAD : PAD + ROOM_H + CORRIDOR_H
+      width: canvas.w,
+      height: canvas.h,
+      ...buildWireframe(positioned, canvas.w, canvas.h)
     }
   })
-  return { width, height, positions, corridorY: PAD + ROOM_H, corridorH: CORRIDOR_H }
-})
+
+  /* ---------------- 完全沒座標資料時：簡易走廊示意圖排版 ----------------
+       偶數 index 排上排、奇數排下排，兩排中間夾一條走廊。
+       房間位置全部用算的，新增/刪除/排序房間時會自動重排，不用手動維護座標。 */
+  const ROOM_W = 108, ROOM_H = 78, CORRIDOR_H = 46, PAD = 16
+  const fallbackLayout = computed(() => {
+    const roomsArr = props.building.rooms
+    const pairs = Math.max(Math.ceil(roomsArr.length / 2), 1)
+    const width = PAD * 2 + pairs * ROOM_W + (pairs - 1) * 10
+    const height = PAD * 2 + ROOM_H * 2 + CORRIDOR_H
+    const positions = roomsArr.map((room, i) => {
+      const col = Math.floor(i / 2)
+      const isTop = i % 2 === 0
+      return {
+        room,
+        x: PAD + col * (ROOM_W + 10),
+        y: isTop ? PAD : PAD + ROOM_H + CORRIDOR_H
+      }
+    })
+    return { width, height, positions, corridorY: PAD + ROOM_H, corridorH: CORRIDOR_H }
+  })
 </script>
 
 <template>
@@ -269,7 +406,7 @@ const fallbackLayout = computed(() => {
       <!-- ===== 手繪牆面（依平面圖編輯工具匯出的座標繪製，僅結構線，不含房間色塊） ===== -->
       <g class="fp-walls">
         <template
-          v-for="s in shapesOf('A')"
+          v-for="s in WALL_SHAPES.A"
           :key="s.id"
         >
           <line
@@ -299,31 +436,7 @@ const fallbackLayout = computed(() => {
         </template>
       </g>
 
-      <!-- ===== 房間實際輪廓：房間管理已指定 shapeId 對應的房間，直接用該矩形畫出整間房 ===== -->
-      <g
-        v-for="t in roomTiles"
-        :key="t.room.id"
-        class="room-group"
-        @click="handleClick(t.room)"
-      >
-        <rect
-          :x="t.rect.x"
-          :y="t.rect.y"
-          :width="t.rect.w"
-          :height="t.rect.h"
-          rx="2"
-          :class="['room-rect', tileClass(t.room), isSelected(t.room) ? 'pin-selected' : '']"
-        />
-        <text
-          :x="t.rect.x + t.rect.w / 2"
-          :y="t.rect.y + t.rect.h / 2 + 4"
-          text-anchor="middle"
-          class="room-block-num"
-        >{{ t.room.id }}</text>
-        <title>{{ t.room.id }} ・ {{ tileLabel(t.room) }}</title>
-      </g>
-
-      <!-- ===== 房間標記：還沒指定 shapeId 的房間，退回用 posX/posY 座標畫小標記 ===== -->
+      <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上（editMode 時可用方向鍵調整位置/大小） ===== -->
       <g
         v-for="p in pins"
         :key="p.room.id"
@@ -331,12 +444,12 @@ const fallbackLayout = computed(() => {
         @click="handleClick(p.room)"
       >
         <rect
-          :x="p.x - 27"
-          :y="p.y - 17"
-          width="54"
-          height="34"
+          :x="p.x - p.w / 2"
+          :y="p.y - p.h / 2"
+          :width="p.w"
+          :height="p.h"
           rx="6"
-          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? 'pin-selected' : '']"
+          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? (editMode ? 'pin-editing' : 'pin-selected') : '']"
         />
         <text
           :x="p.x"
@@ -345,6 +458,16 @@ const fallbackLayout = computed(() => {
           class="room-block-num"
         >{{ p.room.id }}</text>
         <title>{{ p.room.id }} ・ {{ tileLabel(p.room) }}</title>
+        <g
+          v-if="editMode && isSelected(p.room)"
+          class="pin-handles"
+          pointer-events="none"
+        >
+          <rect :x="p.x - p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+          <rect :x="p.x + p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+          <rect :x="p.x - p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+          <rect :x="p.x + p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+        </g>
       </g>
     </svg>
 
@@ -357,7 +480,7 @@ const fallbackLayout = computed(() => {
     >
       <g class="fp-walls">
         <template
-          v-for="s in shapesOf(building.id)"
+          v-for="s in WALL_SHAPES.BC"
           :key="s.id"
         >
           <line
@@ -387,31 +510,7 @@ const fallbackLayout = computed(() => {
         </template>
       </g>
 
-      <!-- ===== 房間實際輪廓：房間管理已指定 shapeId 對應的房間，直接用該矩形畫出整間房 ===== -->
-      <g
-        v-for="t in roomTiles"
-        :key="t.room.id"
-        class="room-group"
-        @click="handleClick(t.room)"
-      >
-        <rect
-          :x="t.rect.x"
-          :y="t.rect.y"
-          :width="t.rect.w"
-          :height="t.rect.h"
-          rx="2"
-          :class="['room-rect', tileClass(t.room), isSelected(t.room) ? 'pin-selected' : '']"
-        />
-        <text
-          :x="t.rect.x + t.rect.w / 2"
-          :y="t.rect.y + t.rect.h / 2 + 4"
-          text-anchor="middle"
-          class="room-block-num"
-        >{{ t.room.id }}</text>
-        <title>{{ t.room.id }} ・ {{ tileLabel(t.room) }}</title>
-      </g>
-
-      <!-- ===== 房間標記：還沒指定 shapeId 的房間，退回用 posX/posY 座標畫小標記 ===== -->
+      <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上（editMode 時可用方向鍵調整位置/大小） ===== -->
       <g
         v-for="p in pins"
         :key="p.room.id"
@@ -419,12 +518,12 @@ const fallbackLayout = computed(() => {
         @click="handleClick(p.room)"
       >
         <rect
-          :x="p.x - 27"
-          :y="p.y - 17"
-          width="54"
-          height="34"
+          :x="p.x - p.w / 2"
+          :y="p.y - p.h / 2"
+          :width="p.w"
+          :height="p.h"
           rx="6"
-          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? 'pin-selected' : '']"
+          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? (editMode ? 'pin-editing' : 'pin-selected') : '']"
         />
         <text
           :x="p.x"
@@ -433,6 +532,16 @@ const fallbackLayout = computed(() => {
           class="room-block-num"
         >{{ p.room.id }}</text>
         <title>{{ p.room.id }} ・ {{ tileLabel(p.room) }}</title>
+        <g
+          v-if="editMode && isSelected(p.room)"
+          class="pin-handles"
+          pointer-events="none"
+        >
+          <rect :x="p.x - p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+          <rect :x="p.x + p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+          <rect :x="p.x - p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+          <rect :x="p.x + p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
+        </g>
       </g>
     </svg>
 
@@ -589,7 +698,8 @@ const fallbackLayout = computed(() => {
       </g>
     </svg>
 
-    <!-- 選取中的房間：內嵌資訊卡，動作按鈕交給外層頁面決定要放什麼 -->
+    <!-- 選取中的房間：內嵌資訊卡；一般模式顯示房型資訊＋動作按鈕（交給外層頁面決定），
+         editMode 時改顯示目前座標／大小與方向鍵操作提示 -->
     <div
       v-if="selectedRoom"
       class="room-pin-panel"
@@ -604,200 +714,228 @@ const fallbackLayout = computed(() => {
           :class="badgeClass(selectedRoom)"
         >{{ tileLabel(selectedRoom) }}</span>
       </div>
-      <div
-        class="text-hint-c mb-3"
-        style="font-size:12.5px"
-      >
-        {{ selectedRoom.capacity }} 人・{{ selectedRoom.bed }}・NT$ {{ selectedRoom.price.toLocaleString() }}/晚
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <slot
-          name="panel-actions"
-          :room="selectedRoom"
-        />
-      </div>
+
+      <template v-if="editMode">
+        <div
+          class="text-hint-c mb-2"
+          style="font-size:12px"
+        >
+          位置 X {{ currentCoords(selectedRoom).posX?.toFixed(1) }}%・Y {{ currentCoords(selectedRoom).posY?.toFixed(1) }}%　大小 {{ currentCoords(selectedRoom).pinW }}×{{ currentCoords(selectedRoom).pinH }}
+        </div>
+        <p
+          class="text-hint-c"
+          style="font-size:11.5px"
+        >方向鍵：移動位置　｜　Shift + 方向鍵：調整大小</p>
+      </template>
+      <template v-else>
+        <div
+          class="text-hint-c mb-3"
+          style="font-size:12.5px"
+        >
+          {{ selectedRoom.capacity }} 人・{{ selectedRoom.bed }}・NT$ {{ selectedRoom.price.toLocaleString() }}/晚
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <slot
+            name="panel-actions"
+            :room="selectedRoom"
+          />
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <style scoped>
-.floorplan-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.floor-outline {
-  fill: var(--surface2);
-  stroke: var(--text);
-  stroke-width: 2.5;
-}
-.corridor-band-real {
-  fill: var(--surface);
-  opacity: .6;
-}
-.partition-wall {
-  stroke: var(--text);
-  stroke-width: 1.2;
-  opacity: .7;
-}
-.door-gap {
-  stroke: var(--surface);
-  stroke-width: 3;
-}
-.door-swing {
-  fill: none;
-  stroke: var(--border);
-  stroke-width: 1;
-}
-.corridor-connector {
-  stroke: var(--border);
-  stroke-width: 5;
-  stroke-linecap: round;
-  opacity: .35;
-}
-.corridor-band {
-  fill: var(--surface2);
-}
-.corridor-label {
-  font-size: 11px;
-  fill: var(--text-hint);
-  letter-spacing: 2px;
-}
-.room-group {
-  cursor: pointer;
-}
-.room-rect {
-  fill: var(--surface);
-  stroke-width: 1.5;
-  transition: stroke-width .15s, filter .15s;
-}
-/* 房間狀態用邊框顏色表示（功能性分類色，不隨深色模式變動） */
-.room-rect.tile-vacant      { stroke: #10b981; }
-.room-rect.tile-occupied    { stroke: #3b82f6; }
-.room-rect.tile-pending     { stroke: #f59e0b; }
-.room-rect.tile-inactive    { stroke: #a8a29e; stroke-dasharray: 3 2; }
-.room-rect.tile-unavailable { stroke: #f43f5e; stroke-dasharray: 3 2; }
-.room-group:hover .room-rect.tile-vacant      { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(16,185,129,.9)); }
-.room-group:hover .room-rect.tile-occupied    { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(59,130,246,.9)); }
-.room-group:hover .room-rect.tile-pending     { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(245,158,11,.9)); }
-.room-group:hover .room-rect.tile-inactive    { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(168,162,158,.9)); }
-.room-group:hover .room-rect.tile-unavailable { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(244,63,94,.9)); }
-.room-num {
-  font-size: 14px;
-  font-weight: 700;
-  fill: var(--text);
-}
-.room-sub {
-  font-size: 10px;
-  fill: var(--text-hint);
-}
-.room-status {
-  font-size: 9.5px;
-  font-weight: 700;
-}
-.room-status.tile-vacant      { fill: #059669; }
-.room-status.tile-occupied    { fill: #2563eb; }
-.room-status.tile-pending     { fill: #b45309; }
-.room-status.tile-inactive    { fill: #78716c; }
-.room-status.tile-unavailable { fill: #e11d48; }
-.room-block-num {
-  font-size: 9.5px;
-  font-weight: 700;
-  fill: var(--text);
-  pointer-events: none;
-}
-/* 依平面圖編輯工具匯出座標描出的牆面（快樂運動館／合力居／愛加倍），統一線條樣式，
-   因為匯出資料只有幾何座標、沒有牆體語意，無法分外牆/隔間/門窗 */
-.fp-trace-wall {
-  stroke: var(--text);
-  stroke-width: 1.6;
-  fill: none;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  opacity: .85;
-}
-/* 手繪牆面線稿（快樂運動館平面圖），用 CSS 變數跟著站台色彩主題走 */
-.fp-wall {
-  stroke: var(--text);
-  stroke-width: 3;
-  fill: none;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-.fp-wall2 {
-  stroke: var(--text);
-  stroke-width: 1.4;
-  fill: none;
-  opacity: .85;
-}
-.fp-thin {
-  stroke: var(--text-hint);
-  stroke-width: 1;
-  fill: none;
-}
-.fp-door {
-  stroke: var(--text-hint);
-  stroke-width: 1.2;
-  fill: none;
-}
-.fp-win {
-  stroke: var(--text);
-  stroke-width: 1.4;
-  fill: none;
-}
-.fp-col {
-  stroke: var(--text);
-  stroke-width: 1.4;
-  fill: var(--surface);
-}
-/* 合力居／愛加倍：斜線區塊表示露台/開放平台，非室內房間範圍 */
-.fp-hatch-rect {
-  stroke: var(--text-hint);
-  stroke-width: 1;
-  opacity: .9;
-}
-.fp-hatch-line {
-  stroke: var(--text-hint);
-  stroke-width: 1;
-  opacity: .55;
-}
-.fp-building-label {
-  font-size: 15px;
-  font-weight: 700;
-  fill: var(--text-hint);
-  letter-spacing: 2px;
-  opacity: .85;
-}
-/* 房間標記（釘在手繪牆面上，非精確格局，只表位置） */
-.room-pin {
-  fill: var(--surface);
-  stroke-width: 2;
-  cursor: pointer;
-  transition: stroke-width .15s, filter .15s, fill .15s;
-}
-.room-pin.tile-vacant      { stroke: #10b981; }
-.room-pin.tile-occupied    { stroke: #3b82f6; }
-.room-pin.tile-pending     { stroke: #f59e0b; }
-.room-pin.tile-inactive    { stroke: #a8a29e; stroke-dasharray: 3 2; }
-.room-pin.tile-unavailable { stroke: #f43f5e; stroke-dasharray: 3 2; }
-.room-group:hover .room-pin { stroke-width: 3; }
-.room-pin.pin-selected {
-  stroke-width: 3.5;
-  fill: rgba(21, 128, 61, .12);
-  filter: drop-shadow(0 0 4px rgba(21, 128, 61, .85));
-}
-.room-rect.pin-selected {
-  stroke-width: 3.5;
-  filter: drop-shadow(0 0 4px rgba(21, 128, 61, .85));
-}
-.room-pin-panel {
-  margin-top: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-}
-.status-badge {
-  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
-}
+  .floorplan-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .floor-outline {
+    fill: var(--surface2);
+    stroke: var(--text);
+    stroke-width: 2.5;
+  }
+  .corridor-band-real {
+    fill: var(--surface);
+    opacity: .6;
+  }
+  .partition-wall {
+    stroke: var(--text);
+    stroke-width: 1.2;
+    opacity: .7;
+  }
+  .door-gap {
+    stroke: var(--surface);
+    stroke-width: 3;
+  }
+  .door-swing {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+  .corridor-connector {
+    stroke: var(--border);
+    stroke-width: 5;
+    stroke-linecap: round;
+    opacity: .35;
+  }
+  .corridor-band {
+    fill: var(--surface2);
+  }
+  .corridor-label {
+    font-size: 11px;
+    fill: var(--text-hint);
+    letter-spacing: 2px;
+  }
+  .room-group {
+    cursor: pointer;
+  }
+  .room-rect {
+    fill: var(--surface);
+    stroke-width: 1.5;
+    transition: stroke-width .15s, filter .15s;
+  }
+  /* 房間狀態用邊框顏色表示（功能性分類色，不隨深色模式變動） */
+  .room-rect.tile-vacant      { stroke: #10b981; }
+  .room-rect.tile-occupied    { stroke: #3b82f6; }
+  .room-rect.tile-pending     { stroke: #f59e0b; }
+  .room-rect.tile-inactive    { stroke: #a8a29e; stroke-dasharray: 3 2; }
+  .room-rect.tile-unavailable { stroke: #f43f5e; stroke-dasharray: 3 2; }
+  .room-group:hover .room-rect.tile-vacant      { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(16,185,129,.9)); }
+  .room-group:hover .room-rect.tile-occupied    { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(59,130,246,.9)); }
+  .room-group:hover .room-rect.tile-pending     { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(245,158,11,.9)); }
+  .room-group:hover .room-rect.tile-inactive    { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(168,162,158,.9)); }
+  .room-group:hover .room-rect.tile-unavailable { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(244,63,94,.9)); }
+  .room-num {
+    font-size: 14px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .room-sub {
+    font-size: 10px;
+    fill: var(--text-hint);
+  }
+  .room-status {
+    font-size: 9.5px;
+    font-weight: 700;
+  }
+  .room-status.tile-vacant      { fill: #059669; }
+  .room-status.tile-occupied    { fill: #2563eb; }
+  .room-status.tile-pending     { fill: #b45309; }
+  .room-status.tile-inactive    { fill: #78716c; }
+  .room-status.tile-unavailable { fill: #e11d48; }
+  .room-block-num {
+    font-size: 9.5px;
+    font-weight: 700;
+    fill: var(--text);
+    pointer-events: none;
+  }
+  /* 依平面圖編輯工具匯出座標描出的牆面（快樂運動館／合力居／愛加倍），統一線條樣式，
+     因為匯出資料只有幾何座標、沒有牆體語意，無法分外牆/隔間/門窗 */
+  .fp-trace-wall {
+    stroke: var(--text);
+    stroke-width: 1.6;
+    fill: none;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    opacity: .85;
+  }
+  /* 手繪牆面線稿（快樂運動館平面圖），用 CSS 變數跟著站台色彩主題走 */
+  .fp-wall {
+    stroke: var(--text);
+    stroke-width: 3;
+    fill: none;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .fp-wall2 {
+    stroke: var(--text);
+    stroke-width: 1.4;
+    fill: none;
+    opacity: .85;
+  }
+  .fp-thin {
+    stroke: var(--text-hint);
+    stroke-width: 1;
+    fill: none;
+  }
+  .fp-door {
+    stroke: var(--text-hint);
+    stroke-width: 1.2;
+    fill: none;
+  }
+  .fp-win {
+    stroke: var(--text);
+    stroke-width: 1.4;
+    fill: none;
+  }
+  .fp-col {
+    stroke: var(--text);
+    stroke-width: 1.4;
+    fill: var(--surface);
+  }
+  /* 合力居／愛加倍：斜線區塊表示露台/開放平台，非室內房間範圍 */
+  .fp-hatch-rect {
+    stroke: var(--text-hint);
+    stroke-width: 1;
+    opacity: .9;
+  }
+  .fp-hatch-line {
+    stroke: var(--text-hint);
+    stroke-width: 1;
+    opacity: .55;
+  }
+  .fp-building-label {
+    font-size: 15px;
+    font-weight: 700;
+    fill: var(--text-hint);
+    letter-spacing: 2px;
+    opacity: .85;
+  }
+  /* 房間標記（釘在手繪牆面上，非精確格局，只表位置） */
+  .room-pin {
+    fill: var(--surface);
+    stroke-width: 2;
+    cursor: pointer;
+    transition: stroke-width .15s, filter .15s, fill .15s;
+  }
+  .room-pin.tile-vacant      { stroke: #10b981; }
+  .room-pin.tile-occupied    { stroke: #3b82f6; }
+  .room-pin.tile-pending     { stroke: #f59e0b; }
+  .room-pin.tile-inactive    { stroke: #a8a29e; stroke-dasharray: 3 2; }
+  .room-pin.tile-unavailable { stroke: #f43f5e; stroke-dasharray: 3 2; }
+  .room-group:hover .room-pin { stroke-width: 3; }
+  .room-pin.pin-selected {
+    stroke-width: 3.5;
+    fill: rgba(21, 128, 61, .12);
+    filter: drop-shadow(0 0 4px rgba(21, 128, 61, .85));
+  }
+  .room-rect.pin-selected {
+    stroke-width: 3.5;
+    filter: drop-shadow(0 0 4px rgba(21, 128, 61, .85));
+  }
+  /* 座標編輯模式下選取中的 pin：用跟一般瀏覽選取（綠色光暈）不同的樣式，跟 hover 效果也明顯區隔 */
+  .room-pin.pin-editing {
+    stroke: #2563eb;
+    stroke-width: 3.5;
+    stroke-dasharray: 4 2;
+    fill: rgba(37, 99, 235, .15);
+    filter: drop-shadow(0 0 5px rgba(37, 99, 235, .85));
+  }
+  .pin-handle {
+    fill: #2563eb;
+    stroke: #fff;
+    stroke-width: 1;
+  }
+  .room-pin-panel {
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .status-badge {
+    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  }
 </style>
