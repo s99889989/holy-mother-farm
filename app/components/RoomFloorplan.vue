@@ -16,9 +16,13 @@
  *     </template>
  *   </RoomFloorplan>
  *
- * 快樂運動館（building.id === 'A'）、合力居／愛加倍（'B' / 'C'）用實際牆面手繪 SVG 當底圖，房間用小標記釘在 posX/posY 座標上；
+ * 快樂運動館（building.id === 'A'）、合力居／愛加倍（'B' / 'C'）用實際牆面手繪 SVG 當底圖。
+ * 房間如果在「房間管理 -> 矩形對應設置」指定過 shapeId，就直接用那個矩形的座標畫出房間實際外框
+ * （點擊範圍＝整間房）；沒有指定過的房間，fallback 用 posX/posY 座標畫一個固定大小的小標記。
  * 其他棟別如果房間有 posX/posY，用推算出來的線框格局；完全沒座標資料的棟別，fallback 成雙排走廊示意圖。
  */
+import { useFloorplanShapes } from '~/composables/useFloorplanShapes'
+
 const props = defineProps({
   building: { type: Object, required: true }, // { id, name, rooms: [...] }
   bookings: { type: Array, default: () => [] },
@@ -75,96 +79,31 @@ function handleClick(room) {
 
 const selectedRoom = computed(() => props.building.rooms.find(r => r.id === props.selectedId) || null)
 
-/* ---------------- 座標系統 ----------------
-   有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox，
-   這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。
-   合力居跟愛加倍是畫在同一張圖上量出來的座標，所以共用同一組尺寸。 */
-const REAL_CANVAS = {
-  A: { w: 1360, h: 780 }, // 快樂運動館：對應手繪平面圖的 viewBox，兩邊座標系統一致
-  B: { w: 1195, h: 896 },
-  C: { w: 1195, h: 896 }
-}
+const { shapesOf, canvasOf, shapeRectFor } = useFloorplanShapes()
 
-// 把「房間中心點座標」轉成畫布上的實際像素點，單純依比例換算，不做牆面推算。
-// 用在已經有手繪牆面底圖的棟別（例如快樂運動館）：牆是畫死的，房間只需要一個「釘」標記其位置即可。
+/* ---------------- 座標系統 ----------------
+   有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox（定義在 useFloorplanShapes 的 REAL_CANVAS），
+   這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。 */
+
+// 房間實際輪廓：優先用 room.shapeId 對應到後台矩形對應設置指定的矩形，
+// 找不到（沒指定過、或指到的 id 不存在）的房間才 fallback 成 posX/posY 小標記。
+const roomTiles = computed(() =>
+  props.building.rooms
+    .map(r => ({ room: r, rect: shapeRectFor(props.building.id, r.shapeId) }))
+    .filter(t => t.rect)
+)
 const pins = computed(() => {
-  const canvas = REAL_CANVAS[props.building.id]
-  if (!canvas) return []
+  const canvas = canvasOf(props.building.id)
+  if (!canvas.w) return []
+  const tiledIds = new Set(roomTiles.value.map(t => t.room.id))
   return props.building.rooms
-    .filter(r => r.posX != null && r.posY != null)
+    .filter(r => !tiledIds.has(r.id) && r.posX != null && r.posY != null)
     .map(r => ({ room: r, x: r.posX / 100 * canvas.w, y: r.posY / 100 * canvas.h }))
 })
 
-/* ---------------- 手繪牆面線稿（依平面圖編輯工具匯出的座標繪製） ----------------
-   資料來源：用平面圖編輯工具在現場標註照片上描出牆面後匯出的座標，取代先前純目測寫死的版本。
+/* ---------------- 手繪牆面線稿（存在後端，可在房間管理「矩形對應」頁面拖拽調整） ----------------
    每筆資料只有 type（vline 垂直線／hline 水平線／rect 矩形）+ 對應座標，沒有牆體語意
-   （分不出外牆／隔間／門窗），所以統一用同一種線條樣式畫出，見下方 template 的 WALL_SHAPES 渲染。
-   A：快樂運動館。BC：合力居／愛加倍共用同一張底圖（兩棟畫在同一張現場照片上）。 */
-const WALL_SHAPES = {
-  A: [
-    { id: 'a_l3', type: 'vline', x: 490, y1: 113, y2: 690 },
-    { id: 'a_l6', type: 'vline', x: 800, y1: 111, y2: 687 },
-    { id: 'a_l7', type: 'vline', x: 865, y1: 111, y2: 330 },
-    { id: 'a_l8', type: 'vline', x: 960, y1: 111, y2: 330 },
-    { id: 'a_l11', type: 'vline', x: 615, y1: 292, y2: 690 },
-    { id: 'custom_40', type: 'hline', y: 112, x1: 491, x2: 1165 },
-    { id: 'custom_41', type: 'hline', y: 332, x1: 803, x2: 1165 },
-    { id: 'custom_42', type: 'rect', x: 491, y: 291, w: 123, h: 98 },
-    { id: 'custom_43', type: 'rect', x: 491, y: 390, w: 123, h: 98 },
-    { id: 'custom_44', type: 'rect', x: 491, y: 488, w: 124, h: 95 },
-    { id: 'custom_45', type: 'hline', y: 690, x1: 491, x2: 799 },
-    { id: 'custom_46', type: 'rect', x: 651, y: 290, w: 149, h: 98 },
-    { id: 'custom_47', type: 'rect', x: 653, y: 388, w: 147, h: 98 },
-    { id: 'custom_48', type: 'rect', x: 654, y: 487, w: 146, h: 97 },
-    { id: 'custom_49', type: 'rect', x: 653, y: 584, w: 147, h: 105 },
-    { id: 'custom_50', type: 'rect', x: 490, y: 112, w: 111, h: 133 },
-    { id: 'custom_51', type: 'rect', x: 602, y: 112, w: 48, h: 88 },
-    { id: 'custom_52', type: 'rect', x: 651, y: 113, w: 51, h: 87 },
-    { id: 'custom_54', type: 'vline', x: 1166, y1: 112, y2: 334 },
-    { id: 'custom_55', type: 'rect', x: 866, y: 112, w: 94, h: 174 }
-  ],
-  BC: [
-    { id: 'custom_1', type: 'vline', x: 187, y1: 204, y2: 397 },
-    { id: 'custom_2', type: 'hline', y: 202, x1: 187, x2: 1098 },
-    { id: 'custom_3', type: 'vline', x: 1056, y1: 202, y2: 394 },
-    { id: 'custom_4', type: 'hline', y: 397, x1: 188, x2: 781 },
-    { id: 'custom_5', type: 'hline', y: 395, x1: 853, x2: 1056 },
-    { id: 'custom_6', type: 'rect', x: 186, y: 204, w: 105, h: 72 },
-    { id: 'custom_7', type: 'rect', x: 292, y: 205, w: 81, h: 71 },
-    { id: 'custom_8', type: 'rect', x: 372, y: 203, w: 81, h: 73 },
-    { id: 'custom_9', type: 'rect', x: 453, y: 203, w: 84, h: 74 },
-    { id: 'custom_10', type: 'rect', x: 535, y: 201, w: 82, h: 76 },
-    { id: 'custom_11', type: 'rect', x: 618, y: 201, w: 86, h: 75 },
-    { id: 'custom_12', type: 'rect', x: 703, y: 203, w: 81, h: 73 },
-    { id: 'custom_13', type: 'rect', x: 784, y: 202, w: 85, h: 73 },
-    { id: 'custom_14', type: 'rect', x: 870, y: 202, w: 82, h: 73 },
-    { id: 'custom_15', type: 'rect', x: 188, y: 306, w: 101, h: 91 },
-    { id: 'custom_16', type: 'rect', x: 370, y: 304, w: 84, h: 93 },
-    { id: 'custom_17', type: 'rect', x: 454, y: 303, w: 82, h: 94 },
-    { id: 'custom_18', type: 'rect', x: 536, y: 304, w: 83, h: 93 },
-    { id: 'custom_19', type: 'rect', x: 619, y: 304, w: 81, h: 93 },
-    { id: 'custom_20', type: 'rect', x: 699, y: 303, w: 85, h: 93 },
-    { id: 'custom_21', type: 'rect', x: 850, y: 302, w: 106, h: 94 },
-    { id: 'custom_22', type: 'hline', y: 427, x1: 189, x2: 755 },
-    { id: 'custom_23', type: 'hline', y: 427, x1: 846, x2: 1101 },
-    { id: 'custom_24', type: 'vline', x: 1100, y1: 203, y2: 427 },
-    { id: 'custom_25', type: 'vline', x: 756, y1: 428, y2: 581 },
-    { id: 'custom_26', type: 'hline', y: 458, x1: 847, x2: 1021 },
-    { id: 'custom_27', type: 'vline', x: 848, y1: 425, y2: 459 },
-    { id: 'custom_28', type: 'hline', y: 486, x1: 848, x2: 1024 },
-    { id: 'custom_29', type: 'vline', x: 1024, y1: 486, y2: 579 },
-    { id: 'custom_30', type: 'hline', y: 581, x1: 812, x2: 1060 },
-    { id: 'custom_31', type: 'hline', y: 580, x1: 559, x2: 756 },
-    { id: 'custom_32', type: 'vline', x: 559, y1: 427, y2: 781 },
-    { id: 'custom_33', type: 'hline', y: 782, x1: 560, x2: 1061 },
-    { id: 'custom_34', type: 'vline', x: 1061, y1: 582, y2: 782 },
-    { id: 'custom_35', type: 'rect', x: 561, y: 658, w: 81, h: 123 },
-    { id: 'custom_36', type: 'rect', x: 644, y: 657, w: 81, h: 125 },
-    { id: 'custom_37', type: 'rect', x: 725, y: 658, w: 86, h: 124 },
-    { id: 'custom_38', type: 'rect', x: 811, y: 657, w: 82, h: 124 },
-    { id: 'custom_39', type: 'rect', x: 894, y: 656, w: 166, h: 127 }
-  ]
-}
+   （分不出外牆／隔間／門窗），所以統一用同一種線條樣式畫出，見下方 template 的 shapesOf() 渲染。 */
 
 /* ---------------- 沒有手繪牆面時：依座標推算的線框格局 ----------------
    1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
@@ -284,9 +223,9 @@ function buildMST(pts) {
 }
 
 const realLayout = computed(() => {
-  const canvas = REAL_CANVAS[props.building.id]
+  const canvas = canvasOf(props.building.id)
   const positioned = props.building.rooms.filter(r => r.posX != null && r.posY != null)
-  if (!canvas || positioned.length === 0) {
+  if (!canvas.w || positioned.length === 0) {
     return { width: 0, height: 0, positions: [], connectors: [], corridorBands: [], walls: [], doors: [], minX: 0, maxX: 0 }
   }
   return {
@@ -330,7 +269,7 @@ const fallbackLayout = computed(() => {
       <!-- ===== 手繪牆面（依平面圖編輯工具匯出的座標繪製，僅結構線，不含房間色塊） ===== -->
       <g class="fp-walls">
         <template
-          v-for="s in WALL_SHAPES.A"
+          v-for="s in shapesOf('A')"
           :key="s.id"
         >
           <line
@@ -360,7 +299,31 @@ const fallbackLayout = computed(() => {
         </template>
       </g>
 
-      <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上 ===== -->
+      <!-- ===== 房間實際輪廓：房間管理已指定 shapeId 對應的房間，直接用該矩形畫出整間房 ===== -->
+      <g
+        v-for="t in roomTiles"
+        :key="t.room.id"
+        class="room-group"
+        @click="handleClick(t.room)"
+      >
+        <rect
+          :x="t.rect.x"
+          :y="t.rect.y"
+          :width="t.rect.w"
+          :height="t.rect.h"
+          rx="2"
+          :class="['room-rect', tileClass(t.room), isSelected(t.room) ? 'pin-selected' : '']"
+        />
+        <text
+          :x="t.rect.x + t.rect.w / 2"
+          :y="t.rect.y + t.rect.h / 2 + 4"
+          text-anchor="middle"
+          class="room-block-num"
+        >{{ t.room.id }}</text>
+        <title>{{ t.room.id }} ・ {{ tileLabel(t.room) }}</title>
+      </g>
+
+      <!-- ===== 房間標記：還沒指定 shapeId 的房間，退回用 posX/posY 座標畫小標記 ===== -->
       <g
         v-for="p in pins"
         :key="p.room.id"
@@ -394,7 +357,7 @@ const fallbackLayout = computed(() => {
     >
       <g class="fp-walls">
         <template
-          v-for="s in WALL_SHAPES.BC"
+          v-for="s in shapesOf(building.id)"
           :key="s.id"
         >
           <line
@@ -424,7 +387,31 @@ const fallbackLayout = computed(() => {
         </template>
       </g>
 
-      <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上 ===== -->
+      <!-- ===== 房間實際輪廓：房間管理已指定 shapeId 對應的房間，直接用該矩形畫出整間房 ===== -->
+      <g
+        v-for="t in roomTiles"
+        :key="t.room.id"
+        class="room-group"
+        @click="handleClick(t.room)"
+      >
+        <rect
+          :x="t.rect.x"
+          :y="t.rect.y"
+          :width="t.rect.w"
+          :height="t.rect.h"
+          rx="2"
+          :class="['room-rect', tileClass(t.room), isSelected(t.room) ? 'pin-selected' : '']"
+        />
+        <text
+          :x="t.rect.x + t.rect.w / 2"
+          :y="t.rect.y + t.rect.h / 2 + 4"
+          text-anchor="middle"
+          class="room-block-num"
+        >{{ t.room.id }}</text>
+        <title>{{ t.room.id }} ・ {{ tileLabel(t.room) }}</title>
+      </g>
+
+      <!-- ===== 房間標記：還沒指定 shapeId 的房間，退回用 posX/posY 座標畫小標記 ===== -->
       <g
         v-for="p in pins"
         :key="p.room.id"

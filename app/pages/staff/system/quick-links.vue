@@ -23,7 +23,7 @@
     <div v-if="categories.length > 0 || editMode"
          class="bg-surface border-b border-light-c sticky top-0 z-10">
       <div class="max-w-2xl mx-auto">
-        <div class="tab-scroll flex gap-1 px-3 py-2 overflow-x-auto">
+        <div class="flex flex-wrap gap-1.5 px-3 py-2">
           <button
             v-for="(cat, idx) in categories" :key="cat.id"
             class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5"
@@ -84,7 +84,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
                   d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
           </svg>
-          <p style="font-size:13px">目前尚無任何常用網址</p>
+          <p style="font-size:13px" class="mb-3">目前尚無任何常用網址</p>
+          <button
+            class="px-4 py-2 rounded-lg bg-green-700 text-white font-semibold hover:opacity-90"
+            style="font-size:13px"
+            @click="openAddCategory"
+          >
+            ＋ 新增分類
+          </button>
         </div>
 
         <template v-if="activeCat">
@@ -139,7 +146,19 @@
 
               <div v-if="editMode" class="absolute top-2 right-2 flex gap-1">
                 <button
+                  v-if="categories.length > 1"
                   class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
+                  title="更改分類"
+                  @click.stop="openMoveCategory(link)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"/>
+                  </svg>
+                </button>
+                <button
+                  class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
+                  title="編輯"
                   @click.stop="openEditLink(link)"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,6 +251,31 @@
           <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeLinkModal">取消</button>
           <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" style="font-size:13px" :disabled="saving" @click="saveLinkModal">
             {{ saving ? '儲存中...' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 更改分類 Modal ===== -->
+    <div v-if="moveModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeMoveModal">
+      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
+        <h2 class="font-bold text-base-c mb-3" style="font-size:15px">更改分類</h2>
+        <p class="text-hint-c mb-3" style="font-size:12.5px">「{{ moveModal.link?.name }}」要移到哪個分類？</p>
+
+        <select
+          v-model="moveModal.catId"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-1 bg-surface2 text-base-c"
+          style="font-size:13px"
+        >
+          <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+        </select>
+        <p v-if="modalError" class="text-red-500 mt-1 mb-2" style="font-size:11.5px">{{ modalError }}</p>
+        <div class="h-3" v-else></div>
+
+        <div class="flex justify-end gap-2 mt-2">
+          <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeMoveModal">取消</button>
+          <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" style="font-size:13px" :disabled="saving" @click="saveMoveModal">
+            {{ saving ? '更改中...' : '確定' }}
           </button>
         </div>
       </div>
@@ -424,6 +468,48 @@ async function deleteLinkConfirm(link) {
   } catch (e) { console.error(e) }
 }
 
+/* ---------------- 網址：更改分類 ---------------- */
+
+const moveModal = reactive({ open: false, link: null, catId: null })
+
+function openMoveCategory(link) {
+  if (!activeCat.value) return
+  moveModal.open = true
+  moveModal.link = link
+  moveModal.catId = activeCat.value.id
+  modalError.value = ''
+}
+function closeMoveModal() {
+  moveModal.open = false
+}
+async function saveMoveModal() {
+  if (!moveModal.link || !activeCat.value) return
+  if (moveModal.catId === activeCat.value.id) {
+    closeMoveModal()
+    return
+  }
+  saving.value = true
+  modalError.value = ''
+  try {
+    await fetch(`${BASE()}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromCatId: activeCat.value.id,
+        toCatId: moveModal.catId,
+        id: moveModal.link.id,
+      }),
+    })
+    closeMoveModal()
+    await fetchLinks()
+  } catch (e) {
+    console.error(e)
+    modalError.value = '更改失敗，請稍後再試'
+  } finally {
+    saving.value = false
+  }
+}
+
 /* ---------------- 網址：拖曳排序 ---------------- */
 
 const dragLinkIndex = ref(null)
@@ -449,12 +535,6 @@ onMounted(fetchLinks)
 </script>
 
 <style scoped>
-.tab-scroll {
-  scrollbar-width: none;
-}
-.tab-scroll::-webkit-scrollbar {
-  display: none;
-}
 .tab-btn {
   -webkit-tap-highlight-color: transparent;
 }
