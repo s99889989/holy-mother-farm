@@ -10,20 +10,19 @@
    *     :unavailable-ids="['A203','A205']"   -- 選填：訂房流程用，標記「此日期區間已被占用」的房間
    *     reference-date="2026-08-01"          -- 選填：以哪一天判斷「住房中」，預設今天
    *     @select="room => ..."                -- 點房間時觸發，room 為 null 代表取消選取（點第二下同一間）
-   *     :edit-mode="editMode"                -- 選填：座標編輯模式（目前僅支援 A/B/C 這種手繪牆面 pin 標記的棟別）。
-   *                                              開啟後，選取中的房間可用方向鍵移動、Shift+方向鍵調整大小；
-   *                                              調整只留在元件內部，不自動存檔
-   *     @position-change="(roomId, coords) => ..." -- 選填：editMode 下每次調整都會觸發，外層可用它收集「待存檔」的變更；
-   *                                                     真正存檔後記得呼叫這個元件的 clearOverrides()（透過 template ref）重置
    *   >
    *     <template #panel-actions="{ room }">
    *       ...這裡放這個頁面自己要的按鈕（查看詳情／編輯／指派房間...）...
    *     </template>
    *   </RoomFloorplan>
    *
-   * 快樂運動館（building.id === 'A'）、合力居／愛加倍（'B' / 'C'）用實際牆面手繪 SVG 當底圖，房間用小標記釘在 posX/posY 座標上；
+   * 快樂運動館（building.id === 'A'）、合力居／愛加倍（'B' / 'C'）用實際牆面手繪 SVG 當底圖。
+   * 房間如果在「房間管理 -> 矩形對應設置」指定過 shapeId，就直接用那個矩形的座標畫出房間實際外框
+   * （點擊範圍＝整間房）；沒有指定過的房間，fallback 用 posX/posY 座標畫一個固定大小的小標記。
    * 其他棟別如果房間有 posX/posY，用推算出來的線框格局；完全沒座標資料的棟別，fallback 成雙排走廊示意圖。
    */
+  import { useFloorplanShapes } from '~/composables/useFloorplanShapes'
+
   const props = defineProps({
     building: { type: Object, required: true }, // { id, name, rooms: [...] }
     bookings: { type: Array, default: () => [] },
@@ -33,14 +32,9 @@
     // 選填：想要不同的房間狀態判斷邏輯時傳入（例如訂單管理要分「待確認」跟「已確認」兩種顏色），
     // 傳入 (room) => ({ cls, label })，cls 建議用 tile-vacant / tile-occupied / tile-pending / tile-inactive / tile-unavailable 其中一種，
     // 沒傳的話用預設邏輯（今天是否住房中）。
-    statusResolver: { type: Function, default: null },
-    // 選填：座標編輯模式（目前只支援手繪牆面 pin 標記的棟別：A/B/C）。
-    // 開啟後，選取中的房間可以用方向鍵移動位置、Shift + 方向鍵調整大小；
-    // 調整結果只存在本元件內部（positionOverrides），不會自動送出，
-    // 由外層頁面監聽 @position-change 收集變更，決定何時真正存檔。
-    editMode: { type: Boolean, default: false }
+    statusResolver: { type: Function, default: null }
   })
-  const emit = defineEmits(['select', 'position-change'])
+  const emit = defineEmits(['select'])
 
   const today = computed(() => props.referenceDate || new Date().toISOString().slice(0, 10))
 
@@ -49,6 +43,11 @@
   function activeBookingForRoom(roomId) {
     return props.bookings
       .filter(x => x.roomId === roomId && x.status === 'confirmed' && today.value >= x.checkIn && today.value < x.checkOut)[0] || null
+  }
+  // 房間平面圖上顯示的入住人數／可住人數（例如 0/4），依今天是否住房中判斷
+  function occupancyOf(room) {
+    const b = activeBookingForRoom(room.id)
+    return `${b ? b.guests : 0}/${room.capacity}`
   }
   function defaultTileClass(r) {
     if (!r.active) return 'tile-inactive'
@@ -85,162 +84,63 @@
 
   const selectedRoom = computed(() => props.building.rooms.find(r => r.id === props.selectedId) || null)
 
-  /* ---------------- 座標編輯（editMode 專用） ----------------
-     調整結果先存在這個元件內部的 positionOverrides，不直接改 props.building.rooms
-     （props 不該被子元件直接修改）。渲染 pins 時如果某間房有 override 就蓋過原始
-     posX/posY/pinW/pinH，同時透過 @position-change 把每次異動告知外層頁面，
-     讓外層自己決定何時真正存檔、存哪些（外層也可呼叫 clearOverrides() 在取消/存檔後重置）。 */
-  const DEFAULT_PIN_W = 54, DEFAULT_PIN_H = 34
-  const positionOverrides = reactive({}) // roomId -> { posX, posY, pinW, pinH }
-
-  function currentCoords(room) {
-    const o = positionOverrides[room.id]
-    return {
-      posX: o?.posX ?? room.posX,
-      posY: o?.posY ?? room.posY,
-      pinW: o?.pinW ?? room.pinW ?? DEFAULT_PIN_W,
-      pinH: o?.pinH ?? room.pinH ?? DEFAULT_PIN_H
-    }
-  }
-  function effRoom(room) {
-    const o = positionOverrides[room.id]
-    return o ? { ...room, ...o } : room
-  }
-  function clearOverrides() {
-    for (const k in positionOverrides) delete positionOverrides[k]
-  }
-  defineExpose({ clearOverrides })
-
-  const POS_STEP = 0.15   // 方向鍵：每按一下移動幾 % 的畫布寬/高
-  const SIZE_STEP = 2     // Shift + 方向鍵：每按一下調整幾 px 的標記寬/高
-  const MIN_PIN_W = 32, MAX_PIN_W = 140
-  const MIN_PIN_H = 22, MAX_PIN_H = 100
-  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)) }
-
-  function handleKeydown(e) {
-    if (!props.editMode || !selectedRoom.value) return
-    if (!REAL_CANVAS[props.building.id]) return // 目前只支援有手繪牆面 pin 標記的棟別
-    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
-    e.preventDefault()
-    const room = selectedRoom.value
-    const cur = currentCoords(room)
-    if (e.shiftKey) {
-      let { pinW, pinH } = cur
-      if (e.key === 'ArrowLeft')  pinW = clamp(pinW - SIZE_STEP, MIN_PIN_W, MAX_PIN_W)
-      if (e.key === 'ArrowRight') pinW = clamp(pinW + SIZE_STEP, MIN_PIN_W, MAX_PIN_W)
-      if (e.key === 'ArrowUp')    pinH = clamp(pinH - SIZE_STEP, MIN_PIN_H, MAX_PIN_H)
-      if (e.key === 'ArrowDown')  pinH = clamp(pinH + SIZE_STEP, MIN_PIN_H, MAX_PIN_H)
-      positionOverrides[room.id] = { ...cur, pinW, pinH }
-    } else {
-      let { posX, posY } = cur
-      if (e.key === 'ArrowLeft')  posX = clamp(posX - POS_STEP, 0, 100)
-      if (e.key === 'ArrowRight') posX = clamp(posX + POS_STEP, 0, 100)
-      if (e.key === 'ArrowUp')    posY = clamp(posY - POS_STEP, 0, 100)
-      if (e.key === 'ArrowDown')  posY = clamp(posY + POS_STEP, 0, 100)
-      positionOverrides[room.id] = { ...cur, posX, posY }
-    }
-    emit('position-change', room.id, { ...positionOverrides[room.id] })
-  }
-  onMounted(() => window.addEventListener('keydown', handleKeydown))
-  onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+  const { shapesOf, canvasOf, shapeRectFor } = useFloorplanShapes()
 
   /* ---------------- 座標系統 ----------------
-     有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox，
-     這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。
-     合力居跟愛加倍是畫在同一張圖上量出來的座標，所以共用同一組尺寸。 */
-  const REAL_CANVAS = {
-    A: { w: 1360, h: 780 }, // 快樂運動館：對應手繪平面圖的 viewBox，兩邊座標系統一致
-    B: { w: 1195, h: 896 },
-    C: { w: 1195, h: 896 }
-  }
+     有實際平面圖標註過的棟別，用「原始圖片的像素尺寸」當 viewBox（定義在 useFloorplanShapes 的 REAL_CANVAS），
+     這樣房間的相對間距、比例才會跟實際平面圖一致（不是隨便一個正方形畫布）。 */
 
-  // 把「房間中心點座標」轉成畫布上的實際像素點，單純依比例換算，不做牆面推算。
-  // 用在已經有手繪牆面底圖的棟別（例如快樂運動館）：牆是畫死的，房間只需要一個「釘」標記其位置即可。
+  // 房間實際輪廓：優先用 room.shapeId 對應到後台矩形對應設置指定的矩形，
+  // 找不到（沒指定過、或指到的 id 不存在）的房間才 fallback 成 posX/posY 小標記。
+  const roomTiles = computed(() =>
+    props.building.rooms
+      .map(r => ({ room: r, rect: shapeRectFor(props.building.id, r.shapeId) }))
+      .filter(t => t.rect)
+  )
   const pins = computed(() => {
-    const canvas = REAL_CANVAS[props.building.id]
-    if (!canvas) return []
+    const canvas = canvasOf(props.building.id)
+    if (!canvas.w) return []
+    const tiledIds = new Set(roomTiles.value.map(t => t.room.id))
     return props.building.rooms
-      .filter(r => r.posX != null && r.posY != null)
-      .map(effRoom)
-      .map(r => ({
-        room: r,
-        x: r.posX / 100 * canvas.w,
-        y: r.posY / 100 * canvas.h,
-        w: r.pinW ?? DEFAULT_PIN_W,
-        h: r.pinH ?? DEFAULT_PIN_H
-      }))
+      .filter(r => !tiledIds.has(r.id) && r.posX != null && r.posY != null)
+      .map(r => ({ room: r, x: r.posX / 100 * canvas.w, y: r.posY / 100 * canvas.h }))
   })
 
-  /* ---------------- 手繪牆面線稿（依平面圖編輯工具匯出的座標繪製） ----------------
-     資料來源：用平面圖編輯工具在現場標註照片上描出牆面後匯出的座標，取代先前純目測寫死的版本。
-     每筆資料只有 type（vline 垂直線／hline 水平線／rect 矩形）+ 對應座標，沒有牆體語意
-     （分不出外牆／隔間／門窗），所以統一用同一種線條樣式畫出，見下方 template 的 WALL_SHAPES 渲染。
-     A：快樂運動館。BC：合力居／愛加倍共用同一張底圖（兩棟畫在同一張現場照片上）。 */
-  const WALL_SHAPES = {
-    A: [
-      { id: 'a_l3', type: 'vline', x: 490, y1: 113, y2: 690 },
-      { id: 'a_l6', type: 'vline', x: 800, y1: 111, y2: 687 },
-      { id: 'a_l7', type: 'vline', x: 865, y1: 111, y2: 330 },
-      { id: 'a_l8', type: 'vline', x: 960, y1: 111, y2: 330 },
-      { id: 'a_l11', type: 'vline', x: 615, y1: 292, y2: 690 },
-      { id: 'custom_40', type: 'hline', y: 112, x1: 491, x2: 1165 },
-      { id: 'custom_41', type: 'hline', y: 332, x1: 803, x2: 1165 },
-      { id: 'custom_42', type: 'rect', x: 491, y: 291, w: 123, h: 98 },
-      { id: 'custom_43', type: 'rect', x: 491, y: 390, w: 123, h: 98 },
-      { id: 'custom_44', type: 'rect', x: 491, y: 488, w: 124, h: 95 },
-      { id: 'custom_45', type: 'hline', y: 690, x1: 491, x2: 799 },
-      { id: 'custom_46', type: 'rect', x: 651, y: 290, w: 149, h: 98 },
-      { id: 'custom_47', type: 'rect', x: 653, y: 388, w: 147, h: 98 },
-      { id: 'custom_48', type: 'rect', x: 654, y: 487, w: 146, h: 97 },
-      { id: 'custom_49', type: 'rect', x: 653, y: 584, w: 147, h: 105 },
-      { id: 'custom_50', type: 'rect', x: 490, y: 112, w: 111, h: 133 },
-      { id: 'custom_51', type: 'rect', x: 602, y: 112, w: 48, h: 88 },
-      { id: 'custom_52', type: 'rect', x: 651, y: 113, w: 51, h: 87 },
-      { id: 'custom_54', type: 'vline', x: 1166, y1: 112, y2: 334 },
-      { id: 'custom_55', type: 'rect', x: 866, y: 112, w: 94, h: 174 }
-    ],
-    BC: [
-      { id: 'custom_1', type: 'vline', x: 187, y1: 204, y2: 397 },
-      { id: 'custom_2', type: 'hline', y: 202, x1: 187, x2: 1098 },
-      { id: 'custom_3', type: 'vline', x: 1056, y1: 202, y2: 394 },
-      { id: 'custom_4', type: 'hline', y: 397, x1: 188, x2: 781 },
-      { id: 'custom_5', type: 'hline', y: 395, x1: 853, x2: 1056 },
-      { id: 'custom_6', type: 'rect', x: 186, y: 204, w: 105, h: 72 },
-      { id: 'custom_7', type: 'rect', x: 292, y: 205, w: 81, h: 71 },
-      { id: 'custom_8', type: 'rect', x: 372, y: 203, w: 81, h: 73 },
-      { id: 'custom_9', type: 'rect', x: 453, y: 203, w: 84, h: 74 },
-      { id: 'custom_10', type: 'rect', x: 535, y: 201, w: 82, h: 76 },
-      { id: 'custom_11', type: 'rect', x: 618, y: 201, w: 86, h: 75 },
-      { id: 'custom_12', type: 'rect', x: 703, y: 203, w: 81, h: 73 },
-      { id: 'custom_13', type: 'rect', x: 784, y: 202, w: 85, h: 73 },
-      { id: 'custom_14', type: 'rect', x: 870, y: 202, w: 82, h: 73 },
-      { id: 'custom_15', type: 'rect', x: 188, y: 306, w: 101, h: 91 },
-      { id: 'custom_16', type: 'rect', x: 370, y: 304, w: 84, h: 93 },
-      { id: 'custom_17', type: 'rect', x: 454, y: 303, w: 82, h: 94 },
-      { id: 'custom_18', type: 'rect', x: 536, y: 304, w: 83, h: 93 },
-      { id: 'custom_19', type: 'rect', x: 619, y: 304, w: 81, h: 93 },
-      { id: 'custom_20', type: 'rect', x: 699, y: 303, w: 85, h: 93 },
-      { id: 'custom_21', type: 'rect', x: 850, y: 302, w: 106, h: 94 },
-      { id: 'custom_22', type: 'hline', y: 427, x1: 189, x2: 755 },
-      { id: 'custom_23', type: 'hline', y: 427, x1: 846, x2: 1101 },
-      { id: 'custom_24', type: 'vline', x: 1100, y1: 203, y2: 427 },
-      { id: 'custom_25', type: 'vline', x: 756, y1: 428, y2: 581 },
-      { id: 'custom_26', type: 'hline', y: 458, x1: 847, x2: 1021 },
-      { id: 'custom_27', type: 'vline', x: 848, y1: 425, y2: 459 },
-      { id: 'custom_28', type: 'hline', y: 486, x1: 848, x2: 1024 },
-      { id: 'custom_29', type: 'vline', x: 1024, y1: 486, y2: 579 },
-      { id: 'custom_30', type: 'hline', y: 581, x1: 812, x2: 1060 },
-      { id: 'custom_31', type: 'hline', y: 580, x1: 559, x2: 756 },
-      { id: 'custom_32', type: 'vline', x: 559, y1: 427, y2: 781 },
-      { id: 'custom_33', type: 'hline', y: 782, x1: 560, x2: 1061 },
-      { id: 'custom_34', type: 'vline', x: 1061, y1: 582, y2: 782 },
-      { id: 'custom_35', type: 'rect', x: 561, y: 658, w: 81, h: 123 },
-      { id: 'custom_36', type: 'rect', x: 644, y: 657, w: 81, h: 125 },
-      { id: 'custom_37', type: 'rect', x: 725, y: 658, w: 86, h: 124 },
-      { id: 'custom_38', type: 'rect', x: 811, y: 657, w: 82, h: 124 },
-      { id: 'custom_39', type: 'rect', x: 894, y: 656, w: 166, h: 127 }
-    ]
+  /* ---------------- 裁掉空白：手繪牆面（建築 A／B／C）用固定尺寸畫布繪製，
+     但實際牆面＋房間往往只佔畫布一小塊，四周留下大片空白。
+     這裡改成只取「牆面線稿＋房間矩形／標記」實際涵蓋的範圍當 viewBox，四周留一點邊距即可，
+     圖會自動裁到剛好包住建築本體，不再有大片留白。 */
+  const TIGHT_PAD = 24
+  const tightBounds = computed(() => {
+    if (props.building.id !== 'A' && props.building.id !== 'B' && props.building.id !== 'C') return null
+    const pts = []
+    for (const s of shapesOf(props.building.id)) {
+      if (s.type === 'vline') pts.push([s.x, s.y1], [s.x, s.y2])
+      else if (s.type === 'hline') pts.push([s.x1, s.y], [s.x2, s.y])
+      else if (s.type === 'rect') pts.push([s.x, s.y], [s.x + s.w, s.y + s.h])
+    }
+    for (const t of roomTiles.value) pts.push([t.rect.x, t.rect.y], [t.rect.x + t.rect.w, t.rect.y + t.rect.h])
+    for (const p of pins.value) pts.push([p.x - 27, p.y - 17], [p.x + 27, p.y + 17])
+    if (!pts.length) return null
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1])
+    const minX = Math.min(...xs) - TIGHT_PAD
+    const minY = Math.min(...ys) - TIGHT_PAD
+    const width = Math.max(...xs) - minX + TIGHT_PAD
+    const height = Math.max(...ys) - minY + TIGHT_PAD
+    return { minX, minY, width, height }
+  })
+  function viewBoxFor(fallback) {
+    const b = tightBounds.value
+    return b ? `${b.minX} ${b.minY} ${b.width} ${b.height}` : fallback
   }
+  function maxWidthFor(fallback) {
+    const b = tightBounds.value
+    return (b ? b.width : fallback) + 'px'
+  }
+
+  /* ---------------- 手繪牆面線稿（存在後端，可在房間管理「矩形對應」頁面拖拽調整） ----------------
+     每筆資料只有 type（vline 垂直線／hline 水平線／rect 矩形）+ 對應座標，沒有牆體語意
+     （分不出外牆／隔間／門窗），所以統一用同一種線條樣式畫出，見下方 template 的 shapesOf() 渲染。 */
 
   /* ---------------- 沒有手繪牆面時：依座標推算的線框格局 ----------------
      1. 先依 y 座標把房間分成幾排（同一排代表左右相鄰）
@@ -360,9 +260,9 @@
   }
 
   const realLayout = computed(() => {
-    const canvas = REAL_CANVAS[props.building.id]
+    const canvas = canvasOf(props.building.id)
     const positioned = props.building.rooms.filter(r => r.posX != null && r.posY != null)
-    if (!canvas || positioned.length === 0) {
+    if (!canvas.w || positioned.length === 0) {
       return { width: 0, height: 0, positions: [], connectors: [], corridorBands: [], walls: [], doors: [], minX: 0, maxX: 0 }
     }
     return {
@@ -399,14 +299,14 @@
     <!-- 快樂運動館：手繪實際牆面平面圖，房間用圓角標記釘在真實座標上，點一下＝選取 -->
     <svg
       v-if="building.id === 'A'"
-      viewBox="0 0 1360 780"
+      :viewBox="viewBoxFor('0 0 1360 780')"
       class="floorplan-svg"
-      style="max-width:1360px"
+      :style="{ maxWidth: maxWidthFor(1360) }"
     >
       <!-- ===== 手繪牆面（依平面圖編輯工具匯出的座標繪製，僅結構線，不含房間色塊） ===== -->
       <g class="fp-walls">
         <template
-          v-for="s in WALL_SHAPES.A"
+          v-for="s in shapesOf('A')"
           :key="s.id"
         >
           <line
@@ -436,7 +336,37 @@
         </template>
       </g>
 
-      <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上（editMode 時可用方向鍵調整位置/大小） ===== -->
+      <!-- ===== 房間實際輪廓：房間管理已指定 shapeId 對應的房間，直接用該矩形畫出整間房 ===== -->
+      <g
+        v-for="t in roomTiles"
+        :key="t.room.id"
+        class="room-group"
+        @click="handleClick(t.room)"
+      >
+        <rect
+          :x="t.rect.x"
+          :y="t.rect.y"
+          :width="t.rect.w"
+          :height="t.rect.h"
+          rx="2"
+          :class="['room-rect', tileClass(t.room), isSelected(t.room) ? 'pin-selected' : '']"
+        />
+        <text
+          :x="t.rect.x + t.rect.w / 2"
+          :y="t.rect.y + t.rect.h / 2 - 4"
+          text-anchor="middle"
+          class="room-block-num"
+        >{{ t.room.id }}</text>
+        <text
+          :x="t.rect.x + t.rect.w / 2"
+          :y="t.rect.y + t.rect.h / 2 + 13"
+          text-anchor="middle"
+          class="room-block-sub"
+        >{{ occupancyOf(t.room) }}</text>
+        <title>{{ t.room.id }} ・ {{ tileLabel(t.room) }}</title>
+      </g>
+
+      <!-- ===== 房間標記：還沒指定 shapeId 的房間，退回用 posX/posY 座標畫小標記 ===== -->
       <g
         v-for="p in pins"
         :key="p.room.id"
@@ -444,43 +374,39 @@
         @click="handleClick(p.room)"
       >
         <rect
-          :x="p.x - p.w / 2"
-          :y="p.y - p.h / 2"
-          :width="p.w"
-          :height="p.h"
+          :x="p.x - 27"
+          :y="p.y - 17"
+          width="54"
+          height="34"
           rx="6"
-          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? (editMode ? 'pin-editing' : 'pin-selected') : '']"
+          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? 'pin-selected' : '']"
         />
         <text
           :x="p.x"
-          :y="p.y + 4"
+          :y="p.y - 1"
           text-anchor="middle"
           class="room-block-num"
         >{{ p.room.id }}</text>
+        <text
+          :x="p.x"
+          :y="p.y + 12"
+          text-anchor="middle"
+          class="room-block-sub"
+        >{{ occupancyOf(p.room) }}</text>
         <title>{{ p.room.id }} ・ {{ tileLabel(p.room) }}</title>
-        <g
-          v-if="editMode && isSelected(p.room)"
-          class="pin-handles"
-          pointer-events="none"
-        >
-          <rect :x="p.x - p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-          <rect :x="p.x + p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-          <rect :x="p.x - p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-          <rect :x="p.x + p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-        </g>
       </g>
     </svg>
 
     <!-- 合力居／愛加倍：依平面圖編輯工具匯出的座標繪製，兩棟共用同一張底圖，只有房間標記依棟別過濾 -->
     <svg
       v-else-if="building.id === 'B' || building.id === 'C'"
-      viewBox="0 0 1195 896"
+      :viewBox="viewBoxFor('0 0 1195 896')"
       class="floorplan-svg"
-      style="max-width:1195px"
+      :style="{ maxWidth: maxWidthFor(1195) }"
     >
       <g class="fp-walls">
         <template
-          v-for="s in WALL_SHAPES.BC"
+          v-for="s in shapesOf(building.id)"
           :key="s.id"
         >
           <line
@@ -510,7 +436,37 @@
         </template>
       </g>
 
-      <!-- ===== 房間標記：釘在該房間記錄的 posX/posY 座標上（editMode 時可用方向鍵調整位置/大小） ===== -->
+      <!-- ===== 房間實際輪廓：房間管理已指定 shapeId 對應的房間，直接用該矩形畫出整間房 ===== -->
+      <g
+        v-for="t in roomTiles"
+        :key="t.room.id"
+        class="room-group"
+        @click="handleClick(t.room)"
+      >
+        <rect
+          :x="t.rect.x"
+          :y="t.rect.y"
+          :width="t.rect.w"
+          :height="t.rect.h"
+          rx="2"
+          :class="['room-rect', tileClass(t.room), isSelected(t.room) ? 'pin-selected' : '']"
+        />
+        <text
+          :x="t.rect.x + t.rect.w / 2"
+          :y="t.rect.y + t.rect.h / 2 - 4"
+          text-anchor="middle"
+          class="room-block-num"
+        >{{ t.room.id }}</text>
+        <text
+          :x="t.rect.x + t.rect.w / 2"
+          :y="t.rect.y + t.rect.h / 2 + 13"
+          text-anchor="middle"
+          class="room-block-sub"
+        >{{ occupancyOf(t.room) }}</text>
+        <title>{{ t.room.id }} ・ {{ tileLabel(t.room) }}</title>
+      </g>
+
+      <!-- ===== 房間標記：還沒指定 shapeId 的房間，退回用 posX/posY 座標畫小標記 ===== -->
       <g
         v-for="p in pins"
         :key="p.room.id"
@@ -518,30 +474,26 @@
         @click="handleClick(p.room)"
       >
         <rect
-          :x="p.x - p.w / 2"
-          :y="p.y - p.h / 2"
-          :width="p.w"
-          :height="p.h"
+          :x="p.x - 27"
+          :y="p.y - 17"
+          width="54"
+          height="34"
           rx="6"
-          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? (editMode ? 'pin-editing' : 'pin-selected') : '']"
+          :class="['room-pin', tileClass(p.room), isSelected(p.room) ? 'pin-selected' : '']"
         />
         <text
           :x="p.x"
-          :y="p.y + 4"
+          :y="p.y - 1"
           text-anchor="middle"
           class="room-block-num"
         >{{ p.room.id }}</text>
+        <text
+          :x="p.x"
+          :y="p.y + 12"
+          text-anchor="middle"
+          class="room-block-sub"
+        >{{ occupancyOf(p.room) }}</text>
         <title>{{ p.room.id }} ・ {{ tileLabel(p.room) }}</title>
-        <g
-          v-if="editMode && isSelected(p.room)"
-          class="pin-handles"
-          pointer-events="none"
-        >
-          <rect :x="p.x - p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-          <rect :x="p.x + p.w / 2 - 3" :y="p.y - p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-          <rect :x="p.x - p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-          <rect :x="p.x + p.w / 2 - 3" :y="p.y + p.h / 2 - 3" width="6" height="6" class="pin-handle" />
-        </g>
       </g>
     </svg>
 
@@ -609,10 +561,16 @@
         />
         <text
           :x="p.x + p.w/2"
-          :y="p.y + p.h/2 + 4"
+          :y="p.y + p.h/2 - 4"
           text-anchor="middle"
           class="room-block-num"
         >{{ p.room.id }}</text>
+        <text
+          :x="p.x + p.w/2"
+          :y="p.y + p.h/2 + 13"
+          text-anchor="middle"
+          class="room-block-sub"
+        >{{ occupancyOf(p.room) }}</text>
         <title>{{ p.room.id }} ・ {{ tileLabel(p.room) }}</title>
       </g>
 
@@ -688,7 +646,7 @@
           :y="p.y + 43"
           text-anchor="middle"
           class="room-sub"
-        >{{ p.room.capacity }} 人</text>
+        >{{ occupancyOf(p.room) }}</text>
         <text
           :x="p.x + ROOM_W / 2"
           :y="p.y + 62"
@@ -698,8 +656,7 @@
       </g>
     </svg>
 
-    <!-- 選取中的房間：內嵌資訊卡；一般模式顯示房型資訊＋動作按鈕（交給外層頁面決定），
-         editMode 時改顯示目前座標／大小與方向鍵操作提示 -->
+    <!-- 選取中的房間：內嵌資訊卡，動作按鈕交給外層頁面決定要放什麼 -->
     <div
       v-if="selectedRoom"
       class="room-pin-panel"
@@ -707,40 +664,25 @@
       <div class="flex items-center justify-between gap-2 mb-2">
         <span
           class="font-bold text-base-c"
-          style="font-size:13.5px"
+          style="font-size:14.5px"
         >{{ selectedRoom.id }}・{{ selectedRoom.type }}</span>
         <span
           class="status-badge"
           :class="badgeClass(selectedRoom)"
         >{{ tileLabel(selectedRoom) }}</span>
       </div>
-
-      <template v-if="editMode">
-        <div
-          class="text-hint-c mb-2"
-          style="font-size:12px"
-        >
-          位置 X {{ currentCoords(selectedRoom).posX?.toFixed(1) }}%・Y {{ currentCoords(selectedRoom).posY?.toFixed(1) }}%　大小 {{ currentCoords(selectedRoom).pinW }}×{{ currentCoords(selectedRoom).pinH }}
-        </div>
-        <p
-          class="text-hint-c"
-          style="font-size:11.5px"
-        >方向鍵：移動位置　｜　Shift + 方向鍵：調整大小</p>
-      </template>
-      <template v-else>
-        <div
-          class="text-hint-c mb-3"
-          style="font-size:12.5px"
-        >
-          {{ selectedRoom.capacity }} 人・{{ selectedRoom.bed }}・NT$ {{ selectedRoom.price.toLocaleString() }}/晚
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <slot
-            name="panel-actions"
-            :room="selectedRoom"
-          />
-        </div>
-      </template>
+      <div
+        class="text-hint-c mb-3"
+        style="font-size:13.5px"
+      >
+        {{ selectedRoom.capacity }} 人・{{ selectedRoom.bed }}・NT$ {{ selectedRoom.price.toLocaleString() }}/晚
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <slot
+          name="panel-actions"
+          :room="selectedRoom"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -784,7 +726,7 @@
     fill: var(--surface2);
   }
   .corridor-label {
-    font-size: 11px;
+    font-size: 12px;
     fill: var(--text-hint);
     letter-spacing: 2px;
   }
@@ -808,16 +750,16 @@
   .room-group:hover .room-rect.tile-inactive    { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(168,162,158,.9)); }
   .room-group:hover .room-rect.tile-unavailable { stroke-width: 3; filter: drop-shadow(0 0 3px rgba(244,63,94,.9)); }
   .room-num {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     fill: var(--text);
   }
   .room-sub {
-    font-size: 10px;
+    font-size: 11px;
     fill: var(--text-hint);
   }
   .room-status {
-    font-size: 9.5px;
+    font-size: 10.5px;
     font-weight: 700;
   }
   .room-status.tile-vacant      { fill: #059669; }
@@ -826,9 +768,15 @@
   .room-status.tile-inactive    { fill: #78716c; }
   .room-status.tile-unavailable { fill: #e11d48; }
   .room-block-num {
-    font-size: 9.5px;
+    font-size: 13px;
     font-weight: 700;
     fill: var(--text);
+    pointer-events: none;
+  }
+  .room-block-sub {
+    font-size: 10px;
+    font-weight: 600;
+    fill: var(--text-hint);
     pointer-events: none;
   }
   /* 依平面圖編輯工具匯出座標描出的牆面（快樂運動館／合力居／愛加倍），統一線條樣式，
@@ -887,7 +835,7 @@
     opacity: .55;
   }
   .fp-building-label {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     fill: var(--text-hint);
     letter-spacing: 2px;
@@ -915,19 +863,6 @@
     stroke-width: 3.5;
     filter: drop-shadow(0 0 4px rgba(21, 128, 61, .85));
   }
-  /* 座標編輯模式下選取中的 pin：用跟一般瀏覽選取（綠色光暈）不同的樣式，跟 hover 效果也明顯區隔 */
-  .room-pin.pin-editing {
-    stroke: #2563eb;
-    stroke-width: 3.5;
-    stroke-dasharray: 4 2;
-    fill: rgba(37, 99, 235, .15);
-    filter: drop-shadow(0 0 5px rgba(37, 99, 235, .85));
-  }
-  .pin-handle {
-    fill: #2563eb;
-    stroke: #fff;
-    stroke-width: 1;
-  }
   .room-pin-panel {
     margin-top: 10px;
     padding: 12px 14px;
@@ -936,6 +871,6 @@
     border: 1px solid var(--border);
   }
   .status-badge {
-    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+    font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
   }
 </style>
