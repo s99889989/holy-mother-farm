@@ -217,38 +217,43 @@
               </template>
             </svg>
             <p v-else class="text-hint-c" style="font-size:13px">這個棟別沒有平面圖矩形資料可供對應。</p>
+          </div>
+        </div>
 
-            <!-- 選取矩形/線條的精確數字編輯面板 -->
-            <div v-if="shapeEditMode === 'edit' && selectedShapeInGroup(grp.id)" class="shape-panel">
-              <div class="flex items-center justify-between mb-2">
-                <span class="font-semibold text-base-c" style="font-size:13.5px">{{ selectedShapeInGroup(grp.id).id }}（{{ shapeTypeLabel[selectedShapeInGroup(grp.id).type] }}）</span>
-                <button class="mini-btn mini-danger" @click="deleteSelectedShape(grp.id)">刪除</button>
-              </div>
-              <div v-if="selectedShapeInGroup(grp.id).type === 'rect'" class="shape-panel-grid">
-                <label>X<input type="number" v-model.number="selectedShapeInGroup(grp.id).x" @change="commitSelectedShape(grp.id)"></label>
-                <label>Y<input type="number" v-model.number="selectedShapeInGroup(grp.id).y" @change="commitSelectedShape(grp.id)"></label>
-                <label>寬<input type="number" v-model.number="selectedShapeInGroup(grp.id).w" @change="commitSelectedShape(grp.id)"></label>
-                <label>高<input type="number" v-model.number="selectedShapeInGroup(grp.id).h" @change="commitSelectedShape(grp.id)"></label>
-              </div>
-              <!-- 四邊個別增減：點一下就調整那一邊，不用拖拉；「＋」＝往外擴、「－」＝往內縮，另外三邊不動 -->
-              <div v-if="selectedShapeInGroup(grp.id).type === 'rect'" class="shape-edge-controls">
-                <div v-for="edge in EDGES" :key="edge.key" class="shape-edge-row">
-                  <span class="shape-edge-label">{{ edge.label }}</span>
-                  <button class="mini-btn" @click="adjustShapeEdge(grp.id, edge.key, -1)">－</button>
-                  <button class="mini-btn" @click="adjustShapeEdge(grp.id, edge.key, 1)">＋</button>
-                </div>
-              </div>
-              <div v-else-if="selectedShapeInGroup(grp.id).type === 'vline'" class="shape-panel-grid">
-                <label>X<input type="number" v-model.number="selectedShapeInGroup(grp.id).x" @change="commitSelectedShape(grp.id)"></label>
-                <label>Y1<input type="number" v-model.number="selectedShapeInGroup(grp.id).y1" @change="commitSelectedShape(grp.id)"></label>
-                <label>Y2<input type="number" v-model.number="selectedShapeInGroup(grp.id).y2" @change="commitSelectedShape(grp.id)"></label>
-              </div>
-              <div v-else class="shape-panel-grid">
-                <label>Y<input type="number" v-model.number="selectedShapeInGroup(grp.id).y" @change="commitSelectedShape(grp.id)"></label>
-                <label>X1<input type="number" v-model.number="selectedShapeInGroup(grp.id).x1" @change="commitSelectedShape(grp.id)"></label>
-                <label>X2<input type="number" v-model.number="selectedShapeInGroup(grp.id).x2" @change="commitSelectedShape(grp.id)"></label>
-              </div>
+        <!-- 選取矩形/線條的精確數字編輯面板：固定在畫面下方，不管捲到哪一棟平面圖都看得到、不用再滾動 -->
+        <div v-if="shapeEditMode === 'edit' && selectedShapeBuilding" class="shape-panel shape-panel-float">
+          <div class="flex items-center justify-between mb-2 gap-2">
+            <span class="font-semibold text-base-c" style="font-size:13.5px">
+              {{ selectedShapeBuilding.name }}・{{ selectedShapeInGroup(selectedShapeBuilding.id).id }}（{{ shapeTypeLabel[selectedShapeInGroup(selectedShapeBuilding.id).type] }}）
+            </span>
+            <div class="flex items-center gap-2">
+              <button class="mini-btn mini-danger" @click="deleteSelectedShape(selectedShapeBuilding.id)">刪除</button>
+              <button class="mini-btn" title="取消選取" @click="selectedShapeId = null">✕ 取消選取</button>
             </div>
+          </div>
+          <div v-if="selectedShapeInGroup(selectedShapeBuilding.id).type === 'rect'" class="shape-panel-grid">
+            <label>X<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).x" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+            <label>Y<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).y" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+            <label>寬<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).w" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+            <label>高<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).h" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+          </div>
+          <!-- 四邊個別增減：點一下就調整那一邊，不用拖拉；「＋」＝往外擴、「－」＝往內縮，另外三邊不動 -->
+          <div v-if="selectedShapeInGroup(selectedShapeBuilding.id).type === 'rect'" class="shape-edge-controls">
+            <div v-for="edge in EDGES" :key="edge.key" class="shape-edge-row">
+              <span class="shape-edge-label">{{ edge.label }}</span>
+              <button class="mini-btn" @click="adjustShapeEdge(selectedShapeBuilding.id, edge.key, -1)">－</button>
+              <button class="mini-btn" @click="adjustShapeEdge(selectedShapeBuilding.id, edge.key, 1)">＋</button>
+            </div>
+          </div>
+          <div v-else-if="selectedShapeInGroup(selectedShapeBuilding.id).type === 'vline'" class="shape-panel-grid">
+            <label>X<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).x" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+            <label>Y1<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).y1" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+            <label>Y2<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).y2" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+          </div>
+          <div v-else class="shape-panel-grid">
+            <label>Y<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).y" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+            <label>X1<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).x1" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
+            <label>X2<input type="number" v-model.number="selectedShapeInGroup(selectedShapeBuilding.id).x2" @change="commitSelectedShape(selectedShapeBuilding.id)"></label>
           </div>
         </div>
       </template>
@@ -463,6 +468,12 @@
     if (!selectedShapeId.value) return null
     return shapesOf(buildingId).find(s => s.id === selectedShapeId.value) || null
   }
+  // 選取的矩形/線條屬於哪個棟別 —— 下方浮動控制面板要用，這樣不管在哪棟平面圖選的，
+  // 面板都能找到正確棟別繼續操作，且面板本身固定在畫面上不用跟著捲動
+  const selectedShapeBuilding = computed(() => {
+    if (!selectedShapeId.value) return null
+    return buildings.value.find(b => shapesOf(b.id).some(s => s.id === selectedShapeId.value)) || null
+  })
 
   // 把滑鼠螢幕座標換算成 SVG viewBox 座標（因為 svg 是用 width:100% 縮放顯示，不是 1:1 像素）
   function svgPointFromClient(svgEl, clientX, clientY) {
@@ -899,6 +910,20 @@
     padding: 12px 14px;
     border-radius: 12px;
     background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  /* 浮動版：固定貼在畫面下方，不管捲到哪一棟平面圖都看得到，不用再滾動到最下面才能調整 */
+  .shape-panel-float {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: min(560px, calc(100vw - 32px));
+    max-height: 40vh;
+    overflow-y: auto;
+    z-index: 25;
+    background: var(--surface);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
     border: 1px solid var(--border);
   }
   .shape-panel-grid {
