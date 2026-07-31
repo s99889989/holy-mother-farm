@@ -1,906 +1,936 @@
 <script setup>
-import {ref, computed, onMounted, onUnmounted} from 'vue'
-import {useCommonStore} from '~/stores/common.js'
+  import {ref, computed, onMounted, onUnmounted, nextTick} from 'vue'
+  import {useCommonStore} from '~/stores/common.js'
 
-definePageMeta({layout: 'staff', requiredPermission: 'order.soybean-orders'})
+  definePageMeta({layout: 'staff', requiredPermission: 'order.soybean-orders'})
 
-const commonStore = useCommonStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/soybean')
+  const commonStore = useCommonStore()
+  const BASE = computed(() => commonStore.data.main_url + '/holy/soybean')
 
-// ── 營業日設定（取代寫死的週二/週五）─────────────────────────────
-// ISO 星期數字：1=一 2=二 3=三 4=四 5=五 6=六 7=日
-const DOW_CODE = {1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun'}
-const DOW_LABEL = {1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六', 7: '週日'}
-const DOW_COLORS = [
-  {
-    bg: 'bg-green-100 text-green-700',
-    active: 'bg-green-700 text-white border-green-700',
-    filterActiveBorder: 'border-green-700'
-  },
-  {
-    bg: 'bg-blue-100 text-blue-700',
-    active: 'bg-blue-600 text-white border-blue-600',
-    filterActiveBorder: 'border-blue-600'
-  },
-  {
-    bg: 'bg-amber-100 text-amber-700',
-    active: 'bg-amber-600 text-white border-amber-600',
-    filterActiveBorder: 'border-amber-600'
-  },
-  {
-    bg: 'bg-purple-100 text-purple-700',
-    active: 'bg-purple-600 text-white border-purple-600',
-    filterActiveBorder: 'border-purple-600'
-  }
-]
-
-const businessDays = ref([2, 5]) // 目前（今天）實際生效中的營業日，實際以後端設定為準
-const businessDaysDraft = ref([2, 5]) // 排程面板中正在編輯的星期選擇（尚未儲存）
-const businessDaysEffectiveFrom = ref('') // 排程面板的生效日；空字串＝立即生效（今天）
-const businessDaysSaving = ref(false)
-const businessDaysSaved = ref(false)
-const businessDaysSchedule = ref([]) // 所有已排定的營業日設定 [{ effectiveFrom, businessDays }]
-
-const businessDayOptions = computed(() =>
-  businessDays.value.map((dow, idx) => ({
-    dow,
-    code: DOW_CODE[dow] || 'tue',
-    label: DOW_LABEL[dow] || '',
-    color: DOW_COLORS[idx % DOW_COLORS.length]
-  }))
-)
-
-function dowToCode(dow) {
-  return DOW_CODE[dow] || 'tue'
-}
-
-function codeToDow(code) {
-  const found = Object.entries(DOW_CODE).find(([, c]) => c === code)
-  return found ? Number(found[0]) : 2
-}
-
-function colorForCode(code) {
-  const idx = businessDays.value.indexOf(codeToDow(code))
-  return DOW_COLORS[idx >= 0 ? idx % DOW_COLORS.length : 0]
-}
-
-function todayDateStr() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function toggleDraftDow(dow) {
-  businessDaysDraft.value = businessDaysDraft.value.includes(dow)
-    ? businessDaysDraft.value.filter(d => d !== dow)
-    : [...businessDaysDraft.value, dow].sort((a, b) => a - b)
-}
-
-// 抓「目前生效中的營業日」＋ 完整排程清單（含未來已排定但還沒生效的設定）
-const fetchBusinessDaysSchedule = async () => {
-  try {
-    const res = await fetch(`${BASE.value}/settings/business-days-schedule`, {credentials: 'include'})
-    const data = await res.json()
-    businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
-    if (Array.isArray(data.currentBusinessDays) && data.currentBusinessDays.length > 0) {
-      businessDays.value = data.currentBusinessDays
-      businessDaysDraft.value = [...data.currentBusinessDays]
+  // ── 營業日設定（取代寫死的週二/週五）─────────────────────────────
+  // ISO 星期數字：1=一 2=二 3=三 4=四 5=五 6=六 7=日
+  const DOW_CODE = {1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun'}
+  const DOW_LABEL = {1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六', 7: '週日'}
+  const DOW_COLORS = [
+    {
+      bg: 'bg-green-100 text-green-700',
+      active: 'bg-green-700 text-white border-green-700',
+      filterActiveBorder: 'border-green-700'
+    },
+    {
+      bg: 'bg-blue-100 text-blue-700',
+      active: 'bg-blue-600 text-white border-blue-600',
+      filterActiveBorder: 'border-blue-600'
+    },
+    {
+      bg: 'bg-amber-100 text-amber-700',
+      active: 'bg-amber-600 text-white border-amber-600',
+      filterActiveBorder: 'border-amber-600'
+    },
+    {
+      bg: 'bg-purple-100 text-purple-700',
+      active: 'bg-purple-600 text-white border-purple-600',
+      filterActiveBorder: 'border-purple-600'
     }
-  } catch {
-  }
-}
-
-// days: 要設定的星期陣列；effectiveFrom: 選填，YYYY-MM-DD，空字串＝立即生效
-const saveBusinessDays = async (days, effectiveFrom = '') => {
-  if (!days.length) {
-    alert('請至少選擇一個營業日');
-    return
-  }
-  businessDaysSaving.value = true
-  businessDaysSaved.value = false
-  try {
-    const payload = {businessDays: days}
-    if (effectiveFrom) payload.effectiveFrom = effectiveFrom
-    const res = await fetch(`${BASE.value}/admin/settings/business-days`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('儲存失敗：' + data.error);
-      return
-    }
-    if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
-    businessDaysSaved.value = true
-    setTimeout(() => businessDaysSaved.value = false, 2000)
-    fetchBusinessDaysSchedule()
-  } catch {
-    alert('儲存失敗')
-  } finally {
-    businessDaysSaving.value = false
-  }
-}
-
-const removeBusinessDaysScheduleEntry = async (effectiveFrom) => {
-  if (!confirm(`確定要刪除 ${effectiveFrom} 起生效的營業日排程？`)) return
-  try {
-    const res = await fetch(`${BASE.value}/admin/settings/business-days-schedule?effectiveFrom=${encodeURIComponent(effectiveFrom)}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('刪除失敗：' + data.error);
-      return
-    }
-    businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
-    if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
-  } catch {
-    alert('刪除失敗')
-  }
-}
-
-// ── 月份選擇 ──────────────────────────────────────────────────────
-function thisMonth() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-const selectedMonth = ref(thisMonth())
-
-const monthOptions = computed(() => {
-  const opts = []
-  const now = new Date()
-  for (let i = 0; i <= 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
-    opts.push({val, label})
-  }
-  return opts
-})
-
-// ── 資料 ──────────────────────────────────────────────────────────
-const loading = ref(false)
-const totalSoymilk = ref(0)
-const totalTofu = ref(0)
-const orders = ref([])
-const lastUpdated = ref('')
-
-const fetchData = async () => {
-  loading.value = true
-  try {
-    const res = await fetch(`${BASE.value}/admin/list?month=${selectedMonth.value}`, {
-      credentials: 'include'
-    })
-    const data = await res.json()
-    totalSoymilk.value = data.totalSoymilk ?? 0
-    totalTofu.value = data.totalTofu ?? 0
-    orders.value = data.orders ?? []
-    const now = new Date()
-    lastUpdated.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-  } catch {
-    orders.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-let autoRefreshTimer = null
-onMounted(() => {
-  fetchData()
-  fetchHints()
-  fetchClosedDates()
-  fetchBusinessDaysSchedule()
-  fetchNotifySettings()
-  autoRefreshTimer = setInterval(fetchData, 30000)
-})
-onUnmounted(() => clearInterval(autoRefreshTimer))
-
-// ── 篩選 ──────────────────────────────────────────────────────────
-const filterDay = ref('')
-const filterStatus = ref('')
-
-const filteredOrders = computed(() => {
-  return orders.value.filter((o) => {
-    if (filterDay.value && o.pickupDay !== filterDay.value) return false
-    if (filterStatus.value && o.status !== filterStatus.value) return false
-    return true
-  })
-})
-
-const filteredSoymilk = computed(() =>
-  filteredOrders.value.reduce((s, o) => {
-    if (Array.isArray(o.soymilkItems) && o.soymilkItems.length > 0)
-      return s + o.soymilkItems.reduce((a, i) => a + (i.qty || 0), 0)
-    return s + (o.soymilkQty || 0)
-  }, 0))
-const filteredTofu = computed(() =>
-  filteredOrders.value.reduce((s, o) => s + (o.tofuQty || 0), 0))
-
-// ── 從現在起算下一個取貨日 ───────────────────────────────────────
-function nextPickupDateFromNow(pickupDay) {
-  const targetDow = codeToDow(pickupDay)
-  const now = new Date()
-  // 用本地時間避免 UTC 時差問題
-  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const diff = (targetDow - base.getDay() + 7) % 7
-  const result = new Date(base)
-  result.setDate(base.getDate() + diff)
-  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
-}
-
-// 格式化取貨日顯示：2026-06-19 → 週五 6/19
-function pickupDateLabel(pickupDay) {
-  const date = nextPickupDateFromNow(pickupDay)
-  const d = new Date(date + 'T00:00:00')
-  const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-  return `週${weekDay} ${d.getMonth() + 1}/${d.getDate()}`
-}
-
-const PRESET_VOLS = [600, 800, 1000, 1700]
-
-// 把訂單的 soymilkItems 正規化（相容舊資料）
-function normalizeSoymilkItems(order) {
-  if (Array.isArray(order.soymilkItems) && order.soymilkItems.length > 0) {
-    return order.soymilkItems
-  }
-  // 相容舊版單一容量格式
-  if (order.soymilkQty > 0) {
-    return [{volume: order.soymilkVolume || 800, qty: order.soymilkQty}]
-  }
-  return []
-}
-
-// 計算總豆漿袋數
-function totalSoymilkQty(items) {
-  return items.reduce((s, i) => s + (i.qty || 0), 0)
-}
-
-// 顯示用文字，例如「800ml×2, 1000ml×1」
-function soymilkItemsLabel(order) {
-  const items = normalizeSoymilkItems(order)
-  if (!items.length) return null
-  return items.map(i => `${i.volume}ml×${i.qty}`).join('、')
-}
-
-// 計算金額（豆漿：每滿 800cc 算一份 $50，不滿 800cc 至少算一份）
-function soymilkItemPrice(volume, qty) {
-  const units = Math.max(1, Math.floor((volume || 0) / 800))
-  return units * 50 * (qty || 0)
-}
-
-function calcTotal(order) {
-  const items = normalizeSoymilkItems(order)
-  const soymilkTotal = items.reduce((s, i) => s + soymilkItemPrice(i.volume, i.qty), 0)
-  return soymilkTotal + (order.tofuQty || 0) * 50
-}
-
-// 新建一個空豆漿項目
-function newSoymilkItem() {
-  return {volume: 800, customVolume: 0, qty: 1}
-}
-
-const groupedOrders = computed(() => {
-  const withPickup = filteredOrders.value.map(o => ({
-    ...o,
-    _pickupDate: resolvePickupDate(o.pickupDay, o.createdAt, o.pickupDate)
-  }))
-
-  const map = new Map()
-  for (const o of withPickup) {
-    if (!map.has(o._pickupDate)) map.set(o._pickupDate, [])
-    map.get(o._pickupDate).push(o)
-  }
-
-  return Array.from(map.entries())
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([date, orders]) => {
-      const weekDay = ['日', '一', '二', '三', '四', '五', '六'][new Date(date + 'T00:00:00').getDay()]
-      const [, m, d] = date.split('-')
-      const active = orders.filter(o => o.status !== '已取消')
-      const soymilkQty = active.reduce((s, o) => {
-        const items = normalizeSoymilkItems(o)
-        return s + items.reduce((a, i) => a + (i.qty || 0), 0)
-      }, 0)
-      const soymilkMl = active.reduce((s, o) => {
-        const items = normalizeSoymilkItems(o)
-        return s + items.reduce((a, i) => a + (i.volume || 0) * (i.qty || 0), 0)
-      }, 0)
-      const tofu = active.reduce((s, o) => s + (o.tofuQty || 0), 0)
-      return {date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk: soymilkQty, soymilkMl, tofu}
-    })
-})
-
-// 從訂單建立時間往後找最近的營業日；有 pickupDate 欄位則直接用
-function resolvePickupDate(pickupDay, createdAt, pickupDate) {
-  if (pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) return pickupDate
-  if (!createdAt) return '9999-99-99'
-  const targetDow = codeToDow(pickupDay)
-  const base = new Date(createdAt.replace(' ', 'T'))
-  const diff = (targetDow - base.getDay() + 7) % 7
-  const result = new Date(base)
-  result.setDate(base.getDate() + diff)
-  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
-}
-
-// ── 格式化訂購時間 ────────────────────────────────────────────────
-function formatCreatedAt(createdAt) {
-  if (!createdAt) return ''
-  const d = new Date(createdAt.replace(' ', 'T'))
-  const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return `${mm}/${dd}（週${weekDay}）${hh}:${min}`
-}
-
-const updatingId = ref('')
-
-const updateStatus = async (order, newStatus) => {
-  updatingId.value = order.id
-  try {
-    await fetch(`${BASE.value}/admin/status/${order.month}/${order.id}?status=${encodeURIComponent(newStatus)}`, {
-      method: 'PATCH',
-      credentials: 'include'
-    })
-    order.status = newStatus
-  } catch {
-    alert('更新失敗')
-  } finally {
-    updatingId.value = ''
-  }
-}
-
-// ── 狀態樣式 ──────────────────────────────────────────────────────
-const statusClass = s => ({
-  待確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700',
-  已確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700',
-  已付款: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700',
-  已取貨: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700',
-  已取消: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500'
-}[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c')
-
-// 根據訂單的取貨日資訊產生顯示文字：有 pickupDate 就直接用，否則用 createdAt 推算當週的營業日
-// （若訂單建立當天已超過取貨日，則取下一週）
-const pickupLabel = (order) => {
-  const dow = codeToDow(order?.pickupDay)
-  const label = DOW_LABEL[dow]
-  if (!label) return order?.pickupDay ?? ''
-
-  // 優先使用明確指定的 pickupDate，避免與 createdAt 推算結果不一致
-  if (order?.pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(order.pickupDate)) {
-    const d = new Date(order.pickupDate + 'T00:00:00')
-    return `${label} ${d.getMonth() + 1}/${d.getDate()}`
-  }
-
-  const base = order?.createdAt ? new Date(order.createdAt) : new Date()
-  const baseDow = base.getDay() // 0=日
-  let diff = dow - baseDow
-  if (diff < 0) diff += 7 // 已過，取下週
-  const target = new Date(base)
-  target.setDate(base.getDate() + diff)
-  const m = target.getMonth() + 1
-  const d = target.getDate()
-  return `${label} ${m}/${d}`
-}
-
-const STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
-
-// ── 刪除 ──────────────────────────────────────────────────────────
-const deleteModal = ref({show: false, order: null, submitting: false})
-
-const openDeleteModal = (order) => {
-  deleteModal.value = {show: true, order, submitting: false}
-}
-const closeDeleteModal = () => {
-  deleteModal.value = {show: false, order: null, submitting: false}
-}
-
-const confirmDelete = async () => {
-  const {order} = deleteModal.value
-  if (!order) return
-  deleteModal.value.submitting = true
-  try {
-    const res = await fetch(`${BASE.value}/admin/order/${order.month}/${order.id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('刪除失敗：' + data.error);
-      return
-    }
-    orders.value = orders.value.filter(o => o.id !== order.id)
-    closeDeleteModal()
-  } catch {
-    alert('刪除失敗')
-  } finally {
-    deleteModal.value.submitting = false
-  }
-}
-
-// ── 新增訂單 ──────────────────────────────────────────────────────
-const createModal = ref({show: false, submitting: false})
-const createForm = ref({
-  name: '', contact: '', pickupDay: 'tue', pickupDate: '',
-  soymilkItems: [newSoymilkItem()], tofuQty: 0, remark: '', status: '已確認'
-})
-
-const openCreateModal = () => {
-  createForm.value = {
-    name: '',
-    contact: '',
-    pickupDay: 'tue',
-    pickupDate: '',
-    soymilkItems: [newSoymilkItem()],
-    tofuQty: 0,
-    remark: '',
-    status: '已確認'
-  }
-  createModal.value = {show: true, submitting: false}
-}
-const closeCreateModal = () => {
-  createModal.value = {show: false, submitting: false}
-}
-
-const addSoymilkItem = (form) => {
-  form.soymilkItems.push(newSoymilkItem())
-}
-const removeSoymilkItem = (form, idx) => {
-  form.soymilkItems.splice(idx, 1)
-}
-const adjItemQty = (item, delta) => {
-  item.qty = Math.max(1, (item.qty || 1) + delta)
-}
-const adjTofuQty = (form, delta) => {
-  form.tofuQty = Math.max(0, (form.tofuQty || 0) + delta)
-}
-
-// 計算 form 的小計
-function formTotal(form) {
-  const sm = form.soymilkItems.reduce((s, i) => s + soymilkItemPrice(resolveVol(i), i.qty), 0)
-  return sm + (form.tofuQty || 0) * 50
-}
-
-// 解析容量（-1 表示自訂）
-function resolveVol(item) {
-  return item.volume === -1 ? (item.customVolume || 0) : (item.volume || 800)
-}
-
-const submitCreate = async () => {
-  const f = createForm.value
-  if (!f.name.trim()) {
-    alert('請輸入姓名');
-    return
-  }
-  if (!f.contact.trim()) {
-    alert('請輸入聯絡方式');
-    return
-  }
-  const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
-  if (!hasSoymilk && f.tofuQty === 0) {
-    alert('請選擇豆漿或豆腐數量');
-    return
-  }
-
-  // ── 休息日檢查：有自訂日期用自訂日期，否則用當週推算 ──────────
-  const resolvedPickupDate = f.pickupDate || nextPickupDateFromNow(f.pickupDay)
-  if (closedDates.value.includes(resolvedPickupDate)) {
-    const d = new Date(resolvedPickupDate + 'T00:00:00')
-    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-    alert(`${d.getMonth() + 1}/${d.getDate()}（週${weekDay}）為休息日，無法新增訂單`)
-    return
-  }
-  createModal.value.submitting = true
-  try {
-    const soymilkItems = f.soymilkItems
-      .filter(i => i.qty > 0)
-      .map(i => ({volume: resolveVol(i), qty: i.qty}))
-    const payload = {
-      name: f.name.trim(), contact: f.contact.trim(),
-      pickupDay: f.pickupDay,
-      soymilkItems,
-      soymilkQty: soymilkItems.reduce((s, i) => s + i.qty, 0),
-      soymilkVolume: soymilkItems.length === 1 ? soymilkItems[0].volume : 0,
-      tofuQty: f.tofuQty,
-      remark: f.remark.trim(),
-      status: f.status,
-      ...(f.pickupDate ? {pickupDate: f.pickupDate} : {})
-    }
-    const res = await fetch(`${BASE.value}/order`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('新增失敗：' + data.error);
-      return
-    }
-    closeCreateModal()
-    await fetchData()
-  } catch {
-    alert('新增失敗')
-  } finally {
-    createModal.value.submitting = false
-  }
-}
-
-// ── 提示訊息設定 ──────────────────────────────────────────────────
-const showHintSettings = ref(false)
-const hintSaving = ref(false)
-const hintSaved = ref(false)
-
-// ── LINE / Discord 連線設定（獨立設定，不沿用其他功能的設定）───
-const notifyLineAccessToken = ref('')
-const notifyLineGroupId = ref('')
-const notifyDiscordWebhook = ref('')
-const notifySaving = ref(false)
-const notifySaved = ref(false)
-
-// 取貨提醒：前一天彙整當天所有訂單，合併成一則訊息發送（LINE、Discord 各自獨立開關）
-const reminderLineEnabled = ref(false)
-const reminderDiscordEnabled = ref(false)
-const reminderHour = ref(18)
-const reminderTesting = ref(false)
-const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => i)
-
-const fetchNotifySettings = async () => {
-  try {
-    const res = await fetch(`${BASE.value}/admin/settings/notify`, {credentials: 'include'})
-    const data = await res.json()
-    if (!data.error) {
-      notifyLineAccessToken.value = data.lineAccessToken || ''
-      notifyLineGroupId.value = data.lineGroupId || ''
-      notifyDiscordWebhook.value = data.discordWebhook || ''
-      reminderLineEnabled.value = !!data.reminderLineEnabled
-      reminderDiscordEnabled.value = !!data.reminderDiscordEnabled
-      reminderHour.value = data.reminderHour ?? 18
-    }
-  } catch {
-  }
-}
-
-const saveNotifySettings = async () => {
-  notifySaving.value = true
-  notifySaved.value = false
-  try {
-    const res = await fetch(`${BASE.value}/admin/settings/notify`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify({
-        lineAccessToken: notifyLineAccessToken.value.trim(),
-        lineGroupId: notifyLineGroupId.value.trim(),
-        discordWebhook: notifyDiscordWebhook.value.trim(),
-        reminderLineEnabled: reminderLineEnabled.value,
-        reminderDiscordEnabled: reminderDiscordEnabled.value,
-        reminderHour: reminderHour.value
-      })
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('儲存失敗：' + data.error);
-      return
-    }
-    notifySaved.value = true
-    setTimeout(() => notifySaved.value = false, 2000)
-  } catch {
-    alert('儲存失敗')
-  } finally {
-    notifySaving.value = false
-  }
-}
-
-// 手動測試取貨提醒：立即檢查指定日期是否有訂單並發送，不受設定的提醒時間限制
-// offsetDays：1＝明天（正常提醒對象），0＝今天（取貨當天，方便臨時確認名單）
-const testReminder = async (offsetDays = 1) => {
-  reminderTesting.value = true
-  try {
-    const res = await fetch(`${BASE.value}/admin/reminder/test?offsetDays=${offsetDays}`, {
-      method: 'POST',
-      credentials: 'include'
-    })
-    const data = await res.json()
-    alert(data.error ? '測試失敗：' + data.error : data.message)
-  } catch {
-    alert('測試失敗')
-  } finally {
-    reminderTesting.value = false
-  }
-}
-
-const HINT_STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
-const hintBadgeClass = s => ({
-  待確認: 'bg-amber-100 text-amber-700',
-  已確認: 'bg-emerald-100 text-emerald-700',
-  已付款: 'bg-blue-100 text-blue-700',
-  已取貨: 'bg-teal-100 text-teal-700',
-  已取消: 'bg-red-100 text-red-500'
-}[s] || 'bg-surface2 text-hint-c')
-
-const hints = ref({
-  待確認: '我們已收到您的預約，將盡快來電確認。',
-  已確認: '訂單已確認，請於取貨日前來取貨！',
-  已付款: '已收到您的付款，感謝您的訂購！',
-  已取貨: '感謝您的訂購，歡迎再次訂購！',
-  已取消: '此筆訂單已取消，歡迎再次訂購。'
-})
-
-const fetchHints = async () => {
-  try {
-    const res = await fetch(`${BASE.value}/settings/hints`, {credentials: 'include'})
-    const data = await res.json()
-    if (!data.error) Object.assign(hints.value, data)
-  } catch {
-  }
-}
-
-const saveHints = async () => {
-  hintSaving.value = true
-  hintSaved.value = false
-  try {
-    const res = await fetch(`${BASE.value}/settings/hints`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify(hints.value)
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('儲存失敗：' + data.error);
-      return
-    }
-    hintSaved.value = true
-    setTimeout(() => hintSaved.value = false, 2500)
-  } catch {
-    alert('儲存失敗')
-  } finally {
-    hintSaving.value = false
-  }
-}
-
-// ── 休息日設定 ────────────────────────────────────────────────────
-const closedDates = ref([]) // ['2026-06-17', '2026-06-24']
-const closedDateInput = ref('') // 新增輸入框
-const closedSaving = ref(false)
-const closedSaved = ref(false)
-
-const fetchClosedDates = async () => {
-  try {
-    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {credentials: 'include'})
-    const data = await res.json()
-    closedDates.value = Array.isArray(data.closedDates) ? data.closedDates : []
-  } catch {
-  }
-}
-
-const addClosedDate = async () => {
-  const d = closedDateInput.value.trim()
-  if (!d.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    alert('請輸入正確日期格式 YYYY-MM-DD');
-    return
-  }
-  if (closedDates.value.includes(d)) {
-    alert('此日期已在休息日清單中');
-    return
-  }
-  closedSaving.value = true
-  try {
-    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify({date: d})
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('新增失敗：' + data.error);
-      return
-    }
-    closedDates.value = data.closedDates
-    closedDateInput.value = ''
-    closedSaved.value = true
-    setTimeout(() => closedSaved.value = false, 2000)
-  } catch {
-    alert('新增失敗')
-  } finally {
-    closedSaving.value = false
-  }
-}
-
-const removeClosedDate = async (date) => {
-  closedSaving.value = true
-  try {
-    const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
-      method: 'DELETE',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify({date})
-    })
-    const data = await res.json()
-    if (data.error) {
-      alert('刪除失敗：' + data.error);
-      return
-    }
-    closedDates.value = data.closedDates
-  } catch {
-    alert('刪除失敗')
-  } finally {
-    closedSaving.value = false
-  }
-}
-
-// 格式化休息日顯示：2026-06-17 → 06/17（週三）
-function formatClosedDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00')
-  const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（週${weekDay}）`
-}
-
-// 是否為休息日（用於訂單列表標記）
-function isClosedDate(dateStr) {
-  return closedDates.value.includes(dateStr)
-}
-
-// ── 新增訂單姓名自動完成 ──────────────────────────────────────────
-const createNameSuggest = ref([])
-const showCreateSuggest = ref(false)
-
-// 從現有訂單建立姓名→聯絡對照表（去重，最新訂單優先）
-const knownCustomers = computed(() => {
-  const map = new Map()
-  const sorted = [...orders.value].sort((a, b) =>
-    (b.createdAt || '').localeCompare(a.createdAt || ''))
-  for (const o of sorted) {
-    if (o.name && !map.has(o.name)) {
-      map.set(o.name, o.contact || '')
-    }
-  }
-  return map
-})
-
-function onCreateNameInput() {
-  const val = createForm.value.name.trim()
-  if (!val) {
-    showCreateSuggest.value = false;
-    return
-  }
-  const matches = [...knownCustomers.value.keys()]
-    .filter(n => n.includes(val) && n !== val)
-    .slice(0, 6)
-  createNameSuggest.value = matches
-  showCreateSuggest.value = matches.length > 0
-}
-
-function onPickupDateChange() {
-  const d = createForm.value.pickupDate
-  if (!d) return
-  const dow = new Date(d + 'T00:00:00').getDay() === 0 ? 7 : new Date(d + 'T00:00:00').getDay() // 0=日→7
-  createForm.value.pickupDay = dowToCode(dow)
-}
-
-function pickCreateCustomer(name) {
-  createForm.value.name = name
-  createForm.value.contact = knownCustomers.value.get(name) || createForm.value.contact
-  showCreateSuggest.value = false
-}
-
-function onEditPickupDateChange() {
-  const d = editForm.value.pickupDate
-  if (!d) return
-  const dow0 = new Date(d + 'T00:00:00').getDay()
-  const dow = dow0 === 0 ? 7 : dow0
-  editForm.value.pickupDay = dowToCode(dow)
-}
-
-// 編輯表單取貨日按鈕顯示用：以目前已知的取貨日期為基準，算出按鈕對應的星期幾日期
-function editPickupDateLabel(code) {
-  const targetDow = codeToDow(code)
-  const baseDateStr = editForm.value.pickupDate || nextPickupDateFromNow(editForm.value.pickupDay)
-  const base = new Date(baseDateStr + 'T00:00:00')
-  const baseDow0 = base.getDay()
-  const baseDow = baseDow0 === 0 ? 7 : baseDow0
-  const diff = targetDow - baseDow
-  const result = new Date(base)
-  result.setDate(base.getDate() + diff)
-  return `${result.getMonth() + 1}/${result.getDate()}`
-}
-
-// ── 編輯訂單 ──────────────────────────────────────────────────────
-const editModal = ref({show: false, submitting: false, orderId: '', orderMonth: ''})
-const editForm = ref({
-  name: '', contact: '', pickupDay: 'tue', pickupDate: '',
-  soymilkItems: [newSoymilkItem()], tofuQty: 0,
-  remark: '', status: '待確認'
-})
-
-const openEditModal = (order) => {
-  const raw = normalizeSoymilkItems(order)
-  const soymilkItems = raw.length > 0
-    ? raw.map(i => ({
-      volume: PRESET_VOLS.includes(i.volume) ? i.volume : -1,
-      customVolume: PRESET_VOLS.includes(i.volume) ? 0 : i.volume,
-      qty: i.qty || 1
+  ]
+
+  const businessDays = ref([2, 5]) // 目前（今天）實際生效中的營業日，實際以後端設定為準
+  const businessDaysDraft = ref([2, 5]) // 排程面板中正在編輯的星期選擇（尚未儲存）
+  const businessDaysEffectiveFrom = ref('') // 排程面板的生效日；空字串＝立即生效（今天）
+  const businessDaysSaving = ref(false)
+  const businessDaysSaved = ref(false)
+  const businessDaysSchedule = ref([]) // 所有已排定的營業日設定 [{ effectiveFrom, businessDays }]
+
+  const businessDayOptions = computed(() =>
+    businessDays.value.map((dow, idx) => ({
+      dow,
+      code: DOW_CODE[dow] || 'tue',
+      label: DOW_LABEL[dow] || '',
+      color: DOW_COLORS[idx % DOW_COLORS.length]
     }))
-    : [newSoymilkItem()]
-  editForm.value = {
-    name: order.name || '',
-    contact: order.contact || '',
-    pickupDay: order.pickupDay || 'tue',
-    pickupDate: order.pickupDate || '',
-    soymilkItems,
-    tofuQty: order.tofuQty || 0,
-    remark: order.remark || '',
-    status: order.status || '待確認'
-  }
-  editModal.value = {show: true, submitting: false, orderId: order.id, orderMonth: order.month}
-}
+  )
 
-const closeEditModal = () => {
-  editModal.value = {show: false, submitting: false, orderId: '', orderMonth: ''}
-}
-
-const submitEdit = async () => {
-  const f = editForm.value
-  if (!f.name.trim()) {
-    alert('請輸入姓名');
-    return
-  }
-  if (!f.contact.trim()) {
-    alert('請輸入聯絡方式');
-    return
-  }
-  const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
-  if (!hasSoymilk && f.tofuQty === 0) {
-    alert('請選擇豆漿或豆腐數量');
-    return
+  function dowToCode(dow) {
+    return DOW_CODE[dow] || 'tue'
   }
 
-  editModal.value.submitting = true
-  try {
-    const soymilkItems = f.soymilkItems
-      .filter(i => i.qty > 0)
-      .map(i => ({volume: resolveVol(i), qty: i.qty}))
-    const payload = {
-      name: f.name.trim(),
-      contact: f.contact.trim(),
-      pickupDay: f.pickupDay,
-      soymilkItems,
-      soymilkQty: soymilkItems.reduce((s, i) => s + i.qty, 0),
-      soymilkVolume: soymilkItems.length === 1 ? soymilkItems[0].volume : 0,
-      tofuQty: f.tofuQty,
-      remark: f.remark.trim(),
-      status: f.status,
-      pickupDate: f.pickupDate || ''
+  function codeToDow(code) {
+    const found = Object.entries(DOW_CODE).find(([, c]) => c === code)
+    return found ? Number(found[0]) : 2
+  }
+
+  function colorForCode(code) {
+    const idx = businessDays.value.indexOf(codeToDow(code))
+    return DOW_COLORS[idx >= 0 ? idx % DOW_COLORS.length : 0]
+  }
+
+  function todayDateStr() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  function toggleDraftDow(dow) {
+    businessDaysDraft.value = businessDaysDraft.value.includes(dow)
+      ? businessDaysDraft.value.filter(d => d !== dow)
+      : [...businessDaysDraft.value, dow].sort((a, b) => a - b)
+  }
+
+  // 抓「目前生效中的營業日」＋ 完整排程清單（含未來已排定但還沒生效的設定）
+  const fetchBusinessDaysSchedule = async () => {
+    try {
+      const res = await fetch(`${BASE.value}/settings/business-days-schedule`, {credentials: 'include'})
+      const data = await res.json()
+      businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
+      if (Array.isArray(data.currentBusinessDays) && data.currentBusinessDays.length > 0) {
+        businessDays.value = data.currentBusinessDays
+        businessDaysDraft.value = [...data.currentBusinessDays]
+      }
+    } catch {
     }
-    const res = await fetch(
-      `${BASE.value}/admin/order/${editModal.value.orderMonth}/${editModal.value.orderId}`,
-      {
-        method: 'PATCH',
+  }
+
+  // days: 要設定的星期陣列；effectiveFrom: 選填，YYYY-MM-DD，空字串＝立即生效
+  const saveBusinessDays = async (days, effectiveFrom = '') => {
+    if (!days.length) {
+      alert('請至少選擇一個營業日');
+      return
+    }
+    businessDaysSaving.value = true
+    businessDaysSaved.value = false
+    try {
+      const payload = {businessDays: days}
+      if (effectiveFrom) payload.effectiveFrom = effectiveFrom
+      const res = await fetch(`${BASE.value}/admin/settings/business-days`, {
+        method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         credentials: 'include',
         body: JSON.stringify(payload)
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('儲存失敗：' + data.error);
+        return
       }
-    )
-    const data = await res.json()
-    if (data.error) {
-      alert('編輯失敗：' + data.error);
+      if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
+      businessDaysSaved.value = true
+      setTimeout(() => businessDaysSaved.value = false, 2000)
+      fetchBusinessDaysSchedule()
+    } catch {
+      alert('儲存失敗')
+    } finally {
+      businessDaysSaving.value = false
+    }
+  }
+
+  const removeBusinessDaysScheduleEntry = async (effectiveFrom) => {
+    if (!confirm(`確定要刪除 ${effectiveFrom} 起生效的營業日排程？`)) return
+    try {
+      const res = await fetch(`${BASE.value}/admin/settings/business-days-schedule?effectiveFrom=${encodeURIComponent(effectiveFrom)}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('刪除失敗：' + data.error);
+        return
+      }
+      businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
+      if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
+    } catch {
+      alert('刪除失敗')
+    }
+  }
+
+  // ── 月份選擇 ──────────────────────────────────────────────────────
+  function thisMonth() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const selectedMonth = ref(thisMonth())
+
+  const monthOptions = computed(() => {
+    const opts = []
+    const now = new Date()
+    // i 為負代表未來月份，正代表過去月份；範圍：未來 3 個月 ～ 過去 6 個月
+    for (let i = -3; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
+      opts.push({val, label})
+    }
+    return opts
+  })
+
+  // ── 資料 ──────────────────────────────────────────────────────────
+  const loading = ref(false)
+  const totalSoymilk = ref(0)
+  const totalTofu = ref(0)
+  const orders = ref([])
+  const lastUpdated = ref('')
+
+  const fetchData = async (isInitialLoad = false) => {
+    loading.value = true
+    try {
+      const res = await fetch(`${BASE.value}/admin/list?month=${selectedMonth.value}`, {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      totalSoymilk.value = data.totalSoymilk ?? 0
+      totalTofu.value = data.totalTofu ?? 0
+      orders.value = data.orders ?? []
+      const now = new Date()
+      lastUpdated.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+      if (isInitialLoad) scrollToToday()
+    } catch {
+      orders.value = []
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 開啟頁面時自動捲動到「今天」的取貨日分組，讓當天的訂單一打開就看得到
+  function scrollToToday() {
+    nextTick(() => {
+      const el = document.getElementById(`pickup-group-${todayDateStr()}`)
+      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'})
+    })
+  }
+
+  let autoRefreshTimer = null
+  onMounted(() => {
+    fetchData(true)
+    fetchHints()
+    fetchClosedDates()
+    fetchBusinessDaysSchedule()
+    fetchNotifySettings()
+    autoRefreshTimer = setInterval(() => fetchData(false), 30000)
+  })
+  onUnmounted(() => clearInterval(autoRefreshTimer))
+
+  // ── 篩選 ──────────────────────────────────────────────────────────
+  const filterDay = ref('')
+  const filterStatus = ref('')
+
+  const filteredOrders = computed(() => {
+    return orders.value.filter((o) => {
+      if (filterDay.value && o.pickupDay !== filterDay.value) return false
+      if (filterStatus.value && o.status !== filterStatus.value) return false
+      return true
+    })
+  })
+
+  const filteredSoymilk = computed(() =>
+    filteredOrders.value.reduce((s, o) => {
+      if (Array.isArray(o.soymilkItems) && o.soymilkItems.length > 0)
+        return s + o.soymilkItems.reduce((a, i) => a + (i.qty || 0), 0)
+      return s + (o.soymilkQty || 0)
+    }, 0))
+  const filteredTofu = computed(() =>
+    filteredOrders.value.reduce((s, o) => s + (o.tofuQty || 0), 0))
+
+  // ── 從現在起算下一個取貨日 ───────────────────────────────────────
+  function nextPickupDateFromNow(pickupDay) {
+    const targetDow = codeToDow(pickupDay)
+    const now = new Date()
+    // 用本地時間避免 UTC 時差問題
+    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const diff = (targetDow - base.getDay() + 7) % 7
+    const result = new Date(base)
+    result.setDate(base.getDate() + diff)
+    return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
+  }
+
+  // 格式化取貨日顯示：2026-06-19 → 週五 6/19
+  function pickupDateLabel(pickupDay) {
+    const date = nextPickupDateFromNow(pickupDay)
+    const d = new Date(date + 'T00:00:00')
+    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+    return `週${weekDay} ${d.getMonth() + 1}/${d.getDate()}`
+  }
+
+  const PRESET_VOLS = [600, 800, 1000, 1700]
+
+  // 把訂單的 soymilkItems 正規化（相容舊資料）
+  function normalizeSoymilkItems(order) {
+    if (Array.isArray(order.soymilkItems) && order.soymilkItems.length > 0) {
+      return order.soymilkItems
+    }
+    // 相容舊版單一容量格式
+    if (order.soymilkQty > 0) {
+      return [{volume: order.soymilkVolume || 800, qty: order.soymilkQty}]
+    }
+    return []
+  }
+
+  // 計算總豆漿袋數
+  function totalSoymilkQty(items) {
+    return items.reduce((s, i) => s + (i.qty || 0), 0)
+  }
+
+  // 顯示用文字，例如「800ml×2, 1000ml×1」
+  function soymilkItemsLabel(order) {
+    const items = normalizeSoymilkItems(order)
+    if (!items.length) return null
+    return items.map(i => `${i.volume}ml×${i.qty}`).join('、')
+  }
+
+  // 計算金額（豆漿：每滿 800cc 算一份 $50，不滿 800cc 至少算一份）
+  function soymilkItemPrice(volume, qty) {
+    const units = Math.max(1, Math.floor((volume || 0) / 800))
+    return units * 50 * (qty || 0)
+  }
+
+  function calcTotal(order) {
+    const items = normalizeSoymilkItems(order)
+    const soymilkTotal = items.reduce((s, i) => s + soymilkItemPrice(i.volume, i.qty), 0)
+    return soymilkTotal + (order.tofuQty || 0) * 50
+  }
+
+  // 新建一個空豆漿項目
+  function newSoymilkItem() {
+    return {volume: 800, customVolume: 0, qty: 1}
+  }
+
+  // 依容量彙總整組的豆漿明細，例如「800ml×1、2600ml×2、1700ml×3、1000ml×2」
+  function buildVolumeBreakdown(orders) {
+    const map = new Map()
+    for (const o of orders) {
+      for (const i of normalizeSoymilkItems(o)) {
+        if (!i.qty) continue
+        map.set(i.volume, (map.get(i.volume) || 0) + i.qty)
+      }
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([volume, qty]) => `${volume}ml×${qty}`)
+      .join('、')
+  }
+
+  function isToday(dateStr) {
+    return dateStr === todayDateStr()
+  }
+
+  const groupedOrders = computed(() => {
+    const withPickup = filteredOrders.value.map(o => ({
+      ...o,
+      _pickupDate: resolvePickupDate(o.pickupDay, o.createdAt, o.pickupDate)
+    }))
+
+    const map = new Map()
+    for (const o of withPickup) {
+      if (!map.has(o._pickupDate)) map.set(o._pickupDate, [])
+      map.get(o._pickupDate).push(o)
+    }
+
+    return Array.from(map.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, orders]) => {
+        const weekDay = ['日', '一', '二', '三', '四', '五', '六'][new Date(date + 'T00:00:00').getDay()]
+        const [, m, d] = date.split('-')
+        const active = orders.filter(o => o.status !== '已取消')
+        const soymilkQty = active.reduce((s, o) => {
+          const items = normalizeSoymilkItems(o)
+          return s + items.reduce((a, i) => a + (i.qty || 0), 0)
+        }, 0)
+        const soymilkMl = active.reduce((s, o) => {
+          const items = normalizeSoymilkItems(o)
+          return s + items.reduce((a, i) => a + (i.volume || 0) * (i.qty || 0), 0)
+        }, 0)
+        const tofu = active.reduce((s, o) => s + (o.tofuQty || 0), 0)
+        const soymilkBreakdown = buildVolumeBreakdown(active)
+        return {date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk: soymilkQty, soymilkMl, soymilkBreakdown, tofu}
+      })
+  })
+
+  // 從訂單建立時間往後找最近的營業日；有 pickupDate 欄位則直接用
+  function resolvePickupDate(pickupDay, createdAt, pickupDate) {
+    if (pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) return pickupDate
+    if (!createdAt) return '9999-99-99'
+    const targetDow = codeToDow(pickupDay)
+    const base = new Date(createdAt.replace(' ', 'T'))
+    const diff = (targetDow - base.getDay() + 7) % 7
+    const result = new Date(base)
+    result.setDate(base.getDate() + diff)
+    return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
+  }
+
+  // ── 格式化訂購時間 ────────────────────────────────────────────────
+  function formatCreatedAt(createdAt) {
+    if (!createdAt) return ''
+    const d = new Date(createdAt.replace(' ', 'T'))
+    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    const hh = String(d.getHours()).padStart(2, '0')
+    const min = String(d.getMinutes()).padStart(2, '0')
+    return `${mm}/${dd}（週${weekDay}）${hh}:${min}`
+  }
+
+  const updatingId = ref('')
+
+  const updateStatus = async (order, newStatus) => {
+    updatingId.value = order.id
+    try {
+      await fetch(`${BASE.value}/admin/status/${order.month}/${order.id}?status=${encodeURIComponent(newStatus)}`, {
+        method: 'PATCH',
+        credentials: 'include'
+      })
+      order.status = newStatus
+    } catch {
+      alert('更新失敗')
+    } finally {
+      updatingId.value = ''
+    }
+  }
+
+  // ── 狀態樣式 ──────────────────────────────────────────────────────
+  const statusClass = s => ({
+    待確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700',
+    已確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700',
+    已付款: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700',
+    已取貨: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700',
+    已取消: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500'
+  }[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c')
+
+  // 根據訂單的取貨日資訊產生顯示文字：有 pickupDate 就直接用，否則用 createdAt 推算當週的營業日
+  // （若訂單建立當天已超過取貨日，則取下一週）
+  const pickupLabel = (order) => {
+    const dow = codeToDow(order?.pickupDay)
+    const label = DOW_LABEL[dow]
+    if (!label) return order?.pickupDay ?? ''
+
+    // 優先使用明確指定的 pickupDate，避免與 createdAt 推算結果不一致
+    if (order?.pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(order.pickupDate)) {
+      const d = new Date(order.pickupDate + 'T00:00:00')
+      return `${label} ${d.getMonth() + 1}/${d.getDate()}`
+    }
+
+    const base = order?.createdAt ? new Date(order.createdAt) : new Date()
+    const baseDow = base.getDay() // 0=日
+    let diff = dow - baseDow
+    if (diff < 0) diff += 7 // 已過，取下週
+    const target = new Date(base)
+    target.setDate(base.getDate() + diff)
+    const m = target.getMonth() + 1
+    const d = target.getDate()
+    return `${label} ${m}/${d}`
+  }
+
+  const STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
+
+  // ── 刪除 ──────────────────────────────────────────────────────────
+  const deleteModal = ref({show: false, order: null, submitting: false})
+
+  const openDeleteModal = (order) => {
+    deleteModal.value = {show: true, order, submitting: false}
+  }
+  const closeDeleteModal = () => {
+    deleteModal.value = {show: false, order: null, submitting: false}
+  }
+
+  const confirmDelete = async () => {
+    const {order} = deleteModal.value
+    if (!order) return
+    deleteModal.value.submitting = true
+    try {
+      const res = await fetch(`${BASE.value}/admin/order/${order.month}/${order.id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('刪除失敗：' + data.error);
+        return
+      }
+      orders.value = orders.value.filter(o => o.id !== order.id)
+      closeDeleteModal()
+    } catch {
+      alert('刪除失敗')
+    } finally {
+      deleteModal.value.submitting = false
+    }
+  }
+
+  // ── 新增訂單 ──────────────────────────────────────────────────────
+  const createModal = ref({show: false, submitting: false})
+  const createForm = ref({
+    name: '', contact: '', pickupDay: 'tue', pickupDate: '',
+    soymilkItems: [newSoymilkItem()], tofuQty: 0, remark: '', status: '已確認'
+  })
+
+  const openCreateModal = () => {
+    createForm.value = {
+      name: '',
+      contact: '',
+      pickupDay: 'tue',
+      pickupDate: '',
+      soymilkItems: [newSoymilkItem()],
+      tofuQty: 0,
+      remark: '',
+      status: '已確認'
+    }
+    createModal.value = {show: true, submitting: false}
+  }
+  const closeCreateModal = () => {
+    createModal.value = {show: false, submitting: false}
+  }
+
+  const addSoymilkItem = (form) => {
+    form.soymilkItems.push(newSoymilkItem())
+  }
+  const removeSoymilkItem = (form, idx) => {
+    form.soymilkItems.splice(idx, 1)
+  }
+  const adjItemQty = (item, delta) => {
+    item.qty = Math.max(1, (item.qty || 1) + delta)
+  }
+  const adjTofuQty = (form, delta) => {
+    form.tofuQty = Math.max(0, (form.tofuQty || 0) + delta)
+  }
+
+  // 計算 form 的小計
+  function formTotal(form) {
+    const sm = form.soymilkItems.reduce((s, i) => s + soymilkItemPrice(resolveVol(i), i.qty), 0)
+    return sm + (form.tofuQty || 0) * 50
+  }
+
+  // 解析容量（-1 表示自訂）
+  function resolveVol(item) {
+    return item.volume === -1 ? (item.customVolume || 0) : (item.volume || 800)
+  }
+
+  const submitCreate = async () => {
+    const f = createForm.value
+    if (!f.name.trim()) {
+      alert('請輸入姓名');
       return
     }
-    const target = orders.value.find(o => o.id === editModal.value.orderId)
-    if (target) Object.assign(target, payload)
-    closeEditModal()
-  } catch {
-    alert('編輯失敗')
-  } finally {
-    editModal.value.submitting = false
+    if (!f.contact.trim()) {
+      alert('請輸入聯絡方式');
+      return
+    }
+    const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
+    if (!hasSoymilk && f.tofuQty === 0) {
+      alert('請選擇豆漿或豆腐數量');
+      return
+    }
+
+    // ── 休息日檢查：有自訂日期用自訂日期，否則用當週推算 ──────────
+    const resolvedPickupDate = f.pickupDate || nextPickupDateFromNow(f.pickupDay)
+    if (closedDates.value.includes(resolvedPickupDate)) {
+      const d = new Date(resolvedPickupDate + 'T00:00:00')
+      const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+      alert(`${d.getMonth() + 1}/${d.getDate()}（週${weekDay}）為休息日，無法新增訂單`)
+      return
+    }
+    createModal.value.submitting = true
+    try {
+      const soymilkItems = f.soymilkItems
+        .filter(i => i.qty > 0)
+        .map(i => ({volume: resolveVol(i), qty: i.qty}))
+      const payload = {
+        name: f.name.trim(), contact: f.contact.trim(),
+        pickupDay: f.pickupDay,
+        soymilkItems,
+        soymilkQty: soymilkItems.reduce((s, i) => s + i.qty, 0),
+        soymilkVolume: soymilkItems.length === 1 ? soymilkItems[0].volume : 0,
+        tofuQty: f.tofuQty,
+        remark: f.remark.trim(),
+        status: f.status,
+        ...(f.pickupDate ? {pickupDate: f.pickupDate} : {})
+      }
+      const res = await fetch(`${BASE.value}/order`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('新增失敗：' + data.error);
+        return
+      }
+      closeCreateModal()
+      await fetchData()
+    } catch {
+      alert('新增失敗')
+    } finally {
+      createModal.value.submitting = false
+    }
   }
-}
+
+  // ── 提示訊息設定 ──────────────────────────────────────────────────
+  const showHintSettings = ref(false)
+  const hintSaving = ref(false)
+  const hintSaved = ref(false)
+
+  // ── LINE / Discord 連線設定（獨立設定，不沿用其他功能的設定）───
+  const notifyLineAccessToken = ref('')
+  const notifyLineGroupId = ref('')
+  const notifyDiscordWebhook = ref('')
+  const notifySaving = ref(false)
+  const notifySaved = ref(false)
+
+  // 取貨提醒：前一天彙整當天所有訂單，合併成一則訊息發送（LINE、Discord 各自獨立開關）
+  const reminderLineEnabled = ref(false)
+  const reminderDiscordEnabled = ref(false)
+  const reminderHour = ref(18)
+  const reminderTesting = ref(false)
+  const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => i)
+
+  const fetchNotifySettings = async () => {
+    try {
+      const res = await fetch(`${BASE.value}/admin/settings/notify`, {credentials: 'include'})
+      const data = await res.json()
+      if (!data.error) {
+        notifyLineAccessToken.value = data.lineAccessToken || ''
+        notifyLineGroupId.value = data.lineGroupId || ''
+        notifyDiscordWebhook.value = data.discordWebhook || ''
+        reminderLineEnabled.value = !!data.reminderLineEnabled
+        reminderDiscordEnabled.value = !!data.reminderDiscordEnabled
+        reminderHour.value = data.reminderHour ?? 18
+      }
+    } catch {
+    }
+  }
+
+  const saveNotifySettings = async () => {
+    notifySaving.value = true
+    notifySaved.value = false
+    try {
+      const res = await fetch(`${BASE.value}/admin/settings/notify`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({
+          lineAccessToken: notifyLineAccessToken.value.trim(),
+          lineGroupId: notifyLineGroupId.value.trim(),
+          discordWebhook: notifyDiscordWebhook.value.trim(),
+          reminderLineEnabled: reminderLineEnabled.value,
+          reminderDiscordEnabled: reminderDiscordEnabled.value,
+          reminderHour: reminderHour.value
+        })
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('儲存失敗：' + data.error);
+        return
+      }
+      notifySaved.value = true
+      setTimeout(() => notifySaved.value = false, 2000)
+    } catch {
+      alert('儲存失敗')
+    } finally {
+      notifySaving.value = false
+    }
+  }
+
+  // 手動測試取貨提醒：立即檢查指定日期是否有訂單並發送，不受設定的提醒時間限制
+  // offsetDays：1＝明天（正常提醒對象），0＝今天（取貨當天，方便臨時確認名單）
+  const testReminder = async (offsetDays = 1) => {
+    reminderTesting.value = true
+    try {
+      const res = await fetch(`${BASE.value}/admin/reminder/test?offsetDays=${offsetDays}`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+      const data = await res.json()
+      alert(data.error ? '測試失敗：' + data.error : data.message)
+    } catch {
+      alert('測試失敗')
+    } finally {
+      reminderTesting.value = false
+    }
+  }
+
+  const HINT_STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
+  const hintBadgeClass = s => ({
+    待確認: 'bg-amber-100 text-amber-700',
+    已確認: 'bg-emerald-100 text-emerald-700',
+    已付款: 'bg-blue-100 text-blue-700',
+    已取貨: 'bg-teal-100 text-teal-700',
+    已取消: 'bg-red-100 text-red-500'
+  }[s] || 'bg-surface2 text-hint-c')
+
+  const hints = ref({
+    待確認: '我們已收到您的預約，將盡快來電確認。',
+    已確認: '訂單已確認，請於取貨日前來取貨！',
+    已付款: '已收到您的付款，感謝您的訂購！',
+    已取貨: '感謝您的訂購，歡迎再次訂購！',
+    已取消: '此筆訂單已取消，歡迎再次訂購。'
+  })
+
+  const fetchHints = async () => {
+    try {
+      const res = await fetch(`${BASE.value}/settings/hints`, {credentials: 'include'})
+      const data = await res.json()
+      if (!data.error) Object.assign(hints.value, data)
+    } catch {
+    }
+  }
+
+  const saveHints = async () => {
+    hintSaving.value = true
+    hintSaved.value = false
+    try {
+      const res = await fetch(`${BASE.value}/settings/hints`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify(hints.value)
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('儲存失敗：' + data.error);
+        return
+      }
+      hintSaved.value = true
+      setTimeout(() => hintSaved.value = false, 2500)
+    } catch {
+      alert('儲存失敗')
+    } finally {
+      hintSaving.value = false
+    }
+  }
+
+  // ── 休息日設定 ────────────────────────────────────────────────────
+  const closedDates = ref([]) // ['2026-06-17', '2026-06-24']
+  const closedDateInput = ref('') // 新增輸入框
+  const closedSaving = ref(false)
+  const closedSaved = ref(false)
+
+  const fetchClosedDates = async () => {
+    try {
+      const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {credentials: 'include'})
+      const data = await res.json()
+      closedDates.value = Array.isArray(data.closedDates) ? data.closedDates : []
+    } catch {
+    }
+  }
+
+  const addClosedDate = async () => {
+    const d = closedDateInput.value.trim()
+    if (!d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      alert('請輸入正確日期格式 YYYY-MM-DD');
+      return
+    }
+    if (closedDates.value.includes(d)) {
+      alert('此日期已在休息日清單中');
+      return
+    }
+    closedSaving.value = true
+    try {
+      const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({date: d})
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('新增失敗：' + data.error);
+        return
+      }
+      closedDates.value = data.closedDates
+      closedDateInput.value = ''
+      closedSaved.value = true
+      setTimeout(() => closedSaved.value = false, 2000)
+    } catch {
+      alert('新增失敗')
+    } finally {
+      closedSaving.value = false
+    }
+  }
+
+  const removeClosedDate = async (date) => {
+    closedSaving.value = true
+    try {
+      const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({date})
+      })
+      const data = await res.json()
+      if (data.error) {
+        alert('刪除失敗：' + data.error);
+        return
+      }
+      closedDates.value = data.closedDates
+    } catch {
+      alert('刪除失敗')
+    } finally {
+      closedSaving.value = false
+    }
+  }
+
+  // 格式化休息日顯示：2026-06-17 → 06/17（週三）
+  function formatClosedDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00')
+    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（週${weekDay}）`
+  }
+
+  // 是否為休息日（用於訂單列表標記）
+  function isClosedDate(dateStr) {
+    return closedDates.value.includes(dateStr)
+  }
+
+  // ── 新增訂單姓名自動完成 ──────────────────────────────────────────
+  const createNameSuggest = ref([])
+  const showCreateSuggest = ref(false)
+
+  // 從現有訂單建立姓名→聯絡對照表（去重，最新訂單優先）
+  const knownCustomers = computed(() => {
+    const map = new Map()
+    const sorted = [...orders.value].sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || ''))
+    for (const o of sorted) {
+      if (o.name && !map.has(o.name)) {
+        map.set(o.name, o.contact || '')
+      }
+    }
+    return map
+  })
+
+  function onCreateNameInput() {
+    const val = createForm.value.name.trim()
+    if (!val) {
+      showCreateSuggest.value = false;
+      return
+    }
+    const matches = [...knownCustomers.value.keys()]
+      .filter(n => n.includes(val) && n !== val)
+      .slice(0, 6)
+    createNameSuggest.value = matches
+    showCreateSuggest.value = matches.length > 0
+  }
+
+  function onPickupDateChange() {
+    const d = createForm.value.pickupDate
+    if (!d) return
+    const dow = new Date(d + 'T00:00:00').getDay() === 0 ? 7 : new Date(d + 'T00:00:00').getDay() // 0=日→7
+    createForm.value.pickupDay = dowToCode(dow)
+  }
+
+  function pickCreateCustomer(name) {
+    createForm.value.name = name
+    createForm.value.contact = knownCustomers.value.get(name) || createForm.value.contact
+    showCreateSuggest.value = false
+  }
+
+  function onEditPickupDateChange() {
+    const d = editForm.value.pickupDate
+    if (!d) return
+    const dow0 = new Date(d + 'T00:00:00').getDay()
+    const dow = dow0 === 0 ? 7 : dow0
+    editForm.value.pickupDay = dowToCode(dow)
+  }
+
+  // 編輯表單取貨日按鈕顯示用：以目前已知的取貨日期為基準，算出按鈕對應的星期幾日期
+  function editPickupDateLabel(code) {
+    const targetDow = codeToDow(code)
+    const baseDateStr = editForm.value.pickupDate || nextPickupDateFromNow(editForm.value.pickupDay)
+    const base = new Date(baseDateStr + 'T00:00:00')
+    const baseDow0 = base.getDay()
+    const baseDow = baseDow0 === 0 ? 7 : baseDow0
+    const diff = targetDow - baseDow
+    const result = new Date(base)
+    result.setDate(base.getDate() + diff)
+    return `${result.getMonth() + 1}/${result.getDate()}`
+  }
+
+  // ── 編輯訂單 ──────────────────────────────────────────────────────
+  const editModal = ref({show: false, submitting: false, orderId: '', orderMonth: ''})
+  const editForm = ref({
+    name: '', contact: '', pickupDay: 'tue', pickupDate: '',
+    soymilkItems: [newSoymilkItem()], tofuQty: 0,
+    remark: '', status: '待確認'
+  })
+
+  const openEditModal = (order) => {
+    const raw = normalizeSoymilkItems(order)
+    const soymilkItems = raw.length > 0
+      ? raw.map(i => ({
+        volume: PRESET_VOLS.includes(i.volume) ? i.volume : -1,
+        customVolume: PRESET_VOLS.includes(i.volume) ? 0 : i.volume,
+        qty: i.qty || 1
+      }))
+      : [newSoymilkItem()]
+    editForm.value = {
+      name: order.name || '',
+      contact: order.contact || '',
+      pickupDay: order.pickupDay || 'tue',
+      pickupDate: order.pickupDate || '',
+      soymilkItems,
+      tofuQty: order.tofuQty || 0,
+      remark: order.remark || '',
+      status: order.status || '待確認'
+    }
+    editModal.value = {show: true, submitting: false, orderId: order.id, orderMonth: order.month}
+  }
+
+  const closeEditModal = () => {
+    editModal.value = {show: false, submitting: false, orderId: '', orderMonth: ''}
+  }
+
+  const submitEdit = async () => {
+    const f = editForm.value
+    if (!f.name.trim()) {
+      alert('請輸入姓名');
+      return
+    }
+    if (!f.contact.trim()) {
+      alert('請輸入聯絡方式');
+      return
+    }
+    const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
+    if (!hasSoymilk && f.tofuQty === 0) {
+      alert('請選擇豆漿或豆腐數量');
+      return
+    }
+
+    editModal.value.submitting = true
+    try {
+      const soymilkItems = f.soymilkItems
+        .filter(i => i.qty > 0)
+        .map(i => ({volume: resolveVol(i), qty: i.qty}))
+      const payload = {
+        name: f.name.trim(),
+        contact: f.contact.trim(),
+        pickupDay: f.pickupDay,
+        soymilkItems,
+        soymilkQty: soymilkItems.reduce((s, i) => s + i.qty, 0),
+        soymilkVolume: soymilkItems.length === 1 ? soymilkItems[0].volume : 0,
+        tofuQty: f.tofuQty,
+        remark: f.remark.trim(),
+        status: f.status,
+        pickupDate: f.pickupDate || ''
+      }
+      const res = await fetch(
+        `${BASE.value}/admin/order/${editModal.value.orderMonth}/${editModal.value.orderId}`,
+        {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        }
+      )
+      const data = await res.json()
+      if (data.error) {
+        alert('編輯失敗：' + data.error);
+        return
+      }
+      const target = orders.value.find(o => o.id === editModal.value.orderId)
+      if (target) Object.assign(target, payload)
+      closeEditModal()
+    } catch {
+      alert('編輯失敗')
+    } finally {
+      editModal.value.submitting = false
+    }
+  }
 </script>
 
 <template>
@@ -1639,12 +1669,21 @@ const submitEdit = async () => {
       <template v-else>
         <div
           v-for="group in groupedOrders"
+          :id="`pickup-group-${group.date}`"
           :key="group.date"
-          class="mb-4"
+          class="mb-4 scroll-mt-4"
+          :class="{ 'ring-2 ring-green-500 rounded-2xl bg-green-50/60 dark:bg-green-900/10 p-2 -m-2 mb-4': isToday(group.date) }"
         >
           <!-- 日期分隔標題 -->
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-xs font-bold text-hint-c whitespace-nowrap">{{ group.dateLabel }}</span>
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span
+              class="text-xs font-bold whitespace-nowrap"
+              :class="isToday(group.date) ? 'text-green-700 dark:text-green-400' : 'text-hint-c'"
+            >{{ group.dateLabel }}</span>
+            <span
+              v-if="isToday(group.date)"
+              class="px-1.5 py-0.5 bg-green-600 text-white rounded text-xs font-bold whitespace-nowrap"
+            >今天</span>
             <span
               v-if="isClosedDate(group.date)"
               class="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium"
@@ -1669,7 +1708,10 @@ const submitEdit = async () => {
               <span
                 v-if="group.soymilk"
                 class="text-green-700 font-semibold"
-              >豆漿 {{ group.soymilkMl }}ml<span class="text-hint-c font-normal text-xs">（{{ group.soymilk }} 袋）</span></span>
+              >豆漿 {{ group.soymilkMl }}ml<span
+                v-if="group.soymilkBreakdown"
+                class="text-hint-c font-normal text-xs"
+              >（{{ group.soymilkBreakdown }}）</span><span class="text-hint-c font-normal text-xs">・{{ group.soymilk }} 袋</span></span>
               <span
                 v-if="group.soymilk && group.tofu"
                 class="text-hint-c"
@@ -2558,45 +2600,45 @@ const submitEdit = async () => {
 </template>
 
 <style scoped>
-.filter-chip {
-  padding: 3px 12px;
-  border: 1.5px solid #e7e5e4;
-  border-radius: 20px;
-  background: white;
-  color: #78716c;
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.12s;
-  white-space: nowrap;
-}
+  .filter-chip {
+    padding: 3px 12px;
+    border: 1.5px solid #e7e5e4;
+    border-radius: 20px;
+    background: white;
+    color: #78716c;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
 
-.dark .filter-chip {
-  border-color: #52525b;
-  background: #3f3f46;
-  color: #d6d3d1;
-}
+  .dark .filter-chip {
+    border-color: #52525b;
+    background: #3f3f46;
+    color: #d6d3d1;
+  }
 
-.filter-chip.active {
-  background: #15803d;
-  color: white;
-  border-color: #15803d;
-}
+  .filter-chip.active {
+    background: #15803d;
+    color: white;
+    border-color: #15803d;
+  }
 
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.2s;
-}
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.2s;
+  }
 
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
+  .fade-enter-from, .fade-leave-to {
+    opacity: 0;
+  }
 
-.hint-panel-enter-active, .hint-panel-leave-active {
-  transition: opacity 0.2s, transform 0.2s;
-}
+  .hint-panel-enter-active, .hint-panel-leave-active {
+    transition: opacity 0.2s, transform 0.2s;
+  }
 
-.hint-panel-enter-from, .hint-panel-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
+  .hint-panel-enter-from, .hint-panel-leave-to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 </style>
