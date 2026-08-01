@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff' })
+definePageMeta({layout: 'staff'})
 
 const commonStore = useCommonStore()
 const customerStore = useCustomerStore()
@@ -17,8 +17,13 @@ const switching = ref(false)
 const groupLabel = groupId =>
   permGroups.value.find(g => g.id === groupId)?.label ?? groupId ?? ''
 
+// 依權限組排序（permGroups 已由後端依 order 排好）過濾出此用戶可切換的群組
+const sortedMyGroups = computed(() =>
+  permGroups.value.filter(g => myGroups.value.includes(g.id)).map(g => g.id)
+)
+
 // ── 表單 ─────────────────────────────────────────────────────────
-const form = reactive({ mobile: '', landline: '', address: '', birthday: '', note: '' })
+const form = reactive({mobile: '', landline: '', address: '', birthday: '', note: ''})
 const saving = ref(false)
 const saved = ref(false)
 const error = ref('')
@@ -39,12 +44,18 @@ const validateLandline = (c) => {
 }
 
 const onMobileInput = () => {
-  if (!form.mobile) { mobileError.value = ''; return }
+  if (!form.mobile) {
+    mobileError.value = '';
+    return
+  }
   const c = form.mobile.replace(/[-\s]/g, '')
   mobileError.value = validateMobile(c) ? '' : '請輸入正確的手機號碼（09xxxxxxxx）'
 }
 const onLandlineInput = () => {
-  if (!form.landline) { landlineError.value = ''; return }
+  if (!form.landline) {
+    landlineError.value = '';
+    return
+  }
   const c = form.landline.replace(/[-\s]/g, '')
   landlineError.value = validateLandline(c) ? '' : '請輸入正確的市話（如 02-12345678、07-1234567）'
 }
@@ -72,7 +83,9 @@ const fetchPermInfo = async () => {
     const userData = await userRes.json()
     myGroups.value = userData.groups || []
     activeGroup.value = userData.activeGroup || myGroups.value[0] || ''
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 // ── 切換使用中群組：導覽選單與權限依此顯示，不影響可切換範圍 ─────
@@ -83,8 +96,8 @@ const switchActiveGroup = async (groupId) => {
   try {
     const res = await fetch(`${PERM_BASE.value}/user/${customer.value.id}/active-group`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ group: groupId })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({group: groupId})
     })
     const data = await res.json()
     if (data.error) throw new Error(data.error)
@@ -107,11 +120,15 @@ const saveProfile = async () => {
   if (form.mobile) {
     const c = form.mobile.replace(/[-\s]/g, '')
     mobileError.value = validateMobile(c) ? '' : '請輸入正確的手機號碼（09xxxxxxxx）'
-  } else { mobileError.value = '' }
+  } else {
+    mobileError.value = ''
+  }
   if (form.landline) {
     const c = form.landline.replace(/[-\s]/g, '')
     landlineError.value = validateLandline(c) ? '' : '請輸入正確的市話（如 02-12345678、07-1234567）'
-  } else { landlineError.value = '' }
+  } else {
+    landlineError.value = ''
+  }
   if (mobileError.value || landlineError.value) return
 
   saving.value = true
@@ -120,7 +137,7 @@ const saveProfile = async () => {
   try {
     const res = await fetch(`${BASE.value}/profile`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       credentials: 'include',
       body: JSON.stringify(form)
     })
@@ -128,7 +145,7 @@ const saveProfile = async () => {
     if (data.error) throw new Error(data.error)
 
     // 更新 store，讓 navbar 等地方也同步
-    customerStore.setCustomer({ ...customer.value, ...form })
+    customerStore.setCustomer({...customer.value, ...form})
     saved.value = true
     setTimeout(() => saved.value = false, 3000)
   } catch (e) {
@@ -198,7 +215,8 @@ onMounted(() => {
             <p class="text-xs text-hint-c truncate">
               {{ customer.email }}
             </p>
-            <span class="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+            <span
+              class="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
               {{ groupLabel(activeGroup) }}
             </span>
           </div>
@@ -217,7 +235,7 @@ onMounted(() => {
           </p>
           <div class="flex flex-wrap gap-2">
             <button
-              v-for="gid in myGroups"
+              v-for="gid in sortedMyGroups"
               :key="gid"
               type="button"
               :disabled="switching"
