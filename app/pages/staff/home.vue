@@ -188,6 +188,7 @@ function getAudioCtx() {
 }
 function unlockAudio() {
   getAudioCtx()
+  primeSpeech()
 }
 
 function playTones(tones, waveType) {
@@ -220,6 +221,73 @@ function playDeleteSound() {
   playTones([523, 349], 'triangle')
 }
 
+// ── 語音播報新訂單（瀏覽器內建 Web Speech API，不需要額外服務）───────────
+function primeSpeech() {
+  // 部分瀏覽器（尤其 Chrome）需要先有一次使用者互動才願意播放語音，這裡先「唸」一個空字串預熱
+  try {
+    if (!window.speechSynthesis) return
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(''))
+  } catch (e) { /* 忽略 */ }
+}
+
+function speakText(text) {
+  try {
+    if (!window.speechSynthesis || !text) return
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = 'zh-TW'
+    utter.rate = 1
+    window.speechSynthesis.speak(utter)
+  } catch (e) { /* 語音播放失敗不影響其他功能 */ }
+}
+
+// 時間唸法，例如 "12:00" → "12點"，"12:30" → "12點30分"
+function timeToSpoken(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  if (Number.isNaN(h)) return t
+  return m ? `${h}點${m}分` : `${h}點`
+}
+
+// 訂位／便當的葷素細項唸法，例如「葷2位、全素1位」或「葷便當2個、全素便當1個」
+function spokenTypeBreakdown(item, unit) {
+  const parts = []
+  if (item.meatQty) parts.push(`葷${unit}${item.meatQty}`)
+  if (item.fullVegQty) parts.push(`全素${unit}${item.fullVegQty}`)
+  if (item.eggVegQty) parts.push(`蛋奶素${unit}${item.eggVegQty}`)
+  if (item.spiceVegQty) parts.push(`五辛素${unit}${item.spiceVegQty}`)
+  return parts.join('、')
+}
+
+function bookingSpokenText(item, prefix = '新訂位') {
+  const detail = spokenTypeBreakdown(item, '') || '尚未填寫數量'
+  const timeText = timeToSpoken(item.time)
+  const nameText = item.name || '未填姓名'
+  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}位`
+}
+
+function lunchSpokenText(item, prefix = '新便當訂單') {
+  const parts = []
+  if (item.meatQty) parts.push(`葷便當${item.meatQty}個`)
+  if (item.fullVegQty) parts.push(`全素便當${item.fullVegQty}個`)
+  if (item.eggVegQty) parts.push(`蛋奶素便當${item.eggVegQty}個`)
+  if (item.spiceVegQty) parts.push(`五辛素便當${item.spiceVegQty}個`)
+  const detail = parts.join('、') || '尚未填寫數量'
+  const timeText = timeToSpoken(item.time)
+  const nameText = item.name || '未填姓名'
+  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}`
+}
+
+function soybeanSpokenText(item, prefix = '新豆製品訂購') {
+  const parts = []
+  for (const b of (item.soymilkBreakdown || [])) {
+    parts.push(`豆漿${b.volume}毫升${b.qty}袋`)
+  }
+  if (item.tofuQty) parts.push(`豆腐${item.tofuQty}塊`)
+  const detail = parts.join('、') || '尚未填寫數量'
+  const nameText = item.name || '未填姓名'
+  return `${prefix}，${nameText}，${detail}`
+}
+
 function toggleSound() {
   soundEnabled.value = !soundEnabled.value
   saveSoundPref()
@@ -228,6 +296,8 @@ function toggleSound() {
     // 依序播兩種聲音，讓使用者一次聽出新訂單／刪除的差異
     playCreateSound()
     setTimeout(playDeleteSound, 900)
+    setTimeout(() => speakText('新訂位，王先生，12點，葷2位'), 1500)
+    setTimeout(() => speakText('訂位取消，王先生，12點，葷2位'), 3200)
   }
 }
 
@@ -273,18 +343,27 @@ async function syncNewOrders() {
     const newSoybeanIds = new Set(newSoybeans.map(i => i.id))
     let gotCreated = false
     let gotDeleted = false
+    let gotCheckedIn = false
+    const spokenPhrases = []
 
-    // 新增
+    // 新增／已入位
     for (const item of newBookings) {
-      if (!knownBookings.has(item.id)) {
+      const prev = knownBookings.get(item.id)
+      if (!prev) {
         gotCreated = true
         pushNotification('🍽️', '新訂位', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+        spokenPhrases.push(bookingSpokenText(item))
+      } else if (prev.status !== '已入位' && item.status === '已入位') {
+        gotCheckedIn = true
+        pushNotification('🪑', '訂位已入位', `${item.name || '未填姓名'}　${item.time || ''}`, 'booking')
+        spokenPhrases.push(`${item.name || '未填姓名'}，已入位`)
       }
     }
     for (const item of newLunches) {
       if (!knownLunches.has(item.id)) {
         gotCreated = true
         pushNotification('🍱', '新便當訂單', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+        spokenPhrases.push(lunchSpokenText(item))
       }
     }
     for (const item of newSoybeans) {
@@ -295,20 +374,24 @@ async function syncNewOrders() {
         if (soyText) parts.push(`豆漿 ${soyText}`)
         if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
         pushNotification('🥛', '新豆製品訂購', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
+        spokenPhrases.push(soybeanSpokenText(item))
       }
     }
 
     // 刪除（用刪除前記住的內容顯示，因為新資料裡已經沒有這筆了）
+    const spokenDeletePhrases = []
     for (const [id, item] of knownBookings) {
       if (!newBookingIds.has(id)) {
         gotDeleted = true
         pushNotification('🗑️', '訂位已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+        spokenDeletePhrases.push(bookingSpokenText(item, '訂位取消'))
       }
     }
     for (const [id, item] of knownLunches) {
       if (!newLunchIds.has(id)) {
         gotDeleted = true
         pushNotification('🗑️', '便當訂單已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+        spokenDeletePhrases.push(lunchSpokenText(item, '便當訂單取消'))
       }
     }
     for (const [id, item] of knownSoybeans) {
@@ -319,15 +402,22 @@ async function syncNewOrders() {
         if (soyText) parts.push(`豆漿 ${soyText}`)
         if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
         pushNotification('🗑️', '豆製品訂購已刪除', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
+        spokenDeletePhrases.push(soybeanSpokenText(item, '豆製品訂購取消'))
       }
     }
 
     syncKnownItems(data)
 
-    if (gotCreated || gotDeleted) {
+    if (gotCreated || gotDeleted || gotCheckedIn) {
       if (soundEnabled.value) {
-        if (gotCreated) playCreateSound()
-        if (gotDeleted) setTimeout(playDeleteSound, gotCreated ? 450 : 0)
+        if (gotCreated || gotCheckedIn) playCreateSound()
+        if (gotDeleted) setTimeout(playDeleteSound, (gotCreated || gotCheckedIn) ? 450 : 0)
+        const allPhrases = [...spokenPhrases, ...spokenDeletePhrases]
+        if (allPhrases.length) {
+          // 等提示音都播完再開始念，語音本身會自動排隊依序念完，不用逐句手動間隔
+          const chimeDuration = gotDeleted && (gotCreated || gotCheckedIn) ? 900 : 550
+          setTimeout(() => allPhrases.forEach(speakText), chimeDuration)
+        }
       }
       if (viewMode.value === 'day') daySummary.value = data
       if (weekSummary.value) fetchWeek()
@@ -553,7 +643,7 @@ onUnmounted(() => {
                 class="flex-shrink-0 rounded-full px-2 py-1 border transition-colors"
                 style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
                 :class="soundEnabled ? 'border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'border-light-c text-hint-c'"
-                :title="soundEnabled ? '點一下測試提示音' : '提示音已關閉，點一下開啟'"
+                :title="soundEnabled ? '點一下測試提示音與語音播報' : '提示音已關閉，點一下開啟'"
                 @click="toggleSound"
               >
                 {{ soundEnabled ? '🔔 提示音' : '🔕 靜音中' }}
