@@ -105,6 +105,9 @@ const lunchEggVeg = computed(() => summary.value?.lunch?.eggVeg ?? 0)
 const lunchSpiceVeg = computed(() => summary.value?.lunch?.spiceVeg ?? 0)
 const soybeanSoymilk = computed(() => summary.value?.soybean?.soymilk ?? 0)
 const soybeanTofu = computed(() => summary.value?.soybean?.tofu ?? 0)
+// 豆製品後端會自動抓「未來最近一個出貨日」的訂單，不一定等於今天，這裡算出來給畫面顯示是哪一天
+const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
+const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
 
 const todayEvents = computed(() => allEvents.value.filter(e => e.date === todayStr))
 const weekEvents = computed(() => allEvents.value.filter(e => e.date >= calWeekStart && e.date <= calWeekEnd))
@@ -318,7 +321,7 @@ function openNotification(n) {
   dismissNotification(n.id)
 }
 
-const qtyOf = (item) => (item.meatQty || 0) + (item.fullVegQty || 0) + (item.eggVegQty || 0) + (item.spiceVegQty || 0)
+const qtyOf = item => (item.meatQty || 0) + (item.fullVegQty || 0) + (item.eggVegQty || 0) + (item.spiceVegQty || 0)
 
 function syncKnownItems(data) {
   knownBookings.clear()
@@ -449,10 +452,10 @@ const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', 
 const calChipBg = ev => ev.source === 'google'
   ? '#dbeafe'
   : ({
-    醫院: '#fee2e2',
-    園區: '#dcfce7',
-    芳心: '#fce7f3'
-  }[ev.type] || '#f0f0f0')
+      醫院: '#fee2e2',
+      園區: '#dcfce7',
+      芳心: '#fce7f3'
+    }[ev.type] || '#f0f0f0')
 const calChipText = ev => ev.source === 'google' ? '#1d4ed8' : (calTypeColor[ev.type] || '#555')
 const calBarColor = ev => ev.source === 'google' ? '#2563eb' : (calTypeColor[ev.type] || '#ccc')
 const calBadgeLabel = ev => ev.source === 'google' ? 'Google' : ev.type
@@ -580,11 +583,15 @@ onUnmounted(() => {
             <p
               class="font-bold text-base-c"
               style="font-size:clamp(16px, calc(16px + 0.45vw), 22px)"
-            >{{ n.title }}</p>
+            >
+              {{ n.title }}
+            </p>
             <p
               class="text-muted-c mt-0.5"
               style="font-size:clamp(14px, calc(14px + 0.45vw), 20px)"
-            >{{ n.detail }}</p>
+            >
+              {{ n.detail }}
+            </p>
           </div>
           <button
             class="text-hint-c hover:text-muted-c flex-shrink-0 self-start"
@@ -627,17 +634,17 @@ onUnmounted(() => {
         <!-- ── 今日概況 ── -->
         <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden lg:col-span-2">
           <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-light-c">
-          <span
-            class="font-semibold text-muted-c"
-            style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
-          >
-            {{ viewMode === 'week' ? '本週概況' : '今日概況' }}
             <span
-              v-if="viewMode === 'week' && weekRangeLabel"
-              class="font-normal text-hint-c"
-              style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-            > ({{ weekRangeLabel }})</span>
-          </span>
+              class="font-semibold text-muted-c"
+              style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+            >
+              {{ viewMode === 'week' ? '本週概況' : '今日概況' }}
+              <span
+                v-if="viewMode === 'week' && weekRangeLabel"
+                class="font-normal text-hint-c"
+                style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+              > ({{ weekRangeLabel }})</span>
+            </span>
             <div class="flex items-center gap-1.5 flex-shrink-0">
               <button
                 class="flex-shrink-0 rounded-full px-2 py-1 border transition-colors"
@@ -709,10 +716,10 @@ onUnmounted(() => {
                   class="text-base-c"
                   style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
                 >
-                <span
-                  class="font-black"
-                  style="font-size:clamp(24px, calc(24px + 0.45vw), 34px)"
-                >{{ bookings.length }}</span> 筆
+                  <span
+                    class="font-black"
+                    style="font-size:clamp(24px, calc(24px + 0.45vw), 34px)"
+                  >{{ bookings.length }}</span> 筆
                   · <span class="font-semibold">{{ bookingTotal }}</span> 人
                 </p>
                 <div
@@ -739,11 +746,11 @@ onUnmounted(() => {
                     class="py-1.5 first:pt-0"
                   >
                     <div class="flex items-center gap-2 flex-wrap">
-                    <span
-                      v-if="item.time"
-                      class="flex-shrink-0 font-mono text-hint-c"
-                      style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
-                    >{{ item.time }}</span>
+                      <span
+                        v-if="item.time"
+                        class="flex-shrink-0 font-mono text-hint-c"
+                        style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
+                      >{{ item.time }}</span>
                       <span
                         class="flex-1 min-w-0 truncate font-semibold text-base-c"
                         style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
@@ -785,10 +792,10 @@ onUnmounted(() => {
                   class="text-base-c"
                   style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
                 >
-                <span
-                  class="font-black"
-                  style="font-size:clamp(24px, calc(24px + 0.45vw), 34px)"
-                >{{ lunchTotal }}</span> 個
+                  <span
+                    class="font-black"
+                    style="font-size:clamp(24px, calc(24px + 0.45vw), 34px)"
+                  >{{ lunchTotal }}</span> 個
                 </p>
                 <div
                   class="mt-1 space-y-0.5 text-orange-600 dark:text-orange-400"
@@ -814,11 +821,11 @@ onUnmounted(() => {
                     class="py-1.5 first:pt-0"
                   >
                     <div class="flex items-center gap-2 flex-wrap">
-                    <span
-                      v-if="item.time"
-                      class="flex-shrink-0 font-mono text-hint-c"
-                      style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
-                    >{{ item.time }}</span>
+                      <span
+                        v-if="item.time"
+                        class="flex-shrink-0 font-mono text-hint-c"
+                        style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
+                      >{{ item.time }}</span>
                       <span
                         class="flex-1 min-w-0 truncate font-semibold text-base-c"
                         style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
@@ -847,6 +854,11 @@ onUnmounted(() => {
                   class="font-semibold text-hint-c uppercase tracking-wide"
                   style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
                 >豆製品</span>
+                <span
+                  v-if="soybeanPickupDate && !soybeanIsToday"
+                  class="font-normal text-hint-c"
+                  style="font-size:clamp(9px, calc(9px + 0.45vw), 13px)"
+                >（{{ fmtMDWeekday(soybeanPickupDate) }} 出貨）</span>
               </div>
               <div
                 v-if="soybeanOrders.length === 0"
@@ -860,10 +872,10 @@ onUnmounted(() => {
                   class="text-base-c"
                   style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
                 >
-                <span
-                  class="font-black"
-                  style="font-size:clamp(24px, calc(24px + 0.45vw), 34px)"
-                >{{ soybeanOrders.length }}</span> 筆
+                  <span
+                    class="font-black"
+                    style="font-size:clamp(24px, calc(24px + 0.45vw), 34px)"
+                  >{{ soybeanOrders.length }}</span> 筆
                 </p>
                 <div
                   class="mt-1 space-y-0.5 text-amber-600 dark:text-amber-400"
@@ -883,10 +895,10 @@ onUnmounted(() => {
                     class="py-1.5 first:pt-0"
                   >
                     <div class="flex items-center gap-2 flex-wrap">
-                    <span
-                      class="flex-1 min-w-0 truncate font-semibold text-base-c"
-                      style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
-                    >{{ item.name || '未填姓名' }}</span>
+                      <span
+                        class="flex-1 min-w-0 truncate font-semibold text-base-c"
+                        style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
+                      >{{ item.name || '未填姓名' }}</span>
                       <span
                         class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
                         style="font-size:clamp(9px, calc(9px + 0.45vw), 13px)"
@@ -897,8 +909,12 @@ onUnmounted(() => {
                       class="text-hint-c mt-0.5"
                       style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
                     >
-                      <template v-if="soymilkBreakdownText(item)">🥛 豆漿 {{ soymilkBreakdownText(item) }}</template>
-                      <template v-if="item.tofuQty"> 🟨 豆腐 {{ item.tofuQty }}</template>
+                      <template v-if="soymilkBreakdownText(item)">
+                        🥛 豆漿 {{ soymilkBreakdownText(item) }}
+                      </template>
+                      <template v-if="item.tofuQty">
+                        🟨 豆腐 {{ item.tofuQty }}
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -952,11 +968,11 @@ onUnmounted(() => {
                       :key="item.id"
                     >
                       <div class="flex items-center gap-2 flex-wrap">
-                      <span
-                        v-if="item.time"
-                        class="flex-shrink-0 font-mono text-hint-c"
-                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                      >{{ item.time }}</span>
+                        <span
+                          v-if="item.time"
+                          class="flex-shrink-0 font-mono text-hint-c"
+                          style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                        >{{ item.time }}</span>
                         <span
                           class="flex-1 min-w-0 truncate font-medium text-base-c"
                           style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
@@ -1006,11 +1022,11 @@ onUnmounted(() => {
                       :key="item.id"
                     >
                       <div class="flex items-center gap-2 flex-wrap">
-                      <span
-                        v-if="item.time"
-                        class="flex-shrink-0 font-mono text-hint-c"
-                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                      >{{ item.time }}</span>
+                        <span
+                          v-if="item.time"
+                          class="flex-shrink-0 font-mono text-hint-c"
+                          style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                        >{{ item.time }}</span>
                         <span
                           class="flex-1 min-w-0 truncate font-medium text-base-c"
                           style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
@@ -1060,10 +1076,10 @@ onUnmounted(() => {
                       :key="item.id"
                     >
                       <div class="flex items-center gap-2 flex-wrap">
-                      <span
-                        class="flex-1 min-w-0 truncate font-medium text-base-c"
-                        style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                      >{{ item.name || '未填姓名' }}</span>
+                        <span
+                          class="flex-1 min-w-0 truncate font-medium text-base-c"
+                          style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                        >{{ item.name || '未填姓名' }}</span>
                         <span
                           class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
                           style="font-size:clamp(9px, calc(9px + 0.4vw), 12px)"
@@ -1074,8 +1090,12 @@ onUnmounted(() => {
                         class="text-hint-c"
                         style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
                       >
-                        <template v-if="soymilkBreakdownText(item)">🥛 豆漿 {{ soymilkBreakdownText(item) }}</template>
-                        <template v-if="item.tofuQty"> 🟨 豆腐 {{ item.tofuQty }}</template>
+                        <template v-if="soymilkBreakdownText(item)">
+                          🥛 豆漿 {{ soymilkBreakdownText(item) }}
+                        </template>
+                        <template v-if="item.tofuQty">
+                          🟨 豆腐 {{ item.tofuQty }}
+                        </template>
                       </div>
                     </div>
                   </div>
@@ -1088,17 +1108,17 @@ onUnmounted(() => {
         <!-- ── 今日行事曆 ── -->
         <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
           <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-light-c gap-2 flex-wrap">
-          <span
-            class="font-semibold text-muted-c"
-            style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
-          >
-            {{ calViewMode === 'week' ? '本週行事曆' : '今日行事曆' }}
             <span
-              v-if="calViewMode === 'week'"
-              class="font-normal text-hint-c"
-              style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-            > ({{ calWeekRangeLabel }})</span>
-          </span>
+              class="font-semibold text-muted-c"
+              style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+            >
+              {{ calViewMode === 'week' ? '本週行事曆' : '今日行事曆' }}
+              <span
+                v-if="calViewMode === 'week'"
+                class="font-normal text-hint-c"
+                style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+              > ({{ calWeekRangeLabel }})</span>
+            </span>
             <div class="flex items-center gap-1.5">
               <div class="flex items-center gap-0.5 bg-surface2 rounded-full p-0.5">
                 <button
@@ -1155,10 +1175,10 @@ onUnmounted(() => {
                 class="flex-shrink-0 text-right"
                 style="min-width:42px"
               >
-              <span
-                class="font-mono font-semibold text-hint-c"
-                style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-              >{{ ev.time ? ev.time.split('-')[0] : '' }}</span>
+                <span
+                  class="font-mono font-semibold text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                >{{ ev.time ? ev.time.split('-')[0] : '' }}</span>
               </div>
               <div
                 class="flex-shrink-0 w-1 self-stretch rounded-full mt-0.5"
@@ -1172,18 +1192,18 @@ onUnmounted(() => {
                   {{ ev.title }}
                 </p>
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                <span
-                  v-if="ev.owner"
-                  class="text-hint-c"
-                  style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-                >👤 {{ ev.owner }}</span>
+                  <span
+                    v-if="ev.owner"
+                    class="text-hint-c"
+                    style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                  >👤 {{ ev.owner }}</span>
                   <span
                     v-if="ev.room"
                     class="text-hint-c truncate"
                     style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
                   >
-                  📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
-                </span>
+                    📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
+                  </span>
                 </div>
               </div>
               <span
@@ -1191,8 +1211,8 @@ onUnmounted(() => {
                 style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
                 :style="{ background: calChipBg(ev), color: calChipText(ev) }"
               >
-              {{ calBadgeLabel(ev) }}
-            </span>
+                {{ calBadgeLabel(ev) }}
+              </span>
             </div>
           </div>
 
@@ -1231,10 +1251,10 @@ onUnmounted(() => {
                     class="flex-shrink-0 text-right"
                     style="min-width:42px"
                   >
-                  <span
-                    class="font-mono font-semibold text-hint-c"
-                    style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                  >{{ ev.time ? ev.time.split('-')[0] : '' }}</span>
+                    <span
+                      class="font-mono font-semibold text-hint-c"
+                      style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                    >{{ ev.time ? ev.time.split('-')[0] : '' }}</span>
                   </div>
                   <div
                     class="flex-shrink-0 w-1 self-stretch rounded-full mt-0.5"
@@ -1248,18 +1268,18 @@ onUnmounted(() => {
                       {{ ev.title }}
                     </p>
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                    <span
-                      v-if="ev.owner"
-                      class="text-hint-c"
-                      style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                    >👤 {{ ev.owner }}</span>
+                      <span
+                        v-if="ev.owner"
+                        class="text-hint-c"
+                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                      >👤 {{ ev.owner }}</span>
                       <span
                         v-if="ev.room"
                         class="text-hint-c truncate"
                         style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
                       >
-                      📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
-                    </span>
+                        📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
+                      </span>
                     </div>
                   </div>
                   <span
@@ -1267,8 +1287,8 @@ onUnmounted(() => {
                     style="font-size:clamp(9px, calc(9px + 0.4vw), 13px)"
                     :style="{ background: calChipBg(ev), color: calChipText(ev) }"
                   >
-                  {{ calBadgeLabel(ev) }}
-                </span>
+                    {{ calBadgeLabel(ev) }}
+                  </span>
                 </div>
               </div>
             </div>
