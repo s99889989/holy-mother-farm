@@ -4,6 +4,7 @@
   const commonStore = useCommonStore()
   const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
   const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
+  const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
 
   const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
   const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
@@ -42,6 +43,7 @@
   const daySummary = ref(null)
   const weekSummary = ref(null)
   const allEvents = ref([]) // 本月所有行事曆事件（含 Google），今日／本週都從這裡篩選
+  const recurringRules = ref([]) // 包月訂位規則（跨月時含兩個月），今日／本週都從這裡依星期篩選
 
   const summary = computed(() => (viewMode.value === 'week' ? weekSummary.value : daySummary.value))
   const summaryLoading = computed(() => (viewMode.value === 'week' ? loadingWeek.value : loading.value))
@@ -68,6 +70,23 @@
   const lunchOrders = computed(() => summary.value?.lunch?.items ?? [])
   const soybeanOrders = computed(() => summary.value?.soybean?.items ?? [])
 
+  // ── 包月訂位（recurring）：跟訂位頁一樣，只算 type !== 'lunch'、依星期（JS getDay()：0=日...6=六）篩選當天適用的規則
+  function recurBookingRulesForDate(date) {
+    if (!date) return []
+    const dow = new Date(`${date}T00:00:00`).getDay()
+    return recurringRules.value.filter(r => r.type !== 'lunch' &&
+      (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
+  }
+  const recurGuestsOf = rules => rules.reduce((s, r) =>
+    s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
+
+  const bookingRecurRules = computed(() => recurBookingRulesForDate(todayStr))
+  const bookingRecurGuests = computed(() => recurGuestsOf(bookingRecurRules.value))
+  const bookingRecurMeat = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
+  const bookingRecurFullVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
+  const bookingRecurEggVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
+  const bookingRecurSpiceVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
+
   // 本週的 7 個日期（週一～週日）
   const CAL_WEEK_DATES = (() => {
     const dates = []
@@ -90,9 +109,12 @@
       const sItems = soybeanOrders.value.filter(i => i.date === date)
       const bMeat = sumQty(bItems, 'meatQty'), bVeg = sumQty(bItems, 'fullVegQty') + sumQty(bItems, 'eggVegQty') + sumQty(bItems, 'spiceVegQty')
       const lMeat = sumQty(lItems, 'meatQty'), lVeg = sumQty(lItems, 'fullVegQty') + sumQty(lItems, 'eggVegQty') + sumQty(lItems, 'spiceVegQty')
+      const recurRules = recurBookingRulesForDate(date)
+      const recurG = recurGuestsOf(recurRules)
+      const bOnsite = bMeat + bVeg
       return {
         date,
-        booking: { items: bItems, total: bMeat + bVeg },
+        booking: { items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules },
         lunch: { items: lItems, total: lMeat + lVeg },
         soybean: { items: sItems }
       }
@@ -155,6 +177,11 @@
     if (item.eggVegQty) parts.push(`🥚蛋奶素${item.eggVegQty}`)
     if (item.spiceVegQty) parts.push(`🧄五辛素${item.spiceVegQty}`)
     return parts.join('・')
+  }
+
+  // 單筆訂位/包月的總人數（葷素加總）
+  function itemGuestTotal(item) {
+    return (Number(item.meatQty) || 0) + (Number(item.fullVegQty) || 0) + (Number(item.eggVegQty) || 0) + (Number(item.spiceVegQty) || 0)
   }
 
   // 豆漿容量明細，例如「800ml×2、1200ml×1」——同一筆訂單可能混搭不同容量
@@ -528,6 +555,8 @@
 
       const homePromise = fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
       const calPromises = months.map(ym => fetch(`${CAL_BASE()}/list?yearMonth=${ym}`))
+      // 包月訂位（recurring）是照月份存的，跟行事曆一樣可能跨月，兩個月都要抓
+      const recurPromises = months.map(ym => fetch(`${RECUR_BASE()}/list/${ym}`, { credentials: 'include' }))
 
       let googlePromise = Promise.resolve(null)
       if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
@@ -539,12 +568,21 @@
         googlePromise = fetch(gUrl).catch(() => null)
       }
 
-      const [homeRes, calResults, gRes] = await Promise.all([
+      const [homeRes, calResults, recurResults, gRes] = await Promise.all([
         homePromise,
         Promise.all(calPromises),
+        Promise.all(recurPromises),
         googlePromise
       ])
       if (homeRes?.ok) daySummary.value = await homeRes.json()
+
+      const recurRules = []
+      for (const rRes of recurResults) {
+        if (!rRes.ok) continue
+        const monthRules = await rRes.json()
+        recurRules.push(...monthRules)
+      }
+      recurringRules.value = recurRules
 
       const sysEvents = []
       for (const cRes of calResults) {
@@ -728,7 +766,7 @@
             載入中...
           </div>
           <div
-            v-else-if="bookings.length === 0 && lunchOrders.length === 0 && soybeanOrders.length === 0"
+            v-else-if="bookings.length === 0 && bookingRecurGuests === 0 && lunchOrders.length === 0 && soybeanOrders.length === 0"
             class="px-4 py-6 text-center text-hint-c"
             style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
           >
@@ -750,7 +788,7 @@
                 >訂位</span>
               </div>
               <div
-                v-if="bookings.length === 0"
+                v-if="bookings.length === 0 && bookingRecurGuests === 0"
                 class="text-hint-c"
                 style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
               >
@@ -765,23 +803,51 @@
                   class="font-black"
                   style="font-size:clamp(24px, calc(24px + 0.45vw), 34px)"
                 >{{ bookings.length }}</span> 筆
-                  · <span class="font-semibold">{{ bookingTotal }}</span> 人
+                  · <span class="font-semibold">{{ bookingTotal + bookingRecurGuests }}</span> 人
+                  <span
+                    v-if="bookingRecurGuests > 0"
+                    class="font-normal text-hint-c"
+                    style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
+                  >（現場 {{ bookingTotal }}・包月 {{ bookingRecurGuests }}）</span>
                 </p>
                 <div
                   class="mt-1 space-y-0.5 text-green-600 dark:text-green-400"
                   style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
                 >
-                  <div v-if="bookingMeat > 0">
-                    🍖 葷 {{ bookingMeat }}
+                  <div v-if="bookingMeat + bookingRecurMeat > 0">
+                    🍖 葷 {{ bookingMeat + bookingRecurMeat }}
                   </div>
-                  <div v-if="bookingFullVeg > 0">
-                    🌿 全素 {{ bookingFullVeg }}
+                  <div v-if="bookingFullVeg + bookingRecurFullVeg > 0">
+                    🌿 全素 {{ bookingFullVeg + bookingRecurFullVeg }}
                   </div>
-                  <div v-if="bookingEggVeg > 0">
-                    🥚 蛋奶素 {{ bookingEggVeg }}
+                  <div v-if="bookingEggVeg + bookingRecurEggVeg > 0">
+                    🥚 蛋奶素 {{ bookingEggVeg + bookingRecurEggVeg }}
                   </div>
-                  <div v-if="bookingSpiceVeg > 0">
-                    🧄 五辛素 {{ bookingSpiceVeg }}
+                  <div v-if="bookingSpiceVeg + bookingRecurSpiceVeg > 0">
+                    🧄 五辛素 {{ bookingSpiceVeg + bookingRecurSpiceVeg }}
+                  </div>
+                </div>
+                <div
+                  v-if="bookingRecurRules.length > 0"
+                  class="mt-2 pt-2 border-t border-light-c/60 space-y-1"
+                >
+                  <div
+                    v-for="rule in bookingRecurRules"
+                    :key="rule.id"
+                    class="flex items-center gap-1.5 flex-wrap"
+                  >
+                    <span
+                      class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+                      style="font-size:clamp(9px, calc(9px + 0.45vw), 13px)"
+                    >包月</span>
+                    <span
+                      class="font-medium text-base-c"
+                      style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                    >{{ rule.name }}</span>
+                    <span
+                      class="text-hint-c"
+                      style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
+                    >{{ typeBreakdown(rule) }}</span>
                   </div>
                 </div>
                 <div class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
@@ -801,6 +867,11 @@
                         style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
                       >{{ item.name || '未填姓名' }}</span>
                       <span
+                        v-if="itemGuestTotal(item) > 0"
+                        class="flex-shrink-0 font-semibold text-green-700 dark:text-green-400"
+                        style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                      >{{ itemGuestTotal(item) }}人</span>
+                      <span
                         class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
                         style="font-size:clamp(9px, calc(9px + 0.45vw), 13px)"
                         :class="detailStatusClass(item.status)"
@@ -811,6 +882,13 @@
                       style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
                     >
                       {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
+                    </div>
+                    <div
+                      v-if="item.note"
+                      class="text-hint-c mt-0.5 whitespace-pre-wrap"
+                      style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                    >
+                      📝 {{ item.note }}
                     </div>
                   </div>
                 </div>
@@ -886,6 +964,13 @@
                       style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
                     >
                       {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
+                    </div>
+                    <div
+                      v-if="item.note"
+                      class="text-hint-c mt-0.5 whitespace-pre-wrap"
+                      style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                    >
+                      📝 {{ item.note }}
                     </div>
                   </div>
                 </div>
@@ -988,13 +1073,13 @@
                       style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
                     >訂位</span>
                     <span
-                      v-if="day.booking.items.length"
+                      v-if="day.booking.items.length || day.booking.recurGuests > 0"
                       class="text-hint-c"
                       style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                    >· {{ day.booking.items.length }}筆・{{ day.booking.total }}人</span>
+                    >· {{ day.booking.items.length }}筆・{{ day.booking.total }}人<template v-if="day.booking.recurGuests > 0">（現場{{ day.booking.onsiteTotal }}・包月{{ day.booking.recurGuests }}）</template></span>
                   </div>
                   <div
-                    v-if="day.booking.items.length === 0"
+                    v-if="day.booking.items.length === 0 && day.booking.recurGuests === 0"
                     class="text-hint-c"
                     style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
                   >
@@ -1004,6 +1089,27 @@
                     v-else
                     class="space-y-1.5"
                   >
+                    <div
+                      v-for="rule in day.booking.recurRules"
+                      :key="'recur-' + rule.id"
+                    >
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+                          style="font-size:clamp(9px, calc(9px + 0.4vw), 12px)"
+                        >包月</span>
+                        <span
+                          class="flex-1 min-w-0 truncate font-medium text-base-c"
+                          style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                        >{{ rule.name }}</span>
+                      </div>
+                      <div
+                        class="text-hint-c"
+                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                      >
+                        {{ typeBreakdown(rule) }}
+                      </div>
+                    </div>
                     <div
                       v-for="item in day.booking.items"
                       :key="item.id"
@@ -1019,6 +1125,11 @@
                           style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
                         >{{ item.name || '未填姓名' }}</span>
                         <span
+                          v-if="itemGuestTotal(item) > 0"
+                          class="flex-shrink-0 font-semibold text-green-700 dark:text-green-400"
+                          style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                        >{{ itemGuestTotal(item) }}人</span>
+                        <span
                           class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
                           style="font-size:clamp(9px, calc(9px + 0.4vw), 12px)"
                           :class="detailStatusClass(item.status)"
@@ -1029,6 +1140,13 @@
                         style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
                       >
                         {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
+                      </div>
+                      <div
+                        v-if="item.note"
+                        class="text-hint-c whitespace-pre-wrap"
+                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                      >
+                        📝 {{ item.note }}
                       </div>
                     </div>
                   </div>
@@ -1083,6 +1201,13 @@
                         style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
                       >
                         {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
+                      </div>
+                      <div
+                        v-if="item.note"
+                        class="text-hint-c whitespace-pre-wrap"
+                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                      >
+                        📝 {{ item.note }}
                       </div>
                     </div>
                   </div>
@@ -1177,6 +1302,8 @@
               </div>
               <NuxtLink
                 to="/staff/management/calendar"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
                 style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
               >查看全月 →
