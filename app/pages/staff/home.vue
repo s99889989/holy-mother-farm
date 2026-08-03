@@ -635,31 +635,6 @@
       </TransitionGroup>
     </div>
 
-    <header class="bg-surface border-b border-light-c px-4 py-3 lg:px-6 xl:px-10 xl:py-4">
-      <div class="mx-auto flex items-center gap-2">
-        <div
-          class="w-8 h-8 rounded-lg bg-green-800 flex items-center justify-center text-white flex-shrink-0"
-          style="font-size:clamp(14px, calc(14px + 0.45vw), 20px)"
-        >
-          🌿
-        </div>
-        <div>
-          <h1
-            class="font-bold text-base-c leading-none"
-            style="font-size:15px"
-          >
-            員工專區
-          </h1>
-          <p
-            class="text-hint-c mt-0.5"
-            style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-          >
-            {{ todayLabel }}
-          </p>
-        </div>
-      </div>
-    </header>
-
     <div class="mx-auto px-3 sm:px-4 lg:px-8 xl:px-12 py-4 lg:py-8 xl:py-10">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 xl:gap-8 lg:items-start">
         <!-- ── 今日概況 ── -->
@@ -670,6 +645,11 @@
             style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
           >
             {{ viewMode === 'week' ? '本週概況' : '今日概況' }}
+            <span
+              v-if="viewMode === 'day'"
+              class="font-normal text-hint-c"
+              style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+            > ({{ todayLabel }})</span>
             <span
               v-if="viewMode === 'week' && weekRangeLabel"
               class="font-normal text-hint-c"
