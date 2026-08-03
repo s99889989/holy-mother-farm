@@ -24,6 +24,14 @@
   const calWeekStart = fmtDateStr(calWeekMonday)
   const calWeekEnd = fmtDateStr(calWeekSunday)
 
+  // 明天的日期，「今日行事曆」要多顯示明天，方便提早一天準備
+  const tomorrowDate = new Date(today)
+  tomorrowDate.setDate(today.getDate() + 1)
+  const tomorrowStr = fmtDateStr(tomorrowDate)
+  // 抓資料的範圍要涵蓋到明天，正常情況明天本來就在本週範圍內；
+  // 只有在今天剛好是週日、明天跨到下週（甚至跨月）時才會超出，這裡保底往後延一天
+  const fetchRangeEnd = tomorrowStr > calWeekEnd ? tomorrowStr : calWeekEnd
+
   // ── 顯示模式：今日 / 本週 ────────────────────────────────────────────
   const viewMode = ref('day') // 'day' | 'week'
   const calViewMode = ref('day') // 行事曆自己的今日／本週切換，跟上面的概況切換各自獨立
@@ -109,18 +117,30 @@
   const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
   const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
 
-  const todayEvents = computed(() => allEvents.value.filter(e => e.date === todayStr))
-  const weekEvents = computed(() => allEvents.value.filter(e => e.date >= calWeekStart && e.date <= calWeekEnd))
-  const displayEvents = computed(() => (calViewMode.value === 'week' ? weekEvents.value : todayEvents.value))
-
-  // 本週行事曆：每天各自獨立分組顯示，跟本週概況一樣不合併成一個清單
-  const weekEventsByDay = computed(() => {
-    if (calViewMode.value !== 'week') return []
-    return CAL_WEEK_DATES.map(date => ({
+  // 今日行事曆現在同時顯示「今天」跟「明天」兩天，本週行事曆維持顯示整週，兩邊都用同一套「每天分組」模板呈現
+  const CAL_TODAY_DATES = [todayStr, tomorrowStr]
+  const calDisplayDates = computed(() => (calViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
+  const calEventsByDay = computed(() => (
+    calDisplayDates.value.map(date => ({
       date,
-      events: weekEvents.value.filter(e => e.date === date)
+      events: allEvents.value.filter(e => e.date === date)
     }))
-  })
+  ))
+  const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
+
+  // 今日行事曆的每日標題：今天／明天直接標示文字，比只看日期清楚；本週行事曆維持只顯示日期
+  function calDayHeaderLabel(date) {
+    if (calViewMode.value !== 'week') {
+      if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
+      if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
+    }
+    return fmtMDWeekday(date)
+  }
+
+  // 事件詳細內容：不同來源欄位名稱可能不一樣，依序找第一個有值的欄位顯示
+  function calEventDetail(ev) {
+    return ev.description || ev.note || ev.content || ev.remark || ev.detail || ''
+  }
   const calWeekRangeLabel = `${fmtMD(calWeekStart)} - ${fmtMD(calWeekEnd)}`
 
   // 依葷素細項組成簡短標籤，例如「葷2・全素1・蛋奶素1」，用於卡片內每筆訂單顯示
@@ -496,9 +516,10 @@
   async function fetchToday() {
     loading.value = true
     try {
-      // 本週可能跨月（例如週一在上個月），系統行事曆 API 是按月查詢，兩個月不同就都抓
+      // 本週可能跨月（例如週一在上個月），系統行事曆 API 是按月查詢，兩個月不同就都抓；
+      // 範圍也要涵蓋到明天（fetchRangeEnd），保底處理「今天是週日、明天跨到下週/下個月」的情況
       const startMonth = calWeekStart.slice(0, 7)
-      const endMonth = calWeekEnd.slice(0, 7)
+      const endMonth = fetchRangeEnd.slice(0, 7)
       const months = startMonth === endMonth ? [startMonth] : [startMonth, endMonth]
 
       const homePromise = fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
@@ -506,9 +527,9 @@
 
       let googlePromise = Promise.resolve(null)
       if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
-        // 直接抓整個「本週」範圍，今日事件本來就落在本週裡，一次抓夠兩種檢視模式用
+        // 直接抓「本週＋明天」涵蓋的範圍，今日／明日／本週事件都落在裡面，一次抓夠三種檢視模式用
         const timeMin = encodeURIComponent(new Date(`${calWeekStart}T00:00:00`).toISOString())
-        const timeMax = encodeURIComponent(new Date(`${calWeekEnd}T23:59:59`).toISOString())
+        const timeMax = encodeURIComponent(new Date(`${fetchRangeEnd}T23:59:59`).toISOString())
         const gUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
           + `?key=${GOOGLE_API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=100`
         googlePromise = fetch(gUrl).catch(() => null)
@@ -1166,82 +1187,27 @@
             載入中...
           </div>
           <div
-            v-else-if="displayEvents.length === 0"
+            v-else-if="!calHasAnyEvents"
             class="px-4 py-5 text-center text-hint-c"
             style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
           >
-            {{ calViewMode === 'week' ? '本週沒有排定的活動' : '今天沒有排定的活動' }}
+            {{ calViewMode === 'week' ? '本週沒有排定的活動' : '這兩天沒有排定的活動' }}
           </div>
 
-          <!-- ── 今日模式：單一清單 ── -->
-          <div
-            v-else-if="calViewMode === 'day'"
-            class="divide-y divide-base"
-          >
-            <div
-              v-for="(ev, i) in displayEvents"
-              :key="i"
-              class="flex items-start gap-3 px-4 py-3"
-            >
-              <div
-                class="flex-shrink-0 text-right"
-                style="min-width:42px"
-              >
-              <span
-                class="font-mono font-semibold text-hint-c"
-                style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-              >{{ ev.time ? ev.time.split('-')[0] : '' }}</span>
-              </div>
-              <div
-                class="flex-shrink-0 w-1 self-stretch rounded-full mt-0.5"
-                :style="{ background: calBarColor(ev) }"
-              />
-              <div class="flex-1 min-w-0">
-                <p
-                  class="font-semibold text-base-c leading-snug"
-                  style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
-                >
-                  {{ ev.title }}
-                </p>
-                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                <span
-                  v-if="ev.owner"
-                  class="text-hint-c"
-                  style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-                >👤 {{ ev.owner }}</span>
-                  <span
-                    v-if="ev.room"
-                    class="text-hint-c truncate"
-                    style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-                  >
-                  📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
-                </span>
-                </div>
-              </div>
-              <span
-                class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold self-start mt-0.5"
-                style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
-                :style="{ background: calChipBg(ev), color: calChipText(ev) }"
-              >
-              {{ calBadgeLabel(ev) }}
-            </span>
-            </div>
-          </div>
-
-          <!-- ── 本週模式：每天各自獨立分組，跟本週概況一樣依序排下去 ── -->
+          <!-- ── 每天各自獨立分組顯示；今日模式是「今天／明天」兩組，本週模式是整週七組 ── -->
           <div
             v-else
             class="divide-y divide-base"
           >
             <div
-              v-for="day in weekEventsByDay"
+              v-for="day in calEventsByDay"
               :key="day.date"
             >
               <div
                 class="px-4 py-2 bg-surface2/50 font-semibold text-hint-c"
                 style="font-size:clamp(12px, calc(12px + 0.45vw), 16px)"
               >
-                {{ fmtMDWeekday(day.date) }}
+                {{ calDayHeaderLabel(day.date) }}
               </div>
               <div
                 v-if="day.events.length === 0"
@@ -1293,6 +1259,13 @@
                       📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
                     </span>
                     </div>
+                    <p
+                      v-if="calEventDetail(ev)"
+                      class="text-hint-c mt-1 whitespace-pre-wrap leading-snug"
+                      style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                    >
+                      {{ calEventDetail(ev) }}
+                    </p>
                   </div>
                   <span
                     class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold self-start mt-0.5"
