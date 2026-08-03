@@ -143,6 +143,43 @@ const soybeanTofu = computed(() => summary.value?.soybean?.tofu ?? 0)
 const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
 const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
 
+// ── 房務狀況：一律看「今天」的資料，不受上面今日／本週概況切換影響（房務本來就是當天的事）───
+const housekeeping = computed(() => daySummary.value?.housekeeping ?? null)
+const hkCheckouts = computed(() => housekeeping.value?.checkouts ?? [])
+const hkCheckins = computed(() => housekeeping.value?.checkins ?? [])
+const hkPendingCount = computed(() => housekeeping.value?.pendingCount ?? 0)
+const hkSavingRoomIds = ref([]) // 正在送出中的房號，避免同一個房間被連續快速點擊
+
+async function toggleCleaned(item) {
+  const roomId = item.roomId
+  if (hkSavingRoomIds.value.includes(roomId)) return
+  const nextCleaned = !item.cleaned
+  hkSavingRoomIds.value = [...hkSavingRoomIds.value, roomId]
+  try {
+    const res = await fetch(`${HOME_BASE()}/housekeeping/status`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({date: todayStr, roomId, cleaned: nextCleaned})
+    })
+    if (res.ok) {
+      // 同一間房可能同時出現在「退房」跟「入住」兩份清單（今天連續订：舊客退房、新客馬上入住），
+      // 打掃狀態是依房號存的，兩邊要一起同步更新，不用等下一次重新抓資料
+      const hk = daySummary.value?.housekeeping
+      if (hk) {
+        for (const it of [...(hk.checkouts || []), ...(hk.checkins || [])]) {
+          if (it.roomId === roomId) it.cleaned = nextCleaned
+        }
+        hk.pendingCount = (hk.checkouts || []).filter(it => !it.cleaned).length
+      }
+    }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    hkSavingRoomIds.value = hkSavingRoomIds.value.filter(id => id !== roomId)
+  }
+}
+
 // 今日行事曆現在同時顯示「今天」跟「明天」兩天，本週行事曆維持顯示整週，兩邊都用同一套「每天分組」模板呈現
 const CAL_TODAY_DATES = [todayStr, tomorrowStr]
 const calDisplayDates = computed(() => (calViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
@@ -1361,6 +1398,124 @@ onUnmounted(() => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 房務狀況：退房後要整理／入住前要備妥的房間，一律顯示今天的資料 ── -->
+          <div v-if="housekeeping" class="border-t border-light-c px-4 py-3">
+            <div class="flex items-center justify-between flex-wrap gap-1.5 mb-2">
+              <span
+                class="font-semibold text-muted-c"
+                style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+              >
+                🧹 房務狀況
+                <span
+                  class="font-normal text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                > ({{ todayLabel }})</span>
+              </span>
+              <span
+                v-if="hkPendingCount > 0"
+                class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold bg-rose-100 text-rose-700"
+                style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+              >待整理 {{ hkPendingCount }} 間</span>
+              <span
+                v-else-if="hkCheckouts.length > 0"
+                class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold bg-emerald-100 text-emerald-700"
+                style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+              >今日退房房間已整理完成</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- 今日退房・需整理 -->
+              <div>
+                <div
+                  class="text-hint-c font-semibold mb-1.5"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >🚪 今日退房・需整理（{{ hkCheckouts.length }}）
+                </div>
+                <div
+                  v-if="hkCheckouts.length === 0"
+                  class="text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >今天沒有退房
+                </div>
+                <div v-else class="space-y-1.5">
+                  <button
+                    v-for="item in hkCheckouts" :key="'co_' + item.id"
+                    class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors disabled:opacity-60"
+                    :class="item.cleaned ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20'"
+                    :disabled="hkSavingRoomIds.includes(item.roomId)"
+                    @click="toggleCleaned(item)"
+                  >
+                    <span
+                      class="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                      style="font-size:11px"
+                      :class="item.cleaned ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-rose-400 text-transparent'"
+                    >✓</span>
+                    <span class="flex-1 min-w-0 truncate">
+                      <span
+                        class="font-semibold text-base-c"
+                        style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                      >{{ item.roomId }}</span>
+                      <span
+                        class="text-hint-c"
+                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                      > {{ item.name || '未填姓名' }}・{{ item.guests }} 人</span>
+                    </span>
+                    <span
+                      class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
+                      style="font-size:clamp(9px, calc(9px + 0.4vw), 12px)"
+                      :class="item.cleaned ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
+                    >{{ item.cleaned ? '已整理' : '待整理' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 今日入住・房間要備妥 -->
+              <div>
+                <div
+                  class="text-hint-c font-semibold mb-1.5"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >🛎️ 今日入住・房間要備妥（{{ hkCheckins.length }}）
+                </div>
+                <div
+                  v-if="hkCheckins.length === 0"
+                  class="text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >今天沒有新入住
+                </div>
+                <div v-else class="space-y-1.5">
+                  <button
+                    v-for="item in hkCheckins" :key="'ci_' + item.id"
+                    class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors disabled:opacity-60"
+                    :class="item.cleaned ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-amber-50 dark:bg-amber-900/20'"
+                    :disabled="hkSavingRoomIds.includes(item.roomId)"
+                    @click="toggleCleaned(item)"
+                  >
+                    <span
+                      class="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                      style="font-size:11px"
+                      :class="item.cleaned ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-amber-400 text-transparent'"
+                    >✓</span>
+                    <span class="flex-1 min-w-0 truncate">
+                      <span
+                        class="font-semibold text-base-c"
+                        style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                      >{{ item.roomId }}</span>
+                      <span
+                        class="text-hint-c"
+                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                      > {{ item.name || '未填姓名' }}・{{ item.guests }} 人</span>
+                    </span>
+                    <span
+                      class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
+                      style="font-size:clamp(9px, calc(9px + 0.4vw), 12px)"
+                      :class="item.cleaned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                    >{{ item.cleaned ? '已備妥' : '待備妥' }}</span>
+                  </button>
                 </div>
               </div>
             </div>
