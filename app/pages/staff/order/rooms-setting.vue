@@ -261,7 +261,7 @@
 
 
     <!-- ===== 棟別 新增/編輯 Modal ===== -->
-    <div v-if="buildingModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="buildingModal.open = false">
+    <div v-if="buildingModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => buildingModal.open = false)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
         <h2 class="font-bold text-base-c mb-3" style="font-size:16px">{{ buildingModal.id ? '編輯棟別' : '新增棟別' }}</h2>
         <label class="block text-hint-c mb-1" style="font-size:13px">棟別名稱</label>
@@ -275,7 +275,7 @@
     </div>
 
     <!-- ===== 房間 新增/編輯 Modal ===== -->
-    <div v-if="roomModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="roomModal.open = false">
+    <div v-if="roomModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => roomModal.open = false)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
         <h2 class="font-bold text-base-c mb-3" style="font-size:16px">{{ roomModal.id ? '編輯房間' : '新增房間' }}（{{ roomModal.buildingName }}）</h2>
 
@@ -313,7 +313,7 @@
     </div>
 
     <!-- ===== 房間詳情 Modal（平面圖點擊） ===== -->
-    <div v-if="detailTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="detailTarget = null">
+    <div v-if="detailTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => detailTarget = null)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
         <h2 class="font-bold text-base-c mb-3" style="font-size:16px">{{ detailTarget.room.id }} · {{ detailTarget.buildingName }}</h2>
         <div class="bg-surface2 rounded-lg p-3 mb-3" style="font-size:13.5px">
@@ -338,7 +338,7 @@
     </div>
 
     <!-- ===== 矩形對應 Modal ===== -->
-    <div v-if="shapeAssign.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="shapeAssign.open = false">
+    <div v-if="shapeAssign.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => shapeAssign.open = false)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
         <h2 class="font-bold text-base-c mb-3" style="font-size:16px">矩形「{{ shapeAssign.shapeId }}」對應哪間房？</h2>
         <label class="block text-hint-c mb-1" style="font-size:13px">房號</label>
@@ -367,6 +367,19 @@
   const commonStore = useCommonStore()
   const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
   const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
+
+  // Modal 背景點擊關閉：只有「mousedown 跟 click 都落在背景本身」才關閉。
+  // 若只用 @click.self，在 Modal 內容裡按住滑鼠（例如選取文字、拖曳 input）
+  // 再放開到背景外面，瀏覽器合成的 click 事件 target 會被判成背景本身，
+  // 導致誤關閉；改成先在 mousedown 記錄是否真的點在背景上，click 時再一併確認。
+  const backdropMouseDownOnSelf = ref(false)
+  function onBackdropMousedown(e) {
+    backdropMouseDownOnSelf.value = e.target === e.currentTarget
+  }
+  function onBackdropClick(e, close) {
+    if (backdropMouseDownOnSelf.value && e.target === e.currentTarget) close()
+    backdropMouseDownOnSelf.value = false
+  }
 
   const loading  = ref(false)
   const saving   = ref(false)

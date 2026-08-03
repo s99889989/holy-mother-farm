@@ -10,7 +10,7 @@
         </div>
         <NuxtLink to="/front/order/rooms-booking" target="_blank" class="mini-btn" style="padding:7px 12px;font-size:13.5px">🔗 開啟訂房頁面</NuxtLink>
       </div>
-      <div class="max-w-5xl mx-auto mt-2">
+      <div class="max-w-5xl mx-auto mt-1">
         <div class="segmented w-fit">
           <button :class="tab === 'dashboard' ? 'seg-active' : ''" :style="tab === 'dashboard' ? segActiveStyle : ''" @click="tab = 'dashboard'">儀表板</button>
           <button :class="tab === 'orders' ? 'seg-active' : ''" :style="tab === 'orders' ? segActiveStyle : ''" @click="tab = 'orders'">訂單管理</button>
@@ -336,7 +336,7 @@
     </div>
 
     <!-- ===== 新增訂單 Modal ===== -->
-    <div v-if="createOrderTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="createOrderTarget = false">
+    <div v-if="createOrderTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => createOrderTarget = false)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-lg p-5 max-h-[85vh] overflow-y-auto">
         <h2 class="font-bold text-base-c mb-3" style="font-size:16px">新增訂單</h2>
 
@@ -406,7 +406,7 @@
     </div>
 
     <!-- ===== 登記團體 Modal：一次登記好幾間房，全部掛同一個團體名稱，後台可以整團一起操作 ===== -->
-    <div v-if="createGroupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="createGroupTarget = false">
+    <div v-if="createGroupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => createGroupTarget = false)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto">
         <h2 class="font-bold text-base-c mb-1" style="font-size:16px">登記團體</h2>
         <p class="text-hint-c mb-3" style="font-size:12.5px">每一間房各自還是一筆訂單，只是都會蓋上同一個團體名稱，之後可以在列表／平面圖／日曆看到團體標記，也可以整團一起確認／退房／取消。</p>
@@ -477,7 +477,7 @@
     </div>
 
     <!-- ===== 平面圖選房間：新增訂單／登記團體共用，疊在原本的 Modal 上面（z-40） ===== -->
-    <div v-if="roomPicker" class="fixed inset-0 bg-black/60 flex items-center justify-center z-40 px-4" @click.self="roomPicker = null">
+    <div v-if="roomPicker" class="fixed inset-0 bg-black/60 flex items-center justify-center z-40 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => roomPicker = null)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-3xl p-5 max-h-[85vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-1">
           <h2 class="font-bold text-base-c" style="font-size:16px">在平面圖選房間</h2>
@@ -505,7 +505,7 @@
     </div>
 
     <!-- ===== 團體管理 Modal：查看同一團體底下所有房間，可以整團一起確認/退房/取消 ===== -->
-    <div v-if="groupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="groupTarget = null">
+    <div v-if="groupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => groupTarget = null)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-lg p-5 max-h-[85vh] overflow-y-auto">
         <h2 class="font-bold text-base-c mb-1" style="font-size:16px">{{ groupTarget.groupName }}</h2>
         <p class="text-hint-c mb-3" style="font-size:12.5px">共 {{ groupBookings.length }} 間房</p>
@@ -531,7 +531,7 @@
     </div>
 
     <!-- ===== 指派房間 Modal ===== -->
-    <div v-if="assignTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="assignTarget = null">
+    <div v-if="assignTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => assignTarget = null)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-lg p-5 max-h-[85vh] overflow-y-auto">
         <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
           <h2 class="font-bold text-base-c" style="font-size:16px">為訂單 {{ assignTarget.id }} 指派房間</h2>
@@ -630,7 +630,7 @@
     </div>
 
     <!-- ===== 平面圖點擊：訂單詳情 Modal ===== -->
-    <div v-if="tileTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="tileTarget = null">
+    <div v-if="tileTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => tileTarget = null)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
         <h2 class="font-bold text-base-c mb-1" style="font-size:16px">{{ tileTarget.room.id }} · {{ buildingNameOf(tileTarget.buildingId) }}</h2>
         <p v-if="tileTarget.bookings.length > 1" class="text-hint-c mb-3" style="font-size:12.5px">此房目前有 {{ tileTarget.bookings.length }} 筆不同時段的進行中訂單</p>
@@ -663,7 +663,7 @@
     </div>
 
     <!-- ===== 日曆檢視點擊：當日訂單詳情 Modal ===== -->
-    <div v-if="dayTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="dayTarget = null">
+    <div v-if="dayTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => dayTarget = null)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5 max-h-[85vh] overflow-y-auto">
         <div class="flex items-center justify-between gap-2 mb-3">
           <h2 class="font-bold text-base-c" style="font-size:16px">{{ dayTarget.date }}</h2>
@@ -701,706 +701,719 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
 
-const commonStore = useCommonStore()
-const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
-const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
+  const commonStore = useCommonStore()
+  const ROOMS_BASE    = () => commonStore.data.main_url + '/holy/rooms/settings'
+  const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
 
-const today = new Date().toISOString().slice(0, 10)
+  // Modal 背景點擊關閉：只有「mousedown 跟 click 都落在背景本身」才關閉。
+  // 若只用 @click.self，在 Modal 內容裡按住滑鼠（例如選取文字、拖曳 input）
+  // 再放開到背景外面，瀏覽器合成的 click 事件 target 會被判成背景本身，
+  // 導致誤關閉；改成先在 mousedown 記錄是否真的點在背景上，click 時再一併確認。
+  const backdropMouseDownOnSelf = ref(false)
+  function onBackdropMousedown(e) {
+    backdropMouseDownOnSelf.value = e.target === e.currentTarget
+  }
+  function onBackdropClick(e, close) {
+    if (backdropMouseDownOnSelf.value && e.target === e.currentTarget) close()
+    backdropMouseDownOnSelf.value = false
+  }
 
-// 「查看日期」：訂單管理頁的房况總覽／平面圖，預設顯示今天的狀況，
-// 但可以切換到別的日期，回推或預覽當天／未來某天各房間的訂房狀況
-const viewDate = ref(today)
-// 房况總覽可收合，避免佔掉太多版面（尤其是手機或訂單很多棟別展開時）；
-// 收合狀態存 localStorage，重新整理或下次再開這頁時會記得上次的選擇
-const OVERVIEW_COLLAPSED_KEY = 'holymotherfarm_rooms_overview_collapsed'
-const overviewCollapsed = ref(false)
-onMounted(() => {
-  if (typeof window === 'undefined') return
-  overviewCollapsed.value = localStorage.getItem(OVERVIEW_COLLAPSED_KEY) === '1'
-})
-watch(overviewCollapsed, v => {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(OVERVIEW_COLLAPSED_KEY, v ? '1' : '0')
-})
-const isViewingToday = computed(() => viewDate.value === today)
-function shiftViewDate(days) {
-  const d = new Date(viewDate.value)
-  d.setDate(d.getDate() + days)
-  viewDate.value = d.toISOString().slice(0, 10)
-}
-function resetViewDate() { viewDate.value = today }
+  const today = new Date().toISOString().slice(0, 10)
 
-const loading   = ref(false)
-const tab       = ref('dashboard') // dashboard | orders | history
-// 行內樣式備援：避免外部/全域 CSS 蓋掉 .seg-active 的優先權，導致選中狀態沒有亮起
-const segActiveStyle = { background: '#15803d', color: '#fff' }
+  // 「查看日期」：訂單管理頁的房况總覽／平面圖，預設顯示今天的狀況，
+  // 但可以切換到別的日期，回推或預覽當天／未來某天各房間的訂房狀況
+  const viewDate = ref(today)
+  // 房况總覽可收合，避免佔掉太多版面（尤其是手機或訂單很多棟別展開時）；
+  // 收合狀態存 localStorage，重新整理或下次再開這頁時會記得上次的選擇
+  const OVERVIEW_COLLAPSED_KEY = 'holymotherfarm_rooms_overview_collapsed'
+  const overviewCollapsed = ref(false)
+  onMounted(() => {
+    if (typeof window === 'undefined') return
+    overviewCollapsed.value = localStorage.getItem(OVERVIEW_COLLAPSED_KEY) === '1'
+  })
+  watch(overviewCollapsed, v => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(OVERVIEW_COLLAPSED_KEY, v ? '1' : '0')
+  })
+  const isViewingToday = computed(() => viewDate.value === today)
+  function shiftViewDate(days) {
+    const d = new Date(viewDate.value)
+    d.setDate(d.getDate() + days)
+    viewDate.value = d.toISOString().slice(0, 10)
+  }
+  function resetViewDate() { viewDate.value = today }
 
-const buildings = ref([]) // [{id, name, rooms:[...]}]
-const bookings  = ref([]) // 全部訂單（raw）
+  const loading   = ref(false)
+  const tab       = ref('dashboard') // dashboard | orders | history
+  // 行內樣式備援：避免外部/全域 CSS 蓋掉 .seg-active 的優先權，導致選中狀態沒有亮起
+  const segActiveStyle = { background: '#15803d', color: '#fff' }
 
-const rooms = computed(() =>
-  buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
-)
+  const buildings = ref([]) // [{id, name, rooms:[...]}]
+  const bookings  = ref([]) // 全部訂單（raw）
 
-async function fetchAll() {
-  loading.value = true
-  try {
-    const [b, o] = await Promise.all([
-      (await fetch(`${ROOMS_BASE()}/list`)).json(),
-      (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
-    ])
-    buildings.value = b
-    bookings.value = o
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
-}
-
-/* ---------------- 共用小工具 ---------------- */
-
-function nights(checkIn, checkOut) {
-  if (!checkIn || !checkOut) return 0
-  const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
-  return d > 0 ? d : 0
-}
-function statusLabel(s) {
-  return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
-}
-function statusClass(s) {
-  return {
-    unassigned: 'bg-sky-100 text-sky-700',
-    pending:    'bg-amber-100 text-amber-700',
-    confirmed:  'bg-emerald-100 text-emerald-700',
-    completed:  'bg-stone-200 text-stone-600',
-    cancelled:  'bg-rose-100 text-rose-700',
-  }[s] || 'bg-stone-100 text-stone-600'
-}
-function roomById(id) { return rooms.value.find(r => r.id === id) }
-function roomLabel(roomId) {
-  const r = roomById(roomId)
-  return r ? `${r.id} ${r.type}` : '尚未指派'
-}
-function roomIdOf(roomId) {
-  const r = roomById(roomId)
-  return r ? r.id : '尚未指派'
-}
-function roomTypeOf(roomId) {
-  const r = roomById(roomId)
-  return r ? r.type : ''
-}
-/* 人數欄顯示「入住人數／房間可住人數」，例如 6 人房入住 1 位就顯示 1/6；尚未指派房間時只顯示人數 */
-function occupancyLabel(b) {
-  const r = roomById(b.roomId)
-  return r ? `${b.guests}/${r.capacity}` : `${b.guests} 人`
-}
-function buildingNameOf(id) {
-  const b = buildings.value.find(x => x.id === id)
-  return b ? b.name : id
-}
-function bookingTotal(b) {
-  const r = roomById(b.roomId)
-  if (!r) return 0
-  return r.price * nights(b.checkIn, b.checkOut)
-}
-function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-  return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
-}
-function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
-  return !bookings.value.some(b =>
-    b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed' &&
-    b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
+  const rooms = computed(() =>
+    buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
   )
-}
-function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
 
-/* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
-const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
-const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
-const upcomingBookings = computed(() =>
-  [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
-)
-
-/* ---------------- 訂單管理 ---------------- */
-
-const ordersView     = ref('floorplan')
-const ordersBuilding = ref('all')
-const ordersStatus   = ref('all')
-const ordersKeyword  = ref('')
-
-function bookingInSelectedBuilding(b) {
-  if (ordersBuilding.value === 'all') return true
-  if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
-  return b.buildingPref === ordersBuilding.value
-}
-
-const filteredOrders = computed(() => {
-  const kw = ordersKeyword.value.trim().toLowerCase()
-  return activeBookings.value
-    .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
-    .filter(bookingInSelectedBuilding)
-    .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
-    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-})
-
-/* 房况總覽：依棟別篩選為範圍，並依 viewDate（可切換的查看日期）判斷住房狀況 */
-function isOccupiedNow(roomId) {
-  return bookings.value.some(b => b.roomId === roomId && b.status === 'confirmed' && b.checkIn <= viewDate.value && viewDate.value < b.checkOut)
-}
-const roomsInSelectedBuilding = computed(() =>
-  ordersBuilding.value === 'all' ? rooms.value : rooms.value.filter(r => r.buildingId === ordersBuilding.value)
-)
-/* 依可住人數（X人房）分類統計：總間數／上架間數／目前住房中／空房可訂 */
-const roomTypeSummary = computed(() => {
-  const map = new Map()
-  for (const r of roomsInSelectedBuilding.value) {
-    if (!map.has(r.capacity)) map.set(r.capacity, { capacity: r.capacity, types: new Set(), total: 0, active: 0, occupiedNow: 0 })
-    const g = map.get(r.capacity)
-    g.types.add(r.type)
-    g.total++
-    if (r.active) {
-      g.active++
-      if (isOccupiedNow(r.id)) g.occupiedNow++
-    }
+  async function fetchAll() {
+    loading.value = true
+    try {
+      const [b, o] = await Promise.all([
+        (await fetch(`${ROOMS_BASE()}/list`)).json(),
+        (await fetch(`${BOOKINGS_BASE()}/list`)).json(),
+      ])
+      buildings.value = b
+      bookings.value = o
+    } catch (e) { console.error(e) }
+    finally { loading.value = false }
   }
-  return [...map.values()]
-    .sort((a, b) => a.capacity - b.capacity)
-    .map(g => ({ ...g, typesLabel: [...g.types].join('／'), vacant: g.active - g.occupiedNow }))
-})
-const orderStats = computed(() =>
-  roomTypeSummary.value.reduce((acc, g) => {
-    acc.total += g.total; acc.active += g.active; acc.occupiedNow += g.occupiedNow; acc.vacant += g.vacant
-    return acc
-  }, { total: 0, active: 0, occupiedNow: 0, vacant: 0 })
-)
-/* 應入住／應退房：依 viewDate 計算（預設今天），切換日期即可預覽/回顧當天的異動量 */
-const checkinTodayCount = computed(() =>
-  bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed' && b.checkIn === viewDate.value && bookingInSelectedBuilding(b)).length
-)
-const checkoutTodayCount = computed(() =>
-  bookings.value.filter(b => b.status === 'confirmed' && b.checkOut === viewDate.value && bookingInSelectedBuilding(b)).length
-)
-const ordersUnassignedCount = computed(() => bookings.value.filter(b => b.status === 'unassigned' && bookingInSelectedBuilding(b)).length)
-const ordersPendingCount = computed(() => bookings.value.filter(b => b.status === 'pending' && bookingInSelectedBuilding(b)).length)
 
-const visibleOrderBuildings = computed(() =>
-  ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
-)
-const unassignedForFloor = computed(() =>
-  [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-)
+  /* ---------------- 共用小工具 ---------------- */
 
-// 同一間房可以有多筆「日期不重疊」的進行中訂單（例如 201 房 7/31~8/2 一筆、8/21~8/26 另一筆），
-// 所以這裡回傳的是「全部」進行中訂單（依入住日期排序），不是只有一筆
-function roomBookingsForRoom(roomId) {
-  return bookings.value
-    .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
-    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-}
-// 平面圖顏色／標籤要回答的是「viewDate 這一天，這間房是什麼狀態」，
-// 所以要挑的是「checkIn <= viewDate < checkOut」的那一筆，不是不分日期抓最早的一筆
-function bookingOnDate(roomId, date) {
-  return roomBookingsForRoom(roomId).find(b => b.checkIn <= date && date < b.checkOut) || null
-}
-function orderTileClass(r) {
-  if (!r.active) return 'tile-inactive'
-  const b = bookingOnDate(r.id, viewDate.value)
-  if (!b) return 'tile-vacant'
-  return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
-}
-function orderTileLabel(r) {
-  if (!r.active) return '已下架'
-  const list = roomBookingsForRoom(r.id)
-  const b = bookingOnDate(r.id, viewDate.value)
-  const more = list.length > (b ? 1 : 0) ? `（+${list.length - (b ? 1 : 0)} 筆其他時段）` : ''
-  if (!b) return '空房' + more
-  return (b.status === 'pending' ? '待確認・' : '已確認・') + (b.groupName || b.name) + more
-}
-// 給 RoomFloorplan 的 statusResolver prop：訂單管理要分「待確認」跟「已確認」兩種顏色，
-// 跟房間管理預設的「今日住房中／空房」邏輯不同，所以這裡自訂
-function orderStatusResolver(r) {
-  return { cls: orderTileClass(r), label: orderTileLabel(r) }
-}
-
-const tileTarget = ref(null)
-function openBookingTile(room, buildingId) {
-  tileTarget.value = { room, buildingId, bookings: roomBookingsForRoom(room.id) }
-}
-async function quickSetTile(bookingId, status) {
-  if (!tileTarget.value) return
-  await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
-  if (tileTarget.value) {
-    tileTarget.value = { ...tileTarget.value, bookings: roomBookingsForRoom(tileTarget.value.room.id) }
+  function nights(checkIn, checkOut) {
+    if (!checkIn || !checkOut) return 0
+    const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
+    return d > 0 ? d : 0
   }
-}
-
-/* ---------------- 日曆檢視 ---------------- */
-
-const calendarMonth = ref(today.slice(0, 7)) // 'YYYY-MM'
-const calendarMonthLabel = computed(() => {
-  const [y, m] = calendarMonth.value.split('-')
-  return `${y} 年 ${Number(m)} 月`
-})
-function shiftCalendarMonth(diff) {
-  const [y, m] = calendarMonth.value.split('-').map(Number)
-  const d = new Date(y, m - 1 + diff, 1)
-  calendarMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-function resetCalendarMonth() { calendarMonth.value = today.slice(0, 7) }
-
-function calendarPillClass(status) {
-  return { unassigned: 'bg-sky-600', pending: 'bg-amber-600', confirmed: 'bg-emerald-600' }[status] || 'bg-stone-500'
-}
-// 某一天有哪些訂單「有關」：入住日／退房日／中間在住都算，並標記是入住還是退房，
-// 方便日曆一眼看出當天要接待誰、要送誰走
-function bookingsOnCalendarDate(date) {
-  return activeBookings.value
-    .filter(bookingInSelectedBuilding)
-    .filter(b => b.checkIn <= date && date <= b.checkOut)
-    .map(b => ({ ...b, calTag: b.checkIn === date ? '入住' : (b.checkOut === date ? '退房' : '') }))
-    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-}
-// 產生月曆格子：前後補空白湊滿整週（星期日開頭），每格帶當天日期字串與當天訂單清單
-const calendarCells = computed(() => {
-  const [y, m] = calendarMonth.value.split('-').map(Number)
-  const daysInMonth = new Date(y, m, 0).getDate()
-  const leadingBlanks = new Date(y, m - 1, 1).getDay()
-  const cells = []
-  for (let i = 0; i < leadingBlanks; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    cells.push({ day: d, date, bookings: bookingsOnCalendarDate(date) })
+  function statusLabel(s) {
+    return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
   }
-  while (cells.length % 7 !== 0) cells.push(null)
-  return cells
-})
-
-const dayTarget = ref(null)
-async function quickSetDay(bookingId, status) {
-  if (!dayTarget.value) return
-  await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
-  if (dayTarget.value) {
-    dayTarget.value = { ...dayTarget.value, bookings: bookingsOnCalendarDate(dayTarget.value.date) }
+  function statusClass(s) {
+    return {
+      unassigned: 'bg-sky-100 text-sky-700',
+      pending:    'bg-amber-100 text-amber-700',
+      confirmed:  'bg-emerald-100 text-emerald-700',
+      completed:  'bg-stone-200 text-stone-600',
+      cancelled:  'bg-rose-100 text-rose-700',
+    }[s] || 'bg-stone-100 text-stone-600'
   }
-}
+  function roomById(id) { return rooms.value.find(r => r.id === id) }
+  function roomLabel(roomId) {
+    const r = roomById(roomId)
+    return r ? `${r.id} ${r.type}` : '尚未指派'
+  }
+  function roomIdOf(roomId) {
+    const r = roomById(roomId)
+    return r ? r.id : '尚未指派'
+  }
+  function roomTypeOf(roomId) {
+    const r = roomById(roomId)
+    return r ? r.type : ''
+  }
+  /* 人數欄顯示「入住人數／房間可住人數」，例如 6 人房入住 1 位就顯示 1/6；尚未指派房間時只顯示人數 */
+  function occupancyLabel(b) {
+    const r = roomById(b.roomId)
+    return r ? `${b.guests}/${r.capacity}` : `${b.guests} 人`
+  }
+  function buildingNameOf(id) {
+    const b = buildings.value.find(x => x.id === id)
+    return b ? b.name : id
+  }
+  function bookingTotal(b) {
+    const r = roomById(b.roomId)
+    if (!r) return 0
+    return r.price * nights(b.checkIn, b.checkOut)
+  }
+  function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+    return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
+  }
+  function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
+    return !bookings.value.some(b =>
+      b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed' &&
+      b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
+    )
+  }
+  function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
 
-/* ---------------- 狀態轉換 / 刪除 ---------------- */
+  /* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
+  const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
+  const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
+  const upcomingBookings = computed(() =>
+    [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
+  )
 
-async function setStatus(id, status) {
-  try {
-    await fetch(`${BOOKINGS_BASE()}/status`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }),
-    })
-    await fetchAll()
-  } catch (e) { console.error(e) }
-}
-async function removeBooking(id) {
-  if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
-  try {
-    await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
-    await fetchAll()
-  } catch (e) { console.error(e) }
-}
-async function restoreBooking(b) {
-  await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
-}
+  /* ---------------- 訂單管理 ---------------- */
 
-/* ---------------- 指派房間 ---------------- */
+  const ordersView     = ref('floorplan')
+  const ordersBuilding = ref('all')
+  const ordersStatus   = ref('all')
+  const ordersKeyword  = ref('')
 
-const assignTarget = ref(null)
-const assignBuildingFilter = ref('all')
-const assignError = ref('')
-const assignMode = ref('single') // 'single' 指定單一房間 ・ 'group' 拆成好幾間房分配給團體
-const splitGroupName = ref('')
-const splitRows = ref([{ roomId: '', guests: 1, name: '', notes: '' }])
-const splitError = ref('')
-const splitSaving = ref(false)
+  function bookingInSelectedBuilding(b) {
+    if (ordersBuilding.value === 'all') return true
+    if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
+    return b.buildingPref === ordersBuilding.value
+  }
 
-function openAssign(booking) {
-  assignTarget.value = booking
-  assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
-  assignError.value = ''
-  assignMode.value = 'single'
-  splitGroupName.value = booking.name
-  splitRows.value = [{ roomId: '', guests: booking.guests, name: '', notes: '' }]
-  splitError.value = ''
-}
-const eligibleRooms = computed(() => {
-  if (!assignTarget.value) return []
-  const b = assignTarget.value
-  return rooms.value
-    .filter(r => r.active)
-    .filter(r => r.capacity >= b.guests)
-    .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
-    .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
-    .sort((r1, r2) => {
-      const pref = b.buildingPref
-      if (pref && pref !== 'all') {
-        if (r1.buildingId === pref && r2.buildingId !== pref) return -1
-        if (r2.buildingId === pref && r1.buildingId !== pref) return 1
+  const filteredOrders = computed(() => {
+    const kw = ordersKeyword.value.trim().toLowerCase()
+    return activeBookings.value
+      .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
+      .filter(bookingInSelectedBuilding)
+      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  })
+
+  /* 房况總覽：依棟別篩選為範圍，並依 viewDate（可切換的查看日期）判斷住房狀況 */
+  function isOccupiedNow(roomId) {
+    return bookings.value.some(b => b.roomId === roomId && b.status === 'confirmed' && b.checkIn <= viewDate.value && viewDate.value < b.checkOut)
+  }
+  const roomsInSelectedBuilding = computed(() =>
+    ordersBuilding.value === 'all' ? rooms.value : rooms.value.filter(r => r.buildingId === ordersBuilding.value)
+  )
+  /* 依可住人數（X人房）分類統計：總間數／上架間數／目前住房中／空房可訂 */
+  const roomTypeSummary = computed(() => {
+    const map = new Map()
+    for (const r of roomsInSelectedBuilding.value) {
+      if (!map.has(r.capacity)) map.set(r.capacity, { capacity: r.capacity, types: new Set(), total: 0, active: 0, occupiedNow: 0 })
+      const g = map.get(r.capacity)
+      g.types.add(r.type)
+      g.total++
+      if (r.active) {
+        g.active++
+        if (isOccupiedNow(r.id)) g.occupiedNow++
       }
-      return r1.capacity - r2.capacity || r1.price - r2.price
-    })
-})
-async function assignRoom(room) {
-  assignError.value = ''
-  try {
-    const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id }),
-    })).json()
-    if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
-    assignTarget.value = null
-    await fetchAll()
-  } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
-}
-
-// 「分配到多間房（團體）」：人數太多、單一房間住不下時，把這筆訂單拆成好幾間房。
-// 同一份表單裡已經被別列選走的房間要排除，避免自己選重複。
-function addSplitRow() { splitRows.value.push({ roomId: '', guests: 1, name: '', notes: '' }) }
-function removeSplitRow(idx) {
-  if (splitRows.value.length <= 1) return
-  splitRows.value.splice(idx, 1)
-}
-function eligibleRoomsForSplitRow(idx) {
-  if (!assignTarget.value) return []
-  const b = assignTarget.value
-  const pickedElsewhere = splitRows.value.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
-  return rooms.value
-    .filter(r => r.active)
-    .filter(r => !pickedElsewhere.includes(r.id))
-    .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
-    .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-}
-const splitTotalGuests = computed(() => splitRows.value.reduce((s, r) => s + (Number(r.guests) || 0), 0))
-
-async function submitSplit() {
-  splitError.value = ''
-  if (!assignTarget.value) return
-  if (!splitGroupName.value.trim()) { splitError.value = '請填寫團體名稱'; return }
-  const rows = splitRows.value.filter(r => r.roomId)
-  if (rows.length === 0) { splitError.value = '請至少分配一間房'; return }
-  const roomIds = rows.map(r => r.roomId)
-  if (new Set(roomIds).size !== roomIds.length) { splitError.value = '同一份表單裡不能選到同一間房兩次'; return }
-
-  splitSaving.value = true
-  try {
-    const res = await (await fetch(`${BOOKINGS_BASE()}/split-to-group`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: assignTarget.value.id,
-        groupName: splitGroupName.value.trim(),
-        rooms: rows.map(r => ({ roomId: r.roomId, guests: r.guests || 1, name: r.name.trim(), notes: r.notes.trim() })),
-      }),
-    })).json()
-    if (res && res.error) { splitError.value = res.error; return }
-    const finishedGroupName = splitGroupName.value.trim()
-    assignTarget.value = null
-    await fetchAll()
-    if (res && res.groupId) openGroupTarget(res.groupId, finishedGroupName)
-  } catch (e) { console.error(e); splitError.value = '分配失敗，請稍後再試' }
-  finally { splitSaving.value = false }
-}
-
-/* ---------------- 新增訂單 ---------------- */
-
-const createOrderTarget = ref(false)
-const newOrderError = ref('')
-const newOrder = ref({ name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' })
-
-function openCreateOrder() {
-  newOrder.value = { name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' }
-  newOrderError.value = ''
-  createOrderTarget.value = true
-}
-
-const eligibleRoomsForCreate = computed(() => {
-  const o = newOrder.value
-  if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
-  return rooms.value
-    .filter(r => r.active)
-    .filter(r => r.capacity >= o.guests)
-    .filter(r => o.buildingPref === 'all' || r.buildingId === o.buildingPref)
-    .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut))
-    .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-})
-
-async function createOrder() {
-  newOrderError.value = ''
-  const o = newOrder.value
-  if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
-    newOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
-    return
-  }
-  if (nights(o.checkIn, o.checkOut) <= 0) {
-    newOrderError.value = '退房日期需晚於入住日期'
-    return
-  }
-  try {
-    const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        checkIn: o.checkIn,
-        checkOut: o.checkOut,
-        guests: o.guests,
-        name: o.name.trim(),
-        phone: o.phone.trim(),
-        email: '',
-        buildingPref: o.buildingPref,
-        notes: o.notes.trim(),
-      }),
-    })).json()
-    if (res && res.error) { newOrderError.value = res.error; return }
-
-    // /request 一律建立為待指派訂單；若當下有選房間，緊接著呼叫既有的指派 API
-    if (o.roomId && res && res.id) {
-      const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: res.id, roomId: o.roomId }),
-      })).json()
-      if (assignRes && assignRes.error) { newOrderError.value = `訂單已建立（${res.id}），但指派房間失敗：${assignRes.error}`; await fetchAll(); return }
     }
+    return [...map.values()]
+      .sort((a, b) => a.capacity - b.capacity)
+      .map(g => ({ ...g, typesLabel: [...g.types].join('／'), vacant: g.active - g.occupiedNow }))
+  })
+  const orderStats = computed(() =>
+    roomTypeSummary.value.reduce((acc, g) => {
+      acc.total += g.total; acc.active += g.active; acc.occupiedNow += g.occupiedNow; acc.vacant += g.vacant
+      return acc
+    }, { total: 0, active: 0, occupiedNow: 0, vacant: 0 })
+  )
+  /* 應入住／應退房：依 viewDate 計算（預設今天），切換日期即可預覽/回顧當天的異動量 */
+  const checkinTodayCount = computed(() =>
+    bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed' && b.checkIn === viewDate.value && bookingInSelectedBuilding(b)).length
+  )
+  const checkoutTodayCount = computed(() =>
+    bookings.value.filter(b => b.status === 'confirmed' && b.checkOut === viewDate.value && bookingInSelectedBuilding(b)).length
+  )
+  const ordersUnassignedCount = computed(() => bookings.value.filter(b => b.status === 'unassigned' && bookingInSelectedBuilding(b)).length)
+  const ordersPendingCount = computed(() => bookings.value.filter(b => b.status === 'pending' && bookingInSelectedBuilding(b)).length)
 
-    createOrderTarget.value = false
-    await fetchAll()
-  } catch (e) { console.error(e); newOrderError.value = '新增失敗，請稍後再試' }
-}
+  const visibleOrderBuildings = computed(() =>
+    ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
+  )
+  const unassignedForFloor = computed(() =>
+    [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  )
 
-/* ---------------- 登記團體 ----------------
-   設計上團體不是新的資料結構：每一間房還是走跟個人訂房完全一樣的 /request + /assign，
-   只是每一筆都多蓋上同一個 groupId/groupName，所以既有的日期重疊檢查、狀態轉換、
-   平面圖/日曆顯示邏輯完全不用改，只是多顯示一個團體標籤而已。 */
+  // 同一間房可以有多筆「日期不重疊」的進行中訂單（例如 201 房 7/31~8/2 一筆、8/21~8/26 另一筆），
+  // 所以這裡回傳的是「全部」進行中訂單（依入住日期排序），不是只有一筆
+  function roomBookingsForRoom(roomId) {
+    return bookings.value
+      .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  }
+  // 平面圖顏色／標籤要回答的是「viewDate 這一天，這間房是什麼狀態」，
+  // 所以要挑的是「checkIn <= viewDate < checkOut」的那一筆，不是不分日期抓最早的一筆
+  function bookingOnDate(roomId, date) {
+    return roomBookingsForRoom(roomId).find(b => b.checkIn <= date && date < b.checkOut) || null
+  }
+  function orderTileClass(r) {
+    if (!r.active) return 'tile-inactive'
+    const b = bookingOnDate(r.id, viewDate.value)
+    if (!b) return 'tile-vacant'
+    return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
+  }
+  function orderTileLabel(r) {
+    if (!r.active) return '已下架'
+    const list = roomBookingsForRoom(r.id)
+    const b = bookingOnDate(r.id, viewDate.value)
+    const more = list.length > (b ? 1 : 0) ? `（+${list.length - (b ? 1 : 0)} 筆其他時段）` : ''
+    if (!b) return '空房' + more
+    return (b.status === 'pending' ? '待確認・' : '已確認・') + (b.groupName || b.name) + more
+  }
+  // 給 RoomFloorplan 的 statusResolver prop：訂單管理要分「待確認」跟「已確認」兩種顏色，
+  // 跟房間管理預設的「今日住房中／空房」邏輯不同，所以這裡自訂
+  function orderStatusResolver(r) {
+    return { cls: orderTileClass(r), label: orderTileLabel(r) }
+  }
 
-const createGroupTarget = ref(false)
-const newGroupError = ref('')
-const groupSaving = ref(false)
-function blankGroupRow() { return { roomId: '', name: '', guests: 1, notes: '' } }
-const newGroup = ref({ groupName: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()] })
+  const tileTarget = ref(null)
+  function openBookingTile(room, buildingId) {
+    tileTarget.value = { room, buildingId, bookings: roomBookingsForRoom(room.id) }
+  }
+  async function quickSetTile(bookingId, status) {
+    if (!tileTarget.value) return
+    await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
+    if (tileTarget.value) {
+      tileTarget.value = { ...tileTarget.value, bookings: roomBookingsForRoom(tileTarget.value.room.id) }
+    }
+  }
 
-function openCreateGroup() {
-  newGroup.value = { groupName: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()] }
-  newGroupError.value = ''
-  createGroupTarget.value = true
-}
-function addGroupRoomRow() { newGroup.value.rooms.push(blankGroupRow()) }
-function removeGroupRoomRow(idx) {
-  if (newGroup.value.rooms.length <= 1) return
-  newGroup.value.rooms.splice(idx, 1)
-}
-// 同一份團體表單裡，已經被別列選走的房間要從下拉選單裡排除，避免同一份表單自己選重複
-function eligibleRoomsForGroupRow(idx) {
-  const g = newGroup.value
-  if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) return []
-  const pickedElsewhere = g.rooms.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
-  return rooms.value
-    .filter(r => r.active)
-    .filter(r => !pickedElsewhere.includes(r.id))
-    .filter(r => isRoomAvailable(r.id, g.checkIn, g.checkOut))
-    .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-}
+  /* ---------------- 日曆檢視 ---------------- */
 
-async function createGroup() {
-  newGroupError.value = ''
-  const g = newGroup.value
-  if (!g.groupName.trim()) { newGroupError.value = '請填寫團體名稱'; return }
-  if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) { newGroupError.value = '請確認入住/退房日期'; return }
-  const rows = g.rooms.filter(r => r.roomId)
-  if (rows.length === 0) { newGroupError.value = '請至少選一間房間'; return }
-  const roomIds = rows.map(r => r.roomId)
-  if (new Set(roomIds).size !== roomIds.length) { newGroupError.value = '同一份團體登記裡不能選到同一間房兩次'; return }
+  const calendarMonth = ref(today.slice(0, 7)) // 'YYYY-MM'
+  const calendarMonthLabel = computed(() => {
+    const [y, m] = calendarMonth.value.split('-')
+    return `${y} 年 ${Number(m)} 月`
+  })
+  function shiftCalendarMonth(diff) {
+    const [y, m] = calendarMonth.value.split('-').map(Number)
+    const d = new Date(y, m - 1 + diff, 1)
+    calendarMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+  function resetCalendarMonth() { calendarMonth.value = today.slice(0, 7) }
 
-  groupSaving.value = true
-  const groupId = 'grp_' + Date.now()
-  const failed = []
-  try {
-    for (const row of rows) {
-      try {
-        const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            checkIn: g.checkIn,
-            checkOut: g.checkOut,
-            guests: row.guests || 1,
-            name: (row.name.trim() || g.groupName.trim()),
-            phone: '',
-            email: '',
-            buildingPref: 'all',
-            notes: row.notes.trim(),
-            groupId,
-            groupName: g.groupName.trim(),
-          }),
-        })).json()
-        if (res && res.error) { failed.push(`${row.roomId}：${res.error}`); continue }
+  function calendarPillClass(status) {
+    return { unassigned: 'bg-sky-600', pending: 'bg-amber-600', confirmed: 'bg-emerald-600' }[status] || 'bg-stone-500'
+  }
+  // 某一天有哪些訂單「有關」：入住日／退房日／中間在住都算，並標記是入住還是退房，
+  // 方便日曆一眼看出當天要接待誰、要送誰走
+  function bookingsOnCalendarDate(date) {
+    return activeBookings.value
+      .filter(bookingInSelectedBuilding)
+      .filter(b => b.checkIn <= date && date <= b.checkOut)
+      .map(b => ({ ...b, calTag: b.checkIn === date ? '入住' : (b.checkOut === date ? '退房' : '') }))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  }
+  // 產生月曆格子：前後補空白湊滿整週（星期日開頭），每格帶當天日期字串與當天訂單清單
+  const calendarCells = computed(() => {
+    const [y, m] = calendarMonth.value.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    const leadingBlanks = new Date(y, m - 1, 1).getDay()
+    const cells = []
+    for (let i = 0; i < leadingBlanks; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      cells.push({ day: d, date, bookings: bookingsOnCalendarDate(date) })
+    }
+    while (cells.length % 7 !== 0) cells.push(null)
+    return cells
+  })
 
+  const dayTarget = ref(null)
+  async function quickSetDay(bookingId, status) {
+    if (!dayTarget.value) return
+    await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
+    if (dayTarget.value) {
+      dayTarget.value = { ...dayTarget.value, bookings: bookingsOnCalendarDate(dayTarget.value.date) }
+    }
+  }
+
+  /* ---------------- 狀態轉換 / 刪除 ---------------- */
+
+  async function setStatus(id, status) {
+    try {
+      await fetch(`${BOOKINGS_BASE()}/status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }),
+      })
+      await fetchAll()
+    } catch (e) { console.error(e) }
+  }
+  async function removeBooking(id) {
+    if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
+    try {
+      await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
+      await fetchAll()
+    } catch (e) { console.error(e) }
+  }
+  async function restoreBooking(b) {
+    await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
+  }
+
+  /* ---------------- 指派房間 ---------------- */
+
+  const assignTarget = ref(null)
+  const assignBuildingFilter = ref('all')
+  const assignError = ref('')
+  const assignMode = ref('single') // 'single' 指定單一房間 ・ 'group' 拆成好幾間房分配給團體
+  const splitGroupName = ref('')
+  const splitRows = ref([{ roomId: '', guests: 1, name: '', notes: '' }])
+  const splitError = ref('')
+  const splitSaving = ref(false)
+
+  function openAssign(booking) {
+    assignTarget.value = booking
+    assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
+    assignError.value = ''
+    assignMode.value = 'single'
+    splitGroupName.value = booking.name
+    splitRows.value = [{ roomId: '', guests: booking.guests, name: '', notes: '' }]
+    splitError.value = ''
+  }
+  const eligibleRooms = computed(() => {
+    if (!assignTarget.value) return []
+    const b = assignTarget.value
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => r.capacity >= b.guests)
+      .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
+      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
+      .sort((r1, r2) => {
+        const pref = b.buildingPref
+        if (pref && pref !== 'all') {
+          if (r1.buildingId === pref && r2.buildingId !== pref) return -1
+          if (r2.buildingId === pref && r1.buildingId !== pref) return 1
+        }
+        return r1.capacity - r2.capacity || r1.price - r2.price
+      })
+  })
+  async function assignRoom(room) {
+    assignError.value = ''
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id }),
+      })).json()
+      if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
+      assignTarget.value = null
+      await fetchAll()
+    } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
+  }
+
+  // 「分配到多間房（團體）」：人數太多、單一房間住不下時，把這筆訂單拆成好幾間房。
+  // 同一份表單裡已經被別列選走的房間要排除，避免自己選重複。
+  function addSplitRow() { splitRows.value.push({ roomId: '', guests: 1, name: '', notes: '' }) }
+  function removeSplitRow(idx) {
+    if (splitRows.value.length <= 1) return
+    splitRows.value.splice(idx, 1)
+  }
+  function eligibleRoomsForSplitRow(idx) {
+    if (!assignTarget.value) return []
+    const b = assignTarget.value
+    const pickedElsewhere = splitRows.value.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => !pickedElsewhere.includes(r.id))
+      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  }
+  const splitTotalGuests = computed(() => splitRows.value.reduce((s, r) => s + (Number(r.guests) || 0), 0))
+
+  async function submitSplit() {
+    splitError.value = ''
+    if (!assignTarget.value) return
+    if (!splitGroupName.value.trim()) { splitError.value = '請填寫團體名稱'; return }
+    const rows = splitRows.value.filter(r => r.roomId)
+    if (rows.length === 0) { splitError.value = '請至少分配一間房'; return }
+    const roomIds = rows.map(r => r.roomId)
+    if (new Set(roomIds).size !== roomIds.length) { splitError.value = '同一份表單裡不能選到同一間房兩次'; return }
+
+    splitSaving.value = true
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/split-to-group`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: assignTarget.value.id,
+          groupName: splitGroupName.value.trim(),
+          rooms: rows.map(r => ({ roomId: r.roomId, guests: r.guests || 1, name: r.name.trim(), notes: r.notes.trim() })),
+        }),
+      })).json()
+      if (res && res.error) { splitError.value = res.error; return }
+      const finishedGroupName = splitGroupName.value.trim()
+      assignTarget.value = null
+      await fetchAll()
+      if (res && res.groupId) openGroupTarget(res.groupId, finishedGroupName)
+    } catch (e) { console.error(e); splitError.value = '分配失敗，請稍後再試' }
+    finally { splitSaving.value = false }
+  }
+
+  /* ---------------- 新增訂單 ---------------- */
+
+  const createOrderTarget = ref(false)
+  const newOrderError = ref('')
+  const newOrder = ref({ name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' })
+
+  function openCreateOrder() {
+    newOrder.value = { name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' }
+    newOrderError.value = ''
+    createOrderTarget.value = true
+  }
+
+  const eligibleRoomsForCreate = computed(() => {
+    const o = newOrder.value
+    if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => r.capacity >= o.guests)
+      .filter(r => o.buildingPref === 'all' || r.buildingId === o.buildingPref)
+      .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  })
+
+  async function createOrder() {
+    newOrderError.value = ''
+    const o = newOrder.value
+    if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
+      newOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
+      return
+    }
+    if (nights(o.checkIn, o.checkOut) <= 0) {
+      newOrderError.value = '退房日期需晚於入住日期'
+      return
+    }
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checkIn: o.checkIn,
+          checkOut: o.checkOut,
+          guests: o.guests,
+          name: o.name.trim(),
+          phone: o.phone.trim(),
+          email: '',
+          buildingPref: o.buildingPref,
+          notes: o.notes.trim(),
+        }),
+      })).json()
+      if (res && res.error) { newOrderError.value = res.error; return }
+
+      // /request 一律建立為待指派訂單；若當下有選房間，緊接著呼叫既有的指派 API
+      if (o.roomId && res && res.id) {
         const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: res.id, roomId: row.roomId }),
+          body: JSON.stringify({ id: res.id, roomId: o.roomId }),
         })).json()
-        if (assignRes && assignRes.error) failed.push(`${row.roomId}：${assignRes.error}`)
-      } catch (e) {
-        console.error(e)
-        failed.push(`${row.roomId}：建立失敗`)
+        if (assignRes && assignRes.error) { newOrderError.value = `訂單已建立（${res.id}），但指派房間失敗：${assignRes.error}`; await fetchAll(); return }
       }
+
+      createOrderTarget.value = false
+      await fetchAll()
+    } catch (e) { console.error(e); newOrderError.value = '新增失敗，請稍後再試' }
+  }
+
+  /* ---------------- 登記團體 ----------------
+     設計上團體不是新的資料結構：每一間房還是走跟個人訂房完全一樣的 /request + /assign，
+     只是每一筆都多蓋上同一個 groupId/groupName，所以既有的日期重疊檢查、狀態轉換、
+     平面圖/日曆顯示邏輯完全不用改，只是多顯示一個團體標籤而已。 */
+
+  const createGroupTarget = ref(false)
+  const newGroupError = ref('')
+  const groupSaving = ref(false)
+  function blankGroupRow() { return { roomId: '', name: '', guests: 1, notes: '' } }
+  const newGroup = ref({ groupName: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()] })
+
+  function openCreateGroup() {
+    newGroup.value = { groupName: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()] }
+    newGroupError.value = ''
+    createGroupTarget.value = true
+  }
+  function addGroupRoomRow() { newGroup.value.rooms.push(blankGroupRow()) }
+  function removeGroupRoomRow(idx) {
+    if (newGroup.value.rooms.length <= 1) return
+    newGroup.value.rooms.splice(idx, 1)
+  }
+  // 同一份團體表單裡，已經被別列選走的房間要從下拉選單裡排除，避免同一份表單自己選重複
+  function eligibleRoomsForGroupRow(idx) {
+    const g = newGroup.value
+    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) return []
+    const pickedElsewhere = g.rooms.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => !pickedElsewhere.includes(r.id))
+      .filter(r => isRoomAvailable(r.id, g.checkIn, g.checkOut))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  }
+
+  async function createGroup() {
+    newGroupError.value = ''
+    const g = newGroup.value
+    if (!g.groupName.trim()) { newGroupError.value = '請填寫團體名稱'; return }
+    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) { newGroupError.value = '請確認入住/退房日期'; return }
+    const rows = g.rooms.filter(r => r.roomId)
+    if (rows.length === 0) { newGroupError.value = '請至少選一間房間'; return }
+    const roomIds = rows.map(r => r.roomId)
+    if (new Set(roomIds).size !== roomIds.length) { newGroupError.value = '同一份團體登記裡不能選到同一間房兩次'; return }
+
+    groupSaving.value = true
+    const groupId = 'grp_' + Date.now()
+    const failed = []
+    try {
+      for (const row of rows) {
+        try {
+          const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              checkIn: g.checkIn,
+              checkOut: g.checkOut,
+              guests: row.guests || 1,
+              name: (row.name.trim() || g.groupName.trim()),
+              phone: '',
+              email: '',
+              buildingPref: 'all',
+              notes: row.notes.trim(),
+              groupId,
+              groupName: g.groupName.trim(),
+            }),
+          })).json()
+          if (res && res.error) { failed.push(`${row.roomId}：${res.error}`); continue }
+
+          const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: res.id, roomId: row.roomId }),
+          })).json()
+          if (assignRes && assignRes.error) failed.push(`${row.roomId}：${assignRes.error}`)
+        } catch (e) {
+          console.error(e)
+          failed.push(`${row.roomId}：建立失敗`)
+        }
+      }
+      await fetchAll()
+      if (failed.length) {
+        // 部分房間可能剛好被搶先訂走；已成功的那幾間房不受影響，留在畫面上讓使用者看清楚哪幾間要重選
+        newGroupError.value = `部分房間登記失敗，請重新選擇：${failed.join('；')}`
+      } else {
+        createGroupTarget.value = false
+      }
+    } finally {
+      groupSaving.value = false
     }
-    await fetchAll()
-    if (failed.length) {
-      // 部分房間可能剛好被搶先訂走；已成功的那幾間房不受影響，留在畫面上讓使用者看清楚哪幾間要重選
-      newGroupError.value = `部分房間登記失敗，請重新選擇：${failed.join('；')}`
-    } else {
-      createGroupTarget.value = false
+  }
+
+  /* ---------------- 平面圖選房間：新增訂單／登記團體共用的浮動選房器 ----------------
+     target 用字串區分要把選到的房間填回哪裡：'order' 填新增訂單那顆 select，
+     'group:<idx>' 填登記團體第 idx 列的 select，跟原本的下拉選單共用同一個 v-model，
+     所以在平面圖上點跟在下拉選單選是同一件事，畫面會同步。 */
+
+  const roomPicker = ref(null) // { target, checkIn, checkOut, guests, excludeIds }
+  function openRoomPicker(target, checkIn, checkOut, guests, excludeIds) {
+    if (!checkIn || !checkOut || nights(checkIn, checkOut) <= 0) {
+      const msg = '請先填入住日期與退房日期，才能用平面圖選房間'
+      if (target === 'order') newOrderError.value = msg
+      else newGroupError.value = msg
+      return
     }
-  } finally {
-    groupSaving.value = false
+    roomPicker.value = { target, checkIn, checkOut, guests: guests || 1, excludeIds: excludeIds || [] }
   }
-}
-
-/* ---------------- 平面圖選房間：新增訂單／登記團體共用的浮動選房器 ----------------
-   target 用字串區分要把選到的房間填回哪裡：'order' 填新增訂單那顆 select，
-   'group:<idx>' 填登記團體第 idx 列的 select，跟原本的下拉選單共用同一個 v-model，
-   所以在平面圖上點跟在下拉選單選是同一件事，畫面會同步。 */
-
-const roomPicker = ref(null) // { target, checkIn, checkOut, guests, excludeIds }
-function openRoomPicker(target, checkIn, checkOut, guests, excludeIds) {
-  if (!checkIn || !checkOut || nights(checkIn, checkOut) <= 0) {
-    const msg = '請先填入住日期與退房日期，才能用平面圖選房間'
-    if (target === 'order') newOrderError.value = msg
-    else newGroupError.value = msg
-    return
+  // 平面圖上要標成「不可選」（灰色）的房間 id：不夠大、該日期已被佔用、已下架、
+  // 或已經被同一份表單裡其他列選走
+  const roomPickerUnavailableIds = computed(() => {
+    if (!roomPicker.value) return []
+    const rp = roomPicker.value
+    return rooms.value
+      .filter(r => !(
+        r.active &&
+        r.capacity >= rp.guests &&
+        !rp.excludeIds.includes(r.id) &&
+        isRoomAvailable(r.id, rp.checkIn, rp.checkOut)
+      ))
+      .map(r => r.id)
+  })
+  function pickRoomFromFloorplan(room) {
+    if (!roomPicker.value) return
+    if (roomPickerUnavailableIds.value.includes(room.id)) return // 防呆：不可選的房間點了也不處理
+    const target = roomPicker.value.target
+    if (target === 'order') {
+      newOrder.value.roomId = room.id
+    } else if (target.startsWith('group:')) {
+      const idx = Number(target.split(':')[1])
+      if (newGroup.value.rooms[idx]) newGroup.value.rooms[idx].roomId = room.id
+    }
+    roomPicker.value = null
   }
-  roomPicker.value = { target, checkIn, checkOut, guests: guests || 1, excludeIds: excludeIds || [] }
-}
-// 平面圖上要標成「不可選」（灰色）的房間 id：不夠大、該日期已被佔用、已下架、
-// 或已經被同一份表單裡其他列選走
-const roomPickerUnavailableIds = computed(() => {
-  if (!roomPicker.value) return []
-  const rp = roomPicker.value
-  return rooms.value
-    .filter(r => !(
-      r.active &&
-      r.capacity >= rp.guests &&
-      !rp.excludeIds.includes(r.id) &&
-      isRoomAvailable(r.id, rp.checkIn, rp.checkOut)
-    ))
-    .map(r => r.id)
-})
-function pickRoomFromFloorplan(room) {
-  if (!roomPicker.value) return
-  if (roomPickerUnavailableIds.value.includes(room.id)) return // 防呆：不可選的房間點了也不處理
-  const target = roomPicker.value.target
-  if (target === 'order') {
-    newOrder.value.roomId = room.id
-  } else if (target.startsWith('group:')) {
-    const idx = Number(target.split(':')[1])
-    if (newGroup.value.rooms[idx]) newGroup.value.rooms[idx].roomId = room.id
+
+  /* ---------------- 團體管理：查看/整團操作同一個 groupId 底下所有訂單 ---------------- */
+
+  const groupTarget = ref(null) // { groupId, groupName }
+  function openGroupTarget(groupId, groupName) {
+    groupTarget.value = { groupId, groupName }
   }
-  roomPicker.value = null
-}
-
-/* ---------------- 團體管理：查看/整團操作同一個 groupId 底下所有訂單 ---------------- */
-
-const groupTarget = ref(null) // { groupId, groupName }
-function openGroupTarget(groupId, groupName) {
-  groupTarget.value = { groupId, groupName }
-}
-const groupBookings = computed(() => {
-  if (!groupTarget.value) return []
-  return bookings.value
-    .filter(b => b.groupId === groupTarget.value.groupId)
-    .sort((a, b) => (a.roomId < b.roomId ? -1 : 1))
-})
-async function setGroupStatusAll(status) {
-  if (!groupTarget.value) return
-  try {
-    const res = await (await fetch(`${BOOKINGS_BASE()}/group/status`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupId: groupTarget.value.groupId, status }),
-    })).json()
-    if (res && res.error) { alert(res.error); return }
-    await fetchAll()
-  } catch (e) { console.error(e); alert('操作失敗，請稍後再試') }
-}
-
-/* ---------------- 訂房紀錄 ---------------- */
-
-const historyStatus  = ref('all')
-const historyKeyword = ref('')
-const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
-const filteredHistory = computed(() => {
-  const kw = historyKeyword.value.trim().toLowerCase()
-  return historyBookings.value
-    .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
-    .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
-    .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
-})
-const historyStats = computed(() => {
-  const completed = historyBookings.value.filter(b => b.status === 'completed')
-  const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
-  return {
-    completedCount: completed.length,
-    cancelledCount: cancelled.length,
-    totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
-    totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0),
+  const groupBookings = computed(() => {
+    if (!groupTarget.value) return []
+    return bookings.value
+      .filter(b => b.groupId === groupTarget.value.groupId)
+      .sort((a, b) => (a.roomId < b.roomId ? -1 : 1))
+  })
+  async function setGroupStatusAll(status) {
+    if (!groupTarget.value) return
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/group/status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: groupTarget.value.groupId, status }),
+      })).json()
+      if (res && res.error) { alert(res.error); return }
+      await fetchAll()
+    } catch (e) { console.error(e); alert('操作失敗，請稍後再試') }
   }
-})
 
-onMounted(fetchAll)
+  /* ---------------- 訂房紀錄 ---------------- */
+
+  const historyStatus  = ref('all')
+  const historyKeyword = ref('')
+  const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
+  const filteredHistory = computed(() => {
+    const kw = historyKeyword.value.trim().toLowerCase()
+    return historyBookings.value
+      .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
+      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
+      .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
+  })
+  const historyStats = computed(() => {
+    const completed = historyBookings.value.filter(b => b.status === 'completed')
+    const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
+    return {
+      completedCount: completed.length,
+      cancelledCount: cancelled.length,
+      totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
+      totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0),
+    }
+  })
+
+  onMounted(fetchAll)
 </script>
 
 <style scoped>
-.segmented { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
-.segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 13.5px; font-weight: 700; white-space: nowrap; }
-.segmented button:hover { background: var(--border-light); color: var(--text); }
-.seg-active, .seg-active:hover { background: #15803d; color: #fff; }
-.w-fit { width: fit-content; }
+  .segmented { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+  .segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+  .segmented button:hover { background: var(--border-light); color: var(--text); }
+  .seg-active, .seg-active:hover { background: #15803d; color: #fff; }
+  .w-fit { width: fit-content; }
 
-.pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 13.5px; font-weight: 700; white-space: nowrap; }
-.pill-btn:hover { border-color: var(--accent); color: var(--text); }
-.pill-active, .pill-active:hover { background: #15803d; border-color: #15803d; color: #fff; }
+  .pill-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+  .pill-btn:hover { border-color: var(--accent); color: var(--text); }
+  .pill-active, .pill-active:hover { background: #15803d; border-color: #15803d; color: #fff; }
 
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-.stat-card { background: var(--surface); border-radius: 12px; padding: 14px; border-left: 4px solid #15803d; box-shadow: var(--shadow); }
-.stat-label { font-size: 12.5px; color: var(--text-hint); font-weight: 600; }
-.stat-value { font-size: 23px; font-weight: 700; color: var(--text); margin-top: 2px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat-card { background: var(--surface); border-radius: 12px; padding: 14px; border-left: 4px solid #15803d; box-shadow: var(--shadow); }
+  .stat-label { font-size: 12.5px; color: var(--text-hint); font-weight: 600; }
+  .stat-value { font-size: 23px; font-weight: 700; color: var(--text); margin-top: 2px; }
 
-.type-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-.type-summary-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
-.type-summary-title { font-weight: 700; color: var(--text); font-size: 13.5px; margin-bottom: 6px; }
-.type-summary-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 1.5px 0; }
+  .type-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .type-summary-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .type-summary-title { font-weight: 700; color: var(--text); font-size: 13.5px; margin-bottom: 6px; }
+  .type-summary-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 1.5px 0; }
 
-.panel { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); overflow-x: auto; }
+  .panel { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); overflow-x: auto; }
 
-.select-input { padding: 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 13.5px; background: var(--surface2); color: var(--text); }
+  .select-input { padding: 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 13.5px; background: var(--surface2); color: var(--text); }
 
-.building-badge { width: 24px; height: 24px; border-radius: 6px; background: rgba(21, 128, 61, .12); color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .building-badge { width: 24px; height: 24px; border-radius: 6px; background: rgba(21, 128, 61, .12); color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
 
-.dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
 
-.status-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .status-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 
-.mini-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-.mini-btn:hover { background: var(--bg); }
-.mini-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.mini-btn:disabled:hover { background: var(--surface2); }
-.mini-primary { background: #15803d; color: #fff; }
-.mini-primary:hover { background: #15803d; filter: brightness(1.08); }
-.mini-danger { background: transparent; border: 1px solid #e11d48; color: #e11d48; }
+  .mini-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .mini-btn:hover { background: var(--bg); }
+  .mini-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mini-btn:disabled:hover { background: var(--surface2); }
+  .mini-primary { background: #15803d; color: #fff; }
+  .mini-primary:hover { background: #15803d; filter: brightness(1.08); }
+  .mini-danger { background: transparent; border: 1px solid #e11d48; color: #e11d48; }
 
-.btn-plain { padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 14px; font-weight: 600; }
-.btn-plain:hover { background: var(--bg); }
+  .btn-plain { padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 14px; font-weight: 600; }
+  .btn-plain:hover { background: var(--bg); }
 
-.collapse-btn { width: 22px; height: 22px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.collapse-btn:hover { background: var(--bg); color: var(--text); }
+  .collapse-btn { width: 22px; height: 22px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .collapse-btn:hover { background: var(--bg); color: var(--text); }
 
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-.cal-head { margin-bottom: 5px; }
-.cal-head-cell { text-align: center; padding: 6px 0; font-weight: 700; font-size: 12px; color: var(--text-hint); }
-.cal-cell { min-height: 92px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: var(--surface2); display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
-.cal-cell-empty { background: transparent; border-color: transparent; }
-.cal-cell-today { border-color: #15803d; box-shadow: 0 0 0 1px #15803d inset; }
-.cal-day-num { font-weight: 700; font-size: 12px; color: var(--text); margin-bottom: 1px; }
-.cal-day-today { color: #15803d; }
-.cal-pill { text-align: left; padding: 2px 6px; border-radius: 5px; color: #fff; font-size: 10.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-pill:hover { filter: brightness(1.12); }
-.cal-more { text-align: left; font-size: 10.5px; color: var(--text-hint); font-weight: 600; padding: 1px 4px; }
-.cal-more:hover { color: var(--text); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .cal-head { margin-bottom: 5px; }
+  .cal-head-cell { text-align: center; padding: 6px 0; font-weight: 700; font-size: 12px; color: var(--text-hint); }
+  .cal-cell { min-height: 92px; border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: var(--surface2); display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+  .cal-cell-empty { background: transparent; border-color: transparent; }
+  .cal-cell-today { border-color: #15803d; box-shadow: 0 0 0 1px #15803d inset; }
+  .cal-day-num { font-weight: 700; font-size: 12px; color: var(--text); margin-bottom: 1px; }
+  .cal-day-today { color: #15803d; }
+  .cal-pill { text-align: left; padding: 2px 6px; border-radius: 5px; color: #fff; font-size: 10.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-pill:hover { filter: brightness(1.12); }
+  .cal-more { text-align: left; font-size: 10.5px; color: var(--text-hint); font-weight: 600; padding: 1px 4px; }
+  .cal-more:hover { color: var(--text); }
 </style>
