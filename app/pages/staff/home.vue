@@ -137,9 +137,13 @@
     return fmtMDWeekday(date)
   }
 
-  // 事件詳細內容：不同來源欄位名稱可能不一樣，依序找第一個有值的欄位顯示
+  // 事件詳細內容：跟 calendar.vue 一致統一用 description 欄位；Google 的內容可能帶 HTML 標籤，用同一套 stripHtml 去掉再顯示
+  function stripHtml(html) {
+    if (!html) return ''
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+  }
   function calEventDetail(ev) {
-    return ev.description || ev.note || ev.content || ev.remark || ev.detail || ''
+    return stripHtml(ev.description || '')
   }
   const calWeekRangeLabel = `${fmtMD(calWeekStart)} - ${fmtMD(calWeekEnd)}`
 
