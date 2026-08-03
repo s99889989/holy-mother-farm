@@ -1,661 +1,682 @@
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'staff.home' })
+definePageMeta({ layout: 'staff', requiredPermission: 'staff.home' })
 
-  const commonStore = useCommonStore()
-  const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
-  const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
-  const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
+const commonStore = useCommonStore()
+const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
+const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
+const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
 
-  const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
-  const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
+const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
+const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
 
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-  const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${weekDays[today.getDay()]}`
+const today = new Date()
+const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${weekDays[today.getDay()]}`
 
-  // 本週（週一～週日）範圍，跟後端 /holy/home/week 的週界算法一致
-  function fmtDateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+// 本週（週一～週日）範圍，跟後端 /holy/home/week 的週界算法一致
+function fmtDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const calWeekMonday = new Date(today)
+calWeekMonday.setDate(today.getDate() + (today.getDay() === 0 ? -6 : 1 - today.getDay()))
+const calWeekSunday = new Date(calWeekMonday)
+calWeekSunday.setDate(calWeekMonday.getDate() + 6)
+const calWeekStart = fmtDateStr(calWeekMonday)
+const calWeekEnd = fmtDateStr(calWeekSunday)
+
+// 明天的日期，「今日行事曆」要多顯示明天，方便提早一天準備
+const tomorrowDate = new Date(today)
+tomorrowDate.setDate(today.getDate() + 1)
+const tomorrowStr = fmtDateStr(tomorrowDate)
+// 抓資料的範圍要涵蓋到明天，正常情況明天本來就在本週範圍內；
+// 只有在今天剛好是週日、明天跨到下週（甚至跨月）時才會超出，這裡保底往後延一天
+const fetchRangeEnd = tomorrowStr > calWeekEnd ? tomorrowStr : calWeekEnd
+
+// ── 顯示模式：今日 / 本週 ────────────────────────────────────────────
+const viewMode = ref('day') // 'day' | 'week'
+const calViewMode = ref('day') // 行事曆自己的今日／本週切換，跟上面的概況切換各自獨立
+
+// ── 今日概況 / 本週概況 ───────────────────────────────────────────────
+const loading = ref(false)
+const loadingWeek = ref(false)
+const daySummary = ref(null)
+const weekSummary = ref(null)
+const allEvents = ref([]) // 本月所有行事曆事件（含 Google），今日／本週都從這裡篩選
+const recurringRules = ref([]) // 包月訂位規則（跨月時含兩個月），今日／本週都從這裡依星期篩選
+
+const summary = computed(() => (viewMode.value === 'week' ? weekSummary.value : daySummary.value))
+const summaryLoading = computed(() => (viewMode.value === 'week' ? loadingWeek.value : loading.value))
+
+const fmtMD = (dateStr) => {
+  if (!dateStr) return ''
+  const [, m, d] = dateStr.split('-')
+  return `${Number(m)}/${Number(d)}`
+}
+
+const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+const fmtMDWeekday = (dateStr) => {
+  if (!dateStr) return ''
+  const weekday = WEEKDAY_LABELS[new Date(`${dateStr}T00:00:00`).getDay()]
+  return `${fmtMD(dateStr)}（週${weekday}）`
+}
+
+const weekRangeLabel = computed(() => {
+  if (!weekSummary.value?.weekStart || !weekSummary.value?.weekEnd) return ''
+  return `${fmtMD(weekSummary.value.weekStart)} - ${fmtMD(weekSummary.value.weekEnd)}`
+})
+
+const bookings = computed(() => summary.value?.booking?.items ?? [])
+const lunchOrders = computed(() => summary.value?.lunch?.items ?? [])
+const soybeanOrders = computed(() => summary.value?.soybean?.items ?? [])
+
+// ── 包月訂位（recurring）：跟訂位頁一樣，只算 type !== 'lunch'、依星期（JS getDay()：0=日...6=六）篩選當天適用的規則
+function recurBookingRulesForDate(date) {
+  if (!date) return []
+  const dow = new Date(`${date}T00:00:00`).getDay()
+  return recurringRules.value.filter(r => r.type !== 'lunch' &&
+    (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
+}
+const recurGuestsOf = rules => rules.reduce((s, r) =>
+  s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
+
+const bookingRecurRules = computed(() => recurBookingRulesForDate(todayStr))
+const bookingRecurGuests = computed(() => recurGuestsOf(bookingRecurRules.value))
+const bookingRecurMeat = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
+const bookingRecurFullVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
+const bookingRecurEggVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
+const bookingRecurSpiceVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
+
+// 本週的 7 個日期（週一～週日）
+const CAL_WEEK_DATES = (() => {
+  const dates = []
+  const d = new Date(calWeekMonday)
+  for (let i = 0; i < 7; i++) {
+    dates.push(fmtDateStr(d))
+    d.setDate(d.getDate() + 1)
   }
-  const calWeekMonday = new Date(today)
-  calWeekMonday.setDate(today.getDate() + (today.getDay() === 0 ? -6 : 1 - today.getDay()))
-  const calWeekSunday = new Date(calWeekMonday)
-  calWeekSunday.setDate(calWeekMonday.getDate() + 6)
-  const calWeekStart = fmtDateStr(calWeekMonday)
-  const calWeekEnd = fmtDateStr(calWeekSunday)
+  return dates
+})()
 
-  // 明天的日期，「今日行事曆」要多顯示明天，方便提早一天準備
-  const tomorrowDate = new Date(today)
-  tomorrowDate.setDate(today.getDate() + 1)
-  const tomorrowStr = fmtDateStr(tomorrowDate)
-  // 抓資料的範圍要涵蓋到明天，正常情況明天本來就在本週範圍內；
-  // 只有在今天剛好是週日、明天跨到下週（甚至跨月）時才會超出，這裡保底往後延一天
-  const fetchRangeEnd = tomorrowStr > calWeekEnd ? tomorrowStr : calWeekEnd
+const sumQty = (items, field) => items.reduce((s, i) => s + (i[field] || 0), 0)
 
-  // ── 顯示模式：今日 / 本週 ────────────────────────────────────────────
-  const viewMode = ref('day') // 'day' | 'week'
-  const calViewMode = ref('day') // 行事曆自己的今日／本週切換，跟上面的概況切換各自獨立
-
-  // ── 今日概況 / 本週概況 ───────────────────────────────────────────────
-  const loading = ref(false)
-  const loadingWeek = ref(false)
-  const daySummary = ref(null)
-  const weekSummary = ref(null)
-  const allEvents = ref([]) // 本月所有行事曆事件（含 Google），今日／本週都從這裡篩選
-  const recurringRules = ref([]) // 包月訂位規則（跨月時含兩個月），今日／本週都從這裡依星期篩選
-
-  const summary = computed(() => (viewMode.value === 'week' ? weekSummary.value : daySummary.value))
-  const summaryLoading = computed(() => (viewMode.value === 'week' ? loadingWeek.value : loading.value))
-
-  const fmtMD = (dateStr) => {
-    if (!dateStr) return ''
-    const [, m, d] = dateStr.split('-')
-    return `${Number(m)}/${Number(d)}`
-  }
-
-  const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
-  const fmtMDWeekday = (dateStr) => {
-    if (!dateStr) return ''
-    const weekday = WEEKDAY_LABELS[new Date(`${dateStr}T00:00:00`).getDay()]
-    return `${fmtMD(dateStr)}（週${weekday}）`
-  }
-
-  const weekRangeLabel = computed(() => {
-    if (!weekSummary.value?.weekStart || !weekSummary.value?.weekEnd) return ''
-    return `${fmtMD(weekSummary.value.weekStart)} - ${fmtMD(weekSummary.value.weekEnd)}`
-  })
-
-  const bookings = computed(() => summary.value?.booking?.items ?? [])
-  const lunchOrders = computed(() => summary.value?.lunch?.items ?? [])
-  const soybeanOrders = computed(() => summary.value?.soybean?.items ?? [])
-
-  // ── 包月訂位（recurring）：跟訂位頁一樣，只算 type !== 'lunch'、依星期（JS getDay()：0=日...6=六）篩選當天適用的規則
-  function recurBookingRulesForDate(date) {
-    if (!date) return []
-    const dow = new Date(`${date}T00:00:00`).getDay()
-    return recurringRules.value.filter(r => r.type !== 'lunch' &&
-      (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
-  }
-  const recurGuestsOf = rules => rules.reduce((s, r) =>
-    s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
-
-  const bookingRecurRules = computed(() => recurBookingRulesForDate(todayStr))
-  const bookingRecurGuests = computed(() => recurGuestsOf(bookingRecurRules.value))
-  const bookingRecurMeat = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
-  const bookingRecurFullVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
-  const bookingRecurEggVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
-  const bookingRecurSpiceVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
-
-  // 本週的 7 個日期（週一～週日）
-  const CAL_WEEK_DATES = (() => {
-    const dates = []
-    const d = new Date(calWeekMonday)
-    for (let i = 0; i < 7; i++) {
-      dates.push(fmtDateStr(d))
-      d.setDate(d.getDate() + 1)
-    }
-    return dates
-  })()
-
-  const sumQty = (items, field) => items.reduce((s, i) => s + (i[field] || 0), 0)
-
-  // 本週檢視：每天各自獨立算自己的統計（不把整週加總在一起），依日期排序下去
-  const weekDayCards = computed(() => {
-    if (viewMode.value !== 'week') return []
-    return CAL_WEEK_DATES.map((date) => {
-      const bItems = bookings.value.filter(i => i.date === date)
-      const lItems = lunchOrders.value.filter(i => i.date === date)
-      const sItems = soybeanOrders.value.filter(i => i.date === date)
-      const bMeat = sumQty(bItems, 'meatQty'), bVeg = sumQty(bItems, 'fullVegQty') + sumQty(bItems, 'eggVegQty') + sumQty(bItems, 'spiceVegQty')
-      const lMeat = sumQty(lItems, 'meatQty'), lVeg = sumQty(lItems, 'fullVegQty') + sumQty(lItems, 'eggVegQty') + sumQty(lItems, 'spiceVegQty')
-      const recurRules = recurBookingRulesForDate(date)
-      const recurG = recurGuestsOf(recurRules)
-      const bOnsite = bMeat + bVeg
-      return {
-        date,
-        booking: { items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules },
-        lunch: { items: lItems, total: lMeat + lVeg },
-        soybean: { items: sItems }
-      }
-    })
-  })
-
-  const bookingTotal = computed(() => summary.value?.booking?.total ?? 0)
-  const bookingMeat = computed(() => summary.value?.booking?.meat ?? 0)
-  const bookingVeg = computed(() => summary.value?.booking?.veg ?? 0)
-  const bookingFullVeg = computed(() => summary.value?.booking?.fullVeg ?? 0)
-  const bookingEggVeg = computed(() => summary.value?.booking?.eggVeg ?? 0)
-  const bookingSpiceVeg = computed(() => summary.value?.booking?.spiceVeg ?? 0)
-  const lunchTotal = computed(() => summary.value?.lunch?.total ?? 0)
-  const lunchMeat = computed(() => summary.value?.lunch?.meat ?? 0)
-  const lunchVeg = computed(() => summary.value?.lunch?.veg ?? 0)
-  const lunchFullVeg = computed(() => summary.value?.lunch?.fullVeg ?? 0)
-  const lunchEggVeg = computed(() => summary.value?.lunch?.eggVeg ?? 0)
-  const lunchSpiceVeg = computed(() => summary.value?.lunch?.spiceVeg ?? 0)
-  const soybeanSoymilk = computed(() => summary.value?.soybean?.soymilk ?? 0)
-  const soybeanTofu = computed(() => summary.value?.soybean?.tofu ?? 0)
-  // 豆製品後端會自動抓「未來最近一個出貨日」的訂單，不一定等於今天，這裡算出來給畫面顯示是哪一天
-  const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
-  const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
-
-  // 今日行事曆現在同時顯示「今天」跟「明天」兩天，本週行事曆維持顯示整週，兩邊都用同一套「每天分組」模板呈現
-  const CAL_TODAY_DATES = [todayStr, tomorrowStr]
-  const calDisplayDates = computed(() => (calViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
-  const calEventsByDay = computed(() => (
-    calDisplayDates.value.map(date => ({
+// 本週檢視：每天各自獨立算自己的統計（不把整週加總在一起），依日期排序下去
+const weekDayCards = computed(() => {
+  if (viewMode.value !== 'week') return []
+  return CAL_WEEK_DATES.map((date) => {
+    const bItems = bookings.value.filter(i => i.date === date)
+    const lItems = lunchOrders.value.filter(i => i.date === date)
+    const sItems = soybeanOrders.value.filter(i => i.date === date)
+    const bMeat = sumQty(bItems, 'meatQty'), bVeg = sumQty(bItems, 'fullVegQty') + sumQty(bItems, 'eggVegQty') + sumQty(bItems, 'spiceVegQty')
+    const lMeat = sumQty(lItems, 'meatQty'), lVeg = sumQty(lItems, 'fullVegQty') + sumQty(lItems, 'eggVegQty') + sumQty(lItems, 'spiceVegQty')
+    const recurRules = recurBookingRulesForDate(date)
+    const recurG = recurGuestsOf(recurRules)
+    const bOnsite = bMeat + bVeg
+    return {
       date,
-      events: allEvents.value.filter(e => e.date === date)
-    }))
-  ))
-  const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
-
-  // 今日行事曆的每日標題：今天／明天直接標示文字，比只看日期清楚；本週行事曆維持只顯示日期
-  function calDayHeaderLabel(date) {
-    if (calViewMode.value !== 'week') {
-      if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
-      if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
+      booking: { items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules },
+      lunch: { items: lItems, total: lMeat + lVeg },
+      soybean: { items: sItems }
     }
-    return fmtMDWeekday(date)
-  }
+  })
+})
 
-  // 事件詳細內容：跟 calendar.vue 一致統一用 description 欄位；Google 的內容可能帶 HTML 標籤，用同一套 stripHtml 去掉再顯示
-  function stripHtml(html) {
-    if (!html) return ''
-    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
-  }
-  function calEventDetail(ev) {
-    return stripHtml(ev.description || '')
-  }
-  const calWeekRangeLabel = `${fmtMD(calWeekStart)} - ${fmtMD(calWeekEnd)}`
+const bookingTotal = computed(() => summary.value?.booking?.total ?? 0)
+const bookingMeat = computed(() => summary.value?.booking?.meat ?? 0)
+const bookingVeg = computed(() => summary.value?.booking?.veg ?? 0)
+const bookingFullVeg = computed(() => summary.value?.booking?.fullVeg ?? 0)
+const bookingEggVeg = computed(() => summary.value?.booking?.eggVeg ?? 0)
+const bookingSpiceVeg = computed(() => summary.value?.booking?.spiceVeg ?? 0)
+const lunchTotal = computed(() => summary.value?.lunch?.total ?? 0)
+const lunchMeat = computed(() => summary.value?.lunch?.meat ?? 0)
+const lunchVeg = computed(() => summary.value?.lunch?.veg ?? 0)
+const lunchFullVeg = computed(() => summary.value?.lunch?.fullVeg ?? 0)
+const lunchEggVeg = computed(() => summary.value?.lunch?.eggVeg ?? 0)
+const lunchSpiceVeg = computed(() => summary.value?.lunch?.spiceVeg ?? 0)
+const soybeanSoymilk = computed(() => summary.value?.soybean?.soymilk ?? 0)
+const soybeanTofu = computed(() => summary.value?.soybean?.tofu ?? 0)
+// 豆製品後端會自動抓「未來最近一個出貨日」的訂單，不一定等於今天，這裡算出來給畫面顯示是哪一天
+const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
+const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
 
-  // 依葷素細項組成簡短標籤，例如「葷2・全素1・蛋奶素1」，用於卡片內每筆訂單顯示
-  function typeBreakdown(item) {
-    const parts = []
-    if (item.meatQty) parts.push(`🍖葷${item.meatQty}`)
-    if (item.fullVegQty) parts.push(`🌿全素${item.fullVegQty}`)
-    if (item.eggVegQty) parts.push(`🥚蛋奶素${item.eggVegQty}`)
-    if (item.spiceVegQty) parts.push(`🧄五辛素${item.spiceVegQty}`)
-    return parts.join('・')
-  }
+// 今日行事曆現在同時顯示「今天」跟「明天」兩天，本週行事曆維持顯示整週，兩邊都用同一套「每天分組」模板呈現
+const CAL_TODAY_DATES = [todayStr, tomorrowStr]
+const calDisplayDates = computed(() => (calViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
+const calEventsByDay = computed(() => (
+  calDisplayDates.value.map(date => ({
+    date,
+    events: allEvents.value.filter(e => e.date === date)
+  }))
+))
+const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
 
-  // 單筆訂位/包月的總人數（葷素加總）
-  function itemGuestTotal(item) {
-    return (Number(item.meatQty) || 0) + (Number(item.fullVegQty) || 0) + (Number(item.eggVegQty) || 0) + (Number(item.spiceVegQty) || 0)
+// 今日行事曆的每日標題：今天／明天直接標示文字，比只看日期清楚；本週行事曆維持只顯示日期
+function calDayHeaderLabel(date) {
+  if (calViewMode.value !== 'week') {
+    if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
+    if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
   }
+  return fmtMDWeekday(date)
+}
 
-  // 豆漿容量明細，例如「800ml×2、1200ml×1」——同一筆訂單可能混搭不同容量
-  function soymilkBreakdownText(item) {
-    const list = item.soymilkBreakdown || []
-    if (!list.length) return item.soymilkQty ? `豆漿${item.soymilkQty}` : ''
-    return list.map(b => `${b.volume}ml×${b.qty}`).join('、')
+// 事件詳細內容：跟 calendar.vue 一致統一用 description 欄位；Google 的內容可能帶 HTML 標籤，用同一套 stripHtml 去掉再顯示
+function stripHtml(html) {
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+}
+function calEventDetail(ev) {
+  return stripHtml(ev.description || '')
+}
+const calWeekRangeLabel = `${fmtMD(calWeekStart)} - ${fmtMD(calWeekEnd)}`
+
+// 依葷素細項組成簡短標籤，例如「葷2・全素1・蛋奶素1」，用於卡片內每筆訂單顯示
+function typeBreakdown(item) {
+  const parts = []
+  if (item.meatQty) parts.push(`🍖葷${item.meatQty}`)
+  if (item.fullVegQty) parts.push(`🌿全素${item.fullVegQty}`)
+  if (item.eggVegQty) parts.push(`🥚蛋奶素${item.eggVegQty}`)
+  if (item.spiceVegQty) parts.push(`🧄五辛素${item.spiceVegQty}`)
+  return parts.join('・')
+}
+
+// 單筆訂位/包月的總人數（葷素加總）
+function itemGuestTotal(item) {
+  return (Number(item.meatQty) || 0) + (Number(item.fullVegQty) || 0) + (Number(item.eggVegQty) || 0) + (Number(item.spiceVegQty) || 0)
+}
+
+// 豆漿容量明細，例如「800ml×2、1200ml×1」——同一筆訂單可能混搭不同容量
+function soymilkBreakdownText(item) {
+  const list = item.soymilkBreakdown || []
+  if (!list.length) return item.soymilkQty ? `豆漿${item.soymilkQty}` : ''
+  return list.map(b => `${b.volume}ml×${b.qty}`).join('、')
+}
+
+const detailStatusClass = (status) => {
+  switch (status) {
+    case '已確認':
+    case '已入位':
+      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+    case '客戶提出取消':
+      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+    case '已取消':
+      return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+    default:
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
   }
+}
 
-  const detailStatusClass = (status) => {
-    switch (status) {
-      case '已確認':
-      case '已入位':
-        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-      case '客戶提出取消':
-        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-      case '已取消':
-        return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-      default:
-        return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-    }
+// ── 新訂單通知（SSE 即時推播＋跳出訊息＋提示音）───────────────────────
+let eventSource = null
+// 記錄目前已知的訂單內容（不只 ID，連內容一起存，刪除時才有資料可顯示）
+const knownBookings = new Map()
+const knownLunches = new Map()
+const knownSoybeans = new Map()
+
+const notifications = ref([])
+let notifySeq = 0
+
+// 提示音開關（記住使用者偏好；預設開啟，但實際能否播放仍受瀏覽器自動播放限制）
+const soundEnabled = ref(true)
+
+function loadSoundPref() {
+  try {
+    const saved = localStorage.getItem('holy_home_sound_enabled')
+    if (saved !== null) soundEnabled.value = saved === '1'
+  } catch (e) { /* 無法讀取偏好時使用預設值 */ }
+}
+function saveSoundPref() {
+  try {
+    localStorage.setItem('holy_home_sound_enabled', soundEnabled.value ? '1' : '0')
+  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */ }
+}
+
+// ── 設定區塊（可收縮）：定時檢查（輪詢）開關 ─────────────────────────
+const showSettings = ref(false)
+const pollEnabled = ref(true)
+
+function loadPollPref() {
+  try {
+    const saved = localStorage.getItem('holy_home_poll_enabled')
+    if (saved !== null) pollEnabled.value = saved === '1'
+  } catch (e) { /* 無法讀取偏好時使用預設值 */ }
+}
+function savePollPref() {
+  try {
+    localStorage.setItem('holy_home_poll_enabled', pollEnabled.value ? '1' : '0')
+  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */ }
+}
+function togglePoll() {
+  pollEnabled.value = !pollEnabled.value
+  savePollPref()
+}
+
+// 瀏覽器多半要求先有使用者互動才允許播放音效，先建立/解鎖 AudioContext
+let audioCtx = null
+function getAudioCtx() {
+  if (!audioCtx) {
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext
+    if (AudioCtxClass) audioCtx = new AudioCtxClass()
   }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
+  return audioCtx
+}
+function unlockAudio() {
+  getAudioCtx()
+  primeSpeech()
+}
 
-  // ── 新訂單通知（SSE 即時推播＋跳出訊息＋提示音）───────────────────────
-  let eventSource = null
-  // 記錄目前已知的訂單內容（不只 ID，連內容一起存，刪除時才有資料可顯示）
-  const knownBookings = new Map()
-  const knownLunches = new Map()
-  const knownSoybeans = new Map()
+function playTones(tones, waveType) {
+  try {
+    const ctx = getAudioCtx()
+    if (!ctx) return
+    tones.forEach((freq, i) => {
+      const start = ctx.currentTime + i * 0.16
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = waveType
+      osc.frequency.setValueAtTime(freq, start)
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.5, start + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.36)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(start)
+      osc.stop(start + 0.38)
+    })
+  } catch (e) { /* 音效播放失敗不影響其他功能 */ }
+}
 
-  const notifications = ref([])
-  let notifySeq = 0
+// 新訂單：明亮上揚的四音「叮咚叮咚」
+function playCreateSound() {
+  playTones([880, 1046, 880, 1318], 'sine')
+}
+// 刪除訂單：低沉下降的兩音，跟新訂單的音效明顯不同
+function playDeleteSound() {
+  playTones([523, 349], 'triangle')
+}
 
-  // 提示音開關（記住使用者偏好；預設開啟，但實際能否播放仍受瀏覽器自動播放限制）
-  const soundEnabled = ref(true)
+// ── 語音播報新訂單（瀏覽器內建 Web Speech API，不需要額外服務）───────────
+function primeSpeech() {
+  // 部分瀏覽器（尤其 Chrome）需要先有一次使用者互動才願意播放語音，這裡先「唸」一個空字串預熱
+  try {
+    if (!window.speechSynthesis) return
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(''))
+  } catch (e) { /* 忽略 */ }
+}
 
-  function loadSoundPref() {
-    try {
-      const saved = localStorage.getItem('holy_home_sound_enabled')
-      if (saved !== null) soundEnabled.value = saved === '1'
-    } catch (e) { /* 無法讀取偏好時使用預設值 */ }
+function speakText(text) {
+  try {
+    if (!window.speechSynthesis || !text) return
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = 'zh-TW'
+    utter.rate = 1
+    window.speechSynthesis.speak(utter)
+  } catch (e) { /* 語音播放失敗不影響其他功能 */ }
+}
+
+// 時間唸法，例如 "12:00" → "12點"，"12:30" → "12點30分"
+function timeToSpoken(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  if (Number.isNaN(h)) return t
+  return m ? `${h}點${m}分` : `${h}點`
+}
+
+// 訂位／便當的葷素細項唸法，例如「葷2位、全素1位」或「葷便當2個、全素便當1個」
+function spokenTypeBreakdown(item, unit) {
+  const parts = []
+  if (item.meatQty) parts.push(`葷${unit}${item.meatQty}`)
+  if (item.fullVegQty) parts.push(`全素${unit}${item.fullVegQty}`)
+  if (item.eggVegQty) parts.push(`蛋奶素${unit}${item.eggVegQty}`)
+  if (item.spiceVegQty) parts.push(`五辛素${unit}${item.spiceVegQty}`)
+  return parts.join('、')
+}
+
+function bookingSpokenText(item, prefix = '新訂位') {
+  const detail = spokenTypeBreakdown(item, '') || '尚未填寫數量'
+  const timeText = timeToSpoken(item.time)
+  const nameText = item.name || '未填姓名'
+  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}位`
+}
+
+function lunchSpokenText(item, prefix = '新便當訂單') {
+  const parts = []
+  if (item.meatQty) parts.push(`葷便當${item.meatQty}個`)
+  if (item.fullVegQty) parts.push(`全素便當${item.fullVegQty}個`)
+  if (item.eggVegQty) parts.push(`蛋奶素便當${item.eggVegQty}個`)
+  if (item.spiceVegQty) parts.push(`五辛素便當${item.spiceVegQty}個`)
+  const detail = parts.join('、') || '尚未填寫數量'
+  const timeText = timeToSpoken(item.time)
+  const nameText = item.name || '未填姓名'
+  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}`
+}
+
+function soybeanSpokenText(item, prefix = '新豆製品訂購') {
+  const parts = []
+  for (const b of (item.soymilkBreakdown || [])) {
+    parts.push(`豆漿${b.volume}毫升${b.qty}袋`)
   }
-  function saveSoundPref() {
-    try {
-      localStorage.setItem('holy_home_sound_enabled', soundEnabled.value ? '1' : '0')
-    } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */ }
-  }
+  if (item.tofuQty) parts.push(`豆腐${item.tofuQty}塊`)
+  const detail = parts.join('、') || '尚未填寫數量'
+  const nameText = item.name || '未填姓名'
+  return `${prefix}，${nameText}，${detail}`
+}
 
-  // 瀏覽器多半要求先有使用者互動才允許播放音效，先建立/解鎖 AudioContext
-  let audioCtx = null
-  function getAudioCtx() {
-    if (!audioCtx) {
-      const AudioCtxClass = window.AudioContext || window.webkitAudioContext
-      if (AudioCtxClass) audioCtx = new AudioCtxClass()
-    }
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
-    return audioCtx
+function toggleSound() {
+  soundEnabled.value = !soundEnabled.value
+  saveSoundPref()
+  if (soundEnabled.value) {
+    unlockAudio()
+    // 依序播兩種聲音，讓使用者一次聽出新訂單／刪除的差異
+    playCreateSound()
+    setTimeout(playDeleteSound, 900)
+    setTimeout(() => speakText('新訂位，王先生，12點，葷2位'), 1500)
+    setTimeout(() => speakText('訂位取消，王先生，12點，葷2位'), 3200)
   }
-  function unlockAudio() {
-    getAudioCtx()
-    primeSpeech()
-  }
+}
 
-  function playTones(tones, waveType) {
-    try {
-      const ctx = getAudioCtx()
-      if (!ctx) return
-      tones.forEach((freq, i) => {
-        const start = ctx.currentTime + i * 0.16
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.type = waveType
-        osc.frequency.setValueAtTime(freq, start)
-        gain.gain.setValueAtTime(0.0001, start)
-        gain.gain.exponentialRampToValueAtTime(0.5, start + 0.02)
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.36)
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.start(start)
-        osc.stop(start + 0.38)
-      })
-    } catch (e) { /* 音效播放失敗不影響其他功能 */ }
-  }
-
-  // 新訂單：明亮上揚的四音「叮咚叮咚」
-  function playCreateSound() {
-    playTones([880, 1046, 880, 1318], 'sine')
-  }
-  // 刪除訂單：低沉下降的兩音，跟新訂單的音效明顯不同
-  function playDeleteSound() {
-    playTones([523, 349], 'triangle')
-  }
-
-  // ── 語音播報新訂單（瀏覽器內建 Web Speech API，不需要額外服務）───────────
-  function primeSpeech() {
-    // 部分瀏覽器（尤其 Chrome）需要先有一次使用者互動才願意播放語音，這裡先「唸」一個空字串預熱
-    try {
-      if (!window.speechSynthesis) return
-      window.speechSynthesis.speak(new SpeechSynthesisUtterance(''))
-    } catch (e) { /* 忽略 */ }
-  }
-
-  function speakText(text) {
-    try {
-      if (!window.speechSynthesis || !text) return
-      const utter = new SpeechSynthesisUtterance(text)
-      utter.lang = 'zh-TW'
-      utter.rate = 1
-      window.speechSynthesis.speak(utter)
-    } catch (e) { /* 語音播放失敗不影響其他功能 */ }
-  }
-
-  // 時間唸法，例如 "12:00" → "12點"，"12:30" → "12點30分"
-  function timeToSpoken(t) {
-    if (!t) return ''
-    const [h, m] = t.split(':').map(Number)
-    if (Number.isNaN(h)) return t
-    return m ? `${h}點${m}分` : `${h}點`
-  }
-
-  // 訂位／便當的葷素細項唸法，例如「葷2位、全素1位」或「葷便當2個、全素便當1個」
-  function spokenTypeBreakdown(item, unit) {
-    const parts = []
-    if (item.meatQty) parts.push(`葷${unit}${item.meatQty}`)
-    if (item.fullVegQty) parts.push(`全素${unit}${item.fullVegQty}`)
-    if (item.eggVegQty) parts.push(`蛋奶素${unit}${item.eggVegQty}`)
-    if (item.spiceVegQty) parts.push(`五辛素${unit}${item.spiceVegQty}`)
-    return parts.join('、')
-  }
-
-  function bookingSpokenText(item, prefix = '新訂位') {
-    const detail = spokenTypeBreakdown(item, '') || '尚未填寫數量'
-    const timeText = timeToSpoken(item.time)
-    const nameText = item.name || '未填姓名'
-    return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}位`
-  }
-
-  function lunchSpokenText(item, prefix = '新便當訂單') {
-    const parts = []
-    if (item.meatQty) parts.push(`葷便當${item.meatQty}個`)
-    if (item.fullVegQty) parts.push(`全素便當${item.fullVegQty}個`)
-    if (item.eggVegQty) parts.push(`蛋奶素便當${item.eggVegQty}個`)
-    if (item.spiceVegQty) parts.push(`五辛素便當${item.spiceVegQty}個`)
-    const detail = parts.join('、') || '尚未填寫數量'
-    const timeText = timeToSpoken(item.time)
-    const nameText = item.name || '未填姓名'
-    return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}`
-  }
-
-  function soybeanSpokenText(item, prefix = '新豆製品訂購') {
-    const parts = []
-    for (const b of (item.soymilkBreakdown || [])) {
-      parts.push(`豆漿${b.volume}毫升${b.qty}袋`)
-    }
-    if (item.tofuQty) parts.push(`豆腐${item.tofuQty}塊`)
-    const detail = parts.join('、') || '尚未填寫數量'
-    const nameText = item.name || '未填姓名'
-    return `${prefix}，${nameText}，${detail}`
-  }
-
-  function toggleSound() {
-    soundEnabled.value = !soundEnabled.value
-    saveSoundPref()
-    if (soundEnabled.value) {
-      unlockAudio()
-      // 依序播兩種聲音，讓使用者一次聽出新訂單／刪除的差異
-      playCreateSound()
-      setTimeout(playDeleteSound, 900)
-      setTimeout(() => speakText('新訂位，王先生，12點，葷2位'), 1500)
-      setTimeout(() => speakText('訂位取消，王先生，12點，葷2位'), 3200)
-    }
-  }
-
-  function pushNotification(icon, title, detail, tab) {
-    const id = ++notifySeq
-    notifications.value.push({ id, icon, title, detail, tab })
-    setTimeout(() => {
-      notifications.value = notifications.value.filter(n => n.id !== id)
-    }, 8000)
-  }
-
-  function dismissNotification(id) {
+function pushNotification(icon, title, detail, tab) {
+  const id = ++notifySeq
+  notifications.value.push({ id, icon, title, detail, tab })
+  setTimeout(() => {
     notifications.value = notifications.value.filter(n => n.id !== id)
-  }
+  }, 8000)
+}
 
-  function openNotification(n) {
-    viewMode.value = 'day'
-    dismissNotification(n.id)
-  }
+function dismissNotification(id) {
+  notifications.value = notifications.value.filter(n => n.id !== id)
+}
 
-  const qtyOf = (item) => (item.meatQty || 0) + (item.fullVegQty || 0) + (item.eggVegQty || 0) + (item.spiceVegQty || 0)
+function openNotification(n) {
+  viewMode.value = 'day'
+  dismissNotification(n.id)
+}
 
-  function syncKnownItems(data) {
-    knownBookings.clear()
-    ;(data?.booking?.items ?? []).forEach(i => knownBookings.set(i.id, i))
-    knownLunches.clear()
-    ;(data?.lunch?.items ?? []).forEach(i => knownLunches.set(i.id, i))
-    knownSoybeans.clear()
-    ;(data?.soybean?.items ?? []).forEach(i => knownSoybeans.set(i.id, i))
-  }
+const qtyOf = (item) => (item.meatQty || 0) + (item.fullVegQty || 0) + (item.eggVegQty || 0) + (item.spiceVegQty || 0)
 
-  async function syncNewOrders() {
-    try {
-      const res = await fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
-      if (!res.ok) return
-      const data = await res.json()
+function syncKnownItems(data) {
+  knownBookings.clear()
+  ;(data?.booking?.items ?? []).forEach(i => knownBookings.set(i.id, i))
+  knownLunches.clear()
+  ;(data?.lunch?.items ?? []).forEach(i => knownLunches.set(i.id, i))
+  knownSoybeans.clear()
+  ;(data?.soybean?.items ?? []).forEach(i => knownSoybeans.set(i.id, i))
+}
 
-      const newBookings = data?.booking?.items ?? []
-      const newLunches = data?.lunch?.items ?? []
-      const newSoybeans = data?.soybean?.items ?? []
-      const newBookingIds = new Set(newBookings.map(i => i.id))
-      const newLunchIds = new Set(newLunches.map(i => i.id))
-      const newSoybeanIds = new Set(newSoybeans.map(i => i.id))
-      let gotCreated = false
-      let gotDeleted = false
-      let gotCheckedIn = false
-      const spokenPhrases = []
+async function syncNewOrders() {
+  try {
+    const res = await fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
+    if (!res.ok) return
+    const data = await res.json()
 
-      // 新增／已入位
-      for (const item of newBookings) {
-        const prev = knownBookings.get(item.id)
-        if (!prev) {
-          gotCreated = true
-          pushNotification('🍽️', '新訂位', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
-          spokenPhrases.push(bookingSpokenText(item))
-        } else if (prev.status !== '已入位' && item.status === '已入位') {
-          gotCheckedIn = true
-          pushNotification('🪑', '訂位已入位', `${item.name || '未填姓名'}　${item.time || ''}`, 'booking')
-          spokenPhrases.push(`${item.name || '未填姓名'}，已入位`)
-        }
+    const newBookings = data?.booking?.items ?? []
+    const newLunches = data?.lunch?.items ?? []
+    const newSoybeans = data?.soybean?.items ?? []
+    const newBookingIds = new Set(newBookings.map(i => i.id))
+    const newLunchIds = new Set(newLunches.map(i => i.id))
+    const newSoybeanIds = new Set(newSoybeans.map(i => i.id))
+    let gotCreated = false
+    let gotDeleted = false
+    let gotCheckedIn = false
+    const spokenPhrases = []
+
+    // 新增／已入位
+    for (const item of newBookings) {
+      const prev = knownBookings.get(item.id)
+      if (!prev) {
+        gotCreated = true
+        pushNotification('🍽️', '新訂位', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+        spokenPhrases.push(bookingSpokenText(item))
+      } else if (prev.status !== '已入位' && item.status === '已入位') {
+        gotCheckedIn = true
+        pushNotification('🪑', '訂位已入位', `${item.name || '未填姓名'}　${item.time || ''}`, 'booking')
+        spokenPhrases.push(`${item.name || '未填姓名'}，已入位`)
       }
-      for (const item of newLunches) {
-        if (!knownLunches.has(item.id)) {
-          gotCreated = true
-          pushNotification('🍱', '新便當訂單', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
-          spokenPhrases.push(lunchSpokenText(item))
-        }
-      }
-      for (const item of newSoybeans) {
-        if (!knownSoybeans.has(item.id)) {
-          gotCreated = true
-          const parts = []
-          const soyText = soymilkBreakdownText(item)
-          if (soyText) parts.push(`豆漿 ${soyText}`)
-          if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
-          pushNotification('🥛', '新豆製品訂購', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
-          spokenPhrases.push(soybeanSpokenText(item))
-        }
-      }
-
-      // 刪除（用刪除前記住的內容顯示，因為新資料裡已經沒有這筆了）
-      const spokenDeletePhrases = []
-      for (const [id, item] of knownBookings) {
-        if (!newBookingIds.has(id)) {
-          gotDeleted = true
-          pushNotification('🗑️', '訂位已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
-          spokenDeletePhrases.push(bookingSpokenText(item, '訂位取消'))
-        }
-      }
-      for (const [id, item] of knownLunches) {
-        if (!newLunchIds.has(id)) {
-          gotDeleted = true
-          pushNotification('🗑️', '便當訂單已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
-          spokenDeletePhrases.push(lunchSpokenText(item, '便當訂單取消'))
-        }
-      }
-      for (const [id, item] of knownSoybeans) {
-        if (!newSoybeanIds.has(id)) {
-          gotDeleted = true
-          const parts = []
-          const soyText = soymilkBreakdownText(item)
-          if (soyText) parts.push(`豆漿 ${soyText}`)
-          if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
-          pushNotification('🗑️', '豆製品訂購已刪除', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
-          spokenDeletePhrases.push(soybeanSpokenText(item, '豆製品訂購取消'))
-        }
-      }
-
-      syncKnownItems(data)
-
-      if (gotCreated || gotDeleted || gotCheckedIn) {
-        if (soundEnabled.value) {
-          if (gotCreated || gotCheckedIn) playCreateSound()
-          if (gotDeleted) setTimeout(playDeleteSound, (gotCreated || gotCheckedIn) ? 450 : 0)
-          const allPhrases = [...spokenPhrases, ...spokenDeletePhrases]
-          if (allPhrases.length) {
-            // 等提示音都播完再開始念，語音本身會自動排隊依序念完，不用逐句手動間隔
-            const chimeDuration = gotDeleted && (gotCreated || gotCheckedIn) ? 900 : 550
-            setTimeout(() => allPhrases.forEach(speakText), chimeDuration)
-          }
-        }
-        if (viewMode.value === 'day') daySummary.value = data
-        if (weekSummary.value) fetchWeek()
-      }
-    } catch (e) {
-      console.error(e)
     }
-  }
-
-  function connectStream() {
-    if (typeof EventSource === 'undefined') return
-    eventSource = new EventSource(`${HOME_BASE()}/stream`, { withCredentials: true })
-    eventSource.addEventListener('order', () => {
-      syncNewOrders()
-    })
-    // 連線出錯時瀏覽器會自動重連，這裡只需記錄，不用手動處理
-    eventSource.onerror = () => {}
-  }
-
-  function disconnectStream() {
-    if (eventSource) {
-      eventSource.close()
-      eventSource = null
-    }
-  }
-
-  // ── 定時輪詢備援（SSE 推播目前不穩，後端暫時不能動，先在前端加保險）───────
-  // 每隔固定秒數主動打一次 /today 跟本地已知清單比對，邏輯跟 SSE 收到事件時完全共用 syncNewOrders()，
-  // 有差異（新增／刪除／入位）才會跳通知＋語音，沒差異就悄悄結束，不會有重複或多餘的提示。
-  const POLL_INTERVAL_MS = 20000
-  let pollTimer = null
-
-  function startPolling() {
-    stopPolling()
-    pollTimer = setInterval(() => {
-      syncNewOrders()
-    }, POLL_INTERVAL_MS)
-  }
-
-  function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer)
-      pollTimer = null
-    }
-  }
-
-  // ── 手動刷新按鈕（保底用，萬一 SSE 跟定時輪詢都剛好失敗，員工可以自己按一下）───
-  const refreshing = ref(false)
-  async function refreshNow() {
-    if (refreshing.value) return
-    refreshing.value = true
-    try {
-      await syncNewOrders() // 跟 SSE／輪詢共用同一套比對邏輯，有差異才會跳通知＋語音
-      if (weekSummary.value) await fetchWeek()
-    } finally {
-      refreshing.value = false
-    }
-  }
-
-  // ── 行事曆顏色 ────────────────────────────────────────────────────
-  const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb' }
-  const calChipBg = ev => ev.source === 'google'
-    ? '#dbeafe'
-    : ({
-      醫院: '#fee2e2',
-      園區: '#dcfce7',
-      芳心: '#fce7f3'
-    }[ev.type] || '#f0f0f0')
-  const calChipText = ev => ev.source === 'google' ? '#1d4ed8' : (calTypeColor[ev.type] || '#555')
-  const calBarColor = ev => ev.source === 'google' ? '#2563eb' : (calTypeColor[ev.type] || '#ccc')
-  const calBadgeLabel = ev => ev.source === 'google' ? 'Google' : ev.type
-
-  async function fetchToday() {
-    loading.value = true
-    try {
-      // 本週可能跨月（例如週一在上個月），系統行事曆 API 是按月查詢，兩個月不同就都抓；
-      // 範圍也要涵蓋到明天（fetchRangeEnd），保底處理「今天是週日、明天跨到下週/下個月」的情況
-      const startMonth = calWeekStart.slice(0, 7)
-      const endMonth = fetchRangeEnd.slice(0, 7)
-      const months = startMonth === endMonth ? [startMonth] : [startMonth, endMonth]
-
-      const homePromise = fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
-      const calPromises = months.map(ym => fetch(`${CAL_BASE()}/list?yearMonth=${ym}`))
-      // 包月訂位（recurring）是照月份存的，跟行事曆一樣可能跨月，兩個月都要抓
-      const recurPromises = months.map(ym => fetch(`${RECUR_BASE()}/list/${ym}`, { credentials: 'include' }))
-
-      let googlePromise = Promise.resolve(null)
-      if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
-        // 直接抓「本週＋明天」涵蓋的範圍，今日／明日／本週事件都落在裡面，一次抓夠三種檢視模式用
-        const timeMin = encodeURIComponent(new Date(`${calWeekStart}T00:00:00`).toISOString())
-        const timeMax = encodeURIComponent(new Date(`${fetchRangeEnd}T23:59:59`).toISOString())
-        const gUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
-          + `?key=${GOOGLE_API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=100`
-        googlePromise = fetch(gUrl).catch(() => null)
+    for (const item of newLunches) {
+      if (!knownLunches.has(item.id)) {
+        gotCreated = true
+        pushNotification('🍱', '新便當訂單', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+        spokenPhrases.push(lunchSpokenText(item))
       }
-
-      const [homeRes, calResults, recurResults, gRes] = await Promise.all([
-        homePromise,
-        Promise.all(calPromises),
-        Promise.all(recurPromises),
-        googlePromise
-      ])
-      if (homeRes?.ok) daySummary.value = await homeRes.json()
-
-      const recurRules = []
-      for (const rRes of recurResults) {
-        if (!rRes.ok) continue
-        const monthRules = await rRes.json()
-        recurRules.push(...monthRules)
-      }
-      recurringRules.value = recurRules
-
-      const sysEvents = []
-      for (const cRes of calResults) {
-        if (!cRes.ok) continue
-        const monthEvents = await cRes.json()
-        sysEvents.push(...monthEvents)
-      }
-
-      let gEvents = []
-      if (gRes?.ok) {
-        const gData = await gRes.json()
-        gEvents = (gData.items || []).map((item) => {
-          const isAllDay = !!item.start?.date
-          const startRaw = isAllDay ? item.start.date : item.start?.dateTime
-          const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
-          const date = startRaw ? startRaw.slice(0, 10) : ''
-          let time = ''
-          if (!isAllDay && startRaw) {
-            const s = new Date(startRaw)
-            const e = endRaw ? new Date(endRaw) : null
-            const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-            time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
-          }
-          return {
-            id: item.id, date, time, title: item.summary || '（無標題）',
-            allDay: isAllDay,
-            type: 'Google', source: 'google', googleLink: item.htmlLink || '', description: item.description || ''
-          }
-        })
-      }
-      allEvents.value = [...sysEvents, ...gEvents].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))
-    } catch (e) {
-      console.error(e)
-    } finally {
-      loading.value = false
     }
-  }
-
-  async function fetchWeek() {
-    loadingWeek.value = true
-    try {
-      const res = await fetch(`${HOME_BASE()}/week?date=${todayStr}`, { credentials: 'include' })
-      if (res.ok) weekSummary.value = await res.json()
-    } catch (e) {
-      console.error(e)
-    } finally {
-      loadingWeek.value = false
+    for (const item of newSoybeans) {
+      if (!knownSoybeans.has(item.id)) {
+        gotCreated = true
+        const parts = []
+        const soyText = soymilkBreakdownText(item)
+        if (soyText) parts.push(`豆漿 ${soyText}`)
+        if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
+        pushNotification('🥛', '新豆製品訂購', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
+        spokenPhrases.push(soybeanSpokenText(item))
+      }
     }
+
+    // 刪除（用刪除前記住的內容顯示，因為新資料裡已經沒有這筆了）
+    const spokenDeletePhrases = []
+    for (const [id, item] of knownBookings) {
+      if (!newBookingIds.has(id)) {
+        gotDeleted = true
+        pushNotification('🗑️', '訂位已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+        spokenDeletePhrases.push(bookingSpokenText(item, '訂位取消'))
+      }
+    }
+    for (const [id, item] of knownLunches) {
+      if (!newLunchIds.has(id)) {
+        gotDeleted = true
+        pushNotification('🗑️', '便當訂單已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+        spokenDeletePhrases.push(lunchSpokenText(item, '便當訂單取消'))
+      }
+    }
+    for (const [id, item] of knownSoybeans) {
+      if (!newSoybeanIds.has(id)) {
+        gotDeleted = true
+        const parts = []
+        const soyText = soymilkBreakdownText(item)
+        if (soyText) parts.push(`豆漿 ${soyText}`)
+        if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
+        pushNotification('🗑️', '豆製品訂購已刪除', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
+        spokenDeletePhrases.push(soybeanSpokenText(item, '豆製品訂購取消'))
+      }
+    }
+
+    syncKnownItems(data)
+
+    if (gotCreated || gotDeleted || gotCheckedIn) {
+      if (soundEnabled.value) {
+        if (gotCreated || gotCheckedIn) playCreateSound()
+        if (gotDeleted) setTimeout(playDeleteSound, (gotCreated || gotCheckedIn) ? 450 : 0)
+        const allPhrases = [...spokenPhrases, ...spokenDeletePhrases]
+        if (allPhrases.length) {
+          // 等提示音都播完再開始念，語音本身會自動排隊依序念完，不用逐句手動間隔
+          const chimeDuration = gotDeleted && (gotCreated || gotCheckedIn) ? 900 : 550
+          setTimeout(() => allPhrases.forEach(speakText), chimeDuration)
+        }
+      }
+      if (viewMode.value === 'day') daySummary.value = data
+      if (weekSummary.value) fetchWeek()
+    }
+  } catch (e) {
+    console.error(e)
   }
+}
 
-  function switchView(mode) {
-    if (viewMode.value === mode) return
-    viewMode.value = mode
-    if (mode === 'week' && !weekSummary.value) fetchWeek()
-  }
-
-  const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown']
-
-  onMounted(() => {
-    loadSoundPref()
-    UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, { once: true }))
-    fetchToday().then(() => {
-      syncKnownItems(daySummary.value)
-      connectStream()
-      startPolling()
-    })
+function connectStream() {
+  if (typeof EventSource === 'undefined') return
+  eventSource = new EventSource(`${HOME_BASE()}/stream`, { withCredentials: true })
+  eventSource.addEventListener('order', () => {
+    syncNewOrders()
   })
+  // 連線出錯時瀏覽器會自動重連，這裡只需記錄，不用手動處理
+  eventSource.onerror = () => {}
+}
 
-  onUnmounted(() => {
-    disconnectStream()
-    stopPolling()
-    UNLOCK_EVENTS.forEach(evt => window.removeEventListener(evt, unlockAudio))
+function disconnectStream() {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+}
+
+// ── 定時輪詢備援（SSE 推播目前不穩，後端暫時不能動，先在前端加保險）───────
+// 每隔固定秒數主動打一次 /today 跟本地已知清單比對，邏輯跟 SSE 收到事件時完全共用 syncNewOrders()，
+// 有差異（新增／刪除／入位）才會跳通知＋語音，沒差異就悄悄結束，不會有重複或多餘的提示。
+const POLL_INTERVAL_MS = 20000
+let pollTimer = null
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(() => {
+    if (pollEnabled.value) syncNewOrders()
+  }, POLL_INTERVAL_MS)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+// ── 手動刷新按鈕（保底用，萬一 SSE 跟定時輪詢都剛好失敗，員工可以自己按一下）───
+const refreshing = ref(false)
+async function refreshNow() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try {
+    await syncNewOrders() // 跟 SSE／輪詢共用同一套比對邏輯，有差異才會跳通知＋語音
+    if (weekSummary.value) await fetchWeek()
+  } finally {
+    refreshing.value = false
+  }
+}
+
+// ── 行事曆顏色 ────────────────────────────────────────────────────
+const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb' }
+const calChipBg = ev => ev.source === 'google'
+  ? '#dbeafe'
+  : ({
+    醫院: '#fee2e2',
+    園區: '#dcfce7',
+    芳心: '#fce7f3'
+  }[ev.type] || '#f0f0f0')
+const calChipText = ev => ev.source === 'google' ? '#1d4ed8' : (calTypeColor[ev.type] || '#555')
+const calBarColor = ev => ev.source === 'google' ? '#2563eb' : (calTypeColor[ev.type] || '#ccc')
+const calBadgeLabel = ev => ev.source === 'google' ? 'Google' : ev.type
+
+async function fetchToday() {
+  loading.value = true
+  try {
+    // 本週可能跨月（例如週一在上個月），系統行事曆 API 是按月查詢，兩個月不同就都抓；
+    // 範圍也要涵蓋到明天（fetchRangeEnd），保底處理「今天是週日、明天跨到下週/下個月」的情況
+    const startMonth = calWeekStart.slice(0, 7)
+    const endMonth = fetchRangeEnd.slice(0, 7)
+    const months = startMonth === endMonth ? [startMonth] : [startMonth, endMonth]
+
+    const homePromise = fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
+    const calPromises = months.map(ym => fetch(`${CAL_BASE()}/list?yearMonth=${ym}`))
+    // 包月訂位（recurring）是照月份存的，跟行事曆一樣可能跨月，兩個月都要抓
+    const recurPromises = months.map(ym => fetch(`${RECUR_BASE()}/list/${ym}`, { credentials: 'include' }))
+
+    let googlePromise = Promise.resolve(null)
+    if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
+      // 直接抓「本週＋明天」涵蓋的範圍，今日／明日／本週事件都落在裡面，一次抓夠三種檢視模式用
+      const timeMin = encodeURIComponent(new Date(`${calWeekStart}T00:00:00`).toISOString())
+      const timeMax = encodeURIComponent(new Date(`${fetchRangeEnd}T23:59:59`).toISOString())
+      const gUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
+        + `?key=${GOOGLE_API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=100`
+      googlePromise = fetch(gUrl).catch(() => null)
+    }
+
+    const [homeRes, calResults, recurResults, gRes] = await Promise.all([
+      homePromise,
+      Promise.all(calPromises),
+      Promise.all(recurPromises),
+      googlePromise
+    ])
+    if (homeRes?.ok) daySummary.value = await homeRes.json()
+
+    const recurRules = []
+    for (const rRes of recurResults) {
+      if (!rRes.ok) continue
+      const monthRules = await rRes.json()
+      recurRules.push(...monthRules)
+    }
+    recurringRules.value = recurRules
+
+    const sysEvents = []
+    for (const cRes of calResults) {
+      if (!cRes.ok) continue
+      const monthEvents = await cRes.json()
+      sysEvents.push(...monthEvents)
+    }
+
+    let gEvents = []
+    if (gRes?.ok) {
+      const gData = await gRes.json()
+      gEvents = (gData.items || []).map((item) => {
+        const isAllDay = !!item.start?.date
+        const startRaw = isAllDay ? item.start.date : item.start?.dateTime
+        const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
+        const date = startRaw ? startRaw.slice(0, 10) : ''
+        let time = ''
+        if (!isAllDay && startRaw) {
+          const s = new Date(startRaw)
+          const e = endRaw ? new Date(endRaw) : null
+          const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+          time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+        }
+        return {
+          id: item.id, date, time, title: item.summary || '（無標題）',
+          allDay: isAllDay,
+          type: 'Google', source: 'google', googleLink: item.htmlLink || '', description: item.description || ''
+        }
+      })
+    }
+    allEvents.value = [...sysEvents, ...gEvents].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchWeek() {
+  loadingWeek.value = true
+  try {
+    const res = await fetch(`${HOME_BASE()}/week?date=${todayStr}`, { credentials: 'include' })
+    if (res.ok) weekSummary.value = await res.json()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingWeek.value = false
+  }
+}
+
+function switchView(mode) {
+  if (viewMode.value === mode) return
+  viewMode.value = mode
+  if (mode === 'week' && !weekSummary.value) fetchWeek()
+}
+
+const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown']
+
+onMounted(() => {
+  loadSoundPref()
+  loadPollPref()
+  UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, { once: true }))
+  fetchToday().then(() => {
+    syncKnownItems(daySummary.value)
+    connectStream()
+    startPolling()
   })
+})
+
+onUnmounted(() => {
+  disconnectStream()
+  stopPolling()
+  UNLOCK_EVENTS.forEach(evt => window.removeEventListener(evt, unlockAudio))
+})
 </script>
 
 <template>
@@ -738,6 +759,15 @@
               >
                 {{ soundEnabled ? '🔔 提示音' : '🔕 靜音中' }}
               </button>
+              <button
+                class="flex-shrink-0 rounded-full px-2 py-1 border transition-colors"
+                style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                :class="showSettings ? 'border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'border-light-c text-hint-c'"
+                title="即時更新設定"
+                @click="showSettings = !showSettings"
+              >
+                ⚙️
+              </button>
               <div class="flex items-center gap-0.5 bg-surface2 rounded-full p-0.5">
                 <button
                   class="rounded-full font-medium px-2.5 py-1 transition-colors"
@@ -758,6 +788,43 @@
               </div>
             </div>
           </div>
+
+          <!-- ── 設定區塊（可收縮）── -->
+          <div
+            class="grid overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out border-b border-light-c"
+            :class="showSettings ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] border-b-0'"
+          >
+            <div class="min-h-0 overflow-hidden">
+              <div class="px-4 py-3 bg-surface2/40 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span
+                  class="text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >
+                  定時檢查（每 20 秒自動比對新訂單，SSE 即時推播不穩時的保底機制）
+                </span>
+                <button
+                  class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0"
+                  :class="pollEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'"
+                  role="switch"
+                  :aria-checked="pollEnabled"
+                  :title="pollEnabled ? '點一下關閉定時檢查' : '點一下開啟定時檢查'"
+                  @click="togglePoll"
+                >
+                  <span
+                    class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform"
+                    :class="pollEnabled ? 'translate-x-4' : 'translate-x-1'"
+                  />
+                </button>
+                <span
+                  class="text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >
+                  {{ pollEnabled ? '已開啟' : '已關閉（僅依賴 SSE 推播與手動刷新）' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div
             v-if="summaryLoading"
             class="px-4 py-6 text-center text-hint-c"
@@ -1416,16 +1483,16 @@
 </template>
 
 <style scoped>
-  .notify-enter-active,
-  .notify-leave-active {
-    transition: opacity 0.25s ease, transform 0.25s ease;
-  }
-  .notify-enter-from,
-  .notify-leave-to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  .notify-leave-active {
-    position: absolute;
-  }
+.notify-enter-active,
+.notify-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.notify-enter-from,
+.notify-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.notify-leave-active {
+  position: absolute;
+}
 </style>
