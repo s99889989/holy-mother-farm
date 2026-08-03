@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.home' })
+definePageMeta({layout: 'staff', requiredPermission: 'staff.home'})
 
 const commonStore = useCommonStore()
 const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
@@ -18,6 +18,7 @@ const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${weekD
 function fmtDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
 const calWeekMonday = new Date(today)
 calWeekMonday.setDate(today.getDate() + (today.getDay() === 0 ? -6 : 1 - today.getDay()))
 const calWeekSunday = new Date(calWeekMonday)
@@ -77,6 +78,7 @@ function recurBookingRulesForDate(date) {
   return recurringRules.value.filter(r => r.type !== 'lunch' &&
     (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
 }
+
 const recurGuestsOf = rules => rules.reduce((s, r) =>
   s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
 
@@ -107,16 +109,18 @@ const weekDayCards = computed(() => {
     const bItems = bookings.value.filter(i => i.date === date)
     const lItems = lunchOrders.value.filter(i => i.date === date)
     const sItems = soybeanOrders.value.filter(i => i.date === date)
-    const bMeat = sumQty(bItems, 'meatQty'), bVeg = sumQty(bItems, 'fullVegQty') + sumQty(bItems, 'eggVegQty') + sumQty(bItems, 'spiceVegQty')
-    const lMeat = sumQty(lItems, 'meatQty'), lVeg = sumQty(lItems, 'fullVegQty') + sumQty(lItems, 'eggVegQty') + sumQty(lItems, 'spiceVegQty')
+    const bMeat = sumQty(bItems, 'meatQty'),
+      bVeg = sumQty(bItems, 'fullVegQty') + sumQty(bItems, 'eggVegQty') + sumQty(bItems, 'spiceVegQty')
+    const lMeat = sumQty(lItems, 'meatQty'),
+      lVeg = sumQty(lItems, 'fullVegQty') + sumQty(lItems, 'eggVegQty') + sumQty(lItems, 'spiceVegQty')
     const recurRules = recurBookingRulesForDate(date)
     const recurG = recurGuestsOf(recurRules)
     const bOnsite = bMeat + bVeg
     return {
       date,
-      booking: { items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules },
-      lunch: { items: lItems, total: lMeat + lVeg },
-      soybean: { items: sItems }
+      booking: {items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules},
+      lunch: {items: lItems, total: lMeat + lVeg},
+      soybean: {items: sItems}
     }
   })
 })
@@ -164,9 +168,11 @@ function stripHtml(html) {
   if (!html) return ''
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
 }
+
 function calEventDetail(ev) {
   return stripHtml(ev.description || '')
 }
+
 const calWeekRangeLabel = `${fmtMD(calWeekStart)} - ${fmtMD(calWeekEnd)}`
 
 // 依葷素細項組成簡短標籤，例如「葷2・全素1・蛋奶素1」，用於卡片內每筆訂單顯示
@@ -222,12 +228,15 @@ function loadSoundPref() {
   try {
     const saved = localStorage.getItem('holy_home_sound_enabled')
     if (saved !== null) soundEnabled.value = saved === '1'
-  } catch (e) { /* 無法讀取偏好時使用預設值 */ }
+  } catch (e) { /* 無法讀取偏好時使用預設值 */
+  }
 }
+
 function saveSoundPref() {
   try {
     localStorage.setItem('holy_home_sound_enabled', soundEnabled.value ? '1' : '0')
-  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */ }
+  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
+  }
 }
 
 // ── 設定區塊（可收縮）：定時檢查（輪詢）開關 ─────────────────────────
@@ -238,13 +247,17 @@ function loadPollPref() {
   try {
     const saved = localStorage.getItem('holy_home_poll_enabled')
     if (saved !== null) pollEnabled.value = saved === '1'
-  } catch (e) { /* 無法讀取偏好時使用預設值 */ }
+  } catch (e) { /* 無法讀取偏好時使用預設值 */
+  }
 }
+
 function savePollPref() {
   try {
     localStorage.setItem('holy_home_poll_enabled', pollEnabled.value ? '1' : '0')
-  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */ }
+  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
+  }
 }
+
 function togglePoll() {
   pollEnabled.value = !pollEnabled.value
   savePollPref()
@@ -252,14 +265,17 @@ function togglePoll() {
 
 // 瀏覽器多半要求先有使用者互動才允許播放音效，先建立/解鎖 AudioContext
 let audioCtx = null
+
 function getAudioCtx() {
   if (!audioCtx) {
     const AudioCtxClass = window.AudioContext || window.webkitAudioContext
     if (AudioCtxClass) audioCtx = new AudioCtxClass()
   }
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {
+  })
   return audioCtx
 }
+
 function unlockAudio() {
   getAudioCtx()
   primeSpeech()
@@ -283,13 +299,15 @@ function playTones(tones, waveType) {
       osc.start(start)
       osc.stop(start + 0.38)
     })
-  } catch (e) { /* 音效播放失敗不影響其他功能 */ }
+  } catch (e) { /* 音效播放失敗不影響其他功能 */
+  }
 }
 
 // 新訂單：明亮上揚的四音「叮咚叮咚」
 function playCreateSound() {
   playTones([880, 1046, 880, 1318], 'sine')
 }
+
 // 刪除訂單：低沉下降的兩音，跟新訂單的音效明顯不同
 function playDeleteSound() {
   playTones([523, 349], 'triangle')
@@ -301,7 +319,8 @@ function primeSpeech() {
   try {
     if (!window.speechSynthesis) return
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(''))
-  } catch (e) { /* 忽略 */ }
+  } catch (e) { /* 忽略 */
+  }
 }
 
 function speakText(text) {
@@ -311,7 +330,8 @@ function speakText(text) {
     utter.lang = 'zh-TW'
     utter.rate = 1
     window.speechSynthesis.speak(utter)
-  } catch (e) { /* 語音播放失敗不影響其他功能 */ }
+  } catch (e) { /* 語音播放失敗不影響其他功能 */
+  }
 }
 
 // 時間唸法，例如 "12:00" → "12點"，"12:30" → "12點30分"
@@ -377,7 +397,7 @@ function toggleSound() {
 
 function pushNotification(icon, title, detail, tab) {
   const id = ++notifySeq
-  notifications.value.push({ id, icon, title, detail, tab })
+  notifications.value.push({id, icon, title, detail, tab})
   setTimeout(() => {
     notifications.value = notifications.value.filter(n => n.id !== id)
   }, 8000)
@@ -405,7 +425,7 @@ function syncKnownItems(data) {
 
 async function syncNewOrders() {
   try {
-    const res = await fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
+    const res = await fetch(`${HOME_BASE()}/today`, {credentials: 'include'})
     if (!res.ok) return
     const data = await res.json()
 
@@ -503,12 +523,18 @@ async function syncNewOrders() {
 
 function connectStream() {
   if (typeof EventSource === 'undefined') return
-  eventSource = new EventSource(`${HOME_BASE()}/stream`, { withCredentials: true })
+  // 直接連後端原始網址（commonStore.data.just_url），刻意避開 main_url 的 /api 反向代理：
+  // 這條 proxy 在 Netlify 上是跑在 serverless function 裡，函式執行有逾時限制，撐不住
+  // 「大部分時間閒置、只在有新訂單時才推播」的長連線，本地開發沒有這層代理限制才會正常。
+  // 這條 stream 只推播 "category:action" 這種通用事件、不含任何個資，不需要帶 cookie，
+  // 所以直接跨網域連過去即可，後端只要開放 CORS（不需要 withCredentials）。
+  eventSource = new EventSource(`${commonStore.data.just_url}/holy/home/stream`)
   eventSource.addEventListener('order', () => {
     syncNewOrders()
   })
   // 連線出錯時瀏覽器會自動重連，這裡只需記錄，不用手動處理
-  eventSource.onerror = () => {}
+  eventSource.onerror = () => {
+  }
 }
 
 function disconnectStream() {
@@ -540,6 +566,7 @@ function stopPolling() {
 
 // ── 手動刷新按鈕（保底用，萬一 SSE 跟定時輪詢都剛好失敗，員工可以自己按一下）───
 const refreshing = ref(false)
+
 async function refreshNow() {
   if (refreshing.value) return
   refreshing.value = true
@@ -552,7 +579,7 @@ async function refreshNow() {
 }
 
 // ── 行事曆顏色 ────────────────────────────────────────────────────
-const calTypeColor = { 醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb' }
+const calTypeColor = {醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb'}
 const calChipBg = ev => ev.source === 'google'
   ? '#dbeafe'
   : ({
@@ -573,10 +600,10 @@ async function fetchToday() {
     const endMonth = fetchRangeEnd.slice(0, 7)
     const months = startMonth === endMonth ? [startMonth] : [startMonth, endMonth]
 
-    const homePromise = fetch(`${HOME_BASE()}/today`, { credentials: 'include' })
+    const homePromise = fetch(`${HOME_BASE()}/today`, {credentials: 'include'})
     const calPromises = months.map(ym => fetch(`${CAL_BASE()}/list?yearMonth=${ym}`))
     // 包月訂位（recurring）是照月份存的，跟行事曆一樣可能跨月，兩個月都要抓
-    const recurPromises = months.map(ym => fetch(`${RECUR_BASE()}/list/${ym}`, { credentials: 'include' }))
+    const recurPromises = months.map(ym => fetch(`${RECUR_BASE()}/list/${ym}`, {credentials: 'include'}))
 
     let googlePromise = Promise.resolve(null)
     if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
@@ -644,7 +671,7 @@ async function fetchToday() {
 async function fetchWeek() {
   loadingWeek.value = true
   try {
-    const res = await fetch(`${HOME_BASE()}/week?date=${todayStr}`, { credentials: 'include' })
+    const res = await fetch(`${HOME_BASE()}/week?date=${todayStr}`, {credentials: 'include'})
     if (res.ok) weekSummary.value = await res.json()
   } catch (e) {
     console.error(e)
@@ -664,7 +691,7 @@ const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown']
 onMounted(() => {
   loadSoundPref()
   loadPollPref()
-  UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, { once: true }))
+  UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, {once: true}))
   fetchToday().then(() => {
     syncKnownItems(daySummary.value)
     connectStream()
@@ -848,7 +875,7 @@ onUnmounted(() => {
             <!-- 訂位 -->
             <div class="px-4 py-3 xl:px-6 xl:py-5 text-left">
               <div class="flex items-center gap-1.5 mb-2">
-                <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
                 <span
                   class="font-semibold text-hint-c uppercase tracking-wide"
                   style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
@@ -917,7 +944,8 @@ onUnmounted(() => {
                     >{{ typeBreakdown(rule) }}</span>
                   </div>
                 </div>
-                <div class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
+                <div
+                  class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
                   <div
                     v-for="item in bookings"
                     :key="item.id"
@@ -964,7 +992,7 @@ onUnmounted(() => {
             <!-- 便當 -->
             <div class="px-4 py-3 xl:px-6 xl:py-5 text-left">
               <div class="flex items-center gap-1.5 mb-2">
-                <span class="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                <span class="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0"/>
                 <span
                   class="font-semibold text-hint-c uppercase tracking-wide"
                   style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
@@ -1004,7 +1032,8 @@ onUnmounted(() => {
                     🧄 五辛素 {{ lunchSpiceVeg }}
                   </div>
                 </div>
-                <div class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
+                <div
+                  class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
                   <div
                     v-for="item in lunchOrders"
                     :key="item.id"
@@ -1046,7 +1075,7 @@ onUnmounted(() => {
             <!-- 豆製品 -->
             <div class="px-4 py-3 xl:px-6 xl:py-5 text-left">
               <div class="flex items-center gap-1.5 mb-2">
-                <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"/>
                 <span
                   class="font-semibold text-hint-c uppercase tracking-wide"
                   style="font-size:clamp(10px, calc(10px + 0.45vw), 14px)"
@@ -1085,7 +1114,8 @@ onUnmounted(() => {
                     🟨 豆腐 {{ soybeanTofu }} 塊
                   </div>
                 </div>
-                <div class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
+                <div
+                  class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
                   <div
                     v-for="item in soybeanOrders"
                     :key="item.id"
@@ -1134,7 +1164,7 @@ onUnmounted(() => {
                 <!-- 訂位 -->
                 <div class="px-4 py-2.5 xl:px-6 xl:py-3 text-left">
                   <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"/>
                     <span
                       class="font-semibold text-hint-c uppercase tracking-wide"
                       style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
@@ -1143,7 +1173,10 @@ onUnmounted(() => {
                       v-if="day.booking.items.length || day.booking.recurGuests > 0"
                       class="text-hint-c"
                       style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                    >· {{ day.booking.items.length }}筆・{{ day.booking.total }}人<template v-if="day.booking.recurGuests > 0">（現場{{ day.booking.onsiteTotal }}・包月{{ day.booking.recurGuests }}）</template></span>
+                    >· {{ day.booking.items.length }}筆・{{ day.booking.total }}人<template
+                      v-if="day.booking.recurGuests > 0">（現場{{
+                        day.booking.onsiteTotal
+                      }}・包月{{ day.booking.recurGuests }}）</template></span>
                   </div>
                   <div
                     v-if="day.booking.items.length === 0 && day.booking.recurGuests === 0"
@@ -1221,7 +1254,7 @@ onUnmounted(() => {
                 <!-- 便當 -->
                 <div class="px-4 py-2.5 xl:px-6 xl:py-3 text-left">
                   <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                    <span class="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                    <span class="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0"/>
                     <span
                       class="font-semibold text-hint-c uppercase tracking-wide"
                       style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
@@ -1282,7 +1315,7 @@ onUnmounted(() => {
                 <!-- 豆製品 -->
                 <div class="px-4 py-2.5 xl:px-6 xl:py-3 text-left">
                   <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"/>
                     <span
                       class="font-semibold text-hint-c uppercase tracking-wide"
                       style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
@@ -1487,11 +1520,13 @@ onUnmounted(() => {
 .notify-leave-active {
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
+
 .notify-enter-from,
 .notify-leave-to {
   opacity: 0;
   transform: translateY(-8px);
 }
+
 .notify-leave-active {
   position: absolute;
 }
