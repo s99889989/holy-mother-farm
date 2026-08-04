@@ -5,6 +5,7 @@ const commonStore = useCommonStore()
 const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
 const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
 const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
+const ROOMS_SETTINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'
 
 const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
 const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
@@ -144,9 +145,152 @@ const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
 const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
 
 // ── 房務狀況：一律看「今天」的資料，不受上面今日／本週概況切換影響（房務本來就是當天的事）───
+// 房務狀況要比照「訂單管理」列表呈現房型/棟別/金額，這些資訊只有房間設定 API 才有，
+// 這裡直接複用跟 rooms-orders.vue 一樣的 /holy/rooms/settings/list 抓法，跟 today() 彙總資料分開拉
+const roomBuildings = ref([])
+const rooms = computed(() => roomBuildings.value.flatMap(b => (b.rooms || []).map(r => ({...r, buildingId: b.id, buildingName: b.name}))))
+function roomById(roomId) { return rooms.value.find(r => r.id === roomId) }
+function roomTypeOfRoom(roomId) {
+  const r = roomById(roomId)
+  return r ? r.type : ''
+}
+function buildingNameOfRoom(roomId) {
+  const r = roomById(roomId)
+  return r ? r.buildingName : ''
+}
+function hkNights(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return 0
+  const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
+  return d > 0 ? d : 0
+}
+function hkOccupancyLabel(item) {
+  const r = roomById(item.roomId)
+  return r ? `${item.guests}/${r.capacity}` : `${item.guests} 人`
+}
+function hkBookingTotal(item) {
+  const r = roomById(item.roomId)
+  if (!r) return 0
+  return r.price * hkNights(item.checkIn, item.checkOut)
+}
+function hkStatusLabel(s) {
+  return {unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消'}[s] || s
+}
+function hkStatusClass(s) {
+  return {
+    unassigned: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    confirmed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    completed: 'bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300',
+    cancelled: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+  }[s] || 'bg-stone-100 text-stone-600'
+}
+async function fetchRoomBuildings() {
+  try {
+    const res = await fetch(`${ROOMS_SETTINGS_BASE()}/list`)
+    if (res.ok) roomBuildings.value = await res.json()
+  } catch (e) { console.error(e) }
+}
+
 const housekeeping = computed(() => daySummary.value?.housekeeping ?? null)
-const hkCheckouts = computed(() => housekeeping.value?.checkouts ?? [])
-const hkCheckins = computed(() => housekeeping.value?.checkins ?? [])
+// 同一棟連續的房間只在第一筆前面插一個棟別小標題，不用每一列都重複顯示棟別名稱（比照訂房管理／訂單管理的做法）
+function withBuildingHeaders(list) {
+  let lastBuildingName
+  return list.map(item => {
+    const buildingName = buildingNameOfRoom(item.roomId)
+    const showBuildingHeader = !!item.roomId && buildingName !== lastBuildingName
+    if (item.roomId) lastBuildingName = buildingName
+    return {...item, buildingName, showBuildingHeader}
+  })
+}
+const hkCheckouts = computed(() => withBuildingHeaders(housekeeping.value?.checkouts ?? []))
+const hkCheckins = computed(() => withBuildingHeaders(housekeeping.value?.checkins ?? []))
+
+// 合併退房＋入住成單一清單（比照訂單管理，同一個 groupId 用一個團體表頭列，其餘依房號排序，
+// 同一棟連續的房間一樣只在第一筆前面插棟別小標題），每列自己用小標籤標示是退房整理還是入住備妥。
+// 不再依日期插分隔列——表頭列／每列本身就已經顯示入住、退房的完整日期（含星期），不需要
+// 再用日期分隔列重複交代一次；同一個 groupId 也只出現一張表頭列（合併入住/退房兩批成員，
+// 表頭的日期區間文字本身就同時顯示入住、退房日期，不用為了兩個日期各自出現一次表頭列）
+const expandedHkGroups = ref(new Set())
+function toggleHkGroup(key) {
+  const s = new Set(expandedHkGroups.value)
+  if (s.has(key)) s.delete(key); else s.add(key)
+  expandedHkGroups.value = s
+}
+function hkGroupDateRangeLabel(members) {
+  const ins = members.map(m => m.checkIn).sort()
+  const outs = members.map(m => m.checkOut).sort()
+  const minIn = ins[0], maxOut = outs[outs.length - 1]
+  const sameRange = ins.every(d => d === minIn) && outs.every(d => d === maxOut)
+  const inLabel = minIn ? fmtMDWeekday(minIn) : ''
+  const outLabel = maxOut ? fmtMDWeekday(maxOut) : ''
+  return sameRange ? `入住 ${inLabel} → 退房 ${outLabel}` : `入住 ${inLabel} ～ 退房 ${outLabel}（各房日期不同）`
+}
+function hkGroupStatusSummary(members) {
+  const counts = {}
+  for (const m of members) counts[m.status] = (counts[m.status] || 0) + 1
+  return Object.entries(counts).map(([s, c]) => `${hkStatusLabel(s)} ${c}`).join('・')
+}
+const hkRows = computed(() => {
+  const combined = [
+    ...(housekeeping.value?.checkouts ?? []).map(item => ({...item, kind: 'checkout', dateKey: item.checkOut})),
+    ...(housekeeping.value?.checkins ?? []).map(item => ({...item, kind: 'checkin', dateKey: item.checkIn})),
+  ]
+
+  // 同一個 groupId 底下的成員（不分入住/退房兩種 kind）先各自去重收集起來（同一筆訂單的
+  // 入住列跟退房列會有相同 id，用 id 去重合併成一筆），用來算「共幾間房」跟表頭列的日期區間，
+  // 避免同一團在入住日、退房日各自產生一張表頭列
+  const groupAllMembers = new Map() // groupId -> Map(id -> member)
+  for (const item of combined) {
+    if (!item.groupId) continue
+    if (!groupAllMembers.has(item.groupId)) groupAllMembers.set(item.groupId, new Map())
+    groupAllMembers.get(item.groupId).set(item.id, item)
+  }
+
+  // 排序：團體用「最早的入住日」當排序依據，個人訂單用自己的日期，同一天再依房號排序
+  function sortKeyOf(item) {
+    if (item.groupId) return [...groupAllMembers.get(item.groupId).values()].map(m => m.checkIn).sort()[0]
+    return item.dateKey
+  }
+  const sorted = [...combined].sort((a, b) => {
+    const ka = sortKeyOf(a), kb = sortKeyOf(b)
+    if (ka !== kb) return ka < kb ? -1 : 1
+    return String(a.roomId).localeCompare(String(b.roomId))
+  })
+
+  const rows = []
+  let lastBuildingName
+  const emittedGroupIds = new Set()
+  let currentGroupExpanded = false
+
+  for (const item of sorted) {
+    if (item.groupId) {
+      currentGroupExpanded = expandedHkGroups.value.has(item.groupId)
+      if (!emittedGroupIds.has(item.groupId)) {
+        emittedGroupIds.add(item.groupId)
+        rows.push({
+          rowKind: 'groupHeader', groupKey: item.groupId,
+          groupId: item.groupId, groupName: item.groupName,
+          members: [...groupAllMembers.get(item.groupId).values()], expanded: currentGroupExpanded,
+        })
+      }
+      if (!currentGroupExpanded) continue // 團體收合時不畫出每一間房的列，只留表頭列
+      // 團體展開後同一間房一樣可能同時有退房、入住兩筆，一樣只留入住那筆（表頭列的「共幾間房」
+      // 是用 groupAllMembers 依 id 去重算的，不受這裡只顯示入住筆數影響，不會變少）
+      if (item.kind === 'checkout') continue
+      const buildingName = buildingNameOfRoom(item.roomId)
+      const showBuildingHeader = !!item.roomId && buildingName !== lastBuildingName
+      if (item.roomId) lastBuildingName = buildingName
+      rows.push({rowKind: 'item', item: {...item, buildingName, showBuildingHeader}})
+      continue
+    }
+    // 個人訂單：同一間房若同一天「舊客退房、新客入住」會各出現一筆，只留入住那筆就夠（退房那筆
+    // 不需要另外顯示一列），棟別也不再另外插一行小標題，直接併入房間欄位跟房號一起顯示
+    if (item.kind === 'checkout') continue
+    const buildingName = buildingNameOfRoom(item.roomId)
+    rows.push({rowKind: 'item', item: {...item, buildingName}})
+  }
+  return rows
+})
 const hkPendingCount = computed(() => housekeeping.value?.pendingCount ?? 0)
 const hkSavingRoomIds = ref([]) // 正在送出中的房號，避免同一個房間被連續快速點擊
 
@@ -729,6 +873,7 @@ onMounted(() => {
   loadSoundPref()
   loadPollPref()
   UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, {once: true}))
+  fetchRoomBuildings() // 房務狀況要用到房型/棟別/金額，跟今日概況分開拉，互不影響彼此的載入中狀態
   fetchToday().then(() => {
     syncKnownItems(daySummary.value)
     connectStream()
@@ -1403,9 +1548,13 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- ── 房務狀況：退房後要整理／入住前要備妥的房間，一律顯示今天的資料 ── -->
+          <!-- ── 房務狀況：跟「訂房管理／訂單管理」同一種列表呈現方式，把編輯/刪除/房務打勾等操作都拿掉，
+               純顯示訂單資訊；不分today退房/入住兩張表，合併成一份清單。同一間房若當天「舊客退房、
+               新客入住」不論是個人訂單還是團體展開後的成員列，都只留入住那筆，退房那筆不重複顯示，
+               也不用「入住/退房」小標籤；個人訂單棟別直接併入房間欄位一起顯示，不用另外插一行棟別
+               小標題，團體訂單維持原本的棟別小標題列 ── -->
           <div v-if="housekeeping" class="border-t border-light-c px-4 py-3">
-            <div class="flex items-center justify-between flex-wrap gap-1.5 mb-2">
+            <div class="flex items-center justify-between flex-wrap gap-1.5 mb-2.5">
               <span
                 class="font-semibold text-muted-c"
                 style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
@@ -1414,110 +1563,73 @@ onUnmounted(() => {
                 <span
                   class="font-normal text-hint-c"
                   style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-                > ({{ todayLabel }})</span>
+                > (今天起 30 天內)</span>
               </span>
               <span
                 v-if="hkPendingCount > 0"
                 class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold bg-rose-100 text-rose-700"
                 style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-              >待整理 {{ hkPendingCount }} 間</span>
+              >今天待整理 {{ hkPendingCount }} 間</span>
               <span
                 v-else-if="hkCheckouts.length > 0"
                 class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold bg-emerald-100 text-emerald-700"
                 style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-              >今日退房房間已整理完成</span>
+              >今天退房房間已整理完成</span>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <!-- 今日退房・需整理 -->
-              <div>
-                <div
-                  class="text-hint-c font-semibold mb-1.5"
-                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                >🚪 今日退房・需整理（{{ hkCheckouts.length }}）
-                </div>
-                <div
-                  v-if="hkCheckouts.length === 0"
-                  class="text-hint-c"
-                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                >今天沒有退房
-                </div>
-                <div v-else class="space-y-1.5">
-                  <button
-                    v-for="item in hkCheckouts" :key="'co_' + item.id"
-                    class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors disabled:opacity-60"
-                    :class="item.cleaned ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20'"
-                    :disabled="hkSavingRoomIds.includes(item.roomId)"
-                    @click="toggleCleaned(item)"
-                  >
-                    <span
-                      class="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center"
-                      style="font-size:11px"
-                      :class="item.cleaned ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-rose-400 text-transparent'"
-                    >✓</span>
-                    <span class="flex-1 min-w-0 truncate">
-                      <span
-                        class="font-semibold text-base-c"
-                        style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                      >{{ item.roomId }}</span>
-                      <span
-                        class="text-hint-c"
-                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                      > {{ item.name || '未填姓名' }}・{{ item.guests }} 人</span>
-                    </span>
-                    <span
-                      class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
-                      style="font-size:clamp(9px, calc(9px + 0.4vw), 12px)"
-                      :class="item.cleaned ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
-                    >{{ item.cleaned ? '已整理' : '待整理' }}</span>
-                  </button>
-                </div>
-              </div>
+            <div
+              v-if="hkRows.length === 0"
+              class="text-hint-c"
+              style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+            >未來 30 天內沒有退房或入住</div>
 
-              <!-- 今日入住・房間要備妥 -->
-              <div>
-                <div
-                  class="text-hint-c font-semibold mb-1.5"
-                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                >🛎️ 今日入住・房間要備妥（{{ hkCheckins.length }}）
-                </div>
-                <div
-                  v-if="hkCheckins.length === 0"
-                  class="text-hint-c"
-                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                >今天沒有新入住
-                </div>
-                <div v-else class="space-y-1.5">
-                  <button
-                    v-for="item in hkCheckins" :key="'ci_' + item.id"
-                    class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors disabled:opacity-60"
-                    :class="item.cleaned ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-amber-50 dark:bg-amber-900/20'"
-                    :disabled="hkSavingRoomIds.includes(item.roomId)"
-                    @click="toggleCleaned(item)"
-                  >
-                    <span
-                      class="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center"
-                      style="font-size:11px"
-                      :class="item.cleaned ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-amber-400 text-transparent'"
-                    >✓</span>
-                    <span class="flex-1 min-w-0 truncate">
-                      <span
-                        class="font-semibold text-base-c"
-                        style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-                      >{{ item.roomId }}</span>
-                      <span
-                        class="text-hint-c"
-                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                      > {{ item.name || '未填姓名' }}・{{ item.guests }} 人</span>
-                    </span>
-                    <span
-                      class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
-                      style="font-size:clamp(9px, calc(9px + 0.4vw), 12px)"
-                      :class="item.cleaned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
-                    >{{ item.cleaned ? '已備妥' : '待備妥' }}</span>
-                  </button>
-                </div>
-              </div>
+            <div v-else class="overflow-x-auto -mx-1">
+              <table class="w-full border-collapse" style="min-width:560px">
+                <thead>
+                <tr class="text-hint-c text-left text-sm">
+                  <th class="py-1 px-1 font-semibold">房客</th>
+                  <th class="py-1 px-1 font-semibold">房間</th>
+                  <th class="py-1 px-1 font-semibold">入住</th>
+                  <th class="py-1 px-1 font-semibold">退房</th>
+                  <th class="py-1 px-1 font-semibold">人數</th>
+                </tr>
+                </thead>
+                <tbody>
+                <template v-for="row in hkRows" :key="row.rowKind === 'groupHeader' ? ('grp_' + row.groupId) : (row.item.kind + '_' + row.item.id)">
+                  <tr v-if="row.rowKind === 'groupHeader'" class="border-t border-light-c group-header-row">
+                    <td class="py-1.5 px-1" colspan="5">
+                      <button class="flex items-center gap-2 flex-wrap text-left" @click="toggleHkGroup(row.groupKey)">
+                        <span class="text-hint-c inline-block w-3 text-sm">{{ row.expanded ? '▼' : '▶' }}</span>
+                        <span
+                          class="rounded-full px-2 py-0.5 font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 text-sm"
+                        >{{ row.groupName || '團體' }}</span>
+                        <b class="text-base-c text-base">共 {{ row.members.length }} 間房</b>
+                        <span class="text-hint-c text-sm">{{ hkGroupDateRangeLabel(row.members) }}</span>
+                        <span class="text-hint-c text-sm">{{ hkGroupStatusSummary(row.members) }}</span>
+                      </button>
+                    </td>
+                  </tr>
+                  <template v-else>
+                    <tr v-if="row.item.showBuildingHeader" class="border-t border-light-c">
+                      <td class="py-1 px-1 text-hint-c font-semibold text-sm" colspan="5">🏠 {{ row.item.buildingName }}</td>
+                    </tr>
+                    <tr class="border-t border-light-c text-base">
+                      <td class="py-1.5 px-1 text-base-c">
+                        {{ row.item.name || '未填姓名' }}
+                      </td>
+                      <td class="py-1.5 px-1">
+                        <div v-if="!row.item.groupId" class="text-hint-c text-xs">{{ row.item.buildingName }}</div>
+                        <div class="font-bold text-base-c text-lg leading-tight">{{ row.item.roomId }}</div>
+                        <div class="text-hint-c text-sm">{{ roomTypeOfRoom(row.item.roomId) }}</div>
+                      </td>
+                      <td class="py-1.5 px-1 text-base-c">{{ row.item.checkIn }}</td>
+                      <td class="py-1.5 px-1 text-base-c">{{ row.item.checkOut }}</td>
+                      <td class="py-1.5 px-1 text-base-c">{{ hkOccupancyLabel(row.item) }}</td>
+                    </tr>
+                  </template>
+                </template>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
