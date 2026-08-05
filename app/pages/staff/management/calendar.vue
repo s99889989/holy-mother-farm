@@ -123,7 +123,7 @@
     <div class="flex-1 min-w-0">
 
       <!-- ── 月曆主體 ── -->
-      <div class="px-4 sm:px-6 py-6">
+      <div class="px-0 sm:px-6 py-6">
 
         <div v-if="loading" class="flex items-center justify-center py-24 text-hint-c gap-2">
           <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -131,62 +131,85 @@
         </div>
 
         <template v-else>
-          <!-- 星期標頭 + 日期格子 同一個 grid，確保欄寬完全對齊 -->
-          <div class="calendar-grid gap-1.5">
+          <!-- 星期標頭 -->
+          <div class="calendar-grid gap-1.5 mb-1.5 weekday-header">
             <div v-for="(d, wIdx) in weekdays" :key="d"
                  :class="['cal-weekday', {sun: wIdx === 0, sat: wIdx === 6}]">
               {{ d }}
             </div>
-            <div v-for="(cell, idx) in calendarCells" :key="idx"
-                 :class="['cal-cell', {
- 'opacity-0 pointer-events-none': !cell.day,
- 'today': cell.isToday,
- 'weekend': cell.isWeekend,
- 'has-events': cell.events.length > 0
- }]"
-                 @click="cell.day && openAddOnDate(cell.dateStr)"
-            >
-              <template v-if="cell.day">
-                <!-- 日期數字 -->
-                <div class="flex items-center justify-between mb-1 px-0.5">
-                <span :class="['cal-day-num', {
- 'today-num': cell.isToday,
- 'text-red-400 dark:text-red-400': cell.isWeekend && cell.weekdayIdx === 0,
- 'text-blue-400 dark:text-blue-400': cell.isWeekend && cell.weekdayIdx === 6,
- 'text-muted-c': !cell.isToday && !cell.isWeekend
- }]">{{ cell.day }}</span>
-                  <!-- 快速新增按鈕：hover 才顯示 -->
-                  <button
-                    @click.stop="openAddOnDate(cell.dateStr)"
-                    class="cal-add-btn opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                  </button>
-                </div>
+          </div>
 
-                <!-- 活動 chips -->
-                <div class="space-y-0.5">
-                  <div
-                    v-for="ev in cell.events.slice(0, 3)"
-                    :key="ev.id"
-                    :class="['cal-chip', chipClass(ev)]"
-                    @click.stop="openEdit(ev)"
-                    @mouseenter="showTooltip(ev, $event)"
-                    @mousemove="moveTooltip($event)"
-                    @mouseleave="hideTooltip"
-                  >
-                    <span class="chip-time hidden sm:inline">{{ ev.time?.split('-')[0] }}</span>
-                    <span class="chip-title">{{ ev.title }}</span>
+          <!-- 逐週渲染：每週獨立一組 grid + overlay，讓跨天活動可以畫成橫跨整週的連續色條 -->
+          <div v-for="(week, wi) in calendarWeeks" :key="wi" class="week-row mb-1.5">
+            <div class="calendar-grid gap-1.5">
+              <div v-for="(cell, idx) in week" :key="idx"
+                   :class="['cal-cell', {
+   'opacity-0 pointer-events-none': !cell.day,
+   'today': cell.isToday,
+   'weekend': cell.isWeekend,
+   'has-events': cell.events.length > 0
+   }]"
+                   @click="cell.day && openAddOnDate(cell.dateStr)"
+              >
+                <template v-if="cell.day">
+                  <!-- 日期數字 -->
+                  <div class="flex items-center justify-between mb-1 px-0.5">
+                  <span :class="['cal-day-num', {
+   'today-num': cell.isToday,
+   'text-red-400 dark:text-red-400': cell.isWeekend && cell.weekdayIdx === 0,
+   'text-blue-400 dark:text-blue-400': cell.isWeekend && cell.weekdayIdx === 6,
+   'text-muted-c': !cell.isToday && !cell.isWeekend
+   }]">{{ cell.day }}</span>
+                    <!-- 快速新增按鈕：hover 才顯示 -->
+                    <button
+                      @click.stop="openAddOnDate(cell.dateStr)"
+                      class="cal-add-btn opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    </button>
                   </div>
-                  <!-- 超出顯示 +N -->
-                  <div
-                    v-if="cell.events.length > 3"
-                    class="text-xs text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
-                    @click.stop="openDayPanel(cell)"
-                  >
-                    +{{ cell.events.length - 3 }} 更多
+
+                  <!-- 活動 chips（跨天橫幅活動已排除，改由下方 overlay 顯示）-->
+                  <div class="space-y-0.5"
+                       :style="weekBannerLanes[wi] ? {marginTop: (weekBannerLanes[wi] * BANNER_ROW_HEIGHT) + 'px'} : null">
+                    <div
+                      v-for="ev in cell.chipEvents.slice(0, 3)"
+                      :key="ev.id"
+                      :class="['cal-chip', chipClass(ev)]"
+                      @click.stop="openEdit(ev)"
+                      @mouseenter="showTooltip(ev, $event)"
+                      @mousemove="moveTooltip($event)"
+                      @mouseleave="hideTooltip"
+                    >
+                      <span class="chip-time hidden sm:inline">{{ ev.time?.split('-')[0] }}</span>
+                      <span class="chip-title">{{ ev.title }}</span>
+                    </div>
+                    <!-- 超出顯示 +N -->
+                    <div
+                      v-if="cell.chipEvents.length > 3"
+                      class="text-xs text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
+                      @click.stop="openDayPanel(cell)"
+                    >
+                      +{{ cell.chipEvents.length - 3 }} 更多
+                    </div>
                   </div>
-                </div>
-              </template>
+                </template>
+              </div>
+            </div>
+
+            <!-- 跨天活動連續色條（比照 Google 日曆的橫幅顯示方式）-->
+            <div v-if="weekBanners[wi] && weekBanners[wi].length" class="week-banner-layer">
+              <div
+                v-for="b in weekBanners[wi]"
+                :key="b.key"
+                :class="['week-banner-bar', chipClass(b.ev), {'round-l': b.roundLeft, 'round-r': b.roundRight}]"
+                :style="{gridColumn: `${b.startCol + 1} / ${b.endCol + 2}`, top: (b.lane * BANNER_ROW_HEIGHT) + 'px'}"
+                @click.stop="openEdit(b.ev)"
+                @mouseenter="showTooltip(b.ev, $event)"
+                @mousemove="moveTooltip($event)"
+                @mouseleave="hideTooltip"
+              >
+                {{ b.ev.title }}
+              </div>
             </div>
           </div>
 
@@ -642,6 +665,11 @@
     return typeChipClass(ev.type)
   }
 
+  // 跨多天顯示為連續色條的活動（目前僅 Google 跨天活動符合）
+  function isBannerEvent(ev) {
+    return !!(ev.googleEventId && ev.rangeStart && ev.rangeEnd && ev.rangeStart !== ev.rangeEnd)
+  }
+
   // ── 跟隨游標的活動提示框 ─────────────────────────────────────────
   const tooltipEvent = ref(null)
   const tooltipPos = reactive({x: 0, y: 0})
@@ -795,11 +823,73 @@
       const isToday = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
       const isWeekend = weekdayIdx === 0 || weekdayIdx === 6
       const dayEvents = eventsOnDate(dateStr)
-      cells.push({day: d, dateStr, events: dayEvents, isToday, isWeekend, weekdayIdx})
+      const chipEvents = dayEvents.filter(e => !isBannerEvent(e))
+      cells.push({day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, weekdayIdx})
     }
 
     return cells
   })
+
+  // 依週切分 calendarCells，方便跨天活動渲染成連續色條（橫跨整週的 overlay）
+  const calendarWeeks = computed(() => {
+    const cells = calendarCells.value
+    const weeks = []
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+    return weeks
+  })
+
+  // 每週跨天活動的色條資料：依 googleEventId 分組、計算橫跨欄位與是否為活動實際起訖日（決定圓角端）
+  // 並用簡單貪婪法分配 lane（垂直層），避免同週重疊的跨天活動互相覆蓋
+  // 色條堆疊高度：手機版 .week-banner-bar 變矮（15px+1px margin），需跟著縮小，
+  // 避免下方一般活動 chip 跟色條之間留下多餘空隙
+  const isMobileViewport = ref(false)
+  let mobileMql = null
+
+  function updateMobileViewport(e) {
+    isMobileViewport.value = e.matches
+  }
+
+  const BANNER_ROW_HEIGHT = computed(() => isMobileViewport.value ? 16 : 20)
+
+  const weekBanners = computed(() => {
+    return calendarWeeks.value.map(week => {
+      const map = new Map()
+      week.forEach((cell, col) => {
+        if (!cell.day) return
+        cell.events.forEach(ev => {
+          if (!isBannerEvent(ev)) return
+          if (!map.has(ev.googleEventId)) {
+            map.set(ev.googleEventId, {ev, startCol: col, endCol: col})
+          } else {
+            map.get(ev.googleEventId).endCol = col
+          }
+        })
+      })
+      const banners = [...map.values()].map(b => ({
+        key: `${b.ev.googleEventId}_${week[b.startCol].dateStr}`,
+        ev: b.ev,
+        startCol: b.startCol,
+        endCol: b.endCol,
+        roundLeft: week[b.startCol].dateStr === b.ev.rangeStart,
+        roundRight: week[b.endCol].dateStr === b.ev.rangeEnd,
+        lane: 0
+      }))
+      banners.sort((a, b) => a.startCol - b.startCol)
+      const laneEnds = []
+      banners.forEach(b => {
+        let lane = 0
+        while (laneEnds[lane] !== undefined && laneEnds[lane] >= b.startCol) lane++
+        b.lane = lane
+        laneEnds[lane] = b.endCol
+      })
+      return banners
+    })
+  })
+
+  // 每週需要保留的色條層數（讓下方的一般活動 chip 往下讓出空間，避免被色條蓋住）
+  const weekBannerLanes = computed(() =>
+    weekBanners.value.map(list => list.reduce((max, b) => Math.max(max, b.lane + 1), 0))
+  )
 
   const monthEventCount = computed(() => {
     const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
@@ -910,6 +1000,7 @@
 
           // 跨天的有時間活動：逐天展開到結束日（含），比照全天活動的處理方式
           // 開始日顯示開始時間、結束日顯示結束時間，中間日不顯示特定時間
+          // rangeStart / rangeEnd 供月曆畫面判斷「跨天連續色條」使用
           const startDate = new Date(`${startDateStr}T00:00:00`)
           const endDate = new Date(`${endDateStr}T00:00:00`)
           for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -924,6 +1015,8 @@
               ...base,
               id: `${item.id}_${dateStr}`,
               googleEventId: item.id,
+              rangeStart: startDateStr,
+              rangeEnd: endDateStr,
               date: dateStr,
               time
             })
@@ -933,8 +1026,13 @@
 
         // all-day 活動：Google 的 end.date 是「不含」的下一天，逐天展開到實際結束日（含）
         // 每天各自一筆，id 加上日期後綴避免重複 key；保留 googleEventId 供需要時對應回原始活動
+        // rangeStart / rangeEnd 供月曆畫面判斷「跨天連續色條」使用
         const startDate = new Date(`${startRaw}T00:00:00`)
         const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(startDate)
+        const lastDate = new Date(endDate)
+        lastDate.setDate(lastDate.getDate() - 1)
+        const rangeStart = startRaw
+        const rangeEnd = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`
         for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
           const y = d.getFullYear()
           const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -944,6 +1042,8 @@
             ...base,
             id: `${item.id}_${dateStr}`,
             googleEventId: item.id,
+            rangeStart,
+            rangeEnd,
             date: dateStr,
             time: ''
           })
@@ -1368,6 +1468,16 @@
     fetchEvents()
     fetchNotes()
     fetchGoogleEvents()
+
+    if (import.meta.client && window.matchMedia) {
+      mobileMql = window.matchMedia('(max-width: 640px)')
+      isMobileViewport.value = mobileMql.matches
+      mobileMql.addEventListener('change', updateMobileViewport)
+    }
+  })
+
+  onUnmounted(() => {
+    if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
   })
 </script>
 
@@ -1385,6 +1495,63 @@
 
   :root.dark .cal-cell {
     margin: 0 -1px -1px 0;
+  }
+
+  /* ── 每週容器：作為跨天活動色條 overlay 的定位基準 ── */
+  .week-row {
+    position: relative;
+  }
+
+  /* ── 跨天活動連續色條（比照 Google 日曆月檢視的橫幅樣式）── */
+  .week-banner-layer {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    column-gap: 6px;
+    padding-top: 27px; /* 對齊日期數字列高度 */
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  :root.dark .week-banner-layer {
+    column-gap: 0;
+  }
+
+  .week-banner-bar {
+    position: relative;
+    pointer-events: auto;
+    box-sizing: border-box;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 6px;
+    margin-bottom: 2px;
+    font-size: 12px; /* text-xs */
+    font-weight: 500;
+    border-radius: 3px;
+    border-left: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    cursor: pointer;
+    transition: opacity 0.1s, filter 0.1s;
+  }
+
+  .week-banner-bar:hover {
+    opacity: 0.85;
+    filter: brightness(0.97);
+  }
+
+  .week-banner-bar.round-l {
+    border-top-left-radius: 9px;
+    border-bottom-left-radius: 9px;
+    margin-left: 1px;
+  }
+
+  .week-banner-bar.round-r {
+    border-top-right-radius: 9px;
+    border-bottom-right-radius: 9px;
+    margin-right: 1px;
   }
 
   /* ── 星期標頭：深色底白字 ── */
@@ -1526,7 +1693,7 @@
   .chip-title {
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: clip;
     flex: 1;
     min-width: 0;
     font-weight: 500;
@@ -1862,13 +2029,51 @@
 
   /* ── RWD ── */
   @media (max-width: 640px) {
+    .calendar-grid {
+      gap: 3px;
+    }
+
+    .weekday-header {
+      margin-bottom: 3px;
+    }
+
+    .weekday-header .cal-weekday {
+      padding: 6px 0;
+    }
+
+    .week-row {
+      margin-bottom: 3px;
+    }
+
     .cal-cell {
-      min-height: 72px;
-      padding: 3px 2px;
+      min-height: 58px;
+      padding: 1px;
+    }
+
+    .cal-day-num {
+      font-size: 12px; /* text-xs，手機版再縮小一級 */
     }
 
     .cal-chip {
-      padding: 1px 3px;
+      padding: 0 2px;
+    }
+
+    .chip-time,
+    .cal-chip {
+      font-size: 11px;
+    }
+
+    .week-banner-layer {
+      column-gap: 3px;
+      padding-top: 18px;
+    }
+
+    .week-banner-bar {
+      font-size: 10px;
+      height: 15px;
+      line-height: 15px;
+      padding: 0 3px;
+      margin-bottom: 1px;
     }
   }
 </style>
