@@ -6,6 +6,8 @@
   const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
   const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
   const ROOMS_SETTINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'
+  const BOOKING_BASE = () => commonStore.data.main_url + '/holy/booking'
+  const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
 
   const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
   const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
@@ -880,6 +882,94 @@
     if (mode === 'week' && !weekSummary.value) fetchWeek()
   }
 
+  // ── 快速新增（訂位／便當，一律新增在「今天」）───────────────────────────
+  const BOOKING_TIME_SLOTS = ['07:00', '08:00', '11:00', '11:10', '11:20', '11:30', '11:40', '11:45', '11:50', '12:00', '12:10', '12:20', '12:30', '12:40', '12:50', '13:00']
+  const LUNCH_TIME_SLOTS = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00']
+
+  const quickModal = reactive({show: false, type: 'booking'}) // type: 'booking' | 'lunch'
+  const quickSaving = ref(false)
+  const qForm = reactive({
+    name: '', time: '12:00',
+    meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
+  })
+
+  const quickTimeSlots = computed(() => (quickModal.type === 'lunch' ? LUNCH_TIME_SLOTS : BOOKING_TIME_SLOTS))
+  const quickTitle = computed(() => (quickModal.type === 'lunch' ? '新增便當訂單' : '新增訂位'))
+
+  function openQuickAdd(type) {
+    quickModal.type = type
+    Object.assign(qForm, {
+      name: '', time: '12:00',
+      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
+    })
+    quickModal.show = true
+  }
+
+  // 姓名留空時依序帶入「未知人物A」「未知人物B」...，避免同一天多筆都叫「未知人物」而分不清
+  function suffixLetters(n) {
+    let s = ''
+    n++
+    while (n > 0) {
+      n--
+      s = String.fromCharCode(65 + (n % 26)) + s
+      n = Math.floor(n / 26)
+    }
+    return s
+  }
+
+  function nextUnknownName(isLunch) {
+    const items = (isLunch ? daySummary.value?.lunch?.items : daySummary.value?.booking?.items) ?? []
+    const used = new Set(
+      items
+        .map(i => i.name || '')
+        .filter(n => n.startsWith('未知人物'))
+        .map(n => n.slice(4))
+    )
+    let i = 0
+    while (used.has(suffixLetters(i))) i++
+    return '未知人物' + suffixLetters(i)
+  }
+
+  async function saveQuickAdd() {
+    if (quickSaving.value) return
+    quickSaving.value = true
+    try {
+      const isLunch = quickModal.type === 'lunch'
+      const base = isLunch ? LUNCH_BASE() : BOOKING_BASE()
+      const payload = {
+        ...qForm,
+        name: qForm.name.trim() || nextUnknownName(isLunch), // 姓名留空時自動帶入「未知人物A」「未知人物B」...
+        date: todayStr,
+      }
+      const res = await fetch(`${base}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        alert('新增失敗，請稍後再試')
+        return
+      }
+      const saved = await res.json()
+      quickModal.show = false
+      pushNotification(
+        isLunch ? '🍱' : '🍽️',
+        isLunch ? '便當訂單已新增' : '訂位已新增',
+        `${saved.name || payload.name}　${saved.time || ''}　${typeBreakdown(saved) || qtyOf(saved) + (isLunch ? '個' : '人')}`,
+        isLunch ? 'lunch' : 'booking'
+      )
+      // 重新抓今日（及本週，若已載入過）資料，並同步已知清單，
+      // 避免輪詢／SSE 推播把這筆自己剛新增的訂單又當成「新訂單」重複跳出通知一次
+      await fetchToday()
+      syncKnownItems(daySummary.value)
+      if (weekSummary.value) await fetchWeek()
+    } catch (e) {
+      console.error(e)
+      alert('新增失敗，請稍後再試')
+    } finally {
+      quickSaving.value = false
+    }
+  }
+
   const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown']
 
   onMounted(() => {
@@ -945,7 +1035,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 xl:gap-8 lg:items-start">
         <!-- ── 今日概況 ── -->
         <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden lg:col-span-2">
-          <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-light-c">
+          <div class="flex items-center justify-between flex-wrap gap-x-2 gap-y-1.5 px-4 pt-3 pb-2 border-b border-light-c">
           <span
             class="font-semibold text-muted-c"
             style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
@@ -1000,6 +1090,26 @@
                 </button>
               </div>
             </div>
+          </div>
+
+          <!-- ── 快速新增（放最上面方便操作）── -->
+          <div class="flex items-center gap-2 px-4 py-2.5 border-b border-light-c bg-surface2/30">
+            <button
+              type="button"
+              class="flex-1 flex items-center justify-center gap-1 rounded-xl font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 py-2 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+              style="font-size:clamp(12px, calc(12px + 0.45vw), 15px)"
+              @click="openQuickAdd('booking')"
+            >
+              <span class="leading-none">＋</span> 新增訂位
+            </button>
+            <button
+              type="button"
+              class="flex-1 flex items-center justify-center gap-1 rounded-xl font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 py-2 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
+              style="font-size:clamp(12px, calc(12px + 0.45vw), 15px)"
+              @click="openQuickAdd('lunch')"
+            >
+              <span class="leading-none">＋</span> 新增便當
+            </button>
           </div>
 
           <!-- ── 設定區塊（可收縮）── -->
@@ -1080,11 +1190,11 @@
             {{ viewMode === 'week' ? '本週尚無訂位或便當記錄' : '今天尚無訂位或便當記錄' }}
           </div>
 
-          <!-- ── 今日模式：單一 3 欄格線 ── -->
+          <!-- ── 今日模式：手機直向堆疊，sm 以上維持 3 欄格線 ── -->
           <div
             v-else-if="viewMode === 'day'"
-            class="grid divide-x divide-base"
-            :class="soybeanCollapsed ? 'grid-cols-[1fr_1fr_auto]' : 'grid-cols-3'"
+            class="grid divide-y divide-base sm:divide-y-0 sm:divide-x"
+            :class="soybeanCollapsed ? 'grid-cols-1 sm:grid-cols-[1fr_1fr_auto]' : 'grid-cols-1 sm:grid-cols-3'"
           >
             <!-- 訂位 -->
             <div class="px-4 py-3 xl:px-6 xl:py-5 text-left">
@@ -1286,15 +1396,15 @@
                 </div>
               </template>
             </div>
-            <!-- 豆製品（可收合，收合後訂位／便當文字放大一號） -->
+            <!-- 豆製品（可收合，收合後訂位／便當文字放大一號；narrow-strip 收合樣式只在 sm 以上並排時才需要） -->
             <div
               class="text-left"
-              :class="soybeanCollapsed ? 'px-1.5 py-3 xl:px-2 xl:py-5' : 'px-4 py-3 xl:px-6 xl:py-5'"
+              :class="soybeanCollapsed ? 'px-4 py-3 sm:px-1.5 xl:px-2 xl:py-5' : 'px-4 py-3 xl:px-6 xl:py-5'"
             >
               <button
                 type="button"
-                class="flex items-center gap-1.5 w-full"
-                :class="soybeanCollapsed ? 'flex-col' : 'mb-2'"
+                class="flex items-center gap-1.5 w-full flex-wrap"
+                :class="soybeanCollapsed ? 'sm:flex-col' : 'mb-2'"
                 @click="soybeanCollapsed = !soybeanCollapsed"
               >
                 <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"/>
@@ -1310,7 +1420,7 @@
                 <span
                   v-if="soybeanOrders.length > 0"
                   class="font-semibold text-amber-600 dark:text-amber-400"
-                  :class="soybeanCollapsed ? '' : 'ml-auto'"
+                  :class="soybeanCollapsed ? 'ml-auto sm:ml-0' : 'ml-auto'"
                   style="font-size:11px"
                 >{{ soybeanOrders.length }}</span>
                 <span class="text-hint-c flex-shrink-0" style="font-size:11px">{{ soybeanCollapsed ? '▶' : '▼' }}</span>
@@ -1390,8 +1500,8 @@
                 {{ fmtMDWeekday(day.date) }}
               </div>
               <div
-                class="grid divide-x divide-base"
-                :class="soybeanCollapsed ? 'grid-cols-[1fr_1fr_auto]' : 'grid-cols-3'"
+                class="grid divide-y divide-base sm:divide-y-0 sm:divide-x"
+                :class="soybeanCollapsed ? 'grid-cols-1 sm:grid-cols-[1fr_1fr_auto]' : 'grid-cols-1 sm:grid-cols-3'"
               >
                 <!-- 訂位 -->
                 <div class="px-4 py-2.5 xl:px-6 xl:py-3 text-left">
@@ -1547,12 +1657,12 @@
                 <!-- 豆製品（可收合，與上方今日概況共用同一個收合狀態） -->
                 <div
                   class="text-left"
-                  :class="soybeanCollapsed ? 'px-1.5 py-2.5 xl:px-2 xl:py-3' : 'px-4 py-2.5 xl:px-6 xl:py-3'"
+                  :class="soybeanCollapsed ? 'px-4 py-2.5 sm:px-1.5 xl:px-2 xl:py-3' : 'px-4 py-2.5 xl:px-6 xl:py-3'"
                 >
                   <button
                     type="button"
                     class="flex items-center gap-1.5 w-full flex-wrap"
-                    :class="soybeanCollapsed ? 'flex-col' : 'mb-1.5'"
+                    :class="soybeanCollapsed ? 'sm:flex-col' : 'mb-1.5'"
                     @click="soybeanCollapsed = !soybeanCollapsed"
                   >
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"/>
@@ -1840,6 +1950,109 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ 快速新增（訂位／便當）Modal ════════ -->
+    <div
+      v-if="quickModal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      @click.self="quickModal.show = false"
+    >
+      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-base-c">{{ quickTitle }}（今天）</h3>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="quickModal.show = false"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">姓名</label>
+            <input
+              v-model="qForm.name"
+              placeholder="留空自動填入「未知人物A」「未知人物B」..."
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">{{ quickModal.type === 'lunch' ? '取餐時段' : '用餐時段' }}</label>
+            <select
+              v-model="qForm.time"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+              <option v-for="t in quickTimeSlots" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-2.5 border border-red-200 dark:border-red-800/30">
+                <label class="text-xs font-medium text-red-700 dark:text-red-400 block mb-1">🍖 葷食</label>
+                <input
+                  v-model.number="qForm.meatQty"
+                  type="number"
+                  min="0"
+                  class="w-full bg-surface border border-red-200 dark:border-red-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"
+                />
+              </div>
+              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
+                <input
+                  v-model.number="qForm.fullVegQty"
+                  type="number"
+                  min="0"
+                  class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
+                />
+              </div>
+              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
+                <input
+                  v-model.number="qForm.eggVegQty"
+                  type="number"
+                  min="0"
+                  class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
+                />
+              </div>
+              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
+                <input
+                  v-model.number="qForm.spiceVegQty"
+                  type="number"
+                  min="0"
+                  class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
+                />
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">備註</label>
+            <textarea
+              v-model="qForm.note"
+              rows="2"
+              placeholder="特殊要求"
+              class="w-full border border-light-c bg-surface text-base-c rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+            />
+          </div>
+        </div>
+        <div class="flex gap-2 mt-5">
+          <button
+            class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="quickModal.show = false"
+          >取消</button>
+          <button
+            class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
+            :disabled="quickSaving"
+            @click="saveQuickAdd"
+          >
+            {{ quickSaving ? '新增中...' : '新增' }}
+          </button>
         </div>
       </div>
     </div>
