@@ -63,29 +63,29 @@ const navGroups = [
   {
     label: '👥 人事',
     items: [
-      {to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule'},
-      {to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory'},
-      {to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual'}
+      { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule' },
+      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
+      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual' }
     ]
   },
   {
     label: '🛒 日常作業',
     items: [
-      {to: '/staff/pos/daily/sales', icon: '🛍️', label: '商品販賣', key: 'pos.daily.sales'},
-      {to: '/staff/pos/daily/account-inquiry', icon: '🧾', label: '帳務查詢', key: 'pos.daily.account-inquiry'},
-      {to: '/staff/pos/daily/stock', icon: '📦', label: '庫存管理', key: 'pos.daily.stock'}
+      { to: '/staff/pos/daily/sales', icon: '🛍️', label: '商品販賣', key: 'pos.daily.sales' },
+      { to: '/staff/pos/daily/account-inquiry', icon: '🧾', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
+      { to: '/staff/pos/daily/stock', icon: '📦', label: '庫存管理', key: 'pos.daily.stock' }
     ]
   },
   {
     label: '📊 營業分析',
     items: [
-      {to: '/staff/pos/analyze/sales-analysis', icon: '📈', label: '銷售報表', key: 'pos.analyze.sales-analysis'}
+      { to: '/staff/pos/analyze/sales-analysis', icon: '📈', label: '銷售報表', key: 'pos.analyze.sales-analysis' }
     ]
   },
   {
     label: '⚙️ 系統設定',
     items: [
-      {to: '/staff/pos/settings/menu-setting', icon: '🍽️', label: '品項設置', key: 'pos.settings.menu-setting'},
+      { to: '/staff/pos/settings/menu-setting', icon: '🍽️', label: '品項設置', key: 'pos.settings.menu-setting' },
       {
         to: '/staff/pos/settings/database-setting',
         icon: '🗄️',
@@ -103,33 +103,34 @@ const navGroups = [
   {
     label: '💳 其他',
     items: [
-      {to: '/staff/pos/other/pos-menu', icon: '📈', label: '商品管理', key: 'pos.other.pos-menu'},
-      {to: '/staff/pos/other/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.other.pos-sales'},
-      {to: '/staff/pos/other/pos-sell', icon: '📈', label: '商品販賣', key: 'pos.other.pos-sell'},
-      {to: '/staff/pos/other/pos-stock', icon: '📈', label: '庫存管理', key: 'pos.other.pos-stock'}
+      { to: '/staff/other/broadcast', icon: '📈', label: '廣播', key: 'other.broadcast' },
+      { to: '/staff/pos/other/pos-menu', icon: '📈', label: '商品管理', key: 'pos.other.pos-menu' },
+      { to: '/staff/pos/other/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.other.pos-sales' },
+      { to: '/staff/pos/other/pos-sell', icon: '📈', label: '商品販賣', key: 'pos.other.pos-sell' },
+      { to: '/staff/pos/other/pos-stock', icon: '📈', label: '庫存管理', key: 'pos.other.pos-stock' }
     ]
   },
   {
     label: '🖨️ 列印中心',
     items: [
-      {to: '/staff/print/guild-hall-print', icon: '🌿', label: '會館訂貨', key: 'print.guild-hall-print'},
-      {to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print'},
+      { to: '/staff/print/guild-hall-print', icon: '🌿', label: '會館訂貨', key: 'print.guild-hall-print' },
+      { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
       {
         to: '/staff/print/fire-extinguisher-print',
         icon: '🧯',
         label: '滅火器 QRCode',
         key: 'print.fire-extinguisher-print'
       },
-      {to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print'}
+      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
     ]
   },
   {
     label: '📊 庫存銷售',
     items: [
-      {to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count'},
-      {to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis'},
-      {to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table'},
-      {to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files'}
+      { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
+      { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
+      { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
     ]
   },
   {
@@ -152,7 +153,7 @@ const navGroups = [
 ]
 
 const standaloneItems = [
-  {to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links'}
+  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
 ]
 
 const permStore = usePermissionStore()
@@ -221,7 +222,7 @@ const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
 const visibleGroups = computed(() => {
   if (!hasPerms.value) return []
   return navGroups
-    .map(g => ({...g, items: filterItems(g.items)}))
+    .map(g => ({ ...g, items: filterItems(g.items) }))
     .filter(g => g.items.length > 0)
 })
 
@@ -623,7 +624,7 @@ const logout = async () => {
       </div>
     </div>
 
-    <!-- 手機全螢幕選單（App 風格）-->
+    <!-- 手機全螢幕選單（App 風格） -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition-opacity duration-200 ease-out"
