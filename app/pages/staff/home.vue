@@ -8,7 +8,6 @@ const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
 const ROOMS_SETTINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'
 const BOOKING_BASE = () => commonStore.data.main_url + '/holy/booking'
 const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
-const BROADCAST_BASE = () => commonStore.data.main_url + '/holy/broadcast'
 
 const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
 const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
@@ -741,176 +740,146 @@ function disconnectStream() {
   }
 }
 
-// ── 內場語音廣播（手機邊錄邊傳一小段一小段，內場邊收邊播，做出接近對講機的體驗）───
-// 手機那邊按住說話時，會每約 0.6～0.7 秒切一段（重新開始錄音，讓每段都是獨立、
-// 有檔頭、可單獨播放的檔案，避免用單一長串流時後段沒有檔頭、無法單獨播放的問題），
-// 這裡收到一段播一段，不用等對方整句講完才開始播放。實際延遲約是「一段錄音的長度
-// ＋上傳/下載來回時間」，不是像 WebRTC 那樣的即時通話，但已經不是「講完才送出」了。
+// ── 內場語音廣播（WebRTC，接近即時）─────────────────────────────────────
+// 這台主機（收話端）常駐連著信令 WebSocket；手機按下開始廣播時會連過來，兩邊
+// 透過這條 WebSocket 交換 WebRTC 的 offer/answer/ICE，談好之後音訊直接走瀏覽器
+// 內建的點對點連線播放，不再經過伺服器中繼、也不用切段錄音上傳，延遲降到接近
+// 即時（只受 WebRTC 本身的網路延遲影響）。
 //
-// 跟訂單通知走不同的 stream（/holy/broadcast/stream），原因跟上面的訂單 stream 一樣：
-// 是長連線，要避開 main_url 的 /api 反向代理逾時限制，所以直接連 just_url、不帶 cookie。
-let broadcastEventSource = null
+// 跟訂單通知走不同的連線（/holy/broadcast/ws），原因跟上面的訂單 SSE 一樣：
+// 要避開 main_url 的 /api 反向代理（對長連線不友善），所以直接連 just_url。
+const broadcastWsUrl = () => commonStore.data.just_url.replace(/^http/, 'ws') + '/holy/broadcast/ws'
+
 const broadcastPlaying = ref(false)
 const broadcastFrom = ref('')
 
-// sessionId -> {from, buffer:Map<seq,url>, nextSeq, ended, playing, watchdogTimer}
-const broadcastSessions = new Map()
-// 排隊等著播放的 session id（萬一同時有兩支手機在講話，先講的先播完才播下一個，不會互相蓋台）
-const broadcastSessionOrder = []
-let currentBroadcastSessionId = null
+let broadcastWs = null
+let broadcastReconnectTimer = null
+// callerId（手機那端的信令連線 id）-> {pc, audioEl, label}
+const broadcastPeers = new Map()
 
-// 「一段時間沒有任何新進度」的逾時保護：SSE 目前偶爾會斷線重連（跟上面訂單通知
-// 那條 stream 一樣不穩），斷線期間伺服器送出的事件會直接遺失、收不到。如果剛好
-// 漏收的是 voice-end，前端會一直以為這個 session 還沒講完，永遠卡在「內場廣播中」，
-// 而且會擋住後面所有新的廣播（因為佇列一次只播一個）。這裡替每個 session 開一個
-// 倒數計時器，只要一段時間都沒有新段落或結束事件進來，就強制當作結束處理，
-// 確保最多卡住幾秒鐘、而不是整個功能直接掛掉、要重新整理頁面才能恢復。
-const BROADCAST_WATCHDOG_MS = 6000
-
-function armBroadcastWatchdog(sessionId, ms = BROADCAST_WATCHDOG_MS) {
-  const s = broadcastSessions.get(sessionId)
-  if (!s) return
-  if (s.watchdogTimer) clearTimeout(s.watchdogTimer)
-  s.watchdogTimer = setTimeout(() => forceEndBroadcastSession(sessionId), ms)
+function updateBroadcastBanner() {
+  const active = broadcastPeers.values().next().value
+  broadcastPlaying.value = broadcastPeers.size > 0
+  broadcastFrom.value = active ? active.label : ''
 }
 
-function clearBroadcastWatchdog(s) {
-  if (s && s.watchdogTimer) {
-    clearTimeout(s.watchdogTimer)
-    s.watchdogTimer = null
+function sendBroadcastSignal(payload) {
+  if (broadcastWs && broadcastWs.readyState === WebSocket.OPEN) {
+    broadcastWs.send(JSON.stringify(payload))
   }
 }
 
-function forceEndBroadcastSession(sessionId) {
-  if (!broadcastSessions.has(sessionId)) return
-  const s = broadcastSessions.get(sessionId)
-  for (const url of s.buffer.values()) URL.revokeObjectURL(url)
-  finishBroadcastSession(sessionId)
-}
-
-function getOrCreateBroadcastSession(sessionId, from) {
-  let s = broadcastSessions.get(sessionId)
-  if (!s) {
-    s = {from: from || '', buffer: new Map(), nextSeq: 0, ended: false, playing: false, watchdogTimer: null}
-    broadcastSessions.set(sessionId, s)
-    broadcastSessionOrder.push(sessionId)
-  }
-  armBroadcastWatchdog(sessionId)
-  return s
-}
-
-function activateNextBroadcastSession() {
-  if (currentBroadcastSessionId) return
-  const nextId = broadcastSessionOrder.find(id => broadcastSessions.has(id))
-  if (!nextId) {
-    broadcastPlaying.value = false
-    broadcastFrom.value = ''
-    return
-  }
-  currentBroadcastSessionId = nextId
-  const s = broadcastSessions.get(nextId)
-  broadcastPlaying.value = true
-  broadcastFrom.value = s.from
-  playBufferedBroadcastChunks(nextId)
-}
-
-function finishBroadcastSession(sessionId) {
-  const s = broadcastSessions.get(sessionId)
-  clearBroadcastWatchdog(s)
-  const idx = broadcastSessionOrder.indexOf(sessionId)
-  if (idx !== -1) broadcastSessionOrder.splice(idx, 1)
-  broadcastSessions.delete(sessionId)
-  if (currentBroadcastSessionId === sessionId) {
-    currentBroadcastSessionId = null
-    activateNextBroadcastSession()
-  }
-}
-
-function playBufferedBroadcastChunks(sessionId) {
-  const s = broadcastSessions.get(sessionId)
-  if (!s || s.playing) return
-  const url = s.buffer.get(s.nextSeq)
-  if (url === undefined) {
-    // 下一段還沒收到；如果對方已經講完（ended）而且沒有更多段落在等，這個 session 就結束了
-    if (s.ended) finishBroadcastSession(sessionId)
-    return
-  }
-  s.playing = true
-  s.buffer.delete(s.nextSeq)
-  s.nextSeq++
-  const audioEl = new Audio(url)
-  const advance = () => {
-    URL.revokeObjectURL(url)
-    s.playing = false
-    playBufferedBroadcastChunks(sessionId)
-  }
-  audioEl.onended = advance
-  audioEl.onerror = advance
-  audioEl.play().catch(advance) // 若被瀏覽器自動播放限制擋下，直接跳下一段，不卡住整個佇列
-}
-
-function handleBroadcastStart(payload) {
-  getOrCreateBroadcastSession(payload.sessionId, payload.from)
-  activateNextBroadcastSession()
-}
-
-async function handleBroadcastChunk(payload) {
+function closeBroadcastPeer(callerId) {
+  const entry = broadcastPeers.get(callerId)
+  if (!entry) return
   try {
-    const res = await fetch(`${BROADCAST_BASE()}/chunk/${payload.sessionId}/${payload.seq}`, {credentials: 'include'})
-    if (!res.ok) return
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const s = getOrCreateBroadcastSession(payload.sessionId, payload.from)
-    s.buffer.set(payload.seq, url)
-    if (currentBroadcastSessionId === payload.sessionId) playBufferedBroadcastChunks(payload.sessionId)
-    else activateNextBroadcastSession()
-  } catch (e) { /* 單一段落播放失敗不影響其他段落 */
+    entry.pc.close()
+  } catch (e) { /* 忽略 */
+  }
+  if (entry.audioEl) {
+    entry.audioEl.pause()
+    entry.audioEl.srcObject = null
+  }
+  broadcastPeers.delete(callerId)
+  updateBroadcastBanner()
+}
+
+async function handleBroadcastOffer(msg) {
+  closeBroadcastPeer(msg.from) // 同一支手機重新發 offer（例如重連）時，先收掉舊的連線
+
+  const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]})
+  const audioEl = new Audio()
+  audioEl.autoplay = true
+  broadcastPeers.set(msg.from, {pc, audioEl, label: msg.label || ''})
+  updateBroadcastBanner()
+
+  pc.ontrack = (e) => {
+    audioEl.srcObject = e.streams[0]
+    audioEl.play().catch(() => {
+    }) // 若被瀏覽器自動播放限制擋下，橫幅仍會顯示廣播中，不影響其他功能
+  }
+  pc.onicecandidate = (e) => {
+    if (e.candidate) sendBroadcastSignal({type: 'ice', to: msg.from, candidate: e.candidate})
+  }
+  pc.onconnectionstatechange = () => {
+    if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) closeBroadcastPeer(msg.from)
+  }
+
+  try {
+    await pc.setRemoteDescription(msg.sdp)
+    const answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+    sendBroadcastSignal({type: 'answer', to: msg.from, sdp: pc.localDescription})
+  } catch (e) {
+    console.error(e)
+    closeBroadcastPeer(msg.from)
   }
 }
 
-function handleBroadcastEnd(payload) {
-  const s = broadcastSessions.get(payload.sessionId)
-  if (!s) return
-  s.ended = true
-  if (currentBroadcastSessionId === payload.sessionId) {
-    playBufferedBroadcastChunks(payload.sessionId)
-    // 收到結束訊號但還在等某一段還沒到（可能漏收），縮短逾時等待時間，
-    // 不用整整等 6 秒，讓佇列卡住的時間降到最低
-    if (broadcastSessions.has(payload.sessionId)) armBroadcastWatchdog(payload.sessionId, 2000)
-  } else if (s.buffer.size === 0) {
-    finishBroadcastSession(payload.sessionId)
+async function handleBroadcastSignal(msg) {
+  if (msg.type === 'offer') {
+    handleBroadcastOffer(msg)
+  } else if (msg.type === 'ice') {
+    const entry = broadcastPeers.get(msg.from)
+    if (entry && msg.candidate) {
+      try {
+        await entry.pc.addIceCandidate(msg.candidate)
+      } catch (e) { /* 忽略偶爾晚到或重複的 candidate */
+      }
+    }
+  } else if (msg.type === 'bye') {
+    closeBroadcastPeer(msg.from)
   }
 }
 
-function connectBroadcastStream() {
-  if (typeof EventSource === 'undefined') return
-  broadcastEventSource = new EventSource(`${commonStore.data.just_url}/holy/broadcast/stream`)
-  broadcastEventSource.addEventListener('voice-start', (e) => {
+function scheduleBroadcastReconnect() {
+  if (broadcastReconnectTimer) return
+  broadcastReconnectTimer = setTimeout(() => {
+    broadcastReconnectTimer = null
+    connectBroadcastSignaling()
+  }, 3000)
+}
+
+function connectBroadcastSignaling() {
+  if (typeof WebSocket === 'undefined') return
+  try {
+    broadcastWs = new WebSocket(broadcastWsUrl())
+  } catch (e) {
+    scheduleBroadcastReconnect()
+    return
+  }
+  broadcastWs.onopen = () => {
+    sendBroadcastSignal({type: 'hello', role: 'receiver'})
+  }
+  broadcastWs.onmessage = (e) => {
     try {
-      handleBroadcastStart(JSON.parse(e.data))
-    } catch (err) { /* 忽略格式異常的事件 */
+      handleBroadcastSignal(JSON.parse(e.data))
+    } catch (err) { /* 忽略格式異常的訊息 */
     }
-  })
-  broadcastEventSource.addEventListener('voice-chunk', (e) => {
-    try {
-      handleBroadcastChunk(JSON.parse(e.data))
-    } catch (err) { /* 忽略格式異常的事件 */
-    }
-  })
-  broadcastEventSource.addEventListener('voice-end', (e) => {
-    try {
-      handleBroadcastEnd(JSON.parse(e.data))
-    } catch (err) { /* 忽略格式異常的事件 */
-    }
-  })
-  broadcastEventSource.onerror = () => {
+  }
+  broadcastWs.onclose = () => {
+    // 這台主機是常駐收話端，斷線要自動重連，不然之後手機廣播都收不到
+    for (const id of Array.from(broadcastPeers.keys())) closeBroadcastPeer(id)
+    scheduleBroadcastReconnect()
+  }
+  broadcastWs.onerror = () => {
   }
 }
 
-function disconnectBroadcastStream() {
-  if (broadcastEventSource) {
-    broadcastEventSource.close()
-    broadcastEventSource = null
+function disconnectBroadcastSignaling() {
+  if (broadcastReconnectTimer) {
+    clearTimeout(broadcastReconnectTimer)
+    broadcastReconnectTimer = null
+  }
+  for (const id of Array.from(broadcastPeers.keys())) closeBroadcastPeer(id)
+  if (broadcastWs) {
+    broadcastWs.onclose = null // 卸載頁面時的正常關閉，不用觸發自動重連
+    try {
+      broadcastWs.close()
+    } catch (e) { /* 忽略 */
+    }
+    broadcastWs = null
   }
 }
 
@@ -1164,13 +1133,13 @@ onMounted(() => {
     connectStream()
     startPolling()
   })
-  connectBroadcastStream()
+  connectBroadcastSignaling()
 })
 
 onUnmounted(() => {
   disconnectStream()
   stopPolling()
-  disconnectBroadcastStream()
+  disconnectBroadcastSignaling()
   UNLOCK_EVENTS.forEach(evt => window.removeEventListener(evt, unlockAudio))
 })
 </script>
