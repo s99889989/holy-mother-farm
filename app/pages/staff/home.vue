@@ -905,6 +905,14 @@
     quickModal.show = true
   }
 
+  // 葷素數量 +／− 快速按鈕
+  function qInc(field) {
+    qForm[field] = (Number(qForm[field]) || 0) + 1
+  }
+  function qDec(field) {
+    qForm[field] = Math.max(0, (Number(qForm[field]) || 0) - 1)
+  }
+
   // 姓名留空時依序帶入「未知人物A」「未知人物B」...，避免同一天多筆都叫「未知人物」而分不清
   function suffixLetters(n) {
     let s = ''
@@ -994,42 +1002,45 @@
 <template>
   <div class="min-h-full bg-surface2 transition-colors">
     <!-- ── 新訂單通知（置中、放大）── -->
-    <div
-      v-if="notifications.length"
-      class="fixed inset-0 z-40 bg-black/20 pointer-events-none transition-opacity"
-    />
-    <div class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 px-4 pointer-events-none">
-      <TransitionGroup name="notify">
-        <div
-          v-for="n in notifications"
-          :key="n.id"
-          class="pointer-events-auto w-full max-w-sm sm:max-w-md bg-surface border-2 border-green-600 shadow-2xl rounded-2xl px-5 py-4 flex items-center gap-4 cursor-pointer"
-          @click="openNotification(n)"
-        >
-          <span
-            class="flex-shrink-0"
-            style="font-size:clamp(36px, calc(36px + 0.45vw), 50px)"
-          >{{ n.icon }}</span>
-          <div class="flex-1 min-w-0">
-            <p
-              class="font-bold text-base-c"
-              style="font-size:clamp(16px, calc(16px + 0.45vw), 22px)"
-            >{{ n.title }}</p>
-            <p
-              class="text-muted-c mt-0.5"
-              style="font-size:clamp(14px, calc(14px + 0.45vw), 20px)"
-            >{{ n.detail }}</p>
-          </div>
-          <button
-            class="text-hint-c hover:text-muted-c flex-shrink-0 self-start"
-            style="font-size:clamp(16px, calc(16px + 0.45vw), 22px)"
-            @click.stop="dismissNotification(n.id)"
+    <!-- 同樣用 Teleport 掛到 body，避免版型上層若有 transform 導致這個 fixed 疊層定位跑掉 -->
+    <Teleport to="body">
+      <div
+        v-if="notifications.length"
+        class="fixed inset-0 z-40 bg-black/20 pointer-events-none transition-opacity"
+      />
+      <div class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 px-4 pointer-events-none">
+        <TransitionGroup name="notify">
+          <div
+            v-for="n in notifications"
+            :key="n.id"
+            class="pointer-events-auto w-full max-w-sm sm:max-w-md bg-surface border-2 border-green-600 shadow-2xl rounded-2xl px-5 py-4 flex items-center gap-4 cursor-pointer"
+            @click="openNotification(n)"
           >
-            ✕
-          </button>
-        </div>
-      </TransitionGroup>
-    </div>
+            <span
+              class="flex-shrink-0"
+              style="font-size:clamp(36px, calc(36px + 0.45vw), 50px)"
+            >{{ n.icon }}</span>
+            <div class="flex-1 min-w-0">
+              <p
+                class="font-bold text-base-c"
+                style="font-size:clamp(16px, calc(16px + 0.45vw), 22px)"
+              >{{ n.title }}</p>
+              <p
+                class="text-muted-c mt-0.5"
+                style="font-size:clamp(14px, calc(14px + 0.45vw), 20px)"
+              >{{ n.detail }}</p>
+            </div>
+            <button
+              class="text-hint-c hover:text-muted-c flex-shrink-0 self-start"
+              style="font-size:clamp(16px, calc(16px + 0.45vw), 22px)"
+              @click.stop="dismissNotification(n.id)"
+            >
+              ✕
+            </button>
+          </div>
+        </TransitionGroup>
+      </div>
+    </Teleport>
 
     <div class="mx-auto px-3 sm:px-4 lg:px-8 xl:px-12 py-4 lg:py-8 xl:py-10">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 xl:gap-8 lg:items-start">
@@ -1955,107 +1966,159 @@
     </div>
 
     <!-- ════════ 快速新增（訂位／便當）Modal ════════ -->
-    <div
-      v-if="quickModal.show"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
-      @click.self="quickModal.show = false"
-    >
-      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-base-c">{{ quickTitle }}（今天）</h3>
-          <button
-            class="text-hint-c hover:text-muted-c p-1"
-            @click="quickModal.show = false"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div class="space-y-3">
-          <div>
-            <label class="text-sm font-medium text-muted-c block mb-1">姓名</label>
-            <input
-              v-model="qForm.name"
-              placeholder="留空自動填入「未知人物A」「未知人物B」..."
-              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            />
-          </div>
-          <div>
-            <label class="text-sm font-medium text-muted-c block mb-1">{{ quickModal.type === 'lunch' ? '取餐時段' : '用餐時段' }}</label>
-            <select
-              v-model="qForm.time"
-              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+    <!-- 用 Teleport 掛到 body：避免頁面版型（layout/page transition 等）上層若有 transform，
+         導致這個 fixed 彈窗的定位基準跑掉、變成只蓋住頁面容器寬度而不是整個畫面 -->
+    <Teleport to="body">
+      <div
+        v-if="quickModal.show"
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 overflow-y-auto px-3 py-4 sm:px-4"
+        @click.self="quickModal.show = false"
+      >
+        <div class="bg-surface rounded-2xl shadow-xl w-full sm:max-w-md p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-base-c">{{ quickTitle }}（今天）</h3>
+            <button
+              class="text-hint-c hover:text-muted-c p-1"
+              @click="quickModal.show = false"
             >
-              <option v-for="t in quickTimeSlots" :key="t" :value="t">{{ t }}</option>
-            </select>
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
-          <div>
-            <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
-            <div class="grid grid-cols-2 gap-2">
-              <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-2.5 border border-red-200 dark:border-red-800/30">
-                <label class="text-xs font-medium text-red-700 dark:text-red-400 block mb-1">🍖 葷食</label>
-                <input
-                  v-model.number="qForm.meatQty"
-                  type="number"
-                  min="0"
-                  class="w-full bg-surface border border-red-200 dark:border-red-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"
-                />
-              </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
-                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
-                <input
-                  v-model.number="qForm.fullVegQty"
-                  type="number"
-                  min="0"
-                  class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
-                />
-              </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
-                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
-                <input
-                  v-model.number="qForm.eggVegQty"
-                  type="number"
-                  min="0"
-                  class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
-                />
-              </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
-                <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
-                <input
-                  v-model.number="qForm.spiceVegQty"
-                  type="number"
-                  min="0"
-                  class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
-                />
+          <div class="space-y-3">
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">姓名</label>
+              <input
+                v-model="qForm.name"
+                placeholder="留空自動填入「未知人物A」「未知人物B」..."
+                class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              />
+            </div>
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">{{ quickModal.type === 'lunch' ? '取餐時段' : '用餐時段' }}</label>
+              <select
+                v-model="qForm.time"
+                class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+                <option v-for="t in quickTimeSlots" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-2.5 border border-red-200 dark:border-red-800/30">
+                  <label class="text-xs font-medium text-red-700 dark:text-red-400 block mb-1">🍖 葷食</label>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qDec('meatQty')"
+                    >−</button>
+                    <input
+                      v-model.number="qForm.meatQty"
+                      type="number"
+                      min="0"
+                      class="w-full min-w-0 bg-surface border border-red-200 dark:border-red-800/50 text-base-c rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"
+                    />
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qInc('meatQty')"
+                    >＋</button>
+                  </div>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                  <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qDec('fullVegQty')"
+                    >−</button>
+                    <input
+                      v-model.number="qForm.fullVegQty"
+                      type="number"
+                      min="0"
+                      class="w-full min-w-0 bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
+                    />
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qInc('fullVegQty')"
+                    >＋</button>
+                  </div>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                  <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qDec('eggVegQty')"
+                    >−</button>
+                    <input
+                      v-model.number="qForm.eggVegQty"
+                      type="number"
+                      min="0"
+                      class="w-full min-w-0 bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
+                    />
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qInc('eggVegQty')"
+                    >＋</button>
+                  </div>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+                  <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qDec('spiceVegQty')"
+                    >−</button>
+                    <input
+                      v-model.number="qForm.spiceVegQty"
+                      type="number"
+                      min="0"
+                      class="w-full min-w-0 bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
+                    />
+                    <button
+                      type="button"
+                      class="flex-shrink-0 w-7 h-7 rounded-lg bg-white dark:bg-black/20 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 font-bold text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                      @click="qInc('spiceVegQty')"
+                    >＋</button>
+                  </div>
+                </div>
               </div>
             </div>
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">備註</label>
+              <textarea
+                v-model="qForm.note"
+                rows="2"
+                placeholder="特殊要求"
+                class="w-full border border-light-c bg-surface text-base-c rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+              />
+            </div>
           </div>
-          <div>
-            <label class="text-sm font-medium text-muted-c block mb-1">備註</label>
-            <textarea
-              v-model="qForm.note"
-              rows="2"
-              placeholder="特殊要求"
-              class="w-full border border-light-c bg-surface text-base-c rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
-            />
+          <div class="flex gap-2 mt-5">
+            <button
+              class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+              @click="quickModal.show = false"
+            >取消</button>
+            <button
+              class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
+              :disabled="quickSaving"
+              @click="saveQuickAdd"
+            >
+              {{ quickSaving ? '新增中...' : '新增' }}
+            </button>
           </div>
-        </div>
-        <div class="flex gap-2 mt-5">
-          <button
-            class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors"
-            @click="quickModal.show = false"
-          >取消</button>
-          <button
-            class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
-            :disabled="quickSaving"
-            @click="saveQuickAdd"
-          >
-            {{ quickSaving ? '新增中...' : '新增' }}
-          </button>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
