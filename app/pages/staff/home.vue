@@ -753,19 +753,49 @@ let broadcastEventSource = null
 const broadcastPlaying = ref(false)
 const broadcastFrom = ref('')
 
-// sessionId -> {from, buffer:Map<seq,url>, nextSeq, ended, playing}
+// sessionId -> {from, buffer:Map<seq,url>, nextSeq, ended, playing, watchdogTimer}
 const broadcastSessions = new Map()
 // 排隊等著播放的 session id（萬一同時有兩支手機在講話，先講的先播完才播下一個，不會互相蓋台）
 const broadcastSessionOrder = []
 let currentBroadcastSessionId = null
 
+// 「一段時間沒有任何新進度」的逾時保護：SSE 目前偶爾會斷線重連（跟上面訂單通知
+// 那條 stream 一樣不穩），斷線期間伺服器送出的事件會直接遺失、收不到。如果剛好
+// 漏收的是 voice-end，前端會一直以為這個 session 還沒講完，永遠卡在「內場廣播中」，
+// 而且會擋住後面所有新的廣播（因為佇列一次只播一個）。這裡替每個 session 開一個
+// 倒數計時器，只要一段時間都沒有新段落或結束事件進來，就強制當作結束處理，
+// 確保最多卡住幾秒鐘、而不是整個功能直接掛掉、要重新整理頁面才能恢復。
+const BROADCAST_WATCHDOG_MS = 6000
+
+function armBroadcastWatchdog(sessionId, ms = BROADCAST_WATCHDOG_MS) {
+  const s = broadcastSessions.get(sessionId)
+  if (!s) return
+  if (s.watchdogTimer) clearTimeout(s.watchdogTimer)
+  s.watchdogTimer = setTimeout(() => forceEndBroadcastSession(sessionId), ms)
+}
+
+function clearBroadcastWatchdog(s) {
+  if (s && s.watchdogTimer) {
+    clearTimeout(s.watchdogTimer)
+    s.watchdogTimer = null
+  }
+}
+
+function forceEndBroadcastSession(sessionId) {
+  if (!broadcastSessions.has(sessionId)) return
+  const s = broadcastSessions.get(sessionId)
+  for (const url of s.buffer.values()) URL.revokeObjectURL(url)
+  finishBroadcastSession(sessionId)
+}
+
 function getOrCreateBroadcastSession(sessionId, from) {
   let s = broadcastSessions.get(sessionId)
   if (!s) {
-    s = {from: from || '', buffer: new Map(), nextSeq: 0, ended: false, playing: false}
+    s = {from: from || '', buffer: new Map(), nextSeq: 0, ended: false, playing: false, watchdogTimer: null}
     broadcastSessions.set(sessionId, s)
     broadcastSessionOrder.push(sessionId)
   }
+  armBroadcastWatchdog(sessionId)
   return s
 }
 
@@ -785,6 +815,8 @@ function activateNextBroadcastSession() {
 }
 
 function finishBroadcastSession(sessionId) {
+  const s = broadcastSessions.get(sessionId)
+  clearBroadcastWatchdog(s)
   const idx = broadcastSessionOrder.indexOf(sessionId)
   if (idx !== -1) broadcastSessionOrder.splice(idx, 1)
   broadcastSessions.delete(sessionId)
@@ -840,8 +872,14 @@ function handleBroadcastEnd(payload) {
   const s = broadcastSessions.get(payload.sessionId)
   if (!s) return
   s.ended = true
-  if (currentBroadcastSessionId === payload.sessionId) playBufferedBroadcastChunks(payload.sessionId)
-  else if (s.buffer.size === 0) finishBroadcastSession(payload.sessionId)
+  if (currentBroadcastSessionId === payload.sessionId) {
+    playBufferedBroadcastChunks(payload.sessionId)
+    // 收到結束訊號但還在等某一段還沒到（可能漏收），縮短逾時等待時間，
+    // 不用整整等 6 秒，讓佇列卡住的時間降到最低
+    if (broadcastSessions.has(payload.sessionId)) armBroadcastWatchdog(payload.sessionId, 2000)
+  } else if (s.buffer.size === 0) {
+    finishBroadcastSession(payload.sessionId)
+  }
 }
 
 function connectBroadcastStream() {
