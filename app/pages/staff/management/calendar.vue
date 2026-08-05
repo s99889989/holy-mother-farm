@@ -892,15 +892,42 @@
         }
 
         if (!isAllDay) {
-          // 一般有時間的活動：維持原本單筆、單日的處理方式
           const s = new Date(startRaw)
           const e = endRaw ? new Date(endRaw) : null
           const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-          expanded.push({
-            ...base,
-            date: startRaw.slice(0, 10),
-            time: e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
-          })
+          const startDateStr = startRaw.slice(0, 10)
+          const endDateStr = e ? endRaw.slice(0, 10) : startDateStr
+
+          if (!e || startDateStr === endDateStr) {
+            // 單日活動：維持原本單筆處理方式
+            expanded.push({
+              ...base,
+              date: startDateStr,
+              time: e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+            })
+            continue
+          }
+
+          // 跨天的有時間活動：逐天展開到結束日（含），比照全天活動的處理方式
+          // 開始日顯示開始時間、結束日顯示結束時間，中間日不顯示特定時間
+          const startDate = new Date(`${startDateStr}T00:00:00`)
+          const endDate = new Date(`${endDateStr}T00:00:00`)
+          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const y = d.getFullYear()
+            const m = String(d.getMonth() + 1).padStart(2, '0')
+            const day = String(d.getDate()).padStart(2, '0')
+            const dateStr = `${y}-${m}-${day}`
+            let time = ''
+            if (dateStr === startDateStr) time = fmt(s)
+            else if (dateStr === endDateStr) time = fmt(e)
+            expanded.push({
+              ...base,
+              id: `${item.id}_${dateStr}`,
+              googleEventId: item.id,
+              date: dateStr,
+              time
+            })
+          }
           continue
         }
 
