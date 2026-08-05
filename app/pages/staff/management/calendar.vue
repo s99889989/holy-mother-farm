@@ -1,64 +1,148 @@
 <template>
   <div class="min-h-full bg-surface2 dark:bg-[#15171c] transition-colors lg:flex lg:items-start">
-
     <!-- ══ 左側功能欄（lg 以上固定在左側；手機維持在最上方）══ -->
     <div class="lg:w-72 lg:flex-shrink-0 lg:border-r lg:border-light-c dark:lg:border-[#2a2e37] lg:h-screen lg:sticky lg:top-0 lg:overflow-y-auto">
-
       <!-- ── 精簡列（永遠顯示）── -->
       <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3 sticky top-0 z-30 lg:static">
         <div class="flex items-center gap-4">
-          <button @click="prevMonth"
-                  class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
+          <button
+            class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors"
+            @click="prevMonth"
+          >
+            <svg
+              class="w-4.5 h-4.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M15 18l-6-6 6-6"
+            /></svg>
           </button>
           <h2 class="text-xl font-bold text-base-c min-w-[130px] text-center">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
-          <button @click="nextMonth"
-                  class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors">
-            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
+          <button
+            class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors"
+            @click="nextMonth"
+          >
+            <svg
+              class="w-4.5 h-4.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M9 18l6-6-6-6"
+            /></svg>
           </button>
-          <button @click="goToday"
-                  class="px-4 py-1.5 text-sm border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors">
+          <button
+            class="px-4 py-1.5 text-sm border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors"
+            @click="goToday"
+          >
             今天
           </button>
-          <button @click="panelExpanded = !panelExpanded"
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors">
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors"
+            @click="panelExpanded = !panelExpanded"
+          >
             <span class="hidden sm:inline">{{ panelExpanded ? '收合' : '展開' }}</span>
-            <svg class="w-4 h-4 transition-transform" :class="{'rotate-180': panelExpanded}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            <svg
+              class="w-4 h-4 transition-transform"
+              :class="{ 'rotate-180': panelExpanded }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M19 9l-7 7-7-7"
+            /></svg>
           </button>
         </div>
       </div>
 
       <!-- ── 可收合區塊：Header / 圖例 / 篩選列 ── -->
       <Transition name="collapse">
-        <div v-if="panelExpanded" class="overflow-hidden">
-
+        <div
+          v-if="panelExpanded"
+          class="overflow-hidden"
+        >
           <!-- ── Header ── -->
           <header class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#2a2e37] px-6 py-4">
             <div class="flex items-center gap-6 flex-wrap lg:flex-col lg:items-stretch lg:gap-4">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">曆</div>
+                <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">
+                  曆
+                </div>
                 <div>
-                  <h1 class="font-bold text-base-c leading-none text-lg sm:text-xl">行事曆管理</h1>
-                  <p class="text-sm text-hint-c mt-1 hidden sm:block">Calendar Events · {{ events.length }} 筆</p>
+                  <h1 class="font-bold text-base-c leading-none text-lg sm:text-xl">
+                    行事曆管理
+                  </h1>
+                  <p class="text-sm text-hint-c mt-1 hidden sm:block">
+                    Calendar Events · {{ events.length }} 筆
+                  </p>
                 </div>
               </div>
               <div class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:w-full lg:gap-2">
-                <button v-if="perm.can('management.calendar')" @click="openClearMonthModal"
-                        class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors lg:w-full lg:justify-center">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <button
+                  v-if="perm.can('management.calendar')"
+                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors lg:w-full lg:justify-center"
+                  @click="openClearMonthModal"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  /></svg>
                   <span class="hidden sm:inline">清空當月</span>
                 </button>
-                <button v-if="perm.can('management.calendar')" @click="showTxtModal = true"
-                        class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors lg:w-full lg:justify-center">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <button
+                  v-if="perm.can('management.calendar')"
+                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors lg:w-full lg:justify-center"
+                  @click="showTxtModal = true"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  /></svg>
                   <span class="hidden sm:inline">貼上 TXT</span>
                   <span class="sm:hidden">TXT</span>
                 </button>
-                <button v-if="perm.can('management.calendar')" @click="openAddOnDate(null)"
-                        class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors lg:w-full lg:justify-center">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <button
+                  v-if="perm.can('management.calendar')"
+                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors lg:w-full lg:justify-center"
+                  @click="openAddOnDate(null)"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 4v16m8-8H4"
+                  /></svg>
                   新增
                 </button>
               </div>
@@ -68,12 +152,20 @@
           <!-- ── 類型圖例 ── -->
           <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3">
             <div class="flex items-center gap-4 flex-wrap lg:flex-col lg:items-start lg:gap-2.5">
-              <div v-for="t in TYPES" :key="t" class="flex items-center gap-2">
-                <div :class="['w-3 h-3 rounded-sm flex-shrink-0', legendDotClass(t)]"></div>
+              <div
+                v-for="t in TYPES"
+                :key="t"
+                class="flex items-center gap-2"
+              >
+                <div :class="['w-3 h-3 rounded-sm flex-shrink-0', legendDotClass(t)]" />
                 <span class="text-sm text-hint-c">{{ t }}</span>
               </div>
               <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-sm bg-blue-500 flex-shrink-0"></div>
+                <div class="w-3 h-3 rounded-sm bg-amber-500 flex-shrink-0" />
+                <span class="text-sm text-hint-c">院內</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-sm bg-blue-500 flex-shrink-0" />
                 <span class="text-sm text-hint-c">Google</span>
               </div>
               <span class="text-sm text-hint-c ml-1 lg:ml-0">{{ monthEventCount }} 筆</span>
@@ -83,7 +175,6 @@
           <!-- ── 篩選列 ── -->
           <div class="border-b border-light-c dark:border-[#22252c] bg-surface dark:bg-[#15171c] px-6 py-3.5">
             <div class="filter-bar">
-
               <!-- 類型 -->
               <div class="filter-select-group">
                 <label class="filter-label">類型</label>
@@ -92,85 +183,137 @@
                   :value="filterType"
                   @change="setFilterType($event.target.value)"
                 >
-                  <option value="全部">全部 {{ monthEventCount }}</option>
-                  <option v-for="t in TYPES" :key="t" :value="t">{{ t }} {{ typeCount[t] || 0 }}</option>
-                  <option value="Google">Google {{ typeCount['Google'] || 0 }}</option>
+                  <option value="全部">
+                    全部 {{ monthEventCount }}
+                  </option>
+                  <option
+                    v-for="t in TYPES"
+                    :key="t"
+                    :value="t"
+                  >
+                    {{ t }} {{ typeCount[t] || 0 }}
+                  </option>
+                  <option value="院內">
+                    院內 {{ typeCount['院內'] || 0 }}
+                  </option>
+                  <option value="Google">
+                    Google {{ typeCount['Google'] || 0 }}
+                  </option>
                 </select>
-                <span v-if="googleLoading" class="filter-sync-hint">
-                <span class="filter-sync-dot"></span>Google 同步中
-              </span>
+                <span
+                  v-if="googleLoading"
+                  class="filter-sync-hint"
+                >
+                  <span class="filter-sync-dot" />Google 同步中
+                </span>
               </div>
 
               <!-- 地點 -->
-              <div v-if="availableLocations.length" class="filter-select-group">
+              <div
+                v-if="availableLocations.length"
+                class="filter-select-group"
+              >
                 <label class="filter-label">地點</label>
-                <select class="filter-select" v-model="filterLocation">
-                  <option value="">全部</option>
-                  <option v-for="loc in availableLocations" :key="loc" :value="loc">{{ loc }}</option>
+                <select
+                  v-model="filterLocation"
+                  class="filter-select"
+                >
+                  <option value="">
+                    全部
+                  </option>
+                  <option
+                    v-for="loc in availableLocations"
+                    :key="loc"
+                    :value="loc"
+                  >
+                    {{ loc }}
+                  </option>
                 </select>
               </div>
-
             </div>
           </div>
-
         </div>
       </Transition>
-
     </div>
     <!-- ══ 左側功能欄結束 ══ -->
 
     <!-- ══ 右側主內容 ══ -->
     <div class="flex-1 min-w-0">
-
       <!-- ── 月曆主體 ── -->
       <div class="px-0 sm:px-6 py-6">
-
-        <div v-if="loading" class="flex items-center justify-center py-24 text-hint-c gap-2">
-          <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-24 text-hint-c gap-2"
+        >
+          <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           載入中…
         </div>
 
         <template v-else>
           <!-- 星期標頭 -->
           <div class="calendar-grid gap-1.5 mb-1.5 weekday-header">
-            <div v-for="(d, wIdx) in weekdays" :key="d"
-                 :class="['cal-weekday', {sun: wIdx === 0, sat: wIdx === 6}]">
+            <div
+              v-for="(d, wIdx) in weekdays"
+              :key="d"
+              :class="['cal-weekday', { sun: wIdx === 0, sat: wIdx === 6 }]"
+            >
               {{ d }}
             </div>
           </div>
 
           <!-- 逐週渲染：每週獨立一組 grid + overlay，讓跨天活動可以畫成橫跨整週的連續色條 -->
-          <div v-for="(week, wi) in calendarWeeks" :key="wi" class="week-row mb-1.5">
+          <div
+            v-for="(week, wi) in calendarWeeks"
+            :key="wi"
+            class="week-row mb-1.5"
+          >
             <div class="calendar-grid gap-1.5">
-              <div v-for="(cell, idx) in week" :key="idx"
-                   :class="['cal-cell', {
-   'opacity-0 pointer-events-none': !cell.day,
-   'today': cell.isToday,
-   'weekend': cell.isWeekend,
-   'has-events': cell.events.length > 0
-   }]"
-                   @click="cell.day && openAddOnDate(cell.dateStr)"
+              <div
+                v-for="(cell, idx) in week"
+                :key="idx"
+                :class="['cal-cell', {
+                  'opacity-0 pointer-events-none': !cell.day,
+                  'today': cell.isToday,
+                  'weekend': cell.isWeekend,
+                  'has-events': cell.events.length > 0
+                }]"
+                @click="cell.day && openAddOnDate(cell.dateStr)"
               >
                 <template v-if="cell.day">
                   <!-- 日期數字 -->
                   <div class="flex items-center justify-between mb-1 px-0.5">
-                  <span :class="['cal-day-num', {
-   'today-num': cell.isToday,
-   'text-red-400 dark:text-red-400': cell.isWeekend && cell.weekdayIdx === 0,
-   'text-blue-400 dark:text-blue-400': cell.isWeekend && cell.weekdayIdx === 6,
-   'text-muted-c': !cell.isToday && !cell.isWeekend
-   }]">{{ cell.day }}</span>
+                    <span
+                      :class="['cal-day-num', {
+                        'today-num': cell.isToday,
+                        'text-red-400 dark:text-red-400': cell.isWeekend && cell.weekdayIdx === 0,
+                        'text-blue-400 dark:text-blue-400': cell.isWeekend && cell.weekdayIdx === 6,
+                        'text-muted-c': !cell.isToday && !cell.isWeekend
+                      }]"
+                    >{{ cell.day }}</span>
                     <!-- 快速新增按鈕：hover 才顯示 -->
                     <button
+                      class="cal-add-btn opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
                       @click.stop="openAddOnDate(cell.dateStr)"
-                      class="cal-add-btn opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    >
+                      <svg
+                        class="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      ><path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.5"
+                        d="M12 4v16m8-8H4"
+                      /></svg>
                     </button>
                   </div>
 
-                  <!-- 活動 chips（跨天橫幅活動已排除，改由下方 overlay 顯示）-->
-                  <div class="space-y-0.5"
-                       :style="weekBannerLanes[wi] ? {marginTop: (weekBannerLanes[wi] * BANNER_ROW_HEIGHT) + 'px'} : null">
+                  <!-- 活動 chips（跨天橫幅活動已排除，改由下方 overlay 顯示） -->
+                  <div
+                    class="space-y-0.5"
+                    :style="weekBannerLanes[wi] ? { marginTop: (weekBannerLanes[wi] * BANNER_ROW_HEIGHT) + 'px' } : null"
+                  >
                     <div
                       v-for="ev in cell.chipEvents.slice(0, 3)"
                       :key="ev.id"
@@ -196,13 +339,16 @@
               </div>
             </div>
 
-            <!-- 跨天活動連續色條（比照 Google 日曆的橫幅顯示方式）-->
-            <div v-if="weekBanners[wi] && weekBanners[wi].length" class="week-banner-layer">
+            <!-- 跨天活動連續色條（比照 Google 日曆的橫幅顯示方式） -->
+            <div
+              v-if="weekBanners[wi] && weekBanners[wi].length"
+              class="week-banner-layer"
+            >
               <div
                 v-for="b in weekBanners[wi]"
                 :key="b.key"
-                :class="['week-banner-bar', chipClass(b.ev), {'round-l': b.roundLeft, 'round-r': b.roundRight}]"
-                :style="{gridColumn: `${b.startCol + 1} / ${b.endCol + 2}`, top: (b.lane * BANNER_ROW_HEIGHT) + 'px'}"
+                :class="['week-banner-bar', chipClass(b.ev), { 'round-l': b.roundLeft, 'round-r': b.roundRight }]"
+                :style="{ gridColumn: `${b.startCol + 1} / ${b.endCol + 2}`, top: (b.lane * BANNER_ROW_HEIGHT) + 'px' }"
                 @click.stop="openEdit(b.ev)"
                 @mouseenter="showTooltip(b.ev, $event)"
                 @mousemove="moveTooltip($event)"
@@ -218,130 +364,270 @@
             <!-- 備注標題列 -->
             <div class="flex items-center justify-between px-4 py-3 border-b border-amber-100 dark:border-amber-900/40">
               <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <svg
+                  class="w-4 h-4 text-amber-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                /></svg>
                 <span class="text-sm font-semibold text-amber-700 dark:text-amber-400">備注事項</span>
                 <span class="text-xs text-amber-500 dark:text-amber-500">{{ currentYear }}年{{ currentMonth }}月</span>
-                <span v-if="notesSaving" class="text-xs text-amber-400 flex items-center gap-1">
-                <div class="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                儲存中
-              </span>
+                <span
+                  v-if="notesSaving"
+                  class="text-xs text-amber-400 flex items-center gap-1"
+                >
+                  <div class="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                  儲存中
+                </span>
               </div>
-              <button @click="addNote"
-                      class="flex items-center gap-1 px-2.5 py-1 text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+              <button
+                class="flex items-center gap-1 px-2.5 py-1 text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors"
+                @click="addNote"
+              >
+                <svg
+                  class="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M12 4v16m8-8H4"
+                /></svg>
                 新增備注
               </button>
             </div>
 
             <!-- 備注列表 -->
             <div class="px-4 py-3 space-y-2">
-              <div v-if="notes.length === 0" class="text-center py-4 text-amber-400 dark:text-amber-600 text-sm">
+              <div
+                v-if="notes.length === 0"
+                class="text-center py-4 text-amber-400 dark:text-amber-600 text-sm"
+              >
                 本月尚無備注，點右上角新增
               </div>
 
-              <div v-for="(note, idx) in notes" :key="idx"
-                   class="group flex items-start gap-2">
+              <div
+                v-for="(note, idx) in notes"
+                :key="idx"
+                class="group flex items-start gap-2"
+              >
                 <!-- 序號 -->
                 <span class="flex-shrink-0 w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-xs font-bold flex items-center justify-center mt-1">
-                {{ idx + 1 }}
-              </span>
+                  {{ idx + 1 }}
+                </span>
                 <!-- 文字（點擊編輯） -->
                 <div class="flex-1 min-w-0">
-                  <div v-if="noteEditIdx !== idx"
-                       class="text-sm text-muted-c leading-relaxed cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors break-words"
-                       @click="startEditNote(idx)">
+                  <div
+                    v-if="noteEditIdx !== idx"
+                    class="text-sm text-muted-c leading-relaxed cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors break-words"
+                    @click="startEditNote(idx)"
+                  >
                     {{ note || '（點擊編輯）' }}
                   </div>
-                  <div v-else class="flex items-start gap-2">
-                  <textarea
-                    v-model="noteEditValue"
-                    rows="2"
-                    class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-surface dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400"
-                    @keydown.enter.ctrl="confirmEditNote(idx)"
-                    @keydown.esc="cancelEditNote"
-                    autofocus
-                  ></textarea>
+                  <div
+                    v-else
+                    class="flex items-start gap-2"
+                  >
+                    <textarea
+                      v-model="noteEditValue"
+                      rows="2"
+                      class="flex-1 p-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-surface dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400"
+                      autofocus
+                      @keydown.enter.ctrl="confirmEditNote(idx)"
+                      @keydown.esc="cancelEditNote"
+                    />
                     <div class="flex flex-col gap-1 flex-shrink-0">
-                      <button @click="confirmEditNote(idx)"
-                              class="px-2.5 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                      <button
+                        class="px-2.5 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        @click="confirmEditNote(idx)"
+                      >
                         確認
                       </button>
-                      <button @click="cancelEditNote"
-                              class="px-2.5 py-1 text-xs border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 transition-colors">
+                      <button
+                        class="px-2.5 py-1 text-xs border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 transition-colors"
+                        @click="cancelEditNote"
+                      >
                         取消
                       </button>
                     </div>
                   </div>
                 </div>
                 <!-- 刪除 -->
-                <button v-if="noteEditIdx !== idx"
-                        @click="deleteNote(idx)"
-                        class="flex-shrink-0 p-1 text-hint-c hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all mt-0.5" title="刪除">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button
+                  v-if="noteEditIdx !== idx"
+                  class="flex-shrink-0 p-1 text-hint-c hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all mt-0.5"
+                  title="刪除"
+                  @click="deleteNote(idx)"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  /></svg>
                 </button>
               </div>
             </div>
           </div>
         </template>
       </div>
-
     </div>
     <!-- ══ 右側主內容結束 ══ -->
 
     <!-- ══ 側板：某日所有活動 ══ -->
     <Transition name="slide-right">
-      <div v-if="dayPanel.show"
-           class="fixed inset-0 z-40 flex justify-end"
-           @click.self="dayPanel.show = false">
+      <div
+        v-if="dayPanel.show"
+        class="fixed inset-0 z-40 flex justify-end"
+        @click.self="dayPanel.show = false"
+      >
         <div class="w-full sm:w-96 bg-surface dark:bg-[#15171c] h-full shadow-2xl overflow-y-auto flex flex-col">
           <!-- 側板 Header -->
           <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
             <div>
-              <p class="font-bold text-base-c">{{ dayPanel.dateStr }}</p>
-              <p class="text-xs text-hint-c mt-0.5">{{ dayPanel.events.length }} 個活動</p>
+              <p class="font-bold text-base-c">
+                {{ dayPanel.dateStr }}
+              </p>
+              <p class="text-xs text-hint-c mt-0.5">
+                {{ dayPanel.events.length }} 個活動
+              </p>
             </div>
             <div class="flex items-center gap-2">
-              <button @click="openAddOnDate(dayPanel.dateStr)"
-                      class="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <button
+                class="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                @click="openAddOnDate(dayPanel.dateStr)"
+              >
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                /></svg>
                 新增
               </button>
-              <button @click="dayPanel.show = false" class="text-hint-c hover:text-muted-c p-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <button
+                class="text-hint-c hover:text-muted-c p-1"
+                @click="dayPanel.show = false"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                /></svg>
               </button>
             </div>
           </div>
 
           <!-- 側板活動列表 -->
           <div class="flex-1 px-4 py-3 space-y-2">
-            <div v-if="dayPanel.events.length === 0" class="text-center py-12 text-hint-c text-sm">此日無活動</div>
+            <div
+              v-if="dayPanel.events.length === 0"
+              class="text-center py-12 text-hint-c text-sm"
+            >
+              此日無活動
+            </div>
             <div
               v-for="ev in dayPanel.events"
               :key="ev.id"
               class="group flex items-start gap-3 p-3 rounded-xl border border-light-c dark:border-[#2a2e37] hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
             >
               <!-- 類型色條 -->
-              <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev.type)]"></div>
+              <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev.type)]" />
               <!-- 內容 -->
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-semibold text-base-c leading-tight">{{ ev.title }}</p>
-                <p class="text-xs text-hint-c mt-0.5">{{ eventTimeLabel(ev) }}</p>
-                <p v-if="ev.owner" class="text-xs text-hint-c">👤 {{ ev.owner }}</p>
-                <p v-if="ev.room"  class="text-xs text-hint-c truncate">📍 {{ ev.room }}</p>
-                <p v-if="ev.description" class="text-xs text-hint-c mt-1 line-clamp-2">📝 {{ ev.description }}</p>
-                <a v-if="ev.source === 'google' && ev.googleLink" :href="ev.googleLink" target="_blank" rel="noopener"
-                   class="text-xs text-blue-500 underline mt-1 inline-block" @click.stop>在 Google 日曆開啟</a>
+                <p class="text-sm font-semibold text-base-c leading-tight">
+                  {{ ev.title }}
+                </p>
+                <p class="text-xs text-hint-c mt-0.5">
+                  {{ eventTimeLabel(ev) }}
+                </p>
+                <p
+                  v-if="ev.owner"
+                  class="text-xs text-hint-c"
+                >
+                  👤 {{ ev.owner }}
+                </p>
+                <p
+                  v-if="ev.room"
+                  class="text-xs text-hint-c truncate"
+                >
+                  📍 {{ ev.room }}
+                </p>
+                <p
+                  v-if="ev.description"
+                  class="text-xs text-hint-c mt-1 line-clamp-2"
+                >
+                  📝 {{ ev.description }}
+                </p>
+                <a
+                  v-if="ev.source === 'google' && ev.googleLink"
+                  :href="ev.googleLink"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-xs text-blue-500 underline mt-1 inline-block"
+                  @click.stop
+                >在 Google 日曆開啟</a>
                 <span :class="['type-badge mt-1.5', typeColorClass(ev.type)]">{{ ev.type }}</span>
               </div>
               <!-- 操作 -->
               <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button @click="openEdit(ev)"
-                        class="p-1.5 text-hint-c hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="編輯">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <button
+                  class="p-1.5 text-hint-c hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  title="編輯"
+                  @click="openEdit(ev)"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  /></svg>
                 </button>
-                <button v-if="perm.can('management.calendar')" @click="deleteEvent(ev)"
-                        class="p-1.5 text-hint-c hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="刪除">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <button
+                  v-if="perm.can('management.calendar')"
+                  class="p-1.5 text-hint-c hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  title="刪除"
+                  @click="deleteEvent(ev)"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  /></svg>
                 </button>
               </div>
             </div>
@@ -351,14 +637,30 @@
     </Transition>
 
     <!-- ══ Modal: 新增 / 編輯 ══ -->
-    <div v-if="formModal.show"
-         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
+    <div
+      v-if="formModal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+    >
       <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
-
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
-          <h3 class="font-bold text-base-c">{{ formModal.isNew ? '新增活動' : '編輯活動' }}</h3>
-          <button @click="formModal.show = false" class="text-hint-c hover:text-muted-c p-1">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <h3 class="font-bold text-base-c">
+            {{ formModal.isNew ? '新增活動' : '編輯活動' }}
+          </h3>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="formModal.show = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
           </button>
         </div>
 
@@ -366,55 +668,108 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="field-label">起始日期 *</label>
-              <input v-model="form.date" type="date" class="field-input" />
+              <input
+                v-model="form.date"
+                type="date"
+                class="field-input"
+              >
             </div>
             <div>
               <label class="field-label">起始時間</label>
-              <input v-model="form.time" type="time" class="field-input" />
+              <input
+                v-model="form.time"
+                type="time"
+                class="field-input"
+              >
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="field-label">結束日期（選填，跨天活動才需要填）</label>
-              <input v-model="form.endDate" type="date" :min="form.date" class="field-input" />
+              <input
+                v-model="form.endDate"
+                type="date"
+                :min="form.date"
+                class="field-input"
+              >
             </div>
             <div>
               <label class="field-label">結束時間</label>
-              <input v-model="form.endTime" type="time" class="field-input" />
+              <input
+                v-model="form.endTime"
+                type="time"
+                class="field-input"
+              >
             </div>
           </div>
-          <p class="text-xs text-hint-c -mt-1">結束日期留空代表單日活動；填了結束日期就會以一整筆跨天活動顯示（畫面上是連續色條，不會拆成好幾天各自一筆）。</p>
+          <p class="text-xs text-hint-c -mt-1">
+            結束日期留空代表單日活動；填了結束日期就會以一整筆跨天活動顯示（畫面上是連續色條，不會拆成好幾天各自一筆）。
+          </p>
           <div>
             <label class="field-label">標題 *</label>
-            <input v-model="form.title" placeholder="活動名稱" class="field-input" />
+            <input
+              v-model="form.title"
+              placeholder="活動名稱"
+              class="field-input"
+            >
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="field-label">負責人</label>
-              <input v-model="form.owner" placeholder="姓名" class="field-input" />
+              <input
+                v-model="form.owner"
+                placeholder="姓名"
+                class="field-input"
+              >
             </div>
             <div>
-              <label class="field-label">類型</label>
-              <select v-model="form.type" class="field-input">
-                <option v-for="t in TYPES" :key="t" :value="t">{{ t }}</option>
+              <label class="field-label">建築分類</label>
+              <select
+                v-model="form.type"
+                class="field-input"
+              >
+                <option
+                  v-for="t in TYPES"
+                  :key="t"
+                  :value="t"
+                >
+                  {{ t }}
+                </option>
               </select>
             </div>
           </div>
           <div>
             <label class="field-label">場地</label>
-            <input v-model="form.room" placeholder="場地代碼與名稱" class="field-input" />
+            <input
+              v-model="form.room"
+              placeholder="場地代碼與名稱"
+              class="field-input"
+            >
           </div>
-          <p v-if="formError" class="text-xs text-red-500">{{ formError }}</p>
+          <p
+            v-if="formError"
+            class="text-xs text-red-500"
+          >
+            {{ formError }}
+          </p>
         </div>
 
         <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
-          <button @click="formModal.show = false"
-                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+          <button
+            class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="formModal.show = false"
+          >
             取消
           </button>
-          <button @click="saveForm" :disabled="saving"
-                  class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors flex items-center gap-1.5">
-            <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <button
+            :disabled="saving"
+            class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors flex items-center gap-1.5"
+            @click="saveForm"
+          >
+            <div
+              v-if="saving"
+              class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+            />
             {{ formModal.isNew ? '新增' : '儲存' }}
           </button>
         </div>
@@ -422,18 +777,42 @@
     </div>
 
     <!-- ══ Modal: 清空當月確認 ══ -->
-    <div v-if="clearMonthModal.show"
-         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
-         @click.self="closeClearMonthModal">
+    <div
+      v-if="clearMonthModal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      @click.self="closeClearMonthModal"
+    >
       <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
-
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between">
           <h3 class="font-bold text-red-500 flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            /></svg>
             清空當月內容
           </h3>
-          <button @click="closeClearMonthModal" class="text-hint-c hover:text-muted-c p-1">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="closeClearMonthModal"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
           </button>
         </div>
 
@@ -441,22 +820,42 @@
           <p class="text-sm text-muted-c leading-relaxed">
             即將刪除 <strong class="text-base-c">{{ currentYear }} 年 {{ currentMonth }} 月</strong> 的全部系統活動（{{ clearableEventCount }} 筆）與備注（{{ notes.length }} 條）。
           </p>
-          <p class="text-xs text-hint-c">此操作無法復原。Google 日曆同步的活動不受影響，請另至 Google 日曆刪除。</p>
+          <p class="text-xs text-hint-c">
+            此操作無法復原。Google 日曆同步的活動不受影響，請另至 Google 日曆刪除。
+          </p>
           <div>
             <label class="field-label">請輸入「{{ currentMonth }}」以確認刪除</label>
-            <input v-model="clearMonthConfirmText" type="text" class="field-input" :placeholder="String(currentMonth)" />
+            <input
+              v-model="clearMonthConfirmText"
+              type="text"
+              class="field-input"
+              :placeholder="String(currentMonth)"
+            >
           </div>
-          <p v-if="clearMonthError" class="text-xs text-red-500">{{ clearMonthError }}</p>
+          <p
+            v-if="clearMonthError"
+            class="text-xs text-red-500"
+          >
+            {{ clearMonthError }}
+          </p>
         </div>
 
         <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end">
-          <button @click="closeClearMonthModal"
-                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+          <button
+            class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="closeClearMonthModal"
+          >
             取消
           </button>
-          <button @click="confirmClearMonth" :disabled="clearingMonth || clearMonthConfirmText !== String(currentMonth)"
-                  class="px-4 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:bg-red-200 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5">
-            <div v-if="clearingMonth" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <button
+            :disabled="clearingMonth || clearMonthConfirmText !== String(currentMonth)"
+            class="px-4 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:bg-red-200 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+            @click="confirmClearMonth"
+          >
+            <div
+              v-if="clearingMonth"
+              class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+            />
             確認刪除
           </button>
         </div>
@@ -464,57 +863,133 @@
     </div>
 
     <!-- ══ Modal: Google 活動詳細 ══ -->
-    <div v-if="googleDetailModal.show && googleDetailModal.ev"
-         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
-         @click.self="googleDetailModal.show = false">
+    <div
+      v-if="googleDetailModal.show && googleDetailModal.ev"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      @click.self="googleDetailModal.show = false"
+    >
       <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
-            <div class="w-2.5 h-2.5 rounded-sm bg-blue-500 flex-shrink-0"></div>
-            <h3 class="font-bold text-base-c text-sm">Google 日曆活動</h3>
+            <div class="w-2.5 h-2.5 rounded-sm bg-blue-500 flex-shrink-0" />
+            <h3 class="font-bold text-base-c text-sm">
+              Google 日曆活動
+            </h3>
           </div>
-          <button @click="googleDetailModal.show = false" class="text-hint-c hover:text-muted-c p-1">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="googleDetailModal.show = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
           </button>
         </div>
         <!-- 內容 -->
         <div class="px-5 py-4 space-y-3">
           <!-- 標題 -->
-          <p class="text-base font-bold text-base-c leading-snug">{{ googleDetailModal.ev.title }}</p>
+          <p class="text-base font-bold text-base-c leading-snug">
+            {{ googleDetailModal.ev.title }}
+          </p>
           <!-- 日期 / 時間 -->
           <div class="flex items-center gap-2 text-sm text-hint-c">
-            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            /></svg>
             <span>{{ eventTimeLabel(googleDetailModal.ev) || googleDetailModal.ev.date }}</span>
           </div>
           <!-- 地點 -->
-          <div v-if="googleDetailModal.ev.room" class="flex items-start gap-2 text-sm text-hint-c">
-            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <div
+            v-if="googleDetailModal.ev.room"
+            class="flex items-start gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            /><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            /></svg>
             <span>{{ googleDetailModal.ev.room }}</span>
           </div>
           <!-- 主辦人 -->
-          <div v-if="googleDetailModal.ev.owner" class="flex items-center gap-2 text-sm text-hint-c">
-            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <div
+            v-if="googleDetailModal.ev.owner"
+            class="flex items-center gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            /></svg>
             <span>{{ googleDetailModal.ev.owner }}</span>
           </div>
           <!-- 說明 -->
-          <div v-if="googleDetailModal.ev.description"
-               class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed google-desc-html"
-               style="white-space: pre-line"
-               v-html="googleDetailModal.ev.description">
-          </div>
+          <div
+            v-if="googleDetailModal.ev.description"
+            class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed google-desc-html"
+            style="white-space: pre-line"
+            v-html="googleDetailModal.ev.description"
+          />
         </div>
         <!-- Footer -->
         <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
-          <button @click="googleDetailModal.show = false"
-                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+          <button
+            class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="googleDetailModal.show = false"
+          >
             關閉
           </button>
-          <a v-if="googleDetailModal.ev.googleLink"
-             :href="googleDetailModal.ev.googleLink"
-             target="_blank" rel="noopener"
-             class="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          <a
+            v-if="googleDetailModal.ev.googleLink"
+            :href="googleDetailModal.ev.googleLink"
+            target="_blank"
+            rel="noopener"
+            class="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+          >
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+            /></svg>
             在 Google 日曆開啟
           </a>
         </div>
@@ -522,35 +997,60 @@
     </div>
 
     <!-- ══ Modal: TXT 匯入 ══ -->
-    <div v-if="showTxtModal"
-         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
+    <div
+      v-if="showTxtModal"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+    >
       <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
-          <h3 class="font-bold text-base-c">貼上 TXT 行事曆</h3>
-          <button @click="closeTxtModal" class="text-hint-c hover:text-muted-c p-1">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <h3 class="font-bold text-base-c">
+            貼上 TXT 行事曆
+          </h3>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="closeTxtModal"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
           </button>
         </div>
 
         <div class="px-5 py-4 space-y-3">
           <div class="bg-surface2 dark:bg-[#1c1f26] border border-light-c dark:border-[#2a2e37] rounded-xl p-3">
-            <p class="text-xs font-semibold text-hint-c mb-1.5">支援格式（原始行事曆 TXT）：</p>
+            <p class="text-xs font-semibold text-hint-c mb-1.5">
+              支援格式（原始行事曆 TXT）：
+            </p>
             <pre class="text-xs text-hint-c font-mono leading-relaxed overflow-x-auto">2026年8月
 8/3 08:00–12:00 4位新人報到 (高儀玟 H0A10404 四樓會議室)醫院
 8/4 08:00 ～ 8/7 17:00 中餐丙級證照職訓班 (王榮貴 P0G20101 雨田大樓中餐教室)園區
 備 註 :
 1.(2026-08-05-08:00)多功能教室.樂功能.一對一訓練室打地舖及運動館住宿</pre>
-            <p class="text-xs text-hint-c mt-1.5">每行開頭直接帶日期（M/D）；同一天用「–」或「-」分隔起訖時間，跨天活動用「～」分隔起訖日期時間。</p>
+            <p class="text-xs text-hint-c mt-1.5">
+              每行開頭直接帶日期（M/D）；同一天用「–」或「-」分隔起訖時間，跨天活動用「～」分隔起訖日期時間。行尾仍需帶醫院/園區/芳心/Google 其中一個標籤才能正確解析，但匯入後活動一律歸類為「院內」。
+            </p>
           </div>
 
-          <textarea v-model="txtInput" rows="10"
-                    placeholder="請貼上行事曆 TXT 內容…"
-                    :disabled="!!txtResult"
-                    class="w-full p-3 text-sm font-mono border border-light-c dark:border-[#2a2e37] rounded-xl bg-surface2 dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
-          </textarea>
+          <textarea
+            v-model="txtInput"
+            rows="10"
+            placeholder="請貼上行事曆 TXT 內容…"
+            :disabled="!!txtResult"
+            class="w-full p-3 text-sm font-mono border border-light-c dark:border-[#2a2e37] rounded-xl bg-surface2 dark:bg-[#1c1f26] text-base-c resize-none outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60"
+          />
 
-          <div v-if="txtResult" class="space-y-2">
+          <div
+            v-if="txtResult"
+            class="space-y-2"
+          >
             <!-- 活動統計 + 列表 -->
             <div class="rounded-xl border border-light-c dark:border-[#2a2e37] overflow-hidden">
               <div class="px-4 py-3 bg-surface2 dark:bg-[#1c1f26] flex flex-wrap gap-4 text-sm">
@@ -558,57 +1058,101 @@
                 <span class="text-green-600 dark:text-green-400">✓ 可新增 <strong>{{ txtResult.added.length }}</strong> 筆</span>
                 <span class="text-amber-500 dark:text-amber-400">⊘ 重複跳過 <strong>{{ txtResult.skipped }}</strong> 筆</span>
               </div>
-              <div v-if="txtResult.added.length > 0" class="divide-y divide-base max-h-44 overflow-y-auto">
-                <div v-for="(ev, i) in txtResult.added" :key="i" class="flex items-center gap-3 px-4 py-2 text-xs">
+              <div
+                v-if="txtResult.added.length > 0"
+                class="divide-y divide-base max-h-44 overflow-y-auto"
+              >
+                <div
+                  v-for="(ev, i) in txtResult.added"
+                  :key="i"
+                  class="flex items-center gap-3 px-4 py-2 text-xs"
+                >
                   <span class="font-mono text-indigo-500 flex-shrink-0 tabular-nums">{{ ev.endDate && ev.endDate !== ev.date ? `${ev.date}~${ev.endDate}` : ev.date }}</span>
                   <span class="text-muted-c truncate flex-1">{{ ev.title }}</span>
                   <span class="text-hint-c flex-shrink-0 hidden sm:block">{{ ev.owner }}</span>
                   <span :class="['type-badge flex-shrink-0', typeColorClass(ev.type)]">{{ ev.type }}</span>
                 </div>
               </div>
-              <div v-else class="px-4 py-4 text-center text-sm text-hint-c">沒有新活動可匯入（全部都是重複）</div>
+              <div
+                v-else
+                class="px-4 py-4 text-center text-sm text-hint-c"
+              >
+                沒有新活動可匯入（全部都是重複）
+              </div>
             </div>
 
             <!-- 備注預覽 -->
-            <div v-if="txtResult.notes.length > 0"
-                 class="rounded-xl border border-amber-200 dark:border-amber-900/50 overflow-hidden">
+            <div
+              v-if="txtResult.notes.length > 0"
+              class="rounded-xl border border-amber-200 dark:border-amber-900/50 overflow-hidden"
+            >
               <div class="px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 flex items-center gap-2 text-sm">
-                <svg class="w-3.5 h-3.5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <svg
+                  class="w-3.5 h-3.5 text-amber-500 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                /></svg>
                 <span class="text-amber-700 dark:text-amber-400 font-semibold">備注</span>
                 <span class="text-amber-500">解析到 {{ txtResult.notes.length }} 條，將合併至當月</span>
               </div>
               <div class="divide-y divide-amber-100 dark:divide-amber-900/30 max-h-36 overflow-y-auto">
-                <div v-for="(n, i) in txtResult.notes" :key="i"
-                     class="flex items-start gap-2 px-4 py-2 text-xs text-muted-c">
+                <div
+                  v-for="(n, i) in txtResult.notes"
+                  :key="i"
+                  class="flex items-start gap-2 px-4 py-2 text-xs text-muted-c"
+                >
                   <span class="flex-shrink-0 text-amber-400 font-bold mt-0.5">{{ i + 1 }}.</span>
                   <span class="break-words">{{ n }}</span>
                 </div>
               </div>
             </div>
-            <div v-else class="text-xs text-hint-c px-1">本次 TXT 未包含備注</div>
+            <div
+              v-else
+              class="text-xs text-hint-c px-1"
+            >
+              本次 TXT 未包含備注
+            </div>
           </div>
         </div>
 
         <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
-          <button @click="closeTxtModal"
-                  class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+          <button
+            class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="closeTxtModal"
+          >
             取消
           </button>
           <template v-if="!txtResult">
-            <button @click="parseTxt" :disabled="!txtInput.trim()"
-                    class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            <button
+              :disabled="!txtInput.trim()"
+              class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              @click="parseTxt"
+            >
               解析預覽
             </button>
           </template>
           <template v-else>
-            <button @click="txtResult = null"
-                    class="px-4 py-2 text-sm border border-light-c dark:border-[#2a2e37] text-muted-c rounded-xl hover:bg-surface2 transition-colors">
+            <button
+              class="px-4 py-2 text-sm border border-light-c dark:border-[#2a2e37] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+              @click="txtResult = null"
+            >
               重新解析
             </button>
-            <button @click="confirmImportTxt"
-                    :disabled="(txtResult.added.length === 0 && txtResult.notes.length === 0) || saving"
-                    class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5">
-              <div v-if="saving" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <button
+              :disabled="(txtResult.added.length === 0 && txtResult.notes.length === 0) || saving"
+              class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+              @click="confirmImportTxt"
+            >
+              <div
+                v-if="saving"
+                class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"
+              />
               匯入{{ txtResult.added.length > 0 ? ` ${txtResult.added.length} 筆活動` : '' }}{{ txtResult.notes.length > 0 ? ` ${txtResult.notes.length} 條備注` : '' }}
             </button>
           </template>
@@ -618,10 +1162,22 @@
 
     <!-- Toast -->
     <Transition name="fade">
-      <div v-if="toast.show"
-           class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap">
-        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      <div
+        v-if="toast.show"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-accent-solid text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 whitespace-nowrap"
+      >
+        <svg
+          class="w-4 h-4 text-green-400 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 13l4 4L19 7"
+          />
         </svg>
         {{ toast.message }}
       </div>
@@ -634,25 +1190,53 @@
         class="event-tooltip"
         :style="tooltipStyle"
       >
-        <div class="tooltip-title">{{ tooltipEvent.title }}</div>
-        <div v-if="eventTimeLabel(tooltipEvent)" class="tooltip-row">🕐 {{ eventTimeLabel(tooltipEvent) }}</div>
-        <div v-if="tooltipEvent.room" class="tooltip-row">📍 {{ tooltipEvent.room }}</div>
-        <div v-if="tooltipEvent.owner" class="tooltip-row">👤 {{ tooltipEvent.owner }}</div>
-        <div v-if="tooltipEvent.description" class="tooltip-row" style="white-space: pre-line">📝 {{ stripHtml(tooltipEvent.description).length > 80 ? stripHtml(tooltipEvent.description).slice(0, 80) + '…' : stripHtml(tooltipEvent.description) }}</div>
-        <div v-if="tooltipEvent.source === 'google'" class="tooltip-hint">🔗 點擊查看 Google 詳細資訊</div>
+        <div class="tooltip-title">
+          {{ tooltipEvent.title }}
+        </div>
+        <div
+          v-if="eventTimeLabel(tooltipEvent)"
+          class="tooltip-row"
+        >
+          🕐 {{ eventTimeLabel(tooltipEvent) }}
+        </div>
+        <div
+          v-if="tooltipEvent.room"
+          class="tooltip-row"
+        >
+          📍 {{ tooltipEvent.room }}
+        </div>
+        <div
+          v-if="tooltipEvent.owner"
+          class="tooltip-row"
+        >
+          👤 {{ tooltipEvent.owner }}
+        </div>
+        <div
+          v-if="tooltipEvent.description"
+          class="tooltip-row"
+          style="white-space: pre-line"
+        >
+          📝 {{ stripHtml(tooltipEvent.description).length > 80 ? stripHtml(tooltipEvent.description).slice(0, 80) + '…' : stripHtml(tooltipEvent.description) }}
+        </div>
+        <div
+          v-if="tooltipEvent.source === 'google'"
+          class="tooltip-hint"
+        >
+          🔗 點擊查看 Google 詳細資訊
+        </div>
       </div>
     </Teleport>
   </div>
 </template>
 
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'management.calendar'})
+definePageMeta({ layout: 'staff', requiredPermission: 'management.calendar' })
 const perm = usePermission()
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
 
-const TYPES = ['醫院', '園區', '芳心']
+const TYPES = ['醫院', '園區', '芳心'] // 建築分類；TXT 貼上匯入的活動另外歸類為「院內」，不使用這組值
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
 // ── Google Calendar 設定 ──────────────────────────────────────────
@@ -665,12 +1249,14 @@ const googleLoading = ref(false)
 // ── 顏色工具 ─────────────────────────────────────────────────────
 function typeColorClass(type) {
   if (type === 'Google') return 'google'
-  return {醫院: 'hospital', 園區: 'park', 芳心: 'fragrant'}[type] || 'park'
+  if (type === '院內') return 'onsite'
+  return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[type] || 'park'
 }
 
 function typeChipClass(type) {
   if (type === 'Google') return 'chip-google'
-  return {醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant'}[type] || 'chip-park'
+  if (type === '院內') return 'chip-onsite'
+  return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[type] || 'chip-park'
 }
 
 function chipClass(ev) {
@@ -717,7 +1303,7 @@ function eventTimeLabel(ev) {
 
 // ── 跟隨游標的活動提示框 ─────────────────────────────────────────
 const tooltipEvent = ref(null)
-const tooltipPos = reactive({x: 0, y: 0})
+const tooltipPos = reactive({ x: 0, y: 0 })
 const TOOLTIP_OFFSET = 18
 const TOOLTIP_WIDTH = 280
 const TOOLTIP_MAX_HEIGHT = 300
@@ -738,7 +1324,7 @@ const tooltipStyle = computed(() => {
   if (left < 8) left = 8
   if (top < 8) top = 8
 
-  return {left: `${left}px`, top: `${top}px`}
+  return { left: `${left}px`, top: `${top}px` }
 })
 
 function showTooltip(ev, e) {
@@ -763,24 +1349,25 @@ function stripHtml(html) {
 
 function typeBarClass(type) {
   if (type === 'Google') return 'bg-blue-500'
-  return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
+  if (type === '院內') return 'bg-amber-500'
+  return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[type] || 'bg-emerald-500'
 }
 
 function legendDotClass(type) {
-  return {醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400'}[type] || 'bg-emerald-500'
+  return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[type] || 'bg-emerald-500'
 }
 
 // ── 月份狀態 ──────────────────────────────────────────────────────
 const today = new Date()
 const currentYear = ref(today.getFullYear())
-const currentMonth = ref(today.getMonth() + 1)  // 1-based
+const currentMonth = ref(today.getMonth() + 1) // 1-based
 
 // ── 上方資訊區收合狀態 ────────────────────────────────────────────
 const panelExpanded = ref(true)
 
 // ── 篩選狀態 ──────────────────────────────────────────────────────
-const filterType = ref('全部')   // 全部 / 醫院 / 園區 / 芳心
-const filterLocation = ref('')       // 空字串 = 全部地點
+const filterType = ref('全部') // 全部 / 醫院 / 園區 / 芳心（建築分類）/ 院內 / Google
+const filterLocation = ref('') // 空字串 = 全部地點
 
 function setFilterType(t) {
   filterType.value = t
@@ -831,14 +1418,14 @@ const availableLocations = computed(() => {
 
 function prevMonth() {
   if (currentMonth.value === 1) {
-    currentMonth.value = 12;
+    currentMonth.value = 12
     currentYear.value--
   } else currentMonth.value--
 }
 
 function nextMonth() {
   if (currentMonth.value === 12) {
-    currentMonth.value = 1;
+    currentMonth.value = 1
     currentYear.value++
   } else currentMonth.value++
 }
@@ -852,14 +1439,14 @@ function goToday() {
 const calendarCells = computed(() => {
   const year = currentYear.value
   const month = currentMonth.value
-  const firstWeekday = new Date(year, month - 1, 1).getDay()   // 0=Sun
+  const firstWeekday = new Date(year, month - 1, 1).getDay() // 0=Sun
   const daysInMonth = new Date(year, month, 0).getDate()
 
   const cells = []
 
   // 填充前空格
   for (let i = 0; i < firstWeekday; i++) {
-    cells.push({day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i})
+    cells.push({ day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i })
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -869,7 +1456,7 @@ const calendarCells = computed(() => {
     const isWeekend = weekdayIdx === 0 || weekdayIdx === 6
     const dayEvents = eventsOnDate(dateStr)
     const chipEvents = dayEvents.filter(e => !isBannerEvent(e))
-    cells.push({day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, weekdayIdx})
+    cells.push({ day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, weekdayIdx })
   }
 
   return cells
@@ -898,15 +1485,15 @@ function updateMobileViewport(e) {
 const BANNER_ROW_HEIGHT = computed(() => isMobileViewport.value ? 16 : 20)
 
 const weekBanners = computed(() => {
-  return calendarWeeks.value.map(week => {
+  return calendarWeeks.value.map((week) => {
     const map = new Map()
     week.forEach((cell, col) => {
       if (!cell.day) return
-      cell.events.forEach(ev => {
+      cell.events.forEach((ev) => {
         if (!isBannerEvent(ev)) return
         const key = bannerGroupKey(ev)
         if (!map.has(key)) {
-          map.set(key, {ev, startCol: col, endCol: col})
+          map.set(key, { ev, startCol: col, endCol: col })
         } else {
           map.get(key).endCol = col
         }
@@ -923,7 +1510,7 @@ const weekBanners = computed(() => {
     }))
     banners.sort((a, b) => a.startCol - b.startCol)
     const laneEnds = []
-    banners.forEach(b => {
+    banners.forEach((b) => {
       let lane = 0
       while (laneEnds[lane] !== undefined && laneEnds[lane] >= b.startCol) lane++
       b.lane = lane
@@ -940,7 +1527,7 @@ const weekBannerLanes = computed(() =>
 
 const monthEventCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  return allEvents.value.filter(e => {
+  return allEvents.value.filter((e) => {
     if (!eventOverlapsMonth(e, ym)) return false
     if (filterType.value === 'Google') return e.source === 'google'
     if (filterType.value !== '全部' && e.type !== filterType.value) return false
@@ -952,8 +1539,8 @@ const monthEventCount = computed(() => {
 // 類型統計（當月）
 const typeCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const counts = {醫院: 0, 園區: 0, 芳心: 0, Google: 0}
-  events.value.filter(e => eventOverlapsMonth(e, ym)).forEach(e => {
+  const counts = { 醫院: 0, 園區: 0, 芳心: 0, 院內: 0, Google: 0 }
+  events.value.filter(e => eventOverlapsMonth(e, ym)).forEach((e) => {
     if (counts[e.type] !== undefined) counts[e.type]++
   })
   counts.Google = googleEvents.value.filter(e => eventOverlapsMonth(e, ym)).length
@@ -964,7 +1551,7 @@ const typeCount = computed(() => {
 // 不需要逐日展開資料，也不需要用內容比對去猜測是不是同一個跨天活動
 function eventsOnDate(dateStr) {
   return allEvents.value
-    .filter(e => {
+    .filter((e) => {
       if (!eventCoversDate(e, dateStr)) return false
       if (filterType.value === 'Google') return e.source === 'google'
       if (filterType.value !== '全部' && e.type !== filterType.value) return false
@@ -978,7 +1565,7 @@ function eventsOnDate(dateStr) {
 const events = ref([])
 const loading = ref(false)
 const saving = ref(false)
-const toast = reactive({show: false, message: ''})
+const toast = reactive({ show: false, message: '' })
 
 // 系統活動 + Google 活動合併（兩者現在都是「一筆活動一筆資料」，用 date/endDate 表示範圍）
 const allEvents = computed(() => [...events.value, ...googleEvents.value])
@@ -1068,7 +1655,7 @@ async function fetchGoogleEvents() {
 }
 
 // ── 日面板（點 +N 展開當日所有活動）──────────────────────────────
-const dayPanel = reactive({show: false, dateStr: '', events: []})
+const dayPanel = reactive({ show: false, dateStr: '', events: [] })
 
 function openDayPanel(cell) {
   dayPanel.dateStr = cell.dateStr
@@ -1077,8 +1664,8 @@ function openDayPanel(cell) {
 }
 
 // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
-const formModal = reactive({show: false, isNew: true, id: null})
-const form = reactive({date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院'})
+const formModal = reactive({ show: false, isNew: true, id: null })
+const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院' })
 const formError = ref('')
 
 // 從日曆格子點 + 新增，自動帶入日期
@@ -1094,7 +1681,7 @@ function openAddOnDate(dateStr) {
 }
 
 // ── Google 活動詳細 Modal ──────────────────────────────────────────
-const googleDetailModal = reactive({show: false, ev: null})
+const googleDetailModal = reactive({ show: false, ev: null })
 
 function openGoogleDetail(ev) {
   googleDetailModal.ev = ev
@@ -1145,7 +1732,7 @@ async function saveForm() {
     }
     const res = await fetch(`${BASE.value}/save`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
     if (!res.ok) throw new Error('儲存失敗')
@@ -1175,7 +1762,7 @@ async function deleteEvent(ev) {
   const hint = isBannerEvent(ev) ? `（跨天活動 ${ev.date} ~ ${ev.endDate}，將整筆刪除）` : ''
   if (!confirm(`確定要刪除「${ev.title}」？${hint}`)) return
   try {
-    const res = await fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'})
+    const res = await fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' })
     if (!res.ok) throw new Error()
     events.value = events.value.filter(e => e.id !== ev.id)
     // 同步更新側板
@@ -1187,7 +1774,7 @@ async function deleteEvent(ev) {
 }
 
 // ── 清空當月（活動 + 備注，不含 Google 同步活動）──────────────────
-const clearMonthModal = reactive({show: false})
+const clearMonthModal = reactive({ show: false })
 const clearMonthConfirmText = ref('')
 const clearMonthError = ref('')
 const clearingMonth = ref(false)
@@ -1220,7 +1807,7 @@ async function confirmClearMonth() {
     const targets = clearableMonthEvents.value
     // 逐筆刪除系統活動（後端僅提供單筆 DELETE，沒有批次清空 API）
     const results = await Promise.allSettled(
-      targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, {method: 'DELETE'}))
+      targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' }))
     )
     const failedCount = results.filter(r => r.status === 'rejected' || !r.value?.ok).length
     const deletedIds = new Set(
@@ -1231,7 +1818,7 @@ async function confirmClearMonth() {
     // 清空當月備注
     await fetch(`${BASE.value}/notes?yearMonth=${ym}`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify([])
     })
     notes.value = []
@@ -1273,7 +1860,7 @@ const TXT_OLD_STYLE_RE = new RegExp(`^(\\d{2}:\\d{2})\\s*[-–—]\\s*(\\d{2}:\\
 
 function splitOwnerRoom(inner) {
   const parts = inner.trim().split(/\s+/).filter(Boolean)
-  return {owner: parts[0] || '', room: parts.slice(1).join(' ')}
+  return { owner: parts[0] || '', room: parts.slice(1).join(' ') }
 }
 
 function cleanTitle(t) {
@@ -1292,15 +1879,15 @@ function parseTxtContent(raw) {
     // 年月行
     const ym = line.match(/^(\d{4})年(\d{1,2})月/)
     if (ym) {
-      year = +ym[1];
-      month = +ym[2];
-      inNotes = false;
+      year = +ym[1]
+      month = +ym[2]
+      inNotes = false
       continue
     }
 
     // 備注區塊起始：「備 註 :」「備註：」等變體
     if (/^備\s*[註注]\s*[:：]/.test(line)) {
-      inNotes = true;
+      inNotes = true
       continue
     }
 
@@ -1323,7 +1910,7 @@ function parseTxtContent(raw) {
 
     // 舊格式：獨立一行的日期數字（1~31），記住當前 day，供下面的舊格式時間行使用
     if (/^\d{1,2}$/.test(line) && +line >= 1 && +line <= 31) {
-      day = +line;
+      day = +line
       continue
     }
 
@@ -1336,8 +1923,9 @@ function parseTxtContent(raw) {
       // 跨年（例如 12月 ～ 1月）：結束日期年份 +1
       const endYear = endMonth < startMonth ? year + 1 : year
       const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(+ed).padStart(2, '0')}`
-      const {owner, room} = splitOwnerRoom(inner)
-      evList.push({date: startDate, endDate, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type})
+      const { owner, room } = splitOwnerRoom(inner)
+      // TXT 貼上匯入的活動一律歸類為「院內」，行尾解析到的標籤僅用於辨識格式，不再作為 type
+      evList.push({ date: startDate, endDate, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內' })
       month = startMonth; day = +sd
       continue
     }
@@ -1347,8 +1935,8 @@ function parseTxtContent(raw) {
     if (sameDay) {
       const [, m, d, stime, etime, titleRaw, inner, type] = sameDay
       const date = `${year}-${String(+m).padStart(2, '0')}-${String(+d).padStart(2, '0')}`
-      const {owner, room} = splitOwnerRoom(inner)
-      evList.push({date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type})
+      const { owner, room } = splitOwnerRoom(inner)
+      evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內' })
       month = +m; day = +d
       continue
     }
@@ -1359,12 +1947,12 @@ function parseTxtContent(raw) {
       if (old) {
         const [, stime, etime, titleRaw, inner, type] = old
         const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        const {owner, room} = splitOwnerRoom(inner)
-        evList.push({date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type})
+        const { owner, room } = splitOwnerRoom(inner)
+        evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內' })
       }
     }
   }
-  return {events: evList, notes: noteList}
+  return { events: evList, notes: noteList }
 }
 
 function eventKey(e) {
@@ -1372,19 +1960,19 @@ function eventKey(e) {
 }
 
 function parseTxt() {
-  const {events: parsed, notes: parsedNotes} = parseTxtContent(txtInput.value)
+  const { events: parsed, notes: parsedNotes } = parseTxtContent(txtInput.value)
   const existing = new Set(events.value.map(eventKey))
-  const added = [], skipped = {count: 0}
+  const added = [], skipped = { count: 0 }
 
   for (const ev of parsed) {
     if (existing.has(eventKey(ev))) {
-      skipped.count++;
+      skipped.count++
       continue
     }
     existing.add(eventKey(ev))
     added.push(ev)
   }
-  txtResult.value = {total: parsed.length, added, skipped: skipped.count, notes: parsedNotes}
+  txtResult.value = { total: parsed.length, added, skipped: skipped.count, notes: parsedNotes }
 }
 
 async function confirmImportTxt() {
@@ -1395,7 +1983,7 @@ async function confirmImportTxt() {
     if (txtResult.value.added.length > 0) {
       const res = await fetch(`${BASE.value}/batch`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(txtResult.value.added)
       })
       if (!res.ok) throw new Error('活動匯入失敗')
@@ -1423,7 +2011,7 @@ async function confirmImportTxt() {
       }
       await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(merged)
       })
       // 若當前月份就是 targetYm，同步更新畫面
@@ -1453,9 +2041,9 @@ async function confirmImportTxt() {
 // ── 備注 ──────────────────────────────────────────────────────────
 // GET  /holy/calendar/notes?yearMonth=2026-04  → String[]
 // POST /holy/calendar/notes?yearMonth=2026-04  body: String[]
-const notes = ref([])      // 當月備注陣列
+const notes = ref([]) // 當月備注陣列
 const notesSaving = ref(false)
-const noteEditIdx = ref(-1)      // 正在編輯的備注 index，-1 表示無
+const noteEditIdx = ref(-1) // 正在編輯的備注 index，-1 表示無
 const noteEditValue = ref('')
 
 const currentYearMonth = computed(() =>
@@ -1483,7 +2071,7 @@ async function saveNotes() {
   try {
     await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(notes.value)
     })
   } catch {
@@ -1801,6 +2389,12 @@ onUnmounted(() => {
   border-left-color: #2563eb;
 }
 
+.chip-onsite {
+  background: #fef3c7;
+  color: #b45309;
+  border-left-color: #d97706;
+}
+
 :root.dark .cal-chip {
   border-left-width: 0;
   padding: 2px 6px;
@@ -1823,6 +2417,11 @@ onUnmounted(() => {
 
 :root.dark .chip-google {
   background: #2563eb;
+  color: #fff;
+}
+
+:root.dark .chip-onsite {
+  background: #b45309;
   color: #fff;
 }
 
@@ -1860,6 +2459,11 @@ onUnmounted(() => {
   color: #1d4ed8;
 }
 
+.type-badge.onsite {
+  background: #fef3c7;
+  color: #b45309;
+}
+
 :root.dark .type-badge.hospital {
   background: #4d2323;
   color: #f87171;
@@ -1878,6 +2482,11 @@ onUnmounted(() => {
 :root.dark .type-badge.google {
   background: #1e3a5f;
   color: #93c5fd;
+}
+
+:root.dark .type-badge.onsite {
+  background: #b45309;
+  color: #fff;
 }
 
 /* ── 篩選列：下拉選單 ── */
