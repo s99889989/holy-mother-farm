@@ -373,6 +373,10 @@
               <input v-model="form.time" placeholder="08:00-17:00" class="field-input" />
             </div>
           </div>
+          <div v-if="formModal.isNew">
+            <label class="field-label">結束日期（選填，跨天活動才需要填）</label>
+            <input v-model="form.endDate" type="date" :min="form.date" class="field-input" />
+          </div>
           <div>
             <label class="field-label">標題 *</label>
             <input v-model="form.title" placeholder="活動名稱" class="field-input" />
@@ -667,7 +671,12 @@
 
   // 跨多天顯示為連續色條的活動（目前僅 Google 跨天活動符合）
   function isBannerEvent(ev) {
-    return !!(ev.googleEventId && ev.rangeStart && ev.rangeEnd && ev.rangeStart !== ev.rangeEnd)
+    return !!(ev.rangeStart && ev.rangeEnd && ev.rangeStart !== ev.rangeEnd)
+  }
+
+  // 跨天活動的分組鍵：Google 活動用 googleEventId，系統活動用自動辨識出的 spanId
+  function bannerGroupKey(ev) {
+    return ev.spanId || ev.googleEventId
   }
 
   // ── 跟隨游標的活動提示框 ─────────────────────────────────────────
@@ -838,7 +847,8 @@
     return weeks
   })
 
-  // 每週跨天活動的色條資料：依 googleEventId 分組、計算橫跨欄位與是否為活動實際起訖日（決定圓角端）
+  // 每週跨天活動的色條資料：依分組鍵（Google 用 googleEventId，系統活動用 spanId）分組、
+  // 計算橫跨欄位與是否為活動實際起訖日（決定圓角端）
   // 並用簡單貪婪法分配 lane（垂直層），避免同週重疊的跨天活動互相覆蓋
   // 色條堆疊高度：手機版 .week-banner-bar 變矮（15px+1px margin），需跟著縮小，
   // 避免下方一般活動 chip 跟色條之間留下多餘空隙
@@ -858,15 +868,16 @@
         if (!cell.day) return
         cell.events.forEach(ev => {
           if (!isBannerEvent(ev)) return
-          if (!map.has(ev.googleEventId)) {
-            map.set(ev.googleEventId, {ev, startCol: col, endCol: col})
+          const key = bannerGroupKey(ev)
+          if (!map.has(key)) {
+            map.set(key, {ev, startCol: col, endCol: col})
           } else {
-            map.get(ev.googleEventId).endCol = col
+            map.get(key).endCol = col
           }
         })
       })
       const banners = [...map.values()].map(b => ({
-        key: `${b.ev.googleEventId}_${week[b.startCol].dateStr}`,
+        key: `${bannerGroupKey(b.ev)}_${week[b.startCol].dateStr}`,
         ev: b.ev,
         startCol: b.startCol,
         endCol: b.endCol,
@@ -925,6 +936,47 @@
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   }
 
+  // ── 系統活動的跨天辨識 ─────────────────────────────────────────────
+  // 不改動後端資料結構，純前端依「標題/類型/負責人/場地/時間都相同 + 日期連續」
+  // 自動把多筆單日紀錄辨識成一個跨天活動，加上 spanId/rangeStart/rangeEnd，
+  // 讓它跟 Google 跨天活動一樣用連續色條顯示。每次重新整理仍能正確辨識，
+  // 不依賴任何一次性、只存在當下 session 的狀態。
+  function nextDateStr(dateStr) {
+    const d = new Date(`${dateStr}T00:00:00`)
+    d.setDate(d.getDate() + 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  function sameEventContent(a, b) {
+    return a.title === b.title && a.type === b.type &&
+      (a.owner || '') === (b.owner || '') &&
+      (a.room || '') === (b.room || '') &&
+      (a.time || '') === (b.time || '')
+  }
+
+  function withSystemSpans(list) {
+    const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date))
+    const spanById = new Map()
+    let i = 0
+    while (i < sorted.length) {
+      let j = i
+      while (j + 1 < sorted.length && nextDateStr(sorted[j].date) === sorted[j + 1].date && sameEventContent(sorted[j], sorted[j + 1])) {
+        j++
+      }
+      if (j > i) {
+        const rangeStart = sorted[i].date
+        const rangeEnd = sorted[j].date
+        const spanId = `sys_${rangeStart}_${sorted[i].title}_${sorted[i].type}`
+        for (let k = i; k <= j; k++) spanById.set(sorted[k].id, {spanId, rangeStart, rangeEnd})
+      }
+      i = j + 1
+    }
+    return list.map(e => {
+      const span = spanById.get(e.id)
+      return span ? {...e, ...span} : e
+    })
+  }
+
   // ── 主資料狀態 ────────────────────────────────────────────────────
   const events = ref([])
   const loading = ref(false)
@@ -932,7 +984,7 @@
   const toast = reactive({show: false, message: ''})
 
   // 系統活動 + Google 活動合併
-  const allEvents = computed(() => [...events.value, ...googleEvents.value])
+  const allEvents = computed(() => [...withSystemSpans(events.value), ...googleEvents.value])
 
   async function fetchEvents() {
     loading.value = true
@@ -1068,7 +1120,7 @@
 
   // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
   const formModal = reactive({show: false, isNew: true, id: null})
-  const form = reactive({date: '', time: '', title: '', owner: '', room: '', type: '醫院'})
+  const form = reactive({date: '', time: '', title: '', owner: '', room: '', type: '醫院', endDate: ''})
   const formError = ref('')
 
   // 從日曆格子點 + 新增，自動帶入日期
@@ -1077,7 +1129,7 @@
     formModal.id = null
     Object.assign(form, {
       date: dateStr || '',
-      time: '', title: '', owner: '', room: '', type: '醫院'
+      time: '', title: '', owner: '', room: '', type: '醫院', endDate: ''
     })
     formError.value = ''
     formModal.show = true
@@ -1099,38 +1151,80 @@
     }
     formModal.isNew = false
     formModal.id = ev.id
-    Object.assign(form, {date: ev.date, time: ev.time, title: ev.title, owner: ev.owner, room: ev.room, type: ev.type})
+    Object.assign(form, {date: ev.date, time: ev.time, title: ev.title, owner: ev.owner, room: ev.room, type: ev.type, endDate: ''})
     formError.value = ''
     formModal.show = true
   }
 
+  // 展開日期區間（含頭尾），用於建立跨天系統活動
+  function enumerateDates(startStr, endStr) {
+    const dates = []
+    const start = new Date(`${startStr}T00:00:00`)
+    const end = new Date(`${endStr}T00:00:00`)
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      dates.push(`${y}-${m}-${day}`)
+    }
+    return dates
+  }
+
   async function saveForm() {
     if (!form.date || !form.title.trim()) {
-      formError.value = '日期和標題為必填';
+      formError.value = '日期和標題為必填'
+      return
+    }
+    if (form.endDate && form.endDate < form.date) {
+      formError.value = '結束日期不能早於日期'
       return
     }
     saving.value = true
     formError.value = ''
     try {
-      const payload = {...form, id: formModal.isNew ? null : formModal.id}
-      const res = await fetch(`${BASE.value}/save`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      })
-      if (!res.ok) throw new Error('儲存失敗')
-      const saved = await res.json()
-      if (formModal.isNew) {
-        events.value.push(saved)
-        showToast('活動已新增')
-      } else {
-        const idx = events.value.findIndex(e => e.id === formModal.id)
-        if (idx !== -1) events.value[idx] = saved
-        // 同步更新側板
-        if (dayPanel.show && dayPanel.dateStr === saved.date) {
-          dayPanel.events = eventsOnDate(saved.date)
+      // 新增且有填結束日期 → 逐天呼叫既有的單日 API 建立多筆記錄，
+      // 前端再依「標題/類型/負責人/場地/時間都相同 + 日期連續」自動辨識成跨天活動，
+      // 顯示方式比照 Google 跨天活動的連續色條
+      if (formModal.isNew && form.endDate && form.endDate !== form.date) {
+        const dates = enumerateDates(form.date, form.endDate)
+        if (dates.length > 60) {
+          formError.value = '跨天範圍過長（超過 60 天），請縮短區間'
+          return
         }
-        showToast('活動已更新')
+        const savedList = []
+        for (const d of dates) {
+          const payload = {date: d, time: form.time, title: form.title, owner: form.owner, room: form.room, type: form.type, id: null}
+          const res = await fetch(`${BASE.value}/save`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+          })
+          if (!res.ok) throw new Error('儲存失敗')
+          savedList.push(await res.json())
+        }
+        events.value.push(...savedList)
+        showToast(`已新增跨天活動（共 ${dates.length} 天）`)
+      } else {
+        const payload = {date: form.date, time: form.time, title: form.title, owner: form.owner, room: form.room, type: form.type, id: formModal.isNew ? null : formModal.id}
+        const res = await fetch(`${BASE.value}/save`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) throw new Error('儲存失敗')
+        const saved = await res.json()
+        if (formModal.isNew) {
+          events.value.push(saved)
+          showToast('活動已新增')
+        } else {
+          const idx = events.value.findIndex(e => e.id === formModal.id)
+          if (idx !== -1) events.value[idx] = saved
+          // 同步更新側板
+          if (dayPanel.show && dayPanel.dateStr === saved.date) {
+            dayPanel.events = eventsOnDate(saved.date)
+          }
+          showToast('活動已更新')
+        }
       }
       formModal.show = false
     } catch (e) {
@@ -1579,9 +1673,11 @@
     border-radius: 0;
   }
 
-  /* ── 日期格子 ── */
+  /* ── 日期格子（固定高度：避免同一週因某天事件多而整週被撐高，
+     造成事件少的天數留白特別明顯，看起來像週與週之間間距不一致）── */
   .cal-cell {
-    min-height: 140px;
+    height: 120px;
+    overflow: hidden;
     background: #fff;
     border: 1px solid #ece7e2;
     border-radius: 8px;
@@ -2046,7 +2142,7 @@
     }
 
     .cal-cell {
-      min-height: 58px;
+      height: 120px;
       padding: 1px;
     }
 
