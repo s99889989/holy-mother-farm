@@ -219,7 +219,7 @@
               <div v-for="(note, idx) in notes" :key="idx"
                    class="group flex items-start gap-2">
                 <!-- 序號 -->
-                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-[10px] font-bold flex items-center justify-center mt-1">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-xs font-bold flex items-center justify-center mt-1">
                 {{ idx + 1 }}
               </span>
                 <!-- 文字（點擊編輯） -->
@@ -1468,7 +1468,7 @@
 
   /* ── 日期數字 ── */
   .cal-day-num {
-    font-size: 15px;
+    font-size: 16px; /* text-base */
     font-weight: 600;
     line-height: 1;
   }
@@ -1507,7 +1507,7 @@
     cursor: pointer;
     overflow: hidden;
     transition: opacity 0.1s, filter 0.1s;
-    font-size: 12.5px;
+    font-size: 12px; /* text-xs */
   }
 
   .cal-chip:hover {
@@ -1516,7 +1516,7 @@
   }
 
   .chip-time {
-    font-size: 11px;
+    font-size: 12px; /* text-xs */
     font-weight: 700;
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
@@ -1590,7 +1590,7 @@
   .type-badge {
     display: inline-flex;
     align-items: center;
-    font-size: 11px;
+    font-size: 12px; /* text-xs */
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 10px;
@@ -1651,7 +1651,7 @@
   }
 
   .filter-label {
-    font-size: 13px;
+    font-size: 14px; /* text-sm */
     font-weight: 600;
     color: #a8a29e;
     white-space: nowrap;
@@ -1664,7 +1664,7 @@
     border-radius: 8px;
     background: #fff;
     color: #1c1917;
-    font-size: 13.5px;
+    font-size: 14px; /* text-sm */
     max-width: 220px;
     cursor: pointer;
     transition: border-color .15s;
@@ -1690,7 +1690,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 11px;
+    font-size: 12px; /* text-xs */
     color: #2563eb;
   }
 
@@ -1719,7 +1719,7 @@
 
   .field-label {
     display: block;
-    font-size: 12px;
+    font-size: 12px; /* text-xs */
     font-weight: 600;
     color: #57534e;
     margin-bottom: 4px;
@@ -1732,7 +1732,7 @@
   .field-input {
     width: 100%;
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 14px; /* text-sm */
     border: 1px solid #e2ddd8;
     border-radius: 12px;
     background: #fff;
@@ -1813,7 +1813,7 @@
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
     padding: 14px 16px;
-    font-size: 13px;
+    font-size: 14px; /* text-sm */
     line-height: 1.7;
     white-space: normal;
     text-align: left;
@@ -1828,7 +1828,7 @@
 
   .tooltip-title {
     font-weight: 700;
-    font-size: 15px;
+    font-size: 16px; /* text-base */
     margin-bottom: 6px;
     word-break: break-word;
   }
@@ -1845,7 +1845,7 @@
   .tooltip-hint {
     margin-top: 8px;
     color: #6366f1;
-    font-size: 12px;
+    font-size: 12px; /* text-xs */
   }
 
   :root.dark .tooltip-hint {
