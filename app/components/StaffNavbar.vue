@@ -30,22 +30,22 @@ const navGroups = [
   {
     label: '🌐 前台內容',
     items: [
-      { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
-      { to: '/staff/content/product', icon: '🛒', label: '商品管理', key: 'content.product' },
+      { to: '/staff/content/news', icon: '📰', label: '消息管理', key: 'content.news' },
+      { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'content.product' },
       { to: '/staff/content/production', icon: '🌾', label: '產品訂購', key: 'content.production' }
     ]
   },
   {
     label: '🏢 營運管理',
     items: [
-      { to: '/staff/management/lemon-sauce-inventory', icon: '🗂️', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' },
-      { to: '/staff/management/asset', icon: '📦', label: '財產登記', key: 'management.asset' },
-      { to: '/staff/management/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'management.fire-extinguisher' },
       { to: '/staff/management/calendar', icon: '🗓️', label: '行事曆', key: 'management.calendar' },
+      { to: '/staff/management/lemon-sauce-inventory', icon: '🥫', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' },
+      { to: '/staff/management/asset', icon: '🏷️', label: '財產登記', key: 'management.asset' },
+      { to: '/staff/management/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'management.fire-extinguisher' },
       { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
-      { to: '/staff/management/files', icon: '🗂️', label: '檔案管理', key: 'management.files' },
-      { to: '/staff/management/course', icon: '📚', label: '課程報名', key: 'management.course' },
-      { to: '/staff/management/html-page', icon: '🌐', label: '網頁頁面', key: 'management.html-page' }
+      { to: '/staff/management/files', icon: '📂', label: '檔案管理', key: 'management.files' },
+      { to: '/staff/management/course', icon: '🎓', label: '課程報名', key: 'management.course' },
+      { to: '/staff/management/html-page', icon: '💻', label: '網頁頁面', key: 'management.html-page' }
     ]
   },
   {
@@ -55,23 +55,23 @@ const navGroups = [
       { to: '/staff/order/booking-orders', icon: '🪑', label: '訂位管理', key: 'order.booking-orders' },
       { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
       { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
-      { to: '/staff/order/handmade-bread-orders', icon: '🍱', label: '一一手做', key: 'order.handmade-bread-orders' },
-      { to: '/staff/order/rooms-setting', icon: '🍱', label: '房間管理', key: 'order.rooms-setting' },
-      { to: '/staff/order/rooms-orders', icon: '🍱', label: '訂房管理', key: 'order.rooms-orders' }
+      { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
+      { to: '/staff/order/rooms-setting', icon: '🚪', label: '房間管理', key: 'order.rooms-setting' },
+      { to: '/staff/order/rooms-orders', icon: '🏨', label: '訂房管理', key: 'order.rooms-orders' }
     ]
   },
   {
     label: '👥 人事',
     items: [
       { to: '/staff/personnel/class-schedule', icon: '📅', label: '假表', key: 'personnel.class-schedule' },
-      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
-      { to: '/staff/personnel/work-manual', icon: '📘', label: '工作手冊', key: 'personnel.work-manual' }
+      { to: '/staff/personnel/phone-directory', icon: '☎️', label: '電話', key: 'personnel.phone-directory' },
+      { to: '/staff/personnel/work-manual', icon: '📖', label: '工作手冊', key: 'personnel.work-manual' }
     ]
   },
   {
     label: '🛒 日常作業',
     items: [
-      { to: '/staff/pos/daily/sales', icon: '🛍️', label: '商品販賣', key: 'pos.daily.sales' },
+      { to: '/staff/pos/daily/sales', icon: '💰', label: '商品販賣', key: 'pos.daily.sales' },
       { to: '/staff/pos/daily/account-inquiry', icon: '🧾', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
       { to: '/staff/pos/daily/stock', icon: '📦', label: '庫存管理', key: 'pos.daily.stock' }
     ]
@@ -85,42 +85,27 @@ const navGroups = [
   {
     label: '⚙️ 系統設定',
     items: [
-      { to: '/staff/pos/settings/menu-setting', icon: '🍽️', label: '品項設置', key: 'pos.settings.menu-setting' },
-      {
-        to: '/staff/pos/settings/database-setting',
-        icon: '🗄️',
-        label: '資料庫設置',
-        key: 'pos.settings.database-setting'
-      },
-      {
-        to: '/staff/pos/settings/equipment-setting',
-        icon: '🖨️',
-        label: '設備設置',
-        key: 'pos.settings.equipment-setting'
-      }
+      { to: '/staff/pos/settings/menu-setting', icon: '🍴', label: '品項設置', key: 'pos.settings.menu-setting' },
+      { to: '/staff/pos/settings/database-setting', icon: '🗄️', label: '資料庫設置', key: 'pos.settings.database-setting' },
+      { to: '/staff/pos/settings/equipment-setting', icon: '🖨️', label: '設備設置', key: 'pos.settings.equipment-setting' }
     ]
   },
   {
     label: '💳 其他',
     items: [
-      { to: '/staff/other/broadcast', icon: '📈', label: '廣播', key: 'other.broadcast' },
-      { to: '/staff/pos/other/pos-menu', icon: '📈', label: '商品管理', key: 'pos.other.pos-menu' },
-      { to: '/staff/pos/other/pos-sales', icon: '📈', label: '銷售報表', key: 'pos.other.pos-sales' },
-      { to: '/staff/pos/other/pos-sell', icon: '📈', label: '商品販賣', key: 'pos.other.pos-sell' },
-      { to: '/staff/pos/other/pos-stock', icon: '📈', label: '庫存管理', key: 'pos.other.pos-stock' }
+      { to: '/staff/other/broadcast', icon: '📢', label: '廣播', key: 'other.broadcast' },
+      { to: '/staff/pos/other/pos-menu', icon: '📋', label: '商品管理', key: 'pos.other.pos-menu' },
+      { to: '/staff/pos/other/pos-sales', icon: '📊', label: '銷售報表', key: 'pos.other.pos-sales' },
+      { to: '/staff/pos/other/pos-sell', icon: '🛒', label: '商品販賣', key: 'pos.other.pos-sell' },
+      { to: '/staff/pos/other/pos-stock', icon: '📦', label: '庫存管理', key: 'pos.other.pos-stock' }
     ]
   },
   {
     label: '🖨️ 列印中心',
     items: [
-      { to: '/staff/print/guild-hall-print', icon: '🌿', label: '會館訂貨', key: 'print.guild-hall-print' },
+      { to: '/staff/print/guild-hall-print', icon: '🏛️', label: '會館訂貨', key: 'print.guild-hall-print' },
       { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
-      {
-        to: '/staff/print/fire-extinguisher-print',
-        icon: '🧯',
-        label: '滅火器 QRCode',
-        key: 'print.fire-extinguisher-print'
-      },
+      { to: '/staff/print/fire-extinguisher-print', icon: '🧯', label: '滅火器 QRCode', key: 'print.fire-extinguisher-print' },
       { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
     ]
   },
@@ -128,26 +113,16 @@ const navGroups = [
     label: '📊 庫存銷售',
     items: [
       { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
-      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
-      { to: '/staff/stock/pos-data-table', icon: '📋', label: '資料表', key: 'stock.pos-data-table' },
-      { to: '/staff/stock/pos-files', icon: '🗄️', label: '資料管理', key: 'stock.pos-files' }
+      { to: '/staff/stock/pos-analysis', icon: '📈', label: '銷售分析', key: 'stock.pos-analysis' },
+      { to: '/staff/stock/pos-data-table', icon: '🗃️', label: '資料表', key: 'stock.pos-data-table' },
+      { to: '/staff/stock/pos-files', icon: '📁', label: '資料管理', key: 'stock.pos-files' }
     ]
   },
   {
     label: '🔐 權限',
     items: [
-      {
-        to: '/staff/permission/customer-management',
-        icon: '👤',
-        label: '帳號管理',
-        key: 'permission.customer-management'
-      },
-      {
-        to: '/staff/permission/permission-management',
-        icon: '🛡️',
-        label: '權限組',
-        key: 'permission.permission-management'
-      }
+      { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
+      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
     ]
   }
 ]

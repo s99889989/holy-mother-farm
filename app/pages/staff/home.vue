@@ -459,6 +459,34 @@ function togglePoll() {
   savePollPref()
 }
 
+// ── 設定區塊：是否接收內場語音廣播（有些裝置/畫面不需要放出聲音，可以關掉）───
+const broadcastReceiveEnabled = ref(true)
+
+function loadBroadcastReceivePref() {
+  try {
+    const saved = localStorage.getItem('holy_home_broadcast_receive_enabled')
+    if (saved !== null) broadcastReceiveEnabled.value = saved === '1'
+  } catch (e) { /* 無法讀取偏好時使用預設值 */
+  }
+}
+
+function saveBroadcastReceivePref() {
+  try {
+    localStorage.setItem('holy_home_broadcast_receive_enabled', broadcastReceiveEnabled.value ? '1' : '0')
+  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
+  }
+}
+
+function toggleBroadcastReceive() {
+  broadcastReceiveEnabled.value = !broadcastReceiveEnabled.value
+  saveBroadcastReceivePref()
+  if (broadcastReceiveEnabled.value) {
+    connectBroadcastSignaling()
+  } else {
+    disconnectBroadcastSignaling() // 立刻斷開信令連線＋收掉任何正在播放的廣播，不用等重新整理頁面
+  }
+}
+
 // 瀏覽器多半要求先有使用者互動才允許播放音效，先建立/解鎖 AudioContext
 let audioCtx = null
 
@@ -552,7 +580,8 @@ function bookingSpokenText(item, prefix = '新訂位') {
   const detail = spokenTypeBreakdown(item, '') || '尚未填寫數量'
   const timeText = timeToSpoken(item.time)
   const nameText = item.name || '未填姓名'
-  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}位`
+  const noteText = item.note ? `，備註：${item.note}` : ''
+  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}位${noteText}`
 }
 
 function lunchSpokenText(item, prefix = '新便當訂單') {
@@ -564,7 +593,8 @@ function lunchSpokenText(item, prefix = '新便當訂單') {
   const detail = parts.join('、') || '尚未填寫數量'
   const timeText = timeToSpoken(item.time)
   const nameText = item.name || '未填姓名'
-  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}`
+  const noteText = item.note ? `，備註：${item.note}` : ''
+  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}${noteText}`
 }
 
 function soybeanSpokenText(item, prefix = '新豆製品訂購') {
@@ -610,6 +640,22 @@ function openNotification(n) {
 
 const qtyOf = (item) => (item.meatQty || 0) + (item.fullVegQty || 0) + (item.eggVegQty || 0) + (item.spiceVegQty || 0)
 
+// 判斷同一筆訂位／便當訂單，內容是否有被編輯過（姓名/時間/狀態/葷素數量/備註任一有變），
+// 用來在「已入位」以外的一般編輯（例如改時間、改數量）時也跳通知＋語音
+function bookingSnapshotEqual(a, b) {
+  return a.name === b.name && a.time === b.time && a.status === b.status &&
+    a.meatQty === b.meatQty && a.fullVegQty === b.fullVegQty &&
+    a.eggVegQty === b.eggVegQty && a.spiceVegQty === b.spiceVegQty &&
+    (a.note || '') === (b.note || '')
+}
+
+function lunchSnapshotEqual(a, b) {
+  return a.name === b.name && a.time === b.time && a.status === b.status &&
+    a.meatQty === b.meatQty && a.fullVegQty === b.fullVegQty &&
+    a.eggVegQty === b.eggVegQty && a.spiceVegQty === b.spiceVegQty &&
+    (a.note || '') === (b.note || '')
+}
+
 function syncKnownItems(data) {
   knownBookings.clear()
   ;(data?.booking?.items ?? []).forEach(i => knownBookings.set(i.id, i))
@@ -634,9 +680,11 @@ async function syncNewOrders() {
     let gotCreated = false
     let gotDeleted = false
     let gotCheckedIn = false
+    let gotModified = false
     const spokenPhrases = []
+    const spokenModifiedPhrases = []
 
-    // 新增／已入位
+    // 新增／已入位／一般編輯（改時間、改數量等，跟已入位分開處理，避免重複跳兩次通知）
     for (const item of newBookings) {
       const prev = knownBookings.get(item.id)
       if (!prev) {
@@ -647,13 +695,22 @@ async function syncNewOrders() {
         gotCheckedIn = true
         pushNotification('🪑', '訂位已入位', `${item.name || '未填姓名'}　${item.time || ''}`, 'booking')
         spokenPhrases.push(`${item.name || '未填姓名'}，已入位`)
+      } else if (!bookingSnapshotEqual(prev, item)) {
+        gotModified = true
+        pushNotification('✏️', '訂位異動', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+        spokenModifiedPhrases.push(bookingSpokenText(item, '訂位異動'))
       }
     }
     for (const item of newLunches) {
-      if (!knownLunches.has(item.id)) {
+      const prev = knownLunches.get(item.id)
+      if (!prev) {
         gotCreated = true
         pushNotification('🍱', '新便當訂單', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
         spokenPhrases.push(lunchSpokenText(item))
+      } else if (!lunchSnapshotEqual(prev, item)) {
+        gotModified = true
+        pushNotification('✏️', '便當訂單異動', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+        spokenModifiedPhrases.push(lunchSpokenText(item, '便當訂單異動'))
       }
     }
     for (const item of newSoybeans) {
@@ -698,14 +755,15 @@ async function syncNewOrders() {
 
     syncKnownItems(data)
 
-    if (gotCreated || gotDeleted || gotCheckedIn) {
+    const gotPositive = gotCreated || gotCheckedIn || gotModified
+    if (gotPositive || gotDeleted) {
       if (soundEnabled.value) {
-        if (gotCreated || gotCheckedIn) playCreateSound()
-        if (gotDeleted) setTimeout(playDeleteSound, (gotCreated || gotCheckedIn) ? 450 : 0)
-        const allPhrases = [...spokenPhrases, ...spokenDeletePhrases]
+        if (gotPositive) playCreateSound()
+        if (gotDeleted) setTimeout(playDeleteSound, gotPositive ? 450 : 0)
+        const allPhrases = [...spokenPhrases, ...spokenModifiedPhrases, ...spokenDeletePhrases]
         if (allPhrases.length) {
           // 等提示音都播完再開始念，語音本身會自動排隊依序念完，不用逐句手動間隔
-          const chimeDuration = gotDeleted && (gotCreated || gotCheckedIn) ? 900 : 550
+          const chimeDuration = gotDeleted && gotPositive ? 900 : 550
           setTimeout(() => allPhrases.forEach(speakText), chimeDuration)
         }
       }
@@ -1126,6 +1184,7 @@ const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown']
 onMounted(() => {
   loadSoundPref()
   loadPollPref()
+  loadBroadcastReceivePref()
   UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, {once: true}))
   fetchRoomBuildings() // 房務狀況要用到房型/棟別/金額，跟今日概況分開拉，互不影響彼此的載入中狀態
   fetchToday().then(() => {
@@ -1133,7 +1192,7 @@ onMounted(() => {
     connectStream()
     startPolling()
   })
-  connectBroadcastSignaling()
+  if (broadcastReceiveEnabled.value) connectBroadcastSignaling()
 })
 
 onUnmounted(() => {
@@ -1340,6 +1399,33 @@ onUnmounted(() => {
                   style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
                 >
                   {{ soundEnabled ? '已開啟' : '已關閉（靜音中）' }}
+                </span>
+              </div>
+              <div class="px-4 py-3 bg-surface2/40 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-light-c/60">
+                <span
+                  class="text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >
+                  接收內場語音廣播（手機端「內場語音廣播」按下開始廣播時，這台會自動出聲）
+                </span>
+                <button
+                  class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0"
+                  :class="broadcastReceiveEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'"
+                  role="switch"
+                  :aria-checked="broadcastReceiveEnabled"
+                  :title="broadcastReceiveEnabled ? '點一下關閉，這台就不會再接收語音廣播' : '點一下開啟接收語音廣播'"
+                  @click="toggleBroadcastReceive"
+                >
+                  <span
+                    class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform"
+                    :class="broadcastReceiveEnabled ? 'translate-x-4' : 'translate-x-1'"
+                  />
+                </button>
+                <span
+                  class="text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >
+                  {{ broadcastReceiveEnabled ? '已開啟' : '已關閉（不接收廣播）' }}
                 </span>
               </div>
             </div>
