@@ -983,7 +983,11 @@
     pc.onicecandidate = (e) => {
       if (e.candidate) sendBroadcastSignal({type: 'ice', to: msg.from, candidate: e.candidate})
     }
+    pc.oniceconnectionstatechange = () => {
+      console.debug('[broadcast] ICE 連線狀態', pc.iceConnectionState)
+    }
     pc.onconnectionstatechange = () => {
+      console.debug('[broadcast] 整體連線狀態', pc.connectionState)
       if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) closeBroadcastPeer(msg.from)
     }
 
