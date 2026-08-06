@@ -536,6 +536,48 @@
     primeSpeech()
   }
 
+  // 接一個 MediaStream，持續量測音量大小寫進 levelRef（0～1，粗略 RMS），回傳一個停止函式。
+  // 用途：證明「聲音資料真的有傳過來」跟「傳過來但這台放不出聲音」是兩件不同的事——
+  // 如果這個量表會跳，代表 WebRTC 音訊資料確實收到了，問題就出在這台電腦的喇叭/音量/
+  // 輸出裝置設定，不是連線或程式的問題；如果完全不跳，才需要往連線本身去查。
+  function startLevelMeter(stream, levelRef) {
+    try {
+      const ctx = getAudioCtx()
+      if (!ctx) return null
+      const source = ctx.createMediaStreamSource(stream)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 512
+      source.connect(analyser) // 只接來做分析，不接 destination，不會因此多播放一次聲音
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      let rafId = null
+      const tick = () => {
+        analyser.getByteTimeDomainData(data)
+        let sumSquares = 0
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128
+          sumSquares += v * v
+        }
+        levelRef.value = Math.sqrt(sumSquares / data.length)
+        rafId = requestAnimationFrame(tick)
+      }
+      tick()
+      return () => {
+        if (rafId) cancelAnimationFrame(rafId)
+        try {
+          source.disconnect()
+        } catch (e) { /* 忽略 */
+        }
+        try {
+          analyser.disconnect()
+        } catch (e) { /* 忽略 */
+        }
+      }
+    } catch (e) {
+      console.error('[broadcast] 無法建立音量偵測', e)
+      return null
+    }
+  }
+
   function playTones(tones, waveType) {
     try {
       const ctx = getAudioCtx()
@@ -853,6 +895,8 @@
   // 允許在沒有「使用者手勢」的情況下自動出聲。擋下時会把這個設 true，畫面上會跳出可以點的
   // 提示，讓現場自己點一下就能解除，不用等重新整理頁面或叫人來處理。
   const broadcastAudioBlocked = ref(false)
+  // 目前收到的廣播音訊音量（0～1，粗略值），給畫面顯示小音量計用，證明資料確實有傳過來
+  const broadcastAudioLevel = ref(0)
 
   // 訊令 WebSocket 連線狀態，純粹給畫面顯示＋ console 除錯用，不影響功能本身。
   // 主要是為了分辨「完全沒反應」到底是卡在哪一步：
@@ -872,7 +916,10 @@
     const active = broadcastPeers.values().next().value
     broadcastPlaying.value = broadcastPeers.size > 0
     broadcastFrom.value = active ? active.label : ''
-    if (broadcastPeers.size === 0) broadcastAudioBlocked.value = false
+    if (broadcastPeers.size === 0) {
+      broadcastAudioBlocked.value = false
+      broadcastAudioLevel.value = 0
+    }
   }
 
   function sendBroadcastSignal(payload) {
@@ -888,6 +935,7 @@
       entry.pc.close()
     } catch (e) { /* 忽略 */
     }
+    if (entry.stopLevelMeter) entry.stopLevelMeter()
     if (entry.audioEl) {
       entry.audioEl.pause()
       entry.audioEl.srcObject = null
@@ -921,6 +969,8 @@
       audioEl.srcObject = e.streams[0]
       const tracks = e.streams[0].getAudioTracks()
       console.debug('[broadcast] 收到音訊軌', tracks.map(t => ({enabled: t.enabled, muted: t.muted, readyState: t.readyState})))
+      const entry = broadcastPeers.get(msg.from)
+      if (entry) entry.stopLevelMeter = startLevelMeter(e.streams[0], broadcastAudioLevel)
       audioEl.play().then(() => {
         broadcastAudioBlocked.value = false
       }).catch((err) => {
@@ -1307,6 +1357,19 @@
         >
           <span class="animate-pulse">🎙️</span>
           <span class="font-semibold">內場廣播中{{ broadcastFrom ? '　' + broadcastFrom : '' }}</span>
+          <!-- 音量計：只要這條會跳，就代表聲音資料確實有傳過來，跟這台放不放得出聲音是兩回事 -->
+          <span class="flex items-center gap-1.5 flex-shrink-0">
+            <span class="w-16 h-2 bg-white/25 rounded-full overflow-hidden">
+              <span
+                class="block h-full bg-lime-300 rounded-full transition-[width] duration-75"
+                :style="{width: Math.min(100, broadcastAudioLevel * 320) + '%'}"
+              />
+            </span>
+            <span
+              style="font-size:clamp(11px, calc(11px + 0.3vw), 13px)"
+              class="opacity-90 whitespace-nowrap"
+            >{{ broadcastAudioLevel > 0.02 ? '收到聲音中' : '尚未收到聲音資料' }}</span>
+          </span>
         </div>
       </Transition>
     </Teleport>
