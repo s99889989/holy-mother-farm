@@ -1172,16 +1172,18 @@ async function refreshNow() {
 
 // ── 行事曆顏色 ────────────────────────────────────────────────────
 const calTypeColor = {醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb'}
+// 建築分類：優先用 building 欄位，舊資料 type 直接就是建築分類值時當備援
+const calEventBuilding = ev => ev.source === 'google' ? '' : (ev.building || ev.type)
 const calChipBg = ev => ev.source === 'google'
   ? '#dbeafe'
   : ({
     醫院: '#fee2e2',
     園區: '#dcfce7',
     芳心: '#fce7f3'
-  }[ev.type] || '#f0f0f0')
-const calChipText = ev => ev.source === 'google' ? '#1d4ed8' : (calTypeColor[ev.type] || '#555')
-const calBarColor = ev => ev.source === 'google' ? '#2563eb' : (calTypeColor[ev.type] || '#ccc')
-const calBadgeLabel = ev => ev.source === 'google' ? 'Google' : ev.type
+  }[calEventBuilding(ev)] || '#f0f0f0')
+const calChipText = ev => ev.source === 'google' ? '#1d4ed8' : (calTypeColor[calEventBuilding(ev)] || '#555')
+const calBarColor = ev => ev.source === 'google' ? '#2563eb' : (calTypeColor[calEventBuilding(ev)] || '#ccc')
+const calBadgeLabel = ev => ev.source === 'google' ? 'Google' : (calEventBuilding(ev) || '院內')
 
 async function fetchToday() {
   loading.value = true
@@ -1227,7 +1229,9 @@ async function fetchToday() {
     for (const cRes of calResults) {
       if (!cRes.ok) continue
       const monthEvents = await cRes.json()
-      sysEvents.push(...monthEvents)
+      // 首頁行事曆只顯示「園區」建築分類的活動；新資料是 type=院內 + building=園區，
+      // 舊資料（尚未重新儲存）type 可能直接就是園區，兩種都判斷相容
+      sysEvents.push(...monthEvents.filter(e => (e.building || e.type) === '園區'))
     }
 
     let gEvents = []

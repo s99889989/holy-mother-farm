@@ -162,7 +162,7 @@
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-3 h-3 rounded-sm bg-amber-500 flex-shrink-0" />
-                <span class="text-sm text-hint-c">院內</span>
+                <span class="text-sm text-hint-c">院內（未分類）</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-3 h-3 rounded-sm bg-blue-500 flex-shrink-0" />
@@ -185,13 +185,6 @@
                 >
                   <option value="全部">
                     全部 {{ monthEventCount }}
-                  </option>
-                  <option
-                    v-for="t in TYPES"
-                    :key="t"
-                    :value="t"
-                  >
-                    {{ t }} {{ typeCount[t] || 0 }}
                   </option>
                   <option value="院內">
                     院內 {{ typeCount['院內'] || 0 }}
@@ -578,7 +571,7 @@
               class="group flex items-start gap-3 p-3 rounded-xl border border-light-c dark:border-[#2a2e37] hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
             >
               <!-- 類型色條 -->
-              <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev.type)]" />
+              <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev)]" />
               <!-- 內容 -->
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-base-c leading-tight">
@@ -613,11 +606,7 @@
                   class="text-xs text-blue-500 underline mt-1 inline-block"
                   @click.stop
                 >在 Google 日曆開啟</a>
-                <span :class="['type-badge mt-1.5', typeColorClass(ev.type)]">{{ ev.type }}</span>
-                <span
-                  v-if="ev.building"
-                  class="text-xs text-hint-c ml-1.5"
-                >（{{ ev.building }}）</span>
+                <span :class="['type-badge mt-1.5', typeColorClass(ev)]">{{ eventBadgeLabel(ev) }}</span>
               </div>
               <!-- 操作 -->
               <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
@@ -752,7 +741,7 @@
             <div>
               <label class="field-label">建築分類</label>
               <select
-                v-model="form.type"
+                v-model="form.building"
                 class="field-input"
               >
                 <option
@@ -1097,11 +1086,7 @@
                   <span class="font-mono text-indigo-500 flex-shrink-0 tabular-nums">{{ ev.endDate && ev.endDate !== ev.date ? `${ev.date}~${ev.endDate}` : ev.date }}</span>
                   <span class="text-muted-c truncate flex-1">{{ ev.title }}</span>
                   <span class="text-hint-c flex-shrink-0 hidden sm:block">{{ ev.owner }}</span>
-                  <span :class="['type-badge flex-shrink-0', typeColorClass(ev.type)]">{{ ev.type }}</span>
-                  <span
-                    v-if="ev.building"
-                    class="text-hint-c flex-shrink-0 text-[10px]"
-                  >{{ ev.building }}</span>
+                  <span :class="['type-badge flex-shrink-0', typeColorClass(ev)]">{{ eventBadgeLabel(ev) }}</span>
                 </div>
               </div>
               <div
@@ -1267,7 +1252,7 @@ const perm = usePermission()
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
 
-const TYPES = ['醫院', '園區', '芳心'] // 建築分類；TXT 貼上匯入的活動另外歸類為「院內」，不使用這組值
+const TYPES = ['醫院', '園區', '芳心'] // 建築分類：本地院內活動底下的細分類別（新增/編輯表單、院內篩選底下的建築分類子篩選都用這組值）
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
 // ── Google Calendar 設定 ──────────────────────────────────────────
@@ -1278,21 +1263,32 @@ const googleEvents = ref([])
 const googleLoading = ref(false)
 
 // ── 顏色工具 ─────────────────────────────────────────────────────
-function typeColorClass(type) {
-  if (type === 'Google') return 'google'
-  if (type === '院內') return 'onsite'
-  return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[type] || 'park'
+// 「類型」只分院內／Google 兩種，但顏色沿用以前的建築分類配色：
+// 院內活動依 building（醫院/園區/芳心）決定顏色，Google 固定藍色，
+// 院內活動沒有 building 時（少數舊資料）退回琥珀色
+// 徽章文字：本地活動有建築分類時直接顯示建築名稱（顏色也是那個建築的顏色），沒有才顯示「院內」
+function eventBadgeLabel(ev) {
+  if (ev.source === 'google') return 'Google'
+  return eventBuilding(ev) || '院內'
 }
 
-function typeChipClass(type) {
-  if (type === 'Google') return 'chip-google'
-  if (type === '院內') return 'chip-onsite'
-  return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[type] || 'chip-park'
+// 活動的建築分類：優先用 building 欄位，舊資料 type 若剛好是建築分類值就當備援
+function eventBuilding(ev) {
+  return ev.building || (TYPES.includes(ev.type) ? ev.type : '')
+}
+
+function typeColorClass(ev) {
+  if (ev.source === 'google') return 'google'
+  return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[eventBuilding(ev)] || 'onsite'
+}
+
+function typeChipClass(ev) {
+  if (ev.source === 'google') return 'chip-google'
+  return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[eventBuilding(ev)] || 'chip-onsite'
 }
 
 function chipClass(ev) {
-  if (ev.source === 'google') return 'chip-google'
-  return typeChipClass(ev.type)
+  return typeChipClass(ev)
 }
 
 // 跨多天顯示為連續色條的活動：每筆活動（不論系統或 Google）都直接帶 date（起）/ endDate（迄），
@@ -1378,10 +1374,9 @@ function stripHtml(html) {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
 }
 
-function typeBarClass(type) {
-  if (type === 'Google') return 'bg-blue-500'
-  if (type === '院內') return 'bg-amber-500'
-  return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[type] || 'bg-emerald-500'
+function typeBarClass(ev) {
+  if (ev.source === 'google') return 'bg-blue-500'
+  return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[eventBuilding(ev)] || 'bg-amber-500'
 }
 
 function legendDotClass(type) {
@@ -1397,7 +1392,7 @@ const currentMonth = ref(today.getMonth() + 1) // 1-based
 const panelExpanded = ref(true)
 
 // ── 篩選狀態 ──────────────────────────────────────────────────────
-const filterType = ref('全部') // 全部 / 醫院 / 園區 / 芳心（建築分類）/ 院內 / Google
+const filterType = ref('全部') // 全部 / 院內 / Google
 const filterLocation = ref('') // 空字串 = 全部地點
 const filterBuilding = ref('') // 空字串 = 全部建築分類；僅在 filterType === '院內' 時使用，篩選原本的醫院/園區/芳心
 
@@ -1446,19 +1441,20 @@ function extractLocation(room) {
 const availableLocations = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
   let base = allEvents.value.filter(e => eventOverlapsMonth(e, ym))
-  if (filterType.value !== '全部' && filterType.value !== 'Google') base = base.filter(e => e.type === filterType.value)
+  if (filterType.value === '院內') base = base.filter(e => e.source !== 'google')
   if (filterType.value === 'Google') base = base.filter(e => e.source === 'google')
-  if (filterType.value === '院內' && filterBuilding.value) base = base.filter(e => e.building === filterBuilding.value)
+  if (filterType.value === '院內' && filterBuilding.value) base = base.filter(e => eventBuilding(e) === filterBuilding.value)
   return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 })
 
-// 院內活動當中，實際出現過的原始建築分類（去重、排序，順序依 TYPES）
+// 院內活動當中，實際出現過的建築分類（去重、排序，順序依 TYPES；舊資料用 eventBuilding() 備援判斷）
 const availableBuildings = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
   const present = new Set(
     events.value
-      .filter(e => e.type === '院內' && eventOverlapsMonth(e, ym) && e.building)
-      .map(e => e.building)
+      .filter(e => eventOverlapsMonth(e, ym))
+      .map(eventBuilding)
+      .filter(Boolean)
   )
   return TYPES.filter(t => present.has(t))
 })
@@ -1468,9 +1464,9 @@ const buildingCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
   const counts = {}
   events.value
-    .filter(e => e.type === '院內' && eventOverlapsMonth(e, ym))
+    .filter(e => eventOverlapsMonth(e, ym))
     .forEach((e) => {
-      const b = e.building || '未分類'
+      const b = eventBuilding(e) || '未分類'
       counts[b] = (counts[b] || 0) + 1
     })
   return counts
@@ -1590,22 +1586,20 @@ const monthEventCount = computed(() => {
   return allEvents.value.filter((e) => {
     if (!eventOverlapsMonth(e, ym)) return false
     if (filterType.value === 'Google') return e.source === 'google'
-    if (filterType.value !== '全部' && e.type !== filterType.value) return false
-    if (filterType.value === '院內' && filterBuilding.value && e.building !== filterBuilding.value) return false
+    if (filterType.value === '院內' && e.source === 'google') return false
+    if (filterType.value === '院內' && filterBuilding.value && eventBuilding(e) !== filterBuilding.value) return false
     if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
     return true
   }).length
 })
 
-// 類型統計（當月）
+// 類型統計（當月）：院內 = 本地新增/匯入的活動，Google = 同步進來的活動
 const typeCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const counts = { 醫院: 0, 園區: 0, 芳心: 0, 院內: 0, Google: 0 }
-  events.value.filter(e => eventOverlapsMonth(e, ym)).forEach((e) => {
-    if (counts[e.type] !== undefined) counts[e.type]++
-  })
-  counts.Google = googleEvents.value.filter(e => eventOverlapsMonth(e, ym)).length
-  return counts
+  return {
+    院內: events.value.filter(e => eventOverlapsMonth(e, ym)).length,
+    Google: googleEvents.value.filter(e => eventOverlapsMonth(e, ym)).length
+  }
 })
 
 // 某天有哪些活動：直接用 date/endDate 範圍判斷是否涵蓋該日，
@@ -1615,8 +1609,8 @@ function eventsOnDate(dateStr) {
     .filter((e) => {
       if (!eventCoversDate(e, dateStr)) return false
       if (filterType.value === 'Google') return e.source === 'google'
-      if (filterType.value !== '全部' && e.type !== filterType.value) return false
-      if (filterType.value === '院內' && filterBuilding.value && e.building !== filterBuilding.value) return false
+      if (filterType.value === '院內' && e.source === 'google') return false
+      if (filterType.value === '院內' && filterBuilding.value && eventBuilding(e) !== filterBuilding.value) return false
       if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
       return true
     })
@@ -1727,7 +1721,7 @@ function openDayPanel(cell) {
 
 // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
 const formModal = reactive({ show: false, isNew: true, id: null })
-const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院', building: '' })
+const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院' })
 const formError = ref('')
 
 // 從日曆格子點 + 新增，自動帶入日期
@@ -1736,7 +1730,7 @@ function openAddOnDate(dateStr) {
   formModal.id = null
   Object.assign(form, {
     date: dateStr || '',
-    time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院', building: ''
+    time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院'
   })
   formError.value = ''
   formModal.show = true
@@ -1761,7 +1755,7 @@ function openEdit(ev) {
   Object.assign(form, {
     date: ev.date, time: ev.time || '',
     endDate: ev.endDate && ev.endDate !== ev.date ? ev.endDate : '', endTime: ev.endTime || '',
-    title: ev.title, owner: ev.owner, room: ev.room, type: ev.type, building: ev.building || ''
+    title: ev.title, owner: ev.owner, room: ev.room, building: eventBuilding(ev) || '醫院'
   })
   formError.value = ''
   formModal.show = true
@@ -1769,6 +1763,7 @@ function openEdit(ev) {
 
 // 一筆活動＝一次 API 呼叫（不論單日或跨天），後端直接存 date/endDate，
 // 前端不用再逐日展開、也不用事後用內容比對去猜是不是同一個跨天活動
+// 類型只分院內／Google，這裡新增/編輯的一律是本地「院內」活動，建築分類另外存 building
 async function saveForm() {
   if (!form.date || !form.title.trim()) {
     formError.value = '日期和標題為必填'
@@ -1790,8 +1785,8 @@ async function saveForm() {
       title: form.title,
       owner: form.owner,
       room: form.room,
-      type: form.type,
-      building: form.type === '院內' ? form.building : ''
+      type: '院內',
+      building: form.building
     }
     const res = await fetch(`${BASE.value}/save`, {
       method: 'POST',
@@ -2427,7 +2422,7 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* chip 顏色 */
+/* chip 顏色：依建築分類（醫院/園區/芳心），院內沒有建築分類的用 onsite，Google 另外一色 */
 .chip-hospital {
   background: #fee2e2;
   color: #c0392b;
