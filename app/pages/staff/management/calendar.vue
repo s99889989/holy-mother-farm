@@ -208,6 +208,29 @@
                 </span>
               </div>
 
+              <!-- 建築分類（僅在篩選「院內」時顯示，用來細分原本的醫院/園區/芳心） -->
+              <div
+                v-if="filterType === '院內' && availableBuildings.length"
+                class="filter-select-group"
+              >
+                <label class="filter-label">建築分類</label>
+                <select
+                  v-model="filterBuilding"
+                  class="filter-select"
+                >
+                  <option value="">
+                    全部
+                  </option>
+                  <option
+                    v-for="b in availableBuildings"
+                    :key="b"
+                    :value="b"
+                  >
+                    {{ b }} {{ buildingCount[b] || 0 }}
+                  </option>
+                </select>
+              </div>
+
               <!-- 地點 -->
               <div
                 v-if="availableLocations.length"
@@ -591,6 +614,10 @@
                   @click.stop
                 >在 Google 日曆開啟</a>
                 <span :class="['type-badge mt-1.5', typeColorClass(ev.type)]">{{ ev.type }}</span>
+                <span
+                  v-if="ev.building"
+                  class="text-xs text-hint-c ml-1.5"
+                >（{{ ev.building }}）</span>
               </div>
               <!-- 操作 -->
               <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
@@ -1071,6 +1098,10 @@
                   <span class="text-muted-c truncate flex-1">{{ ev.title }}</span>
                   <span class="text-hint-c flex-shrink-0 hidden sm:block">{{ ev.owner }}</span>
                   <span :class="['type-badge flex-shrink-0', typeColorClass(ev.type)]">{{ ev.type }}</span>
+                  <span
+                    v-if="ev.building"
+                    class="text-hint-c flex-shrink-0 text-[10px]"
+                  >{{ ev.building }}</span>
                 </div>
               </div>
               <div
@@ -1368,10 +1399,12 @@ const panelExpanded = ref(true)
 // ── 篩選狀態 ──────────────────────────────────────────────────────
 const filterType = ref('全部') // 全部 / 醫院 / 園區 / 芳心（建築分類）/ 院內 / Google
 const filterLocation = ref('') // 空字串 = 全部地點
+const filterBuilding = ref('') // 空字串 = 全部建築分類；僅在 filterType === '院內' 時使用，篩選原本的醫院/園區/芳心
 
 function setFilterType(t) {
   filterType.value = t
   filterLocation.value = ''
+  filterBuilding.value = ''
 }
 
 // ── 月份 / 類型 / 地點 / 收合 狀態持久化（記住使用者上次的選擇）───
@@ -1384,18 +1417,20 @@ if (import.meta.client) {
       if (saved.month) currentMonth.value = saved.month
       if (saved.type) filterType.value = saved.type
       if (saved.location !== undefined) filterLocation.value = saved.location
+      if (saved.building !== undefined) filterBuilding.value = saved.building
       if (saved.expanded !== undefined) panelExpanded.value = saved.expanded
     }
   } catch {}
 }
 
-watch([currentYear, currentMonth, filterType, filterLocation, panelExpanded], () => {
+watch([currentYear, currentMonth, filterType, filterLocation, filterBuilding, panelExpanded], () => {
   if (import.meta.client) {
     localStorage.setItem(CALENDAR_STATE_KEY, JSON.stringify({
       year: currentYear.value,
       month: currentMonth.value,
       type: filterType.value,
       location: filterLocation.value,
+      building: filterBuilding.value,
       expanded: panelExpanded.value
     }))
   }
@@ -1407,13 +1442,38 @@ function extractLocation(room) {
   return room.trim().replace(/^[A-Z0-9]+\s*/, '').trim() || room.trim()
 }
 
-// 依目前 filterType 動態產生可選地點（去重、排序）
+// 依目前 filterType（+ 院內時再依 filterBuilding）動態產生可選地點（去重、排序）
 const availableLocations = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
   let base = allEvents.value.filter(e => eventOverlapsMonth(e, ym))
   if (filterType.value !== '全部' && filterType.value !== 'Google') base = base.filter(e => e.type === filterType.value)
   if (filterType.value === 'Google') base = base.filter(e => e.source === 'google')
+  if (filterType.value === '院內' && filterBuilding.value) base = base.filter(e => e.building === filterBuilding.value)
   return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+})
+
+// 院內活動當中，實際出現過的原始建築分類（去重、排序，順序依 TYPES）
+const availableBuildings = computed(() => {
+  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  const present = new Set(
+    events.value
+      .filter(e => e.type === '院內' && eventOverlapsMonth(e, ym) && e.building)
+      .map(e => e.building)
+  )
+  return TYPES.filter(t => present.has(t))
+})
+
+// 院內活動中，各建築分類的當月筆數
+const buildingCount = computed(() => {
+  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  const counts = {}
+  events.value
+    .filter(e => e.type === '院內' && eventOverlapsMonth(e, ym))
+    .forEach((e) => {
+      const b = e.building || '未分類'
+      counts[b] = (counts[b] || 0) + 1
+    })
+  return counts
 })
 
 function prevMonth() {
@@ -1531,6 +1591,7 @@ const monthEventCount = computed(() => {
     if (!eventOverlapsMonth(e, ym)) return false
     if (filterType.value === 'Google') return e.source === 'google'
     if (filterType.value !== '全部' && e.type !== filterType.value) return false
+    if (filterType.value === '院內' && filterBuilding.value && e.building !== filterBuilding.value) return false
     if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
     return true
   }).length
@@ -1555,6 +1616,7 @@ function eventsOnDate(dateStr) {
       if (!eventCoversDate(e, dateStr)) return false
       if (filterType.value === 'Google') return e.source === 'google'
       if (filterType.value !== '全部' && e.type !== filterType.value) return false
+      if (filterType.value === '院內' && filterBuilding.value && e.building !== filterBuilding.value) return false
       if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
       return true
     })
@@ -1665,7 +1727,7 @@ function openDayPanel(cell) {
 
 // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
 const formModal = reactive({ show: false, isNew: true, id: null })
-const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院' })
+const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院', building: '' })
 const formError = ref('')
 
 // 從日曆格子點 + 新增，自動帶入日期
@@ -1674,7 +1736,7 @@ function openAddOnDate(dateStr) {
   formModal.id = null
   Object.assign(form, {
     date: dateStr || '',
-    time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院'
+    time: '', endDate: '', endTime: '', title: '', owner: '', room: '', type: '醫院', building: ''
   })
   formError.value = ''
   formModal.show = true
@@ -1699,7 +1761,7 @@ function openEdit(ev) {
   Object.assign(form, {
     date: ev.date, time: ev.time || '',
     endDate: ev.endDate && ev.endDate !== ev.date ? ev.endDate : '', endTime: ev.endTime || '',
-    title: ev.title, owner: ev.owner, room: ev.room, type: ev.type
+    title: ev.title, owner: ev.owner, room: ev.room, type: ev.type, building: ev.building || ''
   })
   formError.value = ''
   formModal.show = true
@@ -1728,7 +1790,8 @@ async function saveForm() {
       title: form.title,
       owner: form.owner,
       room: form.room,
-      type: form.type
+      type: form.type,
+      building: form.type === '院內' ? form.building : ''
     }
     const res = await fetch(`${BASE.value}/save`, {
       method: 'POST',
@@ -1924,8 +1987,8 @@ function parseTxtContent(raw) {
       const endYear = endMonth < startMonth ? year + 1 : year
       const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(+ed).padStart(2, '0')}`
       const { owner, room } = splitOwnerRoom(inner)
-      // TXT 貼上匯入的活動一律歸類為「院內」，行尾解析到的標籤僅用於辨識格式，不再作為 type
-      evList.push({ date: startDate, endDate, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內' })
+      // TXT 貼上匯入的活動一律歸類為「院內」，行尾解析到的標籤保留在 building 欄位（原本的建築分類）
+      evList.push({ date: startDate, endDate, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
       month = startMonth; day = +sd
       continue
     }
@@ -1936,7 +1999,7 @@ function parseTxtContent(raw) {
       const [, m, d, stime, etime, titleRaw, inner, type] = sameDay
       const date = `${year}-${String(+m).padStart(2, '0')}-${String(+d).padStart(2, '0')}`
       const { owner, room } = splitOwnerRoom(inner)
-      evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內' })
+      evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
       month = +m; day = +d
       continue
     }
@@ -1948,7 +2011,7 @@ function parseTxtContent(raw) {
         const [, stime, etime, titleRaw, inner, type] = old
         const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         const { owner, room } = splitOwnerRoom(inner)
-        evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內' })
+        evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
       }
     }
   }
