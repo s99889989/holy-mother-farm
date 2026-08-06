@@ -968,7 +968,7 @@
     pc.ontrack = (e) => {
       audioEl.srcObject = e.streams[0]
       const tracks = e.streams[0].getAudioTracks()
-      console.debug('[broadcast] 收到音訊軌', tracks.map(t => ({enabled: t.enabled, muted: t.muted, readyState: t.readyState})))
+      console.log('[broadcast] 收到音訊軌', tracks.map(t => ({enabled: t.enabled, muted: t.muted, readyState: t.readyState})))
       const entry = broadcastPeers.get(msg.from)
       if (entry) entry.stopLevelMeter = startLevelMeter(e.streams[0], broadcastAudioLevel)
       audioEl.play().then(() => {
@@ -984,10 +984,10 @@
       if (e.candidate) sendBroadcastSignal({type: 'ice', to: msg.from, candidate: e.candidate})
     }
     pc.oniceconnectionstatechange = () => {
-      console.debug('[broadcast] ICE 連線狀態', pc.iceConnectionState)
+      console.log('[broadcast] ICE 連線狀態', pc.iceConnectionState)
     }
     pc.onconnectionstatechange = () => {
-      console.debug('[broadcast] 整體連線狀態', pc.connectionState)
+      console.log('[broadcast] 整體連線狀態', pc.connectionState)
       if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) closeBroadcastPeer(msg.from)
     }
 
@@ -1003,7 +1003,7 @@
   }
 
   async function handleBroadcastSignal(msg) {
-    console.debug('[broadcast] 收到訊令訊息', msg.type, msg.from || '')
+    console.log('[broadcast] 收到訊令訊息', msg.type, msg.from || '')
     if (msg.type === 'offer') {
       handleBroadcastOffer(msg)
     } else if (msg.type === 'ice') {
@@ -1031,7 +1031,7 @@
     if (typeof WebSocket === 'undefined') return
     broadcastWsStatus.value = broadcastReconnectCount.value > 0 ? 'retrying' : 'connecting'
     const url = broadcastWsUrl()
-    console.debug('[broadcast] 嘗試連線訊令 WebSocket', url, '第', broadcastReconnectCount.value, '次重試')
+    console.log('[broadcast] 嘗試連線訊令 WebSocket', url, '第', broadcastReconnectCount.value, '次重試')
     try {
       broadcastWs = new WebSocket(url)
     } catch (e) {
@@ -1042,7 +1042,7 @@
       return
     }
     broadcastWs.onopen = () => {
-      console.debug('[broadcast] 訊令 WebSocket 已連線')
+      console.log('[broadcast] 訊令 WebSocket 已連線')
       broadcastWsStatus.value = 'connected'
       broadcastReconnectCount.value = 0
       sendBroadcastSignal({type: 'hello', role: 'receiver'})
@@ -1054,7 +1054,7 @@
       }
     }
     broadcastWs.onclose = (e) => {
-      console.debug('[broadcast] 訊令 WebSocket 已斷線，3 秒後重試', 'code=', e.code, 'reason=', e.reason)
+      console.log('[broadcast] 訊令 WebSocket 已斷線，3 秒後重試', 'code=', e.code, 'reason=', e.reason)
       broadcastWsStatus.value = 'retrying'
       // 這台主機是常駐收話端，斷線要自動重連，不然之後手機廣播都收不到
       for (const id of Array.from(broadcastPeers.keys())) closeBroadcastPeer(id)
