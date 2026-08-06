@@ -848,6 +848,11 @@
 
   const broadcastPlaying = ref(false)
   const broadcastFrom = ref('')
+  // 有連線、橫幅也出現，但瀏覽器自動播放限制擋下了 audioEl.play()，導致完全沒聲音的情況——
+  // 這種通常發生在這台電腦的分頁本身很久沒人點過（例如放著沒人操作的常駐螢幕），瀏覽器就不
+  // 允許在沒有「使用者手勢」的情況下自動出聲。擋下時会把這個設 true，畫面上會跳出可以點的
+  // 提示，讓現場自己點一下就能解除，不用等重新整理頁面或叫人來處理。
+  const broadcastAudioBlocked = ref(false)
 
   // 訊令 WebSocket 連線狀態，純粹給畫面顯示＋ console 除錯用，不影響功能本身。
   // 主要是為了分辨「完全沒反應」到底是卡在哪一步：
@@ -867,6 +872,7 @@
     const active = broadcastPeers.values().next().value
     broadcastPlaying.value = broadcastPeers.size > 0
     broadcastFrom.value = active ? active.label : ''
+    if (broadcastPeers.size === 0) broadcastAudioBlocked.value = false
   }
 
   function sendBroadcastSignal(payload) {
@@ -890,6 +896,18 @@
     updateBroadcastBanner()
   }
 
+  // 這個一定要在真正的使用者點擊事件裡「直接」呼叫 play()，才算數（瀏覽器認的是呼叫當下
+  // 在不在使用者手勢的呼叫堆疊裡，不是元素本身建立的時間點），所以不能包在其他非同步流程後面。
+  function retryBroadcastAudio() {
+    for (const entry of broadcastPeers.values()) {
+      entry.audioEl.play().then(() => {
+        broadcastAudioBlocked.value = false
+      }).catch((err) => {
+        console.error('[broadcast] 手動重試播放仍失敗', err.name, err.message)
+      })
+    }
+  }
+
   async function handleBroadcastOffer(msg) {
     closeBroadcastPeer(msg.from) // 同一支手機重新發 offer（例如重連）時，先收掉舊的連線
 
@@ -901,8 +919,16 @@
 
     pc.ontrack = (e) => {
       audioEl.srcObject = e.streams[0]
-      audioEl.play().catch(() => {
-      }) // 若被瀏覽器自動播放限制擋下，橫幅仍會顯示廣播中，不影響其他功能
+      const tracks = e.streams[0].getAudioTracks()
+      console.debug('[broadcast] 收到音訊軌', tracks.map(t => ({enabled: t.enabled, muted: t.muted, readyState: t.readyState})))
+      audioEl.play().then(() => {
+        broadcastAudioBlocked.value = false
+      }).catch((err) => {
+        // 最常見是 NotAllowedError：瀏覽器自動播放限制擋下，橫幅仍會顯示廣播中但完全沒聲音，
+        // 之前這裡是靜默吞掉完全看不出來——現在會 log 出來，並在畫面跳出可點的提示解除。
+        console.error('[broadcast] audioEl.play() 被擋下', err.name, err.message)
+        if (err.name === 'NotAllowedError') broadcastAudioBlocked.value = true
+      })
     }
     pc.onicecandidate = (e) => {
       if (e.candidate) sendBroadcastSignal({type: 'ice', to: msg.from, candidate: e.candidate})
@@ -1282,6 +1308,22 @@
           <span class="animate-pulse">🎙️</span>
           <span class="font-semibold">內場廣播中{{ broadcastFrom ? '　' + broadcastFrom : '' }}</span>
         </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ── 廣播被瀏覽器自動播放限制擋下（有連線、有橫幅，但完全沒聲音）：跳出可點的提示自己解除 ── -->
+    <Teleport to="body">
+      <Transition name="notify">
+        <button
+          v-if="broadcastPlaying && broadcastAudioBlocked"
+          type="button"
+          class="fixed top-12 inset-x-0 z-[60] flex items-center justify-center gap-2 bg-red-700 text-white px-4 py-2.5 shadow-lg w-full text-center animate-pulse"
+          style="font-size:clamp(13px, calc(13px + 0.4vw), 17px)"
+          @click="retryBroadcastAudio"
+        >
+          <span>🔇</span>
+          <span class="font-semibold">廣播聲音被瀏覽器擋住了，點這裡播放</span>
+        </button>
       </Transition>
     </Teleport>
 
