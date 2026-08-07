@@ -933,7 +933,7 @@
   // ⚠️ TURN_IP 是目前的公網 IP，因為是動態 IP，哪天 ISP 換了 IP 給你，這裡要跟著手動更新
   // （跟 turnserver.conf 的 external-ip 要保持一致），不然 IP 這組也會失效。
   const TURN_HOST = 'madustrialtd.asuscomm.com'
-  const TURN_IP = '61.227.71.68'
+  const TURN_IP = '61.227.78.231'
   const TURN_USERNAME = 'holyfarm'
   const TURN_CREDENTIAL = 'changeme123'
   const ICE_SERVERS = [

@@ -87,7 +87,7 @@
   // 會完全連不上，這時就靠 IP 直連繞過 DNS。IP 是動態的，哪天家裡網路的公網 IP 換了，
   // 這裡要跟著手動更新（要跟 turnserver.conf 的 external-ip、home.vue 裡的 TURN_IP 一致）。
   const TURN_HOST = 'madustrialtd.asuscomm.com'
-  const TURN_IP = '61.227.71.68'
+  const TURN_IP = '61.227.78.231'
   const TURN_USERNAME = 'holyfarm'
   const TURN_CREDENTIAL = 'changeme123'
   const ICE_SERVERS = [
