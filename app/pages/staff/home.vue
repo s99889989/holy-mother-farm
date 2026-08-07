@@ -942,6 +942,12 @@
     {urls: `turn:${TURN_HOST}:3478?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
     {urls: `turn:${TURN_IP}:3478`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
     {urls: `turn:${TURN_IP}:3478?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+    // TURN over TLS，走 443：有些嚴格防火牆（DPI）就算放行 443 的 TCP 連線，
+    // 也會擋掉裡面不是合法 TLS 封包的內容（例如裸的 TURN 協定），偽裝成走 443 但
+    // 沒包 TLS 還是可能連不上。turns: 是真的 TLS 握手，看起來就是一般 HTTPS 流量，
+    // 用這個當最後一層備援。網域跟 IP 都放，邏輯跟上面幾組一樣。
+    {urls: `turns:${TURN_HOST}:443?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+    {urls: `turns:${TURN_IP}:443?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
   ]
 
   const broadcastPlaying = ref(false)
