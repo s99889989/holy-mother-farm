@@ -8,6 +8,8 @@
 </template>
 
 <script setup>
+import { verifySession } from '~/composables/useSessionCheck'
+
 const commonStore = useCommonStore()
 const customerStore = useCustomerStore()
 const permissionStore = usePermissionStore()
@@ -22,6 +24,14 @@ const loadPerms = (silent) => {
 // session cookie 可能已被清除，但 localStorage 的 isLoggedIn 還是 true。
 // 監聽 visibilitychange，頁面重新可見時打 /me 確認 session 仍有效。
 //
+// 驗證邏輯（含節流、去重、失敗重試）都在 useSessionCheck 裡，跟
+// middleware/holy-auth.global.ts 共用同一份狀態：
+//   - force: true → 切回前景一定重新驗證一次，不受 10 分鐘節流限制
+//   - retryOnFail: true → 剛切回前景網路堆疊常常還沒就緒，第一次
+//     fetch 失敗（含逾時、離線）先延遲重試一次，避免誤判成登出
+//   - 內部的 checking flag 會擋掉跟 middleware 同時觸發的重複驗證，
+//     兩邊不會各驗各的、彼此結果對不上造成畫面跳動
+//
 // 同時，如果 onMounted 那次的權限載入剛好在網路還沒就緒時失敗，
 // permissionStore.loaded 會停在 false（但 perms 不會被清空）。
 // 這裡確認 session 沒問題後，順手再補拉一次權限，讓畫面有機會自己修復，
@@ -35,38 +45,21 @@ async function checkSessionOnVisible() {
     return
   }
 
-  // isLoggedIn 還是 true → 打 /me 確認 cookie 還活著
-  try {
-    const res = await fetch(commonStore.data.main_url + '/holy/customer/me', {
-      credentials: 'include'
-    })
+  const { loggedOut, skipped } = await verifySession(commonStore.data.main_url, {
+    force: true,
+    retryOnFail: true
+  })
 
-    // 只有後端明確表示「沒有這個登入」（401/403）才是真的 session 失效。
-    // 手機從背景切回前景那一刻，網路堆疊常常還沒完全就緒，這時
-    // 拿到的可能是 5xx / 閘道逾時，跟登入狀態無關，不該直接登出。
-    if (res.status === 401 || res.status === 403) {
-      customerStore.clearCustomer()
-      permissionStore.clear()
-      try {
-        await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
-          method: 'POST',
-          credentials: 'include'
-        })
-      } catch { /* ignore */ }
-      window.location.href = '/'
-      return
-    }
-
-    if (!res.ok) {
-      // 5xx / 502 / 503 / 504 等暫時性錯誤：不確定 session 是否有效，
-      // 保守起見不登出，直接往下走照常補拉權限（權限 store 自己有重試機制）
-    }
-  } catch {
-    // fetch 本身失敗（離線、逾時）：網路錯誤不強制登出，等下次再檢查
+  if (loggedOut) {
+    window.location.href = '/'
     return
   }
 
-  // session 沒問題（或無法確認，但選擇不登出）→ 補拉權限（非 silent 只在還沒載入成功時才會真的擋，
+  // skipped 代表 middleware 那邊剛好正在驗證或剛驗證過，這裡不用再拉一次權限，
+  // 交給 middleware 那次驗證完成後的畫面狀態即可
+  if (skipped) return
+
+  // session 沒問題 → 補拉權限（非 silent 只在還沒載入成功時才會真的擋，
   // 已經 loaded=true 的話 load() 內部會直接以 silent 方式背景刷新）
   if (!permissionStore.loaded) {
     await loadPerms(false)

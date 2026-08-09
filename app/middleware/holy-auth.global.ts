@@ -1,20 +1,7 @@
 // middleware/holy-auth.global.ts
-
-import { usePermissionStore } from '~/stores/permission'
+import { verifySession } from '~/composables/useSessionCheck'
 
 const ADMIN_HOME = '/admin/customer-management'
-
-// ── Cookie 驗證時間控制 ───────────────────────────────────────────
-const CHECK_INTERVAL = 10 * 60 * 1000 // 10 分鐘
-let lastCheckedAt = 0
-
-async function forceLogout(customerStore: ReturnType<typeof useCustomerStore>, baseUrl: string) {
-  lastCheckedAt = 0
-  customerStore.clearCustomer()
-  usePermissionStore().clear()
-  try { await fetch(`${baseUrl}/holy/customer/logout`, { method: 'POST', credentials: 'include' }) } catch { /* ignore */ }
-  return navigateTo('/')
-}
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/staff') return navigateTo('/staff/home')
@@ -55,37 +42,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   // ── Cookie 有效性驗證 ────────────────────────────────────────────
-  const now = Date.now()
-  const needCheck = to.path.startsWith('/staff')
-    && customerStore.isLoggedIn
-    && (now - lastCheckedAt > CHECK_INTERVAL)
-
-  if (needCheck) {
-    lastCheckedAt = now
+  // 節流、去重邏輯都在 useSessionCheck 裡，跟 layouts/staff.vue 的
+  // visibilitychange 檢查共用同一份「上次驗證時間 / 是否驗證中」的狀態，
+  // 避免兩邊在切回前景那一刻各打各的、彼此結果對不上造成畫面跳動。
+  if (to.path.startsWith('/staff') && customerStore.isLoggedIn) {
     const commonStore = useCommonStore()
-    try {
-      const res = await fetch(commonStore.data.main_url + '/holy/customer/me', {
-        credentials: 'include'
-      })
-
-      // 後端明確表示「沒有這個登入」，才是真的 session 失效
-      if (res.status === 401 || res.status === 403) {
-        return forceLogout(customerStore, commonStore.data.main_url)
-      }
-
-      if (!res.ok) {
-        // 5xx / 502 / 503 / 504 等閘道逾時，通常是行動網路訊號差、
-        // 連線還沒就緒造成的暫時性問題，跟登入狀態無關。
-        // 不強制登出，只重置 lastCheckedAt，讓下次導覽再驗證一次。
-        lastCheckedAt = 0
-      } else {
-        const data = await res.json()
-        if (data.error) return forceLogout(customerStore, commonStore.data.main_url)
-      }
-    } catch {
-      // fetch 本身失敗（離線、逾時）：同樣不強制登出，等下次再檢查
-      lastCheckedAt = 0
-    }
+    const { loggedOut } = await verifySession(commonStore.data.main_url)
+    if (loggedOut) return navigateTo('/')
   }
 
   // ── 取得所需 key（由各頁面 definePageMeta 宣告）─────────────────
