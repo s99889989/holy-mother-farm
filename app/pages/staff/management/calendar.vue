@@ -321,7 +321,7 @@
               >
                 <template v-if="cell.day">
                   <!-- 日期數字 -->
-                  <div class="flex items-center justify-between mb-1 px-0.5">
+                  <div class="cal-day-header flex items-center justify-between mb-1 px-0.5">
                     <span
                       :class="['cal-day-num', {
                         'today-num': cell.isToday,
@@ -2120,26 +2120,73 @@
   async function fetchRoomOrderEvents() {
     try {
       const res = await fetch(`${BASE_ROOMS.value}/list`)
-      const list = res.ok ? await res.json() : []
-      roomOrderEvents.value = list
-        .filter(o => o.checkIn)
-        .map(o => ({
-          id: `room_${o.id}`,
-          date: o.checkIn,
-          endDate: o.checkOut || o.checkIn,
-          time: '',
-          title: `${o.groupName || o.name}／${o.guests}人${o.roomId ? '（' + o.roomId + '）' : ''}`,
-          owner: o.name,
-          room: o.roomId || '',
-          description: [o.notes].filter(Boolean).join('\n'),
-          status: o.status,
-          phone: o.phone,
-          groupName: o.groupName,
-          source: 'roomorder'
-        }))
+      const raw = res.ok ? await res.json() : []
+      roomOrderEvents.value = groupRoomOrders(raw.filter(o => o.checkIn))
     } catch (e) {
       console.error(e)
     }
+  }
+
+  // 團體訂房（有 groupId）合併成一筆顯示「團名（N 間）」，日期取整團最早入住～最晚退房；
+  // 沒有 groupId 的個人訂房照舊逐筆列出。比照 home.vue 房務清單的合併寫法（用 groupId 分組、
+  // 只留一筆代表整團，其餘成員資料收進 members 供詳細面板使用）
+  function groupRoomOrders(list) {
+    const groupMembers = new Map() // groupId -> [booking, ...]
+    const solo = []
+    for (const o of list) {
+      if (o.groupId) {
+        if (!groupMembers.has(o.groupId)) groupMembers.set(o.groupId, [])
+        groupMembers.get(o.groupId).push(o)
+      } else {
+        solo.push(o)
+      }
+    }
+
+    const events = solo.map(o => ({
+      id: `room_${o.id}`,
+      date: o.checkIn,
+      endDate: o.checkOut || o.checkIn,
+      time: '',
+      title: `${o.name}／${o.guests}人${o.roomId ? '（' + o.roomId + '）' : ''}`,
+      owner: o.name,
+      room: o.roomId || '',
+      description: [o.notes].filter(Boolean).join('\n'),
+      status: o.status,
+      phone: o.phone,
+      source: 'roomorder'
+    }))
+
+    for (const [groupId, members] of groupMembers) {
+      const minCheckIn = members.map(m => m.checkIn).sort()[0]
+      const maxCheckOut = members.map(m => m.checkOut || m.checkIn).sort().slice(-1)[0]
+      const sameRange = members.every(m => m.checkIn === minCheckIn) && members.every(m => (m.checkOut || m.checkIn) === maxCheckOut)
+      const totalGuests = members.reduce((sum, m) => sum + (m.guests || 0), 0)
+      const rooms = members.map(m => m.roomId).filter(Boolean)
+      const statusCounts = {}
+      members.forEach(m => { statusCounts[m.status] = (statusCounts[m.status] || 0) + 1 })
+      const groupName = members[0].groupName || members[0].name
+      events.push({
+        id: `room_group_${groupId}`,
+        date: minCheckIn,
+        endDate: maxCheckOut,
+        time: '',
+        title: `${groupName}（${members.length} 間）`,
+        owner: groupName,
+        room: rooms.join('、'),
+        description: [
+          !sameRange ? '（各房入住/退房日期不同）' : '',
+          ...members.map(m => `${m.roomId || '未指派'}／${m.guests}人／${m.status}`)
+        ].filter(Boolean).join('\n'),
+        status: Object.entries(statusCounts).map(([s, c]) => `${s} ${c}`).join('・'),
+        phone: members[0].phone,
+        isGroup: true,
+        guests: totalGuests,
+        members,
+        source: 'roomorder'
+      })
+    }
+
+    return events
   }
 
   // ── Google Calendar API ───────────────────────────────────────────
@@ -2936,6 +2983,13 @@
   }
 
   /* ── 日期數字 ── */
+  /* 固定高度＝跨天色條圖層 padding-top(27px) 扣掉自己的 margin-bottom(mb-1=4px)，
+     確保這一列的實際佔用高度跟 .week-banner-layer 的 padding-top 完全對齊，
+     不然色條跟下面自己的活動清單會因為兩邊各自算的高度對不起來而稍微疊到 */
+  .cal-day-header {
+    min-height: 23px;
+  }
+
   .cal-day-num {
     font-size: 16px; /* text-base */
     font-weight: 600;
@@ -3479,6 +3533,10 @@
 
     .cal-day-num {
       font-size: 12px; /* text-xs，手機版再縮小一級 */
+    }
+
+    .cal-day-header {
+      min-height: 14px; /* 對齊手機版 .week-banner-layer 的 padding-top(18px) - mb-1(4px) */
     }
 
     .cal-chip {
