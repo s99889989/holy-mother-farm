@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 max-w-screen-xl mx-auto text-sm text-base-c">
+  <div class="p-4 xl:px-8 max-w-screen-xl 2xl:max-w-none mx-auto text-sm text-base-c">
     <!-- 標題 -->
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
       <div class="text-base font-bold text-muted-c dark:text-hint-c">
@@ -8,431 +8,531 @@
       <!-- 上傳 GMON3.GDB -->
       <div class="flex items-center gap-2">
         <input
-          ref="dbFileInput"
-          type="file"
-          accept=".gdb,.GDB"
-          class="hidden"
-          @change="onDbFileChange"
+            ref="dbFileInput"
+            type="file"
+            accept=".gdb,.GDB"
+            class="hidden"
+            @change="onDbFileChange"
         >
         <button
-          :disabled="dbUploading"
-          class="bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm"
-          @click="(dbFileInput as HTMLInputElement)?.click()"
+            :disabled="dbUploading"
+            class="bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm"
+            @click="(dbFileInput as HTMLInputElement)?.click()"
         >
           {{ dbUploading ? '上傳中…' : '⬆️ 上傳 GMON3.GDB' }}
         </button>
       </div>
     </div>
 
-    <!-- ════════════════════════ KPI 卡片 ════════════════════════ -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-      <div class="border border-base rounded-md p-3 bg-surface">
-        <div class="text-xl font-bold text-base-c">
-          {{ stats?.total_customers ?? '–' }}
-        </div>
-        <div class="text-xs text-hint-c dark:text-hint-c">
-          建檔客戶數
-        </div>
-      </div>
-      <div class="border border-base rounded-md p-3 bg-surface">
-        <div class="text-xl font-bold text-base-c">
-          {{ stats?.total_measurements ?? '–' }}
-        </div>
-        <div class="text-xs text-hint-c dark:text-hint-c">
-          檢測總筆數
-        </div>
-      </div>
-      <div class="border border-base rounded-md p-3 bg-surface">
-        <div class="text-xl font-bold text-base-c">
-          {{ stats?.avg_bmi ?? '–' }}
-        </div>
-        <div class="text-xs text-hint-c dark:text-hint-c">
-          平均 BMI
-        </div>
-      </div>
-      <div class="border border-base rounded-md p-3 bg-surface">
-        <div class="text-xl font-bold text-base-c">
-          {{ stats?.avg_fatp ?? '–' }}%
-        </div>
-        <div class="text-xs text-hint-c dark:text-hint-c">
-          平均體脂率
-        </div>
-      </div>
+    <!-- ════════════════════════ 頁籤導覽 ════════════════════════ -->
+    <div class="flex gap-1 border-b border-base mb-5">
+      <button
+          v-for="t in mainTabs"
+          :key="t.key"
+          class="px-4 py-2 text-sm border-b-2 -mb-px transition-colors"
+          :class="currentTab === t.key
+          ? 'border-teal-500 text-teal-600 dark:text-teal-400 font-semibold'
+          : 'border-transparent text-muted-c dark:text-hint-c hover:text-base-c'"
+          @click="currentTab = t.key"
+      >
+        {{ t.label }}
+      </button>
     </div>
 
-    <!-- BMI 分類 / 性別比例 -->
-    <div class="grid md:grid-cols-2 gap-3 mb-6">
-      <div class="border border-base rounded-md p-4 bg-surface">
-        <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-3">
-          BMI 分類分布
-        </div>
-        <div
-          v-for="cat in bmiCategoryList"
-          :key="cat.label"
-          class="flex items-center gap-2 mb-1.5 text-xs"
-        >
-          <span class="w-10 text-hint-c dark:text-hint-c">{{ cat.label }}</span>
-          <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
-            <div
-              class="h-full rounded"
-              :class="cat.color"
-              :style="{ width: cat.pct + '%' }"
-            />
-          </div>
-          <span class="w-10 text-right text-muted-c">{{ cat.value }}</span>
-        </div>
-      </div>
-      <div class="border border-base rounded-md p-4 bg-surface">
-        <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-3">
-          性別比例
-        </div>
-        <div class="flex items-center gap-2 mb-1.5 text-xs">
-          <span class="w-10 text-hint-c dark:text-hint-c">女</span>
-          <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
-            <div class="h-full rounded bg-pink-400" :style="{ width: genderPct.F + '%' }" />
-          </div>
-          <span class="w-10 text-right text-muted-c">{{ stats?.gender?.F ?? 0 }}</span>
-        </div>
-        <div class="flex items-center gap-2 text-xs">
-          <span class="w-10 text-hint-c dark:text-hint-c">男</span>
-          <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
-            <div class="h-full rounded bg-blue-400" :style="{ width: genderPct.M + '%' }" />
-          </div>
-          <span class="w-10 text-right text-muted-c">{{ stats?.gender?.M ?? 0 }}</span>
-        </div>
-      </div>
-    </div>
+    <!-- ════════════════════════ 總覽 ════════════════════════ -->
+    <div v-show="currentTab === 'overview'">
 
-    <!-- ════════════════════════ 最新檢測動態 ════════════════════════ -->
-    <div class="mb-6">
+      <!-- ════════════════════════ KPI 卡片 ════════════════════════ -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div class="border border-base rounded-md p-3 bg-surface">
+          <div class="text-xl font-bold text-base-c">
+            {{ stats?.total_customers ?? '–' }}
+          </div>
+          <div class="text-xs text-hint-c dark:text-hint-c">
+            建檔客戶數
+          </div>
+        </div>
+        <div class="border border-base rounded-md p-3 bg-surface">
+          <div class="text-xl font-bold text-base-c">
+            {{ stats?.total_measurements ?? '–' }}
+          </div>
+          <div class="text-xs text-hint-c dark:text-hint-c">
+            檢測總筆數
+          </div>
+        </div>
+        <div class="border border-base rounded-md p-3 bg-surface">
+          <div class="text-xl font-bold text-base-c">
+            {{ stats?.avg_bmi ?? '–' }}
+          </div>
+          <div class="text-xs text-hint-c dark:text-hint-c">
+            平均 BMI
+          </div>
+        </div>
+        <div class="border border-base rounded-md p-3 bg-surface">
+          <div class="text-xl font-bold text-base-c">
+            {{ stats?.avg_fatp ?? '–' }}%
+          </div>
+          <div class="text-xs text-hint-c dark:text-hint-c">
+            平均體脂率
+          </div>
+        </div>
+      </div>
+
+      <!-- BMI 分類 / 性別比例 -->
+      <div class="grid md:grid-cols-2 gap-3 mb-6">
+        <div class="border border-base rounded-md p-4 bg-surface">
+          <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-3">
+            BMI 分類分布
+          </div>
+          <div
+              v-for="cat in bmiCategoryList"
+              :key="cat.label"
+              class="flex items-center gap-2 mb-1.5 text-xs"
+          >
+            <span class="w-10 text-hint-c dark:text-hint-c">{{ cat.label }}</span>
+            <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
+              <div
+                  class="h-full rounded"
+                  :class="cat.color"
+                  :style="{ width: cat.pct + '%' }"
+              />
+            </div>
+            <span class="w-10 text-right text-muted-c">{{ cat.value }}</span>
+          </div>
+        </div>
+        <div class="border border-base rounded-md p-4 bg-surface">
+          <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-3">
+            性別比例
+          </div>
+          <div class="flex items-center gap-2 mb-1.5 text-xs">
+            <span class="w-10 text-hint-c dark:text-hint-c">女</span>
+            <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
+              <div class="h-full rounded bg-pink-400" :style="{ width: genderPct.F + '%' }" />
+            </div>
+            <span class="w-10 text-right text-muted-c">{{ stats?.gender?.F ?? 0 }}</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="w-10 text-hint-c dark:text-hint-c">男</span>
+            <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
+              <div class="h-full rounded bg-blue-400" :style="{ width: genderPct.M + '%' }" />
+            </div>
+            <span class="w-10 text-right text-muted-c">{{ stats?.gender?.M ?? 0 }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════ 最新檢測動態 ════════════════════════ -->
+      <div class="mb-6">
+        <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-2">
+          最新檢測動態
+        </div>
+        <div class="overflow-x-auto rounded-md border border-base">
+          <table class="w-full border-collapse text-xs">
+            <thead class="bg-teal-600 dark:bg-teal-800 text-white">
+            <tr>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                姓名
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                日期
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                BMI
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                體脂率%
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                肌肉量kg
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                內臟脂肪
+              </th>
+            </tr>
+            </thead>
+            <tbody class="divide-y divide-base">
+            <tr v-if="!latestRecords.length">
+              <td colspan="6" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
+                無資料
+              </td>
+            </tr>
+            <tr
+                v-for="rec in latestRecords"
+                :key="rec.patnr + '-' + rec.datetime"
+                class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+                @click="openCustomer(rec.patnr)"
+            >
+              <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                {{ rec.lastname }}{{ rec.firstname }}
+              </td>
+              <td class="border border-light-c px-3 py-1 whitespace-nowrap font-mono">
+                {{ fmtDate(rec.datetime) }}
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                {{ fmtNum(rec.fatp) }}
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                {{ fmtNum(rec.pmm) }}
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                {{ fmtNum(rec.vfatl, 0) }}
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+    <!-- ════════════════════════ /總覽 ════════════════════════ -->
+
+    <!-- ════════════════════════ 客戶查詢 ════════════════════════ -->
+    <div v-show="currentTab === 'customers'">
+
       <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-2">
-        最新檢測動態
+        客戶查詢
       </div>
-      <div class="overflow-x-auto rounded-md border border-base">
-        <table class="w-full border-collapse text-xs">
-          <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-          <tr>
-            <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-              姓名
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-              日期
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-              BMI
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-              體脂率%
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-              肌肉量kg
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-              內臟脂肪
-            </th>
-          </tr>
-          </thead>
-          <tbody class="divide-y divide-base">
-          <tr v-if="!latestRecords.length">
-            <td colspan="6" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
-              無資料
-            </td>
-          </tr>
-          <tr
-            v-for="rec in latestRecords"
-            :key="rec.patnr + '-' + rec.datetime"
-            class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-            @click="openCustomer(rec.patnr)"
-          >
-            <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-              {{ rec.lastname }}{{ rec.firstname }}
-            </td>
-            <td class="border border-light-c px-3 py-1 whitespace-nowrap font-mono">
-              {{ fmtDate(rec.datetime) }}
-            </td>
-            <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-              <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
-            </td>
-            <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-              {{ fmtNum(rec.fatp) }}
-            </td>
-            <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-              {{ fmtNum(rec.pmm) }}
-            </td>
-            <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-              {{ fmtNum(rec.vfatl, 0) }}
-            </td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
 
-    <!-- ════════════════════════ 客戶列表 ════════════════════════ -->
-    <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-2">
-      客戶查詢
-    </div>
-    <div class="flex gap-3 mb-3 flex-wrap items-center">
-      <input
-        v-model="keyword"
-        type="text"
-        placeholder="姓名 / 客戶編號 / 電話"
-        class="border border-base rounded px-3 py-1.5 w-64 bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c"
-        @keyup.enter="search"
-      >
-      <select
-        v-model="groupFilter"
-        class="border border-base rounded px-3 py-1.5 bg-surface text-base-c"
-        @change="search"
-      >
-        <option value="">
-          所屬班別（全部）
-        </option>
-        <option v-for="g in groups" :key="g.name" :value="g.name">
-          {{ g.name }}（{{ g.count }}）
-        </option>
-      </select>
-      <button
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded"
-        @click="search"
-      >
-        查詢
-      </button>
-      <button
-        class="bg-surface2 hover-border text-base-c px-4 py-1.5 rounded"
-        @click="resetSearch"
-      >
-        清除
-      </button>
-    </div>
+      <div class="lg:grid lg:grid-cols-[1.15fr_1fr] lg:gap-5 lg:items-start">
 
-    <div class="flex gap-2 mb-2 items-center text-sm flex-wrap">
-      <button
-        :disabled="page <= 1"
-        class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-        @click="page = 1; refreshList()"
-      >
-        &lt;&lt; 第一頁
-      </button>
-      <button
-        :disabled="page <= 1"
-        class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-        @click="page--; refreshList()"
-      >
-        &lt; 前一頁
-      </button>
-      <span class="text-muted-c">第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ listData?.total ?? 0 }} 筆）</span>
-      <button
-        :disabled="page >= totalPages"
-        class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-        @click="page++; refreshList()"
-      >
-        下一頁 &gt;
-      </button>
-      <button
-        :disabled="page >= totalPages"
-        class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-        @click="page = totalPages; refreshList()"
-      >
-        最後一頁 &gt;&gt;
-      </button>
-    </div>
-
-    <div class="overflow-x-auto rounded-md border border-base mb-6">
-      <table class="w-full border-collapse text-sm">
-        <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-        <tr>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-            客戶編號
-          </th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-            姓名
-          </th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-center whitespace-nowrap">
-            性別
-          </th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-            電話
-          </th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">
-            所屬班別
-          </th>
-          <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-            建檔日期
-          </th>
-        </tr>
-        </thead>
-        <tbody class="divide-y divide-base">
-        <tr v-if="!listData?.rows?.length">
-          <td colspan="6" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
-            無資料
-          </td>
-        </tr>
-        <tr
-          v-for="row in listData?.rows"
-          :key="row.patnr"
-          class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-          :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
-          @click="openCustomer(row.patnr)"
-        >
-          <td class="border border-light-c px-3 py-1 font-mono whitespace-nowrap">
-            {{ row.customerid }}
-          </td>
-          <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-            {{ row.lastname }}{{ row.firstname }}
-          </td>
-          <td class="border border-light-c px-3 py-1 text-center whitespace-nowrap">
-            {{ row.sex === 'F' ? '女' : row.sex === 'M' ? '男' : '' }}
-          </td>
-          <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-            {{ row.telephone }}
-          </td>
-          <td
-            class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[160px] overflow-hidden text-ellipsis"
-            :title="row.group1"
-          >
-            {{ row.group1 }}
-          </td>
-          <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-            {{ fmtDate(row.creationdate) }}
-          </td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- ════════════════════════ 客戶詳情 / 歷史紀錄 ════════════════════════ -->
-    <div v-if="selectedPatnr" class="border border-base rounded-md overflow-hidden mb-4">
-      <div class="bg-teal-500 dark:bg-teal-700 text-white px-4 py-2 font-bold flex items-center justify-between">
-        <span>
-          {{ selectedCustomer?.lastname }}{{ selectedCustomer?.firstname }}
-          的身體組成歷史紀錄
-        </span>
-        <button class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded" @click="closeCustomer">
-          ✕ 關閉
-        </button>
-      </div>
-      <div class="p-4 bg-surface">
-        <div v-if="customerLoading" class="text-hint-c dark:text-hint-c py-4 text-center">
-          載入中…
-        </div>
-        <template v-else>
-          <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-c dark:text-hint-c mb-3">
-            <span>客戶編號：<b class="text-base-c">{{ selectedCustomer?.customerid }}</b></span>
-            <span>性別：<b class="text-base-c">{{ selectedCustomer?.sex === 'F' ? '女' : '男' }}</b></span>
-            <span>電話：<b class="text-base-c">{{ selectedCustomer?.telephone || '–' }}</b></span>
-            <span>班別：<b class="text-base-c">{{ selectedCustomer?.group1 || '–' }}</b></span>
-            <span>共 <b class="text-base-c">{{ customerRecords.length }}</b> 筆檢測紀錄</span>
+        <!-- ── 左：搜尋 + 客戶列表 ── -->
+        <div class="min-w-0">
+          <div class="flex gap-3 mb-3 flex-wrap items-center">
+            <input
+                v-model="keyword"
+                type="text"
+                placeholder="姓名 / 客戶編號 / 電話"
+                class="border border-base rounded px-3 py-1.5 w-56 bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c"
+                @keyup.enter="search"
+            >
+            <select
+                :value="groupFilter"
+                class="border border-base rounded px-3 py-1.5 bg-surface text-base-c"
+                @change="selectGroup(($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="g in groupTabs" :key="g.name" :value="g.name">
+                {{ g.label }}（{{ g.count }}）
+              </option>
+            </select>
+            <button
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded"
+                @click="search"
+            >
+              查詢
+            </button>
+            <button
+                class="bg-surface2 hover-border text-base-c px-4 py-1.5 rounded"
+                @click="resetSearch"
+            >
+              清除
+            </button>
+            <button
+                v-if="groupFilter"
+                class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded text-sm"
+                title="複製此班別的免登入分享連結"
+                @click="copyGroupShareLink"
+            >
+              🔗 複製「{{ groupFilter }}」分享連結
+            </button>
           </div>
 
-          <div class="overflow-x-auto rounded border border-base">
-            <table class="w-full border-collapse text-xs">
-              <thead class="bg-surface2">
-              <tr class="text-muted-c dark:text-hint-c">
-                <th class="border border-light-c px-2 py-1.5 text-left whitespace-nowrap">
-                  日期
+          <div class="flex gap-2 mb-2 items-center text-sm flex-wrap">
+            <button
+                :disabled="page <= 1"
+                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+                @click="page = 1; refreshList()"
+            >
+              &lt;&lt; 第一頁
+            </button>
+            <button
+                :disabled="page <= 1"
+                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+                @click="page--; refreshList()"
+            >
+              &lt; 前一頁
+            </button>
+            <span class="text-muted-c">第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ listData?.total ?? 0 }} 筆）</span>
+            <button
+                :disabled="page >= totalPages"
+                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+                @click="page++; refreshList()"
+            >
+              下一頁 &gt;
+            </button>
+            <button
+                :disabled="page >= totalPages"
+                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+                @click="page = totalPages; refreshList()"
+            >
+              最後一頁 &gt;&gt;
+            </button>
+          </div>
+
+          <div class="overflow-x-auto rounded-md border border-base mb-6 lg:mb-0">
+            <table class="w-full border-collapse text-sm">
+              <thead class="bg-teal-600 dark:bg-teal-800 text-white">
+              <tr>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  客戶編號
                 </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  年齡
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  姓名
                 </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  身高cm
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-center whitespace-nowrap">
+                  性別
                 </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  體重kg
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">
+                  所屬班別
                 </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  BMI
-                </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  體脂率%
-                </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  體脂重kg
-                </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  肌肉量kg
-                </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  內臟脂肪
-                </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  骨量kg
-                </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  基礎代謝
-                </th>
-                <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                  綜合風險
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  建檔日期
                 </th>
               </tr>
               </thead>
               <tbody class="divide-y divide-base">
-              <tr v-if="!customerRecords.length">
-                <td colspan="12" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
-                  尚無檢測紀錄
+              <tr v-if="!listData?.rows?.length">
+                <td colspan="5" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
+                  無資料
                 </td>
               </tr>
               <tr
-                v-for="(rec, idx) in customerRecords"
-                :key="rec.datetime"
-                class="bg-surface"
-                :class="{ 'font-semibold': idx === 0 }"
+                  v-for="row in listData?.rows"
+                  :key="row.patnr"
+                  class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+                  :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
+                  @click="openCustomer(row.patnr)"
               >
-                <td class="border border-light-c px-2 py-1 font-mono whitespace-nowrap">
-                  {{ fmtDate(rec.datetime) }}
-                  <span v-if="idx === 0" class="ml-1 text-[10px] bg-teal-500 text-white rounded px-1">
-                      最新
-                    </span>
+                <td class="border border-light-c px-3 py-1 font-mono whitespace-nowrap">
+                  {{ row.customerid }}
                 </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.age, 0) }}
+                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                  {{ row.lastname }}{{ row.firstname }}
                 </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.height) }}
+                <td class="border border-light-c px-3 py-1 text-center whitespace-nowrap">
+                  {{ row.sex === 'F' ? '女' : row.sex === 'M' ? '男' : '' }}
                 </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.weight) }}
+                <td
+                    class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis"
+                    :title="row.group1"
+                >
+                  {{ row.group1 }}
                 </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.fatp) }}
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.fatm) }}
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.pmm) }}
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.vfatl, 0) }}
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.bonem) }}
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(rec.bmr, 0) }}
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ rec.allrisk != null ? fmtNum(rec.allrisk * 100, 0) + '%' : '–' }}
+                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                  {{ fmtDate(row.creationdate) }}
                 </td>
               </tr>
               </tbody>
             </table>
           </div>
-        </template>
+        </div>
+
+        <!-- ── 右：客戶詳情 / 歷史紀錄（sticky，跟著捲動）── -->
+        <div class="lg:sticky lg:top-4 min-w-0">
+          <div v-if="!selectedPatnr" class="border border-base rounded-md p-10 text-center text-hint-c dark:text-hint-c bg-surface">
+            ← 從左側列表點選一位客戶查看詳情
+          </div>
+          <div v-else class="border border-base rounded-md overflow-hidden mb-4">
+            <div class="bg-teal-500 dark:bg-teal-700 text-white px-4 py-2 font-bold flex items-center justify-between">
+        <span>
+          {{ selectedCustomer?.lastname }}{{ selectedCustomer?.firstname }}
+          的身體組成歷史紀錄
+        </span>
+              <button class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded" @click="closeCustomer">
+                ✕ 關閉
+              </button>
+            </div>
+            <div class="p-4 bg-surface">
+              <div v-if="customerLoading" class="text-hint-c dark:text-hint-c py-4 text-center">
+                載入中…
+              </div>
+              <template v-else>
+                <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-c dark:text-hint-c mb-3">
+                  <span>客戶編號：<b class="text-base-c">{{ selectedCustomer?.customerid }}</b></span>
+                  <span>性別：<b class="text-base-c">{{ selectedCustomer?.sex === 'F' ? '女' : '男' }}</b></span>
+                  <span>電話：<b class="text-base-c">{{ selectedCustomer?.telephone || '–' }}</b></span>
+                  <span>班別：<b class="text-base-c">{{ selectedCustomer?.group1 || '–' }}</b></span>
+                  <span>共 <b class="text-base-c">{{ customerRecords.length }}</b> 筆檢測紀錄</span>
+                </div>
+
+                <!-- 最新測量狀態：標準範圍色帶（InBody 報告常見呈現方式） -->
+                <div v-if="latestRecord" class="grid md:grid-cols-3 gap-4 mb-5 p-3 rounded border border-base bg-surface2/40">
+                  <div v-for="bar in rangeBars" :key="bar.title">
+                    <div class="flex justify-between items-baseline text-xs mb-1">
+                      <span class="text-muted-c dark:text-hint-c">{{ bar.title }}</span>
+                      <span class="font-mono font-bold" :style="{ color: bar.markerColor }">{{ bar.valueLabel }}</span>
+                    </div>
+                    <div class="relative h-2.5 rounded-full overflow-hidden flex">
+                      <div
+                          v-for="(seg, i) in bar.segments"
+                          :key="i"
+                          :style="{ width: seg.width + '%', background: seg.color }"
+                      />
+                      <div
+                          class="absolute -top-0.5 w-[3px] h-[14px] rounded bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                          :style="{ left: 'calc(' + bar.markerPct + '% - 1.5px)' }"
+                      />
+                    </div>
+                    <div class="flex justify-between text-[10px] text-hint-c dark:text-hint-c mt-1">
+                <span v-for="(seg, i) in bar.segments" :key="i" :style="{ width: seg.width + '%' }" class="text-center truncate">
+                  {{ seg.label }}
+                </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 歷史趨勢圖 -->
+                <div v-if="trendCharts.length" class="grid md:grid-cols-2 gap-4 mb-5">
+                  <div v-for="t in trendCharts" :key="t.key" class="border border-base rounded p-3 bg-surface2/30">
+                    <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-1">
+                      {{ t.title }}趨勢
+                    </div>
+                    <svg :viewBox="`0 0 ${t.w} ${t.h}`" class="w-full h-24">
+                      <path :d="t.area" :fill="t.color" fill-opacity="0.12" stroke="none" />
+                      <path :d="t.path" fill="none" :stroke="t.color" stroke-width="2" />
+                      <circle
+                          v-for="(p, i) in t.pts"
+                          :key="i"
+                          :cx="p.x" :cy="p.y" r="2.2"
+                          :fill="i === t.pts.length - 1 ? '#C79A44' : t.color"
+                      >
+                        <title>{{ p.vLabel }}</title>
+                      </circle>
+                      <text :x="4" :y="t.maxY + (t.maxY > 10 ? -3 : 9)" font-size="8" fill="currentColor" class="text-hint-c dark:text-hint-c">{{ t.maxLabel }}</text>
+                      <text :x="4" :y="t.minY + (t.minY < t.h - 10 ? 9 : -3)" font-size="8" fill="currentColor" class="text-hint-c dark:text-hint-c">{{ t.minLabel }}</text>
+                    </svg>
+                    <div class="flex justify-between text-[10px] text-hint-c dark:text-hint-c mt-1 font-mono">
+                      <span>{{ t.firstLabel }}</span>
+                      <span>最新 {{ t.lastValue }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="overflow-x-auto rounded border border-base">
+                  <table class="w-full border-collapse text-xs">
+                    <thead class="bg-surface2">
+                    <tr class="text-muted-c dark:text-hint-c">
+                      <th class="border border-light-c px-2 py-1.5 text-left whitespace-nowrap">
+                        日期
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        年齡
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        身高cm
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        體重kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        BMI
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        體脂率%
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        體脂重kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        肌肉量kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        內臟脂肪
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        骨量kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        基礎代謝
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        綜合風險
+                      </th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-base">
+                    <tr v-if="!customerRecords.length">
+                      <td colspan="12" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
+                        尚無檢測紀錄
+                      </td>
+                    </tr>
+                    <tr
+                        v-for="(rec, idx) in customerRecords"
+                        :key="rec.datetime"
+                        class="bg-surface"
+                        :class="{ 'font-semibold': idx === 0 }"
+                    >
+                      <td class="border border-light-c px-2 py-1 font-mono whitespace-nowrap">
+                        {{ fmtDate(rec.datetime) }}
+                        <span v-if="idx === 0" class="ml-1 text-[10px] bg-teal-500 text-white rounded px-1">
+                      最新
+                    </span>
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.age, 0) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.height) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.weight) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.fatp) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.fatm) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.pmm) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.vfatl, 0) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.bonem) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.bmr, 0) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ rec.allrisk != null ? fmtNum(rec.allrisk * 100, 0) + '%' : '–' }}
+                      </td>
+                    </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <!-- /右：客戶詳情 -->
+
       </div>
+      <!-- /左右兩欄 -->
+
     </div>
+    <!-- ════════════════════════ /客戶查詢 ════════════════════════ -->
   </div>
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'management.body-composition' })
+definePageMeta({ layout: 'staff', requiredPermission: 'health.body-composition' })
 
 const commonStore = useCommonStore()
 const BASE = () => commonStore.data.main_url + '/holy/tabc'
+
+// ── 頁籤 ──────────────────────────────────────────────
+const mainTabs = [
+  { key: 'overview', label: '總覽' },
+  { key: 'customers', label: '客戶查詢' }
+] as const
+const currentTab = ref<'overview' | 'customers'>('overview')
 
 // ── 儀表板統計 ──────────────────────────────────────────
 const stats = ref<any>(null)
@@ -465,8 +565,19 @@ const genderPct = computed(() => {
 })
 
 // ── 客戶列表 ──────────────────────────────────────────
+const GROUP_LS_KEY = 'holy-tabc-group-filter'
+
+function loadGroupFromLS(): string {
+  if (typeof window === 'undefined') return ''
+  try { return window.localStorage.getItem(GROUP_LS_KEY) ?? '' } catch { return '' }
+}
+function saveGroupToLS(v: string) {
+  if (typeof window === 'undefined') return
+  try { window.localStorage.setItem(GROUP_LS_KEY, v) } catch { /* localStorage 不可用就略過 */ }
+}
+
 const keyword = ref('')
-const groupFilter = ref('')
+const groupFilter = ref(loadGroupFromLS()) // 記住上次選的班別頁籤
 const groups = ref<any[]>([])
 const page = ref(1)
 const limit = ref(20)
@@ -475,6 +586,30 @@ const listData = ref<any>(null)
 async function loadGroups() {
   try { groups.value = await $fetch<any[]>(`${BASE()}/groups`) ?? [] }
   catch { groups.value = [] }
+}
+
+// 頁籤清單：「全部」+ 各班別（含人數）
+const groupTabs = computed(() => {
+  const totalCount = stats.value?.total_customers ?? groups.value.reduce((sum, g) => sum + (g.count || 0), 0)
+  return [{ name: '', label: '全部', count: totalCount }, ...groups.value.map((g: any) => ({ name: g.name, label: g.name, count: g.count }))]
+})
+
+function selectGroup(name: string) {
+  groupFilter.value = name
+  saveGroupToLS(name)
+  search()
+}
+
+// 產生 /front/body-composition?group=xxx 的免登入分享連結並複製到剪貼簿
+async function copyGroupShareLink() {
+  if (!groupFilter.value) return
+  const url = `${window.location.origin}/front/body-composition?group=${encodeURIComponent(groupFilter.value)}`
+  try {
+    await navigator.clipboard.writeText(url)
+    alert(`✅ 已複製「${groupFilter.value}」的分享連結：\n${url}`)
+  } catch {
+    prompt('請手動複製連結：', url)
+  }
 }
 
 async function refreshList() {
@@ -488,7 +623,13 @@ async function refreshList() {
 const totalPages = computed(() => Math.ceil((listData.value?.total || 0) / limit.value) || 1)
 
 function search() { page.value = 1; refreshList() }
-function resetSearch() { keyword.value = ''; groupFilter.value = ''; page.value = 1; refreshList() }
+function resetSearch() {
+  keyword.value = ''
+  groupFilter.value = ''
+  saveGroupToLS('')
+  page.value = 1
+  refreshList()
+}
 
 // ── 客戶詳情 ──────────────────────────────────────────
 const selectedPatnr = ref<number | null>(null)
@@ -497,6 +638,7 @@ const customerRecords = ref<any[]>([])
 const customerLoading = ref(false)
 
 async function openCustomer(patnr: number) {
+  currentTab.value = 'customers'
   selectedPatnr.value = patnr
   customerLoading.value = true
   try {
@@ -518,6 +660,91 @@ function closeCustomer() {
   selectedCustomer.value = null
   customerRecords.value = []
 }
+
+// ── 標準範圍色帶（BMI / 體脂率 / 內臟脂肪）─────────────────────
+// 分區依台灣衛福部 BMI 標準與 InBody 常用體脂率/內臟脂肪等級改編
+const BMI_ZONES = [
+  { to: 18.5, label: '過輕', color: '#38bdf8' },
+  { to: 24, label: '正常', color: '#10b981' },
+  { to: 27, label: '過重', color: '#f59e0b' },
+  { to: 40, label: '肥胖', color: '#f43f5e' }
+]
+function fatZones(sex: string) {
+  return sex === 'M'
+      ? [{ to: 14, label: '過低', color: '#38bdf8' }, { to: 20, label: '正常', color: '#10b981' }, { to: 25, label: '過重', color: '#f59e0b' }, { to: 50, label: '偏高', color: '#f43f5e' }]
+      : [{ to: 21, label: '過低', color: '#38bdf8' }, { to: 27, label: '正常', color: '#10b981' }, { to: 32, label: '過重', color: '#f59e0b' }, { to: 55, label: '偏高', color: '#f43f5e' }]
+}
+const VISZFAT_ZONES = [
+  { to: 10, label: '正常', color: '#10b981' },
+  { to: 15, label: '偏高', color: '#f59e0b' },
+  { to: 30, label: '過高', color: '#f43f5e' }
+]
+
+function buildRangeBar(title: string, value: any, zones: { to: number, label: string, color: string }[], digits = 1) {
+  const n = Number(value)
+  if (Number.isNaN(n)) return null
+  const max = zones[zones.length - 1].to
+  let from = 0
+  const segments = zones.map(z => {
+    const seg = { left: (from / max) * 100, width: ((z.to - from) / max) * 100, color: z.color, label: z.label }
+    from = z.to
+    return seg
+  })
+  const markerPct = Math.min(100, Math.max(0, (n / max) * 100))
+  const activeZone = zones.find(z => n <= z.to) ?? zones[zones.length - 1]
+  return { title, valueLabel: n.toFixed(digits), segments, markerPct, markerColor: activeZone.color }
+}
+
+const latestRecord = computed(() => customerRecords.value[0] ?? null)
+
+const rangeBars = computed(() => {
+  if (!latestRecord.value) return []
+  const sex = selectedCustomer.value?.sex ?? 'F'
+  return [
+    buildRangeBar('BMI', latestRecord.value.bmi, BMI_ZONES),
+    buildRangeBar('體脂率 %', latestRecord.value.fatp, fatZones(sex)),
+    buildRangeBar('內臟脂肪等級', latestRecord.value.vfatl, VISZFAT_ZONES, 0)
+  ].filter((b): b is NonNullable<typeof b> => b !== null)
+})
+
+// ── 歷史趨勢折線圖（純 SVG，不需額外圖表套件）───────────────
+function buildTrend(key: string, title: string, color: string, digits = 1) {
+  const recs = [...customerRecords.value].reverse()
+      .filter(r => r[key] !== null && r[key] !== undefined && r[key] !== '')
+  if (recs.length < 2) return null
+  const values = recs.map(r => Number(r[key]))
+  const w = 300, h = 90, padX = 8, padY = 14
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = (max - min) || 1
+  const stepX = (w - padX * 2) / (recs.length - 1)
+  const pts = values.map((v, i) => ({
+    x: padX + i * stepX,
+    y: h - padY - ((v - min) / range) * (h - padY * 2),
+    vLabel: v.toFixed(digits)
+  }))
+  const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ')
+  const area = path + ` L${pts[pts.length - 1].x.toFixed(1)},${h - padY} L${pts[0].x.toFixed(1)},${h - padY} Z`
+  return {
+    key, title, color, w, h, path, area, pts,
+    firstLabel: fmtDate(recs[0].datetime),
+    lastValue: values[values.length - 1].toFixed(digits),
+    maxLabel: max.toFixed(digits),
+    minLabel: min.toFixed(digits),
+    maxY: pts.reduce((a, p) => Math.min(a, p.y), h),
+    minY: pts.reduce((a, p) => Math.max(a, p.y), 0)
+  }
+}
+
+const trendCharts = computed(() => {
+  if (customerRecords.value.length < 2) return []
+  return [
+    buildTrend('bmi', 'BMI', '#0d9488'),
+    buildTrend('fatp', '體脂率', '#f43f5e'),
+    buildTrend('pmm', '肌肉量', '#10b981'),
+    buildTrend('vfatl', '內臟脂肪', '#f59e0b', 0)
+  ].filter((t): t is NonNullable<typeof t> => t !== null)
+})
 
 // ── 格式化輔助 ────────────────────────────────────────
 function fmtNum(v: any, digits = 1) {
