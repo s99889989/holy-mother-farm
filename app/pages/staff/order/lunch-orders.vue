@@ -1,156 +1,155 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'order.lunch-orders' })
-const commonStore = useCommonStore()
-const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
+  definePageMeta({ layout: 'staff', requiredPermission: 'order.lunch-orders' })
+  const commonStore = useCommonStore()
+  const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 
-// ── 日曆 ──────────────────────────────────────────────────────────
-const apiOnline = ref(false)
-const selectedDate = ref('')
-const today = new Date()
-const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-const calYear = ref(today.getFullYear())
-const calMonth = ref(today.getMonth() + 1)
+  // ── 日曆 ──────────────────────────────────────────────────────────
+  const apiOnline = ref(false)
+  const selectedDate = ref('')
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const calYear = ref(today.getFullYear())
+  const calMonth = ref(today.getMonth() + 1)
 
-const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
-const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
+  const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
+  const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
 
-const calendarDays = computed(() => {
-  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
-  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
-  const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+  const calendarDays = computed(() => {
+    const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+    const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+    const days = []
+    for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
+    for (let d = 1; d <= daysInMonth; d++) {
+      const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+      days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+    }
+    return days
+  })
+
+  const dayClass = (day) => {
+    if (!day.date) return 'cursor-default'
+    if (day.date === selectedDate.value) return 'bg-orange-600 text-white font-bold shadow-sm'
+    if (day.date === todayStr) return 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-semibold hover:bg-orange-200'
+    return 'text-base-c hover-surface2'
   }
-  return days
-})
 
-const dayClass = (day) => {
-  if (!day.date) return 'cursor-default'
-  if (day.date === selectedDate.value) return 'bg-orange-600 text-white font-bold shadow-sm'
-  if (day.date === todayStr) return 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-semibold hover:bg-orange-200'
-  return 'text-base-c hover-surface2'
-}
-
-const prevMonth = () => {
-  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
-  fetchMarkedDates()
-}
-const nextMonth = () => {
-  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
-  fetchMarkedDates()
-}
-
-const selectDate = async (date) => {
-  selectedDate.value = date
-  await fetchLunchOrders()
-}
-
-// ── 便當狀態 ──────────────────────────────────────────────────────
-const LUNCH_STATUSES = ['待確認', '已確認', '已取餐', '客戶提出取消', '已取消']
-const lunchStatusClass = (status) => {
-  switch (status) {
-    case '已確認':   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
-    case '已取餐':   return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
-    case '客戶提出取消': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
-    case '已取消':   return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
-    default:         return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
+  const prevMonth = () => {
+    if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
+    fetchMarkedDates()
   }
-}
+  const nextMonth = () => {
+    if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
+    fetchMarkedDates()
+  }
 
-// ── 便當資料 ──────────────────────────────────────────────────────
-const lunchOrders = ref([])
-const lunchMarkedDates = ref([])
-const lunchTimeSlots = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00']
+  const selectDate = async (date) => {
+    selectedDate.value = date
+    await fetchLunchOrders()
+  }
 
-const lunchModal = reactive({show: false, isNew: true})
-const lForm = reactive({
-  id: '', date: '', name: '', phone: '',
-  meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '12:00', status: '已確認', note: ''
-})
+  // ── 便當狀態 ──────────────────────────────────────────────────────
+  const LUNCH_STATUSES = ['待確認', '已確認', '已取餐', '客戶提出取消', '已取消']
+  const lunchStatusClass = (status) => {
+    switch (status) {
+      case '已確認':   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
+      case '已取餐':   return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
+      case '客戶提出取消': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
+      case '已取消':   return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
+      default:         return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
+    }
+  }
 
-const totalMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
-const totalFullVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.fullVegQty) || 0), 0))
-const totalEggVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.eggVegQty) || 0), 0))
-const totalSpiceVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.spiceVegQty) || 0), 0))
-const totalAll = computed(() => totalMeat.value + totalFullVeg.value + totalEggVeg.value + totalSpiceVeg.value)
+  // ── 便當資料 ──────────────────────────────────────────────────────
+  const lunchOrders = ref([])
+  const lunchMarkedDates = ref([])
 
-const openLunchModal = (order) => {
-  lunchModal.isNew = !order
-  Object.assign(lForm, order ?? {
-    id: '', date: selectedDate.value, name: '', phone: '',
+  const lunchModal = reactive({show: false, isNew: true})
+  const lForm = reactive({
+    id: '', date: '', name: '', phone: '',
     meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '12:00', status: '已確認', note: ''
   })
-  lunchModal.show = true
-}
 
-const fetchMarkedDates = async () => {
-  try {
-    const res = await fetch(`${LUNCH_BASE.value}/dates/${yearMonth.value}`)
-    if (res.ok) lunchMarkedDates.value = await res.json()
-    apiOnline.value = true
-  } catch {
-    apiOnline.value = false
-  }
-}
+  const totalMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
+  const totalFullVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.fullVegQty) || 0), 0))
+  const totalEggVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.eggVegQty) || 0), 0))
+  const totalSpiceVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.spiceVegQty) || 0), 0))
+  const totalAll = computed(() => totalMeat.value + totalFullVeg.value + totalEggVeg.value + totalSpiceVeg.value)
 
-const fetchLunchOrders = async () => {
-  if (!selectedDate.value) return
-  lunchOrders.value = await (await fetch(`${LUNCH_BASE.value}/get/${selectedDate.value}`)).json()
-}
-
-const saveLunch = async () => {
-  if (!lForm.name) return
-  if (lunchModal.isNew) {
-    const saved = await (await fetch(`${LUNCH_BASE.value}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...lForm, date: selectedDate.value})
-    })).json()
-    lunchOrders.value.push(saved)
-    lunchOrders.value.sort((a, b) => a.time.localeCompare(b.time))
-    if (!lunchMarkedDates.value.includes(selectedDate.value)) lunchMarkedDates.value.push(selectedDate.value)
-    showToast('便當訂單已新增')
-  } else {
-    await fetch(`${LUNCH_BASE.value}/update`, {
-      method: 'PUT', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(lForm)
+  const openLunchModal = (order) => {
+    lunchModal.isNew = !order
+    Object.assign(lForm, order ?? {
+      id: '', date: selectedDate.value, name: '', phone: '',
+      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '12:00', status: '已確認', note: ''
     })
-    await fetchLunchOrders()
-    showToast('便當訂單已更新')
+    lunchModal.show = true
   }
-  lunchModal.show = false
-}
 
-const confirmDeleteLunch = async (o) => {
-  if (!confirm(`確定刪除「${o.name}」的便當訂單？`)) return
-  await fetch(`${LUNCH_BASE.value}/remove/${o.date}/${o.id}`, {method: 'DELETE'})
-  lunchOrders.value = lunchOrders.value.filter(x => x.id !== o.id)
-  if (!lunchOrders.value.length) lunchMarkedDates.value = lunchMarkedDates.value.filter(d => d !== selectedDate.value)
-  showToast('便當訂單已刪除')
-}
+  const fetchMarkedDates = async () => {
+    try {
+      const res = await fetch(`${LUNCH_BASE.value}/dates/${yearMonth.value}`)
+      if (res.ok) lunchMarkedDates.value = await res.json()
+      apiOnline.value = true
+    } catch {
+      apiOnline.value = false
+    }
+  }
 
-const toggleLunchStatus = async (o) => {
-  const idx = LUNCH_STATUSES.indexOf(o.status)
-  const next = LUNCH_STATUSES[(idx + 1) % LUNCH_STATUSES.length]
-  await fetch(`${LUNCH_BASE.value}/status/${o.date}/${o.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
-  o.status = next
-  showToast(`狀態已更新為「${next}」`)
-}
+  const fetchLunchOrders = async () => {
+    if (!selectedDate.value) return
+    lunchOrders.value = await (await fetch(`${LUNCH_BASE.value}/get/${selectedDate.value}`)).json()
+  }
 
-// ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({show: false, message: ''})
-const showToast = (msg) => {
-  toast.message = msg; toast.show = true
-  setTimeout(() => toast.show = false, 2500)
-}
+  const saveLunch = async () => {
+    if (!lForm.name) return
+    if (lunchModal.isNew) {
+      const saved = await (await fetch(`${LUNCH_BASE.value}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...lForm, date: selectedDate.value})
+      })).json()
+      lunchOrders.value.push(saved)
+      lunchOrders.value.sort((a, b) => a.time.localeCompare(b.time))
+      if (!lunchMarkedDates.value.includes(selectedDate.value)) lunchMarkedDates.value.push(selectedDate.value)
+      showToast('便當訂單已新增')
+    } else {
+      await fetch(`${LUNCH_BASE.value}/update`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(lForm)
+      })
+      await fetchLunchOrders()
+      showToast('便當訂單已更新')
+    }
+    lunchModal.show = false
+  }
 
-// ── 初始化 ────────────────────────────────────────────────────────
-onMounted(async () => {
-  await fetchMarkedDates()
-  selectedDate.value = todayStr
-  await fetchLunchOrders()
-})
+  const confirmDeleteLunch = async (o) => {
+    if (!confirm(`確定刪除「${o.name}」的便當訂單？`)) return
+    await fetch(`${LUNCH_BASE.value}/remove/${o.date}/${o.id}`, {method: 'DELETE'})
+    lunchOrders.value = lunchOrders.value.filter(x => x.id !== o.id)
+    if (!lunchOrders.value.length) lunchMarkedDates.value = lunchMarkedDates.value.filter(d => d !== selectedDate.value)
+    showToast('便當訂單已刪除')
+  }
+
+  const toggleLunchStatus = async (o) => {
+    const idx = LUNCH_STATUSES.indexOf(o.status)
+    const next = LUNCH_STATUSES[(idx + 1) % LUNCH_STATUSES.length]
+    await fetch(`${LUNCH_BASE.value}/status/${o.date}/${o.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
+    o.status = next
+    showToast(`狀態已更新為「${next}」`)
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────
+  const toast = reactive({show: false, message: ''})
+  const showToast = (msg) => {
+    toast.message = msg; toast.show = true
+    setTimeout(() => toast.show = false, 2500)
+  }
+
+  // ── 初始化 ────────────────────────────────────────────────────────
+  onMounted(async () => {
+    await fetchMarkedDates()
+    selectedDate.value = todayStr
+    await fetchLunchOrders()
+  })
 </script>
 
 <template>
@@ -337,10 +336,8 @@ onMounted(async () => {
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">取餐時段</label>
-            <select v-model="lForm.time"
-                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400">
-              <option v-for="t in lunchTimeSlots" :key="t" :value="t">{{ t }}</option>
-            </select>
+            <input v-model="lForm.time" type="time"
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"/>
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
@@ -409,6 +406,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+  .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+  .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>

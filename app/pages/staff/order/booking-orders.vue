@@ -63,7 +63,6 @@
   // ── 訂位 ──────────────────────────────────────────────────────────
   const bookings = ref([])
   const markedDates = ref([])
-  const timeSlots = ['07:00', '08:00', '11:00', '11:10', '11:20', '11:30', '11:40', '11:45', '11:50', '12:00', '12:10', '12:20', '12:30', '12:40', '12:50', '13:00']
 
   const bookingModal = reactive({show: false, isNew: true})
   const bForm = reactive({
@@ -582,10 +581,8 @@
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">用餐時段</label>
-            <select v-model="bForm.time"
-                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
-              <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
-            </select>
+            <input v-model="bForm.time" type="time"
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
@@ -672,10 +669,8 @@
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">用餐時段</label>
-            <select v-model="recurForm.time"
-                    class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
-              <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
-            </select>
+            <input v-model="recurForm.time" type="time"
+                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
