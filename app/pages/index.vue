@@ -1,9 +1,9 @@
 <script setup>
-import { useCustomerStore } from '~/stores/customer.js'
-import { usePermissionStore } from '~/stores/permission.js'
-import { useCommonStore } from '~/stores/common.js'
+import {useCustomerStore} from '~/stores/customer.js'
+import {usePermissionStore} from '~/stores/permission.js'
+import {useCommonStore} from '~/stores/common.js'
 
-definePageMeta({ layout: 'loginl' })
+definePageMeta({layout: 'loginl'})
 useSiteHead({
   title: '聖母農莊管理系統',
   description: '員工專區',
@@ -24,6 +24,20 @@ const GOOGLE_CLIENT_ID = computed(() => commonStore.data.google_client_id)
 const isAndroidWebView = ref(false)
 const isIosWebView = ref(false)
 const intentFired = ref(false)
+
+// ── 登入狀態檢查中 ──────────────────────────────────────────────
+// 修正：原本 fetchMe() 裡的 navigateTo() 沒有 await、也沒有回傳值告訴
+// onMounted「已經在轉頁了」。navigateTo() 一觸發、fetchMe() 就算執行
+// 完畢，onMounted 會繼續往下跑去載入 Google script、渲染出真正可點擊
+// 的登入按鈕——就在瀏覽器真正完成跳轉前的那個空檔。
+// 這造成兩個現象：已登入的人會「完整看到登入頁」才轉跳；手快的人甚至
+// 能點到那顆按鈕，在已登入、正在轉頁的當下又發起一次全新的 Google
+// 登入流程，跟 fetchMe() 的轉址互相打架。
+//
+// 修法：fetchMe() 回傳是否已經轉址，onMounted 拿到 true 就直接不往下
+// 載入 Google 元件；並用 checkingAuth 擋住整張卡片，確認真的沒登入
+// 才顯示登入按鈕區，避免任何空檔被點到。
+const checkingAuth = ref(true)
 
 function detectWebViews() {
   if (!import.meta.client) return
@@ -64,15 +78,20 @@ onMounted(async () => {
   detectWebViews()
 
   if (isAndroidWebView.value) {
+    checkingAuth.value = false
     openInAndroidBrowser()
     return
   }
 
   if (isIosWebView.value) {
+    checkingAuth.value = false
     return
   }
 
-  await fetchMe()
+  const redirected = await fetchMe()
+  if (redirected) return // 已登入、正在轉頁 → 不要再往下載入 Google 登入元件
+
+  checkingAuth.value = false
 
   if (!document.getElementById('google-gsi-script')) {
     const script = document.createElement('script')
@@ -145,7 +164,7 @@ const handleCredential = async (response) => {
         await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
         return
       }
-      navigateTo('/staff/home')
+      await navigateTo('/staff/home')
     } else {
       // 後端回傳的錯誤訊息直接顯示（後端已有中文錯誤）
       error.value = data.error === 'Google token 驗證失敗'
@@ -163,6 +182,8 @@ const handleCredential = async (response) => {
 
 // ── Cookie 自動登入（頁面重整時）────────────────────────────────
 // 修正：移除 allowedRoles 判斷，改用 permissionStore.can('staff.home')
+// 回傳值代表「這次呼叫是否已經觸發轉址」，讓 onMounted 知道要不要
+// 繼續往下載入 Google 登入元件。
 const fetchMe = async () => {
   try {
     const controller = new AbortController()
@@ -181,12 +202,15 @@ const fetchMe = async () => {
         customerStore.clearCustomer()
         permissionStore.clear()
         await fetch(`${BASE.value}/logout`, {method: 'POST', credentials: 'include'})
-        return
+        return false
       }
-      navigateTo('/staff/home')
+      await navigateTo('/staff/home')
+      return true
     }
+    return false
   } catch {
     // 未登入或逾時，靜默留在頁面
+    return false
   }
 }
 </script>
@@ -217,69 +241,80 @@ const fetchMe = async () => {
         <div class="login-accent-bar"/>
 
         <div class="login-card">
-          <!-- 標題區 -->
-          <div class="login-header">
-            <div class="login-badge">員</div>
-            <div>
-              <h1 class="login-title">員工登入</h1>
-              <p class="login-subtitle">Staff Portal</p>
-            </div>
+          <!-- 登入狀態檢查中：確認過真的沒登入才顯示完整卡片與按鈕，
+               避免已登入的人看到完整登入頁、或在轉頁空檔點到按鈕 -->
+          <div v-if="checkingAuth" class="login-checking">
+            <span class="login-spinner"/>
+            <span>檢查登入狀態中…</span>
           </div>
 
-          <!-- 說明文字 -->
-          <p class="login-desc">
-            請使用農莊授權的 Google 帳號登入
-          </p>
-
-          <!-- 按鈕區 -->
-          <div class="login-btn-area">
-            <!-- Android in-app browser（intent 跳轉失敗 fallback） -->
-            <div v-if="isAndroidWebView" class="webview-warning">
-              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <p class="webview-title">正在開啟外部瀏覽器…</p>
-              <p class="webview-hint">
-                若瀏覽器未自動開啟，請點選選單按鈕，<br>
-                選擇「在外部瀏覽器開啟」後再登入。
-              </p>
-            </div>
-
-            <!-- iOS in-app browser（無法自動跳轉，顯示手動提示） -->
-            <div v-else-if="isIosWebView" class="webview-warning">
-              <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <p class="webview-title">請用外部瀏覽器開啟</p>
-              <p class="webview-hint">
-                目前在 App 內建瀏覽器中，Google 登入無法使用。<br>
-                請點選選單或分享按鈕，選擇「在瀏覽器中開啟」後再登入。
-              </p>
-            </div>
-
-            <!-- 正常瀏覽器，顯示 Google 登入按鈕 -->
-            <template v-else>
-              <div v-if="loading" class="login-loading">
-                <span class="login-spinner"/>
-                <span>登入中…</span>
+          <template v-else>
+            <!-- 標題區 -->
+            <div class="login-header">
+              <div class="login-badge">員</div>
+              <div>
+                <h1 class="login-title">員工登入</h1>
+                <p class="login-subtitle">Staff Portal</p>
               </div>
-              <div v-show="!loading" id="google-signin-btn"/>
-            </template>
-          </div>
+            </div>
 
-          <!-- 錯誤訊息 -->
-          <p v-if="error" class="login-error">
-            <svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-              <path fill-rule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clip-rule="evenodd"/>
-            </svg>
-            {{ error }}
-          </p>
+            <!-- 說明文字 -->
+            <p class="login-desc">
+              請使用農莊授權的 Google 帳號登入
+            </p>
+
+            <!-- 按鈕區 -->
+            <div class="login-btn-area">
+              <!-- Android in-app browser（intent 跳轉失敗 fallback） -->
+              <div v-if="isAndroidWebView" class="webview-warning">
+                <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p class="webview-title">正在開啟外部瀏覽器…</p>
+                <p class="webview-hint">
+                  若瀏覽器未自動開啟，請點選選單按鈕，<br>
+                  選擇「在外部瀏覽器開啟」後再登入。
+                </p>
+              </div>
+
+              <!-- iOS in-app browser（無法自動跳轉，顯示手動提示） -->
+              <div v-else-if="isIosWebView" class="webview-warning">
+                <svg class="webview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p class="webview-title">請用外部瀏覽器開啟</p>
+                <p class="webview-hint">
+                  目前在 App 內建瀏覽器中，Google 登入無法使用。<br>
+                  請點選選單或分享按鈕，選擇「在瀏覽器中開啟」後再登入。
+                </p>
+              </div>
+
+              <!-- 正常瀏覽器，顯示 Google 登入按鈕 -->
+              <template v-else>
+                <div v-if="loading" class="login-loading">
+                  <span class="login-spinner"/>
+                  <span>登入中…</span>
+                </div>
+                <div v-show="!loading" id="google-signin-btn"/>
+              </template>
+            </div>
+
+            <!-- 錯誤訊息 -->
+            <p v-if="error" class="login-error">
+              <svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
+                <path fill-rule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                      clip-rule="evenodd"/>
+              </svg>
+              {{ error }}
+            </p>
+          </template>
         </div>
 
         <p class="login-footer">
@@ -408,6 +443,17 @@ const fetchMe = async () => {
   border-radius: 0 0 14px 14px;
   box-shadow: var(--card-shadow);
   padding: 2rem 2rem 1.75rem;
+}
+
+/* ── 登入狀態檢查中 ─────────────────────────────────── */
+.login-checking {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 88px;
+  font-size: 0.82rem;
+  color: var(--desc);
 }
 
 /* ── 標題區 ─────────────────────────────────────────── */

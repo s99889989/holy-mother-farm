@@ -89,62 +89,96 @@
                   </p>
                 </div>
               </div>
-              <div class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:w-full lg:gap-2">
-                <button
-                  v-if="perm.can('management.calendar')"
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors lg:w-full lg:justify-center"
-                  @click="openClearMonthModal"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  /></svg>
-                  <span class="hidden sm:inline">清空當月</span>
-                </button>
-                <button
-                  v-if="perm.can('management.calendar')"
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors lg:w-full lg:justify-center"
-                  @click="showTxtModal = true"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  /></svg>
-                  <span class="hidden sm:inline">貼上 TXT</span>
-                  <span class="sm:hidden">TXT</span>
-                </button>
-                <button
-                  v-if="perm.can('management.calendar')"
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors lg:w-full lg:justify-center"
-                  @click="openAddOnDate(null)"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  /></svg>
-                  新增
-                </button>
+              <div
+                v-if="perm.can('management.calendar')"
+                class="lg:w-full rounded-xl border border-light-c dark:border-[#2a2e37] bg-surface2/70 dark:bg-[#1c1f26]/70 px-3 py-2.5"
+              >
+                <p class="text-xs font-semibold text-hint-c/80 mb-2 px-0.5 tracking-wide">
+                  院內功能
+                </p>
+                <div class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:gap-2">
+                  <button
+                    class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors lg:w-full lg:justify-center"
+                    @click="openClearMonthModal"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    /></svg>
+                    <span class="hidden sm:inline">清空當月</span>
+                  </button>
+                  <button
+                    class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors lg:w-full lg:justify-center"
+                    @click="showTxtModal = true"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    /></svg>
+                    <span class="hidden sm:inline">貼上 TXT</span>
+                    <span class="sm:hidden">TXT</span>
+                  </button>
+                  <button
+                    class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors lg:w-full lg:justify-center"
+                    @click="openAddOnDate(null)"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 4v16m8-8H4"
+                    /></svg>
+                    新增
+                  </button>
+                </div>
+              </div>
+
+              <!-- 行程功能：跟院內系統互不相干的獨立資料，UI 結構相似但獨立成一區 -->
+              <div
+                v-if="perm.can('management.calendar')"
+                class="lg:w-full rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50/60 dark:bg-teal-900/10 px-3 py-2.5"
+              >
+                <p class="text-xs font-semibold text-teal-700/80 dark:text-teal-400/80 mb-2 px-0.5 tracking-wide">
+                  行程功能
+                </p>
+                <div class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:gap-2">
+                  <button
+                    class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors lg:w-full lg:justify-center"
+                    @click="openAddOnDate(null, 'itinerary')"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 4v16m8-8H4"
+                    /></svg>
+                    新增行程
+                  </button>
+                </div>
               </div>
             </div>
           </header>
@@ -165,8 +199,28 @@
                 <span class="text-sm text-hint-c">院內（未分類）</span>
               </div>
               <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-sm bg-teal-500 flex-shrink-0" />
+                <span class="text-sm text-hint-c">行程</span>
+              </div>
+              <div class="flex items-center gap-2">
                 <div class="w-3 h-3 rounded-sm bg-blue-500 flex-shrink-0" />
                 <span class="text-sm text-hint-c">Google</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-sm bg-pink-500 flex-shrink-0" />
+                <span class="text-sm text-hint-c">訂位</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-sm bg-orange-500 flex-shrink-0" />
+                <span class="text-sm text-hint-c">便當</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-sm bg-lime-600 flex-shrink-0" />
+                <span class="text-sm text-hint-c">豆漿</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-sm bg-violet-600 flex-shrink-0" />
+                <span class="text-sm text-hint-c">訂房</span>
               </div>
               <span class="text-sm text-hint-c ml-1 lg:ml-0">{{ monthEventCount }} 筆</span>
             </div>
@@ -189,8 +243,23 @@
                   <option value="院內">
                     院內 {{ typeCount['院內'] || 0 }}
                   </option>
+                  <option value="行程">
+                    行程 {{ typeCount['行程'] || 0 }}
+                  </option>
                   <option value="Google">
                     Google {{ typeCount['Google'] || 0 }}
+                  </option>
+                  <option value="訂位">
+                    訂位 {{ typeCount['訂位'] || 0 }}
+                  </option>
+                  <option value="便當">
+                    便當 {{ typeCount['便當'] || 0 }}
+                  </option>
+                  <option value="豆漿">
+                    豆漿 {{ typeCount['豆漿'] || 0 }}
+                  </option>
+                  <option value="訂房">
+                    訂房 {{ typeCount['訂房'] || 0 }}
                   </option>
                 </select>
                 <span
@@ -293,7 +362,6 @@
                   'weekend': cell.isWeekend,
                   'has-events': cell.events.length > 0
                 }]"
-                @click="cell.day && openAddOnDate(cell.dateStr)"
               >
                 <template v-if="cell.day">
                   <!-- 日期數字 -->
@@ -306,23 +374,6 @@
                         'text-muted-c': !cell.isToday && !cell.isWeekend
                       }]"
                     >{{ cell.day }}</span>
-                    <!-- 快速新增按鈕：hover 才顯示 -->
-                    <button
-                      class="cal-add-btn opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
-                      @click.stop="openAddOnDate(cell.dateStr)"
-                    >
-                      <svg
-                        class="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      ><path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.5"
-                        d="M12 4v16m8-8H4"
-                      /></svg>
-                    </button>
                   </div>
 
                   <!-- 活動 chips（跨天橫幅活動已排除，改由下方 overlay 顯示） -->
@@ -333,8 +384,8 @@
                     <div
                       v-for="ev in cell.chipEvents.slice(0, 3)"
                       :key="ev.id"
-                      :class="['cal-chip', chipClass(ev)]"
-                      @click.stop="openEdit(ev)"
+                      :class="['cal-chip', chipClass(ev), { 'cursor-pointer': isDetailClickable(ev) }]"
+                      @click.stop="isDetailClickable(ev) && openEventDetail(ev)"
                       @mouseenter="showTooltip(ev, $event)"
                       @mousemove="moveTooltip($event)"
                       @mouseleave="hideTooltip"
@@ -363,9 +414,9 @@
               <div
                 v-for="b in weekBanners[wi]"
                 :key="b.key"
-                :class="['week-banner-bar', chipClass(b.ev), { 'round-l': b.roundLeft, 'round-r': b.roundRight }]"
+                :class="['week-banner-bar', chipClass(b.ev), { 'round-l': b.roundLeft, 'round-r': b.roundRight, 'cursor-pointer': isDetailClickable(b.ev) }]"
                 :style="{ gridColumn: `${b.startCol + 1} / ${b.endCol + 2}`, top: (b.lane * BANNER_ROW_HEIGHT) + 'px' }"
-                @click.stop="openEdit(b.ev)"
+                @click.stop="isDetailClickable(b.ev) && openEventDetail(b.ev)"
                 @mouseenter="showTooltip(b.ev, $event)"
                 @mousemove="moveTooltip($event)"
                 @mouseleave="hideTooltip"
@@ -573,7 +624,10 @@
               <!-- 類型色條 -->
               <div :class="['w-1 self-stretch rounded-full flex-shrink-0 mt-0.5', typeBarClass(ev)]" />
               <!-- 內容 -->
-              <div class="flex-1 min-w-0">
+              <div
+                :class="['flex-1 min-w-0', { 'cursor-pointer': isDetailClickable(ev) }]"
+                @click="isDetailClickable(ev) && openEventDetail(ev)"
+              >
                 <p class="text-sm font-semibold text-base-c leading-tight">
                   {{ ev.title }}
                 </p>
@@ -594,7 +648,7 @@
                 </p>
                 <p
                   v-if="ev.description"
-                  class="text-xs text-hint-c mt-1 line-clamp-2"
+                  class="text-xs text-hint-c mt-1 line-clamp-2 whitespace-pre-line"
                 >
                   📝 {{ ev.description }}
                 </p>
@@ -611,6 +665,7 @@
               <!-- 操作 -->
               <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <button
+                  v-if="!ORDER_SOURCES.includes(ev.source)"
                   class="p-1.5 text-hint-c hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                   title="編輯"
                   @click="openEdit(ev)"
@@ -628,7 +683,7 @@
                   /></svg>
                 </button>
                 <button
-                  v-if="perm.can('management.calendar')"
+                  v-if="perm.can('management.calendar') && !ORDER_SOURCES.includes(ev.source)"
                   class="p-1.5 text-hint-c hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                   title="刪除"
                   @click="deleteEvent(ev)"
@@ -660,7 +715,7 @@
       <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-base-c">
-            {{ formModal.isNew ? '新增活動' : '編輯活動' }}
+            {{ formModal.isNew ? (formModal.source === 'itinerary' ? '新增行程' : '新增活動') : (formModal.source === 'itinerary' ? '編輯行程' : '編輯活動') }}
           </h3>
           <button
             class="text-hint-c hover:text-muted-c p-1"
@@ -730,7 +785,7 @@
             >
           </div>
           <div class="grid grid-cols-2 gap-3">
-            <div>
+            <div :class="{ 'col-span-2': formModal.source === 'itinerary' }">
               <label class="field-label">負責人</label>
               <input
                 v-model="form.owner"
@@ -738,7 +793,7 @@
                 class="field-input"
               >
             </div>
-            <div>
+            <div v-if="formModal.source !== 'itinerary'">
               <label class="field-label">建築分類</label>
               <select
                 v-model="form.building"
@@ -761,6 +816,15 @@
               placeholder="場地代碼與名稱"
               class="field-input"
             >
+          </div>
+          <div v-if="formModal.source === 'itinerary'">
+            <label class="field-label">詳細內容</label>
+            <textarea
+              v-model="form.description"
+              rows="6"
+              placeholder="場地、人數、單價、房間分配、聯絡人、租金、折扣、實收款項…等自由格式內容都可以直接貼在這裡"
+              class="field-input resize-y"
+            />
           </div>
           <p
             v-if="formError"
@@ -1012,6 +1076,286 @@
       </div>
     </div>
 
+    <!-- ══ Modal: 行程詳細（點行程先看資料，裡面才有編輯／刪除）══ -->
+    <div
+      v-if="itineraryDetailModal.show && itineraryDetailModal.ev"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      @click.self="itineraryDetailModal.show = false"
+    >
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 rounded-sm bg-teal-500 flex-shrink-0" />
+            <h3 class="font-bold text-base-c text-sm">
+              行程詳細
+            </h3>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="itineraryDetailModal.show = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
+          </button>
+        </div>
+        <!-- 內容 -->
+        <div class="px-5 py-4 space-y-3">
+          <!-- 標題 -->
+          <p class="text-base font-bold text-base-c leading-snug">
+            {{ itineraryDetailModal.ev.title }}
+          </p>
+          <!-- 日期 / 時間 -->
+          <div class="flex items-center gap-2 text-sm text-hint-c">
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            /></svg>
+            <span>{{ eventTimeLabel(itineraryDetailModal.ev) || itineraryDetailModal.ev.date }}</span>
+          </div>
+          <!-- 地點 -->
+          <div
+            v-if="itineraryDetailModal.ev.room"
+            class="flex items-start gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            /><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            /></svg>
+            <span>{{ itineraryDetailModal.ev.room }}</span>
+          </div>
+          <!-- 負責人 -->
+          <div
+            v-if="itineraryDetailModal.ev.owner"
+            class="flex items-center gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            /></svg>
+            <span>{{ itineraryDetailModal.ev.owner }}</span>
+          </div>
+          <!-- 詳細內容 -->
+          <div
+            v-if="itineraryDetailModal.ev.description"
+            class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed"
+            style="white-space: pre-line"
+          >{{ itineraryDetailModal.ev.description }}</div>
+        </div>
+        <!-- Footer -->
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
+          <button
+            v-if="perm.can('management.calendar')"
+            class="px-4 py-2 text-sm border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            @click="deleteItineraryFromDetail"
+          >
+            刪除
+          </button>
+          <button
+            v-if="perm.can('management.calendar')"
+            class="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+            @click="editItineraryFromDetail"
+          >
+            編輯
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Modal: 訂位／便當／豆漿／訂房 詳細（唯讀，編輯/刪除請到各自管理頁）══ -->
+    <div
+      v-if="orderDetailModal.show && orderDetailModal.ev"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      @click.self="orderDetailModal.show = false"
+    >
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
+          <div class="flex items-center gap-2">
+            <span :class="['type-badge', typeColorClass(orderDetailModal.ev)]">{{ eventBadgeLabel(orderDetailModal.ev) }}</span>
+            <h3 class="font-bold text-base-c text-sm">
+              詳細資料
+            </h3>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="orderDetailModal.show = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
+          </button>
+        </div>
+        <!-- 內容 -->
+        <div class="px-5 py-4 space-y-3">
+          <!-- 標題 -->
+          <p class="text-base font-bold text-base-c leading-snug">
+            {{ orderDetailModal.ev.title }}
+          </p>
+          <!-- 日期 / 時間 -->
+          <div class="flex items-center gap-2 text-sm text-hint-c">
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            /></svg>
+            <span>{{ eventTimeLabel(orderDetailModal.ev) || orderDetailModal.ev.date }}</span>
+          </div>
+          <!-- 房號（訂房才有） -->
+          <div
+            v-if="orderDetailModal.ev.room"
+            class="flex items-start gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            /><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            /></svg>
+            <span>{{ orderDetailModal.ev.room }}</span>
+          </div>
+          <!-- 姓名 -->
+          <div
+            v-if="orderDetailModal.ev.owner"
+            class="flex items-center gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            /></svg>
+            <span>{{ orderDetailModal.ev.owner }}</span>
+          </div>
+          <!-- 電話 -->
+          <div
+            v-if="orderDetailModal.ev.phone"
+            class="flex items-center gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+            /></svg>
+            <span>{{ orderDetailModal.ev.phone }}</span>
+          </div>
+          <!-- 狀態 -->
+          <div
+            v-if="orderDetailModal.ev.status"
+            class="flex items-center gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            /></svg>
+            <span>{{ orderDetailModal.ev.status }}</span>
+          </div>
+          <!-- 明細 / 備註 -->
+          <div
+            v-if="orderDetailModal.ev.description"
+            class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed"
+            style="white-space: pre-line"
+          >{{ orderDetailModal.ev.description }}</div>
+          <p class="text-xs text-hint-c">
+            這筆資料唯讀，編輯或刪除請到對應的管理頁面操作
+          </p>
+        </div>
+        <!-- Footer -->
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
+          <button
+            class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="orderDetailModal.show = false"
+          >
+            關閉
+          </button>
+          <a
+            v-if="ORDER_ADMIN_PATH[orderDetailModal.ev.source]"
+            :href="ORDER_ADMIN_PATH[orderDetailModal.ev.source]"
+            class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
+          >
+            前往管理
+          </a>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Modal: TXT 匯入 ══ -->
     <div
       v-if="showTxtModal"
@@ -1251,6 +1595,13 @@ const perm = usePermission()
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
+// 「行程」功能：跟院內行事曆結構類似，但資料完全獨立、互不相干（獨立 API + 獨立 YML）
+const BASE_ITINERARY = computed(() => commonStore.data.main_url + '/holy/itinerary')
+// 訂位／便當／豆漿／訂房：純顯示用（唯讀），實際新增/編輯/刪除都在各自的管理頁面進行
+const BASE_BOOKING = computed(() => commonStore.data.main_url + '/holy/booking')
+const BASE_LUNCH = computed(() => commonStore.data.main_url + '/holy/lunch')
+const BASE_SOYBEAN = computed(() => commonStore.data.main_url + '/holy/soybean')
+const BASE_ROOMS = computed(() => commonStore.data.main_url + '/holy/rooms/bookings')
 
 const TYPES = ['醫院', '園區', '芳心'] // 建築分類：本地院內活動底下的細分類別（新增/編輯表單、院內篩選底下的建築分類子篩選都用這組值）
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
@@ -1261,6 +1612,12 @@ const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
 
 const googleEvents = ref([])
 const googleLoading = ref(false)
+const itineraryEvents = ref([]) // 「行程」資料（獨立來源，跟院內活動互不相干）
+// 訂位／便當／豆漿／訂房：唯讀顯示用，正規化成跟 CalendarEvent 一樣的 {id,date,endDate,time,title,owner,room,source} 形狀
+const bookingEvents = ref([])
+const lunchEvents = ref([])
+const soybeanEvents = ref([])
+const roomOrderEvents = ref([])
 
 // ── 顏色工具 ─────────────────────────────────────────────────────
 // 「類型」只分院內／Google 兩種，但顏色沿用以前的建築分類配色：
@@ -1269,6 +1626,8 @@ const googleLoading = ref(false)
 // 徽章文字：本地活動有建築分類時直接顯示建築名稱（顏色也是那個建築的顏色），沒有才顯示「院內」
 function eventBadgeLabel(ev) {
   if (ev.source === 'google') return 'Google'
+  if (ev.source === 'itinerary') return '行程'
+  if (SOURCE_TYPE_LABEL[ev.source]) return SOURCE_TYPE_LABEL[ev.source]
   return eventBuilding(ev) || '院內'
 }
 
@@ -1279,11 +1638,15 @@ function eventBuilding(ev) {
 
 function typeColorClass(ev) {
   if (ev.source === 'google') return 'google'
+  if (ev.source === 'itinerary') return 'itinerary'
+  if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return ev.source
   return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[eventBuilding(ev)] || 'onsite'
 }
 
 function typeChipClass(ev) {
   if (ev.source === 'google') return 'chip-google'
+  if (ev.source === 'itinerary') return 'chip-itinerary'
+  if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return `chip-${ev.source}`
   return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[eventBuilding(ev)] || 'chip-onsite'
 }
 
@@ -1376,6 +1739,11 @@ function stripHtml(html) {
 
 function typeBarClass(ev) {
   if (ev.source === 'google') return 'bg-blue-500'
+  if (ev.source === 'itinerary') return 'bg-teal-500'
+  if (ev.source === 'booking') return 'bg-pink-500'
+  if (ev.source === 'lunch') return 'bg-orange-500'
+  if (ev.source === 'soybean') return 'bg-lime-600'
+  if (ev.source === 'roomorder') return 'bg-violet-600'
   return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[eventBuilding(ev)] || 'bg-amber-500'
 }
 
@@ -1392,7 +1760,7 @@ const currentMonth = ref(today.getMonth() + 1) // 1-based
 const panelExpanded = ref(true)
 
 // ── 篩選狀態 ──────────────────────────────────────────────────────
-const filterType = ref('全部') // 全部 / 院內 / Google
+const filterType = ref('全部') // 全部 / 院內 / 行程 / Google / 訂位 / 便當 / 豆漿 / 訂房
 const filterLocation = ref('') // 空字串 = 全部地點
 const filterBuilding = ref('') // 空字串 = 全部建築分類；僅在 filterType === '院內' 時使用，篩選原本的醫院/園區/芳心
 
@@ -1437,12 +1805,23 @@ function extractLocation(room) {
   return room.trim().replace(/^[A-Z0-9]+\s*/, '').trim() || room.trim()
 }
 
+// 每個資料來源對應的篩選類型標籤（跟篩選下拉的 option value 一致）
+const SOURCE_TYPE_LABEL = {
+  google: 'Google', itinerary: '行程',
+  booking: '訂位', lunch: '便當', soybean: '豆漿', roomorder: '訂房'
+}
+
+// 單一事件是否符合目前的「類型」篩選：院內＝沒有 source 標記的本地活動，其餘依 SOURCE_TYPE_LABEL 對應
+function matchesFilterType(e) {
+  if (filterType.value === '全部') return true
+  if (filterType.value === '院內') return !e.source
+  return SOURCE_TYPE_LABEL[e.source] === filterType.value
+}
+
 // 依目前 filterType（+ 院內時再依 filterBuilding）動態產生可選地點（去重、排序）
 const availableLocations = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  let base = allEvents.value.filter(e => eventOverlapsMonth(e, ym))
-  if (filterType.value === '院內') base = base.filter(e => e.source !== 'google')
-  if (filterType.value === 'Google') base = base.filter(e => e.source === 'google')
+  let base = allEvents.value.filter(e => eventOverlapsMonth(e, ym) && matchesFilterType(e))
   if (filterType.value === '院內' && filterBuilding.value) base = base.filter(e => eventBuilding(e) === filterBuilding.value)
   return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 })
@@ -1585,20 +1964,25 @@ const monthEventCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
   return allEvents.value.filter((e) => {
     if (!eventOverlapsMonth(e, ym)) return false
-    if (filterType.value === 'Google') return e.source === 'google'
-    if (filterType.value === '院內' && e.source === 'google') return false
+    if (!matchesFilterType(e)) return false
     if (filterType.value === '院內' && filterBuilding.value && eventBuilding(e) !== filterBuilding.value) return false
     if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
     return true
   }).length
 })
 
-// 類型統計（當月）：院內 = 本地新增/匯入的活動，Google = 同步進來的活動
+// 類型統計（當月）：院內 = 本地新增/匯入的活動，其餘依各自獨立來源計算
 const typeCount = computed(() => {
   const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  const overlap = list => list.filter(e => eventOverlapsMonth(e, ym)).length
   return {
-    院內: events.value.filter(e => eventOverlapsMonth(e, ym)).length,
-    Google: googleEvents.value.filter(e => eventOverlapsMonth(e, ym)).length
+    院內: overlap(events.value),
+    行程: overlap(itineraryEvents.value),
+    Google: overlap(googleEvents.value),
+    訂位: overlap(bookingEvents.value),
+    便當: overlap(lunchEvents.value),
+    豆漿: overlap(soybeanEvents.value),
+    訂房: overlap(roomOrderEvents.value)
   }
 })
 
@@ -1608,8 +1992,7 @@ function eventsOnDate(dateStr) {
   return allEvents.value
     .filter((e) => {
       if (!eventCoversDate(e, dateStr)) return false
-      if (filterType.value === 'Google') return e.source === 'google'
-      if (filterType.value === '院內' && e.source === 'google') return false
+      if (!matchesFilterType(e)) return false
       if (filterType.value === '院內' && filterBuilding.value && eventBuilding(e) !== filterBuilding.value) return false
       if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
       return true
@@ -1623,8 +2006,11 @@ const loading = ref(false)
 const saving = ref(false)
 const toast = reactive({ show: false, message: '' })
 
-// 系統活動 + Google 活動合併（兩者現在都是「一筆活動一筆資料」，用 date/endDate 表示範圍）
-const allEvents = computed(() => [...events.value, ...googleEvents.value])
+// 系統活動 + 行程 + Google 活動合併（都是「一筆活動一筆資料」，用 date/endDate 表示範圍）
+const allEvents = computed(() => [
+  ...events.value, ...itineraryEvents.value, ...googleEvents.value,
+  ...bookingEvents.value, ...lunchEvents.value, ...soybeanEvents.value, ...roomOrderEvents.value
+])
 
 async function fetchEvents() {
   loading.value = true
@@ -1636,6 +2022,140 @@ async function fetchEvents() {
     showToast('載入失敗')
   } finally {
     loading.value = false
+  }
+}
+
+// 「行程」資料：獨立 API + 獨立資料表，跟院內活動互不相干（結構相同，一次抓全部月份）
+// 後端回傳的 JSON 沒有 source 欄位，前端要自己補上 'itinerary' 才能跟院內/Google 活動分辨
+async function fetchItineraryEvents() {
+  try {
+    const res = await fetch(`${BASE_ITINERARY.value}/list`)
+    const list = res.ok ? await res.json() : []
+    itineraryEvents.value = list.map(ev => ({ ...ev, source: 'itinerary' }))
+  } catch (e) {
+    console.error(e)
+    showToast('行程載入失敗')
+  }
+}
+
+// ── 訂位／便當／豆漿／訂房：唯讀顯示，正規化成通用的月曆事件格式 ──────────
+// 這四個系統本身都有自己完整的管理頁面（訂單/新增/編輯/刪除都在那邊做），
+// 這裡只負責「讀」出來顯示在月曆上，點了只能看詳細資料，不能編輯。
+
+function summarizeMeal(o) {
+  const parts = []
+  if (o.meatQty) parts.push(`肉${o.meatQty}`)
+  if (o.fullVegQty) parts.push(`全素${o.fullVegQty}`)
+  if (o.eggVegQty) parts.push(`蛋奶素${o.eggVegQty}`)
+  if (o.spiceVegQty) parts.push(`五辛素${o.spiceVegQty}`)
+  return parts.join('・')
+}
+function mealTotal(o) {
+  return (o.meatQty || 0) + (o.fullVegQty || 0) + (o.eggVegQty || 0) + (o.spiceVegQty || 0)
+}
+
+// 訂位（RestaurantOrderController /holy/booking）：單日，用 /dates 取當月有訂位的日期，逐日 /get 撈明細
+async function fetchBookingEvents() {
+  try {
+    const dRes = await fetch(`${BASE_BOOKING.value}/dates/${currentYearMonth.value}`)
+    const dates = dRes.ok ? await dRes.json() : []
+    const lists = await Promise.all(dates.map(async (date) => {
+      const res = await fetch(`${BASE_BOOKING.value}/get/${date}`)
+      return res.ok ? await res.json() : []
+    }))
+    bookingEvents.value = lists.flat().map(o => ({
+      id: `booking_${o.id}`,
+      date: o.date,
+      endDate: o.date,
+      time: o.time || '',
+      title: `${o.name}／訂位${mealTotal(o)}位`,
+      owner: o.name,
+      room: '',
+      description: [summarizeMeal(o), o.note].filter(Boolean).join('\n'),
+      status: o.status,
+      phone: o.phone,
+      source: 'booking'
+    }))
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// 便當（BentoOrderController /holy/lunch）：單日，用 /dates 取當月有訂單的日期，逐日 /get 撈明細
+async function fetchLunchEvents() {
+  try {
+    const dRes = await fetch(`${BASE_LUNCH.value}/dates/${currentYearMonth.value}`)
+    const dates = dRes.ok ? await dRes.json() : []
+    const lists = await Promise.all(dates.map(async (date) => {
+      const res = await fetch(`${BASE_LUNCH.value}/get/${date}`)
+      return res.ok ? await res.json() : []
+    }))
+    lunchEvents.value = lists.flat().map(o => ({
+      id: `lunch_${o.id}`,
+      date: o.date,
+      endDate: o.date,
+      time: o.time || '',
+      title: `${o.name}／便當${mealTotal(o)}份`,
+      owner: o.name,
+      room: '',
+      description: [summarizeMeal(o), o.note].filter(Boolean).join('\n'),
+      status: o.status,
+      phone: o.phone,
+      source: 'lunch'
+    }))
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// 豆漿/豆腐（SoybeanController /holy/soybean）：/admin/list?month= 直接回傳整月訂單
+async function fetchSoybeanEvents() {
+  try {
+    const res = await fetch(`${BASE_SOYBEAN.value}/admin/list?month=${currentYearMonth.value}`)
+    const data = res.ok ? await res.json() : { orders: [] }
+    soybeanEvents.value = (data.orders || [])
+      .filter(o => o.pickupDate)
+      .map(o => ({
+        id: `soybean_${o.id}`,
+        date: o.pickupDate,
+        endDate: o.pickupDate,
+        time: '',
+        title: `${o.name}／豆漿${o.soymilkQty || 0}‧豆腐${o.tofuQty || 0}`,
+        owner: o.name,
+        room: '',
+        description: [o.remark].filter(Boolean).join('\n'),
+        status: o.status,
+        phone: o.contact,
+        source: 'soybean'
+      }))
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// 訂房（RoomOrdersController /holy/rooms/bookings）：/list 一次回傳全部訂單（不分月），跟院內/行程一樣只在掛載時抓一次
+async function fetchRoomOrderEvents() {
+  try {
+    const res = await fetch(`${BASE_ROOMS.value}/list`)
+    const list = res.ok ? await res.json() : []
+    roomOrderEvents.value = list
+      .filter(o => o.checkIn)
+      .map(o => ({
+        id: `room_${o.id}`,
+        date: o.checkIn,
+        endDate: o.checkOut || o.checkIn,
+        time: '',
+        title: `${o.groupName || o.name}／${o.guests}人${o.roomId ? '（' + o.roomId + '）' : ''}`,
+        owner: o.name,
+        room: o.roomId || '',
+        description: [o.notes].filter(Boolean).join('\n'),
+        status: o.status,
+        phone: o.phone,
+        groupName: o.groupName,
+        source: 'roomorder'
+      }))
+  } catch (e) {
+    console.error(e)
   }
 }
 
@@ -1720,17 +2240,19 @@ function openDayPanel(cell) {
 }
 
 // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
-const formModal = reactive({ show: false, isNew: true, id: null })
-const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院' })
+// source: 'local' = 院內活動, 'itinerary' = 行程（獨立資料，跟院內互不相干）
+const formModal = reactive({ show: false, isNew: true, id: null, source: 'local' })
+const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: '' })
 const formError = ref('')
 
-// 從日曆格子點 + 新增，自動帶入日期
-function openAddOnDate(dateStr) {
+// 從日曆格子點 + 新增，自動帶入日期；source 預設為院內活動，行程新增會另外傳 'itinerary'
+function openAddOnDate(dateStr, source = 'local') {
   formModal.isNew = true
   formModal.id = null
+  formModal.source = source
   Object.assign(form, {
     date: dateStr || '',
-    time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院'
+    time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: ''
   })
   formError.value = ''
   formModal.show = true
@@ -1744,18 +2266,70 @@ function openGoogleDetail(ev) {
   googleDetailModal.show = true
 }
 
+// ── 行程詳細 Modal（點行程先看資料，裡面才有編輯／刪除）──────────────────
+const itineraryDetailModal = reactive({ show: false, ev: null })
+
+// 訂位／便當／豆漿／訂房：唯讀來源，點了只開詳細資料 Modal（不能編輯/刪除）
+const ORDER_SOURCES = ['booking', 'lunch', 'soybean', 'roomorder']
+function isDetailClickable(ev) {
+  return ev.source === 'itinerary' || ORDER_SOURCES.includes(ev.source)
+}
+function openEventDetail(ev) {
+  if (ev.source === 'itinerary') openItineraryDetail(ev)
+  else if (ORDER_SOURCES.includes(ev.source)) openOrderDetail(ev)
+}
+
+function openItineraryDetail(ev) {
+  itineraryDetailModal.ev = ev
+  itineraryDetailModal.show = true
+}
+
+function editItineraryFromDetail() {
+  const ev = itineraryDetailModal.ev
+  itineraryDetailModal.show = false
+  openEdit(ev)
+}
+
+async function deleteItineraryFromDetail() {
+  const ev = itineraryDetailModal.ev
+  const ok = await deleteEvent(ev)
+  if (ok) itineraryDetailModal.show = false
+}
+
+// ── 訂位／便當／豆漿／訂房 詳細 Modal（唯讀，編輯/刪除請到各自管理頁）──────
+// 假設沿用 Nuxt 檔案路由（xxx-orders.vue → /xxx-orders），如實際路由不同請自行調整
+const ORDER_ADMIN_PATH = {
+  booking: '/booking-orders',
+  lunch: '/lunch-orders',
+  soybean: '/soybean-orders',
+  roomorder: '/rooms-orders'
+}
+const orderDetailModal = reactive({ show: false, ev: null })
+
+function openOrderDetail(ev) {
+  orderDetailModal.ev = ev
+  orderDetailModal.show = true
+}
+
 function openEdit(ev) {
   // Google 活動顯示詳細面板，不直接跳轉
   if (ev.source === 'google') {
     openGoogleDetail(ev)
     return
   }
+  // 訂位／便當／豆漿／訂房是唯讀資料，沒有編輯表單可用，一律導去詳細面板
+  if (ORDER_SOURCES.includes(ev.source)) {
+    openOrderDetail(ev)
+    return
+  }
   formModal.isNew = false
   formModal.id = ev.id
+  formModal.source = ev.source === 'itinerary' ? 'itinerary' : 'local'
   Object.assign(form, {
     date: ev.date, time: ev.time || '',
     endDate: ev.endDate && ev.endDate !== ev.date ? ev.endDate : '', endTime: ev.endTime || '',
-    title: ev.title, owner: ev.owner, room: ev.room, building: eventBuilding(ev) || '醫院'
+    title: ev.title, owner: ev.owner, room: ev.room, building: eventBuilding(ev) || '醫院',
+    description: ev.description || ''
   })
   formError.value = ''
   formModal.show = true
@@ -1763,7 +2337,7 @@ function openEdit(ev) {
 
 // 一筆活動＝一次 API 呼叫（不論單日或跨天），後端直接存 date/endDate，
 // 前端不用再逐日展開、也不用事後用內容比對去猜是不是同一個跨天活動
-// 類型只分院內／Google，這裡新增/編輯的一律是本地「院內」活動，建築分類另外存 building
+// source === 'local' 存到院內行事曆；source === 'itinerary' 存到獨立的行程資料，兩邊互不相干
 async function saveForm() {
   if (!form.date || !form.title.trim()) {
     formError.value = '日期和標題為必填'
@@ -1775,6 +2349,7 @@ async function saveForm() {
   }
   saving.value = true
   formError.value = ''
+  const isItinerary = formModal.source === 'itinerary'
   try {
     const payload = {
       id: formModal.isNew ? null : formModal.id,
@@ -1785,27 +2360,30 @@ async function saveForm() {
       title: form.title,
       owner: form.owner,
       room: form.room,
-      type: '院內',
-      building: form.building
+      type: isItinerary ? '行程' : '院內',
+      building: isItinerary ? '' : form.building
     }
-    const res = await fetch(`${BASE.value}/save`, {
+    if (isItinerary) payload.description = form.description
+    const res = await fetch(`${(isItinerary ? BASE_ITINERARY : BASE).value}/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
     if (!res.ok) throw new Error('儲存失敗')
     const saved = await res.json()
+    if (isItinerary) saved.source = 'itinerary'
+    const list = isItinerary ? itineraryEvents : events
     if (formModal.isNew) {
-      events.value.push(saved)
-      showToast('活動已新增')
+      list.value.push(saved)
+      showToast(isItinerary ? '行程已新增' : '活動已新增')
     } else {
-      const idx = events.value.findIndex(e => e.id === formModal.id)
-      if (idx !== -1) events.value[idx] = saved
+      const idx = list.value.findIndex(e => e.id === formModal.id)
+      if (idx !== -1) list.value[idx] = saved
       // 同步更新側板
       if (dayPanel.show && eventCoversDate(saved, dayPanel.dateStr)) {
         dayPanel.events = eventsOnDate(dayPanel.dateStr)
       }
-      showToast('活動已更新')
+      showToast(isItinerary ? '行程已更新' : '活動已更新')
     }
     formModal.show = false
   } catch (e) {
@@ -1815,19 +2393,32 @@ async function saveForm() {
   }
 }
 
-// DELETE /holy/calendar/{id}?date=YYYY-MM-DD（一筆活動只有一個 id，跨天活動會整筆一起刪除）
+// DELETE /holy/calendar/{id}?date=YYYY-MM-DD 或 /holy/itinerary/{id}?date=YYYY-MM-DD（依 source 而定）
+// 一筆活動只有一個 id，跨天活動會整筆一起刪除
 async function deleteEvent(ev) {
-  const hint = isBannerEvent(ev) ? `（跨天活動 ${ev.date} ~ ${ev.endDate}，將整筆刪除）` : ''
-  if (!confirm(`確定要刪除「${ev.title}」？${hint}`)) return
+  // 訂位／便當／豆漿／訂房是唯讀資料，這裡沒有對應的刪除端點，一律擋掉
+  if (ORDER_SOURCES.includes(ev.source)) {
+    showToast('這筆資料請到對應的管理頁面操作')
+    return false
+  }
+  const hint = isBannerEvent(ev) ? `（跨天${ev.source === 'itinerary' ? '行程' : '活動'} ${ev.date} ~ ${ev.endDate}，將整筆刪除）` : ''
+  if (!confirm(`確定要刪除「${ev.title}」？${hint}`)) return false
+  const isItinerary = ev.source === 'itinerary'
   try {
-    const res = await fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' })
+    const res = await fetch(`${(isItinerary ? BASE_ITINERARY : BASE).value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' })
     if (!res.ok) throw new Error()
-    events.value = events.value.filter(e => e.id !== ev.id)
+    if (isItinerary) {
+      itineraryEvents.value = itineraryEvents.value.filter(e => e.id !== ev.id)
+    } else {
+      events.value = events.value.filter(e => e.id !== ev.id)
+    }
     // 同步更新側板
     if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
     showToast('已刪除')
+    return true
   } catch {
     showToast('刪除失敗')
+    return false
   }
 }
 
@@ -2112,6 +2703,9 @@ const currentYearMonth = computed(() =>
 watch(currentYearMonth, () => {
   fetchNotes()
   fetchGoogleEvents()
+  fetchBookingEvents()
+  fetchLunchEvents()
+  fetchSoybeanEvents()
   noteEditIdx.value = -1
 })
 
@@ -2186,8 +2780,13 @@ function showToast(msg) {
 
 onMounted(() => {
   fetchEvents()
+  fetchItineraryEvents()
   fetchNotes()
   fetchGoogleEvents()
+  fetchBookingEvents()
+  fetchLunchEvents()
+  fetchSoybeanEvents()
+  fetchRoomOrderEvents() // /list 一次回傳全部訂單，不用像上面三個依月份重抓
 
   if (import.meta.client && window.matchMedia) {
     mobileMql = window.matchMedia('(max-width: 640px)')
@@ -2254,7 +2853,6 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
-  cursor: pointer;
   transition: opacity 0.1s, filter 0.1s;
 }
 
@@ -2319,10 +2917,6 @@ onUnmounted(() => {
   box-shadow: 0 0 0 2px #6366f1;
 }
 
-.cal-cell:hover .cal-add-btn {
-  opacity: 1 !important;
-}
-
 :root.dark .cal-cell {
   background: #15171c;
   border: 1px solid #2a2e37;
@@ -2380,12 +2974,6 @@ onUnmounted(() => {
   color: #c7d2fe;
 }
 
-/* ── 快速新增按鈕 ── */
-.cal-add-btn {
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
 /* ── 活動 chip ── */
 .cal-chip {
   display: flex;
@@ -2394,7 +2982,6 @@ onUnmounted(() => {
   border-radius: 4px;
   border-left: 3px solid transparent;
   padding: 2px 5px 2px 6px;
-  cursor: pointer;
   overflow: hidden;
   transition: opacity 0.1s, filter 0.1s;
   font-size: 12px; /* text-xs */
@@ -2447,6 +3034,36 @@ onUnmounted(() => {
   border-left-color: #2563eb;
 }
 
+.chip-itinerary {
+  background: #ccfbf1;
+  color: #0f766e;
+  border-left-color: #14b8a6;
+}
+
+.chip-booking {
+  background: #fce7f3;
+  color: #be185d;
+  border-left-color: #ec4899;
+}
+
+.chip-lunch {
+  background: #ffedd5;
+  color: #c2410c;
+  border-left-color: #f97316;
+}
+
+.chip-soybean {
+  background: #ecfccb;
+  color: #4d7c0f;
+  border-left-color: #65a30d;
+}
+
+.chip-roomorder {
+  background: #ede9fe;
+  color: #6d28d9;
+  border-left-color: #7c3aed;
+}
+
 .chip-onsite {
   background: #fef3c7;
   color: #b45309;
@@ -2475,6 +3092,31 @@ onUnmounted(() => {
 
 :root.dark .chip-google {
   background: #2563eb;
+  color: #fff;
+}
+
+:root.dark .chip-itinerary {
+  background: #0d9488;
+  color: #fff;
+}
+
+:root.dark .chip-booking {
+  background: #db2777;
+  color: #fff;
+}
+
+:root.dark .chip-lunch {
+  background: #ea580c;
+  color: #fff;
+}
+
+:root.dark .chip-soybean {
+  background: #4d7c0f;
+  color: #fff;
+}
+
+:root.dark .chip-roomorder {
+  background: #6d28d9;
   color: #fff;
 }
 
@@ -2517,6 +3159,31 @@ onUnmounted(() => {
   color: #1d4ed8;
 }
 
+.type-badge.itinerary {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.type-badge.booking {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.type-badge.lunch {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.type-badge.soybean {
+  background: #ecfccb;
+  color: #4d7c0f;
+}
+
+.type-badge.roomorder {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
 .type-badge.onsite {
   background: #fef3c7;
   color: #b45309;
@@ -2540,6 +3207,31 @@ onUnmounted(() => {
 :root.dark .type-badge.google {
   background: #1e3a5f;
   color: #93c5fd;
+}
+
+:root.dark .type-badge.itinerary {
+  background: #134e4a;
+  color: #5eead4;
+}
+
+:root.dark .type-badge.booking {
+  background: #831843;
+  color: #f9a8d4;
+}
+
+:root.dark .type-badge.lunch {
+  background: #7c2d12;
+  color: #fdba74;
+}
+
+:root.dark .type-badge.soybean {
+  background: #365314;
+  color: #bef264;
+}
+
+:root.dark .type-badge.roomorder {
+  background: #4c1d95;
+  color: #c4b5fd;
 }
 
 :root.dark .type-badge.onsite {
