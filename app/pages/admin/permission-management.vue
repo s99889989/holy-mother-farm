@@ -4,6 +4,19 @@ definePageMeta({ layout: 'admin', pageLabel: '權限組' })
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/permission')
 
+// ── 管理員驗證 header ─────────────────────────────────────────────
+// /groups、/default-group、/groups/reorder 這些寫入端點後端是用
+// AdminAuthUtil.canManagePermissionSystem 擋的，認的是獨立管理員帳密的
+// Bearer token（或 Google 登入 cookie）。跟 permission-keys.vue 同樣的
+// 模式：寫入請求要帶上這組 header + credentials。
+const adminHeaders = () => {
+  const token = localStorage.getItem('holy_auth_token') ?? ''
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+}
+
 // ── 狀態 ──────────────────────────────────────────────────────────
 const keyDefs = ref([])
 const groups = ref([])
@@ -123,7 +136,8 @@ const saveGroup = async () => {
       }
       const res = await fetch(BASE.value + '/groups', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: adminHeaders(),
+        credentials: 'include',
         body: JSON.stringify({id: groupModal.data.id, label: groupModal.data.label})
       })
       const d = await res.json()
@@ -136,7 +150,8 @@ const saveGroup = async () => {
 
     const res = await fetch(`${BASE.value}/groups/${groupModal.data.id}`, {
       method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
+      headers: adminHeaders(),
+      credentials: 'include',
       body: JSON.stringify({label: groupModal.data.label, permissions: groupModal.data.permissions})
     })
     const d = await res.json()
@@ -160,7 +175,8 @@ const setAsDefault = async (groupId) => {
   try {
     await fetch(BASE.value + '/default-group', {
       method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
+      headers: adminHeaders(),
+      credentials: 'include',
       body: JSON.stringify({group: groupId})
     })
     defaultGroup.value = groupId
@@ -184,7 +200,8 @@ const moveGroup = async (index, direction) => {
   try {
     await fetch(BASE.value + '/groups/reorder', {
       method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
+      headers: adminHeaders(),
+      credentials: 'include',
       body: JSON.stringify({groups: reordered.map(g => g.id)})
     })
   } catch (e) {
@@ -202,7 +219,11 @@ const confirmDeleteGroup = (g) => {
 const doDeleteGroup = async () => {
   saving.value = true
   try {
-    const res = await fetch(`${BASE.value}/groups/${deleteGroupTarget.value.id}`, {method: 'DELETE'})
+    const res = await fetch(`${BASE.value}/groups/${deleteGroupTarget.value.id}`, {
+      method: 'DELETE',
+      headers: adminHeaders(),
+      credentials: 'include'
+    })
     const d = await res.json()
     if (d.success) {
       await fetchGroups()

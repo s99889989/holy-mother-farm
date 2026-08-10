@@ -8,16 +8,16 @@
       <!-- 上傳 GMON3.GDB -->
       <div class="flex items-center gap-2">
         <input
-            ref="dbFileInput"
-            type="file"
-            accept=".gdb,.GDB"
-            class="hidden"
-            @change="onDbFileChange"
+          ref="dbFileInput"
+          type="file"
+          accept=".gdb,.GDB"
+          class="hidden"
+          @change="onDbFileChange"
         >
         <button
-            :disabled="dbUploading"
-            class="bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm"
-            @click="(dbFileInput as HTMLInputElement)?.click()"
+          :disabled="dbUploading"
+          class="bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm"
+          @click="(dbFileInput as HTMLInputElement)?.click()"
         >
           {{ dbUploading ? '上傳中…' : '⬆️ 上傳 GMON3.GDB' }}
         </button>
@@ -27,13 +27,13 @@
     <!-- ════════════════════════ 頁籤導覽 ════════════════════════ -->
     <div class="flex gap-1 border-b border-base mb-5">
       <button
-          v-for="t in mainTabs"
-          :key="t.key"
-          class="px-4 py-2 text-sm border-b-2 -mb-px transition-colors"
-          :class="currentTab === t.key
+        v-for="t in mainTabs"
+        :key="t.key"
+        class="px-4 py-2 text-sm border-b-2 -mb-px transition-colors"
+        :class="currentTab === t.key
           ? 'border-teal-500 text-teal-600 dark:text-teal-400 font-semibold'
           : 'border-transparent text-muted-c dark:text-hint-c hover:text-base-c'"
-          @click="currentTab = t.key"
+        @click="currentTab = t.key"
       >
         {{ t.label }}
       </button>
@@ -85,16 +85,16 @@
             BMI 分類分布
           </div>
           <div
-              v-for="cat in bmiCategoryList"
-              :key="cat.label"
-              class="flex items-center gap-2 mb-1.5 text-xs"
+            v-for="cat in bmiCategoryList"
+            :key="cat.label"
+            class="flex items-center gap-2 mb-1.5 text-xs"
           >
             <span class="w-10 text-hint-c dark:text-hint-c">{{ cat.label }}</span>
             <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
               <div
-                  class="h-full rounded"
-                  :class="cat.color"
-                  :style="{ width: cat.pct + '%' }"
+                class="h-full rounded"
+                :class="cat.color"
+                :style="{ width: cat.pct + '%' }"
               />
             </div>
             <span class="w-10 text-right text-muted-c">{{ cat.value }}</span>
@@ -157,10 +157,10 @@
               </td>
             </tr>
             <tr
-                v-for="rec in latestRecords"
-                :key="rec.patnr + '-' + rec.datetime"
-                class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-                @click="openCustomer(rec.patnr)"
+              v-for="rec in latestRecords"
+              :key="rec.patnr + '-' + rec.datetime"
+              class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+              @click="openCustomer(rec.patnr)"
             >
               <td class="border border-light-c px-3 py-1 whitespace-nowrap">
                 {{ rec.lastname }}{{ rec.firstname }}
@@ -202,70 +202,78 @@
         <div class="min-w-0">
           <div class="flex gap-3 mb-3 flex-wrap items-center">
             <input
-                v-model="keyword"
-                type="text"
-                placeholder="姓名 / 客戶編號 / 電話"
-                class="border border-base rounded px-3 py-1.5 w-56 bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c"
-                @keyup.enter="search"
+              v-model="keyword"
+              type="text"
+              placeholder="姓名 / 客戶編號 / 電話"
+              class="border border-base rounded px-3 py-1.5 w-56 bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c"
+              @keyup.enter="search"
             >
             <select
-                :value="groupFilter"
-                class="border border-base rounded px-3 py-1.5 bg-surface text-base-c"
-                @change="selectGroup(($event.target as HTMLSelectElement).value)"
+              :value="groupFilter"
+              class="border border-base rounded px-3 py-1.5 bg-surface text-base-c"
+              @change="selectGroup(($event.target as HTMLSelectElement).value)"
             >
               <option v-for="g in groupTabs" :key="g.name" :value="g.name">
                 {{ g.label }}（{{ g.count }}）
               </option>
             </select>
             <button
-                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded"
-                @click="search"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded"
+              @click="search"
             >
               查詢
             </button>
             <button
-                class="bg-surface2 hover-border text-base-c px-4 py-1.5 rounded"
-                @click="resetSearch"
+              class="bg-surface2 hover-border text-base-c px-4 py-1.5 rounded"
+              @click="resetSearch"
             >
               清除
             </button>
             <button
-                v-if="groupFilter"
-                class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded text-sm"
-                title="複製此班別的免登入分享連結"
-                @click="copyGroupShareLink"
+              v-if="groupFilter"
+              class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded text-sm"
+              title="複製此班別的免登入分享連結"
+              @click="copyGroupShareLink"
             >
               🔗 複製「{{ groupFilter }}」分享連結
+            </button>
+            <button
+              v-if="groupFilter"
+              class="bg-surface2 hover-border text-base-c px-4 py-1.5 rounded text-sm"
+              title="在新分頁開啟此班別的分享頁"
+              @click="openGroupShareLink"
+            >
+              ↗ 開啟連結
             </button>
           </div>
 
           <div class="flex gap-2 mb-2 items-center text-sm flex-wrap">
             <button
-                :disabled="page <= 1"
-                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-                @click="page = 1; refreshList()"
+              :disabled="page <= 1"
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+              @click="page = 1; refreshList()"
             >
               &lt;&lt; 第一頁
             </button>
             <button
-                :disabled="page <= 1"
-                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-                @click="page--; refreshList()"
+              :disabled="page <= 1"
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+              @click="page--; refreshList()"
             >
               &lt; 前一頁
             </button>
             <span class="text-muted-c">第 {{ page }} 頁 / 共 {{ totalPages }} 頁（{{ listData?.total ?? 0 }} 筆）</span>
             <button
-                :disabled="page >= totalPages"
-                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-                @click="page++; refreshList()"
+              :disabled="page >= totalPages"
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+              @click="page++; refreshList()"
             >
               下一頁 &gt;
             </button>
             <button
-                :disabled="page >= totalPages"
-                class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
-                @click="page = totalPages; refreshList()"
+              :disabled="page >= totalPages"
+              class="border border-base px-3 py-1 rounded disabled:opacity-40 bg-surface text-muted-c hover:bg-surface2"
+              @click="page = totalPages; refreshList()"
             >
               最後一頁 &gt;&gt;
             </button>
@@ -299,11 +307,11 @@
                 </td>
               </tr>
               <tr
-                  v-for="row in listData?.rows"
-                  :key="row.patnr"
-                  class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-                  :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
-                  @click="openCustomer(row.patnr)"
+                v-for="row in listData?.rows"
+                :key="row.patnr"
+                class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+                :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
+                @click="openCustomer(row.patnr)"
               >
                 <td class="border border-light-c px-3 py-1 font-mono whitespace-nowrap">
                   {{ row.customerid }}
@@ -315,8 +323,8 @@
                   {{ row.sex === 'F' ? '女' : row.sex === 'M' ? '男' : '' }}
                 </td>
                 <td
-                    class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis"
-                    :title="row.group1"
+                  class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis"
+                  :title="row.group1"
                 >
                   {{ row.group1 }}
                 </td>
@@ -366,13 +374,13 @@
                     </div>
                     <div class="relative h-2.5 rounded-full overflow-hidden flex">
                       <div
-                          v-for="(seg, i) in bar.segments"
-                          :key="i"
-                          :style="{ width: seg.width + '%', background: seg.color }"
+                        v-for="(seg, i) in bar.segments"
+                        :key="i"
+                        :style="{ width: seg.width + '%', background: seg.color }"
                       />
                       <div
-                          class="absolute -top-0.5 w-[3px] h-[14px] rounded bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
-                          :style="{ left: 'calc(' + bar.markerPct + '% - 1.5px)' }"
+                        class="absolute -top-0.5 w-[3px] h-[14px] rounded bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                        :style="{ left: 'calc(' + bar.markerPct + '% - 1.5px)' }"
                       />
                     </div>
                     <div class="flex justify-between text-[10px] text-hint-c dark:text-hint-c mt-1">
@@ -393,10 +401,10 @@
                       <path :d="t.area" :fill="t.color" fill-opacity="0.12" stroke="none" />
                       <path :d="t.path" fill="none" :stroke="t.color" stroke-width="2" />
                       <circle
-                          v-for="(p, i) in t.pts"
-                          :key="i"
-                          :cx="p.x" :cy="p.y" r="2.2"
-                          :fill="i === t.pts.length - 1 ? '#C79A44' : t.color"
+                        v-for="(p, i) in t.pts"
+                        :key="i"
+                        :cx="p.x" :cy="p.y" r="2.2"
+                        :fill="i === t.pts.length - 1 ? '#C79A44' : t.color"
                       >
                         <title>{{ p.vLabel }}</title>
                       </circle>
@@ -459,10 +467,10 @@
                       </td>
                     </tr>
                     <tr
-                        v-for="(rec, idx) in customerRecords"
-                        :key="rec.datetime"
-                        class="bg-surface"
-                        :class="{ 'font-semibold': idx === 0 }"
+                      v-for="(rec, idx) in customerRecords"
+                      :key="rec.datetime"
+                      class="bg-surface"
+                      :class="{ 'font-semibold': idx === 0 }"
                     >
                       <td class="border border-light-c px-2 py-1 font-mono whitespace-nowrap">
                         {{ fmtDate(rec.datetime) }}
@@ -600,16 +608,25 @@ function selectGroup(name: string) {
   search()
 }
 
-// 產生 /front/body-composition?group=xxx 的免登入分享連結並複製到剪貼簿
+// 產生 /front/body-composition?group=xxx 的免登入分享連結
+function buildGroupShareLink(group: string) {
+  return `${window.location.origin}/front/body-composition?group=${encodeURIComponent(group)}`
+}
+
 async function copyGroupShareLink() {
   if (!groupFilter.value) return
-  const url = `${window.location.origin}/front/body-composition?group=${encodeURIComponent(groupFilter.value)}`
+  const url = buildGroupShareLink(groupFilter.value)
   try {
     await navigator.clipboard.writeText(url)
     alert(`✅ 已複製「${groupFilter.value}」的分享連結：\n${url}`)
   } catch {
     prompt('請手動複製連結：', url)
   }
+}
+
+function openGroupShareLink() {
+  if (!groupFilter.value) return
+  window.open(buildGroupShareLink(groupFilter.value), '_blank', 'noopener')
 }
 
 async function refreshList() {
@@ -671,8 +688,8 @@ const BMI_ZONES = [
 ]
 function fatZones(sex: string) {
   return sex === 'M'
-      ? [{ to: 14, label: '過低', color: '#38bdf8' }, { to: 20, label: '正常', color: '#10b981' }, { to: 25, label: '過重', color: '#f59e0b' }, { to: 50, label: '偏高', color: '#f43f5e' }]
-      : [{ to: 21, label: '過低', color: '#38bdf8' }, { to: 27, label: '正常', color: '#10b981' }, { to: 32, label: '過重', color: '#f59e0b' }, { to: 55, label: '偏高', color: '#f43f5e' }]
+    ? [{ to: 14, label: '過低', color: '#38bdf8' }, { to: 20, label: '正常', color: '#10b981' }, { to: 25, label: '過重', color: '#f59e0b' }, { to: 50, label: '偏高', color: '#f43f5e' }]
+    : [{ to: 21, label: '過低', color: '#38bdf8' }, { to: 27, label: '正常', color: '#10b981' }, { to: 32, label: '過重', color: '#f59e0b' }, { to: 55, label: '偏高', color: '#f43f5e' }]
 }
 const VISZFAT_ZONES = [
   { to: 10, label: '正常', color: '#10b981' },
@@ -710,7 +727,7 @@ const rangeBars = computed(() => {
 // ── 歷史趨勢折線圖（純 SVG，不需額外圖表套件）───────────────
 function buildTrend(key: string, title: string, color: string, digits = 1) {
   const recs = [...customerRecords.value].reverse()
-      .filter(r => r[key] !== null && r[key] !== undefined && r[key] !== '')
+    .filter(r => r[key] !== null && r[key] !== undefined && r[key] !== '')
   if (recs.length < 2) return null
   const values = recs.map(r => Number(r[key]))
   const w = 300, h = 90, padX = 8, padY = 14

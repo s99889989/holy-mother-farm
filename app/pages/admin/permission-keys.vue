@@ -1,8 +1,23 @@
 <script setup>
-definePageMeta({ layout: 'admin', pageLabel: 'Permission Keys' })
+definePageMeta({layout: 'admin', pageLabel: 'Permission Keys'})
 
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/permission')
+
+// ── 管理員驗證 header ─────────────────────────────────────────────
+// 這幾支 API（keys / sections CRUD）後端是用 AdminAuthUtil.canManagePermissionSystem
+// 擋的，認的是獨立管理員帳密的 Bearer token（或 Google 登入 cookie）。
+// 之前這裡的 fetch 都沒帶 Authorization，導致用獨立管理員登入時，
+// 後端完全認不出呼叫者是誰，一律回「權限不足」。
+// 寫入類的請求都要帶上這組 header + credentials，跟 customer-management.vue
+// 的 toggleBlock() 用同一套模式。
+const adminHeaders = () => {
+  const token = localStorage.getItem('holy_auth_token') ?? ''
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+}
 
 // ── 狀態 ──────────────────────────────────────────────────────────
 const keyDefs = ref([])
@@ -10,19 +25,19 @@ const sections = ref([]) // [{ section, order, count }]，已依 order 排序
 const loading = ref(true)
 const saving = ref(false)
 const deleteTarget = ref(null)
-const toast = reactive({ show: false, message: '' })
+const toast = reactive({show: false, message: ''})
 
 const keyModal = reactive({
   open: false,
   isCreate: false,
   customSection: '',
   originalKey: '', // 編輯模式下用來記住原始 key，才知道要 PUT 到哪個路徑
-  data: { key: '', label: '', section: '' },
+  data: {key: '', label: '', section: ''},
   error: ''
 })
 
 // ── 分類管理 Modal 狀態 ──────────────────────────────────────────────
-const sectionModal = reactive({ open: false, error: '' })
+const sectionModal = reactive({open: false, error: ''})
 const newSectionName = ref('')
 const renamingSection = ref(null)
 const renameValue = ref('')
@@ -45,7 +60,8 @@ const keysBySection = computed(() => {
 
 // ── 工具 ──────────────────────────────────────────────────────────
 const showToast = (msg) => {
-  toast.message = msg; toast.show = true
+  toast.message = msg;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -54,21 +70,27 @@ const fetchKeys = async () => {
   try {
     const res = await fetch(BASE.value + '/keys')
     keyDefs.value = await res.json()
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const fetchSections = async () => {
   try {
     const res = await fetch(BASE.value + '/sections')
     sections.value = await res.json()
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const fetchAll = async () => {
   loading.value = true
   try {
     await Promise.all([fetchKeys(), fetchSections()])
-  } finally { loading.value = false }
+  } finally {
+    loading.value = false
+  }
 }
 
 // ── Key 排序（分類內上下移） ──────────────────────────────────────
@@ -76,14 +98,18 @@ const moveKey = async (section, idx, dir) => {
   const list = [...(keysBySection.value[section] || [])]
   const j = idx + dir
   if (j < 0 || j >= list.length) return
-    ;[list[idx], list[j]] = [list[j], list[idx]]
+    ;
+  [list[idx], list[j]] = [list[j], list[idx]]
   try {
     await fetch(BASE.value + '/keys/reorder', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keys: list.map(k => k.key) })
+      headers: adminHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({keys: list.map(k => k.key)})
     })
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
   await fetchKeys()
 }
 
@@ -93,7 +119,7 @@ const openCreateKey = (presetSection) => {
   keyModal.error = ''
   keyModal.customSection = ''
   keyModal.originalKey = ''
-  keyModal.data = { key: '', label: '', section: presetSection || sections.value[0]?.section || '其他' }
+  keyModal.data = {key: '', label: '', section: presetSection || sections.value[0]?.section || '其他'}
   keyModal.open = true
 }
 
@@ -103,20 +129,29 @@ const openEditKey = (kd) => {
   keyModal.error = ''
   keyModal.customSection = ''
   keyModal.originalKey = kd.key
-  keyModal.data = { key: kd.key, label: kd.label, section: kd.section }
+  keyModal.data = {key: kd.key, label: kd.label, section: kd.section}
   keyModal.open = true
 }
 
 // ── 儲存 Key ──────────────────────────────────────────────────────
 const saveKey = async () => {
   keyModal.error = ''
-  if (!keyModal.data.key.trim()) { keyModal.error = '請輸入 permission key'; return }
-  if (!keyModal.data.label.trim()) { keyModal.error = '請輸入中文標籤'; return }
+  if (!keyModal.data.key.trim()) {
+    keyModal.error = '請輸入 permission key';
+    return
+  }
+  if (!keyModal.data.label.trim()) {
+    keyModal.error = '請輸入中文標籤';
+    return
+  }
 
   const section = keyModal.data.section === '__custom__'
     ? keyModal.customSection.trim()
     : keyModal.data.section.trim()
-  if (!section) { keyModal.error = '請輸入分區名稱'; return }
+  if (!section) {
+    keyModal.error = '請輸入分區名稱';
+    return
+  }
 
   saving.value = true
   try {
@@ -124,33 +159,48 @@ const saveKey = async () => {
     if (keyModal.isCreate) {
       res = await fetch(BASE.value + '/keys', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: keyModal.data.key.trim(), label: keyModal.data.label.trim(), section })
+        headers: adminHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({key: keyModal.data.key.trim(), label: keyModal.data.label.trim(), section})
       })
     } else {
       // PUT 到原本的 key 路徑；body 帶新的 key 值，後端會自動搬移各群組的設定
       res = await fetch(`${BASE.value}/keys/${encodeURIComponent(keyModal.originalKey)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: keyModal.data.key.trim(), label: keyModal.data.label.trim(), section })
+        headers: adminHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({key: keyModal.data.key.trim(), label: keyModal.data.label.trim(), section})
       })
     }
     const d = await res.json()
-    if (d.error) { keyModal.error = d.error; return }
+    if (d.error) {
+      keyModal.error = d.error;
+      return
+    }
 
     await fetchAll()
     keyModal.open = false
     showToast(keyModal.isCreate ? 'Permission Key 已新增' : 'Permission Key 已更新')
-  } catch { keyModal.error = '連線失敗，請再試一次' } finally { saving.value = false }
+  } catch {
+    keyModal.error = '連線失敗，請再試一次'
+  } finally {
+    saving.value = false
+  }
 }
 
 // ── 刪除 Key ──────────────────────────────────────────────────────
-const confirmDeleteKey = (kd) => { deleteTarget.value = kd }
+const confirmDeleteKey = (kd) => {
+  deleteTarget.value = kd
+}
 
 const doDeleteKey = async () => {
   saving.value = true
   try {
-    const res = await fetch(`${BASE.value}/keys/${encodeURIComponent(deleteTarget.value.key)}`, { method: 'DELETE' })
+    const res = await fetch(`${BASE.value}/keys/${encodeURIComponent(deleteTarget.value.key)}`, {
+      method: 'DELETE',
+      headers: adminHeaders(),
+      credentials: 'include'
+    })
     const d = await res.json()
     if (d.success) {
       await fetchAll()
@@ -189,8 +239,9 @@ const persistSectionOrder = async (list) => {
   try {
     await fetch(BASE.value + '/sections/reorder', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sections: list.map(s => s.section) })
+      headers: adminHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({sections: list.map(s => s.section)})
     })
   } catch (e) {
     console.error(e)
@@ -238,8 +289,9 @@ const doCreateSection = async () => {
   try {
     const res = await fetch(BASE.value + '/sections', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section: name })
+      headers: adminHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({section: name})
     })
     const d = await res.json()
     if (d.error) {
@@ -267,8 +319,9 @@ const doRenameSection = async (sec) => {
   try {
     const res = await fetch(`${BASE.value}/sections/${encodeURIComponent(sec.section)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: newLabel })
+      headers: adminHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({label: newLabel})
     })
     const d = await res.json()
     if (d.error) {
@@ -297,7 +350,11 @@ const askDeleteSection = (sec) => {
 const doDeleteSection = async (sec) => {
   deleteArmed.value = null
   try {
-    const res = await fetch(`${BASE.value}/sections/${encodeURIComponent(sec.section)}`, { method: 'DELETE' })
+    const res = await fetch(`${BASE.value}/sections/${encodeURIComponent(sec.section)}`, {
+      method: 'DELETE',
+      headers: adminHeaders(),
+      credentials: 'include'
+    })
     const d = await res.json()
     if (d.error) {
       sectionModal.error = d.error
@@ -316,12 +373,13 @@ onMounted(() => fetchAll())
 
 <template>
   <div class="min-h-screen bg-surface2 transition-colors duration-300">
-    <AdminNavbar />
+    <AdminNavbar/>
 
     <!-- Header -->
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+        <div
+          class="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
           K
         </div>
         <div>
@@ -349,7 +407,9 @@ onMounted(() => fetchAll())
               class="w-3.5 h-3.5"
               viewBox="0 0 20 20"
               fill="currentColor"
-            ><path d="M3 4h6v6H3V4zm8 0h6v6h-6V4zM3 12h6v4H3v-4zm8 0h6v4h-6v-4z" /></svg>
+            >
+              <path d="M3 4h6v6H3V4zm8 0h6v6h-6V4zM3 12h6v4H3v-4zm8 0h6v4h-6v-4z"/>
+            </svg>
             管理分類
           </button>
         </div>
@@ -359,7 +419,8 @@ onMounted(() => fetchAll())
         v-if="loading"
         class="flex items-center justify-center py-16 text-hint-c gap-2"
       >
-        <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />載入中…
+        <div class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"/>
+        載入中…
       </div>
 
       <div
@@ -421,7 +482,9 @@ onMounted(() => fetchAll())
                     class="w-3 h-3"
                     viewBox="0 0 20 20"
                     fill="currentColor"
-                  ><path d="M10 5l6 7H4l6-7z" /></svg>
+                  >
+                    <path d="M10 5l6 7H4l6-7z"/>
+                  </svg>
                 </button>
                 <button
                   class="text-hint-c hover:text-violet-600 disabled:opacity-20 disabled:pointer-events-none leading-none px-0.5"
@@ -433,7 +496,9 @@ onMounted(() => fetchAll())
                     class="w-3 h-3"
                     viewBox="0 0 20 20"
                     fill="currentColor"
-                  ><path d="M10 15l-6-7h12l-6 7z" /></svg>
+                  >
+                    <path d="M10 15l-6-7h12l-6 7z"/>
+                  </svg>
                 </button>
               </div>
 
@@ -494,12 +559,14 @@ onMounted(() => fetchAll())
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-            ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            /></svg>
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
 
@@ -547,7 +614,8 @@ onMounted(() => fetchAll())
               v-if="!keyModal.isCreate && keyModal.data.key !== keyModal.originalKey"
               class="text-xs text-amber-500 mt-1"
             >
-              ⚠️ 重新命名不會遺失群組的開/關設定，但頁面 <code class="font-mono">definePageMeta({{ '{' }} requiredPermission {{ '}' }})</code> 需要手動同步改成新 key，否則權限檢查會失效。
+              ⚠️ 重新命名不會遺失群組的開/關設定，但頁面 <code class="font-mono">definePageMeta({{ '{' }}
+              requiredPermission {{ '}' }})</code> 需要手動同步改成新 key，否則權限檢查會失效。
             </p>
           </div>
 
@@ -654,12 +722,14 @@ onMounted(() => fetchAll())
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-            ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            /></svg>
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
         <p class="text-xs text-hint-c mb-4">
@@ -695,27 +765,27 @@ onMounted(() => fetchAll())
                   cy="5"
                   r="1.4"
                 /><circle
-                  cx="6"
-                  cy="10"
-                  r="1.4"
-                /><circle
-                  cx="6"
-                  cy="15"
-                  r="1.4"
-                />
+                cx="6"
+                cy="10"
+                r="1.4"
+              /><circle
+                cx="6"
+                cy="15"
+                r="1.4"
+              />
                 <circle
                   cx="14"
                   cy="5"
                   r="1.4"
                 /><circle
-                  cx="14"
-                  cy="10"
-                  r="1.4"
-                /><circle
-                  cx="14"
-                  cy="15"
-                  r="1.4"
-                />
+                cx="14"
+                cy="10"
+                r="1.4"
+              /><circle
+                cx="14"
+                cy="15"
+                r="1.4"
+              />
               </svg>
             </span>
 
@@ -730,7 +800,9 @@ onMounted(() => fetchAll())
                   class="w-3 h-3"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                ><path d="M10 5l6 7H4l6-7z" /></svg>
+                >
+                  <path d="M10 5l6 7H4l6-7z"/>
+                </svg>
               </button>
               <button
                 class="text-hint-c hover:text-violet-600 disabled:opacity-20 disabled:pointer-events-none leading-none px-0.5"
@@ -742,7 +814,9 @@ onMounted(() => fetchAll())
                   class="w-3 h-3"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                ><path d="M10 15l-6-7h12l-6 7z" /></svg>
+                >
+                  <path d="M10 15l-6-7h12l-6 7z"/>
+                </svg>
               </button>
             </div>
 
@@ -825,7 +899,6 @@ onMounted(() => fetchAll())
     </transition>
   </div>
 </template>
-
 
 
 <style scoped>

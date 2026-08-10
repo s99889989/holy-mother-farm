@@ -6,6 +6,19 @@ const BASE = computed(() => commonStore.data.main_url + '/holy/customer')
 const ADMIN_BASE = computed(() => commonStore.data.main_url + '/holy/admin/customers')
 const PERM_BASE = computed(() => commonStore.data.main_url + '/holy/permission')
 
+// ── 管理員驗證 header ─────────────────────────────────────────────
+// /holy/admin/customers/*（update、delete）與 /holy/permission/user/*
+// 的寫入端點後端是用 AdminAuthUtil.canManageCustomers /
+// isSelfOrCanManageCustomers 擋的，認的是獨立管理員帳密的 Bearer token
+// （或 Google 登入 cookie）。跟 toggleBlock() 用同一套模式，統一補齊。
+const adminHeaders = () => {
+  const token = localStorage.getItem('holy_auth_token') ?? ''
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+}
+
 // ── 狀態 ──────────────────────────────────────────────────────────
 const customers = ref([])
 const loading = ref(true)
@@ -104,7 +117,8 @@ const quickSwitchActiveGroup = async (customerId, groupId) => {
   try {
     const res = await fetch(`${PERM_BASE.value}/user/${customerId}/active-group`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ group: groupId })
     })
     const data = await res.json()
@@ -121,7 +135,12 @@ const quickSwitchActiveGroup = async (customerId, groupId) => {
 const fetchCustomers = async () => {
   loading.value = true
   try {
-    const res = await fetch(BASE.value + '/list')
+    // 原本打 BASE（/holy/customer/list），但後端已經把這支當成沒在用的舊端點，
+    // 沒過驗證就默默回傳 []。真正在用的清單是 ADMIN_BASE（/holy/admin/customers/list）。
+    const res = await fetch(ADMIN_BASE.value + '/list', {
+      headers: adminHeaders(),
+      credentials: 'include'
+    })
     customers.value = await res.json()
   } catch (e) {
     console.error(e)
@@ -162,7 +181,8 @@ const saveEdit = async () => {
   try {
     const res = await fetch(ADMIN_BASE.value + '/update', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ id: editModal.customer.id, ...editForm })
     })
     const data = await res.json()
@@ -190,7 +210,8 @@ const savePerm = async () => {
   try {
     const groupsRes = await fetch(`${PERM_BASE.value}/user/${customerId}/groups`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ groups: permModal.groups })
     })
     const groupsData = await groupsRes.json()
@@ -198,7 +219,8 @@ const savePerm = async () => {
 
     const activeRes = await fetch(`${PERM_BASE.value}/user/${customerId}/active-group`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ group: permModal.activeGroup })
     })
     const activeData = await activeRes.json()
@@ -220,14 +242,10 @@ const savePerm = async () => {
 // ── API：封鎖/解鎖 ─────────────────────────────────────────────────
 const toggleBlock = async (c) => {
   const newStatus = c.status === 'blocked' ? 'active' : 'blocked'
-  const token = localStorage.getItem('holy_auth_token') ?? ''
   try {
     const res = await fetch(`${BASE.value}/${c.id}/status`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: adminHeaders(),
       credentials: 'include',
       body: JSON.stringify({ status: newStatus })
     })
@@ -250,7 +268,11 @@ const confirmDelete = (c) => { deleteTarget.value = c }
 const doDelete = async () => {
   saving.value = true
   try {
-    const res = await fetch(`${ADMIN_BASE.value}/delete/${deleteTarget.value.id}`, { method: 'DELETE' })
+    const res = await fetch(`${ADMIN_BASE.value}/delete/${deleteTarget.value.id}`, {
+      method: 'DELETE',
+      headers: adminHeaders(),
+      credentials: 'include'
+    })
     const data = await res.json()
     if (data.success) {
       await fetchCustomers()
@@ -358,110 +380,110 @@ onMounted(async () => {
       >
         <table class="w-full text-sm whitespace-nowrap">
           <thead class="bg-surface2 text-xs text-hint-c uppercase tracking-wide">
-            <tr>
-              <th class="px-3 py-3 text-left">
-                客戶
-              </th>
-              <th class="px-3 py-3 text-left">
-                Email
-              </th>
-              <th class="px-3 py-3 text-left">
-                電話
-              </th>
-              <th class="px-3 py-3 text-center">
-                權限群組
-              </th>
-              <th class="px-3 py-3 text-center">
-                訂位
-              </th>
-              <th class="px-3 py-3 text-center">
-                便當
-              </th>
-              <th class="px-3 py-3 text-left">
-                建立時間
-              </th>
-              <th class="px-3 py-3 text-center">
-                狀態
-              </th>
-              <th class="px-3 py-3 text-center">
-                操作
-              </th>
-            </tr>
+          <tr>
+            <th class="px-3 py-3 text-left">
+              客戶
+            </th>
+            <th class="px-3 py-3 text-left">
+              Email
+            </th>
+            <th class="px-3 py-3 text-left">
+              電話
+            </th>
+            <th class="px-3 py-3 text-center">
+              權限群組
+            </th>
+            <th class="px-3 py-3 text-center">
+              訂位
+            </th>
+            <th class="px-3 py-3 text-center">
+              便當
+            </th>
+            <th class="px-3 py-3 text-left">
+              建立時間
+            </th>
+            <th class="px-3 py-3 text-center">
+              狀態
+            </th>
+            <th class="px-3 py-3 text-center">
+              操作
+            </th>
+          </tr>
           </thead>
           <tbody class="divide-y divide-base">
-            <tr
-              v-for="c in filtered"
-              :key="c.id"
-              class="hover-surface2/30 transition-colors"
-              :class="c.status === 'blocked' ? 'opacity-50' : ''"
-            >
-              <!-- 客戶 -->
-              <td class="px-3 py-2.5">
-                <div class="flex items-center gap-2">
-                  <img
-                    v-if="c.picture"
-                    :src="c.picture"
-                    :alt="c.name"
-                    class="w-8 h-8 rounded-full object-cover border border-light-c flex-shrink-0"
-                  >
-                  <div
-                    v-else
-                    class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0"
-                  >
-                    {{ c.name?.charAt(0) || '?' }}
-                  </div>
-                  <span class="font-medium text-base-c">{{ c.name }}</span>
+          <tr
+            v-for="c in filtered"
+            :key="c.id"
+            class="hover-surface2/30 transition-colors"
+            :class="c.status === 'blocked' ? 'opacity-50' : ''"
+          >
+            <!-- 客戶 -->
+            <td class="px-3 py-2.5">
+              <div class="flex items-center gap-2">
+                <img
+                  v-if="c.picture"
+                  :src="c.picture"
+                  :alt="c.name"
+                  class="w-8 h-8 rounded-full object-cover border border-light-c flex-shrink-0"
+                >
+                <div
+                  v-else
+                  class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0"
+                >
+                  {{ c.name?.charAt(0) || '?' }}
                 </div>
-              </td>
-              <td class="px-3 py-2.5 text-hint-c">
-                {{ c.email }}
-              </td>
-              <td class="px-3 py-2.5 text-muted-c">
-                {{ c.mobile || c.landline || '—' }}
-              </td>
-              <!-- 權限群組（可複選 + 快速切換使用中） -->
-              <td class="px-3 py-2.5 text-center">
-                <div class="flex justify-center">
-                  <select
-                    v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
-                    :value="userPermMap[c.id]?.activeGroup"
-                    class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400"
-                    @change="quickSwitchActiveGroup(c.id, $event.target.value)"
+                <span class="font-medium text-base-c">{{ c.name }}</span>
+              </div>
+            </td>
+            <td class="px-3 py-2.5 text-hint-c">
+              {{ c.email }}
+            </td>
+            <td class="px-3 py-2.5 text-muted-c">
+              {{ c.mobile || c.landline || '—' }}
+            </td>
+            <!-- 權限群組（可複選 + 快速切換使用中） -->
+            <td class="px-3 py-2.5 text-center">
+              <div class="flex justify-center">
+                <select
+                  v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
+                  :value="userPermMap[c.id]?.activeGroup"
+                  class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400"
+                  @change="quickSwitchActiveGroup(c.id, $event.target.value)"
+                >
+                  <option
+                    v-for="gid in userPermMap[c.id].groups"
+                    :key="gid"
+                    :value="gid"
                   >
-                    <option
-                      v-for="gid in userPermMap[c.id].groups"
-                      :key="gid"
-                      :value="gid"
-                    >
-                      {{ groupLabel(gid) }}
-                    </option>
-                  </select>
-                  <span
-                    v-else-if="userPermMap[c.id]?.groups?.length === 1"
-                    class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
-                  >
+                    {{ groupLabel(gid) }}
+                  </option>
+                </select>
+                <span
+                  v-else-if="userPermMap[c.id]?.groups?.length === 1"
+                  class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+                >
                     {{ groupLabel(userPermMap[c.id].activeGroup || userPermMap[c.id].groups[0]) }}
                   </span>
-                  <span
-                    v-else
-                    class="text-hint-c text-xs"
-                  >—</span>
-                </div>
-              </td>
-              <td class="px-3 py-2.5 text-center">
+                <span
+                  v-else
+                  class="text-hint-c text-xs"
+                >—</span>
+              </div>
+            </td>
+            <td class="px-3 py-2.5 text-center">
                 <span class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 font-medium">
                   {{ c.bookingCount ?? '—' }}
                 </span>
-              </td>
-              <td class="px-3 py-2.5 text-center">
+            </td>
+            <td class="px-3 py-2.5 text-center">
                 <span class="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 font-medium">
                   {{ c.lunchCount ?? '—' }}
                 </span>
-              </td>
-              <td class="px-3 py-2.5 text-hint-c text-xs">
-                {{ c.createdAt }}
-              </td>
-              <td class="px-3 py-2.5 text-center">
+            </td>
+            <td class="px-3 py-2.5 text-hint-c text-xs">
+              {{ c.createdAt }}
+            </td>
+            <td class="px-3 py-2.5 text-center">
                 <span
                   :class="c.status === 'blocked'
                     ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
@@ -470,39 +492,39 @@ onMounted(async () => {
                 >
                   {{ c.status === 'blocked' ? '已封鎖' : '正常' }}
                 </span>
-              </td>
-              <td class="px-3 py-2.5">
-                <div class="flex items-center gap-1 justify-center">
-                  <button
-                    class="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                    @click="openEdit(c)"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
-                    @click="openPermModal(c)"
-                  >
-                    權限
-                  </button>
-                  <button
-                    :class="c.status === 'blocked'
+            </td>
+            <td class="px-3 py-2.5">
+              <div class="flex items-center gap-1 justify-center">
+                <button
+                  class="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  @click="openEdit(c)"
+                >
+                  編輯
+                </button>
+                <button
+                  class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                  @click="openPermModal(c)"
+                >
+                  權限
+                </button>
+                <button
+                  :class="c.status === 'blocked'
                       ? 'border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
                       : 'border-yellow-300 dark:border-yellow-700 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'"
-                    class="px-2 py-1 text-xs border rounded-lg transition-colors"
-                    @click="toggleBlock(c)"
-                  >
-                    {{ c.status === 'blocked' ? '解鎖' : '封鎖' }}
-                  </button>
-                  <button
-                    class="px-2 py-1 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    @click="confirmDelete(c)"
-                  >
-                    刪除
-                  </button>
-                </div>
-              </td>
-            </tr>
+                  class="px-2 py-1 text-xs border rounded-lg transition-colors"
+                  @click="toggleBlock(c)"
+                >
+                  {{ c.status === 'blocked' ? '解鎖' : '封鎖' }}
+                </button>
+                <button
+                  class="px-2 py-1 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  @click="confirmDelete(c)"
+                >
+                  刪除
+                </button>
+              </div>
+            </td>
+          </tr>
           </tbody>
         </table>
       </div>

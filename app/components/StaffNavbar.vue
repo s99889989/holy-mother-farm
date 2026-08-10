@@ -58,7 +58,9 @@ const navGroups = [
       { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
       { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
       { to: '/staff/order/rooms-setting', icon: '🚪', label: '房間管理', key: 'order.rooms-setting' },
-      { to: '/staff/order/rooms-orders', icon: '🏨', label: '訂房管理', key: 'order.rooms-orders' }
+      { to: '/staff/order/rooms-orders', icon: '🏨', label: '訂房管理', key: 'order.rooms-orders' },
+      { to: '/staff/order/venue/venue-rental', icon: '🚪', label: '場地管理', key: 'order.venue-rental' },
+      { to: '/staff/order/venue/venue-orders', icon: '🏨', label: '場地租借', key: 'order.venue-orders' }
     ]
   },
   {
