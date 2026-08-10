@@ -403,23 +403,24 @@ onMounted(load)
 .bc-header {
   background: linear-gradient(135deg, #1a3d28 0%, #2d5c3f 100%);
   color: #fff;
-  padding: 16px 16px 26px;
+  padding: 8px 14px 10px;
 }
 .bc-header__inner {
   max-width: 720px;
   margin: 0 auto;
 }
 .bc-logo {
-  font-size: 12px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   color: #bfe0cc;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  display: none;
 }
 .bc-title {
   font-family: 'Noto Serif TC', serif;
   font-weight: 700;
-  font-size: 19px;
-  margin: 0 0 4px;
+  font-size: 15px;
+  margin: 0;
 }
 .bc-sub {
   font-size: 12px;
@@ -431,7 +432,7 @@ onMounted(load)
   flex: 1;
   max-width: 720px;
   width: 100%;
-  margin: -14px auto 0;
+  margin: -4px auto 0;
   padding: 0 16px 40px;
 }
 .bc-card {
@@ -565,6 +566,7 @@ onMounted(load)
   .bc-logo {
     font-size: 13px;
     margin-bottom: 8px;
+    display: block;
   }
   .bc-title {
     font-size: 24px;
