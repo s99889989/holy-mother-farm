@@ -23,16 +23,23 @@
           <button class="flex-shrink-0 opacity-60 hover:opacity-100" @click="justSubmittedId = ''">✕</button>
         </div>
 
-        <div class="mb-3">
-          <label class="block text-hint-c mb-1" style="font-size:12px">使用日期</label>
-          <input v-model="form.date" type="date" :min="today"
-                 class="w-full border border-light-c rounded-lg px-3 py-2 bg-surface2 text-base-c" style="font-size:13px">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-hint-c mb-1" style="font-size:12px">開始日期</label>
+            <input v-model="form.startDate" type="date" :min="today"
+                   class="w-full border border-light-c rounded-lg px-3 py-2 bg-surface2 text-base-c" style="font-size:13px">
+          </div>
+          <div>
+            <label class="block text-hint-c mb-1" style="font-size:12px">開始時間</label>
+            <input v-model="form.startTime" type="time"
+                   class="w-full border border-light-c rounded-lg px-3 py-2 bg-surface2 text-base-c" style="font-size:13px">
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <label class="block text-hint-c mb-1" style="font-size:12px">開始時間</label>
-            <input v-model="form.startTime" type="time"
+            <label class="block text-hint-c mb-1" style="font-size:12px">結束日期</label>
+            <input v-model="form.endDate" type="date" :min="form.startDate || today"
                    class="w-full border border-light-c rounded-lg px-3 py-2 bg-surface2 text-base-c" style="font-size:13px">
           </div>
           <div>
@@ -134,7 +141,7 @@
         <h2 class="font-bold text-base-c mb-3" style="font-size:15px">我的預約</h2>
         <div v-for="b in myBookings" :key="b.id" class="bg-surface border border-light-c rounded-2xl p-3 mb-2 shadow-sm flex items-center justify-between gap-2">
           <div>
-            <p class="font-semibold text-base-c" style="font-size:13px">{{ b.venueLabel }} · {{ b.date }} {{ b.startTime }}–{{ b.endTime }}</p>
+            <p class="font-semibold text-base-c" style="font-size:13px">{{ b.venueLabel }} · {{ formatRange(b) }}</p>
             <p class="text-hint-c mt-0.5" style="font-size:11px">{{ b.guests }} 人・訂單編號 {{ b.id }}</p>
           </div>
           <span class="status-badge flex-shrink-0" :class="statusClass(b.status)">{{ statusLabel(b.status) }}</span>
@@ -200,7 +207,7 @@ function venueIcon(v) {
 }
 
 const form = reactive({
-  date: '', startTime: '', endTime: '', guests: 10,
+  startDate: '', startTime: '', endDate: '', endTime: '', guests: 10,
   name: '', phone: '', email: '', venuePref: 'all', notes: '',
 })
 const formError  = ref('')
@@ -220,6 +227,12 @@ function venueLabel(id) {
   const v = venues.value.find(x => x.id === id)
   return v ? v.name : '尚未指派'
 }
+// 起訖日期相同就顯示單日時段，跨日則顯示完整起訖日期時間
+function formatRange(b) {
+  if (!b) return ''
+  if (b.startDate === b.endDate) return `${b.startDate} ${b.startTime}–${b.endTime}`
+  return `${b.startDate} ${b.startTime} ~ ${b.endDate} ${b.endTime}`
+}
 function statusLabel(s) {
   return { unassigned: '待安排', pending: '待確認', confirmed: '已確認', completed: '已使用', cancelled: '已取消' }[s] || s
 }
@@ -236,7 +249,7 @@ function statusClass(s) {
 const myBookings = computed(() =>
   myBookingsRaw.value
     .map(b => ({ ...b, venueLabel: venueLabel(b.venueId) }))
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .sort((a, b) => (a.startDate < b.startDate ? 1 : -1))
 )
 
 async function fetchVenues() {
@@ -251,9 +264,11 @@ async function fetchMyBookings() {
 
 async function submitRequest() {
   formError.value = ''
-  if (!form.date) { formError.value = '請選擇使用日期'; return }
+  if (!form.startDate) { formError.value = '請選擇開始日期'; return }
+  if (!form.endDate) { formError.value = '請選擇結束日期'; return }
   if (!form.startTime || !form.endTime) { formError.value = '請選擇開始與結束時間'; return }
-  if (form.endTime <= form.startTime) { formError.value = '結束時間需晚於開始時間'; return }
+  if (form.endDate < form.startDate) { formError.value = '結束日期不能早於開始日期'; return }
+  if (form.endDate === form.startDate && form.endTime <= form.startTime) { formError.value = '結束時間需晚於開始時間'; return }
   if (!form.guests || form.guests < 1) { formError.value = '請輸入正確的使用人數'; return }
   if (!form.name.trim()) { formError.value = '請輸入姓名'; return }
   if (!form.phone.trim()) { formError.value = '請輸入聯絡電話'; return }
@@ -261,7 +276,7 @@ async function submitRequest() {
   submitting.value = true
   try {
     const body = {
-      date: form.date, startTime: form.startTime, endTime: form.endTime, guests: form.guests,
+      startDate: form.startDate, startTime: form.startTime, endDate: form.endDate, endTime: form.endTime, guests: form.guests,
       name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(),
       venuePref: form.venuePref, notes: form.notes.trim(),
     }
@@ -277,7 +292,7 @@ async function submitRequest() {
     await fetchMyBookings()
     justSubmittedId.value = res.id
 
-    form.date = ''; form.startTime = ''; form.endTime = ''; form.guests = 10
+    form.startDate = ''; form.startTime = ''; form.endDate = ''; form.endTime = ''; form.guests = 10
     form.name = ''; form.phone = ''; form.email = ''; form.venuePref = 'all'; form.notes = ''
   } catch (e) {
     console.error(e)

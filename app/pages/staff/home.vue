@@ -403,6 +403,64 @@ const calEventsByDay = computed(() => (
 ))
 const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
 
+// ── 今日備菜（來自備餐/出餐管理系統）：一律看「今天／明天」兩天，跟今日行事曆的日模式共用同一組日期 ──
+const MEAL_BASE = () => commonStore.data.main_url + '/holy/meal-schedule'
+const mealLoading = ref(false)
+const mealSessions = ref([])
+
+async function fetchMealSessions() {
+  mealLoading.value = true
+  try {
+    mealSessions.value = await (await fetch(`${MEAL_BASE()}/list`)).json()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    mealLoading.value = false
+  }
+}
+
+const mealTypeOrder = t => (t === '早餐' ? 0 : t === '午餐' ? 1 : t === '晚餐' ? 2 : 3)
+
+const mealSessionsByDay = computed(() => (
+  CAL_TODAY_DATES.map(date => ({
+    date,
+    sessions: mealSessions.value
+      .filter(s => s.date === date)
+      .sort((a, b) => mealTypeOrder(a.mealType) - mealTypeOrder(b.mealType))
+  }))
+))
+const mealHasAnySessions = computed(() => mealSessionsByDay.value.some(day => day.sessions.length > 0))
+
+// 備菜區塊的每日標題，跟 calDayHeaderLabel 用同一套「今天／明天」文字規則
+function mealDayHeaderLabel(date) {
+  if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
+  if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
+  return fmtMDWeekday(date)
+}
+
+function mealTypeBadgeClass(mealType) {
+  if (mealType === '早餐') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
+  if (mealType === '午餐') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
+  if (mealType === '晚餐') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30'
+  return 'bg-surface2 text-hint-c'
+}
+
+// 備菜卡片內文：九宮格便當精簡列出 9 格內容，一般餐次列出菜色（含附註）
+function mealDishSummary(session) {
+  if (session.boxGrid && session.boxGrid.length === 9) return session.boxGrid.join('、')
+  if (session.dishes && session.dishes.length) {
+    return session.dishes.map(d => (d.note ? `${d.name}（${d.note}）` : d.name)).join('、')
+  }
+  return ''
+}
+
+function mealServingSummary(session) {
+  if (!session.servingPoints || !session.servingPoints.length) return ''
+  return session.servingPoints
+    .map(sp => `${sp.name || '—'}${sp.count != null ? ' ' + sp.count + '位' : ''}`)
+    .join('　')
+}
+
 // 今日行事曆的每日標題：今天／明天直接標示文字，比只看日期清楚；本週行事曆維持只顯示日期
 function calDayHeaderLabel(date) {
   if (calViewMode.value !== 'week') {
@@ -1432,6 +1490,7 @@ onMounted(() => {
   loadBroadcastReceivePref()
   UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, {once: true}))
   fetchRoomBuildings() // 房務狀況要用到房型/棟別/金額，跟今日概況分開拉，互不影響彼此的載入中狀態
+  fetchMealSessions() // 今日備菜跟今日概況、房務狀況都各自獨立拉，互不影響彼此的載入中狀態
   fetchToday().then(() => {
     syncKnownItems(daySummary.value)
     connectStream()
@@ -2426,9 +2485,121 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- ── 今日行事曆 ── -->
-        <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
-          <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-light-c gap-2 flex-wrap">
+        <!-- ── 右側欄：今日備菜 + 今日行事曆，一起放在第 3 欄當側欄 ── -->
+        <div class="flex flex-col gap-4 lg:gap-6 xl:gap-8">
+          <!-- ── 今日備菜 ── -->
+          <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+            <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-light-c gap-2 flex-wrap">
+            <span
+              class="font-semibold text-muted-c"
+              style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+            >
+              今日備菜
+            </span>
+              <NuxtLink
+                to="/staff/management/meal-schedule"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
+                style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
+              >查看完整排程 →
+              </NuxtLink>
+            </div>
+            <div
+              v-if="mealLoading"
+              class="px-4 py-5 text-center text-hint-c"
+              style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+            >
+              載入中...
+            </div>
+            <div
+              v-else-if="!mealHasAnySessions"
+              class="px-4 py-5 text-center text-hint-c"
+              style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+            >
+              這兩天沒有排定的備餐
+            </div>
+
+            <!-- ── 每天各自獨立分組顯示，今天／明天兩組，跟今日行事曆用同一套日期 ── -->
+            <div
+              v-else
+              class="divide-y divide-base"
+            >
+              <div
+                v-for="day in mealSessionsByDay"
+                :key="day.date"
+              >
+                <div
+                  class="px-4 py-2 bg-surface2/50 font-semibold text-hint-c"
+                  style="font-size:clamp(12px, calc(12px + 0.45vw), 16px)"
+                >
+                  {{ mealDayHeaderLabel(day.date) }}
+                </div>
+                <div
+                  v-if="day.sessions.length === 0"
+                  class="px-4 py-2 text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >
+                  沒有排定的餐次
+                </div>
+                <div
+                  v-else
+                  class="divide-y divide-base"
+                >
+                  <div
+                    v-for="session in day.sessions"
+                    :key="session.id"
+                    class="px-4 py-2.5"
+                  >
+                    <div class="flex items-center gap-2 flex-wrap">
+                    <span
+                      :class="mealTypeBadgeClass(session.mealType)"
+                      class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold"
+                      style="font-size:clamp(9px, calc(9px + 0.4vw), 13px)"
+                    >{{ session.mealType }}</span>
+                      <p
+                        v-if="session.title"
+                        class="font-semibold text-base-c leading-snug"
+                        style="font-size:clamp(12px, calc(12px + 0.4vw), 15px)"
+                      >
+                        {{ session.title }}
+                      </p>
+                      <span
+                        v-if="session.totalCount"
+                        class="text-hint-c"
+                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                      >共 {{ session.totalCount }} 份</span>
+                    </div>
+                    <p
+                      v-if="mealDishSummary(session)"
+                      class="text-hint-c mt-1 leading-snug"
+                      style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                    >
+                      {{ mealDishSummary(session) }}
+                    </p>
+                    <p
+                      v-if="mealServingSummary(session)"
+                      class="text-hint-c mt-0.5 leading-snug"
+                      style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                    >
+                      📍 {{ mealServingSummary(session) }}
+                    </p>
+                    <p
+                      v-if="session.note"
+                      class="text-base-c mt-1 leading-snug whitespace-pre-wrap"
+                      style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                    >
+                      {{ session.note }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 今日行事曆 ── -->
+          <div class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+            <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-light-c gap-2 flex-wrap">
           <span
             class="font-semibold text-muted-c"
             style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
@@ -2440,130 +2611,131 @@ onUnmounted(() => {
               style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
             > ({{ calWeekRangeLabel }})</span>
           </span>
-            <div class="flex items-center gap-1.5">
-              <div class="flex items-center gap-0.5 bg-surface2 rounded-full p-0.5">
-                <button
-                  class="rounded-full font-medium px-2.5 py-1 transition-colors"
-                  style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-                  :class="calViewMode === 'day' ? 'bg-green-800 text-white shadow-sm' : 'text-hint-c'"
-                  @click="calViewMode = 'day'"
-                >
-                  今日
-                </button>
-                <button
-                  class="rounded-full font-medium px-2.5 py-1 transition-colors"
-                  style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
-                  :class="calViewMode === 'week' ? 'bg-green-800 text-white shadow-sm' : 'text-hint-c'"
-                  @click="calViewMode = 'week'"
-                >
-                  本週
-                </button>
+              <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-0.5 bg-surface2 rounded-full p-0.5">
+                  <button
+                    class="rounded-full font-medium px-2.5 py-1 transition-colors"
+                    style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                    :class="calViewMode === 'day' ? 'bg-green-800 text-white shadow-sm' : 'text-hint-c'"
+                    @click="calViewMode = 'day'"
+                  >
+                    今日
+                  </button>
+                  <button
+                    class="rounded-full font-medium px-2.5 py-1 transition-colors"
+                    style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                    :class="calViewMode === 'week' ? 'bg-green-800 text-white shadow-sm' : 'text-hint-c'"
+                    @click="calViewMode = 'week'"
+                  >
+                    本週
+                  </button>
+                </div>
+                <NuxtLink
+                  to="/staff/management/calendar"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
+                  style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
+                >查看全月 →
+                </NuxtLink>
               </div>
-              <NuxtLink
-                to="/staff/management/calendar"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
-                style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
-              >查看全月 →
-              </NuxtLink>
             </div>
-          </div>
-          <div
-            v-if="loading"
-            class="px-4 py-5 text-center text-hint-c"
-            style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
-          >
-            載入中...
-          </div>
-          <div
-            v-else-if="!calHasAnyEvents"
-            class="px-4 py-5 text-center text-hint-c"
-            style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
-          >
-            {{ calViewMode === 'week' ? '本週沒有排定的活動' : '這兩天沒有排定的活動' }}
-          </div>
-
-          <!-- ── 每天各自獨立分組顯示；今日模式是「今天／明天」兩組，本週模式是整週七組 ── -->
-          <div
-            v-else
-            class="divide-y divide-base"
-          >
             <div
-              v-for="day in calEventsByDay"
-              :key="day.date"
+              v-if="loading"
+              class="px-4 py-5 text-center text-hint-c"
+              style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+            >
+              載入中...
+            </div>
+            <div
+              v-else-if="!calHasAnyEvents"
+              class="px-4 py-5 text-center text-hint-c"
+              style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
+            >
+              {{ calViewMode === 'week' ? '本週沒有排定的活動' : '這兩天沒有排定的活動' }}
+            </div>
+
+            <!-- ── 每天各自獨立分組顯示；今日模式是「今天／明天」兩組，本週模式是整週七組 ── -->
+            <div
+              v-else
+              class="divide-y divide-base"
             >
               <div
-                class="px-4 py-2 bg-surface2/50 font-semibold text-hint-c"
-                style="font-size:clamp(12px, calc(12px + 0.45vw), 16px)"
-              >
-                {{ calDayHeaderLabel(day.date) }}
-              </div>
-              <div
-                v-if="day.events.length === 0"
-                class="px-4 py-2 text-hint-c"
-                style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
-              >
-                沒有排定的活動
-              </div>
-              <div
-                v-else
-                class="divide-y divide-base"
+                v-for="day in calEventsByDay"
+                :key="day.date"
               >
                 <div
-                  v-for="(ev, i) in day.events"
-                  :key="i"
-                  class="flex items-start gap-3 px-4 py-2.5"
+                  class="px-4 py-2 bg-surface2/50 font-semibold text-hint-c"
+                  style="font-size:clamp(12px, calc(12px + 0.45vw), 16px)"
+                >
+                  {{ calDayHeaderLabel(day.date) }}
+                </div>
+                <div
+                  v-if="day.events.length === 0"
+                  class="px-4 py-2 text-hint-c"
+                  style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                >
+                  沒有排定的活動
+                </div>
+                <div
+                  v-else
+                  class="divide-y divide-base"
                 >
                   <div
-                    class="flex-shrink-0 text-right"
-                    style="min-width:42px"
+                    v-for="(ev, i) in day.events"
+                    :key="i"
+                    class="flex items-start gap-3 px-4 py-2.5"
                   >
+                    <div
+                      class="flex-shrink-0 text-right"
+                      style="min-width:42px"
+                    >
                   <span
                     class="font-mono font-semibold text-hint-c"
                     style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
                   >{{ ev.time ? ev.time.split('-')[0] : '' }}</span>
-                  </div>
-                  <div
-                    class="flex-shrink-0 w-1 self-stretch rounded-full mt-0.5"
-                    :style="{ background: calBarColor(ev) }"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <p
-                      class="font-semibold text-base-c leading-snug"
-                      style="font-size:clamp(12px, calc(12px + 0.4vw), 15px)"
-                    >
-                      {{ ev.title }}
-                    </p>
-                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                    </div>
+                    <div
+                      class="flex-shrink-0 w-1 self-stretch rounded-full mt-0.5"
+                      :style="{ background: calBarColor(ev) }"
+                    />
+                    <div class="flex-1 min-w-0">
+                      <p
+                        class="font-semibold text-base-c leading-snug"
+                        style="font-size:clamp(12px, calc(12px + 0.4vw), 15px)"
+                      >
+                        {{ ev.title }}
+                      </p>
+                      <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                     <span
                       v-if="ev.owner"
                       class="text-hint-c"
                       style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
                     >👤 {{ ev.owner }}</span>
-                      <span
-                        v-if="ev.room"
-                        class="text-hint-c truncate"
-                        style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
-                      >
+                        <span
+                          v-if="ev.room"
+                          class="text-hint-c truncate"
+                          style="font-size:clamp(10px, calc(10px + 0.4vw), 13px)"
+                        >
                       📍 {{ ev.source === 'google' ? ev.room : ev.room.replace(/^[A-Z0-9]+\s*/, '') }}
                     </span>
+                      </div>
+                      <p
+                        v-if="calEventDetail(ev)"
+                        class="text-hint-c mt-1 whitespace-pre-wrap leading-snug"
+                        style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                      >
+                        {{ calEventDetail(ev) }}
+                      </p>
                     </div>
-                    <p
-                      v-if="calEventDetail(ev)"
-                      class="text-hint-c mt-1 whitespace-pre-wrap leading-snug"
-                      style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                    <span
+                      class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold self-start mt-0.5"
+                      style="font-size:clamp(9px, calc(9px + 0.4vw), 13px)"
+                      :style="{ background: calChipBg(ev), color: calChipText(ev) }"
                     >
-                      {{ calEventDetail(ev) }}
-                    </p>
-                  </div>
-                  <span
-                    class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold self-start mt-0.5"
-                    style="font-size:clamp(9px, calc(9px + 0.4vw), 13px)"
-                    :style="{ background: calChipBg(ev), color: calChipText(ev) }"
-                  >
                   {{ calBadgeLabel(ev) }}
                 </span>
+                  </div>
                 </div>
               </div>
             </div>

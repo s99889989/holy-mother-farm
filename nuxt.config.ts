@@ -1,10 +1,5 @@
 export default defineNuxtConfig({
-  modules: [
-    '@nuxt/eslint',
-    '@nuxt/ui',
-    '@pinia/nuxt',
-    '@pinia-plugin-persistedstate/nuxt'
-  ],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@pinia/nuxt', '@pinia-plugin-persistedstate/nuxt', '@nuxt/icon'],
   devtools: {
     enabled: true
   },
