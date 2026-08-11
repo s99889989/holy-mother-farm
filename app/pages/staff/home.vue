@@ -403,10 +403,11 @@ const calEventsByDay = computed(() => (
 ))
 const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
 
-// ── 今日備菜（來自備餐/出餐管理系統）：一律看「今天／明天」兩天，跟今日行事曆的日模式共用同一組日期 ──
+// ── 今日備菜（來自備餐/出餐管理系統）：今日模式看「今天／明天」兩天，本週模式看整週，跟今日行事曆用同一套日期組 ──
 const MEAL_BASE = () => commonStore.data.main_url + '/holy/meal-schedule'
 const mealLoading = ref(false)
 const mealSessions = ref([])
+const mealViewMode = ref('day') // 備菜區塊自己的今日／本週切換，跟今日行事曆的 calViewMode 各自獨立
 
 async function fetchMealSessions() {
   mealLoading.value = true
@@ -421,8 +422,10 @@ async function fetchMealSessions() {
 
 const mealTypeOrder = t => (t === '早餐' ? 0 : t === '午餐' ? 1 : t === '晚餐' ? 2 : 3)
 
+const mealDisplayDates = computed(() => (mealViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
+
 const mealSessionsByDay = computed(() => (
-  CAL_TODAY_DATES.map(date => ({
+  mealDisplayDates.value.map(date => ({
     date,
     sessions: mealSessions.value
       .filter(s => s.date === date)
@@ -431,10 +434,12 @@ const mealSessionsByDay = computed(() => (
 ))
 const mealHasAnySessions = computed(() => mealSessionsByDay.value.some(day => day.sessions.length > 0))
 
-// 備菜區塊的每日標題，跟 calDayHeaderLabel 用同一套「今天／明天」文字規則
+// 備菜區塊的每日標題：今日模式直接標示「今天／明天」，本週模式維持只顯示日期，跟 calDayHeaderLabel 同一套規則
 function mealDayHeaderLabel(date) {
-  if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
-  if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
+  if (mealViewMode.value !== 'week') {
+    if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
+    if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
+  }
   return fmtMDWeekday(date)
 }
 
@@ -2494,16 +2499,41 @@ onUnmounted(() => {
               class="font-semibold text-muted-c"
               style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
             >
-              今日備菜
+              {{ mealViewMode === 'week' ? '本週備菜' : '今日備菜' }}
+              <span
+                v-if="mealViewMode === 'week'"
+                class="font-normal text-hint-c"
+                style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+              > ({{ calWeekRangeLabel }})</span>
             </span>
-              <NuxtLink
-                to="/staff/management/meal-schedule"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
-                style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
-              >查看完整排程 →
-              </NuxtLink>
+              <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-0.5 bg-surface2 rounded-full p-0.5">
+                  <button
+                    class="rounded-full font-medium px-2.5 py-1 transition-colors"
+                    style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                    :class="mealViewMode === 'day' ? 'bg-green-800 text-white shadow-sm' : 'text-hint-c'"
+                    @click="mealViewMode = 'day'"
+                  >
+                    今日
+                  </button>
+                  <button
+                    class="rounded-full font-medium px-2.5 py-1 transition-colors"
+                    style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
+                    :class="mealViewMode === 'week' ? 'bg-green-800 text-white shadow-sm' : 'text-hint-c'"
+                    @click="mealViewMode = 'week'"
+                  >
+                    本週
+                  </button>
+                </div>
+                <NuxtLink
+                  to="/staff/management/meal-schedule"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
+                  style="font-size:clamp(12px, calc(12px + 0.45vw), 17px)"
+                >查看完整排程 →
+                </NuxtLink>
+              </div>
             </div>
             <div
               v-if="mealLoading"
@@ -2517,7 +2547,7 @@ onUnmounted(() => {
               class="px-4 py-5 text-center text-hint-c"
               style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
             >
-              這兩天沒有排定的備餐
+              {{ mealViewMode === 'week' ? '本週沒有排定的備餐' : '這兩天沒有排定的備餐' }}
             </div>
 
             <!-- ── 每天各自獨立分組顯示，今天／明天兩組，跟今日行事曆用同一套日期 ── -->
