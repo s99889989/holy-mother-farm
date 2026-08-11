@@ -52,7 +52,7 @@
                   @click="openMember(r)"
                 >
                   <td>{{ r.lastname }}{{ r.firstname }}</td>
-                  <td>{{ r.sex === 'F' ? '女' : r.sex === 'M' ? '男' : '–' }}</td>
+                  <td>{{ sexLabel(r.sex) }}</td>
                   <td class="bc-mono">
                     {{ fmtDate(r.datetime) }}
                   </td>
@@ -97,7 +97,7 @@
                     {{ selected.lastname }}{{ selected.firstname }}
                   </div>
                   <div class="bc-detail-meta">
-                    {{ selected.sex === 'F' ? '女' : selected.sex === 'M' ? '男' : '' }}
+                    {{ sexLabel(selected.sex) }}
                     · 共 {{ memberRecords.length }} 筆檢測紀錄
                   </div>
                 </div>
@@ -176,12 +176,13 @@
                     <th class="bc-num">體脂率%</th>
                     <th class="bc-num">肌肉量kg</th>
                     <th class="bc-num">內臟脂肪</th>
+                    <th class="bc-num">體內年齡</th>
                     <th class="bc-num">綜合風險</th>
                   </tr>
                   </thead>
                   <tbody>
                   <tr v-if="!memberRecords.length">
-                    <td colspan="8" class="bc-state">
+                    <td colspan="9" class="bc-state">
                       尚無檢測紀錄
                     </td>
                   </tr>
@@ -209,6 +210,9 @@
                       {{ fmtNum(rec.vfatl, 0) }}
                     </td>
                     <td class="bc-num bc-mono">
+                      {{ fmtNum(rec.metaage, 0) }}
+                    </td>
+                    <td class="bc-num bc-mono">
                       {{ rec.allrisk != null ? fmtNum(rec.allrisk * 100, 0) + '%' : '–' }}
                     </td>
                   </tr>
@@ -228,513 +232,533 @@
 </template>
 
 <script setup lang="ts">
-// 公開分享頁，免登入即可看，只顯示 URL 指定班別的成員摘要
-// 網址格式：/front/body-composition?group=班別名稱
-definePageMeta({ layout: false })
+  // 公開分享頁，免登入即可看，只顯示 URL 指定班別的成員摘要
+  // 網址格式：/front/body-composition?group=班別名稱
+  definePageMeta({ layout: false })
 
-const route = useRoute()
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/tabc'
+  const route = useRoute()
+  const commonStore = useCommonStore()
+  const BASE = () => commonStore.data.main_url + '/holy/tabc'
 
-const groupName = computed(() => (route.query.group as string) || '')
+  const groupName = computed(() => (route.query.group as string) || '')
 
-// ── 名單列表 ──────────────────────────────────────────
-const rows = ref<any[]>([])
-const total = ref(0)
-const page = ref(1)
-const limit = ref(20)
-const loading = ref(false)
-const error = ref('')
+  // ── 名單列表 ──────────────────────────────────────────
+  const rows = ref<any[]>([])
+  const total = ref(0)
+  const page = ref(1)
+  const limit = ref(20)
+  const loading = ref(false)
+  const error = ref('')
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
+  const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
 
-async function load() {
-  if (!groupName.value) return
-  loading.value = true
-  error.value = ''
-  try {
-    const res = await $fetch<any>(`${BASE()}/public/group-members`, {
-      params: { name: groupName.value, page: page.value, limit: limit.value }
-    })
-    rows.value = res?.rows ?? []
-    total.value = res?.total ?? 0
-  } catch {
-    error.value = '載入失敗，請確認分享連結是否正確'
-    rows.value = []
-  } finally {
-    loading.value = false
+  async function load() {
+    if (!groupName.value) return
+    loading.value = true
+    error.value = ''
+    try {
+      const res = await $fetch<any>(`${BASE()}/public/group-members`, {
+        params: { name: groupName.value, page: page.value, limit: limit.value }
+      })
+      rows.value = res?.rows ?? []
+      total.value = res?.total ?? 0
+    } catch {
+      error.value = '載入失敗，請確認分享連結是否正確'
+      rows.value = []
+    } finally {
+      loading.value = false
+    }
   }
-}
 
-// ── 右側個人詳情 ──────────────────────────────────────
-const selected = ref<any>(null)
-const memberRecords = ref<any[]>([])
-const memberLoading = ref(false)
-const memberError = ref('')
+  // ── 右側個人詳情 ──────────────────────────────────────
+  const selected = ref<any>(null)
+  const memberRecords = ref<any[]>([])
+  const memberLoading = ref(false)
+  const memberError = ref('')
 
-async function openMember(row: any) {
-  selected.value = row
-  memberRecords.value = []
-  memberError.value = ''
-  memberLoading.value = true
-  try {
-    const res = await $fetch<any>(`${BASE()}/public/member-records`, {
-      params: { group: groupName.value, patnr: row.patnr }
-    })
-    if (res?.customer) selected.value = { ...row, ...res.customer }
-    memberRecords.value = res?.records ?? []
-  } catch {
-    memberError.value = '載入失敗，請確認分享連結是否正確'
-  } finally {
-    memberLoading.value = false
+  async function openMember(row: any) {
+    selected.value = row
+    memberRecords.value = []
+    memberError.value = ''
+    memberLoading.value = true
+    try {
+      const res = await $fetch<any>(`${BASE()}/public/member-records`, {
+        params: { group: groupName.value, patnr: row.patnr }
+      })
+      if (res?.customer) selected.value = { ...row, ...res.customer }
+      memberRecords.value = res?.records ?? []
+    } catch {
+      memberError.value = '載入失敗，請確認分享連結是否正確'
+    } finally {
+      memberLoading.value = false
+    }
   }
-}
 
-// ── 標準範圍色帶（跟管理後台同一套標準）──────────────────
-const BMI_ZONES = [
-  { to: 18.5, label: '過輕', color: '#38bdf8' },
-  { to: 24, label: '正常', color: '#10b981' },
-  { to: 27, label: '過重', color: '#f59e0b' },
-  { to: 40, label: '肥胖', color: '#f43f5e' }
-]
-function fatZones(sex: string) {
-  return sex === 'M'
-    ? [{ to: 14, label: '過低', color: '#38bdf8' }, { to: 20, label: '正常', color: '#10b981' }, { to: 25, label: '過重', color: '#f59e0b' }, { to: 50, label: '偏高', color: '#f43f5e' }]
-    : [{ to: 21, label: '過低', color: '#38bdf8' }, { to: 27, label: '正常', color: '#10b981' }, { to: 32, label: '過重', color: '#f59e0b' }, { to: 55, label: '偏高', color: '#f43f5e' }]
-}
-const VISZFAT_ZONES = [
-  { to: 10, label: '正常', color: '#10b981' },
-  { to: 15, label: '偏高', color: '#f59e0b' },
-  { to: 30, label: '過高', color: '#f43f5e' }
-]
+  // 性別欄位正規化：資料庫實際存的格式不確定（可能有大小寫/空白/其他代碼），
+  // 用寬鬆比對取代完全比對；比對不到已知格式時，直接顯示原始值方便排查，而不是靜默顯示空白
+  function sexCode(v: any): 'M' | 'F' | '' {
+    if (v === null || v === undefined) return ''
+    const s = String(v).trim().toUpperCase()
+    if (s === 'M' || s === 'MALE' || s === '1' || s === '男') return 'M'
+    if (s === 'F' || s === 'FEMALE' || s === '2' || s === '女') return 'F'
+    return ''
+  }
+  function sexLabel(v: any) {
+    const code = sexCode(v)
+    if (code === 'M') return '男'
+    if (code === 'F') return '女'
+    const raw = v === null || v === undefined ? '' : String(v).trim()
+    return raw
+  }
 
-function buildRangeBar(title: string, value: any, zones: { to: number, label: string, color: string }[], digits = 1) {
-  const n = Number(value)
-  if (Number.isNaN(n)) return null
-  const max = zones[zones.length - 1].to
-  let from = 0
-  const segments = zones.map(z => {
-    const seg = { width: ((z.to - from) / max) * 100, color: z.color, label: z.label }
-    from = z.to
-    return seg
+  // ── 標準範圍色帶（跟管理後台同一套標準）──────────────────
+  const BMI_ZONES = [
+    { to: 18.5, label: '過輕', color: '#38bdf8' },
+    { to: 24, label: '正常', color: '#10b981' },
+    { to: 27, label: '過重', color: '#f59e0b' },
+    { to: 40, label: '肥胖', color: '#f43f5e' }
+  ]
+  function fatZones(sex: string) {
+    return sex === 'M'
+      ? [{ to: 14, label: '過低', color: '#38bdf8' }, { to: 20, label: '正常', color: '#10b981' }, { to: 25, label: '過重', color: '#f59e0b' }, { to: 50, label: '偏高', color: '#f43f5e' }]
+      : [{ to: 21, label: '過低', color: '#38bdf8' }, { to: 27, label: '正常', color: '#10b981' }, { to: 32, label: '過重', color: '#f59e0b' }, { to: 55, label: '偏高', color: '#f43f5e' }]
+  }
+  const VISZFAT_ZONES = [
+    { to: 10, label: '正常', color: '#10b981' },
+    { to: 15, label: '偏高', color: '#f59e0b' },
+    { to: 30, label: '過高', color: '#f43f5e' }
+  ]
+
+  function buildRangeBar(title: string, value: any, zones: { to: number, label: string, color: string }[], digits = 1) {
+    const n = Number(value)
+    if (Number.isNaN(n)) return null
+    const max = zones[zones.length - 1].to
+    let from = 0
+    const segments = zones.map(z => {
+      const seg = { width: ((z.to - from) / max) * 100, color: z.color, label: z.label }
+      from = z.to
+      return seg
+    })
+    const markerPct = Math.min(100, Math.max(0, (n / max) * 100))
+    const activeZone = zones.find(z => n <= z.to) ?? zones[zones.length - 1]
+    return { title, valueLabel: n.toFixed(digits), segments, markerPct, markerColor: activeZone.color }
+  }
+
+  const latestRecord = computed(() => memberRecords.value[0] ?? null)
+
+  const rangeBars = computed(() => {
+    if (!latestRecord.value) return []
+    const sex = sexCode(selected.value?.sex) || 'F'
+    return [
+      buildRangeBar('BMI', latestRecord.value.bmi, BMI_ZONES),
+      buildRangeBar('體脂率 %', latestRecord.value.fatp, fatZones(sex)),
+      buildRangeBar('內臟脂肪等級', latestRecord.value.vfatl, VISZFAT_ZONES, 0)
+    ].filter((b): b is NonNullable<typeof b> => b !== null)
   })
-  const markerPct = Math.min(100, Math.max(0, (n / max) * 100))
-  const activeZone = zones.find(z => n <= z.to) ?? zones[zones.length - 1]
-  return { title, valueLabel: n.toFixed(digits), segments, markerPct, markerColor: activeZone.color }
-}
 
-const latestRecord = computed(() => memberRecords.value[0] ?? null)
-
-const rangeBars = computed(() => {
-  if (!latestRecord.value) return []
-  const sex = selected.value?.sex ?? 'F'
-  return [
-    buildRangeBar('BMI', latestRecord.value.bmi, BMI_ZONES),
-    buildRangeBar('體脂率 %', latestRecord.value.fatp, fatZones(sex)),
-    buildRangeBar('內臟脂肪等級', latestRecord.value.vfatl, VISZFAT_ZONES, 0)
-  ].filter((b): b is NonNullable<typeof b> => b !== null)
-})
-
-// ── 歷史趨勢折線圖（純 SVG）──────────────────────────
-function buildTrend(key: string, title: string, color: string, digits = 1) {
-  const recs = [...memberRecords.value].reverse()
-    .filter(r => r[key] !== null && r[key] !== undefined && r[key] !== '')
-  if (recs.length < 2) return null
-  const values = recs.map(r => Number(r[key]))
-  const w = 300, h = 90, padX = 8, padY = 14
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = (max - min) || 1
-  const stepX = (w - padX * 2) / (recs.length - 1)
-  const pts = values.map((v, i) => ({
-    x: padX + i * stepX,
-    y: h - padY - ((v - min) / range) * (h - padY * 2),
-    vLabel: v.toFixed(digits)
-  }))
-  const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ')
-  const area = path + ` L${pts[pts.length - 1].x.toFixed(1)},${h - padY} L${pts[0].x.toFixed(1)},${h - padY} Z`
-  return {
-    key, title, color, w, h, path, area, pts,
-    firstLabel: fmtDate(recs[0].datetime),
-    lastValue: values[values.length - 1].toFixed(digits),
-    maxLabel: max.toFixed(digits),
-    minLabel: min.toFixed(digits),
-    maxY: pts.reduce((a, p) => Math.min(a, p.y), h),
-    minY: pts.reduce((a, p) => Math.max(a, p.y), 0)
+  // ── 歷史趨勢折線圖（純 SVG）──────────────────────────
+  function buildTrend(key: string, title: string, color: string, digits = 1) {
+    const recs = [...memberRecords.value].reverse()
+      .filter(r => r[key] !== null && r[key] !== undefined && r[key] !== '')
+    if (recs.length < 2) return null
+    const values = recs.map(r => Number(r[key]))
+    const w = 300, h = 90, padX = 8, padY = 14
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const range = (max - min) || 1
+    const stepX = (w - padX * 2) / (recs.length - 1)
+    const pts = values.map((v, i) => ({
+      x: padX + i * stepX,
+      y: h - padY - ((v - min) / range) * (h - padY * 2),
+      vLabel: v.toFixed(digits)
+    }))
+    const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ')
+    const area = path + ` L${pts[pts.length - 1].x.toFixed(1)},${h - padY} L${pts[0].x.toFixed(1)},${h - padY} Z`
+    return {
+      key, title, color, w, h, path, area, pts,
+      firstLabel: fmtDate(recs[0].datetime),
+      lastValue: values[values.length - 1].toFixed(digits),
+      maxLabel: max.toFixed(digits),
+      minLabel: min.toFixed(digits),
+      maxY: pts.reduce((a, p) => Math.min(a, p.y), h),
+      minY: pts.reduce((a, p) => Math.max(a, p.y), 0)
+    }
   }
-}
 
-const trendCharts = computed(() => {
-  if (memberRecords.value.length < 2) return []
-  return [
-    buildTrend('bmi', 'BMI', '#0d9488'),
-    buildTrend('fatp', '體脂率', '#f43f5e'),
-    buildTrend('pmm', '肌肉量', '#10b981'),
-    buildTrend('vfatl', '內臟脂肪', '#f59e0b', 0)
-  ].filter((t): t is NonNullable<typeof t> => t !== null)
-})
+  const trendCharts = computed(() => {
+    if (memberRecords.value.length < 2) return []
+    return [
+      buildTrend('bmi', 'BMI', '#0d9488'),
+      buildTrend('fatp', '體脂率', '#f43f5e'),
+      buildTrend('pmm', '肌肉量', '#10b981'),
+      buildTrend('vfatl', '內臟脂肪', '#f59e0b', 0)
+    ].filter((t): t is NonNullable<typeof t> => t !== null)
+  })
 
-// ── 格式化輔助 ────────────────────────────────────────
-function fmtNum(v: any, digits = 1) {
-  if (v === null || v === undefined || v === '') return '–'
-  const n = Number(v)
-  return Number.isNaN(n) ? '–' : n.toFixed(digits)
-}
-function fmtDate(v: any) {
-  return v ? String(v).slice(0, 10) : '–'
-}
+  // ── 格式化輔助 ────────────────────────────────────────
+  function fmtNum(v: any, digits = 1) {
+    if (v === null || v === undefined || v === '') return '–'
+    const n = Number(v)
+    return Number.isNaN(n) ? '–' : n.toFixed(digits)
+  }
+  function fmtDate(v: any) {
+    return v ? String(v).slice(0, 10) : '–'
+  }
 
-useHead({
-  title: () => (groupName.value ? `${groupName.value} 班別報告 - 聖母健康農莊` : '身體組成分析 - 聖母健康農莊')
-})
+  useHead({
+    title: () => (groupName.value ? `${groupName.value} 班別報告 - 聖母健康農莊` : '身體組成分析 - 聖母健康農莊')
+  })
 
-onMounted(load)
+  onMounted(load)
 </script>
 
 <style scoped>
-.bc-wrap {
-  min-height: 100vh;
-  background: #f4f7f3;
-  font-family: 'Noto Sans TC', sans-serif;
-  color: #1a3d28;
-  display: flex;
-  flex-direction: column;
-}
-.bc-header {
-  background: linear-gradient(135deg, #1a3d28 0%, #2d5c3f 100%);
-  color: #fff;
-  padding: 8px 14px 10px;
-}
-.bc-header__inner {
-  max-width: 720px;
-  margin: 0 auto;
-}
-.bc-logo {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: #bfe0cc;
-  margin-bottom: 2px;
-  display: none;
-}
-.bc-title {
-  font-family: 'Noto Serif TC', serif;
-  font-weight: 700;
-  font-size: 15px;
-  margin: 0;
-}
-.bc-sub {
-  font-size: 12px;
-  color: #cfe6d8;
-  margin: 0;
-  display: none;
-}
-.bc-main {
-  flex: 1;
-  max-width: 720px;
-  width: 100%;
-  margin: -4px auto 0;
-  padding: 0 16px 40px;
-}
-.bc-card {
-  background: #fff;
-  border: 1px solid #dce8d8;
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 14px;
-}
-.bc-empty {
-  padding: 28px 20px;
-  font-size: 14px;
-  color: #5c6b57;
-  line-height: 1.7;
-}
-.bc-state {
-  padding: 32px 16px;
-  text-align: center;
-  color: #8a978a;
-  font-size: 14px;
-}
-.bc-state--error {
-  color: #b0553b;
-}
-.bc-table-wrap {
-  overflow-x: auto;
-}
-.bc-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-}
-.bc-table thead {
-  background: #2d5c3f;
-  color: #fff;
-}
-.bc-table th {
-  padding: 10px 12px;
-  text-align: left;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.bc-table td {
-  padding: 9px 12px;
-  border-bottom: 1px solid #eef2ec;
-  white-space: nowrap;
-}
-.bc-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.bc-row-clickable {
-  cursor: pointer;
-  transition: background-color 0.12s;
-}
-.bc-row-clickable:hover {
-  background: #f0f6f0;
-}
-.bc-row-active {
-  background: #e4f1e6;
-  font-weight: 600;
-}
-.bc-num {
-  text-align: right;
-}
-.bc-mono {
-  font-variant-numeric: tabular-nums;
-}
-.bc-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 16px;
-  font-size: 13px;
-  color: #5c6b57;
-}
-.bc-pagination button {
-  border: 1px solid #dce8d8;
-  background: #fff;
-  border-radius: 6px;
-  padding: 6px 12px;
-  color: #1a3d28;
-  cursor: pointer;
-}
-.bc-pagination button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.bc-footer {
-  text-align: center;
-  font-size: 12px;
-  color: #8a978a;
-  padding: 20px;
-}
-
-/* ── 左右兩欄（桌機）／手機轉跳全螢幕（一次只顯示一邊）── */
-.bc-layout {
-  display: block;
-}
-.bc-layout__list,
-.bc-layout__detail {
-  min-width: 0;
-}
-/* 手機：選了成員就整個切到詳情頁，名單先隱藏；沒選就只顯示名單 */
-.bc-mobile-hidden {
-  display: none;
-}
-.bc-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: #2d5c3f;
-  font-weight: 600;
-  font-size: 14px;
-  padding: 8px 0 12px;
-  cursor: pointer;
-}
-@media (min-width: 860px) {
-  .bc-main {
-    max-width: 1040px;
-    margin-top: -20px;
-  }
-  .bc-header__inner {
-    max-width: 1040px;
+  .bc-wrap {
+    min-height: 100vh;
+    background: #f4f7f3;
+    font-family: 'Noto Sans TC', sans-serif;
+    color: #1a3d28;
+    display: flex;
+    flex-direction: column;
   }
   .bc-header {
-    padding: 32px 20px 40px;
+    background: linear-gradient(135deg, #1a3d28 0%, #2d5c3f 100%);
+    color: #fff;
+    padding: 8px 14px 10px;
+  }
+  .bc-header__inner {
+    max-width: 720px;
+    margin: 0 auto;
   }
   .bc-logo {
-    font-size: 13px;
-    margin-bottom: 8px;
-    display: block;
-  }
-  .bc-title {
-    font-size: 24px;
-    margin: 0 0 6px;
-  }
-  .bc-sub {
-    font-size: 13px;
-    display: block;
-  }
-  .bc-layout {
-    display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: 20px;
-    align-items: start;
-  }
-  .bc-layout__detail {
-    position: sticky;
-    top: 16px;
-  }
-  /* 桌機兩欄同時顯示，不套用手機的切換隱藏 */
-  .bc-mobile-hidden {
-    display: block;
-  }
-  /* 桌機用右上角 ✕ 關閉即可，不需要「返回名單」文字按鈕 */
-  .bc-back {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: #bfe0cc;
+    margin-bottom: 2px;
     display: none;
   }
-}
-/* 大螢幕（≥1536px）吃滿整個畫面寬度 */
-@media (min-width: 1536px) {
-  .bc-main,
-  .bc-header__inner {
-    max-width: none;
+  .bc-title {
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 700;
+    font-size: 15px;
+    margin: 0;
+  }
+  .bc-sub {
+    font-size: 12px;
+    color: #cfe6d8;
+    margin: 0;
+    display: none;
   }
   .bc-main {
-    padding-left: 48px;
-    padding-right: 48px;
+    flex: 1;
+    max-width: 720px;
+    width: 100%;
+    margin: -4px auto 0;
+    padding: 0 16px 40px;
   }
-  .bc-header {
-    padding-left: 32px;
-    padding-right: 32px;
+  .bc-card {
+    background: #fff;
+    border: 1px solid #dce8d8;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 14px;
   }
-}
+  .bc-empty {
+    padding: 28px 20px;
+    font-size: 14px;
+    color: #5c6b57;
+    line-height: 1.7;
+  }
+  .bc-state {
+    padding: 32px 16px;
+    text-align: center;
+    color: #8a978a;
+    font-size: 14px;
+  }
+  .bc-state--error {
+    color: #b0553b;
+  }
+  .bc-table-wrap {
+    overflow-x: auto;
+  }
+  .bc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .bc-table thead {
+    background: #2d5c3f;
+    color: #fff;
+  }
+  .bc-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .bc-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #eef2ec;
+    white-space: nowrap;
+  }
+  .bc-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .bc-row-clickable {
+    cursor: pointer;
+    transition: background-color 0.12s;
+  }
+  .bc-row-clickable:hover {
+    background: #f0f6f0;
+  }
+  .bc-row-active {
+    background: #e4f1e6;
+    font-weight: 600;
+  }
+  .bc-num {
+    text-align: right;
+  }
+  .bc-table th.bc-num {
+    text-align: right;
+  }
+  .bc-mono {
+    font-variant-numeric: tabular-nums;
+  }
+  .bc-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 16px;
+    font-size: 13px;
+    color: #5c6b57;
+  }
+  .bc-pagination button {
+    border: 1px solid #dce8d8;
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: #1a3d28;
+    cursor: pointer;
+  }
+  .bc-pagination button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .bc-footer {
+    text-align: center;
+    font-size: 12px;
+    color: #8a978a;
+    padding: 20px;
+  }
 
-/* ── 右側個人詳情 ── */
-.bc-placeholder {
-  padding: 48px 20px;
-  text-align: center;
-  color: #8a978a;
-  font-size: 13.5px;
-}
-.bc-detail-head {
-  padding: 14px 16px;
-}
-.bc-detail-head__row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-.bc-detail-name {
-  font-family: 'Noto Serif TC', serif;
-  font-size: 18px;
-  font-weight: 700;
-}
-.bc-detail-meta {
-  font-size: 12px;
-  color: #6b7d68;
-  margin-top: 2px;
-}
-.bc-close {
-  border: none;
-  background: #f0f4ef;
-  color: #5c6b57;
-  border-radius: 6px;
-  width: 26px;
-  height: 26px;
-  cursor: pointer;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.bc-rangebars {
-  padding: 14px 16px;
-}
-.bc-rangebar + .bc-rangebar {
-  margin-top: 14px;
-}
-.bc-rangebar__head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #5c6b57;
-  margin-bottom: 5px;
-}
-.bc-rangebar__head span:last-child {
-  font-weight: 700;
-}
-.bc-rangebar__track {
-  position: relative;
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  display: flex;
-}
-.bc-rangebar__seg {
-  height: 100%;
-}
-.bc-rangebar__marker {
-  position: absolute;
-  top: -2px;
-  width: 3px;
-  height: 14px;
-  border-radius: 2px;
-  background: #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
-}
-.bc-rangebar__labels {
-  display: flex;
-  font-size: 9.5px;
-  color: #9aa89a;
-  margin-top: 4px;
-}
-.bc-rangebar__labels span {
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bc-trends {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  padding: 14px 16px;
-}
-@media (min-width: 520px) and (max-width: 859px) {
-  .bc-trends {
-    grid-template-columns: 1fr 1fr;
+  /* ── 左右兩欄（桌機）／手機轉跳全螢幕（一次只顯示一邊）── */
+  .bc-layout {
+    display: block;
   }
-}
-.bc-trend {
-  border: 1px solid #eef2ec;
-  border-radius: 8px;
-  padding: 10px;
-}
-.bc-trend__title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #5c6b57;
-  margin-bottom: 4px;
-}
-.bc-trend__svg {
-  width: 100%;
-  height: 78px;
-}
-.bc-trend__foot {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: #9aa89a;
-  margin-top: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.bc-badge {
-  display: inline-block;
-  margin-left: 4px;
-  font-size: 9px;
-  background: #2d5c3f;
-  color: #fff;
-  border-radius: 4px;
-  padding: 1px 5px;
-  vertical-align: middle;
-}
+  .bc-layout__list,
+  .bc-layout__detail {
+    min-width: 0;
+  }
+  /* 手機：選了成員就整個切到詳情頁，名單先隱藏；沒選就只顯示名單 */
+  .bc-mobile-hidden {
+    display: none;
+  }
+  .bc-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: #2d5c3f;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 8px 0 12px;
+    cursor: pointer;
+  }
+  @media (min-width: 860px) {
+    .bc-main {
+      max-width: 1040px;
+      margin-top: -20px;
+    }
+    .bc-header__inner {
+      max-width: 1040px;
+    }
+    .bc-header {
+      padding: 32px 20px 40px;
+    }
+    .bc-logo {
+      font-size: 13px;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .bc-title {
+      font-size: 24px;
+      margin: 0 0 6px;
+    }
+    .bc-sub {
+      font-size: 13px;
+      display: block;
+    }
+    .bc-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .bc-layout__detail {
+      position: sticky;
+      top: 16px;
+    }
+    /* 桌機兩欄同時顯示，不套用手機的切換隱藏 */
+    .bc-mobile-hidden {
+      display: block;
+    }
+    /* 桌機用右上角 ✕ 關閉即可，不需要「返回名單」文字按鈕 */
+    .bc-back {
+      display: none;
+    }
+  }
+  /* 大螢幕（≥1536px）吃滿整個畫面寬度 */
+  @media (min-width: 1536px) {
+    .bc-main,
+    .bc-header__inner {
+      max-width: none;
+    }
+    .bc-main {
+      padding-left: 48px;
+      padding-right: 48px;
+    }
+    .bc-header {
+      padding-left: 32px;
+      padding-right: 32px;
+    }
+  }
+
+  /* ── 右側個人詳情 ── */
+  .bc-placeholder {
+    padding: 48px 20px;
+    text-align: center;
+    color: #8a978a;
+    font-size: 13.5px;
+  }
+  .bc-detail-head {
+    padding: 14px 16px;
+  }
+  .bc-detail-head__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .bc-detail-name {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .bc-detail-meta {
+    font-size: 12px;
+    color: #6b7d68;
+    margin-top: 2px;
+  }
+  .bc-close {
+    border: none;
+    background: #f0f4ef;
+    color: #5c6b57;
+    border-radius: 6px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .bc-rangebars {
+    padding: 14px 16px;
+  }
+  .bc-rangebar + .bc-rangebar {
+    margin-top: 14px;
+  }
+  .bc-rangebar__head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #5c6b57;
+    margin-bottom: 5px;
+  }
+  .bc-rangebar__head span:last-child {
+    font-weight: 700;
+  }
+  .bc-rangebar__track {
+    position: relative;
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+  }
+  .bc-rangebar__seg {
+    height: 100%;
+  }
+  .bc-rangebar__marker {
+    position: absolute;
+    top: -2px;
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  }
+  .bc-rangebar__labels {
+    display: flex;
+    font-size: 9.5px;
+    color: #9aa89a;
+    margin-top: 4px;
+  }
+  .bc-rangebar__labels span {
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bc-trends {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  @media (min-width: 520px) and (max-width: 859px) {
+    .bc-trends {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .bc-trend {
+    border: 1px solid #eef2ec;
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .bc-trend__title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #5c6b57;
+    margin-bottom: 4px;
+  }
+  .bc-trend__svg {
+    width: 100%;
+    height: 78px;
+  }
+  .bc-trend__foot {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #9aa89a;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bc-badge {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 9px;
+    background: #2d5c3f;
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 5px;
+    vertical-align: middle;
+  }
 </style>
