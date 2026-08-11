@@ -8,16 +8,6 @@ const isDark = computed(() => darkStore.data.dark)
 const perm = usePermission()
 const customerStore = useCustomerStore()
 const commonStore = useCommonStore()
-
-// Twemoji：把 emoji 字元轉成 Twemoji SVG 網址，確保跨系統（Windows/Android/Mac...）顯示一致
-function twemojiUrl(emoji) {
-  if (!emoji) return ''
-  const codepoints = [...emoji]
-    .map(c => c.codePointAt(0).toString(16))
-    .filter(cp => cp !== 'fe0f')
-    .join('-')
-  return `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/svg/${codepoints}.svg`
-}
 const customer = computed(() => customerStore.customer)
 
 const toggleDark = () => {
@@ -38,8 +28,7 @@ watch(mobileOpen, (val) => {
 
 const navGroups = [
   {
-    label: '前台內容',
-    icon: '🌐',
+    label: '🌐 前台內容',
     items: [
       { to: '/staff/content/news', icon: '📢', label: '消息管理', key: 'content.news' },
       { to: '/staff/content/product', icon: '🛍️', label: '商品管理', key: 'content.product' },
@@ -47,8 +36,7 @@ const navGroups = [
     ]
   },
   {
-    label: '營運管理',
-    icon: '🏢',
+    label: '🏢 營運管理',
     items: [
       { to: '/staff/management/calendar', icon: '📅', label: '行事曆', key: 'management.calendar' },
       { to: '/staff/management/body-composition', icon: '⚖️', label: '身體組成分析', key: 'management.body-composition' },
@@ -63,8 +51,7 @@ const navGroups = [
     ]
   },
   {
-    label: '訂單管理',
-    icon: '📦',
+    label: '📦 訂單管理',
     items: [
       { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
       { to: '/staff/order/booking-orders', icon: '📅', label: '訂位管理', key: 'order.booking-orders' },
@@ -77,8 +64,7 @@ const navGroups = [
     ]
   },
   {
-    label: '人事',
-    icon: '👥',
+    label: '👥 人事',
     items: [
       { to: '/staff/personnel/class-schedule', icon: '🗓️', label: '假表', key: 'personnel.class-schedule' },
       { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
@@ -86,8 +72,7 @@ const navGroups = [
     ]
   },
   {
-    label: '日常作業',
-    icon: '🛒',
+    label: '🛒 日常作業',
     items: [
       { to: '/staff/pos/daily/sales', icon: '🛒', label: '商品販賣', key: 'pos.daily.sales' },
       { to: '/staff/pos/daily/account-inquiry', icon: '🧾', label: '帳務查詢', key: 'pos.daily.account-inquiry' },
@@ -95,15 +80,13 @@ const navGroups = [
     ]
   },
   {
-    label: '營業分析',
-    icon: '📊',
+    label: '📊 營業分析',
     items: [
       { to: '/staff/pos/analyze/sales-analysis', icon: '📈', label: '銷售報表', key: 'pos.analyze.sales-analysis' }
     ]
   },
   {
-    label: '系統設定',
-    icon: '⚙️',
+    label: '⚙️ 系統設定',
     items: [
       { to: '/staff/pos/settings/menu-setting', icon: '🍴', label: '品項設置', key: 'pos.settings.menu-setting' },
       { to: '/staff/pos/settings/database-setting', icon: '🗄️', label: '資料庫設置', key: 'pos.settings.database-setting' },
@@ -111,8 +94,7 @@ const navGroups = [
     ]
   },
   {
-    label: '其他',
-    icon: '💳',
+    label: '💳 其他',
     items: [
       { to: '/staff/other/broadcast', icon: '📣', label: '廣播', key: 'other.broadcast' },
       { to: '/staff/pos/other/pos-menu', icon: '📋', label: '商品管理', key: 'pos.other.pos-menu' },
@@ -122,52 +104,34 @@ const navGroups = [
     ]
   },
   {
-    label: '列印中心',
-    icon: '🖨️',
+    label: '🖨️ 列印中心',
     items: [
-      {to: '/staff/print/guild-hall-print', icon: '🏛️', label: '會館訂貨', key: 'print.guild-hall-print'},
-      {to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print'},
-      {
-        to: '/staff/print/fire-extinguisher-print',
-        icon: '🧯',
-        label: '滅火器 QRCode',
-        key: 'print.fire-extinguisher-print'
-      },
-      {to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print'}
+      { to: '/staff/print/guild-hall-print', icon: '🏛️', label: '會館訂貨', key: 'print.guild-hall-print' },
+      { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
+      { to: '/staff/print/fire-extinguisher-print', icon: '🧯', label: '滅火器 QRCode', key: 'print.fire-extinguisher-print' },
+      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
     ]
   },
   {
-    label: '庫存銷售',
-    icon: '📊',
+    label: '📊 庫存銷售',
     items: [
-      {to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count'},
-      {to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis'},
-      {to: '/staff/stock/pos-data-table', icon: '🗃️', label: '資料表', key: 'stock.pos-data-table'},
-      {to: '/staff/stock/pos-files', icon: '🗂️', label: '資料管理', key: 'stock.pos-files'}
+      { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
+      { to: '/staff/stock/pos-data-table', icon: '🗃️', label: '資料表', key: 'stock.pos-data-table' },
+      { to: '/staff/stock/pos-files', icon: '🗂️', label: '資料管理', key: 'stock.pos-files' }
     ]
   },
   {
-    label: '權限',
-    icon: '🔐',
+    label: '🔐 權限',
     items: [
-      {
-        to: '/staff/permission/customer-management',
-        icon: '👤',
-        label: '帳號管理',
-        key: 'permission.customer-management'
-      },
-      {
-        to: '/staff/permission/permission-management',
-        icon: '🛡️',
-        label: '權限組',
-        key: 'permission.permission-management'
-      }
+      { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
+      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
     ]
   }
 ]
 
 const standaloneItems = [
-  {to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links'}
+  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
 ]
 
 const permStore = usePermissionStore()
@@ -236,7 +200,7 @@ const filterItems = items => items.filter(i => !i.key || perm.can(i.key))
 const visibleGroups = computed(() => {
   if (!hasPerms.value) return []
   return navGroups
-    .map(g => ({...g, items: filterItems(g.items)}))
+    .map(g => ({ ...g, items: filterItems(g.items) }))
     .filter(g => g.items.length > 0)
 })
 
@@ -306,7 +270,7 @@ const logout = async () => {
         to="/staff/home"
         class="nav-logo flex items-center gap-1 px-2 py-1 mr-1 font-bold text-lg"
       >
-        <img :src="twemojiUrl('🏠')" class="inline-block" style="width:1em;height:1em" alt=""/> 專區首頁
+        🏠 專區首頁
       </NuxtLink>
 
       <!-- 分類 dropdown -->
@@ -335,7 +299,6 @@ const logout = async () => {
           :class="activeGroup?.label === group.label ? 'nav-item-active' : 'nav-item-inactive'"
           @click.stop="toggleDrop(group.label)"
         >
-          <img :src="twemojiUrl(group.icon)" class="inline-block" style="width:1em;height:1em" alt=""/>
           {{ group.label }}
           <svg
             class="w-3 h-3 transition-transform duration-150"
@@ -374,8 +337,7 @@ const logout = async () => {
                   class="nav-item flex items-center gap-2 px-3 py-1.5 rounded text-lg font-medium transition-colors whitespace-nowrap"
                   :class="route.path.startsWith(item.to) ? 'nav-item-active nav-item-active-bg' : 'nav-item-inactive'"
                 >
-                  <img v-if="item.icon" :src="twemojiUrl(item.icon)" class="inline-block flex-shrink-0 mr-0.5"
-                       style="width:1.1em;height:1.1em" alt=""/>{{ item.label }}
+                  <span v-if="item.icon">{{ item.icon }}</span>{{ item.label }}
                 </NuxtLink>
               </li>
             </ul>
@@ -391,8 +353,7 @@ const logout = async () => {
         class="nav-item flex items-center gap-1 px-2 py-1 rounded text-lg font-medium transition-colors whitespace-nowrap"
         :class="route.path.startsWith(item.to) ? 'nav-item-active nav-item-active-bg' : 'nav-item-inactive'"
       >
-        <img v-if="item.icon" :src="twemojiUrl(item.icon)" class="inline-block flex-shrink-0 mr-0.5"
-             style="width:1.1em;height:1.1em" alt=""/>{{ item.label }}
+        <span v-if="item.icon">{{ item.icon }}</span>{{ item.label }}
       </NuxtLink>
 
       <!-- 右側 -->
@@ -575,7 +536,7 @@ const logout = async () => {
         to="/staff/home"
         class="nav-logo flex items-center gap-1.5 font-bold text-sm"
       >
-        <img :src="twemojiUrl('🏠')" class="inline-block" style="width:1em;height:1em" alt=""/> 專區首頁
+        🏠 專區首頁
       </NuxtLink>
       <div class="flex items-center gap-1">
         <button
@@ -755,10 +716,9 @@ const logout = async () => {
               class="mb-6"
             >
               <p
-                class="text-xs font-semibold px-1 mb-2 tracking-wide flex items-center gap-1"
+                class="text-xs font-semibold px-1 mb-2 tracking-wide"
                 style="color: var(--text-hint)"
               >
-                <img :src="twemojiUrl(group.icon)" class="inline-block" style="width:1em;height:1em" alt=""/>
                 {{ group.label }}
               </p>
               <div class="grid grid-cols-3 gap-3">
@@ -769,7 +729,7 @@ const logout = async () => {
                   class="nav-app-tile flex flex-col items-center justify-center gap-1.5 py-3.5 px-1 rounded-2xl text-center transition-colors"
                   :class="route.path.startsWith(item.to) ? 'nav-app-tile-active' : ''"
                 >
-                  <img :src="twemojiUrl(item.icon)" class="w-6 h-6" alt=""/>
+                  <span class="text-2xl leading-none">{{ item.icon }}</span>
                   <span class="text-xs font-medium leading-tight">{{ item.label }}</span>
                 </NuxtLink>
               </div>
@@ -781,10 +741,10 @@ const logout = async () => {
               class="mb-2"
             >
               <p
-                class="text-xs font-semibold px-1 mb-2 tracking-wide flex items-center gap-1"
+                class="text-xs font-semibold px-1 mb-2 tracking-wide"
                 style="color: var(--text-hint)"
               >
-                <img :src="twemojiUrl('🔗')" class="inline-block" style="width:1em;height:1em" alt=""/> 其他
+                🔗 其他
               </p>
               <div class="grid grid-cols-3 gap-3">
                 <NuxtLink
@@ -794,7 +754,7 @@ const logout = async () => {
                   class="nav-app-tile flex flex-col items-center justify-center gap-1.5 py-3.5 px-1 rounded-2xl text-center transition-colors"
                   :class="route.path.startsWith(item.to) ? 'nav-app-tile-active' : ''"
                 >
-                  <img :src="twemojiUrl(item.icon)" class="w-6 h-6" alt=""/>
+                  <span class="text-2xl leading-none">{{ item.icon }}</span>
                   <span class="text-xs font-medium leading-tight">{{ item.label }}</span>
                 </NuxtLink>
               </div>
