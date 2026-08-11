@@ -151,7 +151,7 @@
 //   GET  /holy/venues/settings/list
 //   POST /holy/venues/bookings/request
 //   GET  /holy/venues/bookings/by-ids
-definePageMeta({ layout: 'staff', requiredPermission: 'order.venue-rental' })
+definePageMeta({ layout: 'default' })
 
 const commonStore = useCommonStore()
 const VENUES_BASE   = () => commonStore.data.main_url + '/holy/venues/settings'

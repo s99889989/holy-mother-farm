@@ -285,284 +285,308 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'system.quick-links' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'system.quick-links' })
 
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/links'
+  const commonStore = useCommonStore()
+  const BASE = () => commonStore.data.main_url + '/holy/links'
 
-const loading    = ref(false)
-const categories = ref([])
-const activeId   = ref(null)
-const editMode   = ref(false)
+  const loading    = ref(false)
+  const categories = ref([])
+  const activeId   = ref(null)
+  const editMode   = ref(false)
 
-const activeCat = computed(() => categories.value.find(c => c.id === activeId.value) ?? null)
+  const activeCat = computed(() => categories.value.find(c => c.id === activeId.value) ?? null)
 
-// 取得清單；若目前選取的分類仍存在則保留選取，避免每次編輯後都跳回第一個分類
-const fetchLinks = async () => {
-  loading.value = true
-  try {
-    const data = await (await fetch(`${BASE()}/list`)).json()
-    categories.value = data
-    const stillExists = categories.value.some(c => c.id === activeId.value)
-    if (!stillExists) {
-      activeId.value = categories.value.length > 0 ? categories.value[0].id : null
+  /* ---------------- 記住上次選取的分類 ---------------- */
+
+  const ACTIVE_CAT_STORAGE_KEY = 'quickLinksActiveCatId'
+
+  function loadSavedActiveId() {
+    try { return localStorage.getItem(ACTIVE_CAT_STORAGE_KEY) } catch { return null }
+  }
+  function saveActiveId(id) {
+    try {
+      if (id === null || id === undefined) {
+        localStorage.removeItem(ACTIVE_CAT_STORAGE_KEY)
+      } else {
+        localStorage.setItem(ACTIVE_CAT_STORAGE_KEY, String(id))
+      }
+    } catch { /* localStorage 不可用時忽略 */ }
+  }
+
+  // 選取分類的變動都存起來，下次進來自動帶回
+  watch(activeId, (id) => saveActiveId(id))
+
+  // 取得清單；若目前選取的分類仍存在則保留選取；否則優先還原上次儲存的分類，避免每次進來都跳回第一個
+  const fetchLinks = async () => {
+    loading.value = true
+    try {
+      const data = await (await fetch(`${BASE()}/list`)).json()
+      categories.value = data
+      const stillExists = categories.value.some(c => c.id === activeId.value)
+      if (!stillExists) {
+        const savedId = loadSavedActiveId()
+        const savedMatch = savedId !== null
+          ? categories.value.find(c => String(c.id) === savedId)
+          : null
+        activeId.value = savedMatch ? savedMatch.id : (categories.value.length > 0 ? categories.value[0].id : null)
+      }
+    } catch (e) { console.error(e) }
+    finally { loading.value = false }
+  }
+
+  const getDomain = (url) => {
+    try { return new URL(url).hostname } catch { return '' }
+  }
+
+  function onFaviconError(event, name) {
+    const img    = event.target
+    const parent = img.parentElement
+    img.remove()
+    const span = document.createElement('span')
+    span.textContent = name?.charAt(0)?.toUpperCase() || '?'
+    span.style.cssText = 'font-size:16px;font-weight:700;color:#94a3b8;'
+    parent.appendChild(span)
+  }
+
+  function toggleEditMode() {
+    editMode.value = !editMode.value
+  }
+
+  /* ---------------- 分類：新增／編輯／刪除 ---------------- */
+
+  const catModal   = reactive({ open: false, id: null, name: '' })
+  const saving     = ref(false)
+  const modalError = ref('')
+
+  function openAddCategory() {
+    catModal.open = true
+    catModal.id = null
+    catModal.name = ''
+    modalError.value = ''
+  }
+  function openEditCategory(cat) {
+    catModal.open = true
+    catModal.id = cat.id
+    catModal.name = cat.name
+    modalError.value = ''
+  }
+  function closeCategoryModal() {
+    catModal.open = false
+  }
+  async function saveCategoryModal() {
+    if (!catModal.name.trim()) {
+      modalError.value = '請輸入分類名稱'
+      return
     }
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
-}
-
-const getDomain = (url) => {
-  try { return new URL(url).hostname } catch { return '' }
-}
-
-function onFaviconError(event, name) {
-  const img    = event.target
-  const parent = img.parentElement
-  img.remove()
-  const span = document.createElement('span')
-  span.textContent = name?.charAt(0)?.toUpperCase() || '?'
-  span.style.cssText = 'font-size:16px;font-weight:700;color:#94a3b8;'
-  parent.appendChild(span)
-}
-
-function toggleEditMode() {
-  editMode.value = !editMode.value
-}
-
-/* ---------------- 分類：新增／編輯／刪除 ---------------- */
-
-const catModal   = reactive({ open: false, id: null, name: '' })
-const saving     = ref(false)
-const modalError = ref('')
-
-function openAddCategory() {
-  catModal.open = true
-  catModal.id = null
-  catModal.name = ''
-  modalError.value = ''
-}
-function openEditCategory(cat) {
-  catModal.open = true
-  catModal.id = cat.id
-  catModal.name = cat.name
-  modalError.value = ''
-}
-function closeCategoryModal() {
-  catModal.open = false
-}
-async function saveCategoryModal() {
-  if (!catModal.name.trim()) {
-    modalError.value = '請輸入分類名稱'
-    return
-  }
-  saving.value = true
-  modalError.value = ''
-  try {
-    const body = { name: catModal.name.trim() }
-    if (catModal.id) body.id = catModal.id
-    await fetch(`${BASE()}/category/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    closeCategoryModal()
-    await fetchLinks()
-  } catch (e) {
-    console.error(e)
-    modalError.value = '儲存失敗，請稍後再試'
-  } finally {
-    saving.value = false
-  }
-}
-async function deleteCategoryConfirm(cat) {
-  if (!confirm(`確定要刪除分類「${cat.name}」嗎？此分類底下的網址也會一併刪除。`)) return
-  try {
-    await fetch(`${BASE()}/category/${cat.id}`, { method: 'DELETE' })
-    await fetchLinks()
-  } catch (e) { console.error(e) }
-}
-
-/* ---------------- 分類：拖曳排序 ---------------- */
-
-const dragCatIndex = ref(null)
-function onCatDragStart(idx) {
-  dragCatIndex.value = idx
-}
-async function onCatDrop(idx) {
-  if (dragCatIndex.value === null || dragCatIndex.value === idx) return
-  const arr = categories.value
-  const [moved] = arr.splice(dragCatIndex.value, 1)
-  arr.splice(idx, 0, moved)
-  dragCatIndex.value = null
-  try {
-    await fetch(`${BASE()}/sort`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'category', ids: categories.value.map(c => c.id) }),
-    })
-  } catch (e) { console.error(e) }
-}
-
-/* ---------------- 網址：新增／編輯／刪除 ---------------- */
-
-const linkModal = reactive({ open: false, catId: null, id: null, name: '', url: '', note: '' })
-
-function openAddLink() {
-  if (!activeCat.value) return
-  linkModal.open = true
-  linkModal.catId = activeCat.value.id
-  linkModal.id = null
-  linkModal.name = ''
-  linkModal.url = ''
-  linkModal.note = ''
-  modalError.value = ''
-}
-function openEditLink(link) {
-  if (!activeCat.value) return
-  linkModal.open = true
-  linkModal.catId = activeCat.value.id
-  linkModal.id = link.id
-  linkModal.name = link.name
-  linkModal.url = link.url
-  linkModal.note = link.note || ''
-  modalError.value = ''
-}
-function closeLinkModal() {
-  linkModal.open = false
-}
-async function saveLinkModal() {
-  if (!linkModal.name.trim() || !linkModal.url.trim()) {
-    modalError.value = '請輸入名稱與網址'
-    return
-  }
-  saving.value = true
-  modalError.value = ''
-  try {
-    const body = {
-      catId: linkModal.catId,
-      name: linkModal.name.trim(),
-      url: linkModal.url.trim(),
-      note: linkModal.note.trim(),
+    saving.value = true
+    modalError.value = ''
+    try {
+      const body = { name: catModal.name.trim() }
+      if (catModal.id) body.id = catModal.id
+      await fetch(`${BASE()}/category/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      closeCategoryModal()
+      await fetchLinks()
+    } catch (e) {
+      console.error(e)
+      modalError.value = '儲存失敗，請稍後再試'
+    } finally {
+      saving.value = false
     }
-    if (linkModal.id) body.id = linkModal.id
-    await fetch(`${BASE()}/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    closeLinkModal()
-    await fetchLinks()
-  } catch (e) {
-    console.error(e)
-    modalError.value = '儲存失敗，請稍後再試'
-  } finally {
-    saving.value = false
   }
-}
-async function deleteLinkConfirm(link) {
-  if (!activeCat.value) return
-  if (!confirm(`確定要刪除「${link.name}」嗎？`)) return
-  try {
-    await fetch(`${BASE()}/remove/${activeCat.value.id}/${link.id}`, { method: 'DELETE' })
-    await fetchLinks()
-  } catch (e) { console.error(e) }
-}
-
-/* ---------------- 網址：更改分類 ---------------- */
-
-const moveModal = reactive({ open: false, link: null, catId: null })
-
-function openMoveCategory(link) {
-  if (!activeCat.value) return
-  moveModal.open = true
-  moveModal.link = link
-  moveModal.catId = activeCat.value.id
-  modalError.value = ''
-}
-function closeMoveModal() {
-  moveModal.open = false
-}
-async function saveMoveModal() {
-  if (!moveModal.link || !activeCat.value) return
-  if (moveModal.catId === activeCat.value.id) {
-    closeMoveModal()
-    return
+  async function deleteCategoryConfirm(cat) {
+    if (!confirm(`確定要刪除分類「${cat.name}」嗎？此分類底下的網址也會一併刪除。`)) return
+    try {
+      await fetch(`${BASE()}/category/${cat.id}`, { method: 'DELETE' })
+      await fetchLinks()
+    } catch (e) { console.error(e) }
   }
-  saving.value = true
-  modalError.value = ''
-  try {
-    await fetch(`${BASE()}/move`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fromCatId: activeCat.value.id,
-        toCatId: moveModal.catId,
-        id: moveModal.link.id,
-      }),
-    })
-    closeMoveModal()
-    await fetchLinks()
-  } catch (e) {
-    console.error(e)
-    modalError.value = '更改失敗，請稍後再試'
-  } finally {
-    saving.value = false
+
+  /* ---------------- 分類：拖曳排序 ---------------- */
+
+  const dragCatIndex = ref(null)
+  function onCatDragStart(idx) {
+    dragCatIndex.value = idx
   }
-}
+  async function onCatDrop(idx) {
+    if (dragCatIndex.value === null || dragCatIndex.value === idx) return
+    const arr = categories.value
+    const [moved] = arr.splice(dragCatIndex.value, 1)
+    arr.splice(idx, 0, moved)
+    dragCatIndex.value = null
+    try {
+      await fetch(`${BASE()}/sort`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'category', ids: categories.value.map(c => c.id) }),
+      })
+    } catch (e) { console.error(e) }
+  }
 
-/* ---------------- 網址：拖曳排序 ---------------- */
+  /* ---------------- 網址：新增／編輯／刪除 ---------------- */
 
-const dragLinkIndex = ref(null)
-function onLinkDragStart(idx) {
-  dragLinkIndex.value = idx
-}
-async function onLinkDrop(idx) {
-  if (dragLinkIndex.value === null || dragLinkIndex.value === idx || !activeCat.value) return
-  const arr = activeCat.value.links
-  const [moved] = arr.splice(dragLinkIndex.value, 1)
-  arr.splice(idx, 0, moved)
-  dragLinkIndex.value = null
-  try {
-    await fetch(`${BASE()}/sort`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'link', catId: activeCat.value.id, ids: arr.map(l => l.id) }),
-    })
-  } catch (e) { console.error(e) }
-}
+  const linkModal = reactive({ open: false, catId: null, id: null, name: '', url: '', note: '' })
 
-onMounted(fetchLinks)
+  function openAddLink() {
+    if (!activeCat.value) return
+    linkModal.open = true
+    linkModal.catId = activeCat.value.id
+    linkModal.id = null
+    linkModal.name = ''
+    linkModal.url = ''
+    linkModal.note = ''
+    modalError.value = ''
+  }
+  function openEditLink(link) {
+    if (!activeCat.value) return
+    linkModal.open = true
+    linkModal.catId = activeCat.value.id
+    linkModal.id = link.id
+    linkModal.name = link.name
+    linkModal.url = link.url
+    linkModal.note = link.note || ''
+    modalError.value = ''
+  }
+  function closeLinkModal() {
+    linkModal.open = false
+  }
+  async function saveLinkModal() {
+    if (!linkModal.name.trim() || !linkModal.url.trim()) {
+      modalError.value = '請輸入名稱與網址'
+      return
+    }
+    saving.value = true
+    modalError.value = ''
+    try {
+      const body = {
+        catId: linkModal.catId,
+        name: linkModal.name.trim(),
+        url: linkModal.url.trim(),
+        note: linkModal.note.trim(),
+      }
+      if (linkModal.id) body.id = linkModal.id
+      await fetch(`${BASE()}/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      closeLinkModal()
+      await fetchLinks()
+    } catch (e) {
+      console.error(e)
+      modalError.value = '儲存失敗，請稍後再試'
+    } finally {
+      saving.value = false
+    }
+  }
+  async function deleteLinkConfirm(link) {
+    if (!activeCat.value) return
+    if (!confirm(`確定要刪除「${link.name}」嗎？`)) return
+    try {
+      await fetch(`${BASE()}/remove/${activeCat.value.id}/${link.id}`, { method: 'DELETE' })
+      await fetchLinks()
+    } catch (e) { console.error(e) }
+  }
+
+  /* ---------------- 網址：更改分類 ---------------- */
+
+  const moveModal = reactive({ open: false, link: null, catId: null })
+
+  function openMoveCategory(link) {
+    if (!activeCat.value) return
+    moveModal.open = true
+    moveModal.link = link
+    moveModal.catId = activeCat.value.id
+    modalError.value = ''
+  }
+  function closeMoveModal() {
+    moveModal.open = false
+  }
+  async function saveMoveModal() {
+    if (!moveModal.link || !activeCat.value) return
+    if (moveModal.catId === activeCat.value.id) {
+      closeMoveModal()
+      return
+    }
+    saving.value = true
+    modalError.value = ''
+    try {
+      await fetch(`${BASE()}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromCatId: activeCat.value.id,
+          toCatId: moveModal.catId,
+          id: moveModal.link.id,
+        }),
+      })
+      closeMoveModal()
+      await fetchLinks()
+    } catch (e) {
+      console.error(e)
+      modalError.value = '更改失敗，請稍後再試'
+    } finally {
+      saving.value = false
+    }
+  }
+
+  /* ---------------- 網址：拖曳排序 ---------------- */
+
+  const dragLinkIndex = ref(null)
+  function onLinkDragStart(idx) {
+    dragLinkIndex.value = idx
+  }
+  async function onLinkDrop(idx) {
+    if (dragLinkIndex.value === null || dragLinkIndex.value === idx || !activeCat.value) return
+    const arr = activeCat.value.links
+    const [moved] = arr.splice(dragLinkIndex.value, 1)
+    arr.splice(idx, 0, moved)
+    dragLinkIndex.value = null
+    try {
+      await fetch(`${BASE()}/sort`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'link', catId: activeCat.value.id, ids: arr.map(l => l.id) }),
+      })
+    } catch (e) { console.error(e) }
+  }
+
+  onMounted(fetchLinks)
 </script>
 
 <style scoped>
-.tab-btn {
-  -webkit-tap-highlight-color: transparent;
-}
-.link-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-}
-.link-card {
-  -webkit-tap-highlight-color: transparent;
-  text-decoration: none;
-  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
-}
-.link-card:active {
-  transform: scale(0.95);
-}
-.link-card:hover {
-  border-color: #a8d5b5;
-  box-shadow: 0 2px 10px rgba(45, 106, 79, 0.1);
-}
-.icon-btn {
-  -webkit-tap-highlight-color: transparent;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.icon-btn:active {
-  transform: scale(0.9);
-}
+  .tab-btn {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .link-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .link-card {
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: none;
+    transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  }
+  .link-card:active {
+    transform: scale(0.95);
+  }
+  .link-card:hover {
+    border-color: #a8d5b5;
+    box-shadow: 0 2px 10px rgba(45, 106, 79, 0.1);
+  }
+  .icon-btn {
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-btn:active {
+    transform: scale(0.9);
+  }
 </style>
