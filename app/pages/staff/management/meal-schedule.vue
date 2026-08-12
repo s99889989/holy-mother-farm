@@ -1,158 +1,164 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'management.meal-schedule' })
-const commonStore = useCommonStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/meal-schedule')
+  definePageMeta({ layout: 'staff', requiredPermission: 'management.meal-schedule' })
+  const commonStore = useCommonStore()
+  const BASE = computed(() => commonStore.data.main_url + '/holy/meal-schedule')
 
-const apiOnline = ref(false)
-const kitchenMode = ref(false)
+  const apiOnline = ref(false)
+  const kitchenMode = ref(false)
 
-// ── 日曆 ──────────────────────────────────────────────────────────
-const today = new Date()
-const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-const calYear = ref(today.getFullYear())
-const calMonth = ref(today.getMonth() + 1)
-const selectedDate = ref('')
+  // ── 日曆 ──────────────────────────────────────────────────────────
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const calYear = ref(today.getFullYear())
+  const calMonth = ref(today.getMonth() + 1)
+  const selectedDate = ref('')
 
-const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
+  const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
 
-const calendarDays = computed(() => {
-  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
-  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
-  const days = []
-  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
-  }
-  return days
-})
-
-const dayClass = (day) => {
-  if (!day.date) return 'cursor-default'
-  if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
-  if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
-  return 'text-base-c hover-surface2'
-}
-
-const prevMonth = () => { if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--; }
-const nextMonth = () => { if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++; }
-const selectDate = (date) => { selectedDate.value = date }
-
-// ── 餐次資料 ──────────────────────────────────────────────────────
-const sessions = ref([])
-const markedDates = computed(() => [...new Set(sessions.value.map(s => s.date))])
-
-const sessionsForSelectedDate = computed(() =>
-    sessions.value
-        .filter(s => s.date === selectedDate.value)
-        .sort((a, b) => mealOrder(a.mealType) - mealOrder(b.mealType))
-)
-
-const mealOrder = (t) => (t === '早餐' ? 0 : t === '午餐' ? 1 : t === '晚餐' ? 2 : 3)
-
-const mealTypeClass = (t) => {
-  if (t === '早餐') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
-  if (t === '午餐') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
-  if (t === '晚餐') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30'
-  return 'bg-surface2 text-hint-c'
-}
-
-const fetchSessions = async () => {
-  try {
-    sessions.value = await (await fetch(`${BASE.value}/list`)).json()
-    apiOnline.value = true
-  } catch {
-    apiOnline.value = false
-  }
-}
-
-// ── 新增 / 編輯 Modal：簡易模式（日期/餐次/標題/備註）+ 進階模式（份數/菜色/供餐地點/九宮格），預設簡易 ──
-const sessionModal = reactive({ show: false, isNew: true })
-const advancedMode = ref(false)
-const emptyForm = () => ({
-  id: '', date: selectedDate.value || todayStr, mealType: '午餐', title: '', note: '',
-  totalCount: null, dishes: [], servingPoints: [], boxGrid: []
-})
-const form = reactive(emptyForm())
-const useBoxGrid = ref(false)
-
-const openCreate = () => {
-  sessionModal.isNew = true
-  Object.assign(form, emptyForm())
-  useBoxGrid.value = false
-  advancedMode.value = false
-  sessionModal.show = true
-}
-
-const openEdit = (session) => {
-  sessionModal.isNew = false
-  Object.assign(form, {
-    id: session.id, date: session.date, mealType: session.mealType,
-    title: session.title || '', note: session.note || '',
-    totalCount: session.totalCount ?? null,
-    dishes: (session.dishes || []).map(d => ({ ...d })),
-    servingPoints: (session.servingPoints || []).map(sp => ({ ...sp })),
-    boxGrid: session.boxGrid && session.boxGrid.length === 9 ? [...session.boxGrid] : []
-  })
-  useBoxGrid.value = form.boxGrid.length === 9
-  advancedMode.value = false
-  sessionModal.show = true
-}
-
-const toggleBoxGrid = () => {
-  form.boxGrid = useBoxGrid.value ? Array.from({ length: 9 }, (_, i) => form.boxGrid[i] || '') : []
-}
-
-const addDish = () => form.dishes.push({ name: '', note: '' })
-const removeDish = (idx) => form.dishes.splice(idx, 1)
-const addServingPoint = () => form.servingPoints.push({ name: '', count: null, lanes: null, note: '' })
-const removeServingPoint = (idx) => form.servingPoints.splice(idx, 1)
-
-const saveSession = async () => {
-  // 簡易模式下不動進階欄位，維持原值一起送出即可（不會因為切回簡易就把已填的進階資料清掉）
-  const payload = { ...form, boxGrid: useBoxGrid.value ? form.boxGrid : [] }
-  try {
-    if (sessionModal.isNew) {
-      const saved = await (await fetch(`${BASE.value}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })).json()
-      sessions.value.push(saved)
-      showToast('餐次已新增')
-    } else {
-      const saved = await (await fetch(`${BASE.value}/${form.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })).json()
-      const idx = sessions.value.findIndex(s => s.id === saved.id)
-      if (idx >= 0) sessions.value[idx] = saved
-      showToast('餐次已更新')
+  const calendarDays = computed(() => {
+    const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+    const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+    const days = []
+    for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
+    for (let d = 1; d <= daysInMonth; d++) {
+      const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+      days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
     }
-    sessionModal.show = false
-  } catch { showToast('儲存失敗') }
-}
+    return days
+  })
 
-const confirmDeleteSession = async (session) => {
-  if (!confirm(`確定刪除「${session.date} ${session.mealType}」這筆排程？`)) return
-  try {
-    await fetch(`${BASE.value}/${session.id}`, { method: 'DELETE' })
-    sessions.value = sessions.value.filter(s => s.id !== session.id)
-    showToast('已刪除')
-  } catch { showToast('刪除失敗') }
-}
+  const dayClass = (day) => {
+    if (!day.date) return 'cursor-default'
+    if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
+    if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
+    return 'text-base-c hover-surface2'
+  }
 
-// ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({ show: false, message: '' })
-const showToast = (msg) => {
-  toast.message = msg; toast.show = true
-  setTimeout(() => toast.show = false, 2500)
-}
+  const prevMonth = () => { if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--; }
+  const nextMonth = () => { if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++; }
+  const selectDate = (date) => { selectedDate.value = date }
 
-// ── 初始化 ────────────────────────────────────────────────────────
-onMounted(async () => {
-  await fetchSessions()
-  selectedDate.value = markedDates.value.includes(todayStr) ? todayStr : (markedDates.value[0] || todayStr)
-})
+  // ── 餐次資料 ──────────────────────────────────────────────────────
+  const sessions = ref([])
+  const markedDates = computed(() => [...new Set(sessions.value.map(s => s.date))])
+
+  const sessionsForSelectedDate = computed(() =>
+    sessions.value
+      .filter(s => s.date === selectedDate.value)
+      .sort((a, b) => mealOrder(a.mealType) - mealOrder(b.mealType))
+  )
+
+  const mealOrder = (t) => {
+    const order = { 早餐: 0, 上午點心: 1, 午餐: 2, 下午茶: 3, 晚餐: 4, 宵夜: 5 }
+    return order[t] ?? 6
+  }
+
+  const mealTypeClass = (t) => {
+    if (t === '早餐') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
+    if (t === '上午點心') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/30'
+    if (t === '午餐') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
+    if (t === '下午茶') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border border-pink-200 dark:border-pink-800/30'
+    if (t === '晚餐') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30'
+    if (t === '宵夜') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/30'
+    return 'bg-surface2 text-hint-c'
+  }
+
+  const fetchSessions = async () => {
+    try {
+      sessions.value = await (await fetch(`${BASE.value}/list`)).json()
+      apiOnline.value = true
+    } catch {
+      apiOnline.value = false
+    }
+  }
+
+  // ── 新增 / 編輯 Modal：簡易模式（日期/餐次/標題/備註）+ 進階模式（份數/菜色/供餐地點/九宮格），預設簡易 ──
+  const sessionModal = reactive({ show: false, isNew: true })
+  const advancedMode = ref(false)
+  const emptyForm = () => ({
+    id: '', date: selectedDate.value || todayStr, mealType: '午餐', title: '', note: '',
+    totalCount: null, dishes: [], servingPoints: [], boxGrid: []
+  })
+  const form = reactive(emptyForm())
+  const useBoxGrid = ref(false)
+
+  const openCreate = () => {
+    sessionModal.isNew = true
+    Object.assign(form, emptyForm())
+    useBoxGrid.value = false
+    advancedMode.value = false
+    sessionModal.show = true
+  }
+
+  const openEdit = (session) => {
+    sessionModal.isNew = false
+    Object.assign(form, {
+      id: session.id, date: session.date, mealType: session.mealType,
+      title: session.title || '', note: session.note || '',
+      totalCount: session.totalCount ?? null,
+      dishes: (session.dishes || []).map(d => ({ ...d })),
+      servingPoints: (session.servingPoints || []).map(sp => ({ ...sp })),
+      boxGrid: session.boxGrid && session.boxGrid.length === 9 ? [...session.boxGrid] : []
+    })
+    useBoxGrid.value = form.boxGrid.length === 9
+    advancedMode.value = false
+    sessionModal.show = true
+  }
+
+  const toggleBoxGrid = () => {
+    form.boxGrid = useBoxGrid.value ? Array.from({ length: 9 }, (_, i) => form.boxGrid[i] || '') : []
+  }
+
+  const addDish = () => form.dishes.push({ name: '', note: '' })
+  const removeDish = (idx) => form.dishes.splice(idx, 1)
+  const addServingPoint = () => form.servingPoints.push({ name: '', count: null, lanes: null, note: '' })
+  const removeServingPoint = (idx) => form.servingPoints.splice(idx, 1)
+
+  const saveSession = async () => {
+    // 簡易模式下不動進階欄位，維持原值一起送出即可（不會因為切回簡易就把已填的進階資料清掉）
+    const payload = { ...form, boxGrid: useBoxGrid.value ? form.boxGrid : [] }
+    try {
+      if (sessionModal.isNew) {
+        const saved = await (await fetch(`${BASE.value}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })).json()
+        sessions.value.push(saved)
+        showToast('餐次已新增')
+      } else {
+        const saved = await (await fetch(`${BASE.value}/${form.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })).json()
+        const idx = sessions.value.findIndex(s => s.id === saved.id)
+        if (idx >= 0) sessions.value[idx] = saved
+        showToast('餐次已更新')
+      }
+      sessionModal.show = false
+    } catch { showToast('儲存失敗') }
+  }
+
+  const confirmDeleteSession = async (session) => {
+    if (!confirm(`確定刪除「${session.date} ${session.mealType}」這筆排程？`)) return
+    try {
+      await fetch(`${BASE.value}/${session.id}`, { method: 'DELETE' })
+      sessions.value = sessions.value.filter(s => s.id !== session.id)
+      showToast('已刪除')
+    } catch { showToast('刪除失敗') }
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────
+  const toast = reactive({ show: false, message: '' })
+  const showToast = (msg) => {
+    toast.message = msg; toast.show = true
+    setTimeout(() => toast.show = false, 2500)
+  }
+
+  // ── 初始化 ────────────────────────────────────────────────────────
+  onMounted(async () => {
+    await fetchSessions()
+    selectedDate.value = markedDates.value.includes(todayStr) ? todayStr : (markedDates.value[0] || todayStr)
+  })
 </script>
 
 <template>
@@ -332,8 +338,11 @@ onMounted(async () => {
                 <select v-model="form.mealType"
                         class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
                   <option value="早餐">早餐</option>
+                  <option value="上午點心">上午點心</option>
                   <option value="午餐">午餐</option>
+                  <option value="下午茶">下午茶</option>
                   <option value="晚餐">晚餐</option>
+                  <option value="宵夜">宵夜</option>
                 </select>
               </div>
             </div>
@@ -440,6 +449,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+  .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+  .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>
