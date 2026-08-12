@@ -404,7 +404,7 @@
                     <span
                       class="group-toggle"
                       @click="toggleGroupOpen(gi)"
-                    >{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
+                    >{{ groupOpen[gi]===true ? '▼' : '▶' }}</span>
                     <template v-if="editingGroupIdx === gi">
                       <input
                         v-model="editGroupName"
@@ -459,7 +459,7 @@
                     </template>
                   </div>
 
-                  <template v-if="groupOpen[gi] !== false">
+                  <template v-if="groupOpen[gi] === true">
                     <div
                       v-if="addingIn === gi"
                       class="edit-row bg-surface border-b border-light-c"
@@ -745,7 +745,7 @@
                 <span
                   class="group-toggle"
                   @click="toggleGroupOpen(gi)"
-                >{{ groupOpen[gi]===false ? '▶' : '▼' }}</span>
+                >{{ groupOpen[gi]===true ? '▼' : '▶' }}</span>
                 <label class="group-check">
                   <input
                     type="checkbox"
@@ -756,7 +756,7 @@
                   {{ group.group }}
                 </label>
               </div>
-              <template v-if="groupOpen[gi] !== false">
+              <template v-if="groupOpen[gi] === true">
                 <div
                   v-for="(p, pi) in group.items"
                   :key="p.id"
@@ -984,7 +984,7 @@
 </template>
 
 <script setup>
-  import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 
   definePageMeta({ layout: 'staff', requiredPermission: 'print.table-card-print' })
   const sideTab = ref('use')
@@ -1038,12 +1038,52 @@
   const zhLineStyle = computed(() => ({ letterSpacing: zhSpacing.value + 'mm' }))
   const enLineStyle = computed(() => ({ letterSpacing: enSpacing.value + 'mm' }))
 
-  /* ── 收縮狀態 ── */
-  const open = reactive({ size: true, tune: false, items: true })
+  /* ── 收縮狀態（記住展開/收縮，並記憶到 localStorage，預設全部收縮） ── */
+  const OPEN_STATE_KEY = 'table-card-print:open-state'
+  const open = reactive({ size: false, tune: false, items: false })
+
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = JSON.parse(localStorage.getItem(OPEN_STATE_KEY) || 'null')
+      if (saved && typeof saved === 'object') Object.assign(open, saved)
+    } catch (e) {
+      // 忽略讀取錯誤，維持預設值
+    }
+  }
+
+  watch(open, (val) => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(OPEN_STATE_KEY, JSON.stringify(val))
+    } catch (e) {
+      // 忽略寫入錯誤（例如無痕模式或容量已滿）
+    }
+  }, { deep: true })
+
+  /* 群組收縮狀態：預設全部收縮，undefined/false = 收縮，true = 展開 */
+  const GROUP_OPEN_STATE_KEY = 'table-card-print:group-open-state'
   const groupOpen = reactive({})
 
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = JSON.parse(localStorage.getItem(GROUP_OPEN_STATE_KEY) || 'null')
+      if (saved && typeof saved === 'object') Object.assign(groupOpen, saved)
+    } catch (e) {
+      // 忽略讀取錯誤，維持預設值
+    }
+  }
+
+  watch(groupOpen, (val) => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(GROUP_OPEN_STATE_KEY, JSON.stringify(val))
+    } catch (e) {
+      // 忽略寫入錯誤（例如無痕模式或容量已滿）
+    }
+  }, { deep: true })
+
   function toggleGroupOpen(gi) {
-    groupOpen[gi] = groupOpen[gi] === false ? true : false
+    groupOpen[gi] = groupOpen[gi] === true ? false : true
   }
 
   /* ── presets（含 id） ── */
