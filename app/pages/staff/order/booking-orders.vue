@@ -1,8 +1,9 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'order.booking-orders' })
+definePageMeta({layout: 'staff', requiredPermission: 'order.booking-orders'})
 const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
+const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
 
 // ── 共用日曆 ──────────────────────────────────────────────────────
 const apiOnline = ref(false)
@@ -19,10 +20,10 @@ const calendarDays = computed(() => {
   const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
+  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
   for (let d = 1; d <= daysInMonth; d++) {
     const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
+    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
   }
   return days
 })
@@ -35,12 +36,22 @@ const dayClass = (day) => {
 }
 
 const prevMonth = () => {
-  if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--
-  fetchMarkedDates(); fetchSchedule(); fetchRecurring()
+  if (calMonth.value === 1) {
+    calYear.value--;
+    calMonth.value = 12
+  } else calMonth.value--
+  fetchMarkedDates();
+  fetchSchedule();
+  fetchRecurring()
 }
 const nextMonth = () => {
-  if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++
-  fetchMarkedDates(); fetchSchedule(); fetchRecurring()
+  if (calMonth.value === 12) {
+    calYear.value++;
+    calMonth.value = 1
+  } else calMonth.value++
+  fetchMarkedDates();
+  fetchSchedule();
+  fetchRecurring()
 }
 
 const selectDate = async (date) => {
@@ -52,11 +63,103 @@ const selectDate = async (date) => {
 const BOOKING_STATUSES = ['待確認', '已確認', '已入位', '客戶提出取消', '已取消']
 const bookingStatusClass = (status) => {
   switch (status) {
-    case '已確認': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
-    case '已入位': return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
-    case '客戶提出取消': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
-    case '已取消': return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
-    default: return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
+    case '已確認':
+      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
+    case '已入位':
+      return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
+    case '客戶提出取消':
+      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
+    case '已取消':
+      return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
+    default:
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
+  }
+}
+
+// ── 時段設定 ──────────────────────────────────────────────────────
+// 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段
+const periods = ref([]) // [{ id, name, startTime, endTime, color }]
+const periodSettingsOpen = ref(false)
+const periodFormEditingId = ref('')
+const periodForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
+
+const PERIOD_COLORS = [
+  {
+    key: 'amber',
+    label: '琥珀',
+    class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
+  },
+  {
+    key: 'orange',
+    label: '橘',
+    class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'
+  },
+  {
+    key: 'indigo',
+    label: '靛',
+    class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'
+  },
+  {
+    key: 'purple',
+    label: '紫',
+    class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'
+  },
+  {
+    key: 'teal',
+    label: '青',
+    class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
+  },
+]
+const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
+
+const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+
+// 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
+const findPeriod = (time) => {
+  if (!time) return null
+  return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
+}
+
+const fetchPeriods = async () => {
+  try {
+    periods.value = await (await fetch(`${PERIOD_BASE.value}/list`)).json()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const openPeriodForm = (period) => {
+  if (period) Object.assign(periodForm, period)
+  else Object.assign(periodForm, {id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
+  periodFormEditingId.value = period ? period.id : ''
+}
+
+const savePeriod = async () => {
+  if (!periodForm.name || !periodForm.startTime || !periodForm.endTime) return
+  try {
+    const saved = await (await fetch(`${PERIOD_BASE.value}/save`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...periodForm})
+    })).json()
+    const idx = periods.value.findIndex(p => p.id === saved.id)
+    if (idx >= 0) periods.value[idx] = saved
+    else periods.value.push(saved)
+    openPeriodForm(null)
+    showToast('時段已儲存')
+  } catch {
+    showToast('儲存失敗')
+  }
+}
+
+const deletePeriod = async (id) => {
+  if (!confirm('確定刪除此時段？')) return
+  try {
+    await fetch(`${PERIOD_BASE.value}/remove/${id}`, {method: 'DELETE'})
+    periods.value = periods.value.filter(p => p.id !== id)
+    if (periodFormEditingId.value === id) openPeriodForm(null)
+    showToast('已刪除')
+  } catch {
+    showToast('刪除失敗')
   }
 }
 
@@ -64,7 +167,7 @@ const bookingStatusClass = (status) => {
 const bookings = ref([])
 const markedDates = ref([])
 
-const bookingModal = reactive({ show: false, isNew: true })
+const bookingModal = reactive({show: false, isNew: true})
 const bForm = reactive({
   id: '', date: '', name: '', phone: '', time: '12:00',
   meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
@@ -98,8 +201,8 @@ const saveBooking = async () => {
   if (!bForm.name) return
   if (bookingModal.isNew) {
     const saved = await (await fetch(`${BASE.value}/save`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...bForm, date: selectedDate.value })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...bForm, date: selectedDate.value})
     })).json()
     bookings.value.push(saved)
     bookings.value.sort((a, b) => a.time.localeCompare(b.time))
@@ -107,7 +210,7 @@ const saveBooking = async () => {
     showToast('訂位已新增')
   } else {
     await fetch(`${BASE.value}/update`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(bForm)
     })
     await fetchBookings()
@@ -118,7 +221,7 @@ const saveBooking = async () => {
 
 const confirmDeleteBooking = async (b) => {
   if (!confirm(`確定刪除「${b.name}」的訂位？`)) return
-  await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, { method: 'DELETE' })
+  await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, {method: 'DELETE'})
   bookings.value = bookings.value.filter(x => x.id !== b.id)
   if (!bookings.value.length) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
   showToast('訂位已刪除')
@@ -127,7 +230,7 @@ const confirmDeleteBooking = async (b) => {
 const toggleBookingStatus = async (b) => {
   const idx = BOOKING_STATUSES.indexOf(b.status)
   const next = BOOKING_STATUSES[(idx + 1) % BOOKING_STATUSES.length]
-  await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, { method: 'PATCH' })
+  await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
   b.status = next
   showToast(`狀態已更新為「${next}」`)
 }
@@ -151,10 +254,33 @@ const recurBookingFull = computed(() => todayRecurBooking.value.reduce((s, r) =>
 const recurBookingEgg = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
 const recurBookingSpice = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
 
+// 依時段彙總當日人數（訂位 + 包月），找不到對應時段者歸類為「未分類」
+const periodSummary = computed(() => {
+  const map = new Map()
+  const add = (time, qty) => {
+    const p = findPeriod(time)
+    const key = p ? p.id : '__none__'
+    const cur = map.get(key) || {id: key, name: p ? p.name : '未分類', color: p ? p.color : null, count: 0}
+    cur.count += qty
+    map.set(key, cur)
+  }
+  for (const b of bookings.value) {
+    add(b.time, (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0))
+  }
+  for (const r of todayRecurBooking.value) {
+    add(r.time, (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0))
+  }
+  return [...map.values()].filter(g => g.count > 0).sort((a, b) => {
+    if (a.id === '__none__') return 1
+    if (b.id === '__none__') return -1
+    return a.name.localeCompare(b.name)
+  })
+})
+
 // ── 當月預定 ──────────────────────────────────────────────────────
 const RECUR_BASE = computed(() => commonStore.data.main_url + '/holy/recurring')
 const recurringRules = ref([])
-const recurModal = reactive({ show: false, isNew: true })
+const recurModal = reactive({show: false, isNew: true})
 const recurForm = reactive({
   id: '', name: '', type: 'booking', time: '12:00',
   meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
@@ -165,7 +291,9 @@ const fetchRecurring = async () => {
   try {
     const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
     recurringRules.value = await (await fetch(`${RECUR_BASE.value}/list/${ym}`)).json()
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const openRecurModal = (rule) => {
@@ -191,8 +319,8 @@ const saveRecurring = async () => {
   const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
   try {
     const saved = await (await fetch(`${RECUR_BASE.value}/save/${ym}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...recurForm })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...recurForm})
     })).json()
     if (recurModal.isNew) recurringRules.value.push(saved)
     else {
@@ -201,26 +329,30 @@ const saveRecurring = async () => {
     }
     recurModal.show = false
     showToast(recurModal.isNew ? '已新增' : '已更新')
-  } catch { showToast('儲存失敗') }
+  } catch {
+    showToast('儲存失敗')
+  }
 }
 
 const deleteRecurring = async (id) => {
   if (!confirm('確定刪除此預定？')) return
   const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
   try {
-    await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, { method: 'DELETE' })
+    await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, {method: 'DELETE'})
     recurringRules.value = recurringRules.value.filter(r => r.id !== id)
     showToast('已刪除')
-  } catch { showToast('刪除失敗') }
+  } catch {
+    showToast('刪除失敗')
+  }
 }
 
 // ── 行事曆 ────────────────────────────────────────────────────────
 const SCHED_BASE = computed(() => commonStore.data.main_url + '/holy/schedule')
 const schedSettingsOpen = ref(false)
-const schedDefault = reactive({ activity: '康樂', count: '', time: '', enabled: true })
+const schedDefault = reactive({activity: '康樂', count: '', time: '', enabled: true})
 const schedNotes = ref('')
 const schedDayData = ref({})
-const schedModal = reactive({ show: false, date: '', data: {} })
+const schedModal = reactive({show: false, date: '', data: {}})
 
 const schedYearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
 
@@ -247,7 +379,9 @@ const selectSchedDate = async (date) => {
   try {
     const bRes = await fetch(`${BASE.value}/get/${date}`)
     schedDayBookings.value = bRes.ok ? await bRes.json() : []
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const fetchSchedule = async () => {
@@ -270,22 +404,26 @@ const fetchSchedule = async () => {
     }
     if (bookDates.ok) markedDates.value = await bookDates.json()
     if (recurRes.ok) recurExpand.value = await recurRes.json()
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const saveSchedDefault = async () => {
   try {
     await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...schedDefault, notes: schedNotes.value })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...schedDefault, notes: schedNotes.value})
     })
     await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(schedNotes.value)
     })
     showToast('預設值已儲存')
     schedSettingsOpen.value = false
-  } catch { showToast('儲存失敗') }
+  } catch {
+    showToast('儲存失敗')
+  }
 }
 
 const openSchedModal = (day) => {
@@ -303,34 +441,47 @@ const openSchedModal = (day) => {
 const saveSchedDay = async () => {
   try {
     await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...schedModal.data })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...schedModal.data})
     })
-    const d = Object.fromEntries(Object.entries({ ...schedModal.data }).filter(([, v]) => v !== '' && v !== null))
-    if (Object.keys(d).length > 0) schedDayData.value = { ...schedDayData.value, [schedModal.date]: d }
-    else { const nd = { ...schedDayData.value }; delete nd[schedModal.date]; schedDayData.value = nd }
-    schedModal.show = false; showToast('已儲存')
-  } catch { showToast('儲存失敗') }
+    const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
+    if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
+    else {
+      const nd = {...schedDayData.value};
+      delete nd[schedModal.date];
+      schedDayData.value = nd
+    }
+    schedModal.show = false;
+    showToast('已儲存')
+  } catch {
+    showToast('儲存失敗')
+  }
 }
 
 const clearSchedDay = async () => {
   try {
-    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, { method: 'DELETE' })
-    const nd = { ...schedDayData.value }; delete nd[schedModal.date]; schedDayData.value = nd
-    schedModal.show = false; showToast('已重設為預設')
-  } catch { showToast('操作失敗') }
+    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
+    const nd = {...schedDayData.value};
+    delete nd[schedModal.date];
+    schedDayData.value = nd
+    schedModal.show = false;
+    showToast('已重設為預設')
+  } catch {
+    showToast('操作失敗')
+  }
 }
 
 // ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({ show: false, message: '' })
+const toast = reactive({show: false, message: ''})
 const showToast = (msg) => {
-  toast.message = msg; toast.show = true
+  toast.message = msg;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring()])
+  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods()])
   selectedDate.value = todayStr
   await fetchBookings()
 })
@@ -342,7 +493,8 @@ onMounted(async () => {
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-green-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+          <div
+            class="w-8 h-8 rounded-lg bg-green-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             田
           </div>
           <div>
@@ -354,16 +506,24 @@ onMounted(async () => {
             </p>
           </div>
         </div>
-        <span
-          :class="apiOnline ? 'text-green-600' : 'text-red-500'"
-          class="text-xs flex items-center gap-1.5 font-medium"
-        >
+        <div class="flex items-center gap-3">
+          <button
+            class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
+            @click="periodSettingsOpen = true"
+          >
+            ⏱️ <span class="hidden sm:inline">時段設定</span>
+          </button>
           <span
-            :class="apiOnline ? 'bg-green-500' : 'bg-red-400'"
-            class="w-2 h-2 rounded-full"
-          />
-          <span class="hidden sm:inline">{{ apiOnline ? '連線中' : '離線' }}</span>
-        </span>
+            :class="apiOnline ? 'text-green-600' : 'text-red-500'"
+            class="text-xs flex items-center gap-1.5 font-medium"
+          >
+            <span
+              :class="apiOnline ? 'bg-green-500' : 'bg-red-400'"
+              class="w-2 h-2 rounded-full"
+            />
+            <span class="hidden sm:inline">{{ apiOnline ? '連線中' : '離線' }}</span>
+          </span>
+        </div>
       </div>
     </header>
 
@@ -433,7 +593,7 @@ onMounted(async () => {
                   v-if="day.date && markedDates.includes(day.date)"
                   class="absolute bottom-1 flex gap-0.5"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-red-500"/>
                 </div>
               </div>
             </div>
@@ -459,7 +619,8 @@ onMounted(async () => {
             v-if="selectedDate"
             class="mt-3"
           >
-            <div class="bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800 px-4 py-3">
+            <div
+              class="bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800 px-4 py-3">
               <p class="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">
                 🪑 訂位
               </p>
@@ -479,13 +640,19 @@ onMounted(async () => {
                   🍖 葷 <span class="font-semibold">{{ bookingMeat + recurBookingMeat }}</span>
                 </div>
                 <div v-if="bookings.reduce((s, b) => s+(Number(b.fullVegQty)||0), 0) + recurBookingFull > 0">
-                  🌿 全素 <span class="font-semibold">{{ bookings.reduce((s, b) => s+(Number(b.fullVegQty)||0), 0) + recurBookingFull }}</span>
+                  🌿 全素 <span class="font-semibold">{{
+                    bookings.reduce((s, b) => s + (Number(b.fullVegQty) || 0), 0) + recurBookingFull
+                  }}</span>
                 </div>
                 <div v-if="bookings.reduce((s, b) => s+(Number(b.eggVegQty)||0), 0) + recurBookingEgg > 0">
-                  🥚 蛋奶素 <span class="font-semibold">{{ bookings.reduce((s, b) => s+(Number(b.eggVegQty)||0), 0) + recurBookingEgg }}</span>
+                  🥚 蛋奶素 <span class="font-semibold">{{
+                    bookings.reduce((s, b) => s + (Number(b.eggVegQty) || 0), 0) + recurBookingEgg
+                  }}</span>
                 </div>
                 <div v-if="bookings.reduce((s, b) => s+(Number(b.spiceVegQty)||0), 0) + recurBookingSpice > 0">
-                  🧄 五辛素 <span class="font-semibold">{{ bookings.reduce((s, b) => s+(Number(b.spiceVegQty)||0), 0) + recurBookingSpice }}</span>
+                  🧄 五辛素 <span class="font-semibold">{{
+                    bookings.reduce((s, b) => s + (Number(b.spiceVegQty) || 0), 0) + recurBookingSpice
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -505,15 +672,21 @@ onMounted(async () => {
             <div class="mb-5">
               <div class="flex items-center justify-between mb-2">
                 <p class="text-xs font-semibold text-hint-c uppercase tracking-widest flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full bg-green-500" /> 訂位
+                  <span class="w-2 h-2 rounded-full bg-green-500"/> 訂位
                   <span
                     v-if="bookings.length > 0 || recurBookingGuests > 0"
                     class="text-green-600 dark:text-green-400 normal-case font-normal flex flex-wrap gap-x-2"
                   >
                     <span v-if="bookingMeat + recurBookingMeat > 0">🍖 {{ bookingMeat + recurBookingMeat }}</span>
-                    <span v-if="bookings.reduce((s, b) => s+(Number(b.fullVegQty)||0), 0) + recurBookingFull > 0">🌿 {{ bookings.reduce((s, b) => s+(Number(b.fullVegQty)||0), 0) + recurBookingFull }}</span>
-                    <span v-if="bookings.reduce((s, b) => s+(Number(b.eggVegQty)||0), 0) + recurBookingEgg > 0">🥚 {{ bookings.reduce((s, b) => s+(Number(b.eggVegQty)||0), 0) + recurBookingEgg }}</span>
-                    <span v-if="bookings.reduce((s, b) => s+(Number(b.spiceVegQty)||0), 0) + recurBookingSpice > 0">🧄 {{ bookings.reduce((s, b) => s+(Number(b.spiceVegQty)||0), 0) + recurBookingSpice }}</span>
+                    <span v-if="bookings.reduce((s, b) => s+(Number(b.fullVegQty)||0), 0) + recurBookingFull > 0">🌿 {{
+                        bookings.reduce((s, b) => s + (Number(b.fullVegQty) || 0), 0) + recurBookingFull
+                      }}</span>
+                    <span v-if="bookings.reduce((s, b) => s+(Number(b.eggVegQty)||0), 0) + recurBookingEgg > 0">🥚 {{
+                        bookings.reduce((s, b) => s + (Number(b.eggVegQty) || 0), 0) + recurBookingEgg
+                      }}</span>
+                    <span v-if="bookings.reduce((s, b) => s+(Number(b.spiceVegQty)||0), 0) + recurBookingSpice > 0">🧄 {{
+                        bookings.reduce((s, b) => s + (Number(b.spiceVegQty) || 0), 0) + recurBookingSpice
+                      }}</span>
                   </span>
                 </p>
                 <button
@@ -522,6 +695,20 @@ onMounted(async () => {
                 >
                   <span class="leading-none">+</span> 新增
                 </button>
+              </div>
+              <!-- 依時段彙總 -->
+              <div
+                v-if="periodSummary.length > 0"
+                class="flex flex-wrap gap-1.5 mb-2"
+              >
+                <span
+                  v-for="g in periodSummary"
+                  :key="g.id"
+                  class="px-2 py-0.5 rounded-full text-xs font-medium border"
+                  :class="g.color ? periodColorClass(g.color) : 'bg-surface2 text-hint-c border-light-c'"
+                >
+                  {{ g.name }} {{ g.count }}人
+                </span>
               </div>
               <div class="space-y-2">
                 <div
@@ -536,9 +723,15 @@ onMounted(async () => {
                   class="bg-surface rounded-xl border border-light-c shadow-sm overflow-hidden"
                 >
                   <div class="flex items-stretch">
-                    <div class="w-16 flex-shrink-0 bg-surface2 flex flex-col items-center justify-center border-r border-light-c py-3">
+                    <div
+                      class="w-16 flex-shrink-0 bg-surface2 flex flex-col items-center justify-center border-r border-light-c py-3 gap-0.5">
                       <span class="text-xs text-hint-c uppercase tracking-wide">TIME</span>
                       <span class="text-lg font-black text-muted-c leading-tight mt-0.5">{{ booking.time }}</span>
+                      <span
+                        v-if="findPeriod(booking.time)"
+                        class="text-[10px] leading-none px-1.5 py-0.5 rounded-full border font-medium mt-0.5"
+                        :class="periodColorClass(findPeriod(booking.time).color)"
+                      >{{ findPeriod(booking.time).name }}</span>
                     </div>
                     <div class="flex-1 px-3 py-2.5 flex items-center justify-between gap-2">
                       <div>
@@ -607,7 +800,7 @@ onMounted(async () => {
           <div class="mt-5">
             <div class="flex items-center justify-between mb-2">
               <p class="text-xs font-semibold text-hint-c uppercase tracking-widest flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-indigo-400" />
+                <span class="w-2 h-2 rounded-full bg-indigo-400"/>
                 當月預定
                 <span class="text-hint-c normal-case font-normal">{{ calYear }}年{{ calMonth }}月</span>
               </p>
@@ -631,9 +824,18 @@ onMounted(async () => {
                 class="bg-surface rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm overflow-hidden"
               >
                 <div class="flex items-stretch">
-                  <div class="w-16 flex-shrink-0 bg-indigo-50 dark:bg-indigo-900/20 flex flex-col items-center justify-center border-r border-indigo-100 dark:border-indigo-800/30 py-3">
+                  <div
+                    class="w-16 flex-shrink-0 bg-indigo-50 dark:bg-indigo-900/20 flex flex-col items-center justify-center border-r border-indigo-100 dark:border-indigo-800/30 py-3 gap-0.5">
                     <span class="text-xs text-indigo-400 uppercase tracking-wide">包月</span>
-                    <span class="text-sm font-black text-indigo-600 dark:text-indigo-300 leading-tight mt-0.5 text-center">{{ rule.time }}</span>
+                    <span
+                      class="text-sm font-black text-indigo-600 dark:text-indigo-300 leading-tight mt-0.5 text-center">{{
+                        rule.time
+                      }}</span>
+                    <span
+                      v-if="findPeriod(rule.time)"
+                      class="text-[10px] leading-none px-1.5 py-0.5 rounded-full border font-medium mt-0.5"
+                      :class="periodColorClass(findPeriod(rule.time).color)"
+                    >{{ findPeriod(rule.time).name }}</span>
                   </div>
                   <div class="flex-1 px-3 py-2.5 flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0">
@@ -712,7 +914,8 @@ onMounted(async () => {
       v-if="bookingModal.show"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
     >
-      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+      <div
+        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold text-base-c">
             {{ bookingModal.isNew ? '新增訂位' : '編輯訂位' }}
@@ -774,7 +977,8 @@ onMounted(async () => {
                   class="w-full bg-surface border border-red-200 dark:border-red-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"
                 >
               </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+              <div
+                class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
                 <input
                   v-model.number="bForm.fullVegQty"
@@ -783,7 +987,8 @@ onMounted(async () => {
                   class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
                 >
               </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+              <div
+                class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
                 <input
                   v-model.number="bForm.eggVegQty"
@@ -792,7 +997,8 @@ onMounted(async () => {
                   class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
                 >
               </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+              <div
+                class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
                 <input
                   v-model.number="bForm.spiceVegQty"
@@ -851,7 +1057,8 @@ onMounted(async () => {
       v-if="recurModal.show"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
     >
-      <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+      <div
+        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <div>
             <h3 class="font-bold text-base-c">
@@ -928,7 +1135,8 @@ onMounted(async () => {
                   class="w-full bg-surface border border-red-200 dark:border-red-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 text-center font-bold"
                 >
               </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+              <div
+                class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🌿 全素</label>
                 <input
                   v-model.number="recurForm.fullVegQty"
@@ -937,7 +1145,8 @@ onMounted(async () => {
                   class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
                 >
               </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+              <div
+                class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🥚 蛋奶素</label>
                 <input
                   v-model.number="recurForm.eggVegQty"
@@ -946,7 +1155,8 @@ onMounted(async () => {
                   class="w-full bg-surface border border-green-200 dark:border-green-800/50 text-base-c rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 text-center font-bold"
                 >
               </div>
-              <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
+              <div
+                class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-200 dark:border-green-800/30">
                 <label class="text-xs font-medium text-green-700 dark:text-green-400 block mb-1">🧄 五辛素</label>
                 <input
                   v-model.number="recurForm.spiceVegQty"
@@ -957,7 +1167,9 @@ onMounted(async () => {
               </div>
             </div>
             <p class="text-xs text-hint-c mt-1.5">
-              合計：{{ (recurForm.meatQty||0)+(recurForm.fullVegQty||0)+(recurForm.eggVegQty||0)+(recurForm.spiceVegQty||0) }} 人
+              合計：{{
+                (recurForm.meatQty || 0) + (recurForm.fullVegQty || 0) + (recurForm.eggVegQty || 0) + (recurForm.spiceVegQty || 0)
+              }} 人
             </p>
           </div>
           <div>
@@ -1006,6 +1218,141 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- ════════ 時段設定 Modal ════════ -->
+    <div
+      v-if="periodSettingsOpen"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+    >
+      <div
+        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-base-c">
+              時段設定
+            </h3>
+            <p class="text-xs text-hint-c mt-0.5">
+              設定用餐時間區間，例如 11:00–14:00 為午餐
+            </p>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="periodSettingsOpen = false; openPeriodForm(null)"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- 現有時段列表 -->
+        <div class="space-y-2 mb-4">
+          <div
+            v-if="sortedPeriods.length === 0"
+            class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
+          >
+            尚未設定任何時段
+          </div>
+          <div
+            v-for="p in sortedPeriods"
+            :key="p.id"
+            class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2"
+          >
+            <span
+              class="px-2 py-0.5 rounded-full text-xs font-medium border flex-shrink-0"
+              :class="periodColorClass(p.color)"
+            >{{ p.name }}</span>
+            <span class="text-sm text-muted-c flex-1 min-w-0">{{ p.startTime }} – {{ p.endTime }}</span>
+            <button
+              class="text-xs text-blue-500 hover:text-blue-700 px-1.5 flex-shrink-0"
+              @click="openPeriodForm(p)"
+            >
+              編輯
+            </button>
+            <button
+              class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0"
+              @click="deletePeriod(p.id)"
+            >
+              刪除
+            </button>
+          </div>
+        </div>
+
+        <!-- 新增／編輯表單 -->
+        <div class="border-t border-light-c pt-4 space-y-3">
+          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest">
+            {{ periodFormEditingId ? '編輯時段' : '新增時段' }}
+          </p>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">名稱 *</label>
+            <input
+              v-model="periodForm.name"
+              placeholder="早餐 / 午餐 / 晚餐…"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">開始時間 *</label>
+              <input
+                v-model="periodForm.startTime"
+                type="time"
+                class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+            </div>
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">結束時間 *</label>
+              <input
+                v-model="periodForm.endTime"
+                type="time"
+                class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">標籤顏色</label>
+            <div class="flex gap-2 flex-wrap">
+              <button
+                v-for="c in PERIOD_COLORS"
+                :key="c.key"
+                type="button"
+                class="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                :class="[periodColorClass(c.key), periodForm.color === c.key ? 'ring-2 ring-offset-1 ring-green-400' : 'opacity-50']"
+                @click="periodForm.color = c.key"
+              >
+                {{ c.label }}
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button
+              v-if="periodFormEditingId"
+              class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+              @click="openPeriodForm(null)"
+            >
+              取消編輯
+            </button>
+            <button
+              :disabled="!periodForm.name || !periodForm.startTime || !periodForm.endTime"
+              class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
+              @click="savePeriod"
+            >
+              {{ periodFormEditingId ? '儲存變更' : '新增時段' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast -->
     <transition name="fade">
       <div
@@ -1032,6 +1379,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-  .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-  .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>
