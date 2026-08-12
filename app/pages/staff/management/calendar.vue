@@ -187,12 +187,20 @@
         <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3">
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm text-hint-c">{{ monthEventCount }} 筆</span>
-            <button
-              class="text-xs text-indigo-500 hover:text-indigo-600 font-medium"
-              @click="allCategoriesActive ? clearAllCategories() : selectAllCategories()"
-            >
-              {{ allCategoriesActive ? '全部取消' : '全選' }}
-            </button>
+            <div class="flex items-center gap-3">
+              <button
+                class="text-xs text-indigo-500 hover:text-indigo-600 font-medium"
+                @click="selectAllCategories"
+              >
+                全選
+              </button>
+              <button
+                class="text-xs text-hint-c hover:text-red-500 font-medium"
+                @click="clearAllCategories"
+              >
+                全部取消
+              </button>
+            </div>
           </div>
           <div class="flex flex-col gap-1.5">
             <!-- 院內：父層 checkbox，統一控制底下 4 個子分類；半勾表示部分子分類有勾 -->
@@ -272,6 +280,22 @@
                 </option>
               </select>
             </div>
+
+            <!-- 每週第一天 -->
+            <div class="filter-select-group">
+              <label class="filter-label">每週開始於</label>
+              <select
+                v-model.number="weekStartOption"
+                class="filter-select"
+              >
+                <option :value="0">
+                  週日
+                </option>
+                <option :value="1">
+                  週一
+                </option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -294,11 +318,11 @@
           <!-- 星期標頭 -->
           <div class="calendar-grid gap-1.5 mb-1.5 weekday-header">
             <div
-              v-for="(d, wIdx) in weekdays"
-              :key="d"
-              :class="['cal-weekday', { sun: wIdx === 0, sat: wIdx === 6 }]"
+              v-for="item in weekdayHeaderItems"
+              :key="item.label"
+              :class="['cal-weekday', { sun: item.isSun, sat: item.isSat }]"
             >
-              {{ d }}
+              {{ item.label }}
             </div>
           </div>
 
@@ -325,8 +349,8 @@
                     <span
                       :class="['cal-day-num', {
                         'today-num': cell.isToday,
-                        'text-red-400 dark:text-red-400': cell.isWeekend && cell.weekdayIdx === 0,
-                        'text-blue-400 dark:text-blue-400': cell.isWeekend && cell.weekdayIdx === 6,
+                        'text-red-400 dark:text-red-400': cell.isSunday,
+                        'text-blue-400 dark:text-blue-400': cell.isSaturday,
                         'text-muted-c': !cell.isToday && !cell.isWeekend
                       }]"
                     >{{ cell.day }}</span>
@@ -620,7 +644,7 @@
               <!-- 操作 -->
               <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <button
-                  v-if="!ORDER_SOURCES.includes(ev.source)"
+                  v-if="!ORDER_SOURCES.includes(ev.source) && ev.source !== 'local'"
                   class="p-1.5 text-hint-c hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                   title="編輯"
                   @click="openEdit(ev)"
@@ -638,7 +662,7 @@
                   /></svg>
                 </button>
                 <button
-                  v-if="perm.can('management.calendar') && !ORDER_SOURCES.includes(ev.source)"
+                  v-if="perm.can('management.calendar') && !ORDER_SOURCES.includes(ev.source) && ev.source !== 'local'"
                   class="p-1.5 text-hint-c hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                   title="刪除"
                   @click="deleteEvent(ev)"
@@ -1152,7 +1176,7 @@
       </div>
     </div>
 
-    <!-- ══ Modal: 院內活動詳細（點院內活動先看資料，裡面才有編輯／刪除）══ -->
+    <!-- ══ Modal: 院內活動詳細（唯讀，點院內活動只看資料，不提供編輯/刪除）══ -->
     <div
       v-if="localDetailModal.show && localDetailModal.ev"
       class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
@@ -1258,18 +1282,10 @@
         <!-- Footer -->
         <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button
-            v-if="perm.can('management.calendar')"
-            class="px-4 py-2 text-sm border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            @click="deleteLocalFromDetail"
+            class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="localDetailModal.show = false"
           >
-            刪除
-          </button>
-          <button
-            v-if="perm.can('management.calendar')"
-            class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
-            @click="editLocalFromDetail"
-          >
-            編輯
+            關閉
           </button>
         </div>
       </div>
@@ -1682,7 +1698,19 @@
   const BASE_ROOMS = computed(() => commonStore.data.main_url + '/holy/rooms/bookings')
 
   const TYPES = ['醫院', '園區', '芳心'] // 建築分類：本地院內活動底下的細分類別（新增/編輯表單、院內篩選底下的建築分類子篩選都用這組值）
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六']
+  // 星期標頭：依 weekStartOption 決定週日或週一排最前面；同時標記哪一欄是週日/週六（給紅/藍字用）
+  const WEEKDAY_BASE = [
+    { label: '日', isSun: true, isSat: false },
+    { label: '一', isSun: false, isSat: false },
+    { label: '二', isSun: false, isSat: false },
+    { label: '三', isSun: false, isSat: false },
+    { label: '四', isSun: false, isSat: false },
+    { label: '五', isSun: false, isSat: false },
+    { label: '六', isSun: false, isSat: true }
+  ]
+  const weekdayHeaderItems = computed(() => {
+    return weekStartOption.value === 1 ? [...WEEKDAY_BASE.slice(1), WEEKDAY_BASE[0]] : WEEKDAY_BASE
+  })
 
   // ── Google Calendar 設定 ──────────────────────────────────────────
   const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
@@ -1833,6 +1861,9 @@
   // ── 上方資訊區收合狀態 ────────────────────────────────────────────
   const panelExpanded = ref(true)
 
+  // ── 每週第一天設定：0 = 週日在最前面（預設），1 = 週一在最前面 ─────────
+  const weekStartOption = ref(0)
+
   // ── 篩選狀態：類型改成複選 checkbox（每個圖例項目都能各自勾選/取消）─────
   // 十個「葉節點」分類：院內原本的醫院/園區/芳心/未分類拆開各自可勾，其餘來源各自一個
   // 院內底下的 4 個子分類會顯示成一個「院內」大項＋縮排子項，用一個父層 checkbox 統一勾/取消全部子項
@@ -1879,8 +1910,6 @@
     LEGEND_ITEMS.forEach(i => { activeCategories[i.key] = false })
   }
 
-  const allCategoriesActive = computed(() => LEGEND_ITEMS.every(i => activeCategories[i.key]))
-
   // 「院內」父層 checkbox：全部子分類都勾 → 打勾；都沒勾 → 空；部分勾 → 半勾（indeterminate）
   const localActiveCount = computed(() => LOCAL_SUB_ITEMS.filter(i => activeCategories[i.key]).length)
   const localAllActive = computed(() => localActiveCount.value === LOCAL_SUB_ITEMS.length)
@@ -1907,18 +1936,20 @@
         if (saved.categories) Object.assign(activeCategories, saved.categories) // 舊存檔沒有的分類維持預設 true
         if (saved.location !== undefined) filterLocation.value = saved.location
         if (saved.expanded !== undefined) panelExpanded.value = saved.expanded
+        if (saved.weekStart !== undefined) weekStartOption.value = saved.weekStart
       }
     } catch {}
   }
 
-  watch([currentYear, currentMonth, activeCategories, filterLocation, panelExpanded], () => {
+  watch([currentYear, currentMonth, activeCategories, filterLocation, panelExpanded, weekStartOption], () => {
     if (import.meta.client) {
       localStorage.setItem(CALENDAR_STATE_KEY, JSON.stringify({
         year: currentYear.value,
         month: currentMonth.value,
         categories: { ...activeCategories },
         location: filterLocation.value,
-        expanded: panelExpanded.value
+        expanded: panelExpanded.value,
+        weekStart: weekStartOption.value
       }))
     }
   }, { deep: true })
@@ -1978,24 +2009,30 @@
   const calendarCells = computed(() => {
     const year = currentYear.value
     const month = currentMonth.value
-    const firstWeekday = new Date(year, month - 1, 1).getDay() // 0=Sun
+    const firstWeekday = new Date(year, month - 1, 1).getDay() // 實際星期幾，0=Sun
+    // 依 weekStartOption 換算「月初前要留幾個空格」：週日排最前面用原本的 firstWeekday，
+    // 週一排最前面則要扣掉 1 天位移（週日這天要排到最後一欄）
+    const leadingEmpty = (firstWeekday - weekStartOption.value + 7) % 7
     const daysInMonth = new Date(year, month, 0).getDate()
 
     const cells = []
 
     // 填充前空格
-    for (let i = 0; i < firstWeekday; i++) {
+    for (let i = 0; i < leadingEmpty; i++) {
       cells.push({ day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i })
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-      const weekdayIdx = (firstWeekday + d - 1) % 7
+      const actualDow = (firstWeekday + d - 1) % 7 // 實際星期幾，0=Sun，跟顯示欄位順序無關，紅/藍字判斷要用這個
+      const weekdayIdx = (leadingEmpty + d - 1) % 7 // 顯示欄位（0 = 該週第一欄），給跨天色條的 gridColumn 用
       const isToday = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
-      const isWeekend = weekdayIdx === 0 || weekdayIdx === 6
+      const isWeekend = actualDow === 0 || actualDow === 6
+      const isSunday = actualDow === 0
+      const isSaturday = actualDow === 6
       const dayEvents = eventsOnDate(dateStr)
       const chipEvents = dayEvents.filter(e => !isBannerEvent(e))
-      cells.push({ day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, weekdayIdx })
+      cells.push({ day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, isSunday, isSaturday, weekdayIdx })
     }
 
     return cells
@@ -2434,21 +2471,11 @@
     else openLocalDetail(ev)
   }
 
-  // ── 院內活動詳細 Modal（點院內活動先看資料，裡面才有編輯／刪除）──────────
+  // ── 院內活動詳細 Modal（點院內活動只看資料，唯讀；編輯/刪除請到日面板或月曆格子）──
   const localDetailModal = reactive({ show: false, ev: null })
   function openLocalDetail(ev) {
     localDetailModal.ev = ev
     localDetailModal.show = true
-  }
-  function editLocalFromDetail() {
-    const ev = localDetailModal.ev
-    localDetailModal.show = false
-    openEdit(ev)
-  }
-  async function deleteLocalFromDetail() {
-    const ev = localDetailModal.ev
-    const ok = await deleteEvent(ev)
-    if (ok) localDetailModal.show = false
   }
 
   function openItineraryDetail(ev) {

@@ -25,6 +25,7 @@
     "@tiptap/vue-3": "^3.22.4",
     "better-sqlite3": "^12.10.0",
     "bwip-js": "^4.11.1",
+    "cheerio": "^1.2.0",
     "exceljs": "^4.4.0",
     "flowbite": "^4.0.1",
     "nuxt": "^4.4.2",
