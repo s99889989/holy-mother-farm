@@ -349,13 +349,12 @@
                       <span class="chip-time hidden sm:inline">{{ ev.time }}</span>
                       <span class="chip-title">{{ ev.title }}</span>
                     </div>
-                    <!-- 超出顯示 +N -->
+                    <!-- 更多：每天都可點開右側詳細清單，不必等超過 3 筆才顯示 -->
                     <div
-                      v-if="cell.chipEvents.length > 3"
                       class="text-xs text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
                       @click.stop="openDayPanel(cell)"
                     >
-                      +{{ cell.chipEvents.length - 3 }} 更多
+                      {{ cell.chipEvents.length > 3 ? `+${cell.chipEvents.length - 3} 更多` : '更多' }}
                     </div>
                   </div>
                 </template>
@@ -1146,6 +1145,129 @@
             v-if="perm.can('management.calendar')"
             class="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
             @click="editItineraryFromDetail"
+          >
+            編輯
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Modal: 院內活動詳細（點院內活動先看資料，裡面才有編輯／刪除）══ -->
+    <div
+      v-if="localDetailModal.show && localDetailModal.ev"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      @click.self="localDetailModal.show = false"
+    >
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
+          <div class="flex items-center gap-2">
+            <div :class="['w-2.5 h-2.5 rounded-sm flex-shrink-0', typeBarClass(localDetailModal.ev)]" />
+            <h3 class="font-bold text-base-c text-sm">
+              {{ eventBadgeLabel(localDetailModal.ev) }}活動詳細
+            </h3>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="localDetailModal.show = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
+          </button>
+        </div>
+        <!-- 內容 -->
+        <div class="px-5 py-4 space-y-3">
+          <!-- 標題 -->
+          <p class="text-base font-bold text-base-c leading-snug">
+            {{ localDetailModal.ev.title }}
+          </p>
+          <!-- 日期 / 時間 -->
+          <div class="flex items-center gap-2 text-sm text-hint-c">
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            /></svg>
+            <span>{{ eventTimeLabel(localDetailModal.ev) || localDetailModal.ev.date }}</span>
+          </div>
+          <!-- 地點 -->
+          <div
+            v-if="localDetailModal.ev.room"
+            class="flex items-start gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            /><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            /></svg>
+            <span>{{ localDetailModal.ev.room }}</span>
+          </div>
+          <!-- 負責人 -->
+          <div
+            v-if="localDetailModal.ev.owner"
+            class="flex items-center gap-2 text-sm text-hint-c"
+          >
+            <svg
+              class="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            /></svg>
+            <span>{{ localDetailModal.ev.owner }}</span>
+          </div>
+          <!-- 說明 -->
+          <div
+            v-if="localDetailModal.ev.description"
+            class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed"
+            style="white-space: pre-line"
+          >{{ localDetailModal.ev.description }}</div>
+          <!-- 分類徽章 -->
+          <span :class="['type-badge', typeColorClass(localDetailModal.ev)]">{{ eventBadgeLabel(localDetailModal.ev) }}</span>
+        </div>
+        <!-- Footer -->
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
+          <button
+            v-if="perm.can('management.calendar')"
+            class="px-4 py-2 text-sm border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            @click="deleteLocalFromDetail"
+          >
+            刪除
+          </button>
+          <button
+            v-if="perm.can('management.calendar')"
+            class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
+            @click="editLocalFromDetail"
           >
             編輯
           </button>
@@ -2301,12 +2423,32 @@
 
   // 訂位／便當／豆漿／訂房：唯讀來源，點了只開詳細資料 Modal（不能編輯/刪除）
   const ORDER_SOURCES = ['booking', 'lunch', 'soybean', 'roomorder']
+  // 所有來源（院內／Google／行程／訂位系列）點擊都要能開詳細 Modal
   function isDetailClickable(ev) {
-    return ev.source === 'itinerary' || ORDER_SOURCES.includes(ev.source)
+    return true
   }
   function openEventDetail(ev) {
     if (ev.source === 'itinerary') openItineraryDetail(ev)
     else if (ORDER_SOURCES.includes(ev.source)) openOrderDetail(ev)
+    else if (ev.source === 'google') openGoogleDetail(ev)
+    else openLocalDetail(ev)
+  }
+
+  // ── 院內活動詳細 Modal（點院內活動先看資料，裡面才有編輯／刪除）──────────
+  const localDetailModal = reactive({ show: false, ev: null })
+  function openLocalDetail(ev) {
+    localDetailModal.ev = ev
+    localDetailModal.show = true
+  }
+  function editLocalFromDetail() {
+    const ev = localDetailModal.ev
+    localDetailModal.show = false
+    openEdit(ev)
+  }
+  async function deleteLocalFromDetail() {
+    const ev = localDetailModal.ev
+    const ok = await deleteEvent(ev)
+    if (ok) localDetailModal.show = false
   }
 
   function openItineraryDetail(ev) {
