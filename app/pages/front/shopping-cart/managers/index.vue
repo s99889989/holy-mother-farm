@@ -1,10 +1,5 @@
 <template>
   <div class="sc-order-page">
-    <nav class="sc-topnav">
-      <NuxtLink to="/front/shopping-cart" class="sc-topnav-link">訂單管理</NuxtLink>
-      <NuxtLink to="/front/shopping-cart/users" class="sc-topnav-link">會員管理</NuxtLink>
-      <NuxtLink to="/front/shopping-cart/managers" class="sc-topnav-link sc-active">管理員設定</NuxtLink>
-    </nav>
 
     <div class="sc-breadcrumb">
       <span>設定</span>
@@ -14,30 +9,38 @@
 
     <p v-if="toast" class="sc-toast" :class="toast.type">{{ toast.message }}</p>
 
-    <!-- 新增管理員 -->
+    <!-- 新增/編輯管理員（跟原網站一樣共用同一塊表單） -->
     <div class="sc-panel">
-      <div class="sc-panel-heading">新增管理員</div>
+      <div class="sc-panel-heading">{{ editingId ? '編輯管理員' : '新增管理員' }}</div>
       <div class="sc-panel-body">
         <div class="sc-field-row">
           <span class="sc-field-label"><span class="red">*</span>帳號</span>
-          <input v-model="newManager.account" type="text" class="sc-input" placeholder="帳號" />
+          <input v-model="formData.account" type="text" class="sc-input" placeholder="帳號" />
         </div>
         <div class="sc-field-row">
-          <span class="sc-field-label"><span class="red">*</span>密碼</span>
-          <input v-model="newManager.password" type="password" class="sc-input" />
+          <span class="sc-field-label">
+            <span v-if="!editingId" class="red">*</span>密碼
+          </span>
+          <input
+            v-model="formData.password"
+            type="password"
+            class="sc-input"
+            :placeholder="editingId ? '留空代表不修改密碼' : ''"
+          />
         </div>
         <div class="sc-field-row">
           <span class="sc-field-label"><span class="red">*</span>姓名</span>
-          <input v-model="newManager.name" type="text" class="sc-input" placeholder="姓名" />
+          <input v-model="formData.name" type="text" class="sc-input" placeholder="姓名" />
         </div>
         <div class="sc-field-row">
           <span class="sc-field-label">備註</span>
-          <input v-model="newManager.note" type="text" class="sc-input" />
+          <input v-model="formData.note" type="text" class="sc-input" />
         </div>
         <div class="sc-submit-row">
-          <button class="sc-btn-primary" :disabled="creating" @click="createManager">
-            {{ creating ? '新增中…' : '新增' }}
+          <button class="sc-btn-primary" :disabled="submitting" @click="submitForm">
+            {{ submitting ? '處理中…' : editingId ? '更新' : '新增' }}
           </button>
+          <button v-if="editingId" class="sc-btn-cancel" @click="cancelEdit">取消編輯</button>
         </div>
       </div>
     </div>
@@ -90,7 +93,7 @@
               </button>
             </td>
             <td class="text-center">
-              <a :href="manager.editUrl" target="_blank" rel="noopener">修改</a>
+              <a href="#" @click.prevent="startEdit(manager)">修改</a>
             </td>
             <td class="text-center">
               <button
@@ -107,7 +110,7 @@
     </div>
 
     <p class="sc-open-note">
-      「修改」目前會開啟原網站頁面（需要另外登入）；「新增」「停啟用」「刪除」是透過本站代理直接處理，不用另外登入。
+      「新增」「修改」「停啟用」「刪除」都透過本站代理直接處理，不用另外登入原後台。
     </p>
   </div>
 </template>
@@ -119,18 +122,20 @@ import { ref, reactive, computed, onMounted } from 'vue'
 // 及 managers/create.post.ts、managers/[id]/*），對應原網站 admin_manager.php
 // 及 admin_manager_CL.php 的新增/停啟用/刪除動作。
 definePageMeta({
-  layout: false
+  layout: 'shopping-cart'
 })
 
 const rawManagers = ref([])
 const loading = ref(false)
 const loadError = ref('')
 const actingId = ref(null)
-const creating = ref(false)
+const submitting = ref(false)
 const keyword = ref('')
 const toast = ref(null)
 
-const newManager = reactive({
+const editingId = ref(null)
+
+const formData = reactive({
   account: '',
   password: '',
   name: '',
@@ -142,6 +147,13 @@ function showToast(message, type = 'success') {
   setTimeout(() => {
     toast.value = null
   }, 2500)
+}
+
+function resetForm() {
+  formData.account = ''
+  formData.password = ''
+  formData.name = ''
+  formData.note = ''
 }
 
 async function fetchManagers() {
@@ -171,31 +183,53 @@ const filteredManagers = computed(() => {
   )
 })
 
-async function createManager() {
-  if (!newManager.account || !newManager.password || !newManager.name) {
+async function startEdit(manager) {
+  editingId.value = manager.managerId
+  try {
+    const data = await $fetch(`/api/shopping-cart/managers/${manager.managerId}/edit`)
+    formData.account = data.account
+    formData.password = ''
+    formData.name = data.name
+    formData.note = data.note
+  } catch (err) {
+    showToast(err?.data?.statusMessage || '讀取管理員資料失敗', 'error')
+    editingId.value = null
+  }
+}
+
+function cancelEdit() {
+  editingId.value = null
+  resetForm()
+}
+
+async function submitForm() {
+  if (!formData.account || !formData.name || (!editingId.value && !formData.password)) {
     showToast('帳號、密碼、姓名為必填', 'error')
     return
   }
-  creating.value = true
+
+  submitting.value = true
   try {
-    const res = await $fetch('/api/shopping-cart/managers/create', {
-      method: 'POST',
-      body: { ...newManager }
-    })
-    if (res.ok) {
-      showToast('新增成功')
-      newManager.account = ''
-      newManager.password = ''
-      newManager.name = ''
-      newManager.note = ''
-      await fetchManagers()
+    if (editingId.value) {
+      const res = await $fetch(`/api/shopping-cart/managers/${editingId.value}/update`, {
+        method: 'POST',
+        body: { ...formData }
+      })
+      showToast(res.ok ? '更新成功' : '更新失敗', res.ok ? 'success' : 'error')
     } else {
-      showToast('新增失敗', 'error')
+      const res = await $fetch('/api/shopping-cart/managers/create', {
+        method: 'POST',
+        body: { ...formData }
+      })
+      showToast(res.ok ? '新增成功' : '新增失敗', res.ok ? 'success' : 'error')
     }
+    editingId.value = null
+    resetForm()
+    await fetchManagers()
   } catch (err) {
-    showToast(err?.data?.statusMessage || '新增失敗', 'error')
+    showToast(err?.data?.statusMessage || '處理失敗', 'error')
   } finally {
-    creating.value = false
+    submitting.value = false
   }
 }
 
@@ -242,31 +276,6 @@ onMounted(fetchManagers)
 .sc-order-page {
   padding: 20px;
   color: #333;
-}
-
-.sc-topnav {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid #ddd;
-}
-
-.sc-topnav-link {
-  padding: 8px 16px;
-  font-size: 14px;
-  color: #666;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-}
-
-.sc-topnav-link:hover {
-  color: #3d7a52;
-}
-
-.sc-topnav-link.sc-active {
-  color: #3d7a52;
-  font-weight: 600;
-  border-bottom-color: #3d7a52;
 }
 
 .sc-breadcrumb {
@@ -349,6 +358,22 @@ onMounted(fetchManagers)
 
 .sc-submit-row {
   margin-top: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.sc-btn-cancel {
+  padding: 8px 20px;
+  font-size: 14px;
+  background: #fff;
+  color: #666;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sc-btn-cancel:hover {
+  background: #f5f5f5;
 }
 
 .sc-btn-primary {

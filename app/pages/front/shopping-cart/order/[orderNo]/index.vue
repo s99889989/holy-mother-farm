@@ -1,550 +1,412 @@
 <template>
-  <div class="sc-order-page">
-    <nav class="sc-topnav">
-      <NuxtLink to="/front/shopping-cart" class="sc-topnav-link sc-active">訂單管理</NuxtLink>
-      <NuxtLink to="/front/shopping-cart/users" class="sc-topnav-link">會員管理</NuxtLink>
-    </nav>
-
+  <div class="sc-detail-page">
     <div class="sc-breadcrumb">
-      <span>訂單管理</span>
+      <NuxtLink to="/front/shopping-cart">訂單管理</NuxtLink>
       <span class="sc-sep">/</span>
-      <span class="sc-current">訂單清單</span>
+      <span class="sc-current">檢視訂單 ： {{ orderNo }}</span>
     </div>
 
-    <div class="sc-toolbar">
-      <div class="sc-filter-group">
-        <label for="ost">訂單狀態：</label>
-        <select id="ost" v-model="filters.status" @change="onFilterChange">
-          <option value="">全部</option>
-          <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </div>
-      <button class="sc-refresh-btn" :disabled="loading" @click="fetchOrders">
-        {{ loading ? '更新中…' : '重新整理' }}
-      </button>
-    </div>
+    <div v-if="loading" class="sc-loading">從原網站抓取資料中…</div>
+    <p v-else-if="loadError" class="sc-load-error">{{ loadError }}</p>
 
-    <p v-if="loadError" class="sc-load-error">{{ loadError }}</p>
-
-    <div class="sc-table-controls">
-      <div class="sc-length-control">
-        顯示
-        <select v-model.number="pageSize" @change="onPageSizeChange">
-          <option v-for="n in [10, 25, 50, 100]" :key="n" :value="n">{{ n }}</option>
-        </select>
-        項結果
+    <template v-else-if="detail">
+      <div class="sc-ship-date">
+        <span class="red">※</span> 出貨日期：
+        <strong>{{ detail.shipDate || '尚未出貨' }}</strong>
       </div>
 
-      <div class="sc-search-control">
-        搜索：
-        <input
-          v-model="filters.keyword"
-          type="search"
-          placeholder="訂單單號 / 收件人 / 會員…"
-        />
+      <!-- 1、購物清單 -->
+      <div class="sc-panel">
+        <div class="sc-panel-heading">1、購物清單：</div>
+        <div class="sc-panel-body">
+          <template v-for="section in detail.productSections" :key="section.category">
+            <h2 class="sc-product-title">{{ section.category }}</h2>
+            <table class="sc-table">
+              <thead>
+                <tr class="sc-row-success">
+                  <th class="text-center">序列</th>
+                  <th class="text-center">商品名稱</th>
+                  <th class="text-center">溫層</th>
+                  <th class="text-center">價格</th>
+                  <th class="text-center">數量</th>
+                  <th class="text-center">總計</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in section.items" :key="item.seq">
+                  <td class="text-center">{{ item.seq }}</td>
+                  <td class="text-center">{{ item.name }}</td>
+                  <td class="text-center">{{ item.tempZone }}</td>
+                  <td class="text-center">{{ item.price }}</td>
+                  <td class="text-center">{{ item.qty }}</td>
+                  <td class="text-center">{{ item.subtotal }}</td>
+                </tr>
+                <tr v-if="section.items.length === 0">
+                  <td colspan="6" class="text-center sc-empty-note">此溫層無商品</td>
+                </tr>
+                <tr class="sc-summary-row">
+                  <td class="text-center">&nbsp;</td>
+                  <td class="text-center">&nbsp;</td>
+                  <td class="text-center">&nbsp;</td>
+                  <td class="text-center">總計：</td>
+                  <td class="text-center">
+                    <span class="sc-amount">{{ section.summary.count }}</span> 項
+                  </td>
+                  <td class="text-center">
+                    $ <span class="sc-amount">{{ section.summary.amount }}</span> 元
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
+        </div>
       </div>
-    </div>
 
-    <div class="sc-table-wrapper">
-      <table class="sc-order-table">
-        <thead>
-        <tr>
-          <th class="text-center">序號</th>
-          <th class="text-center sortable" @click="toggleSort('orderDate')">
-            訂購日期
-            <span class="sc-sort-icon">{{ sortIcon('orderDate') }}</span>
-          </th>
-          <th class="text-center">訂單單號</th>
-          <th class="text-center">出貨日期</th>
-          <th class="text-center">下單會員</th>
-          <th class="text-center">收件人</th>
-          <th class="text-center">收件人電話</th>
-          <th class="text-center">收件人手機</th>
-          <th class="text-center">收件人地址</th>
-          <th class="text-center">總金額</th>
-          <th class="text-center">狀態</th>
-          <th class="text-center">處理員</th>
-          <th class="text-center">修改</th>
-          <th class="text-center">匯出</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-if="loading">
-          <td colspan="14" class="text-center sc-loading-row">從原網站抓取資料中…</td>
-        </tr>
-        <tr v-else-if="pagedOrders.length === 0">
-          <td colspan="14" class="text-center sc-empty-row">查無資料</td>
-        </tr>
-        <tr v-for="order in pagedOrders" :key="order.orderNo" :class="rowClass(order)">
-          <td class="text-center">{{ order.seq }}</td>
-          <td class="text-left">{{ order.orderDate }}</td>
-          <td class="text-left">
-            <NuxtLink :to="`/front/shopping-cart/order/${order.orderNo}`">
-              {{ order.orderNo }}
-            </NuxtLink>
-          </td>
-          <td class="text-center">{{ order.shipDate || '-' }}</td>
-          <td class="text-center">{{ order.buyerName }}</td>
-          <td class="text-center">{{ order.receiverName }}</td>
-          <td class="text-left">{{ order.receiverPhone || '-' }}</td>
-          <td class="text-left">{{ order.receiverMobile || '-' }}</td>
-          <td class="text-left">{{ order.receiverAddress }}</td>
-          <td class="text-left">{{ order.totalAmount }}</td>
-          <td class="text-center">
-              <span class="sc-status-badge" :class="statusClass(order.statusCode)">
-                {{ order.statusText }}
+      <!-- 2、購物費用與運費總計 -->
+      <div class="sc-panel">
+        <div class="sc-panel-heading">2、購物費用與運費總計：</div>
+        <div class="sc-panel-body sc-cost-grid">
+          <div class="sc-cost-col">
+            <div class="sc-field-row">
+              <span class="sc-field-label">付費方式</span>
+              <span>{{ detail.paymentMethod }}</span>
+            </div>
+            <table class="sc-table">
+              <thead>
+                <tr class="sc-row-success">
+                  <th class="text-center">筆數</th>
+                  <th class="text-center">商品名稱</th>
+                  <th class="text-center">價格</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="text-center">1</td>
+                  <td class="text-center">商品金額</td>
+                  <td class="text-center">{{ detail.costSummary.productAmount }}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">2</td>
+                  <td class="text-center">運費金額</td>
+                  <td class="text-center">{{ detail.costSummary.shippingAmount }}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">&nbsp;</td>
+                  <td class="text-right">總計費用：</td>
+                  <td class="text-center">
+                    $ <span class="sc-amount">{{ detail.costSummary.totalCost }}</span> 元
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="sc-cost-col">
+            <p class="sc-note-text">
+              ※ 外、離島地區宅配費另計，我們會由專人與您聯繫<br />
+              ※ 貨到付款 加收 運費60<br />
+              ※ 運費計算方式一覽表：
+            </p>
+            <table class="sc-table">
+              <thead>
+                <tr>
+                  <th class="text-center">訂購金額</th>
+                  <th class="text-center">常溫</th>
+                  <th class="text-center">低溫</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="text-center">未滿2,000元</td>
+                  <td class="text-center">170元</td>
+                  <td class="text-center">225元</td>
+                </tr>
+                <tr>
+                  <td class="text-center">2,000～4,000元</td>
+                  <td class="text-center">免費</td>
+                  <td class="text-center">150元</td>
+                </tr>
+                <tr>
+                  <td class="text-center">4,000元以上</td>
+                  <td class="text-center">免費</td>
+                  <td class="text-center">免費</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="sc-two-col">
+        <!-- 3、收件人資料 -->
+        <div class="sc-panel">
+          <div class="sc-panel-heading">3、收件人資料：</div>
+          <div class="sc-panel-body">
+            <div class="sc-field-row">
+              <span class="sc-field-label"><span class="red">*</span>收件人姓名</span>
+              <span>{{ detail.receiver.name }}</span>
+            </div>
+            <div class="sc-field-row">
+              <span class="sc-field-label">性別</span>
+              <span>{{ detail.receiver.gender || '-' }}</span>
+            </div>
+            <div class="sc-field-row">
+              <span class="sc-field-label"><span class="red">*</span>室話</span>
+              <span>
+                {{ detail.receiver.phoneArea || '-' }} - {{ detail.receiver.phoneNumber || '-' }}
+                <template v-if="detail.receiver.phoneExt"># {{ detail.receiver.phoneExt }}</template>
               </span>
-          </td>
-          <td class="text-center">{{ order.handlerName || '-' }}</td>
-          <td class="text-center">
-            <NuxtLink :to="`/front/shopping-cart/order/${order.orderNo}/edit`">修改</NuxtLink>
-          </td>
-          <td class="text-center">
-            <a v-if="order.exportUrl" :href="order.exportUrl" target="_blank" rel="noopener">
-              匯出
-            </a>
-          </td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
+            </div>
+            <div class="sc-field-row">
+              <span class="sc-field-label"><span class="red">*</span>手機</span>
+              <span>{{ detail.receiver.mobile || '-' }}</span>
+            </div>
+            <div class="sc-field-row">
+              <span class="sc-field-label"><span class="red">*</span>郵遞區號</span>
+              <span>{{ detail.receiver.zipcode || '-' }}</span>
+            </div>
+            <div class="sc-field-row">
+              <span class="sc-field-label"><span class="red">*</span>郵寄地址</span>
+              <span>{{ detail.receiver.address }}</span>
+            </div>
+            <div class="sc-field-row">
+              <span class="sc-field-label">備註</span>
+              <span>{{ detail.receiver.note || '-' }}</span>
+            </div>
+          </div>
+        </div>
 
-    <p class="sc-open-note">
-      「修改」「匯出」會開啟原網站頁面（需要你在該分頁另外登入原後台，因為這裡抓資料用的登入 session 只存在伺服器端，不會跟瀏覽器分享）。
-    </p>
-
-    <div class="sc-table-footer">
-      <div class="sc-info-text">
-        顯示第 {{ rangeStart }} 至 {{ rangeEnd }} 項結果，共 {{ filteredOrders.length.toLocaleString() }} 項
+        <!-- 4、發票抬頭 -->
+        <div class="sc-panel">
+          <div class="sc-panel-heading">4、發票抬頭：</div>
+          <div class="sc-panel-body">
+            <table class="sc-table">
+              <thead>
+                <tr class="sc-row-success">
+                  <th class="text-center">項目</th>
+                  <th class="text-center">內容</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="text-center">發票形式：</td>
+                  <td class="text-center">{{ detail.invoice.type || '-' }}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">發票抬頭：</td>
+                  <td class="text-center">{{ detail.invoice.companyName || '-' }}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">統一編號：</td>
+                  <td class="text-center">{{ detail.invoice.companyId || '-' }}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">發票號碼：</td>
+                  <td class="text-center">{{ detail.invoice.receiptNumber || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-
-      <div class="sc-pagination">
-        <button class="sc-page-btn" :disabled="page === 1" @click="goToPage(page - 1)">
-          上頁
-        </button>
-        <button
-          v-for="p in visiblePages"
-          :key="p"
-          class="sc-page-btn"
-          :class="{ active: p === page }"
-          @click="goToPage(p)"
-        >
-          {{ p }}
-        </button>
-        <button class="sc-page-btn" :disabled="page === totalPages" @click="goToPage(page + 1)">
-          下頁
-        </button>
-      </div>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-  import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 
-  // 這頁呼叫本專案自己的 server API route（server/api/shopping-cart/orders.get.ts），
-  // 由該 route 帶著登入時取得的原網站 session，抓 admin_order.php 的 HTML 解析成 JSON。
-  //
-  // 原網站行為：依「狀態」篩選後，整批資料一次全部渲染出來，
-  // 分頁/搜尋/排序都是原本 DataTables 在瀏覽器端處理的 —
-  // 這裡照同樣邏輯：只有「狀態」改變時才重新呼叫 server route，
-  // 搜尋/排序/分頁都在前端對拿到的完整清單做。
-  definePageMeta({
-    layout: false
-  })
+// 呼叫本專案自己的 server API route（server/api/shopping-cart/orders/[orderNo].get.ts），
+// 由該 route 帶著登入 session 抓原網站 admin_order_view.php 並解析成 JSON。
+definePageMeta({
+  layout: 'shopping-cart'
+})
 
-  const statusOptions = [
-    { value: '0', label: '新訂單' },
-    { value: '1', label: '訂單成立' },
-    { value: '2', label: '備貨' },
-    { value: '3', label: '出貨' }
-  ]
+const route = useRoute()
+const orderNo = route.params.orderNo
 
-  const filters = reactive({
-    status: '',
-    keyword: ''
-  })
+const detail = ref(null)
+const loading = ref(false)
+const loadError = ref('')
 
-  const rawOrders = ref([])
-  const loading = ref(false)
-  const loadError = ref('')
-
-  const page = ref(1)
-  const pageSize = ref(10)
-
-  const sortBy = ref('orderDate')
-  const sortDir = ref('desc')
-
-  async function fetchOrders() {
-    loading.value = true
-    loadError.value = ''
-    try {
-      const res = await $fetch('/api/shopping-cart/orders', {
-        query: { status: filters.status || undefined }
-      })
-      rawOrders.value = res.items ?? []
-    } catch (err) {
-      rawOrders.value = []
-      if (err?.statusCode === 401 || err?.response?.status === 401) {
-        loadError.value = '登入已過期，請重新登入'
-        await navigateTo('/front/shopping-cart/login')
-      } else {
-        loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
-      }
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // 搜尋：比對訂單單號 / 收件人 / 下單會員（跟原本 DataTables 全欄位搜尋精神一致，取常用欄位）
-  const filteredOrders = computed(() => {
-    const keyword = filters.keyword.trim().toLowerCase()
-    let list = rawOrders.value
-    if (keyword) {
-      list = list.filter((o) =>
-        [o.orderNo, o.receiverName, o.buyerName, o.receiverAddress]
-          .join(' ')
-          .toLowerCase()
-          .includes(keyword)
-      )
-    }
-
-    const sorted = [...list].sort((a, b) => {
-      const va = a[sortBy.value] || ''
-      const vb = b[sortBy.value] || ''
-      if (va < vb) return sortDir.value === 'asc' ? -1 : 1
-      if (va > vb) return sortDir.value === 'asc' ? 1 : -1
-      return 0
-    })
-
-    return sorted
-  })
-
-  const totalPages = computed(() =>
-    Math.max(1, Math.ceil(filteredOrders.value.length / pageSize.value))
-  )
-
-  const pagedOrders = computed(() => {
-    const start = (page.value - 1) * pageSize.value
-    return filteredOrders.value.slice(start, start + pageSize.value)
-  })
-
-  const rangeStart = computed(() =>
-    filteredOrders.value.length === 0 ? 0 : (page.value - 1) * pageSize.value + 1
-  )
-  const rangeEnd = computed(() =>
-    Math.min(page.value * pageSize.value, filteredOrders.value.length)
-  )
-
-  const visiblePages = computed(() => {
-    const pages = []
-    const maxButtons = 5
-    let start = Math.max(1, page.value - Math.floor(maxButtons / 2))
-    let end = Math.min(totalPages.value, start + maxButtons - 1)
-    start = Math.max(1, end - maxButtons + 1)
-    for (let p = start; p <= end; p++) pages.push(p)
-    return pages
-  })
-
-  function statusClass(code) {
-    return {
-      'sc-status-default': code === 0,
-      'sc-status-info': code === 2,
-      'sc-status-warning': code === 1,
-      'sc-status-success': code === 3
-    }
-  }
-
-  function rowClass(order) {
-    return order.statusCode === 3 ? 'sc-row-shipped' : ''
-  }
-
-  function sortIcon(column) {
-    if (sortBy.value !== column) return ''
-    return sortDir.value === 'asc' ? '▲' : '▼'
-  }
-
-  function toggleSort(column) {
-    if (sortBy.value === column) {
-      sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+async function fetchDetail() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    detail.value = await $fetch(`/api/shopping-cart/orders/${orderNo}`)
+  } catch (err) {
+    if (err?.statusCode === 401 || err?.response?.status === 401) {
+      loadError.value = '登入已過期，請重新登入'
+      await navigateTo('/front/shopping-cart/login')
     } else {
-      sortBy.value = column
-      sortDir.value = 'desc'
+      loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
     }
+  } finally {
+    loading.value = false
   }
+}
 
-  function onFilterChange() {
-    page.value = 1
-    fetchOrders()
-  }
-
-  function onPageSizeChange() {
-    page.value = 1
-  }
-
-  function goToPage(p) {
-    if (p < 1 || p > totalPages.value || p === page.value) return
-    page.value = p
-  }
-
-  // 搜尋時重置回第一頁
-  watch(
-    () => filters.keyword,
-    () => {
-      page.value = 1
-    }
-  )
-
-  onMounted(fetchOrders)
+onMounted(fetchDetail)
 </script>
 
 <style scoped>
-  .sc-order-page {
-    padding: 20px;
-    color: #333;
-  }
+.sc-detail-page {
+  padding: 20px;
+  color: #333;
+  max-width: 1100px;
+  margin: 0 auto;
+}
 
-  .sc-topnav {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid #ddd;
-  }
+.sc-breadcrumb {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 16px;
+}
 
-  .sc-topnav-link {
-    padding: 8px 16px;
-    font-size: 14px;
-    color: #666;
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-  }
+.sc-breadcrumb a {
+  color: #337ab7;
+  text-decoration: none;
+}
 
-  .sc-topnav-link:hover {
-    color: #3d7a52;
-  }
+.sc-breadcrumb .sc-sep {
+  margin: 0 6px;
+}
 
-  .sc-topnav-link.sc-active,
-  .sc-topnav-link.router-link-exact-active {
-    color: #3d7a52;
-    font-weight: 600;
-    border-bottom-color: #3d7a52;
-  }
+.sc-breadcrumb .sc-current {
+  color: #555;
+}
 
-  .sc-breadcrumb {
-    font-size: 13px;
-    color: #888;
-    margin-bottom: 16px;
-  }
+.sc-loading,
+.sc-load-error {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+}
 
-  .sc-breadcrumb .sc-sep {
-    margin: 0 6px;
-  }
+.sc-load-error {
+  color: #d9534f;
+}
 
-  .sc-breadcrumb .sc-current {
-    color: #555;
-  }
+.sc-ship-date {
+  margin-bottom: 16px;
+  font-size: 14px;
+}
 
-  .sc-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
+.red {
+  color: #d9534f;
+}
 
-  .sc-filter-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-  }
+.sc-panel {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
 
-  .sc-filter-group select {
-    padding: 6px 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
+.sc-panel-heading {
+  background: #f5f5f5;
+  padding: 10px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #ddd;
+}
 
-  .sc-refresh-btn {
-    padding: 6px 14px;
-    font-size: 13px;
-    border: 1px solid #3d7a52;
-    color: #3d7a52;
-    background: #fff;
-    border-radius: 4px;
-    cursor: pointer;
-  }
+.sc-panel-body {
+  padding: 16px;
+}
 
-  .sc-refresh-btn:hover:not(:disabled) {
-    background: #eef5f0;
-  }
+.sc-product-title {
+  color: #669900;
+  margin: 20px 0 10px;
+  border-bottom: 2px solid #669900;
+  font-size: 16px;
+  padding-bottom: 4px;
+}
 
-  .sc-refresh-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+.sc-product-title:first-child {
+  margin-top: 0;
+}
 
-  .sc-load-error {
-    color: #d9534f;
-    font-size: 13px;
-    margin: 0 0 10px;
-  }
+.sc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
 
-  .sc-table-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    font-size: 13px;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
+.sc-table th,
+.sc-table td {
+  border: 1px solid #ddd;
+  padding: 8px 10px;
+}
 
-  .sc-length-control select {
-    margin: 0 4px;
-    padding: 4px 6px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
+.sc-row-success th {
+  background: #dff0d8;
+}
 
-  .sc-search-control input {
-    padding: 5px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    width: 220px;
-  }
+.sc-summary-row td {
+  background: #fafafa;
+  font-weight: 600;
+}
 
-  .sc-table-wrapper {
-    overflow-x: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-  }
+.sc-empty-note {
+  color: #999;
+  padding: 16px;
+}
 
-  .sc-order-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    white-space: nowrap;
-  }
+.sc-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #669900;
+}
 
-  .sc-order-table th,
-  .sc-order-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #eee;
-    border-right: 1px solid #f0f0f0;
-  }
+.text-center {
+  text-align: center;
+}
 
-  .sc-order-table thead th {
-    background: #f5f5f5;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-  }
+.text-right {
+  text-align: right;
+}
 
-  .sc-order-table thead th.sortable {
-    cursor: pointer;
-    user-select: none;
-  }
+.sc-cost-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
 
-  .sc-sort-icon {
-    margin-left: 4px;
-    font-size: 10px;
-    color: #999;
-  }
+.sc-cost-col {
+  min-width: 0;
+}
 
-  .sc-order-table tbody tr:nth-child(even) {
-    background: #fafafa;
-  }
+.sc-note-text {
+  font-size: 13px;
+  color: #555;
+  margin: 0 0 10px;
+  line-height: 1.6;
+}
 
-  .sc-order-table tbody tr:hover {
-    background: #f0f7f2;
-  }
+.sc-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
 
-  .sc-row-shipped {
-    color: #777;
-  }
+.sc-field-row {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
 
-  .text-center {
-    text-align: center;
-  }
+.sc-field-label {
+  flex: 0 0 130px;
+  color: #666;
+}
 
-  .text-left {
-    text-align: left;
+@media (max-width: 768px) {
+  .sc-cost-grid,
+  .sc-two-col {
+    grid-template-columns: 1fr;
   }
-
-  .sc-loading-row,
-  .sc-empty-row {
-    padding: 24px;
-    color: #999;
-  }
-
-  .sc-status-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 3px;
-    font-size: 12px;
-    color: #fff;
-  }
-
-  .sc-status-default {
-    background: #999;
-  }
-
-  .sc-status-info {
-    background: #5bc0de;
-  }
-
-  .sc-status-warning {
-    background: #f0ad4e;
-  }
-
-  .sc-status-success {
-    background: #3d7a52;
-  }
-
-  .sc-open-note {
-    font-size: 12px;
-    color: #999;
-    margin: 10px 0 0;
-  }
-
-  .sc-table-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 14px;
-    flex-wrap: wrap;
-    gap: 12px;
-    font-size: 13px;
-  }
-
-  .sc-pagination {
-    display: flex;
-    gap: 4px;
-  }
-
-  .sc-page-btn {
-    padding: 5px 10px;
-    border: 1px solid #ddd;
-    background: #fff;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-
-  .sc-page-btn:hover:not(:disabled) {
-    background: #f0f7f2;
-  }
-
-  .sc-page-btn.active {
-    background: #3d7a52;
-    color: #fff;
-    border-color: #3d7a52;
-  }
-
-  .sc-page-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+}
 </style>

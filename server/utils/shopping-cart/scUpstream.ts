@@ -13,6 +13,14 @@ export function requireUpstreamSession(event: any): string {
   return sessionCookie
 }
 
+// 商品縮圖等資源常常是 "../photo/xxx.jpg"（跳出 admincp 目錄）或
+// "img/blank.jpg"（admincp 目錄內）這種相對路徑，不能像 editUrl 那樣直接字串
+// 拼接，要用 URL 做正確的相對路徑解析。
+export function resolveUpstreamAsset(path: string): string {
+  if (!path) return ''
+  return new URL(path, `${SC_UPSTREAM_BASE}/`).toString()
+}
+
 export async function fetchUpstream(
   sessionCookie: string,
   path: string,

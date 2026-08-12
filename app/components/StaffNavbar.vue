@@ -58,7 +58,7 @@ const navGroups = [
       { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
       { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
       { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
-      // { to: '/staff/order/rooms-setting', icon: '🔑', label: '房間管理', key: 'order.rooms-setting' },
+      { to: '/staff/order/shopping-cart', icon: '🛒', label: '購物車', key: 'order.shopping-cart' },
       { to: '/staff/order/rooms-orders', icon: '🛏️', label: '訂房管理', key: 'order.rooms-orders' },
       { to: '/staff/order/venue/venue-orders', icon: '🏛️', label: '場地租借', key: 'order.venue-orders' }
     ]

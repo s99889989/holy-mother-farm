@@ -126,7 +126,7 @@ import { ref, onMounted } from 'vue'
 // 呼叫本專案自己的 server API route（server/api/shopping-cart/users/[id]/*），
 // 對應原網站 admin_users_update.php 的表單，送出到 admin_users_CL.php?act=u。
 definePageMeta({
-  layout: false
+  layout: 'shopping-cart'
 })
 
 const route = useRoute()

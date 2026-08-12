@@ -81,125 +81,125 @@
 </template>
 
 <script setup>
-  import { ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 
-  // 呼叫本專案自己的 server API route（server/api/shopping-cart/users/[id].get.ts），
-  // 由該 route 帶著登入 session 抓原網站 admin_users_view.php 並解析成 JSON。
-  definePageMeta({
-    layout: false
-  })
+// 呼叫本專案自己的 server API route（server/api/shopping-cart/users/[id].get.ts），
+// 由該 route 帶著登入 session 抓原網站 admin_users_view.php 並解析成 JSON。
+definePageMeta({
+  layout: 'shopping-cart'
+})
 
-  const route = useRoute()
-  const memberId = route.params.id
+const route = useRoute()
+const memberId = route.params.id
 
-  const detail = ref(null)
-  const loading = ref(false)
-  const loadError = ref('')
+const detail = ref(null)
+const loading = ref(false)
+const loadError = ref('')
 
-  async function fetchDetail() {
-    loading.value = true
-    loadError.value = ''
-    try {
-      detail.value = await $fetch(`/api/shopping-cart/users/${memberId}`)
-    } catch (err) {
-      if (err?.statusCode === 401 || err?.response?.status === 401) {
-        loadError.value = '登入已過期，請重新登入'
-        await navigateTo('/front/shopping-cart/login')
-      } else {
-        loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
-      }
-    } finally {
-      loading.value = false
+async function fetchDetail() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    detail.value = await $fetch(`/api/shopping-cart/users/${memberId}`)
+  } catch (err) {
+    if (err?.statusCode === 401 || err?.response?.status === 401) {
+      loadError.value = '登入已過期，請重新登入'
+      await navigateTo('/front/shopping-cart/login')
+    } else {
+      loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
     }
+  } finally {
+    loading.value = false
   }
+}
 
-  onMounted(fetchDetail)
+onMounted(fetchDetail)
 </script>
 
 <style scoped>
-  .sc-detail-page {
-    padding: 20px;
-    color: #333;
-    max-width: 800px;
-    margin: 0 auto;
-  }
+.sc-detail-page {
+  padding: 20px;
+  color: #333;
+  max-width: 800px;
+  margin: 0 auto;
+}
 
-  .sc-breadcrumb {
-    font-size: 13px;
-    color: #888;
-    margin-bottom: 16px;
-  }
+.sc-breadcrumb {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 16px;
+}
 
-  .sc-breadcrumb a {
-    color: #337ab7;
-    text-decoration: none;
-  }
+.sc-breadcrumb a {
+  color: #337ab7;
+  text-decoration: none;
+}
 
-  .sc-breadcrumb .sc-sep {
-    margin: 0 6px;
-  }
+.sc-breadcrumb .sc-sep {
+  margin: 0 6px;
+}
 
-  .sc-breadcrumb .sc-current {
-    color: #555;
-  }
+.sc-breadcrumb .sc-current {
+  color: #555;
+}
 
-  .sc-loading,
-  .sc-load-error {
-    padding: 24px;
-    text-align: center;
-    color: #999;
-  }
+.sc-loading,
+.sc-load-error {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+}
 
-  .sc-load-error {
-    color: #d9534f;
-  }
+.sc-load-error {
+  color: #d9534f;
+}
 
-  .sc-panel {
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    overflow: hidden;
-  }
+.sc-panel {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
 
-  .sc-panel-heading {
-    background: #f5f5f5;
-    padding: 10px 16px;
-    font-weight: 600;
-    border-bottom: 1px solid #ddd;
-  }
+.sc-panel-heading {
+  background: #f5f5f5;
+  padding: 10px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #ddd;
+}
 
-  .sc-panel-body {
-    padding: 20px;
-  }
+.sc-panel-body {
+  padding: 20px;
+}
 
-  .sc-field-row {
-    display: flex;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid #f0f0f0;
-    font-size: 14px;
-  }
+.sc-field-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
 
-  .sc-field-label {
-    flex: 0 0 140px;
-    color: #666;
-  }
+.sc-field-label {
+  flex: 0 0 140px;
+  color: #666;
+}
 
-  .sc-note {
-    white-space: pre-line;
-  }
+.sc-note {
+  white-space: pre-line;
+}
 
-  .sc-edit-link-row {
-    margin-top: 20px;
-    text-align: right;
-  }
+.sc-edit-link-row {
+  margin-top: 20px;
+  text-align: right;
+}
 
-  .sc-edit-link-row a {
-    color: #3d7a52;
-    text-decoration: none;
-    font-size: 14px;
-  }
+.sc-edit-link-row a {
+  color: #3d7a52;
+  text-decoration: none;
+  font-size: 14px;
+}
 
-  .sc-edit-link-row a:hover {
-    text-decoration: underline;
-  }
+.sc-edit-link-row a:hover {
+  text-decoration: underline;
+}
 </style>
