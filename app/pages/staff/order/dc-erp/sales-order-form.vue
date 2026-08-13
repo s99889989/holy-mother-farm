@@ -52,6 +52,8 @@ const header = reactive({
   operatorID: '',
   operatorCode: '',
   operatorName: '',
+  signState: '',
+  receivingState: '',
   deliveryCompany: '黑貓宅急便',
   deliveryPeriod: '1',
   temperatureLevel: '1',
@@ -108,6 +110,8 @@ async function loadHeader() {
     operatorID: data.header.operatorID,
     operatorCode: data.header.operatorCode,
     operatorName: data.header.operatorName,
+    signState: data.header.signState,
+    receivingState: data.header.receivingState,
     deliveryCompany: data.header.deliveryCompany || '黑貓宅急便',
     deliveryPeriod: data.header.deliveryPeriod || '1',
     temperatureLevel: data.header.temperatureLevel || '1',
@@ -129,6 +133,9 @@ async function loadHeader() {
   options.temperatureLevel = data.header.temperatureLevelOptions
   options.taxType = data.taxTypeOptions
   breadcrumb.value = data.breadcrumb
+
+  firmCodeInput.value = header.firmCode
+  if (header.firmID && header.firmID !== '0') firmLookupState.value = 'found'
 }
 
 async function loadDetails() {
@@ -196,7 +203,15 @@ onMounted(init)
 
 watch(() => header.workPlaceID, loadWarehouses)
 
-// ---------- 客戶搜尋 ----------
+// ---------- 客戶輸入／搜尋 ----------
+// 「客戶」欄位支援兩種操作方式：
+//   1. 直接在輸入框打客戶代號、按 Enter，直接依代號查詢（依欄位=客戶代號）
+//      比對到唯一一筆就直接補全；比對到多筆（代號有重複，例如同代號不同
+//      分店）就自動開下面的搜尋燈箱讓使用者自己選；查無資料就顯示查無此代號
+//   2. 點旁邊的放大鏡開完整搜尋燈箱（可依類別/欄位/關鍵字查詢，瀏覽全部）
+const firmCodeInput = ref('')
+const firmLookupState = ref('') // '', 'loading', 'found', 'notfound', 'error'
+
 const showFirmSearch = ref(false)
 const firmKeyword = ref('')
 const firmCategory = ref('不拘')
@@ -208,7 +223,7 @@ const firmPage = ref(1)
 const firmTotalPages = ref(1)
 
 function openFirmSearch() {
-  firmKeyword.value = ''
+  firmKeyword.value = firmCodeInput.value
   firmSearchError.value = ''
   firmResults.value = []
   firmPage.value = 1
@@ -238,7 +253,42 @@ function pickFirm(firm) {
   header.firmID = firm.id
   header.firmCode = firm.code
   header.firmName = firm.name
+  firmCodeInput.value = firm.code
+  firmLookupState.value = 'found'
   showFirmSearch.value = false
+}
+
+// 輸入框按 Enter：依客戶代號直接查（WHSearch=Code），比對到唯一一筆直接
+// 補全，比對到多筆就開燈箱讓使用者選，避免代號打對了一半、還要多點一次
+// 放大鏡才能選的麻煩。
+async function handleFirmCodeEnter() {
+  const code = firmCodeInput.value.trim()
+  if (!code) return
+  firmLookupState.value = 'loading'
+  try {
+    const data = await $fetch('/api/dc-erp/sales-order-firms', {
+      query: { keyword: code, whSearch: 'Code', category: '不拘', page: 1 }
+    })
+    const items = data.items || []
+    const exact = items.find((f) => f.code.toLowerCase() === code.toLowerCase())
+    if (exact) {
+      pickFirm(exact)
+    } else if (items.length === 1) {
+      pickFirm(items[0])
+    } else if (items.length > 1) {
+      firmKeyword.value = code
+      firmCategory.value = '不拘'
+      firmLookupState.value = ''
+      showFirmSearch.value = true
+      searchFirms(1)
+    } else {
+      header.firmID = '0'
+      header.firmName = ''
+      firmLookupState.value = 'notfound'
+    }
+  } catch {
+    firmLookupState.value = 'error'
+  }
 }
 
 // ---------- 商品搜尋 ----------
@@ -403,12 +453,86 @@ async function handleSave() {
         deletedGuids: deletedGuids.value
       }
     })
-    await navigateTo(`/staff/order/dc-erp/sales-order-form?guid=${result.guid}`)
-    await init()
+    if (result.guid) {
+      // 存檔完成且知道訂貨單 Guid：直接停在（或跳到）這張單的編輯頁
+      await navigateTo(`/staff/order/dc-erp/sales-order-form?guid=${result.guid}`)
+      await init()
+    } else {
+      // 資料確定已經存進去了（明細/表頭都成功），只是這次沒能順便抓到新
+      // 訂貨單的 Guid（不影響資料，純粹是沒辦法直接停在編輯頁），導回
+      // 列表頁讓使用者自己找剛存的那張單。
+      errorMessage.value = ''
+      await navigateTo('/staff/order/dc-erp/sales-orders')
+    }
   } catch (err) {
     errorMessage.value = err?.data?.statusMessage || '儲存失敗，請稍後再試'
   } finally {
     saving.value = false
+  }
+}
+
+const deleting = ref(false)
+
+async function handleDelete() {
+  if (!guid.value) return
+  if (!confirm(`確定要刪除訂貨單「${header.code}」嗎？此動作無法復原。`)) return
+  deleting.value = true
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/dc-erp/sales-order-delete', {
+      method: 'POST',
+      body: { guid: guid.value }
+    })
+    await navigateTo('/staff/order/dc-erp/sales-orders')
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || '刪除失敗，請稍後再試'
+  } finally {
+    deleting.value = false
+  }
+}
+
+const signing = ref(false)
+
+async function handleSign(action) {
+  if (!guid.value) return
+  const label = action === 'return' ? '簽退' : '簽核'
+  if (!confirm(`確定要${label}訂貨單「${header.code}」嗎？`)) return
+  signing.value = true
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/dc-erp/sales-order-sign', {
+      method: 'POST',
+      body: { guids: [guid.value], action }
+    })
+    await init()
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || `${label}失敗，請稍後再試`
+  } finally {
+    signing.value = false
+  }
+}
+
+const transferring = ref(false)
+
+// 「轉銷」（轉入銷貨單），對應 SalesOrderModify.js 的 TransSlipClick()。
+// 原網站確切什麼條件下才會顯示這顆按鈕不完全確定（實測發現不是單純「已
+// 核准」就會顯示），這裡簡化成：已核准就顯示，讓使用者自己判斷要不要按；
+// 按下去如果條件不符，原網站那支 API 本身就會回錯誤訊息，不會誤動作。
+async function handleTransfer() {
+  if (!guid.value) return
+  if (!confirm(`確定要把訂貨單「${header.code}」轉入銷貨單嗎？`)) return
+  transferring.value = true
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/dc-erp/sales-order-trans', {
+      method: 'POST',
+      body: { guid: guid.value }
+    })
+    await init()
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || '轉入銷貨單失敗'
+  } finally {
+    transferring.value = false
   }
 }
 </script>
@@ -451,11 +575,26 @@ async function handleSave() {
 
             <div class="flex flex-wrap items-center gap-2">
               <label class="text-muted-c"><span class="text-red-600">*</span>客戶：</label>
-              <span v-if="header.firmID && header.firmID !== '0'" class="text-sm text-base-c">{{ header.firmCode }} {{ header.firmName }}</span>
-              <span v-else class="text-xs text-hint-c">尚未選擇客戶</span>
-              <button class="rounded border border-light-c px-2 py-1 text-xs text-muted-c hover:bg-surface2" @click="openFirmSearch">
-                {{ header.firmID && header.firmID !== '0' ? '更換客戶' : '選擇客戶' }}
-              </button>
+              <div class="flex items-center">
+                <input
+                  v-model="firmCodeInput"
+                  type="text"
+                  placeholder="輸入客戶代號後按 Enter"
+                  class="w-32 rounded-l border border-r-0 border-light-c bg-surface px-2 py-1"
+                  @keyup.enter="handleFirmCodeEnter"
+                >
+                <button
+                  class="rounded-r border border-light-c bg-surface2 px-2 py-1 text-muted-c hover:bg-surface"
+                  title="搜尋客戶"
+                  @click="openFirmSearch"
+                >
+                  🔍
+                </button>
+              </div>
+              <span v-if="firmLookupState === 'loading'" class="text-xs text-hint-c">查詢中…</span>
+              <span v-else-if="firmLookupState === 'found'" class="text-sm text-green-700">{{ header.firmName }}</span>
+              <span v-else-if="firmLookupState === 'notfound'" class="text-xs text-red-600">查無此客戶代號</span>
+              <span v-else-if="firmLookupState === 'error'" class="text-xs text-red-600">查詢失敗</span>
 
               <label class="ml-2 text-muted-c">採買單位：</label>
               <input v-model="header.purchaseDept" type="text" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
@@ -503,6 +642,8 @@ async function handleSave() {
 
             <div class="flex flex-wrap items-center gap-2 text-xs text-hint-c">
               <span v-if="header.operatorName">經辦人員：{{ header.operatorCode }} {{ header.operatorName }}</span>
+              <span v-if="header.receivingState" class="ml-2">訂單狀態：{{ header.receivingState }}</span>
+              <span v-if="header.signState" class="ml-2">簽核狀態：{{ header.signState }}</span>
             </div>
 
             <button class="text-xs text-muted-c hover:underline" @click="showDelivery = !showDelivery">
@@ -610,6 +751,38 @@ async function handleSave() {
           </div>
 
           <div class="flex justify-end gap-2">
+            <button
+              v-if="!isNew"
+              class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              :disabled="deleting"
+              @click="handleDelete"
+            >
+              {{ deleting ? '刪除中…' : '刪除訂貨單' }}
+            </button>
+            <button
+              v-if="!isNew"
+              class="rounded-lg border border-light-c px-4 py-2 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="signing"
+              @click="handleSign('return')"
+            >
+              {{ signing ? '處理中…' : '簽退' }}
+            </button>
+            <button
+              v-if="!isNew"
+              class="rounded-lg border border-light-c px-4 py-2 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="signing"
+              @click="handleSign('sign')"
+            >
+              {{ signing ? '處理中…' : '簽核' }}
+            </button>
+            <button
+              v-if="!isNew && header.signState === '已核准'"
+              class="rounded-lg border border-light-c px-4 py-2 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="transferring"
+              @click="handleTransfer"
+            >
+              {{ transferring ? '轉入中…' : '轉銷' }}
+            </button>
             <button
               class="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
               :disabled="saving"

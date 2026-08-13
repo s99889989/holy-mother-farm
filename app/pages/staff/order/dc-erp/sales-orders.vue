@@ -47,6 +47,8 @@ const breadcrumb = ref([])
 const createUrl = ref('')
 const loading = ref(true)
 const errorMessage = ref('')
+const selectedGuids = ref(new Set())
+const signing = ref(false)
 
 async function load(targetPage = 1) {
   loading.value = true
@@ -119,7 +121,63 @@ function handleAllList() {
 
 function goPage(p) {
   if (p < 1 || p > totalPages.value) return
+  selectedGuids.value.clear()
   load(p)
+}
+
+function toggleSelect(guid) {
+  if (selectedGuids.value.has(guid)) selectedGuids.value.delete(guid)
+  else selectedGuids.value.add(guid)
+}
+
+function toggleSelectAll(checked) {
+  if (checked) items.value.forEach((row) => selectedGuids.value.add(row.guid))
+  else selectedGuids.value.clear()
+}
+
+// 「簽核」／「簽退」對應原網站列表頁勾選後按右上角圖示的動作，見
+// sales-order-sign.post.ts 開頭註解。多選時 Guid 用逗號分隔送出——原網站
+// 多選的真實格式沒有實測樣本，如果多選簽核/簽退失敗，麻煩測一次多選後
+// 告訴我，我再核對調整。
+async function handleSignBatch(action) {
+  const guids = Array.from(selectedGuids.value)
+  if (!guids.length) return
+  const label = action === 'return' ? '簽退' : '簽核'
+  if (!confirm(`確定要${label}選取的 ${guids.length} 張訂貨單嗎？`)) return
+  signing.value = true
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/dc-erp/sales-order-sign', {
+      method: 'POST',
+      body: { guids, action }
+    })
+    selectedGuids.value.clear()
+    await load(page.value)
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || `${label}失敗，請稍後再試`
+  } finally {
+    signing.value = false
+  }
+}
+
+const transferringGuid = ref('')
+
+// 「轉銷」（轉入銷貨單），對應 SalesOrderModify.js 的 TransSlipClick()。
+async function handleTransfer(row) {
+  if (!confirm(`確定要把訂貨單「${row.code}」轉入銷貨單嗎？`)) return
+  transferringGuid.value = row.guid
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/dc-erp/sales-order-trans', {
+      method: 'POST',
+      body: { guid: row.guid }
+    })
+    await load(page.value)
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || '轉入銷貨單失敗'
+  } finally {
+    transferringGuid.value = ''
+  }
 }
 
 onMounted(() => load(1))
@@ -136,13 +194,31 @@ onMounted(() => load(1))
               {{ breadcrumb.join(' >> ') }}
             </span>
           </div>
-          <NuxtLink
-            v-if="createUrl"
-            :to="createUrl"
-            class="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
-          >
-            + 新增
-          </NuxtLink>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="selectedGuids.size"
+              class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="signing"
+              @click="handleSignBatch('return')"
+            >
+              {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
+            </button>
+            <button
+              v-if="selectedGuids.size"
+              class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="signing"
+              @click="handleSignBatch('sign')"
+            >
+              {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
+            </button>
+            <NuxtLink
+              v-if="createUrl"
+              :to="createUrl"
+              class="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
+            >
+              + 新增
+            </NuxtLink>
+          </div>
         </div>
 
         <!-- 查詢表單 -->
@@ -215,6 +291,9 @@ onMounted(() => load(1))
             <table v-else class="w-full text-sm">
               <thead>
                 <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                  <th class="px-2 py-2">
+                    <input type="checkbox" @change="toggleSelectAll($event.target.checked)">
+                  </th>
                   <th class="px-2 py-2">項次</th>
                   <th class="px-2 py-2">訂貨單號</th>
                   <th class="px-2 py-2">訂貨日期</th>
@@ -223,6 +302,7 @@ onMounted(() => load(1))
                   <th class="px-2 py-2">客戶名稱</th>
                   <th class="px-2 py-2">訂單狀態</th>
                   <th class="px-2 py-2">簽核狀態</th>
+                  <th class="px-2 py-2">轉銷</th>
                   <th class="px-2 py-2 text-right">總計金額</th>
                   <th class="px-2 py-2">採買單位</th>
                   <th class="px-2 py-2">備註</th>
@@ -230,6 +310,9 @@ onMounted(() => load(1))
               </thead>
               <tbody>
                 <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
+                  <td class="px-2 py-1.5">
+                    <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
+                  </td>
                   <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
                   <td class="px-2 py-1.5">
                     <NuxtLink :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
@@ -240,12 +323,22 @@ onMounted(() => load(1))
                   <td class="px-2 py-1.5">{{ row.firmName }}</td>
                   <td class="px-2 py-1.5 text-center">{{ row.receivingState }}</td>
                   <td class="px-2 py-1.5 text-center">{{ row.signState }}</td>
+                  <td class="px-2 py-1.5 text-center">
+                    <button
+                      v-if="row.canTransfer"
+                      class="rounded border border-light-c px-2 py-0.5 text-xs text-muted-c hover:bg-surface2 disabled:opacity-50"
+                      :disabled="transferringGuid === row.guid"
+                      @click="handleTransfer(row)"
+                    >
+                      {{ transferringGuid === row.guid ? '轉入中…' : '轉銷' }}
+                    </button>
+                  </td>
                   <td class="px-2 py-1.5 text-right">{{ row.total }}</td>
                   <td class="px-2 py-1.5">{{ row.purchaseDept }}</td>
                   <td class="px-2 py-1.5">{{ row.remark }}</td>
                 </tr>
                 <tr v-if="!items.length">
-                  <td colspan="11" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+                  <td colspan="13" class="px-2 py-6 text-center text-hint-c">查無資料</td>
                 </tr>
               </tbody>
             </table>

@@ -13,8 +13,9 @@
 // 從頁面解析出來回傳，前端用回傳的選項動態畫下拉，不用寫死，原網站選項異動時
 // 也不用改前端。
 //
-// 「訂貨單號」連結、右上角「新增」按鈕目前還是先用 /api/dc-erp/page 整頁代理頂著
-// （還沒把「新增/編輯訂貨單」那個表單頁另外重畫），之後要做再說。
+// 「訂貨單號」連結、右上角「新增」按鈕已經改連到自己重畫的
+// sales-order-form.vue（見該頁與 sales-order.post.ts 開頭註解），不再走
+// /api/dc-erp/page 整頁代理。
 //
 // 需要安裝 cheerio：npm install cheerio
 
@@ -93,20 +94,31 @@ export default defineEventHandler(async (event) => {
     const $tds = $(tr).find('td')
     if ($tds.length < 13) return // 略過空列 / 非資料列
 
-    const guid = $($tds[0]).find('input[name="checkBox"][type="checkbox"]').attr('value') || ''
+    // Guid 直接從「訂貨單號」連結本身的 href 解析出來（連結本來就是連去
+    // /COAERP/SalesOrder/Edit/{guid}），比之前假設勾選框 value 存了 Guid
+    // 可靠——那個假設實測是錯的，導致點訂貨單號進去變成新增頁而不是編輯頁。
     const $codeLink = $($tds[2]).find('a')
+    const editHref = $codeLink.attr('href') || ''
+    const guidMatch = editHref.match(/Edit\/([0-9a-fA-F-]{36})/)
+    const guid = guidMatch ? guidMatch[1] : ''
 
     items.push({
       guid,
       seq: $($tds[1]).text().trim(),
       code: $codeLink.text().trim(),
-      editUrl: toDcProxiedHref($codeLink.attr('href')),
+      editUrl: toDcProxiedHref(editHref),
       orderDate: $($tds[3]).text().trim(),
       deliveryDate: $($tds[4]).text().trim(),
       workPlace: $($tds[5]).find('.overFlowDiv').text().trim() || $($tds[5]).text().trim(),
       firmName: $($tds[6]).text().trim(),
       receivingState: $($tds[7]).text().trim(),
       signState: $($tds[8]).text().trim(),
+      // td[9] 是「轉銷」欄，原網站只有在符合某些條件（不只是已核准，實測
+      // 同樣是「待出貨/已核准」的列，也不一定會顯示這顆按鈕，確切規則不
+      // 確定，這裡不猜規則，直接照原網站這欄實際有沒有東西來決定）才會顯示
+      // 「轉銷」文字/按鈕，這裡直接照這一欄實際有沒有內容來判斷要不要顯示
+      // 我們自己的「轉銷」按鈕，不猜規則。
+      canTransfer: $($tds[9]).text().trim().length > 0,
       total: $($tds[10]).text().trim(),
       purchaseDept: $($tds[11]).text().trim(),
       remark: $($tds[12]).find('.overFlowDiv').attr('title') || $($tds[12]).text().trim()

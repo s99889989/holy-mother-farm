@@ -67,6 +67,10 @@ export default defineEventHandler(async (event) => {
     operatorID: val('#OperatorID'),
     operatorCode: val('#OperatorCode'),
     operatorName: $('#OperatorName').text().trim(),
+    // 「簽核狀態」原網站是純文字（沒有 id 可以選，只能靠標籤文字定位），
+    // 新增訂貨單頁面上沒有這個區塊（一定是空字串），只有編輯頁才有。
+    signState: $('.RowNameThin').filter((_: number, el: any) => $(el).text().trim() === '簽核狀態').next().text().trim(),
+    receivingState: $('#ReceivingStateName').text().trim(),
     // 宅配資料分頁
     deliveryCompany: val('#DeliveryCompnay'),
     deliveryCompanyOptions: parseSelectOptions('#DeliveryCompnay'),
