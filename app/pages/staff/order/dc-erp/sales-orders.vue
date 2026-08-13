@@ -9,6 +9,13 @@ import { reactive, ref, onMounted } from 'vue'
 //
 // 「新增」按鈕跟每列訂貨單號連結，已經改連到自己重畫的 sales-order-form.vue
 // （見該頁開頭註解），不再走 page.get.ts 整頁代理。
+//
+// 查詢表單預設收起來只顯示第一排（filterExpanded），日期欄位用共用元件
+// DcErpRocDateInput（文字手打民國年格式 + 日曆圖示選日期），關鍵字欄位用
+// 共用元件 DcErpKeywordSearchInput（純前端 localStorage 記住最近搜尋過的
+// 關鍵字）。元件檔名要用 DcErp 開頭——Nuxt 的元件自動註冊在檔名已經是
+// 資料夾名稱（dc-erp → DcErp）開頭時才會省略前綴，不然要用
+// <DcErpXxx> 這種帶前綴的標籤才 resolve 得到，用短名字會直接不渲染。
 definePageMeta({
   layout: 'staff',
   requiredPermission: 'order.dc-erp'
@@ -37,6 +44,9 @@ const filterOptions = reactive({
   orderType: [],
   receivingState: []
 })
+
+const filterExpanded = ref(false)
+const viewMode = ref('table') // 'table' | 'card'
 
 const items = ref([])
 const totalCount = ref(0)
@@ -195,6 +205,22 @@ onMounted(() => load(1))
             </span>
           </div>
           <div class="flex items-center gap-2">
+            <div class="flex items-center gap-0.5 rounded-lg border border-light-c p-0.5 text-xs">
+              <button
+                class="rounded px-2 py-1"
+                :class="viewMode === 'table' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
+                @click="viewMode = 'table'"
+              >
+                列表
+              </button>
+              <button
+                class="rounded px-2 py-1"
+                :class="viewMode === 'card' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
+                @click="viewMode = 'card'"
+              >
+                卡片
+              </button>
+            </div>
             <button
               v-if="selectedGuids.size"
               class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
@@ -221,7 +247,7 @@ onMounted(() => load(1))
           </div>
         </div>
 
-        <!-- 查詢表單 -->
+        <!-- 查詢表單：預設只顯示第一排，其餘篩選條件收起來 -->
         <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-sm">
           <div class="flex flex-wrap items-center gap-2">
             <label class="text-muted-c">依場別：</label>
@@ -233,23 +259,28 @@ onMounted(() => load(1))
             <select v-model="filters.whSearch" class="rounded border border-light-c bg-surface px-2 py-1">
               <option v-for="opt in filterOptions.whSearchField" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
-            <input
+            <DcErpKeywordSearchInput
               v-model="filters.keyword"
-              type="text"
+              storage-key="dc-erp-sales-orders-keyword-history"
               placeholder="關鍵字"
-              class="w-40 rounded border border-light-c bg-surface px-2 py-1"
-              @keyup.enter="handleSearch"
-            >
+              @enter="handleSearch"
+            />
 
             <button class="rounded bg-green-700 px-3 py-1 text-white hover:bg-green-800" @click="handleSearch">送出查詢</button>
             <button class="rounded border border-light-c px-3 py-1 text-muted-c hover:bg-surface2" @click="handleAllList">列出全部</button>
+            <button
+              class="ml-auto rounded border border-light-c px-3 py-1 text-xs text-muted-c hover:bg-surface2"
+              @click="filterExpanded = !filterExpanded"
+            >
+              {{ filterExpanded ? '收起條件 ▲' : '更多條件 ▼' }}
+            </button>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2">
+          <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
             <label class="text-muted-c">依訂貨日：</label>
-            <input v-model="filters.sdate" type="text" placeholder="起始日期" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
+            <DcErpRocDateInput v-model="filters.sdate" placeholder="起始日期" />
             <span class="text-hint-c">-</span>
-            <input v-model="filters.edate" type="text" placeholder="迄止日期" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
+            <DcErpRocDateInput v-model="filters.edate" placeholder="迄止日期" />
 
             <label class="ml-2 text-muted-c">簽核狀態：</label>
             <select v-model="filters.signState" class="rounded border border-light-c bg-surface px-2 py-1">
@@ -267,11 +298,11 @@ onMounted(() => load(1))
             </select>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2">
+          <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
             <label class="text-muted-c">依交貨日：</label>
-            <input v-model="filters.sdate2" type="text" placeholder="起始日期" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
+            <DcErpRocDateInput v-model="filters.sdate2" placeholder="起始日期" />
             <span class="text-hint-c">-</span>
-            <input v-model="filters.edate2" type="text" placeholder="迄止日期" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
+            <DcErpRocDateInput v-model="filters.edate2" placeholder="迄止日期" />
 
             <label class="ml-2 text-muted-c">依單號：</label>
             <input v-model="filters.scode" type="text" placeholder="起始單號" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
@@ -285,32 +316,72 @@ onMounted(() => load(1))
 
         <!-- 列表 -->
         <div class="overflow-hidden rounded-xl border border-light-c bg-surface">
-          <div class="overflow-x-auto">
-            <p v-if="loading" class="p-6 text-sm text-hint-c">載入中…</p>
-            <p v-else-if="errorMessage" class="p-6 text-sm text-red-600">{{ errorMessage }}</p>
-            <table v-else class="w-full text-sm">
+          <p v-if="loading" class="p-6 text-sm text-hint-c">載入中…</p>
+          <p v-else-if="errorMessage" class="p-6 text-sm text-red-600">{{ errorMessage }}</p>
+
+          <!-- 卡片檢視 -->
+          <div v-else-if="viewMode === 'card'" class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              v-for="row in items"
+              :key="row.guid"
+              class="rounded-lg border border-light-c p-3 text-sm hover:bg-surface2"
+            >
+              <div class="mb-1 flex items-start justify-between gap-2">
+                <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
+                <NuxtLink
+                  :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`"
+                  class="flex-1 font-medium text-green-700 hover:underline"
+                >
+                  {{ row.code }}
+                </NuxtLink>
+                <span class="shrink-0 text-xs text-hint-c">#{{ row.seq }}</span>
+              </div>
+              <div class="text-xs text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
+              <div class="mt-1 flex items-center justify-between text-xs text-muted-c">
+                <span>訂貨 {{ row.orderDate }} → 交貨 {{ row.deliveryDate }}</span>
+                <span class="font-medium text-base-c">{{ row.total }}</span>
+              </div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-1 text-xs">
+                <span class="rounded bg-surface2 px-1.5 py-0.5 text-muted-c">{{ row.receivingState }}</span>
+                <span class="rounded bg-surface2 px-1.5 py-0.5 text-muted-c">{{ row.signState }}</span>
+                <button
+                  v-if="row.canTransfer"
+                  class="rounded border border-light-c px-1.5 py-0.5 text-muted-c hover:bg-surface2 disabled:opacity-50"
+                  :disabled="transferringGuid === row.guid"
+                  @click="handleTransfer(row)"
+                >
+                  {{ transferringGuid === row.guid ? '轉入中…' : '轉銷' }}
+                </button>
+              </div>
+              <div v-if="row.remark" class="mt-1.5 truncate text-xs text-hint-c" :title="row.remark">{{ row.remark }}</div>
+            </div>
+            <p v-if="!items.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
+          </div>
+
+          <!-- 列表檢視 -->
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
-                  <th class="px-2 py-2">
+                  <th class="px-2 py-2 text-center">
                     <input type="checkbox" @change="toggleSelectAll($event.target.checked)">
                   </th>
-                  <th class="px-2 py-2">項次</th>
+                  <th class="px-2 py-2 text-center">項次</th>
                   <th class="px-2 py-2">訂貨單號</th>
-                  <th class="px-2 py-2">訂貨日期</th>
-                  <th class="px-2 py-2">交貨日期</th>
+                  <th class="px-2 py-2 text-center">訂貨日期</th>
+                  <th class="px-2 py-2 text-center">交貨日期</th>
                   <th class="px-2 py-2">場別</th>
                   <th class="px-2 py-2">客戶名稱</th>
-                  <th class="px-2 py-2">訂單狀態</th>
-                  <th class="px-2 py-2">簽核狀態</th>
-                  <th class="px-2 py-2">轉銷</th>
+                  <th class="px-2 py-2 text-center">訂單狀態</th>
+                  <th class="px-2 py-2 text-center">簽核狀態</th>
+                  <th class="px-2 py-2 text-center">轉銷</th>
                   <th class="px-2 py-2 text-right">總計金額</th>
-                  <th class="px-2 py-2">採買單位</th>
                   <th class="px-2 py-2">備註</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
-                  <td class="px-2 py-1.5">
+                  <td class="px-2 py-1.5 text-center">
                     <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
                   </td>
                   <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
@@ -334,11 +405,10 @@ onMounted(() => load(1))
                     </button>
                   </td>
                   <td class="px-2 py-1.5 text-right">{{ row.total }}</td>
-                  <td class="px-2 py-1.5">{{ row.purchaseDept }}</td>
                   <td class="px-2 py-1.5">{{ row.remark }}</td>
                 </tr>
                 <tr v-if="!items.length">
-                  <td colspan="13" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+                  <td colspan="12" class="px-2 py-6 text-center text-hint-c">查無資料</td>
                 </tr>
               </tbody>
             </table>

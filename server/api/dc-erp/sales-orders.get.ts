@@ -118,7 +118,17 @@ export default defineEventHandler(async (event) => {
       // 確定，這裡不猜規則，直接照原網站這欄實際有沒有東西來決定）才會顯示
       // 「轉銷」文字/按鈕，這裡直接照這一欄實際有沒有內容來判斷要不要顯示
       // 我們自己的「轉銷」按鈕，不猜規則。
-      canTransfer: $($tds[9]).text().trim().length > 0,
+      // 原本只用 .text() 判斷，結果永遠是空的——比對原網站畫面後發現「轉銷」
+      // 是 <input type="button" value="轉銷"> 這種按鈕（畫面上黃底的樣式跟
+      // 「送出查詢」「列出全部」那兩顆按鈕是同一種 squarebutton），按鈕的
+      // 文字放在 value 屬性，不是文字節點，.text() 抓不到，這裡改成同時看
+      // 文字節點、input 的 value、跟 a 連結的文字。
+      canTransfer: (() => {
+        const $cell = $($tds[9])
+        const text = $cell.text().trim()
+        const inputValue = $cell.find('input').attr('value') || ''
+        return (text + inputValue).trim().length > 0
+      })(),
       total: $($tds[10]).text().trim(),
       purchaseDept: $($tds[11]).text().trim(),
       remark: $($tds[12]).find('.overFlowDiv').attr('title') || $($tds[12]).text().trim()

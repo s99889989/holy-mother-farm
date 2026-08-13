@@ -90,14 +90,18 @@ export default defineEventHandler(async (event) => {
     const $tds = $(tr).find('td')
     if ($tds.length < 16) return
 
-    const guid = $($tds[0]).find('input[name="checkBox"][type="checkbox"]').attr('value') || ''
+    // Guid 直接從「銷貨單號」連結本身的 href 解析出來（比照 sales-orders.get.ts
+    // 的做法，比勾選框 value 可靠——訂貨單那邊實測過勾選框 value 是空的）。
     const $codeLink = $($tds[2]).find('a')
+    const editHref = $codeLink.attr('href') || ''
+    const guidMatch = editHref.match(/Edit\/([0-9a-fA-F-]{36})/)
+    const guid = guidMatch ? guidMatch[1] : ''
 
     items.push({
       guid,
       seq: $($tds[1]).text().trim(),
       code: $codeLink.text().trim(),
-      editUrl: toDcProxiedHref($codeLink.attr('href')),
+      editUrl: toDcProxiedHref(editHref),
       deliveryDate: $($tds[3]).text().trim(),
       firmName: $($tds[4]).text().trim(),
       total: $($tds[7]).text().trim(),
@@ -131,6 +135,8 @@ export default defineEventHandler(async (event) => {
     page: Number(page),
     pagesize: Number(pagesize),
     breadcrumb,
-    createUrl: toDcProxiedHref('/COAERP/SalesSlip/Create')
+    // 「新增」跟每列的「編輯」改連到自己重畫的 sales-slip-form.vue（見該頁
+    // 開頭註解），不再走整頁代理。
+    createUrl: '/staff/order/dc-erp/sales-slip-form'
   }
 })
