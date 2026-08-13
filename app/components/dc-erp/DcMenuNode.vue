@@ -1,14 +1,14 @@
 <script setup>
-  import { ref } from 'vue'
+import { ref } from 'vue'
 
-  // 原網站頂部選單最深到 3 層（例如：進銷存 > 銷貨管理 > 客戶報價單），
-  // 用遞迴元件畫任意深度，滑鼠移到有子選單的項目上時展開下一層。
-  defineProps({
-    node: { type: Object, required: true },
-    depth: { type: Number, default: 0 }
-  })
+// 原網站頂部選單最深到 3 層（例如：進銷存 > 銷貨管理 > 客戶報價單），
+// 用遞迴元件畫任意深度，滑鼠移到有子選單的項目上時展開下一層。
+defineProps({
+  node: { type: Object, required: true },
+  depth: { type: Number, default: 0 }
+})
 
-  const isOpen = ref(false)
+const isOpen = ref(false)
 </script>
 
 <template>

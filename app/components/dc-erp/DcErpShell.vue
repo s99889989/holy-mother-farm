@@ -3,11 +3,14 @@
 // 統計月報表），不再動態抓取解析原網站完整的多層選單——原網站選單有上百個
 // 項目，但實際上只會用到這幾個，寫死比較穩定、也比較好維護。
 //
-// 「銷貨單維護」「統計月報表」這兩個還沒另外重畫成 Vue 頁面，先用整頁代理
-// 開新分頁（target="_blank"）。原本 target="contentFrame" 的寫法要有一個
+// 「銷貨單維護」目前還沒另外重畫成 Vue 頁面，先用整頁代理開新分頁
+// （target="_blank"）。原本 target="contentFrame" 的寫法要有一個
 // 共用的 <iframe name="contentFrame"> 才打得到，但像「訂貨單」這種已經改成
 // 我們自己重畫的頁面就沒有 iframe 可以接了，所以統一改開新分頁比較不會有
-// 連結點了沒反應的問題；如果之後也把這兩個重畫成 Vue 頁面，再改回站內導覽即可。
+// 連結點了沒反應的問題；如果之後也把這頁重畫成 Vue 頁面，再改回站內導覽即可。
+//
+// 「統計月報表」已經改成自己重畫的頁面（sales-statistics-month.vue +
+// sales-statistics-month.get.ts/.post.ts），改回站內導覽（NuxtLink）。
 async function handleLogout() {
   await $fetch('/api/dc-erp/logout', { method: 'POST' })
   await navigateTo('/staff/order/dc-erp/login')
@@ -43,13 +46,13 @@ async function handleLogout() {
       >
         銷貨單
       </NuxtLink>
-      <a
-        href="/api/dc-erp/page?path=%2FCOAERP%2FSalesStatistics%2FSearchSalesStatisticsMonth"
-        target="_blank"
+      <NuxtLink
+        to="/staff/order/dc-erp/sales-statistics-month"
         class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        active-class="bg-surface2 font-medium text-green-700"
       >
         統計月報表
-      </a>
+      </NuxtLink>
     </nav>
 
     <slot />

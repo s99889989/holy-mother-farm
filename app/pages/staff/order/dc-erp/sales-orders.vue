@@ -6,6 +6,9 @@ import { reactive, ref, onMounted } from 'vue'
 // 轉成 JSON），不是整頁代理原網站的排版。
 // 外層還是包 DcErpShell，保留 dc-erp 模組共用的頂部選單／側邊欄可以切換到
 // 其他還沒重畫的畫面（那些畫面繼續走 page.get.ts 整頁代理）。
+//
+// 「新增」按鈕跟每列訂貨單號連結，已經改連到自己重畫的 sales-order-form.vue
+// （見該頁開頭註解），不再走 page.get.ts 整頁代理。
 definePageMeta({
   layout: 'staff',
   requiredPermission: 'order.dc-erp'
@@ -133,14 +136,13 @@ onMounted(() => load(1))
               {{ breadcrumb.join(' >> ') }}
             </span>
           </div>
-          <a
+          <NuxtLink
             v-if="createUrl"
-            :href="createUrl"
-            target="contentFrame"
+            :to="createUrl"
             class="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
           >
             + 新增
-          </a>
+          </NuxtLink>
         </div>
 
         <!-- 查詢表單 -->
@@ -230,7 +232,7 @@ onMounted(() => load(1))
                 <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
                   <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
                   <td class="px-2 py-1.5">
-                    <a :href="row.editUrl" target="contentFrame" class="text-green-700 hover:underline">{{ row.code }}</a>
+                    <NuxtLink :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
                   </td>
                   <td class="px-2 py-1.5 text-center">{{ row.orderDate }}</td>
                   <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>

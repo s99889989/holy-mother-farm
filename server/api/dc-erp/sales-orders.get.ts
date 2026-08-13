@@ -139,6 +139,8 @@ export default defineEventHandler(async (event) => {
     page: Number(page),
     pagesize: Number(pagesize),
     breadcrumb,
-    createUrl: toDcProxiedHref('/COAERP/SalesOrder/Create')
+    // 「新增」跟每列的「編輯」不再走整頁代理，改連到自己重畫的
+    // sales-order-form.vue（見該頁與 sales-order.post.ts 開頭註解）。
+    createUrl: '/staff/order/dc-erp/sales-order-form'
   }
 })
