@@ -13,7 +13,8 @@ export default defineEventHandler(async (event) => {
   let res: Response
   try {
     res = await fetch(`${DC_BASE}/Account/Login`, {
-      redirect: 'manual'
+      redirect: 'manual',
+      headers: BROWSER_LIKE_HEADERS
     })
   } catch (err) {
     throw createError({ statusCode: 502, statusMessage: '無法連線到原網站，請稍後再試' })

@@ -49,8 +49,37 @@ export default defineEventHandler(async (event) => {
     return buffer
   }
 
-  const html = await res.text()
-  const $ = load(html)
+  let html = await res.text()
+  let $ = load(html)
+
+  // 有些畫面直接用網址打開（而不是從既有的 frame 內部載入）時，原網站會判斷
+  // 「這不是從 frame 載入的」，整頁導回一份完整外殼（含頂部選單/側邊欄，
+  // 裡面再包一個 #contentFrame iframe 指向真正要看的內容）。我們的代理如果照單
+  // 全收，會變成我們自己的 iframe 裡又疊了一層原網站自己的選單外殼。
+  // 這裡偵測到回來的頁面本身又是一份 frameset（帶 #contentFrame）就自動改抓
+  // 內層 iframe 真正的網址，最多追 3 層避免不小心無窮迴圈。
+  let hops = 0
+  while ($('#contentFrame').length && hops < 3) {
+    const innerSrc = $('#contentFrame').attr('src')
+    if (!innerSrc) break
+
+    let innerUrl: URL
+    try {
+      innerUrl = new URL(innerSrc, targetUrl)
+    } catch {
+      break
+    }
+    if (innerUrl.origin !== DC_ORIGIN) break
+
+    const innerRes = await fetchDcUpstream(sessionCookie, innerUrl.pathname + innerUrl.search)
+    const innerContentType = innerRes.headers.get('content-type') || ''
+    if (!innerContentType.includes('text/html')) break
+
+    html = await innerRes.text()
+    $ = load(html)
+    targetUrl = innerUrl
+    hops++
+  }
 
   const rewriteAttr = (selector: string, attr: string) => {
     $(selector).each((_: number, el: any) => {

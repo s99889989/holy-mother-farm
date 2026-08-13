@@ -18,6 +18,16 @@
 export const DC_ORIGIN = 'https://dc.st-mary.org.tw'
 export const DC_BASE = `${DC_ORIGIN}/COAERP`
 
+// 伺服器端直接呼叫原網站時，補上跟真實瀏覽器一致的 header。
+// 沒有這些 header，有些網站（或前面的 WAF/反向代理）會把請求當成非瀏覽器流量
+// 擋掉或給不同回應，導致帳密、驗證碼明明都對，登入卻還是失敗。
+export const BROWSER_LIKE_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Accept-Language': 'zh-TW,zh;q=0.9',
+  Referer: `${DC_ORIGIN}/`
+}
+
 export function requireDcUpstreamSession(event: any): string {
   const sessionCookie = getCookie(event, 'dc_upstream_session')
   if (!sessionCookie) {
@@ -48,6 +58,7 @@ export async function fetchDcUpstream(
       redirect: 'manual',
       ...init,
       headers: {
+        ...BROWSER_LIKE_HEADERS,
         Cookie: sessionCookie,
         ...(init.headers || {})
       }
@@ -87,4 +98,14 @@ export function mergeSetCookie(existing: string, setCookieHeader: string): strin
   const filtered = existingParts.filter((p) => !p.startsWith(`${name}=`))
   filtered.push(nameValue)
   return filtered.join('; ')
+}
+
+// 把原網站連結改寫成走 /api/dc-erp/page 代理（給還沒客製化解析成 JSON 的畫面，
+// 例如「新增」「編輯」這種還沒重畫的畫面，先繼續用整頁代理頂著）。
+export function toDcProxiedHref(href: string | undefined | null): string {
+  if (!href || href === '#') return ''
+  const abs = resolveDcUpstreamAsset(href)
+  if (!abs.startsWith(DC_ORIGIN)) return ''
+  const rel = abs.slice(DC_ORIGIN.length)
+  return `/api/dc-erp/page?path=${encodeURIComponent(rel)}`
 }

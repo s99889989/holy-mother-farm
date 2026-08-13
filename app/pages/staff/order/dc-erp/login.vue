@@ -7,11 +7,15 @@ import { reactive, ref, computed, onMounted } from 'vue'
 //   2. 圖形驗證碼（Code），圖片本身也是經由本站伺服器代理拿回來的，
 //      瀏覽器全程不會直接接觸原網站，避開 CORS，也不會落地存帳密。
 //
+// ssr: false —— 這頁完全靠 onMounted 之後才 $fetch 驗證碼/送出登入，沒有 SSR
+// 需要顯示的內容，也不需要 SEO，關掉 SSR 避免重新整理時走到不同的渲染路徑。
+//
 // 「記住帳號密碼」比照購物車後台 login.vue 的做法：只存在使用者自己瀏覽器的
 // localStorage，勾選才存、取消勾選會清掉，不會送到本站伺服器或另外落地保存。
 // 驗證碼每次都要重新輸入，不在記住範圍內。
 definePageMeta({
-  layout: false
+  layout: 'staff',
+  ssr: false
 })
 
 const REMEMBER_KEY = 'dc_erp_remember_login'
@@ -25,6 +29,7 @@ const form = reactive({
 const rememberMe = ref(false)
 const showPassword = ref(false)
 const token = ref('')
+const imageKey = ref('')
 const captchaSrc = ref('')
 const loading = ref(false)
 const captchaLoading = ref(false)
@@ -50,6 +55,7 @@ async function loadCaptcha() {
   try {
     const data = await $fetch('/api/dc-erp/captcha')
     token.value = data.token
+    imageKey.value = data.imageKey
     captchaSrc.value = `/api/dc-erp/captcha-image?key=${encodeURIComponent(data.imageKey)}&t=${Date.now()}`
   } catch (err) {
     errorMessage.value = '驗證碼載入失敗，請重新整理頁面'
@@ -74,7 +80,8 @@ async function handleSubmit() {
         account: form.account,
         password: form.password,
         code: form.code,
-        token: token.value
+        token: token.value,
+        imageKey: imageKey.value
       }
     })
 

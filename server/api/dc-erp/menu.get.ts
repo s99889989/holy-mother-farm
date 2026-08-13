@@ -40,6 +40,23 @@ export default defineEventHandler(async (event) => {
 
   const userName = $('.UserName').first().text().trim()
 
+  // 頁首右上角那排功能連結（回首頁／聯繫我們／修改個人資料…），
+  // 「登出」不收進來（我們自己有一顆登出鈕，只清本站的 dc_upstream_session，
+  // 不特別呼叫原網站的 /Account/Logout），mailto: 連結保留原樣不用走代理。
+  const utilityLinks: Array<{ label: string, href: string, target: string }> = []
+  $('.Submenu ul li a[href]').each((_: number, a: any) => {
+    const $a = $(a)
+    const rawHref = $a.attr('href') || ''
+    if (!rawHref || rawHref.includes('/Account/Logout')) return
+
+    const isMailto = rawHref.startsWith('mailto:')
+    utilityLinks.push({
+      label: $a.text().trim(),
+      href: isMailto ? rawHref : toProxiedHref(rawHref),
+      target: isMailto ? '_self' : ($a.attr('target') || 'contentFrame')
+    })
+  })
+
   function parseMenuList($ul: any): MenuNode[] {
     const items: MenuNode[] = []
     $ul.children('li').each((_: number, li: any) => {
@@ -57,7 +74,12 @@ export default defineEventHandler(async (event) => {
     return items
   }
 
-  const topMenu = parseMenuList($('#Top-Menu > ul.jd_menu'))
+  // 頂部多層選單：主要選擇器抓不到（可能原網站排版有微調、或多層 iframe 代理後
+  // 結構跟預期有落差）時，依序退回更寬鬆的選擇器，確保至少抓得到一份。
+  let $topMenuRoot = $('#Top-Menu ul.jd_menu').first()
+  if (!$topMenuRoot.length) $topMenuRoot = $('ul.jd_menu').first()
+  if (!$topMenuRoot.length) $topMenuRoot = $('#Top-Menu > ul').first()
+  const topMenu = parseMenuList($topMenuRoot)
 
   const sideSections: Array<{ title: string, links: Array<{ label: string, href: string, target: string }> }> = []
   $('.arrowlistmenu h3.menuheader').each((_: number, h3: any) => {
@@ -77,10 +99,36 @@ export default defineEventHandler(async (event) => {
     sideSections.push({ title, links })
   })
 
-  const contentFrameSrc = $('#contentFrame').attr('src') || ''
+  // #contentFrame 主要選擇器抓不到時，退回用 name 屬性找、再退回頁面上第一個
+  // 有 src 的 iframe。
+  let contentFrameSrc = $('#contentFrame').attr('src') || ''
+  if (!contentFrameSrc) contentFrameSrc = $('iframe[name="contentFrame"]').attr('src') || ''
+  if (!contentFrameSrc) contentFrameSrc = $('iframe[src]').first().attr('src') || ''
+
+  // 原網站的 #contentFrame 在「原始」HTML 裡 src 其實是空字串（src=""）——
+  // 真正的網址是頁面載入完成後才由 jQuery 補上去的（$(window).load 裡
+  // $("#contentFrame").attr('src', '/COAERP/News/IndexBrowse')），伺服器端
+  // 解析 HTML 不會執行這段 JS，所以永遠抓到空的。這裡直接比照原網站那段 JS
+  // 的預設邏輯，抓不到就自己補上同一個預設頁。
+  if (!contentFrameSrc) contentFrameSrc = '/COAERP/News/IndexBrowse'
+
+  // 開發除錯用：把關鍵選擇器的比對結果印出來，之後如果又抓空了，
+  // 直接看這行 log 就知道是哪個選擇器沒對到，不用再靠螢幕截圖用猜的。
+  console.log('[dc-erp/menu] 解析結果', {
+    htmlLength: html.length,
+    hasTopMenuDiv: $('#Top-Menu').length,
+    jdMenuCount: $('ul.jd_menu').length,
+    topMenuItemCount: topMenu.length,
+    hasContentFrameById: $('#contentFrame').length,
+    iframeCount: $('iframe').length,
+    contentFrameSrc,
+    sideSectionCount: sideSections.length,
+    userName
+  })
 
   return {
     userName,
+    utilityLinks,
     topMenu,
     sideSections,
     contentUrl: toProxiedHref(contentFrameSrc)
