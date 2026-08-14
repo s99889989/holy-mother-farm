@@ -371,12 +371,14 @@ onMounted(() => load(1))
             >
               <div class="mb-1 flex items-start justify-between gap-2">
                 <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
-                <NuxtLink
-                  :to="`/staff/order/dc-erp/sales-slip-form?guid=${row.guid}`"
-                  class="flex-1 font-medium text-green-700 hover:underline"
-                >
-                  {{ row.code }}
-                </NuxtLink>
+                <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-slip-detail">
+                  <NuxtLink
+                    :to="`/staff/order/dc-erp/sales-slip-form?guid=${row.guid}`"
+                    class="flex-1 font-medium text-green-700 hover:underline"
+                  >
+                    {{ row.code }}
+                  </NuxtLink>
+                </DcErpItemsTooltip>
                 <span class="shrink-0 text-xs text-hint-c">#{{ row.seq }}</span>
               </div>
               <div class="text-xs text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
@@ -418,7 +420,9 @@ onMounted(() => load(1))
                   </td>
                   <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
                   <td class="px-2 py-1.5">
-                    <NuxtLink :to="`/staff/order/dc-erp/sales-slip-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                    <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-slip-detail">
+                      <NuxtLink :to="`/staff/order/dc-erp/sales-slip-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                    </DcErpItemsTooltip>
                   </td>
                   <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>
                   <td class="px-2 py-1.5">{{ row.firmName }}</td>

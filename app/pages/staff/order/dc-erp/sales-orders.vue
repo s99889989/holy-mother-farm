@@ -190,7 +190,25 @@ async function handleTransfer(row) {
   }
 }
 
-onMounted(() => load(1))
+// 客戶名稱查詢紀錄用的 key 跟 DcErpKeywordSearchInput 內部存的格式一樣
+// （純字串陣列，最新一筆在最前面），這裡直接讀同一把 key，讓頁面一開啟
+// 就自動帶入上次查詢過的客戶名稱，不用使用者自己再打一次。
+const CUSTOMER_NAME_HISTORY_KEY = 'dc-erp-sales-orders-customer-name-history'
+function loadLastCustomerName() {
+  if (typeof window === 'undefined') return ''
+  try {
+    const raw = window.localStorage.getItem(CUSTOMER_NAME_HISTORY_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    return list[0] || ''
+  } catch {
+    return ''
+  }
+}
+
+onMounted(() => {
+  filters.firmCode = loadLastCustomerName()
+  load(1)
+})
 </script>
 
 <template>
@@ -250,15 +268,14 @@ onMounted(() => load(1))
         <!-- 查詢表單：預設只顯示第一排，其餘篩選條件收起來 -->
         <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-sm">
           <div class="flex flex-wrap items-center gap-2">
-            <label class="text-muted-c">依場別：</label>
-            <select v-model="filters.workPlace" class="rounded border border-light-c bg-surface px-2 py-1">
-              <option v-for="opt in filterOptions.workPlace" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
+            <label class="text-muted-c">客戶名稱：</label>
+            <DcErpKeywordSearchInput
+              v-model="filters.firmCode"
+              storage-key="dc-erp-sales-orders-customer-name-history"
+              placeholder="客戶名稱"
+              @enter="handleSearch"
+            />
 
-            <label class="ml-2 text-muted-c">依欄位：</label>
-            <select v-model="filters.whSearch" class="rounded border border-light-c bg-surface px-2 py-1">
-              <option v-for="opt in filterOptions.whSearchField" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
             <DcErpKeywordSearchInput
               v-model="filters.keyword"
               storage-key="dc-erp-sales-orders-keyword-history"
@@ -274,6 +291,18 @@ onMounted(() => load(1))
             >
               {{ filterExpanded ? '收起條件 ▲' : '更多條件 ▼' }}
             </button>
+          </div>
+
+          <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">依場別：</label>
+            <select v-model="filters.workPlace" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.workPlace" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+
+            <label class="ml-2 text-muted-c">依欄位：</label>
+            <select v-model="filters.whSearch" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.whSearchField" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
           </div>
 
           <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
@@ -308,9 +337,6 @@ onMounted(() => load(1))
             <input v-model="filters.scode" type="text" placeholder="起始單號" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
             <span class="text-hint-c">-</span>
             <input v-model="filters.ecode" type="text" placeholder="迄止單號" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
-
-            <label class="ml-2 text-muted-c">依客戶：</label>
-            <input v-model="filters.firmCode" type="text" placeholder="客戶代號或名稱" class="w-44 rounded border border-light-c bg-surface px-2 py-1">
           </div>
         </div>
 
@@ -328,12 +354,14 @@ onMounted(() => load(1))
             >
               <div class="mb-1 flex items-start justify-between gap-2">
                 <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
-                <NuxtLink
-                  :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`"
-                  class="flex-1 font-medium text-green-700 hover:underline"
-                >
-                  {{ row.code }}
-                </NuxtLink>
+                <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-order-detail">
+                  <NuxtLink
+                    :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`"
+                    class="flex-1 font-medium text-green-700 hover:underline"
+                  >
+                    {{ row.code }}
+                  </NuxtLink>
+                </DcErpItemsTooltip>
                 <span class="shrink-0 text-xs text-hint-c">#{{ row.seq }}</span>
               </div>
               <div class="text-xs text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
@@ -386,7 +414,9 @@ onMounted(() => load(1))
                   </td>
                   <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
                   <td class="px-2 py-1.5">
-                    <NuxtLink :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                    <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-order-detail">
+                      <NuxtLink :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                    </DcErpItemsTooltip>
                   </td>
                   <td class="px-2 py-1.5 text-center">{{ row.orderDate }}</td>
                   <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>

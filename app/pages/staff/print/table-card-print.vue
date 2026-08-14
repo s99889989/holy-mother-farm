@@ -1594,7 +1594,7 @@
   body { margin: 0; padding: 0; background: white; }
   .a4-page {
     width: 297mm; height: 210mm;
-    display: flex; align-items: flex-start; justify-content: flex-start;
+    display: flex; align-items: center; justify-content: center;
     page-break-after: always; break-after: page;
     overflow: hidden;
   }
@@ -2374,8 +2374,8 @@ ${pagesHtml}
     background: white;
     box-shadow: 0 4px 24px rgba(0, 0, 0, .25);
     display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
     transform-origin: top left;
   }
 
