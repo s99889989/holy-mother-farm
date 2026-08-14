@@ -18,6 +18,11 @@ import { reactive, ref, onMounted, computed, watch, nextTick } from 'vue'
 // sales-order-products.get.ts／sales-order-products-info.get.ts／
 // sales-order-warehouses.get.ts）——這幾支本來就是代理原網站共用的
 // FirmList/ProdList/WarehouseAjax，不是訂貨單專屬的，銷貨單也能直接用。
+//
+// 列印：跟列表頁（sales-slips.vue）批次列印同一套 API（sales-slip-print-
+// styles.get.ts／sales-slip-print.post.ts），差別只在這裡永遠只送這一張
+// 銷貨單自己的 guid（等同列表頁只勾一張再列印），新增中（isNew）尚未存檔
+// 沒有 guid，不顯示列印按鈕。
 definePageMeta({
   layout: 'staff',
   requiredPermission: 'order.dc-erp'
@@ -142,6 +147,12 @@ async function init() {
   errorMessage.value = ''
   try {
     await loadHeader()
+    // 新增銷貨單時，如果還沒選客戶，自動帶入這台瀏覽器上一次選過的客戶
+    // （純前端 localStorage 記錄，見下面「客戶輸入／搜尋」區塊）。
+    if (isNew.value && (!header.firmID || header.firmID === '0')) {
+      const history = loadCustomerHistory()
+      if (history.length) pickFirm(history[0])
+    }
     await Promise.all([loadDetails(), loadWarehouses()])
   } catch (err) {
     if (err?.statusCode === 401 || err?.response?.status === 401) {
@@ -160,6 +171,59 @@ watch(() => header.workPlaceID, loadWarehouses)
 // ---------- 客戶輸入／搜尋（跟訂貨單頁同一套） ----------
 const firmCodeInput = ref('')
 const firmLookupState = ref('')
+
+// 客戶選擇紀錄：純前端 localStorage 記住這台瀏覽器最近選過的客戶（代號+
+// 名稱+ID，最多 10 筆，最近選的排最前面）。輸入框 focus 時顯示下拉可以
+// 直接點選；新增銷貨單時如果還沒選客戶，會自動帶入最近一筆（見 init()）。
+// key 跟訂貨單頁分開存，避免兩邊常用客戶不同時互相干擾。
+const CUSTOMER_HISTORY_KEY = 'dc-erp-sales-slips-customer-history'
+const MAX_CUSTOMER_HISTORY = 10
+const customerHistory = ref([])
+const showCustomerHistory = ref(false)
+
+function loadCustomerHistory() {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(CUSTOMER_HISTORY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveCustomerHistory(list) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(CUSTOMER_HISTORY_KEY, JSON.stringify(list))
+  } catch {
+    // 存不進去（例如無痕模式滿了）就算了，不影響選客戶本身
+  }
+}
+
+function addToCustomerHistory(firm) {
+  if (!firm?.id || !firm?.code) return
+  const next = [
+    { id: firm.id, code: firm.code, name: firm.name },
+    ...customerHistory.value.filter((f) => f.id !== firm.id)
+  ].slice(0, MAX_CUSTOMER_HISTORY)
+  customerHistory.value = next
+  saveCustomerHistory(next)
+}
+
+function onFirmCodeFocus() {
+  customerHistory.value = loadCustomerHistory()
+  showCustomerHistory.value = customerHistory.value.length > 0
+}
+
+function onFirmCodeBlur() {
+  // 延遲關閉，讓下面選項的 click（mousedown）事件能先觸發
+  setTimeout(() => { showCustomerHistory.value = false }, 150)
+}
+
+function pickFromHistory(firm) {
+  pickFirm(firm)
+  showCustomerHistory.value = false
+}
 
 const showFirmSearch = ref(false)
 const firmKeyword = ref('')
@@ -205,6 +269,7 @@ function pickFirm(firm) {
   firmCodeInput.value = firm.code
   firmLookupState.value = 'found'
   showFirmSearch.value = false
+  addToCustomerHistory(firm)
 }
 
 async function handleFirmCodeEnter() {
@@ -239,6 +304,7 @@ async function handleFirmCodeEnter() {
 
 // ---------- 商品搜尋（跟訂貨單頁同一套） ----------
 const showProductSearch = ref(false)
+const productFilterExpanded = ref(false) // 進階篩選（資料來源/促銷檔期/對應貨號）預設收起，規格單位/關鍵字比較常用保持展開
 const productKeyword = ref('')
 const productWhSearch = ref('whatever')
 const productWhSearchOptions = ref([])
@@ -367,6 +433,24 @@ function removeRow(row) {
   details.value = details.value.filter((r) => r.tempId !== row.tempId)
 }
 
+// 明細排序：純畫面上調整順序，跟原網站無關（原網站明細本來就沒有順序
+// 概念，儲存時是照陣列順序整批送出，所以調整順序不影響其他欄位）。
+function moveRowUp(index) {
+  if (index <= 0) return
+  const arr = details.value
+  const tmp = arr[index - 1]
+  arr[index - 1] = arr[index]
+  arr[index] = tmp
+}
+
+function moveRowDown(index) {
+  if (index >= details.value.length - 1) return
+  const arr = details.value
+  const tmp = arr[index + 1]
+  arr[index + 1] = arr[index]
+  arr[index] = tmp
+}
+
 function onWarehouseChange(row, code) {
   const wh = warehouseOptions.value.find((w) => w.code === code)
   if (wh) {
@@ -453,6 +537,56 @@ async function handleSign(action) {
     signing.value = false
   }
 }
+
+// ---------- 列印：跟列表頁批次列印同一套 API，這裡固定只印這一張 ----------
+const printModalOpen = ref(false)
+const printLoading = ref(false)
+const printError = ref('')
+const printStyles = ref([])
+const titleTypeOptions = ref([])
+const titleType = ref('1')
+const printSubmitting = ref('')
+const printForm = ref(null)
+const submitReportId = ref('')
+const submitReportFormat = ref('')
+
+async function openPrintModal() {
+  if (!guid.value) return
+  printModalOpen.value = true
+  printLoading.value = true
+  printError.value = ''
+  try {
+    const data = await $fetch('/api/dc-erp/sales-slip-print-styles')
+    printStyles.value = data.styles
+    titleTypeOptions.value = data.titleTypeOptions
+    const selected = titleTypeOptions.value.find((opt) => opt.selected)
+    titleType.value = selected ? selected.value : (titleTypeOptions.value[0]?.value || '1')
+  } catch (err) {
+    printError.value = err?.data?.statusMessage || '無法載入列印樣式，請稍後再試'
+  } finally {
+    printLoading.value = false
+  }
+}
+
+function closePrintModal() {
+  printModalOpen.value = false
+}
+
+function handlePrint(fmt) {
+  submitReportId.value = fmt.reportId
+  submitReportFormat.value = fmt.format
+  printSubmitting.value = `${fmt.reportId}-${fmt.format}`
+  // hidden input 是用 :value 綁定的，要等 Vue 把新值 patch 進 DOM 之後
+  // 再送出表單，不然送出的還是上一次的 reportId/format。
+  nextTick(() => {
+    if (printForm.value?.requestSubmit) {
+      printForm.value.requestSubmit()
+    } else {
+      printForm.value?.submit()
+    }
+    setTimeout(() => { printSubmitting.value = '' }, 1500)
+  })
+}
 </script>
 
 <template>
@@ -495,13 +629,15 @@ async function handleSign(action) {
 
             <div class="flex flex-wrap items-center gap-2">
               <label class="text-muted-c"><span class="text-red-600">*</span>客戶：</label>
-              <div class="flex items-center">
+              <div class="relative flex items-center">
                 <input
                   v-model="firmCodeInput"
                   type="text"
                   placeholder="輸入客戶代號後按 Enter"
                   class="w-32 rounded-l border border-r-0 border-light-c bg-surface px-2 py-1"
                   @keyup.enter="handleFirmCodeEnter"
+                  @focus="onFirmCodeFocus"
+                  @blur="onFirmCodeBlur"
                 >
                 <button
                   class="rounded-r border border-light-c bg-surface2 px-2 py-1 text-muted-c hover:bg-surface"
@@ -510,6 +646,19 @@ async function handleSign(action) {
                 >
                   🔍
                 </button>
+                <ul
+                  v-if="showCustomerHistory && customerHistory.length"
+                  class="absolute top-full z-20 mt-1 max-h-48 w-56 overflow-y-auto rounded border border-light-c bg-surface text-sm shadow-lg"
+                >
+                  <li
+                    v-for="f in customerHistory"
+                    :key="f.id"
+                    class="cursor-pointer truncate px-2 py-1 hover:bg-surface2"
+                    @mousedown.prevent="pickFromHistory(f)"
+                  >
+                    {{ f.code }} {{ f.name }}
+                  </li>
+                </ul>
               </div>
               <span v-if="firmLookupState === 'loading'" class="text-xs text-hint-c">查詢中…</span>
               <span v-else-if="firmLookupState === 'found'" class="text-sm text-green-700">{{ header.firmName }}</span>
@@ -560,6 +709,7 @@ async function handleSign(action) {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                    <th class="px-2 py-2 text-center">排序</th>
                     <th class="px-2 py-2">品項代號</th>
                     <th class="px-2 py-2">品名</th>
                     <th class="px-2 py-2">單位</th>
@@ -573,7 +723,29 @@ async function handleSign(action) {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in details" :key="row.tempId" class="border-b border-light-c">
+                  <tr v-for="(row, index) in details" :key="row.tempId" class="border-b border-light-c">
+                    <td class="px-2 py-1.5">
+                      <div class="flex items-center justify-center gap-0.5">
+                        <button
+                          type="button"
+                          class="rounded px-1 text-muted-c hover:bg-surface2 disabled:opacity-30"
+                          title="上移"
+                          :disabled="index === 0"
+                          @click="moveRowUp(index)"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded px-1 text-muted-c hover:bg-surface2 disabled:opacity-30"
+                          title="下移"
+                          :disabled="index === details.length - 1"
+                          @click="moveRowDown(index)"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </td>
                     <td class="px-2 py-1.5">{{ row.productCode }}</td>
                     <td class="px-2 py-1.5">{{ row.productName }}</td>
                     <td class="px-2 py-1.5">{{ row.specificationUnitName }}</td>
@@ -603,12 +775,12 @@ async function handleSign(action) {
                     </td>
                   </tr>
                   <tr v-if="!details.length">
-                    <td colspan="10" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
+                    <td colspan="11" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
                   </tr>
                 </tbody>
                 <tfoot v-if="details.length">
                   <tr class="border-t border-light-c bg-surface2 font-medium">
-                    <td colspan="5" class="px-2 py-2 text-right text-muted-c">合計</td>
+                    <td colspan="6" class="px-2 py-2 text-right text-muted-c">合計</td>
                     <td class="px-2 py-2 text-right">{{ summation.toLocaleString() }}</td>
                     <td colspan="4"></td>
                   </tr>
@@ -618,6 +790,13 @@ async function handleSign(action) {
           </div>
 
           <div class="flex justify-end gap-2">
+            <button
+              v-if="!isNew"
+              class="rounded-lg border border-light-c px-4 py-2 text-sm font-medium text-muted-c hover:bg-surface2"
+              @click="openPrintModal"
+            >
+              列印
+            </button>
             <button
               v-if="!isNew"
               class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
@@ -722,7 +901,41 @@ async function handleSign(action) {
 
         <div class="mb-2 space-y-2 rounded-lg border border-light-c bg-surface2 p-2 text-sm">
           <div class="flex flex-wrap items-center gap-2">
-            <label class="text-muted-c">資料來源：</label>
+            <DcErpSavedRecordsInput
+              v-model="productKeyword"
+              storage-key="dc-erp-product-search-keyword-records"
+              record-label="已儲存的關鍵字"
+              placeholder="關鍵字"
+              width-class="w-40"
+              @enter="searchProducts(1)"
+            />
+
+            <label class="ml-2 text-muted-c">規格單位：</label>
+            <DcErpSavedRecordsInput
+              v-model="productSpecUnitKeyword"
+              storage-key="dc-erp-product-search-specunit-records"
+              record-label="已儲存的規格單位"
+              width-class="w-20"
+              @enter="searchProducts(1)"
+            />
+
+            <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="searchProducts(1)">送出查詢</button>
+            <button
+              class="ml-auto rounded border border-light-c px-2 py-1 text-xs text-muted-c hover:bg-surface"
+              @click="productFilterExpanded = !productFilterExpanded"
+            >
+              {{ productFilterExpanded ? '收起進階篩選 ▲' : '進階篩選 ▼' }}
+            </button>
+          </div>
+
+          <div v-show="productFilterExpanded" class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">依欄位：</label>
+            <select v-model="productWhSearch" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-if="!productWhSearchOptions.length" value="whatever">欄位不拘</option>
+              <option v-for="opt in productWhSearchOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+
+            <label class="ml-2 text-muted-c">資料來源：</label>
             <select v-model="productSourceType" class="rounded border border-light-c bg-surface px-2 py-1">
               <option v-if="!productSourceTypeOptions.length" value="0">所有商品規格</option>
               <option v-for="opt in productSourceTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
@@ -736,25 +949,6 @@ async function handleSign(action) {
 
             <label class="ml-2 text-muted-c">對應貨號：</label>
             <input v-model="productCorrespondNoKeyword" type="text" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
-
-            <label class="ml-2 text-muted-c">規格單位：</label>
-            <input v-model="productSpecUnitKeyword" type="text" class="w-20 rounded border border-light-c bg-surface px-2 py-1">
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <label class="text-muted-c">依欄位：</label>
-            <select v-model="productWhSearch" class="rounded border border-light-c bg-surface px-2 py-1">
-              <option v-if="!productWhSearchOptions.length" value="whatever">欄位不拘</option>
-              <option v-for="opt in productWhSearchOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-            <input
-              v-model="productKeyword"
-              type="text"
-              placeholder="關鍵字"
-              class="w-40 rounded border border-light-c bg-surface px-2 py-1"
-              @keyup.enter="searchProducts(1)"
-            >
-            <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="searchProducts(1)">送出查詢</button>
           </div>
         </div>
 
@@ -812,5 +1006,64 @@ async function handleSign(action) {
         </div>
       </div>
     </div>
+
+    <!-- 列印燈箱：跟列表頁批次列印同一套 API，這裡固定只印本張銷貨單 -->
+    <div
+      v-if="printModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      @click.self="closePrintModal"
+    >
+      <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <div class="text-sm font-bold text-base-c">選擇列印樣式（{{ header.code }}）</div>
+          <button class="text-hint-c hover:text-base-c" @click="closePrintModal">✕</button>
+        </div>
+
+        <div v-if="titleTypeOptions.length" class="mb-3 flex items-center gap-2 text-sm">
+          <label class="text-muted-c">表頭：</label>
+          <select v-model="titleType" class="rounded border border-light-c bg-surface px-2 py-1">
+            <option v-for="opt in titleTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+
+        <p v-if="printLoading" class="p-6 text-sm text-hint-c">載入中…</p>
+        <p v-else-if="printError" class="p-6 text-sm text-red-600">{{ printError }}</p>
+        <table v-else class="w-full text-sm">
+          <tbody>
+            <tr v-for="style in printStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
+              <td class="px-2 py-2">{{ style.name }}</td>
+              <td class="px-2 py-2 text-right">
+                <button
+                  v-for="fmt in style.formats"
+                  :key="`${fmt.reportId}-${fmt.format}`"
+                  class="ml-2 rounded border border-light-c px-3 py-1 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+                  :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
+                  @click="handlePrint(fmt)"
+                >
+                  {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!printStyles.length">
+              <td colspan="2" class="px-2 py-6 text-center text-hint-c">查無可用樣式</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="mt-3 text-xs text-hint-c">
+          按下樣式對應的按鈕會在新分頁開啟報表（依原網站回應而定，可能是檔案下載，或報表檢視器頁面）。
+        </p>
+      </div>
+    </div>
+
+    <!-- 真正送出列印請求的表單：比照列表頁批次列印，POST 到伺服器端代理，
+         瀏覽器原生送出、開新分頁，session 由 httpOnly cookie 自動帶上。
+         這裡固定只帶這一張銷貨單自己的 guid。 -->
+    <form ref="printForm" method="post" action="/api/dc-erp/sales-slip-print" target="_blank" class="hidden">
+      <input type="hidden" name="guids" :value="guid">
+      <input type="hidden" name="reportId" :value="submitReportId">
+      <input type="hidden" name="reportFormat" :value="submitReportFormat">
+      <input type="hidden" name="titleType" :value="titleType">
+    </form>
   </div>
 </template>

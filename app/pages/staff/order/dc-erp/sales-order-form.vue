@@ -79,6 +79,7 @@ const options = reactive({
 })
 
 const showDelivery = ref(false)
+const showOtherSettings = ref(false)
 
 const warehouseOptions = ref([])
 
@@ -134,6 +135,16 @@ async function loadHeader() {
   options.taxType = data.taxTypeOptions
   breadcrumb.value = data.breadcrumb
 
+  // 新增訂貨單時，原網站「場別」預設是「未選取」（value 0），這裡改成
+  // 預設帶入「聖母農莊」——用選項的顯示文字去找，而不是寫死代號（代號在
+  // 資料庫裡本來就可能變動，比對名稱比較不會因為代號改變而跟著壞掉）。
+  // 如果之後改用其他場別為主，或希望維持原網站「未選取」的行為，把下面
+  // 這段拿掉即可。
+  if (isNew.value && (!header.workPlaceID || header.workPlaceID === '0')) {
+    const defaultWorkPlace = options.workPlace.find((opt) => opt.label === '聖母農莊')
+    if (defaultWorkPlace) header.workPlaceID = defaultWorkPlace.value
+  }
+
   firmCodeInput.value = header.firmCode
   if (header.firmID && header.firmID !== '0') firmLookupState.value = 'found'
 }
@@ -187,6 +198,12 @@ async function init() {
   errorMessage.value = ''
   try {
     await loadHeader()
+    // 新增訂貨單時，如果還沒選客戶，自動帶入這台瀏覽器上一次選過的客戶
+    // （純前端 localStorage 記錄，見下面「客戶輸入／搜尋」區塊）。
+    if (isNew.value && (!header.firmID || header.firmID === '0')) {
+      const history = loadCustomerHistory()
+      if (history.length) pickFirm(history[0])
+    }
     await Promise.all([loadDetails(), loadWarehouses()])
   } catch (err) {
     if (err?.statusCode === 401 || err?.response?.status === 401) {
@@ -211,6 +228,58 @@ watch(() => header.workPlaceID, loadWarehouses)
 //   2. 點旁邊的放大鏡開完整搜尋燈箱（可依類別/欄位/關鍵字查詢，瀏覽全部）
 const firmCodeInput = ref('')
 const firmLookupState = ref('') // '', 'loading', 'found', 'notfound', 'error'
+
+// 客戶選擇紀錄：純前端 localStorage 記住這台瀏覽器最近選過的客戶（代號+
+// 名稱+ID，最多 10 筆，最近選的排最前面）。輸入框 focus 時顯示下拉可以
+//直接點選；新增訂貨單時如果還沒選客戶，會自動帶入最近一筆（見 init()）。
+const CUSTOMER_HISTORY_KEY = 'dc-erp-sales-orders-customer-history'
+const MAX_CUSTOMER_HISTORY = 10
+const customerHistory = ref([])
+const showCustomerHistory = ref(false)
+
+function loadCustomerHistory() {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(CUSTOMER_HISTORY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveCustomerHistory(list) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(CUSTOMER_HISTORY_KEY, JSON.stringify(list))
+  } catch {
+    // 存不進去（例如無痕模式滿了）就算了，不影響選客戶本身
+  }
+}
+
+function addToCustomerHistory(firm) {
+  if (!firm?.id || !firm?.code) return
+  const next = [
+    { id: firm.id, code: firm.code, name: firm.name },
+    ...customerHistory.value.filter((f) => f.id !== firm.id)
+  ].slice(0, MAX_CUSTOMER_HISTORY)
+  customerHistory.value = next
+  saveCustomerHistory(next)
+}
+
+function onFirmCodeFocus() {
+  customerHistory.value = loadCustomerHistory()
+  showCustomerHistory.value = customerHistory.value.length > 0
+}
+
+function onFirmCodeBlur() {
+  // 延遲關閉，讓下面選項的 click（mousedown）事件能先觸發
+  setTimeout(() => { showCustomerHistory.value = false }, 150)
+}
+
+function pickFromHistory(firm) {
+  pickFirm(firm)
+  showCustomerHistory.value = false
+}
 
 const showFirmSearch = ref(false)
 const firmKeyword = ref('')
@@ -256,6 +325,7 @@ function pickFirm(firm) {
   firmCodeInput.value = firm.code
   firmLookupState.value = 'found'
   showFirmSearch.value = false
+  addToCustomerHistory(firm)
 }
 
 // 輸入框按 Enter：依客戶代號直接查（WHSearch=Code），比對到唯一一筆直接
@@ -293,6 +363,7 @@ async function handleFirmCodeEnter() {
 
 // ---------- 商品搜尋 ----------
 const showProductSearch = ref(false)
+const productFilterExpanded = ref(false) // 進階篩選（資料來源/促銷檔期/對應貨號）預設收起，規格單位/關鍵字比較常用保持展開
 const productKeyword = ref('')
 const productWhSearch = ref('whatever')
 const productWhSearchOptions = ref([])
@@ -421,6 +492,24 @@ function removeRow(row) {
   details.value = details.value.filter((r) => r.tempId !== row.tempId)
 }
 
+// 明細排序：純畫面上調整順序，跟原網站無關（原網站明細本來就沒有順序
+// 概念，儲存時是照陣列順序整批送出，所以調整順序不影響其他欄位）。
+function moveRowUp(index) {
+  if (index <= 0) return
+  const arr = details.value
+  const tmp = arr[index - 1]
+  arr[index - 1] = arr[index]
+  arr[index] = tmp
+}
+
+function moveRowDown(index) {
+  if (index >= details.value.length - 1) return
+  const arr = details.value
+  const tmp = arr[index + 1]
+  arr[index + 1] = arr[index]
+  arr[index] = tmp
+}
+
 function onWarehouseChange(row, code) {
   const wh = warehouseOptions.value.find((w) => w.code === code)
   if (wh) {
@@ -442,6 +531,7 @@ async function handleSave() {
     errorMessage.value = '請輸入並查詢客戶'
     return
   }
+  const wasNew = isNew.value // 存檔後 guid.value 會因為網址列變化而跟著變，先記住這次是不是「新增」
   saving.value = true
   try {
     const result = await $fetch('/api/dc-erp/sales-order', {
@@ -453,15 +543,16 @@ async function handleSave() {
         deletedGuids: deletedGuids.value
       }
     })
-    if (result.guid) {
-      // 存檔完成且知道訂貨單 Guid：直接停在（或跳到）這張單的編輯頁
+    if (wasNew) {
+      // 新增訂貨單存檔成功後直接回列表頁，不管有沒有順利拿到新 Guid——
+      // 資料確定已經存進去了，使用者要看剛存的那張單可以直接在列表上找。
+      await navigateTo('/staff/order/dc-erp/sales-orders')
+    } else if (result.guid) {
+      // 編輯既有訂貨單：存檔完成且知道 Guid，停在（或跳到）這張單的編輯頁
       await navigateTo(`/staff/order/dc-erp/sales-order-form?guid=${result.guid}`)
       await init()
     } else {
-      // 資料確定已經存進去了（明細/表頭都成功），只是這次沒能順便抓到新
-      // 訂貨單的 Guid（不影響資料，純粹是沒辦法直接停在編輯頁），導回
-      // 列表頁讓使用者自己找剛存的那張單。
-      errorMessage.value = ''
+      // 資料確定已經存進去了，只是這次沒能順便抓到 Guid，一樣導回列表頁
       await navigateTo('/staff/order/dc-erp/sales-orders')
     }
   } catch (err) {
@@ -565,23 +656,19 @@ async function handleTransfer() {
               <select v-model="header.workPlaceID" class="rounded border border-light-c bg-surface px-2 py-1">
                 <option v-for="opt in options.workPlace" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
-
-              <label class="ml-2 text-muted-c"><span class="text-red-600">*</span>訂貨日期：</label>
-              <input v-model="header.primaryDate" type="text" placeholder="YYYY/MM/DD" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
-
-              <label class="ml-2 text-muted-c"><span class="text-red-600">*</span>交貨日期：</label>
-              <input v-model="header.receivingDate" type="text" placeholder="YYYY/MM/DD" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
               <label class="text-muted-c"><span class="text-red-600">*</span>客戶：</label>
-              <div class="flex items-center">
+              <div class="relative flex items-center">
                 <input
                   v-model="firmCodeInput"
                   type="text"
                   placeholder="輸入客戶代號後按 Enter"
                   class="w-32 rounded-l border border-r-0 border-light-c bg-surface px-2 py-1"
                   @keyup.enter="handleFirmCodeEnter"
+                  @focus="onFirmCodeFocus"
+                  @blur="onFirmCodeBlur"
                 >
                 <button
                   class="rounded-r border border-light-c bg-surface2 px-2 py-1 text-muted-c hover:bg-surface"
@@ -590,49 +677,32 @@ async function handleTransfer() {
                 >
                   🔍
                 </button>
+                <ul
+                  v-if="showCustomerHistory && customerHistory.length"
+                  class="absolute top-full z-20 mt-1 max-h-48 w-56 overflow-y-auto rounded border border-light-c bg-surface text-sm shadow-lg"
+                >
+                  <li
+                    v-for="f in customerHistory"
+                    :key="f.id"
+                    class="cursor-pointer truncate px-2 py-1 hover:bg-surface2"
+                    @mousedown.prevent="pickFromHistory(f)"
+                  >
+                    {{ f.code }} {{ f.name }}
+                  </li>
+                </ul>
               </div>
               <span v-if="firmLookupState === 'loading'" class="text-xs text-hint-c">查詢中…</span>
               <span v-else-if="firmLookupState === 'found'" class="text-sm text-green-700">{{ header.firmName }}</span>
               <span v-else-if="firmLookupState === 'notfound'" class="text-xs text-red-600">查無此客戶代號</span>
               <span v-else-if="firmLookupState === 'error'" class="text-xs text-red-600">查詢失敗</span>
-
-              <label class="ml-2 text-muted-c">採買單位：</label>
-              <input v-model="header.purchaseDept" type="text" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
-
-              <label class="ml-2 text-muted-c">客戶單號：</label>
-              <input v-model="header.customerDocCode" type="text" class="w-32 rounded border border-light-c bg-surface px-2 py-1">
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              <label class="text-muted-c">單據種類：</label>
-              <select v-model="header.type" class="rounded border border-light-c bg-surface px-2 py-1">
-                <option v-for="opt in options.type" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
+              <label class="text-muted-c"><span class="text-red-600">*</span>訂貨日期：</label>
+              <input v-model="header.primaryDate" type="text" placeholder="YYYY/MM/DD" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
 
-              <label class="ml-2 text-muted-c">收款方式：</label>
-              <select v-model="header.payWay" class="rounded border border-light-c bg-surface px-2 py-1">
-                <option v-for="opt in options.payWay" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-
-              <label class="ml-2 text-muted-c">價格稅金：</label>
-              <select v-model="header.taxInputType" class="rounded border border-light-c bg-surface px-2 py-1">
-                <option v-for="opt in options.taxInputType" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-
-              <label class="ml-2 text-muted-c">發票聯式：</label>
-              <select v-model="header.receiptType" class="rounded border border-light-c bg-surface px-2 py-1">
-                <option v-for="opt in options.receiptType" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-
-              <label class="ml-2 text-muted-c">開立方式：</label>
-              <select v-model="header.receiptMode" class="rounded border border-light-c bg-surface px-2 py-1">
-                <option v-for="opt in options.receiptMode" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-              <label class="text-muted-c">送貨地址：</label>
-              <input v-model="header.address" type="text" class="w-72 rounded border border-light-c bg-surface px-2 py-1">
+              <label class="ml-2 text-muted-c"><span class="text-red-600">*</span>交貨日期：</label>
+              <input v-model="header.receivingDate" type="text" placeholder="YYYY/MM/DD" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
@@ -644,6 +714,52 @@ async function handleTransfer() {
               <span v-if="header.operatorName">經辦人員：{{ header.operatorCode }} {{ header.operatorName }}</span>
               <span v-if="header.receivingState" class="ml-2">訂單狀態：{{ header.receivingState }}</span>
               <span v-if="header.signState" class="ml-2">簽核狀態：{{ header.signState }}</span>
+            </div>
+
+            <button class="text-xs text-muted-c hover:underline" @click="showOtherSettings = !showOtherSettings">
+              {{ showOtherSettings ? '收合其他設定 ▲' : '展開其他設定 ▼' }}
+            </button>
+
+            <div v-if="showOtherSettings" class="space-y-2 border-t border-light-c pt-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="text-muted-c">採買單位：</label>
+                <input v-model="header.purchaseDept" type="text" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
+
+                <label class="ml-2 text-muted-c">客戶單號：</label>
+                <input v-model="header.customerDocCode" type="text" class="w-32 rounded border border-light-c bg-surface px-2 py-1">
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="text-muted-c">單據種類：</label>
+                <select v-model="header.type" class="rounded border border-light-c bg-surface px-2 py-1">
+                  <option v-for="opt in options.type" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+
+                <label class="ml-2 text-muted-c">收款方式：</label>
+                <select v-model="header.payWay" class="rounded border border-light-c bg-surface px-2 py-1">
+                  <option v-for="opt in options.payWay" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+
+                <label class="ml-2 text-muted-c">價格稅金：</label>
+                <select v-model="header.taxInputType" class="rounded border border-light-c bg-surface px-2 py-1">
+                  <option v-for="opt in options.taxInputType" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+
+                <label class="ml-2 text-muted-c">發票聯式：</label>
+                <select v-model="header.receiptType" class="rounded border border-light-c bg-surface px-2 py-1">
+                  <option v-for="opt in options.receiptType" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+
+                <label class="ml-2 text-muted-c">開立方式：</label>
+                <select v-model="header.receiptMode" class="rounded border border-light-c bg-surface px-2 py-1">
+                  <option v-for="opt in options.receiptMode" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="text-muted-c">送貨地址：</label>
+                <input v-model="header.address" type="text" class="w-72 rounded border border-light-c bg-surface px-2 py-1">
+              </div>
             </div>
 
             <button class="text-xs text-muted-c hover:underline" @click="showDelivery = !showDelivery">
@@ -693,6 +809,7 @@ async function handleTransfer() {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                    <th class="px-2 py-2 text-center">排序</th>
                     <th class="px-2 py-2">品項代號</th>
                     <th class="px-2 py-2">品名</th>
                     <th class="px-2 py-2">單位</th>
@@ -706,7 +823,29 @@ async function handleTransfer() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in details" :key="row.tempId" class="border-b border-light-c">
+                  <tr v-for="(row, index) in details" :key="row.tempId" class="border-b border-light-c">
+                    <td class="px-2 py-1.5">
+                      <div class="flex items-center justify-center gap-0.5">
+                        <button
+                          type="button"
+                          class="rounded px-1 text-muted-c hover:bg-surface2 disabled:opacity-30"
+                          title="上移"
+                          :disabled="index === 0"
+                          @click="moveRowUp(index)"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded px-1 text-muted-c hover:bg-surface2 disabled:opacity-30"
+                          title="下移"
+                          :disabled="index === details.length - 1"
+                          @click="moveRowDown(index)"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </td>
                     <td class="px-2 py-1.5">{{ row.productCode }}</td>
                     <td class="px-2 py-1.5">{{ row.productName }}</td>
                     <td class="px-2 py-1.5">{{ row.specificationUnitName }}</td>
@@ -736,12 +875,12 @@ async function handleTransfer() {
                     </td>
                   </tr>
                   <tr v-if="!details.length">
-                    <td colspan="10" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
+                    <td colspan="11" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
                   </tr>
                 </tbody>
                 <tfoot v-if="details.length">
                   <tr class="border-t border-light-c bg-surface2 font-medium">
-                    <td colspan="5" class="px-2 py-2 text-right text-muted-c">合計</td>
+                    <td colspan="6" class="px-2 py-2 text-right text-muted-c">合計</td>
                     <td class="px-2 py-2 text-right">{{ summation.toLocaleString() }}</td>
                     <td colspan="4"></td>
                   </tr>
@@ -863,7 +1002,41 @@ async function handleTransfer() {
 
         <div class="mb-2 space-y-2 rounded-lg border border-light-c bg-surface2 p-2 text-sm">
           <div class="flex flex-wrap items-center gap-2">
-            <label class="text-muted-c">資料來源：</label>
+            <DcErpSavedRecordsInput
+              v-model="productKeyword"
+              storage-key="dc-erp-product-search-keyword-records"
+              record-label="已儲存的關鍵字"
+              placeholder="關鍵字"
+              width-class="w-40"
+              @enter="searchProducts(1)"
+            />
+
+            <label class="ml-2 text-muted-c">規格單位：</label>
+            <DcErpSavedRecordsInput
+              v-model="productSpecUnitKeyword"
+              storage-key="dc-erp-product-search-specunit-records"
+              record-label="已儲存的規格單位"
+              width-class="w-20"
+              @enter="searchProducts(1)"
+            />
+
+            <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="searchProducts(1)">送出查詢</button>
+            <button
+              class="ml-auto rounded border border-light-c px-2 py-1 text-xs text-muted-c hover:bg-surface"
+              @click="productFilterExpanded = !productFilterExpanded"
+            >
+              {{ productFilterExpanded ? '收起進階篩選 ▲' : '進階篩選 ▼' }}
+            </button>
+          </div>
+
+          <div v-show="productFilterExpanded" class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">依欄位：</label>
+            <select v-model="productWhSearch" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-if="!productWhSearchOptions.length" value="whatever">欄位不拘</option>
+              <option v-for="opt in productWhSearchOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+
+            <label class="ml-2 text-muted-c">資料來源：</label>
             <select v-model="productSourceType" class="rounded border border-light-c bg-surface px-2 py-1">
               <option v-if="!productSourceTypeOptions.length" value="0">所有商品規格</option>
               <option v-for="opt in productSourceTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
@@ -877,25 +1050,6 @@ async function handleTransfer() {
 
             <label class="ml-2 text-muted-c">對應貨號：</label>
             <input v-model="productCorrespondNoKeyword" type="text" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
-
-            <label class="ml-2 text-muted-c">規格單位：</label>
-            <input v-model="productSpecUnitKeyword" type="text" class="w-20 rounded border border-light-c bg-surface px-2 py-1">
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <label class="text-muted-c">依欄位：</label>
-            <select v-model="productWhSearch" class="rounded border border-light-c bg-surface px-2 py-1">
-              <option v-if="!productWhSearchOptions.length" value="whatever">欄位不拘</option>
-              <option v-for="opt in productWhSearchOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-            <input
-              v-model="productKeyword"
-              type="text"
-              placeholder="關鍵字"
-              class="w-40 rounded border border-light-c bg-surface px-2 py-1"
-              @keyup.enter="searchProducts(1)"
-            >
-            <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="searchProducts(1)">送出查詢</button>
           </div>
         </div>
 
