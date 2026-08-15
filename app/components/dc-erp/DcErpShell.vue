@@ -32,57 +32,57 @@ async function handleLogout() {
 
 <template>
   <div class="overflow-hidden rounded-2xl border border-light-c bg-surface2">
-    <nav class="flex items-center gap-1 border-b border-light-c bg-surface px-2 py-1 text-sm">
+    <nav class="flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-light-c bg-surface px-2 py-1 text-sm">
       <NuxtLink
         to="/staff/order/dc-erp"
-        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         首頁
       </NuxtLink>
       <NuxtLink
         to="/staff/order/dc-erp/sales-orders"
-        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         訂貨單
       </NuxtLink>
       <NuxtLink
         to="/staff/order/dc-erp/sales-slips"
-        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         銷貨單
       </NuxtLink>
       <NuxtLink
         to="/staff/order/dc-erp/products"
-        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         品項
       </NuxtLink>
       <NuxtLink
         to="/staff/order/dc-erp/product-images"
-        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         進階品項管理
       </NuxtLink>
       <NuxtLink
         to="/staff/order/dc-erp/sales-statistics-month"
-        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         統計月報表
       </NuxtLink>
       <NuxtLink
         to="/staff/order/dc-erp/settings"
-        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         設定
       </NuxtLink>
-      <button class="ml-auto rounded border border-light-c px-3 py-1.5 text-xs text-red-600 hover:bg-surface2" @click="handleLogout">登出</button>
+      <button class="ml-auto shrink-0 rounded border border-light-c px-3 py-1.5 text-xs text-red-600 hover:bg-surface2" @click="handleLogout">登出</button>
     </nav>
 
     <slot />

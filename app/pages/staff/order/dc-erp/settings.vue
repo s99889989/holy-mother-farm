@@ -21,21 +21,22 @@ const LISTS = [
   { key: 'salesSlips', label: '銷貨單' },
   { key: 'products', label: '品項' },
   { key: 'productImages', label: '進階品項管理' },
-  { key: 'orderDetail', label: '訂單明細（訂貨單/銷貨單編輯頁的明細 Grid）', hasPagesize: false },
+  { key: 'orderDetail', label: '訂單明細（訂貨單/銷貨單編輯頁的明細 Grid）', hasPagesize: false, defaultViewMode: 'card' },
   { key: 'productSearch', label: '新增商品（訂貨單/銷貨單「新增商品」搜尋結果）', hasPagesize: false }
 ]
 const DEFAULTS = { pagesize: 20, viewMode: 'table' }
 
 const settings = reactive(
-  Object.fromEntries(LISTS.map(({ key }) => [key, { ...DEFAULTS }]))
+  Object.fromEntries(LISTS.map(({ key, defaultViewMode }) => [key, { ...DEFAULTS, ...(defaultViewMode ? { viewMode: defaultViewMode } : {}) }]))
 )
 
 function loadSettings() {
   try {
     const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
     const all = raw ? JSON.parse(raw) : {}
-    for (const { key } of LISTS) {
-      settings[key] = { ...DEFAULTS, ...(all[key] || {}) }
+    for (const { key, defaultViewMode } of LISTS) {
+      const base = { ...DEFAULTS, ...(defaultViewMode ? { viewMode: defaultViewMode } : {}) }
+      settings[key] = { ...base, ...(all[key] || {}) }
     }
   } catch {
     // 讀不到就維持預設值

@@ -80,6 +80,7 @@ const options = reactive({
 
 const showDelivery = ref(false)
 const showOtherSettings = ref(false)
+const showHeaderSection = ref(true)
 
 const warehouseOptions = ref([])
 
@@ -256,13 +257,13 @@ function loadListSettings(key, defaults) {
     return defaults
   }
 }
-const detailViewMode = ref('table')
+const detailViewMode = ref('card')
 const productViewMode = ref('table')
 
 async function init() {
   loading.value = true
   errorMessage.value = ''
-  detailViewMode.value = loadListSettings('orderDetail', { viewMode: 'table' }).viewMode
+  detailViewMode.value = loadListSettings('orderDetail', { viewMode: 'card' }).viewMode
   productViewMode.value = loadListSettings('productSearch', { viewMode: 'table' }).viewMode
   try {
     await loadHeader()
@@ -824,9 +825,9 @@ async function handleTransfer() {
 </script>
 
 <template>
-  <div class="p-4">
+  <div class="p-2 sm:p-4">
     <DcErpShell>
-      <div class="space-y-3 p-4">
+      <div class="space-y-3 p-2 sm:p-4">
         <div class="flex items-center justify-end gap-3">
           <span class="text-xs text-hint-c">{{ isNew ? '新增' : `編輯（${header.code}）` }}</span>
           <NuxtLink to="/staff/order/dc-erp/sales-orders" class="text-xs text-muted-c hover:underline">
@@ -840,7 +841,24 @@ async function handleTransfer() {
           <p v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-600">{{ errorMessage }}</p>
 
           <!-- 表頭 -->
-          <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-sm">
+          <div class="rounded-xl border border-light-c bg-surface text-sm">
+            <button
+              type="button"
+              class="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left"
+              @click="showHeaderSection = !showHeaderSection"
+            >
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span class="font-bold text-base-c">訂單資訊</span>
+                <span v-if="!showHeaderSection" class="text-xs text-muted-c">
+                  {{ header.firmName || '尚未選擇客戶' }}｜{{ header.primaryDate || '未填訂貨日期' }} → {{ header.receivingDate || '未填交貨日期' }}
+                  <template v-if="header.receivingState">｜{{ header.receivingState }}</template>
+                  <template v-if="header.signState">｜{{ header.signState }}</template>
+                </span>
+              </div>
+              <span class="shrink-0 text-xs text-muted-c">{{ showHeaderSection ? '收合 ▲' : '展開 ▼' }}</span>
+            </button>
+
+            <div v-show="showHeaderSection" class="space-y-2 border-t border-light-c p-3 pt-2">
             <div class="flex flex-wrap items-center gap-2">
               <label class="text-muted-c"><span class="text-red-600">*</span>場別：</label>
               <select v-model="header.workPlaceID" class="rounded border border-light-c bg-surface px-2 py-1">
@@ -897,7 +915,7 @@ async function handleTransfer() {
 
             <div class="flex flex-wrap items-center gap-2">
               <label class="text-muted-c">備註：</label>
-              <input v-model="header.remark" type="text" class="w-96 rounded border border-light-c bg-surface px-2 py-1">
+              <input v-model="header.remark" type="text" class="w-full sm:w-96 rounded border border-light-c bg-surface px-2 py-1">
             </div>
 
             <div class="flex flex-wrap items-center gap-2 text-xs text-hint-c">
@@ -948,7 +966,7 @@ async function handleTransfer() {
 
               <div class="flex flex-wrap items-center gap-2">
                 <label class="text-muted-c">送貨地址：</label>
-                <input v-model="header.address" type="text" class="w-72 rounded border border-light-c bg-surface px-2 py-1">
+                <input v-model="header.address" type="text" class="w-full sm:w-72 rounded border border-light-c bg-surface px-2 py-1">
               </div>
             </div>
 
@@ -974,7 +992,7 @@ async function handleTransfer() {
                 <label class="text-muted-c">宅配收件人：</label>
                 <input v-model="header.deliveryPersonal" type="text" class="w-32 rounded border border-light-c bg-surface px-2 py-1">
                 <label class="ml-2 text-muted-c">宅配地址：</label>
-                <input v-model="header.deliveryAddress" type="text" class="w-56 rounded border border-light-c bg-surface px-2 py-1">
+                <input v-model="header.deliveryAddress" type="text" class="w-full sm:w-56 rounded border border-light-c bg-surface px-2 py-1">
               </div>
               <div class="flex flex-wrap items-center gap-2">
                 <label class="text-muted-c">聯絡手機：</label>
@@ -985,13 +1003,14 @@ async function handleTransfer() {
                 <input v-model="header.deliveryRemark" type="text" class="w-40 rounded border border-light-c bg-surface px-2 py-1">
               </div>
             </div>
+            </div>
           </div>
 
           <!-- 明細 -->
           <div class="overflow-hidden rounded-xl border border-light-c bg-surface">
-            <div class="flex items-center justify-between border-b border-light-c px-3 py-2">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-light-c px-3 py-2">
               <div class="text-sm font-bold text-base-c">明細（{{ details.length }} 筆）</div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center gap-0.5 rounded-lg border border-light-c p-0.5 text-xs">
                   <button
                     class="rounded px-2 py-0.5"
@@ -1038,7 +1057,7 @@ async function handleTransfer() {
                 <div class="space-y-2 p-3 text-sm">
                   <div class="min-w-0">
                     <div class="truncate font-medium text-base-c">{{ row.productName }}</div>
-                    <div class="text-xs text-hint-c">{{ row.productCode }}｜{{ row.specificationUnitName }}</div>
+                    <div class="text-xs text-hint-c">{{ row.specificationUnitName }}</div>
                   </div>
                   <div class="flex items-center justify-between">
                     <div>
@@ -1074,7 +1093,6 @@ async function handleTransfer() {
                   <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
                     <th class="px-2 py-2 text-center">排序</th>
                     <th class="px-2 py-2 text-center">圖</th>
-                    <th class="px-2 py-2">品項代號</th>
                     <th class="px-2 py-2">品名</th>
                     <th class="px-2 py-2">單位</th>
                     <th class="px-2 py-2 text-center">數量</th>
@@ -1117,7 +1135,6 @@ async function handleTransfer() {
                       >
                       <span v-else class="text-xs text-hint-c">-</span>
                     </td>
-                    <td class="px-2 py-1.5">{{ row.productCode }}</td>
                     <td class="px-2 py-1.5">{{ row.productName }}</td>
                     <td class="px-2 py-1.5">{{ row.specificationUnitName }}</td>
                     <td class="px-2 py-1.5">
@@ -1134,12 +1151,12 @@ async function handleTransfer() {
                     </td>
                   </tr>
                   <tr v-if="!details.length">
-                    <td colspan="9" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
+                    <td colspan="8" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
                   </tr>
                 </tbody>
                 <tfoot v-if="details.length">
                   <tr class="border-t border-light-c bg-surface2 font-medium">
-                    <td colspan="7" class="px-2 py-2 text-right text-muted-c">合計</td>
+                    <td colspan="6" class="px-2 py-2 text-right text-muted-c">合計</td>
                     <td class="px-2 py-2 text-right">{{ summation.toLocaleString() }}</td>
                     <td></td>
                   </tr>
@@ -1148,7 +1165,7 @@ async function handleTransfer() {
             </div>
           </div>
 
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-wrap justify-end gap-2">
             <button
               v-if="!isNew"
               class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
