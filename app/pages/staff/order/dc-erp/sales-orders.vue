@@ -205,7 +205,24 @@ function loadLastCustomerName() {
   }
 }
 
+// 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
+// settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
+const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
+function loadListSettings(key, defaults) {
+  try {
+    const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+    if (!raw) return defaults
+    const all = JSON.parse(raw)
+    return { ...defaults, ...(all[key] || {}) }
+  } catch {
+    return defaults
+  }
+}
+
 onMounted(() => {
+  const listSettings = loadListSettings('salesOrders', { pagesize: pagesize.value, viewMode: viewMode.value })
+  pagesize.value = listSettings.pagesize
+  viewMode.value = listSettings.viewMode
   filters.firmCode = loadLastCustomerName()
   load(1)
 })
@@ -215,58 +232,8 @@ onMounted(() => {
   <div class="p-4">
     <DcErpShell>
       <div class="space-y-3 p-4">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-bold text-base-c">
-            訂貨單維護
-            <span v-if="breadcrumb.length" class="ml-2 text-xs font-normal text-hint-c">
-              {{ breadcrumb.join(' >> ') }}
-            </span>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="flex items-center gap-0.5 rounded-lg border border-light-c p-0.5 text-xs">
-              <button
-                class="rounded px-2 py-1"
-                :class="viewMode === 'table' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
-                @click="viewMode = 'table'"
-              >
-                列表
-              </button>
-              <button
-                class="rounded px-2 py-1"
-                :class="viewMode === 'card' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
-                @click="viewMode = 'card'"
-              >
-                卡片
-              </button>
-            </div>
-            <button
-              v-if="selectedGuids.size"
-              class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="signing"
-              @click="handleSignBatch('return')"
-            >
-              {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
-            </button>
-            <button
-              v-if="selectedGuids.size"
-              class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="signing"
-              @click="handleSignBatch('sign')"
-            >
-              {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
-            </button>
-            <NuxtLink
-              v-if="createUrl"
-              :to="createUrl"
-              class="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
-            >
-              + 新增
-            </NuxtLink>
-          </div>
-        </div>
-
         <!-- 查詢表單：預設只顯示第一排，其餘篩選條件收起來 -->
-        <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-sm">
+        <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-base">
           <div class="flex flex-wrap items-center gap-2">
             <label class="text-muted-c">客戶名稱：</label>
             <DcErpKeywordSearchInput
@@ -286,7 +253,7 @@ onMounted(() => {
             <button class="rounded bg-green-700 px-3 py-1 text-white hover:bg-green-800" @click="handleSearch">送出查詢</button>
             <button class="rounded border border-light-c px-3 py-1 text-muted-c hover:bg-surface2" @click="handleAllList">列出全部</button>
             <button
-              class="ml-auto rounded border border-light-c px-3 py-1 text-xs text-muted-c hover:bg-surface2"
+              class="ml-auto rounded border border-light-c px-3 py-1 text-sm text-muted-c hover:bg-surface2"
               @click="filterExpanded = !filterExpanded"
             >
               {{ filterExpanded ? '收起條件 ▲' : '更多條件 ▼' }}
@@ -338,19 +305,43 @@ onMounted(() => {
             <span class="text-hint-c">-</span>
             <input v-model="filters.ecode" type="text" placeholder="迄止單號" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
           </div>
+
+          <div class="flex flex-wrap items-center justify-end gap-2 border-t border-light-c pt-2">
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing"
+              @click="handleSignBatch('return')"
+            >
+              {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
+            </button>
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing"
+              @click="handleSignBatch('sign')"
+            >
+              {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
+            </button>
+            <NuxtLink
+              v-if="createUrl"
+              :to="createUrl"
+              class="rounded-lg bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800"
+            >
+              + 新增
+            </NuxtLink>
+          </div>
         </div>
 
         <!-- 列表 -->
         <div class="overflow-hidden rounded-xl border border-light-c bg-surface">
-          <p v-if="loading" class="p-6 text-sm text-hint-c">載入中…</p>
-          <p v-else-if="errorMessage" class="p-6 text-sm text-red-600">{{ errorMessage }}</p>
+          <p v-if="loading" class="p-6 text-base text-hint-c">載入中…</p>
+          <p v-else-if="errorMessage" class="p-6 text-base text-red-600">{{ errorMessage }}</p>
 
           <!-- 卡片檢視 -->
           <div v-else-if="viewMode === 'card'" class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
             <div
               v-for="row in items"
               :key="row.guid"
-              class="rounded-lg border border-light-c p-3 text-sm hover:bg-surface2"
+              class="rounded-lg border border-light-c p-3 text-base hover:bg-surface2"
             >
               <div class="mb-1 flex items-start justify-between gap-2">
                 <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
@@ -362,14 +353,14 @@ onMounted(() => {
                     {{ row.code }}
                   </NuxtLink>
                 </DcErpItemsTooltip>
-                <span class="shrink-0 text-xs text-hint-c">#{{ row.seq }}</span>
+                <span class="shrink-0 text-sm text-hint-c">#{{ row.seq }}</span>
               </div>
-              <div class="text-xs text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
-              <div class="mt-1 flex items-center justify-between text-xs text-muted-c">
+              <div class="text-sm text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
+              <div class="mt-1 flex items-center justify-between text-sm text-muted-c">
                 <span>訂貨 {{ row.orderDate }} → 交貨 {{ row.deliveryDate }}</span>
                 <span class="font-medium text-base-c">{{ row.total }}</span>
               </div>
-              <div class="mt-1.5 flex flex-wrap items-center gap-1 text-xs">
+              <div class="mt-1.5 flex flex-wrap items-center gap-1 text-sm">
                 <span class="rounded bg-surface2 px-1.5 py-0.5 text-muted-c">{{ row.receivingState }}</span>
                 <span class="rounded bg-surface2 px-1.5 py-0.5 text-muted-c">{{ row.signState }}</span>
                 <button
@@ -381,14 +372,14 @@ onMounted(() => {
                   {{ transferringGuid === row.guid ? '轉入中…' : '轉銷' }}
                 </button>
               </div>
-              <div v-if="row.remark" class="mt-1.5 truncate text-xs text-hint-c" :title="row.remark">{{ row.remark }}</div>
+              <div v-if="row.remark" class="mt-1.5 truncate text-sm text-hint-c" :title="row.remark">{{ row.remark }}</div>
             </div>
             <p v-if="!items.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
           </div>
 
           <!-- 列表檢視 -->
           <div v-else class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="w-full text-base">
               <thead>
                 <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
                   <th class="px-2 py-2 text-center">
@@ -427,7 +418,7 @@ onMounted(() => {
                   <td class="px-2 py-1.5 text-center">
                     <button
                       v-if="row.canTransfer"
-                      class="rounded border border-light-c px-2 py-0.5 text-xs text-muted-c hover:bg-surface2 disabled:opacity-50"
+                      class="rounded border border-light-c px-2 py-0.5 text-sm text-muted-c hover:bg-surface2 disabled:opacity-50"
                       :disabled="transferringGuid === row.guid"
                       @click="handleTransfer(row)"
                     >
@@ -444,25 +435,9 @@ onMounted(() => {
             </table>
           </div>
 
-          <div class="flex items-center justify-between border-t border-light-c px-3 py-2 text-xs text-muted-c">
+          <div class="flex items-center justify-between border-t border-light-c px-3 py-2 text-sm text-muted-c">
             <span>總計 {{ totalCount.toLocaleString() }} 筆 / 總計 {{ totalPages.toLocaleString() }} 頁</span>
-            <div class="flex items-center gap-2">
-              <button
-                class="rounded border border-light-c px-2 py-1 disabled:opacity-40"
-                :disabled="page <= 1"
-                @click="goPage(page - 1)"
-              >
-                上一頁
-              </button>
-              <span>第 {{ page }} / {{ totalPages }} 頁</span>
-              <button
-                class="rounded border border-light-c px-2 py-1 disabled:opacity-40"
-                :disabled="page >= totalPages"
-                @click="goPage(page + 1)"
-              >
-                下一頁
-              </button>
-            </div>
+            <DcErpPagination :page="page" :total-pages="totalPages" @go="goPage" />
           </div>
         </div>
       </div>

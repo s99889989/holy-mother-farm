@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, nextTick, onMounted } from 'vue'
+import { reactive, ref, computed, nextTick, onMounted } from 'vue'
 
 // 「銷貨單維護」自己重畫的畫面，跟訂貨單維護同一套做法。
 //
@@ -73,6 +73,15 @@ const printForm = ref(null)
 const submitGuids = ref('')
 const submitReportId = ref('')
 const submitReportFormat = ref('')
+
+// 「顯示銷貨單(中一刀-半長)」是最常用的樣式，常駐顯示；其餘樣式收進
+// 「更多樣式」收合區塊，避免每次列印都要在一長串樣式清單裡找。用
+// includes 比對而不是完全比對，避免原網站樣式名稱多一個空格/全形符號
+// 就整個匹配不到。
+const COMMON_PRINT_STYLE_MATCH = (name) => name.includes('中一刀') && name.includes('半長')
+const commonPrintStyles = computed(() => printStyles.value.filter(s => COMMON_PRINT_STYLE_MATCH(s.name)))
+const otherPrintStyles = computed(() => printStyles.value.filter(s => !COMMON_PRINT_STYLE_MATCH(s.name)))
+const printStylesExpanded = ref(false)
 
 async function load(targetPage = 1) {
   loading.value = true
@@ -170,6 +179,7 @@ async function handleSignBatch(action) {
 async function openPrintModal() {
   if (!selectedGuids.value.size) return
   printModalOpen.value = true
+  printStylesExpanded.value = false
   printLoading.value = true
   printError.value = ''
   try {
@@ -206,79 +216,36 @@ function handlePrint(fmt) {
   })
 }
 
-onMounted(() => load(1))
+// 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
+// settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
+const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
+function loadListSettings(key, defaults) {
+  try {
+    const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+    if (!raw) return defaults
+    const all = JSON.parse(raw)
+    return { ...defaults, ...(all[key] || {}) }
+  } catch {
+    return defaults
+  }
+}
+
+onMounted(() => {
+  const listSettings = loadListSettings('salesSlips', { pagesize: pagesize.value, viewMode: viewMode.value })
+  pagesize.value = listSettings.pagesize
+  viewMode.value = listSettings.viewMode
+  load(1)
+})
 </script>
 
 <template>
   <div class="p-4">
     <DcErpShell>
       <div class="space-y-3 p-4">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-bold text-base-c">
-            銷貨單維護
-            <span v-if="breadcrumb.length" class="ml-2 text-xs font-normal text-hint-c">
-              {{ breadcrumb.join(' >> ') }}
-            </span>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="flex items-center gap-0.5 rounded-lg border border-light-c p-0.5 text-xs">
-              <button
-                class="rounded px-2 py-1"
-                :class="viewMode === 'table' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
-                @click="viewMode = 'table'"
-              >
-                列表
-              </button>
-              <button
-                class="rounded px-2 py-1"
-                :class="viewMode === 'card' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
-                @click="viewMode = 'card'"
-              >
-                卡片
-              </button>
-            </div>
-            <button
-              v-if="selectedGuids.size"
-              class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2"
-              @click="openPrintModal"
-            >
-              列印（{{ selectedGuids.size }}）
-            </button>
-            <button
-              v-if="selectedGuids.size"
-              class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="signing"
-              @click="handleSignBatch('return')"
-            >
-              {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
-            </button>
-            <button
-              v-if="selectedGuids.size"
-              class="rounded-lg border border-light-c px-3 py-1.5 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="signing"
-              @click="handleSignBatch('sign')"
-            >
-              {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
-            </button>
-            <NuxtLink
-              v-if="createUrl"
-              :to="createUrl"
-              class="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
-            >
-              + 新增
-            </NuxtLink>
-          </div>
-        </div>
-
         <!-- 查詢表單：預設只顯示第一排，其餘篩選條件收起來 -->
-        <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-sm">
+        <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-base">
           <div class="flex flex-wrap items-center gap-2">
-            <label class="text-muted-c">依場別：</label>
-            <select v-model="filters.workPlace" class="rounded border border-light-c bg-surface px-2 py-1">
-              <option v-for="opt in filterOptions.workPlace" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-
-            <label class="ml-2 text-muted-c">依欄位：</label>
+            <label class="text-muted-c">依欄位：</label>
             <select v-model="filters.whSearch" class="rounded border border-light-c bg-surface px-2 py-1">
               <option v-for="opt in filterOptions.whSearchField" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
@@ -292,7 +259,7 @@ onMounted(() => load(1))
             <button class="rounded bg-green-700 px-3 py-1 text-white hover:bg-green-800" @click="handleSearch">送出查詢</button>
             <button class="rounded border border-light-c px-3 py-1 text-muted-c hover:bg-surface2" @click="handleAllList">列出全部</button>
             <button
-              class="ml-auto rounded border border-light-c px-3 py-1 text-xs text-muted-c hover:bg-surface2"
+              class="ml-auto rounded border border-light-c px-3 py-1 text-sm text-muted-c hover:bg-surface2"
               @click="filterExpanded = !filterExpanded"
             >
               {{ filterExpanded ? '收起條件 ▲' : '更多條件 ▼' }}
@@ -300,7 +267,12 @@ onMounted(() => load(1))
           </div>
 
           <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
-            <label class="text-muted-c">依日期：</label>
+            <label class="text-muted-c">依場別：</label>
+            <select v-model="filters.workPlace" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.workPlace" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+
+            <label class="ml-2 text-muted-c">依日期：</label>
             <DcErpRocDateInput v-model="filters.sdate" placeholder="起始日期" />
             <span class="text-hint-c">-</span>
             <DcErpRocDateInput v-model="filters.edate" placeholder="迄止日期" />
@@ -355,19 +327,43 @@ onMounted(() => load(1))
               <option v-for="opt in filterOptions.isPrintReceipt" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
           </div>
+
+          <div class="flex flex-wrap items-center justify-end gap-2 border-t border-light-c pt-2">
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size"
+              @click="openPrintModal"
+            >
+              列印（{{ selectedGuids.size }}）
+            </button>
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing"
+              @click="handleSignBatch('return')"
+            >
+              {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
+            </button>
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing"
+              @click="handleSignBatch('sign')"
+            >
+              {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
+            </button>
+          </div>
         </div>
 
         <!-- 列表 -->
         <div class="overflow-hidden rounded-xl border border-light-c bg-surface">
-          <p v-if="loading" class="p-6 text-sm text-hint-c">載入中…</p>
-          <p v-else-if="errorMessage" class="p-6 text-sm text-red-600">{{ errorMessage }}</p>
+          <p v-if="loading" class="p-6 text-base text-hint-c">載入中…</p>
+          <p v-else-if="errorMessage" class="p-6 text-base text-red-600">{{ errorMessage }}</p>
 
           <!-- 卡片檢視 -->
           <div v-else-if="viewMode === 'card'" class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
             <div
               v-for="row in items"
               :key="row.guid"
-              class="rounded-lg border border-light-c p-3 text-sm hover:bg-surface2"
+              class="rounded-lg border border-light-c p-3 text-base hover:bg-surface2"
             >
               <div class="mb-1 flex items-start justify-between gap-2">
                 <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
@@ -379,24 +375,24 @@ onMounted(() => load(1))
                     {{ row.code }}
                   </NuxtLink>
                 </DcErpItemsTooltip>
-                <span class="shrink-0 text-xs text-hint-c">#{{ row.seq }}</span>
+                <span class="shrink-0 text-sm text-hint-c">#{{ row.seq }}</span>
               </div>
-              <div class="text-xs text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
-              <div class="mt-1 flex items-center justify-between text-xs text-muted-c">
+              <div class="text-sm text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
+              <div class="mt-1 flex items-center justify-between text-sm text-muted-c">
                 <span>交貨 {{ row.deliveryDate }}</span>
                 <span class="font-medium text-base-c">{{ row.total }}（應收 {{ row.currentMoney }}）</span>
               </div>
-              <div class="mt-1.5 flex flex-wrap items-center gap-1 text-xs">
+              <div class="mt-1.5 flex flex-wrap items-center gap-1 text-sm">
                 <span class="rounded bg-surface2 px-1.5 py-0.5 text-muted-c">{{ row.signState }}</span>
               </div>
-              <div v-if="row.remark" class="mt-1.5 truncate text-xs text-hint-c" :title="row.remark">{{ row.remark }}</div>
+              <div v-if="row.remark" class="mt-1.5 truncate text-sm text-hint-c" :title="row.remark">{{ row.remark }}</div>
             </div>
             <p v-if="!items.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
           </div>
 
           <!-- 列表檢視 -->
           <div v-else class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="w-full text-base">
               <thead>
                 <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
                   <th class="px-2 py-2 text-center">
@@ -439,25 +435,9 @@ onMounted(() => load(1))
             </table>
           </div>
 
-          <div class="flex items-center justify-between border-t border-light-c px-3 py-2 text-xs text-muted-c">
+          <div class="flex items-center justify-between border-t border-light-c px-3 py-2 text-sm text-muted-c">
             <span>總計 {{ totalCount.toLocaleString() }} 筆 / 總計 {{ totalPages.toLocaleString() }} 頁</span>
-            <div class="flex items-center gap-2">
-              <button
-                class="rounded border border-light-c px-2 py-1 disabled:opacity-40"
-                :disabled="page <= 1"
-                @click="goPage(page - 1)"
-              >
-                上一頁
-              </button>
-              <span>第 {{ page }} / {{ totalPages }} 頁</span>
-              <button
-                class="rounded border border-light-c px-2 py-1 disabled:opacity-40"
-                :disabled="page >= totalPages"
-                @click="goPage(page + 1)"
-              >
-                下一頁
-              </button>
-            </div>
+            <DcErpPagination :page="page" :total-pages="totalPages" @go="goPage" />
           </div>
         </div>
       </div>
@@ -472,42 +452,70 @@ onMounted(() => load(1))
     >
       <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-4">
         <div class="mb-3 flex items-center justify-between">
-          <div class="text-sm font-bold text-base-c">選擇列印樣式（已選取 {{ selectedGuids.size }} 張銷貨單）</div>
+          <div class="text-base font-bold text-base-c">選擇列印樣式（已選取 {{ selectedGuids.size }} 張銷貨單）</div>
           <button class="text-hint-c hover:text-base-c" @click="closePrintModal">✕</button>
         </div>
 
-        <div v-if="titleTypeOptions.length" class="mb-3 flex items-center gap-2 text-sm">
+        <div v-if="titleTypeOptions.length" class="mb-3 flex items-center gap-2 text-base">
           <label class="text-muted-c">表頭：</label>
           <select v-model="titleType" class="rounded border border-light-c bg-surface px-2 py-1">
             <option v-for="opt in titleTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
 
-        <p v-if="printLoading" class="p-6 text-sm text-hint-c">載入中…</p>
-        <p v-else-if="printError" class="p-6 text-sm text-red-600">{{ printError }}</p>
-        <table v-else class="w-full text-sm">
-          <tbody>
-            <tr v-for="style in printStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
-              <td class="px-2 py-2">{{ style.name }}</td>
-              <td class="px-2 py-2 text-right">
-                <button
-                  v-for="fmt in style.formats"
-                  :key="`${fmt.reportId}-${fmt.format}`"
-                  class="ml-2 rounded border border-light-c px-3 py-1 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-                  :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
-                  @click="handlePrint(fmt)"
-                >
-                  {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!printStyles.length">
-              <td colspan="2" class="px-2 py-6 text-center text-hint-c">查無可用樣式</td>
-            </tr>
-          </tbody>
-        </table>
+        <p v-if="printLoading" class="p-6 text-base text-hint-c">載入中…</p>
+        <p v-else-if="printError" class="p-6 text-base text-red-600">{{ printError }}</p>
+        <template v-else>
+          <table class="w-full text-base">
+            <tbody>
+              <tr v-for="style in commonPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
+                <td class="px-2 py-2">{{ style.name }}</td>
+                <td class="px-2 py-2 text-right">
+                  <button
+                    v-for="fmt in style.formats"
+                    :key="`${fmt.reportId}-${fmt.format}`"
+                    class="ml-2 rounded border border-light-c px-3 py-1 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+                    :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
+                    @click="handlePrint(fmt)"
+                  >
+                    {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!printStyles.length">
+                <td colspan="2" class="px-2 py-6 text-center text-hint-c">查無可用樣式</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <p class="mt-3 text-xs text-hint-c">
+          <button
+            v-if="otherPrintStyles.length"
+            class="mt-2 w-full rounded border border-light-c px-3 py-1.5 text-sm text-muted-c hover:bg-surface2"
+            @click="printStylesExpanded = !printStylesExpanded"
+          >
+            {{ printStylesExpanded ? '收起其他樣式 ▲' : `其他樣式 ▼（${otherPrintStyles.length}）` }}
+          </button>
+          <table v-show="printStylesExpanded" class="mt-2 w-full text-base">
+            <tbody>
+              <tr v-for="style in otherPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
+                <td class="px-2 py-2">{{ style.name }}</td>
+                <td class="px-2 py-2 text-right">
+                  <button
+                    v-for="fmt in style.formats"
+                    :key="`${fmt.reportId}-${fmt.format}`"
+                    class="ml-2 rounded border border-light-c px-3 py-1 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+                    :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
+                    @click="handlePrint(fmt)"
+                  >
+                    {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+
+        <p class="mt-3 text-sm text-hint-c">
           按下樣式對應的按鈕會在新分頁開啟報表（依原網站回應而定，可能是檔案下載，或報表檢視器頁面）。
         </p>
       </div>

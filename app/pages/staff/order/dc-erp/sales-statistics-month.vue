@@ -120,15 +120,6 @@ onMounted(load)
   <div class="p-4">
     <DcErpShell>
       <div class="space-y-3 p-4">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-bold text-base-c">
-            統計月報表
-            <span v-if="breadcrumb.length" class="ml-2 text-xs font-normal text-hint-c">
-              {{ breadcrumb.join(' >> ') }}
-            </span>
-          </div>
-        </div>
-
         <p v-if="loading" class="p-6 text-sm text-hint-c">載入中…</p>
         <p v-else-if="errorMessage" class="p-6 text-sm text-red-600">{{ errorMessage }}</p>
 

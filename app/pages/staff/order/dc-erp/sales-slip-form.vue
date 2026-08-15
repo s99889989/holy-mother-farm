@@ -65,6 +65,57 @@ const options = reactive({
 })
 
 const warehouseOptions = ref([])
+
+// ── 品項圖片（進階品項管理，見 product-images.vue 檔頭註解）─────────
+// 跟訂貨單頁（sales-order-form.vue）同一套：直接打 Spring Boot 的
+// DcErpProductImageController，不經過 Nuxt server/api、也跟 COAERP 完全
+// 無關，純粹用品項代號查有沒有圖可以顯示。這裡只「顯示」不提供上傳/
+// 刪除，要管理圖片請到「進階品項管理」頁。
+const commonStore = useCommonStore()
+const productImageOrigin = commonStore.data.main_url
+const productImagesMap = ref({})
+async function loadProductImagesMap() {
+  try {
+    const res = await fetch(`${productImageOrigin}/holy/dc-erp/product-image/list`)
+    productImagesMap.value = await res.json() // { code: { images: [...], productClass: '...' } }
+  } catch {
+    productImagesMap.value = {}
+  }
+}
+function productThumbUrl(code) {
+  const images = productImagesMap.value[code]?.images
+  if (!images || !images.length) return ''
+  return (productImageOrigin + images[0]).replace('/holy/dc-erp/product-image/', '/holy/dc-erp/product-image/thumb/')
+}
+function productFullUrl(code) {
+  const images = productImagesMap.value[code]?.images
+  if (!images || !images.length) return ''
+  return productImageOrigin + images[0]
+}
+// 商品搜尋燈箱（ProdListMultiple）本身完全沒有「所屬類別」欄位（原網站
+// 那張表格就是只有8欄，查證過確實沒有），但可以拿品項代號去對「進階
+// 品項管理」批次設置存下來的本地快取，有的話就能顯示——沒有的話（該
+// 品項還沒被「設置所屬類別」處理過）就顯示空白，不是資料抓取失敗。
+function productClassOf(code) {
+  return productImagesMap.value[code]?.productClass || ''
+}
+// 依所屬類別篩選：COAERP 商品搜尋本身沒有類別篩選（見上面 productClassOf
+// 的說明），這裡只能用本地快取資料在「目前這一頁已經查到的結果」裡做
+// 篩選，不是重新對全部品項下類別條件查詢——換頁、換關鍵字都要重新篩。
+const productClassFilter = ref('')
+const productClassOptions = computed(() => {
+  const set = new Set()
+  for (const entry of Object.values(productImagesMap.value)) {
+    if (entry?.productClass) set.add(entry.productClass)
+  }
+  return Array.from(set).sort()
+})
+const filteredProductResults = computed(() => {
+  if (!productClassFilter.value) return productResults.value
+  return productResults.value.filter((p) => productClassOf(p.code) === productClassFilter.value)
+})
+const previewUrl = ref('')
+
 const details = ref([])
 const deletedGuids = ref([])
 let tempIdSeed = 0
@@ -142,9 +193,28 @@ async function loadWarehouses() {
   }
 }
 
+// 「明細」跟「新增商品搜尋結果」的顯示方式（列表/卡片）統一在「設定」頁
+// 調整（見 settings.vue，key: orderDetail / productSearch，跟訂貨單編輯頁
+// 共用同一組設定），這裡只在載入時讀取。
+const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
+function loadListSettings(key, defaults) {
+  try {
+    const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+    if (!raw) return defaults
+    const all = JSON.parse(raw)
+    return { ...defaults, ...(all[key] || {}) }
+  } catch {
+    return defaults
+  }
+}
+const detailViewMode = ref('table')
+const productViewMode = ref('table')
+
 async function init() {
   loading.value = true
   errorMessage.value = ''
+  detailViewMode.value = loadListSettings('orderDetail', { viewMode: 'table' }).viewMode
+  productViewMode.value = loadListSettings('productSearch', { viewMode: 'table' }).viewMode
   try {
     await loadHeader()
     // 新增銷貨單時，如果還沒選客戶，自動帶入這台瀏覽器上一次選過的客戶
@@ -153,7 +223,7 @@ async function init() {
       const history = loadCustomerHistory()
       if (history.length) pickFirm(history[0])
     }
-    await Promise.all([loadDetails(), loadWarehouses()])
+    await Promise.all([loadDetails(), loadWarehouses(), loadProductImagesMap()])
   } catch (err) {
     if (err?.statusCode === 401 || err?.response?.status === 401) {
       await navigateTo('/staff/order/dc-erp/login')
@@ -340,6 +410,7 @@ function openProductSearch() {
   productSche.value = '0'
   productCorrespondNoKeyword.value = ''
   productSpecUnitKeyword.value = ''
+  productClassFilter.value = ''
   productResults.value = []
   selectedProductIds.clear()
   showProductSearch.value = true
@@ -347,23 +418,14 @@ function openProductSearch() {
 }
 
 async function searchProducts(targetPage = 1) {
+  if (productClassFilter.value) {
+    await searchProductsByClass()
+    return
+  }
   productSearching.value = true
   productSearchError.value = ''
   try {
-    const data = await $fetch('/api/dc-erp/sales-order-products', {
-      query: {
-        keyword: productKeyword.value,
-        whSearch: productWhSearch.value,
-        sourceType: productSourceType.value,
-        scheSelect: productSche.value,
-        correspondNoKeyword: productCorrespondNoKeyword.value,
-        specUnitKeyword: productSpecUnitKeyword.value,
-        firmId: header.firmID,
-        workPlaceId: header.workPlaceID,
-        selectDate: header.primaryDate,
-        page: targetPage
-      }
-    })
+    const data = await $fetch('/api/dc-erp/sales-order-products', { query: buildProductQuery(targetPage) })
     productResults.value = data.items
     productPage.value = data.page
     productTotalPages.value = data.totalPages
@@ -375,6 +437,141 @@ async function searchProducts(targetPage = 1) {
     productSearchError.value = err?.data?.statusMessage || '商品搜尋失敗'
   } finally {
     productSearching.value = false
+  }
+}
+
+function buildProductQuery(targetPage) {
+  return {
+    keyword: productKeyword.value,
+    whSearch: productWhSearch.value,
+    sourceType: productSourceType.value,
+    scheSelect: productSche.value,
+    correspondNoKeyword: productCorrespondNoKeyword.value,
+    specUnitKeyword: productSpecUnitKeyword.value,
+    firmId: header.firmID,
+    workPlaceId: header.workPlaceID,
+    selectDate: header.primaryDate,
+    page: targetPage
+  }
+}
+
+// ── 依所屬類別搜尋（快速版：用代號字首）─────────────────────────
+// 使用者在原網站實測確認過兩件事：(1) 商品搜尋「依欄位=品項代號」的關鍵字
+// 是部分比對（打 aa 只查到 aa 開頭的代號）(2) 觀察到的樣本裡，同一類別
+// 的代號目前都共用固定字首（aa002~aa022 清一色都是米類）。
+//
+// 利用這點，把「逐頁掃描全部」改成：從本地類別快取抓出這個類別的所有
+// 代號 → 依代號前兩碼分組 → 對每個字首各發一次「代號部分比對」查詢
+// （通常只要幾次，不是幾十頁）。
+//
+// 安全網：字首終究只是「縮小範圍」的手段，不是保證正確——查回來的每一筆
+// 還是會用本地類別快取重新核對一次是不是真的屬於這個類別，不是的就丟掉；
+// 使用者自己在關鍵字欄位打的字也會一併套用（用品名比對）。就算「字首＝
+// 類別」這個規律以後失效，結果正確性也不會受影響，只是變慢——這種情況
+// （抓不到查詢欄位、或本地快取這個類別完全沒有代號）會直接退回原本逐頁
+// 掃描全部的做法，不會整個功能壞掉。
+const productClassSearching = ref(false)
+const productClassSearchProgress = ref('')
+const productClassSearchCapped = ref(false)
+const MAX_CLASS_SEARCH_MATCHES = 200
+const MAX_CLASS_SEARCH_PAGES = 60
+
+function codesForClass(cls) {
+  return Object.keys(productImagesMap.value).filter((code) => productImagesMap.value[code]?.productClass === cls)
+}
+function codePrefixesForClass(cls) {
+  const set = new Set()
+  for (const code of codesForClass(cls)) {
+    if (code.length >= 2) set.add(code.slice(0, 2).toLowerCase())
+  }
+  return Array.from(set)
+}
+
+async function searchProductsByClass() {
+  productSearching.value = true
+  productClassSearching.value = true
+  productClassSearchCapped.value = false
+  productSearchError.value = ''
+  productResults.value = []
+
+  const codeField = productWhSearchOptions.value.find((o) => /品項代號|商品代號/.test(o.label))?.value
+  const prefixes = codeField ? codePrefixesForClass(productClassFilter.value) : []
+
+  if (!codeField || !prefixes.length) {
+    await searchProductsByClassScanAll()
+    return
+  }
+
+  const seenIds = new Set()
+  const matches = []
+  try {
+    outer: for (let i = 0; i < prefixes.length; i++) {
+      let page = 1
+      let totalPages = 1
+      do {
+        productClassSearchProgress.value = `依類別搜尋中（字首 ${i + 1}/${prefixes.length}：${prefixes[i]}，第 ${page}/${totalPages} 頁，已找到 ${matches.length} 筆）…`
+        const data = await $fetch('/api/dc-erp/sales-order-products', {
+          query: { ...buildProductQuery(page), whSearch: codeField, keyword: prefixes[i] }
+        })
+        totalPages = data.totalPages || 1
+        productFirmName.value = data.firmName
+        for (const item of data.items) {
+          if (seenIds.has(item.id)) continue
+          if (productClassOf(item.code) !== productClassFilter.value) continue
+          if (productKeyword.value && !item.name.includes(productKeyword.value)) continue
+          seenIds.add(item.id)
+          matches.push(item)
+        }
+        if (matches.length >= MAX_CLASS_SEARCH_MATCHES) break outer
+        page++
+      } while (page <= totalPages)
+    }
+    productResults.value = matches
+    productPage.value = 1
+    productTotalPages.value = 1
+    if (matches.length >= MAX_CLASS_SEARCH_MATCHES) productClassSearchCapped.value = true
+  } catch (err) {
+    productSearchError.value = err?.data?.statusMessage || '依類別搜尋失敗'
+  } finally {
+    productSearching.value = false
+    productClassSearching.value = false
+    productClassSearchProgress.value = ''
+  }
+}
+
+// 保底：找不到「品項代號」查詢欄位、或本地快取這個類別沒有任何代號時才會
+// 用到——邏輯跟改版前一樣，逐頁把符合關鍵字等條件的結果掃過一輪再篩選。
+async function searchProductsByClassScanAll() {
+  productSearchError.value = ''
+  productResults.value = []
+  const matches = []
+  try {
+    let page = 1
+    let totalPages = 1
+    do {
+      productClassSearchProgress.value = `依類別搜尋中（第 ${page} / ${totalPages} 頁，已找到 ${matches.length} 筆）…`
+      const data = await $fetch('/api/dc-erp/sales-order-products', { query: buildProductQuery(page) })
+      totalPages = data.totalPages || 1
+      matches.push(...data.items.filter((p) => productClassOf(p.code) === productClassFilter.value))
+      productFirmName.value = data.firmName
+      if (data.whSearchOptions?.length) productWhSearchOptions.value = data.whSearchOptions
+      if (data.sourceTypeOptions?.length) productSourceTypeOptions.value = data.sourceTypeOptions
+      if (data.scheOptions?.length) productScheOptions.value = data.scheOptions
+      page++
+    } while (page <= totalPages && matches.length < MAX_CLASS_SEARCH_MATCHES && page <= MAX_CLASS_SEARCH_PAGES)
+
+    productResults.value = matches
+    productPage.value = 1
+    productTotalPages.value = 1
+    if (matches.length >= MAX_CLASS_SEARCH_MATCHES || (page > MAX_CLASS_SEARCH_PAGES && page <= totalPages)) {
+      productClassSearchCapped.value = true
+    }
+  } catch (err) {
+    productSearchError.value = err?.data?.statusMessage || '依類別搜尋失敗'
+  } finally {
+    productSearching.value = false
+    productClassSearching.value = false
+    productClassSearchProgress.value = ''
   }
 }
 
@@ -550,9 +747,18 @@ const printForm = ref(null)
 const submitReportId = ref('')
 const submitReportFormat = ref('')
 
+// 「顯示銷貨單(中一刀-半長)」是最常用的樣式，常駐顯示；其餘樣式收進
+// 「更多樣式」收合區塊。用 includes 比對而不是完全比對，避免原網站樣式
+// 名稱多一個空格/全形符號就整個匹配不到。
+const COMMON_PRINT_STYLE_MATCH = (name) => name.includes('中一刀') && name.includes('半長')
+const commonPrintStyles = computed(() => printStyles.value.filter(s => COMMON_PRINT_STYLE_MATCH(s.name)))
+const otherPrintStyles = computed(() => printStyles.value.filter(s => !COMMON_PRINT_STYLE_MATCH(s.name)))
+const printStylesExpanded = ref(false)
+
 async function openPrintModal() {
   if (!guid.value) return
   printModalOpen.value = true
+  printStylesExpanded.value = false
   printLoading.value = true
   printError.value = ''
   try {
@@ -593,13 +799,8 @@ function handlePrint(fmt) {
   <div class="p-4">
     <DcErpShell>
       <div class="space-y-3 p-4">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-bold text-base-c">
-            {{ isNew ? '銷貨單維護 - 新增' : `銷貨單維護 - 編輯（${header.code}）` }}
-            <span v-if="breadcrumb.length" class="ml-2 text-xs font-normal text-hint-c">
-              {{ breadcrumb.join(' >> ') }}
-            </span>
-          </div>
+        <div class="flex items-center justify-end gap-3">
+          <span class="text-xs text-hint-c">{{ isNew ? '新增' : `編輯（${header.code}）` }}</span>
           <NuxtLink to="/staff/order/dc-erp/sales-slips" class="text-xs text-muted-c hover:underline">
             返回列表
           </NuxtLink>
@@ -701,24 +902,95 @@ function handlePrint(fmt) {
           <div class="overflow-hidden rounded-xl border border-light-c bg-surface">
             <div class="flex items-center justify-between border-b border-light-c px-3 py-2">
               <div class="text-sm font-bold text-base-c">明細（{{ details.length }} 筆）</div>
-              <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="openProductSearch">
-                + 新增商品
-              </button>
+              <div class="flex items-center gap-2">
+                <div class="flex items-center gap-0.5 rounded-lg border border-light-c p-0.5 text-xs">
+                  <button
+                    class="rounded px-2 py-0.5"
+                    :class="detailViewMode === 'table' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
+                    @click="detailViewMode = 'table'"
+                  >
+                    列表
+                  </button>
+                  <button
+                    class="rounded px-2 py-0.5"
+                    :class="detailViewMode === 'card' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
+                    @click="detailViewMode = 'card'"
+                  >
+                    卡片
+                  </button>
+                </div>
+                <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="openProductSearch">
+                  + 新增商品
+                </button>
+              </div>
             </div>
-            <div class="overflow-x-auto">
+
+            <!-- 卡片檢視 -->
+            <div v-if="detailViewMode === 'card'" class="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              <div
+                v-for="(row, index) in details"
+                :key="row.tempId"
+                class="overflow-hidden rounded-lg border border-light-c"
+              >
+                <div class="relative aspect-[4/3] bg-surface2">
+                  <img
+                    v-if="productThumbUrl(row.productCode)"
+                    :src="productThumbUrl(row.productCode)"
+                    class="h-full w-full cursor-pointer object-cover"
+                    loading="lazy"
+                    @click="previewUrl = productFullUrl(row.productCode)"
+                  >
+                  <span v-else class="flex h-full w-full items-center justify-center text-xs text-hint-c">無圖</span>
+                  <div class="absolute right-1.5 top-1.5 flex flex-col gap-0.5">
+                    <button type="button" class="rounded bg-surface/90 px-1.5 text-muted-c hover:bg-surface disabled:opacity-30" title="上移" :disabled="index === 0" @click="moveRowUp(index)">▲</button>
+                    <button type="button" class="rounded bg-surface/90 px-1.5 text-muted-c hover:bg-surface disabled:opacity-30" title="下移" :disabled="index === details.length - 1" @click="moveRowDown(index)">▼</button>
+                  </div>
+                </div>
+                <div class="space-y-2 p-3 text-sm">
+                  <div class="min-w-0">
+                    <div class="truncate font-medium text-base-c">{{ row.productName }}</div>
+                    <div class="text-xs text-hint-c">{{ row.productCode }}｜{{ row.specificationUnitName }}</div>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <div class="text-xs text-muted-c">數量</div>
+                      <div class="mt-0.5 flex items-center gap-1">
+                        <button type="button" class="rounded border border-light-c px-2 text-muted-c hover:bg-surface2" @click="row.originalNum = Math.max(0, (Number(row.originalNum) || 0) - 1)">−</button>
+                        <input v-model.number="row.originalNum" type="number" step="any" class="w-14 appearance-none rounded border border-light-c bg-surface px-1 py-1 text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none">
+                        <button type="button" class="rounded border border-light-c px-2 text-muted-c hover:bg-surface2" @click="row.originalNum = (Number(row.originalNum) || 0) + 1">＋</button>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-xs text-muted-c">單價</div>
+                      <div class="mt-0.5 font-medium text-base-c">{{ row.price }}</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between border-t border-light-c pt-2">
+                    <span class="text-muted-c">小計：<span class="font-medium text-base-c">{{ ((Number(row.originalNum) || 0) * (Number(row.price) || 0)).toLocaleString() }}</span></span>
+                    <button class="text-xs text-red-600 hover:underline" @click="removeRow(row)">刪除</button>
+                  </div>
+                </div>
+              </div>
+              <p v-if="!details.length" class="col-span-full p-6 text-center text-hint-c">尚無明細，請按「新增商品」</p>
+              <div v-if="details.length" class="col-span-full flex items-center justify-between rounded-lg bg-surface2 px-3 py-2 font-medium">
+                <span class="text-muted-c">合計</span>
+                <span class="text-base-c">{{ summation.toLocaleString() }}</span>
+              </div>
+            </div>
+
+            <!-- 列表檢視 -->
+            <div v-else class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
                     <th class="px-2 py-2 text-center">排序</th>
+                    <th class="px-2 py-2 text-center">圖</th>
                     <th class="px-2 py-2">品項代號</th>
                     <th class="px-2 py-2">品名</th>
                     <th class="px-2 py-2">單位</th>
-                    <th class="px-2 py-2 text-right">數量</th>
+                    <th class="px-2 py-2 text-center">數量</th>
                     <th class="px-2 py-2 text-right">單價</th>
                     <th class="px-2 py-2 text-right">小計</th>
-                    <th class="px-2 py-2">倉庫</th>
-                    <th class="px-2 py-2">課稅別</th>
-                    <th class="px-2 py-2">備註</th>
                     <th class="px-2 py-2"></th>
                   </tr>
                 </thead>
@@ -746,43 +1018,41 @@ function handlePrint(fmt) {
                         </button>
                       </div>
                     </td>
+                    <td class="px-2 py-1.5 text-center">
+                      <img
+                        v-if="productThumbUrl(row.productCode)"
+                        :src="productThumbUrl(row.productCode)"
+                        class="mx-auto h-8 w-8 cursor-pointer rounded object-cover"
+                        loading="lazy"
+                        @click="previewUrl = productFullUrl(row.productCode)"
+                      >
+                      <span v-else class="text-xs text-hint-c">-</span>
+                    </td>
                     <td class="px-2 py-1.5">{{ row.productCode }}</td>
                     <td class="px-2 py-1.5">{{ row.productName }}</td>
                     <td class="px-2 py-1.5">{{ row.specificationUnitName }}</td>
-                    <td class="px-2 py-1.5 text-right">
-                      <input v-model.number="row.originalNum" type="number" step="any" class="w-20 rounded border border-light-c bg-surface px-1 py-0.5 text-right">
+                    <td class="px-2 py-1.5">
+                      <div class="flex items-center justify-center gap-1">
+                        <button type="button" class="rounded border border-light-c px-2 text-muted-c hover:bg-surface2" @click="row.originalNum = Math.max(0, (Number(row.originalNum) || 0) - 1)">−</button>
+                        <input v-model.number="row.originalNum" type="number" step="any" class="w-14 appearance-none rounded border border-light-c bg-surface px-1 py-0.5 text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none">
+                        <button type="button" class="rounded border border-light-c px-2 text-muted-c hover:bg-surface2" @click="row.originalNum = (Number(row.originalNum) || 0) + 1">＋</button>
+                      </div>
                     </td>
-                    <td class="px-2 py-1.5 text-right">
-                      <input v-model.number="row.price" type="number" step="any" class="w-24 rounded border border-light-c bg-surface px-1 py-0.5 text-right">
-                    </td>
+                    <td class="px-2 py-1.5 text-right">{{ row.price }}</td>
                     <td class="px-2 py-1.5 text-right">{{ ((Number(row.originalNum) || 0) * (Number(row.price) || 0)).toLocaleString() }}</td>
-                    <td class="px-2 py-1.5">
-                      <select :value="row.warehouseCode" class="rounded border border-light-c bg-surface px-1 py-0.5" @change="onWarehouseChange(row, $event.target.value)">
-                        <option v-if="!warehouseOptions.length" :value="row.warehouseCode">{{ row.warehouseName }}</option>
-                        <option v-for="w in warehouseOptions" :key="w.code" :value="w.code">{{ w.name }}</option>
-                      </select>
-                    </td>
-                    <td class="px-2 py-1.5">
-                      <select v-model="row.taxType" class="rounded border border-light-c bg-surface px-1 py-0.5">
-                        <option v-for="opt in options.taxType" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                      </select>
-                    </td>
-                    <td class="px-2 py-1.5">
-                      <input v-model="row.remark" type="text" class="w-24 rounded border border-light-c bg-surface px-1 py-0.5">
-                    </td>
                     <td class="px-2 py-1.5">
                       <button class="text-xs text-red-600 hover:underline" @click="removeRow(row)">刪除</button>
                     </td>
                   </tr>
                   <tr v-if="!details.length">
-                    <td colspan="11" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
+                    <td colspan="9" class="px-2 py-6 text-center text-hint-c">尚無明細，請按「新增商品」</td>
                   </tr>
                 </tbody>
                 <tfoot v-if="details.length">
                   <tr class="border-t border-light-c bg-surface2 font-medium">
-                    <td colspan="6" class="px-2 py-2 text-right text-muted-c">合計</td>
+                    <td colspan="7" class="px-2 py-2 text-right text-muted-c">合計</td>
                     <td class="px-2 py-2 text-right">{{ summation.toLocaleString() }}</td>
-                    <td colspan="4"></td>
+                    <td></td>
                   </tr>
                 </tfoot>
               </table>
@@ -896,7 +1166,25 @@ function handlePrint(fmt) {
             選擇商品
             <span v-if="productFirmName" class="ml-2 text-xs font-normal text-hint-c">{{ productFirmName }}</span>
           </div>
-          <button class="text-xs text-muted-c hover:underline" @click="showProductSearch = false">關閉</button>
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-0.5 rounded-lg border border-light-c p-0.5 text-xs">
+              <button
+                class="rounded px-2 py-0.5"
+                :class="productViewMode === 'table' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
+                @click="productViewMode = 'table'"
+              >
+                列表
+              </button>
+              <button
+                class="rounded px-2 py-0.5"
+                :class="productViewMode === 'card' ? 'bg-surface2 font-medium text-base-c' : 'text-muted-c hover:bg-surface2'"
+                @click="productViewMode = 'card'"
+              >
+                卡片
+              </button>
+            </div>
+            <button class="text-xs text-muted-c hover:underline" @click="showProductSearch = false">關閉</button>
+          </div>
         </div>
 
         <div class="mb-2 space-y-2 rounded-lg border border-light-c bg-surface2 p-2 text-sm">
@@ -906,11 +1194,20 @@ function handlePrint(fmt) {
               storage-key="dc-erp-product-search-keyword-records"
               record-label="已儲存的關鍵字"
               placeholder="關鍵字"
-              width-class="w-40"
+              width-class="w-48 flex-1"
               @enter="searchProducts(1)"
             />
+            <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="searchProducts(1)">送出查詢</button>
+            <button
+              class="rounded border border-light-c px-2 py-1 text-xs text-muted-c hover:bg-surface"
+              @click="productFilterExpanded = !productFilterExpanded"
+            >
+              {{ productFilterExpanded ? '收起進階篩選 ▲' : '進階篩選 ▼' }}
+            </button>
+          </div>
 
-            <label class="ml-2 text-muted-c">規格單位：</label>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">規格單位：</label>
             <DcErpSavedRecordsInput
               v-model="productSpecUnitKeyword"
               storage-key="dc-erp-product-search-specunit-records"
@@ -919,16 +1216,17 @@ function handlePrint(fmt) {
               @enter="searchProducts(1)"
             />
 
-            <button class="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800" @click="searchProducts(1)">送出查詢</button>
-            <button
-              class="ml-auto rounded border border-light-c px-2 py-1 text-xs text-muted-c hover:bg-surface"
-              @click="productFilterExpanded = !productFilterExpanded"
-            >
-              {{ productFilterExpanded ? '收起進階篩選 ▲' : '進階篩選 ▼' }}
-            </button>
+            <label class="ml-2 text-muted-c">依所屬類別：</label>
+            <select v-model="productClassFilter" class="rounded border border-light-c bg-surface px-2 py-1" @change="searchProducts(1)">
+              <option value="">不拘</option>
+              <option v-for="c in productClassOptions" :key="c" :value="c">{{ c }}</option>
+            </select>
           </div>
+          <p v-if="productClassFilter" class="text-xs text-hint-c">
+            選了類別之後，「送出查詢」會先試著用品項代號字首快速查詢（原網站實測部分比對可行），查回來的每一筆都還是用本地快取重新核對過才會列出；如果查不到查詢欄位或這個類別本地完全沒有代號，會自動退回逐頁掃描（較慢但一樣安全）。篩選依據是本地快取，要先在「進階品項管理」按過「設置所屬類別」才有資料。
+          </p>
 
-          <div v-show="productFilterExpanded" class="flex flex-wrap items-center gap-2">
+          <div v-show="productFilterExpanded" class="flex flex-wrap items-center gap-2 border-t border-light-c pt-2">
             <label class="text-muted-c">依欄位：</label>
             <select v-model="productWhSearch" class="rounded border border-light-c bg-surface px-2 py-1">
               <option v-if="!productWhSearchOptions.length" value="whatever">欄位不拘</option>
@@ -953,39 +1251,82 @@ function handlePrint(fmt) {
         </div>
 
         <p v-if="productSearchError" class="mb-2 text-xs text-red-600">{{ productSearchError }}</p>
+        <p v-if="productClassSearchCapped" class="mb-2 text-xs text-amber-500">
+          已達搜尋上限（{{ MAX_CLASS_SEARCH_MATCHES }} 筆 / {{ MAX_CLASS_SEARCH_PAGES }} 頁），可能還有更多符合的品項沒列出，請加關鍵字縮小範圍再查一次。
+        </p>
         <div class="flex-1 overflow-y-auto rounded border border-light-c">
-          <p v-if="productSearching" class="p-4 text-sm text-hint-c">搜尋中…</p>
+          <p v-if="productClassSearching" class="p-4 text-sm text-hint-c">{{ productClassSearchProgress }}</p>
+          <p v-else-if="productSearching" class="p-4 text-sm text-hint-c">搜尋中…</p>
+
+          <!-- 卡片檢視 -->
+          <div v-else-if="productViewMode === 'card'" class="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div
+              v-for="p in filteredProductResults"
+              :key="p.id"
+              class="cursor-pointer overflow-hidden rounded-lg border hover:bg-surface2"
+              :class="selectedProductIds.has(p.id) ? 'border-green-600 ring-1 ring-green-600' : 'border-light-c'"
+              @click="toggleProductSelect(p.id)"
+            >
+              <div class="relative aspect-[4/3] bg-surface2">
+                <img
+                  v-if="productThumbUrl(p.code)"
+                  :src="productThumbUrl(p.code)"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                >
+                <span v-else class="flex h-full w-full items-center justify-center text-xs text-hint-c">無圖</span>
+                <input
+                  type="checkbox"
+                  class="absolute left-1.5 top-1.5 h-4 w-4"
+                  :checked="selectedProductIds.has(p.id)"
+                  @click.stop="toggleProductSelect(p.id)"
+                >
+              </div>
+              <div class="p-2 text-sm">
+                <div class="truncate font-medium text-base-c" :title="p.name">{{ p.name }}</div>
+                <div class="text-xs text-muted-c">{{ p.unit }}｜{{ p.price }}</div>
+                <div v-if="productClassOf(p.code)" class="truncate text-xs text-hint-c" :title="productClassOf(p.code)">{{ productClassOf(p.code) }}</div>
+              </div>
+            </div>
+            <p v-if="!filteredProductResults.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
+          </div>
+
+          <!-- 列表檢視 -->
           <table v-else class="w-full text-sm">
             <thead>
               <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
                 <th class="px-2 py-1.5"></th>
-                <th class="px-2 py-1.5">品項代號</th>
+                <th class="px-2 py-1.5 text-center">圖</th>
                 <th class="px-2 py-1.5">品項名稱</th>
-                <th class="px-2 py-1.5">商品代號</th>
                 <th class="px-2 py-1.5">規格單位</th>
-                <th class="px-2 py-1.5 text-right">重量</th>
                 <th class="px-2 py-1.5 text-right">商品價格</th>
-                <th class="px-2 py-1.5">對應貨號</th>
+                <th class="px-2 py-1.5">所屬類別</th>
               </tr>
             </thead>
             <tbody>
               <tr
-                v-for="p in productResults"
+                v-for="p in filteredProductResults"
                 :key="p.id"
                 class="cursor-pointer border-b border-light-c hover:bg-surface2"
                 @click="toggleProductSelect(p.id)"
               >
                 <td class="px-2 py-1.5"><input type="checkbox" :checked="selectedProductIds.has(p.id)" @click.stop="toggleProductSelect(p.id)"></td>
-                <td class="px-2 py-1.5">{{ p.code }}</td>
+                <td class="px-2 py-1.5 text-center">
+                  <img
+                    v-if="productThumbUrl(p.code)"
+                    :src="productThumbUrl(p.code)"
+                    class="mx-auto h-8 w-8 rounded object-cover"
+                    loading="lazy"
+                  >
+                  <span v-else class="text-xs text-hint-c">-</span>
+                </td>
                 <td class="px-2 py-1.5">{{ p.name }}</td>
-                <td class="px-2 py-1.5">{{ p.prodCode }}</td>
                 <td class="px-2 py-1.5">{{ p.unit }}</td>
-                <td class="px-2 py-1.5 text-right">{{ p.weight }}</td>
                 <td class="px-2 py-1.5 text-right">{{ p.price }}</td>
-                <td class="px-2 py-1.5">{{ p.correspondNo }}</td>
+                <td class="px-2 py-1.5 text-xs text-muted-c">{{ productClassOf(p.code) }}</td>
               </tr>
-              <tr v-if="!productResults.length">
-                <td colspan="8" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+              <tr v-if="!filteredProductResults.length">
+                <td colspan="6" class="px-2 py-6 text-center text-hint-c">查無資料</td>
               </tr>
             </tbody>
           </table>
@@ -1028,27 +1369,55 @@ function handlePrint(fmt) {
 
         <p v-if="printLoading" class="p-6 text-sm text-hint-c">載入中…</p>
         <p v-else-if="printError" class="p-6 text-sm text-red-600">{{ printError }}</p>
-        <table v-else class="w-full text-sm">
-          <tbody>
-            <tr v-for="style in printStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
-              <td class="px-2 py-2">{{ style.name }}</td>
-              <td class="px-2 py-2 text-right">
-                <button
-                  v-for="fmt in style.formats"
-                  :key="`${fmt.reportId}-${fmt.format}`"
-                  class="ml-2 rounded border border-light-c px-3 py-1 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-                  :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
-                  @click="handlePrint(fmt)"
-                >
-                  {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!printStyles.length">
-              <td colspan="2" class="px-2 py-6 text-center text-hint-c">查無可用樣式</td>
-            </tr>
-          </tbody>
-        </table>
+        <template v-else>
+          <table class="w-full text-sm">
+            <tbody>
+              <tr v-for="style in commonPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
+                <td class="px-2 py-2">{{ style.name }}</td>
+                <td class="px-2 py-2 text-right">
+                  <button
+                    v-for="fmt in style.formats"
+                    :key="`${fmt.reportId}-${fmt.format}`"
+                    class="ml-2 rounded border border-light-c px-3 py-1 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+                    :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
+                    @click="handlePrint(fmt)"
+                  >
+                    {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!printStyles.length">
+                <td colspan="2" class="px-2 py-6 text-center text-hint-c">查無可用樣式</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <button
+            v-if="otherPrintStyles.length"
+            class="mt-2 w-full rounded border border-light-c px-3 py-1.5 text-xs text-muted-c hover:bg-surface2"
+            @click="printStylesExpanded = !printStylesExpanded"
+          >
+            {{ printStylesExpanded ? '收起其他樣式 ▲' : `其他樣式 ▼（${otherPrintStyles.length}）` }}
+          </button>
+          <table v-show="printStylesExpanded" class="mt-2 w-full text-sm">
+            <tbody>
+              <tr v-for="style in otherPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
+                <td class="px-2 py-2">{{ style.name }}</td>
+                <td class="px-2 py-2 text-right">
+                  <button
+                    v-for="fmt in style.formats"
+                    :key="`${fmt.reportId}-${fmt.format}`"
+                    class="ml-2 rounded border border-light-c px-3 py-1 text-xs font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+                    :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
+                    @click="handlePrint(fmt)"
+                  >
+                    {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
 
         <p class="mt-3 text-xs text-hint-c">
           按下樣式對應的按鈕會在新分頁開啟報表（依原網站回應而定，可能是檔案下載，或報表檢視器頁面）。
@@ -1065,5 +1434,14 @@ function handlePrint(fmt) {
       <input type="hidden" name="reportFormat" :value="submitReportFormat">
       <input type="hidden" name="titleType" :value="titleType">
     </form>
+
+    <!-- 品項圖片預覽（點明細/商品搜尋的縮圖放大） -->
+    <div
+      v-if="previewUrl"
+      class="fixed inset-0 z-[60] flex cursor-pointer items-center justify-center bg-black/85 p-4"
+      @click="previewUrl = ''"
+    >
+      <img :src="previewUrl" class="max-h-full max-w-full rounded-xl object-contain shadow-2xl" decoding="async">
+    </div>
   </div>
 </template>

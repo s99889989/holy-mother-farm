@@ -91,13 +91,7 @@ onMounted(load)
   <div class="p-4">
     <DcErpShell>
       <div class="space-y-3 p-4">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-bold text-base-c">
-            品項資料管理 - 檢視{{ product.code ? `（${product.code}）` : '' }}
-            <span v-if="breadcrumb.length" class="ml-2 text-xs font-normal text-hint-c">
-              {{ breadcrumb.join(' >> ') }}
-            </span>
-          </div>
+        <div class="flex items-center justify-end">
           <NuxtLink to="/staff/order/dc-erp/products" class="text-xs text-muted-c hover:underline">
             返回列表
           </NuxtLink>

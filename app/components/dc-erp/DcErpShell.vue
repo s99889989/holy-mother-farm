@@ -14,6 +14,16 @@
 //
 // 「品項」是品項資料管理列表頁（products.vue + products.get.ts），目前
 // 只有查詢/檢視，還沒有新增/編輯/刪除，一樣改回站內導覽（NuxtLink）。
+//
+// 「進階品項管理」是本地功能（product-images.vue），用品項代號幫品項綁
+// 圖片，完全不經過 COAERP，前端直打 Spring Boot 的
+// DcErpProductImageController（跟聖母健康農莊「每日菜色」直打
+// MenuController 同一套模式），詳見該頁檔頭註解。
+//
+// 「設定」是全域設定頁（settings.vue）：統一調整四個列表頁的顯示方式/
+// 每頁筆數（純前端 localStorage，key: dc-erp-list-settings），以及批次
+// 「設置所屬類別」（原本在「進階品項管理」，搬過來這裡）。四個列表頁
+// 自己已經沒有列表/卡片切換鈕了，要改都回這頁改。
 async function handleLogout() {
   await $fetch('/api/dc-erp/logout', { method: 'POST' })
   await navigateTo('/staff/order/dc-erp/login')
@@ -22,12 +32,7 @@ async function handleLogout() {
 
 <template>
   <div class="overflow-hidden rounded-2xl border border-light-c bg-surface2">
-    <header class="flex items-center justify-between border-b border-light-c bg-surface px-4 py-2">
-      <div class="text-sm font-bold text-base-c">農業生產組織經營管理系統</div>
-      <button class="text-xs text-red-600 hover:underline" @click="handleLogout">登出 dc-erp</button>
-    </header>
-
-    <nav class="flex gap-1 border-b border-light-c bg-surface px-2 py-1 text-sm">
+    <nav class="flex items-center gap-1 border-b border-light-c bg-surface px-2 py-1 text-sm">
       <NuxtLink
         to="/staff/order/dc-erp"
         class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
@@ -57,12 +62,27 @@ async function handleLogout() {
         品項
       </NuxtLink>
       <NuxtLink
+        to="/staff/order/dc-erp/product-images"
+        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        active-class="bg-surface2 font-medium text-green-700"
+      >
+        進階品項管理
+      </NuxtLink>
+      <NuxtLink
         to="/staff/order/dc-erp/sales-statistics-month"
         class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
       >
         統計月報表
       </NuxtLink>
+      <NuxtLink
+        to="/staff/order/dc-erp/settings"
+        class="rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        active-class="bg-surface2 font-medium text-green-700"
+      >
+        設定
+      </NuxtLink>
+      <button class="ml-auto rounded border border-light-c px-3 py-1.5 text-xs text-red-600 hover:bg-surface2" @click="handleLogout">登出</button>
     </nav>
 
     <slot />
