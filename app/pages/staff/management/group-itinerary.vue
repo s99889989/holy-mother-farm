@@ -193,9 +193,11 @@
     <!-- ===== 新增項目 Modal ===== -->
     <div v-if="addItemModal.open" class="fixed inset-0 bg-black/60 flex items-center justify-center z-40 px-4" @mousedown="onBackdropMousedown" @click="onBackdropClick($event, () => addItemModal.open = false)">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-md p-5" style="max-height:88vh;overflow-y:auto">
-        <h2 class="font-bold text-base-c mb-3" style="font-size:16px">新增項目</h2>
+        <h2 class="font-bold text-base-c mb-3" style="font-size:16px">
+          新增{{ addItemModal.typeLocked ? typeLabel(newItem.type) : '項目' }}
+        </h2>
 
-        <div class="segmented w-fit mb-4">
+        <div v-if="!addItemModal.typeLocked" class="segmented w-fit mb-4">
           <button v-for="t in itemTypes" :key="t" :class="newItem.type === t ? 'seg-active' : ''" :style="newItem.type === t ? segActiveStyle : ''" @click="switchItemType(t)">{{ typeLabel(t) }}</button>
         </div>
 
@@ -322,7 +324,7 @@
 </template>
 
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'management.group-itinerary'})
+definePageMeta({ layout: 'staff', requiredPermission: 'management.group-itinerary' })
 
 const commonStore = useCommonStore()
 const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
@@ -332,17 +334,13 @@ const VENUES_BASE = computed(() => commonStore.data.main_url + '/holy/venues/set
 // Modal 背景點擊關閉：只有「mousedown 跟 click 都落在背景本身」才關閉（比照 rooms-orders.vue 的做法，
 // 避免在 Modal 內容裡按住滑鼠選取文字、放開到背景外面時被誤判成點背景關閉）
 const backdropMouseDownOnSelf = ref(false)
-
-function onBackdropMousedown(e) {
-  backdropMouseDownOnSelf.value = e.target === e.currentTarget
-}
-
+function onBackdropMousedown(e) { backdropMouseDownOnSelf.value = e.target === e.currentTarget }
 function onBackdropClick(e, close) {
   if (backdropMouseDownOnSelf.value && e.target === e.currentTarget) close()
   backdropMouseDownOnSelf.value = false
 }
 
-const segActiveStyle = {background: '#7c3aed', color: '#fff'}
+const segActiveStyle = { background: '#7c3aed', color: '#fff' }
 
 const loading = ref(false)
 const groups = ref([])
@@ -361,38 +359,22 @@ const calendarDays = computed(() => {
   const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
   for (let d = 1; d <= daysInMonth; d++) {
     const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
   }
   return days
 })
-
 function dayClass(day) {
   if (!day.date) return 'cursor-default'
   if (day.date === selectedDate.value) return 'bg-violet-600 text-white font-bold shadow-sm'
   if (day.date === todayStr) return 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-semibold hover:bg-violet-200'
   return 'text-base-c hover-surface2'
 }
-
-function prevMonth() {
-  if (calMonth.value === 1) {
-    calYear.value--;
-    calMonth.value = 12
-  } else calMonth.value--
-}
-
-function nextMonth() {
-  if (calMonth.value === 12) {
-    calYear.value++;
-    calMonth.value = 1
-  } else calMonth.value++
-}
-
-function selectDate(date) {
-  selectedDate.value = date
-}
+function prevMonth() { if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value-- }
+function nextMonth() { if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++ }
+function selectDate(date) { selectedDate.value = date }
 
 // 每個團體從 startDate 到 endDate（含）都算「這天有這個團」，用來點日曆標記／篩選右側清單。
 // 團體行程的日期範圍通常不會太長，但還是設個上限避免資料異常（例如日期打反）時卡住整頁。
@@ -421,11 +403,7 @@ async function fetchGroups() {
   loading.value = true
   try {
     groups.value = await (await fetch(`${GROUP_BASE.value}/list`)).json()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { console.error(e) } finally { loading.value = false }
 }
 
 async function fetchOptionLists() {
@@ -436,67 +414,26 @@ async function fetchOptionLists() {
     ])
     buildings.value = Array.isArray(b) ? b : []
     venues.value = Array.isArray(v) ? v : []
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 /* ---------------- 團體 新增/編輯 ---------------- */
-const groupModal = reactive({
-  open: false,
-  id: '',
-  name: '',
-  startDate: '',
-  endDate: '',
-  contactName: '',
-  contactPhone: '',
-  notes: '',
-  saving: false,
-  error: ''
-})
+const groupModal = reactive({ open: false, id: '', name: '', startDate: '', endDate: '', contactName: '', contactPhone: '', notes: '', saving: false, error: '' })
 
 function openCreateGroup() {
   // 從右側「＋ 新增團體行程」點進來時，預設帶入目前選擇的日期，省得再選一次
   const d = selectedDate.value || todayStr
-  Object.assign(groupModal, {
-    open: true,
-    id: '',
-    name: '',
-    startDate: d,
-    endDate: d,
-    contactName: '',
-    contactPhone: '',
-    notes: '',
-    error: ''
-  })
+  Object.assign(groupModal, { open: true, id: '', name: '', startDate: d, endDate: d, contactName: '', contactPhone: '', notes: '', error: '' })
 }
-
 function openEditGroup() {
   if (!detailGroup.value) return
   const g = detailGroup.value
-  Object.assign(groupModal, {
-    open: true,
-    id: g.id,
-    name: g.name,
-    startDate: g.startDate,
-    endDate: g.endDate,
-    contactName: g.contactName,
-    contactPhone: g.contactPhone,
-    notes: g.notes,
-    error: ''
-  })
+  Object.assign(groupModal, { open: true, id: g.id, name: g.name, startDate: g.startDate, endDate: g.endDate, contactName: g.contactName, contactPhone: g.contactPhone, notes: g.notes, error: '' })
 }
-
 async function saveGroupModal() {
   groupModal.error = ''
-  if (!groupModal.name.trim()) {
-    groupModal.error = '請輸入團體名稱';
-    return
-  }
-  if (!groupModal.startDate) {
-    groupModal.error = '請選擇開始日期';
-    return
-  }
+  if (!groupModal.name.trim()) { groupModal.error = '請輸入團體名稱'; return }
+  if (!groupModal.startDate) { groupModal.error = '請選擇開始日期'; return }
   groupModal.saving = true
   try {
     const body = {
@@ -508,23 +445,12 @@ async function saveGroupModal() {
       contactPhone: groupModal.contactPhone,
       notes: groupModal.notes
     }
-    const res = await (await fetch(`${GROUP_BASE.value}/save`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    })).json()
-    if (res.error) {
-      groupModal.error = res.error;
-      return
-    }
+    const res = await (await fetch(`${GROUP_BASE.value}/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()
+    if (res.error) { groupModal.error = res.error; return }
     groupModal.open = false
     await fetchGroups()
     if (detailGroup.value && detailGroup.value.id === res.id) await openDetail(res.id)
-  } catch (e) {
-    groupModal.error = '儲存失敗'
-  } finally {
-    groupModal.saving = false
-  }
+  } catch (e) { groupModal.error = '儲存失敗' } finally { groupModal.saving = false }
 }
 
 /* ---------------- 團體詳情 ---------------- */
@@ -533,47 +459,27 @@ const detailGroup = ref(null) // { id, name, startDate, endDate, contactName, co
 async function openDetail(id) {
   try {
     const res = await (await fetch(`${GROUP_BASE.value}/${id}`)).json()
-    if (res.error) {
-      alert(res.error);
-      return
-    }
+    if (res.error) { alert(res.error); return }
     detailGroup.value = res
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
-const typeLabelMap = {room: '住宿', venue: '場地租借', booking: '餐廳訂位', lunch: '便當', itinerary: '行程'}
-const typeIconMap = {room: '🛏️', venue: '🏛️', booking: '🍽️', lunch: '🍱', itinerary: '🗓️'}
+const typeLabelMap = { room: '住宿', venue: '場地租借', booking: '餐廳訂位', lunch: '便當', itinerary: '行程' }
+const typeIconMap = { room: '🛏️', venue: '🏛️', booking: '🍽️', lunch: '🍱', itinerary: '🗓️' }
+function typeLabel(t) { return typeLabelMap[t] || t }
+function typeIcon(t) { return typeIconMap[t] || '•' }
 
-function typeLabel(t) {
-  return typeLabelMap[t] || t
-}
-
-function typeIcon(t) {
-  return typeIconMap[t] || '•'
-}
-
-function totalQty(d) {
-  return (d.meatQty || 0) + (d.fullVegQty || 0) + (d.eggVegQty || 0) + (d.spiceVegQty || 0)
-}
-
+function totalQty(d) { return (d.meatQty || 0) + (d.fullVegQty || 0) + (d.eggVegQty || 0) + (d.spiceVegQty || 0) }
 function memberSummary(m) {
   if (m.missing || !m.data) return '（原始資料已被刪除或找不到，僅保留參照紀錄）'
   const d = m.data
   switch (m.type) {
-    case 'room':
-      return `${d.checkIn} → ${d.checkOut}　${d.name || ''}　${d.guests || ''}人　${d.status || ''}`
-    case 'venue':
-      return `${d.startDate} ${d.startTime} → ${d.endDate} ${d.endTime}　${d.name || ''}　${d.status || ''}`
-    case 'booking':
-      return `${d.date} ${d.time}　${d.name || ''}　共${totalQty(d)}人　${d.status || ''}`
-    case 'lunch':
-      return `${d.date} ${d.time}　${d.name || ''}　共${totalQty(d)}份　${d.status || ''}`
-    case 'itinerary':
-      return `${d.date}${d.endDate && d.endDate !== d.date ? ' → ' + d.endDate : ''} ${d.time || ''}　${d.title || ''}`
-    default:
-      return ''
+    case 'room':      return `${d.checkIn} → ${d.checkOut}　${d.name || ''}　${d.guests || ''}人　${d.status || ''}`
+    case 'venue':      return `${d.startDate} ${d.startTime} → ${d.endDate} ${d.endTime}　${d.name || ''}　${d.status || ''}`
+    case 'booking':    return `${d.date} ${d.time}　${d.name || ''}　共${totalQty(d)}人　${d.status || ''}`
+    case 'lunch':      return `${d.date} ${d.time}　${d.name || ''}　共${totalQty(d)}份　${d.status || ''}`
+    case 'itinerary':  return `${d.date}${d.endDate && d.endDate !== d.date ? ' → ' + d.endDate : ''} ${d.time || ''}　${d.title || ''}`
+    default:           return ''
   }
 }
 
@@ -582,35 +488,28 @@ async function removeItem(m) {
   if (!confirm(`確定要移除「${typeLabel(m.type)}」這個項目嗎？對應的原始資料也會一併刪除，此動作無法復原。`)) return
   try {
     const res = await (await fetch(`${GROUP_BASE.value}/remove-item`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({groupId: detailGroup.value.id, memberKey: m.memberKey})
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId: detailGroup.value.id, memberKey: m.memberKey })
     })).json()
-    if (res && res.error) {
-      alert(res.error);
-      return
-    }
+    if (res && res.error) { alert(res.error); return }
     await openDetail(detailGroup.value.id)
     await fetchGroups()
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 async function deleteGroup() {
   if (!detailGroup.value) return
   if (!confirm(`確定要刪除整個團體行程「${detailGroup.value.name}」嗎？底下所有項目都會一併刪除，此動作無法復原。`)) return
   try {
-    await fetch(`${GROUP_BASE.value}/${detailGroup.value.id}`, {method: 'DELETE'})
+    await fetch(`${GROUP_BASE.value}/${detailGroup.value.id}`, { method: 'DELETE' })
     detailGroup.value = null
     await fetchGroups()
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 /* ---------------- 新增項目 ---------------- */
 const itemTypes = ['room', 'venue', 'booking', 'lunch', 'itinerary']
-const addItemModal = reactive({open: false, saving: false, error: ''})
+const addItemModal = reactive({ open: false, saving: false, error: '', typeLocked: false })
 // 新增項目的目標團體 id：從詳情 Modal 開（openAddItem）或直接從列表卡片快速新增（quickAddItem）
 // 都寫這個欄位，不綁死一定要先打開詳情 Modal 才能新增
 const addItemGroupId = ref('')
@@ -635,191 +534,104 @@ function prefillNewItem(g, type) {
     title: '', owner: g.contactName || '', room: '', building: '', description: ''
   })
 }
-
 function openAddItem() {
   if (!detailGroup.value) return
   addItemGroupId.value = detailGroup.value.id
   prefillNewItem(detailGroup.value, 'booking')
+  addItemModal.typeLocked = false
   addItemModal.error = ''
   addItemModal.open = true
 }
-
-// 列表卡片上的「＋住宿」「＋場地租借」…按鈕：不用先點進詳情，直接指定類型開新增 Modal
+// 列表卡片上的「＋住宿」「＋場地租借」…按鈕：類型已經由按的哪顆按鈕決定了，Modal 裡就不用
+// 再讓使用者切換類型（typeLocked = true 會把切換用的 segmented 控制項隱藏）
 function quickAddItem(g, type) {
   addItemGroupId.value = g.id
   prefillNewItem(g, type)
+  addItemModal.typeLocked = true
   addItemModal.error = ''
   addItemModal.open = true
 }
-
-function switchItemType(t) {
-  newItem.type = t
-}
+function switchItemType(t) { newItem.type = t }
 
 function buildItemPayload() {
   const t = newItem.type
   if (t === 'room') {
-    return {
-      checkIn: newItem.checkIn,
-      checkOut: newItem.checkOut,
-      guests: newItem.guests,
-      name: newItem.name,
-      phone: newItem.phone,
-      email: newItem.email,
-      buildingPref: newItem.buildingPref,
-      notes: newItem.note
-    }
+    return { checkIn: newItem.checkIn, checkOut: newItem.checkOut, guests: newItem.guests, name: newItem.name, phone: newItem.phone, email: newItem.email, buildingPref: newItem.buildingPref, notes: newItem.note }
   }
   if (t === 'venue') {
-    return {
-      startDate: newItem.startDate,
-      startTime: newItem.startTime,
-      endDate: newItem.endDate,
-      endTime: newItem.endTime,
-      guests: newItem.guests,
-      name: newItem.name,
-      phone: newItem.phone,
-      email: newItem.email,
-      venuePref: newItem.venuePref,
-      notes: newItem.note
-    }
+    return { startDate: newItem.startDate, startTime: newItem.startTime, endDate: newItem.endDate, endTime: newItem.endTime, guests: newItem.guests, name: newItem.name, phone: newItem.phone, email: newItem.email, venuePref: newItem.venuePref, notes: newItem.note }
   }
   if (t === 'booking' || t === 'lunch') {
-    return {
-      date: newItem.date,
-      time: newItem.time,
-      name: newItem.name,
-      phone: newItem.phone,
-      meatQty: newItem.meatQty,
-      fullVegQty: newItem.fullVegQty,
-      eggVegQty: newItem.eggVegQty,
-      spiceVegQty: newItem.spiceVegQty,
-      note: newItem.note
-    }
+    return { date: newItem.date, time: newItem.time, name: newItem.name, phone: newItem.phone, meatQty: newItem.meatQty, fullVegQty: newItem.fullVegQty, eggVegQty: newItem.eggVegQty, spiceVegQty: newItem.spiceVegQty, note: newItem.note }
   }
   // itinerary
-  return {
-    date: newItem.date,
-    endDate: newItem.endDate,
-    time: newItem.time,
-    endTime: newItem.endTime,
-    title: newItem.title,
-    owner: newItem.owner,
-    room: newItem.room,
-    building: newItem.building,
-    description: newItem.description
-  }
+  return { date: newItem.date, endDate: newItem.endDate, time: newItem.time, endTime: newItem.endTime, title: newItem.title, owner: newItem.owner, room: newItem.room, building: newItem.building, description: newItem.description }
 }
 
 async function submitAddItem() {
   addItemModal.error = ''
   if (!addItemGroupId.value) return
-  if (newItem.type === 'itinerary' && !newItem.title.trim()) {
-    addItemModal.error = '請輸入標題';
-    return
-  }
-  if (newItem.type !== 'itinerary' && !newItem.name.trim()) {
-    addItemModal.error = '請輸入姓名';
-    return
-  }
+  if (newItem.type === 'itinerary' && !newItem.title.trim()) { addItemModal.error = '請輸入標題'; return }
+  if (newItem.type !== 'itinerary' && !newItem.name.trim()) { addItemModal.error = '請輸入姓名'; return }
   addItemModal.saving = true
   try {
-    const body = {groupId: addItemGroupId.value, type: newItem.type, ...buildItemPayload()}
-    const res = await (await fetch(`${GROUP_BASE.value}/add-item`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    })).json()
-    if (res.error) {
-      addItemModal.error = res.error;
-      return
-    }
+    const body = { groupId: addItemGroupId.value, type: newItem.type, ...buildItemPayload() }
+    const res = await (await fetch(`${GROUP_BASE.value}/add-item`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()
+    if (res.error) { addItemModal.error = res.error; return }
     addItemModal.open = false
     await fetchGroups()
     // 詳情 Modal 剛好開著同一個團體時，也一併刷新裡面的項目清單
     if (detailGroup.value && detailGroup.value.id === addItemGroupId.value) await openDetail(addItemGroupId.value)
-  } catch (e) {
-    addItemModal.error = '建立失敗'
-  } finally {
-    addItemModal.saving = false
-  }
+  } catch (e) { addItemModal.error = '建立失敗' } finally { addItemModal.saving = false }
 }
 
 /* ---------------- 整團改期 ---------------- */
-const rescheduleModal = reactive({open: false, newStartDate: '', saving: false, error: ''})
-
+const rescheduleModal = reactive({ open: false, newStartDate: '', saving: false, error: '' })
 function openReschedule() {
   if (!detailGroup.value) return
-  Object.assign(rescheduleModal, {open: true, newStartDate: detailGroup.value.startDate, error: ''})
+  Object.assign(rescheduleModal, { open: true, newStartDate: detailGroup.value.startDate, error: '' })
 }
-
 async function submitReschedule() {
   rescheduleModal.error = ''
-  if (!rescheduleModal.newStartDate) {
-    rescheduleModal.error = '請選擇新的開始日期';
-    return
-  }
+  if (!rescheduleModal.newStartDate) { rescheduleModal.error = '請選擇新的開始日期'; return }
   rescheduleModal.saving = true
   try {
     const res = await (await fetch(`${GROUP_BASE.value}/reschedule`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({groupId: detailGroup.value.id, newStartDate: rescheduleModal.newStartDate})
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId: detailGroup.value.id, newStartDate: rescheduleModal.newStartDate })
     })).json()
-    if (res.error) {
-      rescheduleModal.error = res.error;
-      return
-    }
+    if (res.error) { rescheduleModal.error = res.error; return }
     rescheduleModal.open = false
     await openDetail(detailGroup.value.id)
     await fetchGroups()
     if (res.failedMembers && res.failedMembers.length) {
       alert(`有 ${res.failedMembers.length} 個項目改期失敗（可能是新日期已被佔用），請到詳情裡個別檢查。`)
     }
-  } catch (e) {
-    rescheduleModal.error = '改期失敗'
-  } finally {
-    rescheduleModal.saving = false
-  }
+  } catch (e) { rescheduleModal.error = '改期失敗' } finally { rescheduleModal.saving = false }
 }
 
 /* ---------------- 複製到新日期 ---------------- */
-const copyModal = reactive({open: false, newStartDate: '', newName: '', saving: false, error: ''})
-
+const copyModal = reactive({ open: false, newStartDate: '', newName: '', saving: false, error: '' })
 function openCopy() {
   if (!detailGroup.value) return
-  Object.assign(copyModal, {open: true, newStartDate: '', newName: '', error: ''})
+  Object.assign(copyModal, { open: true, newStartDate: '', newName: '', error: '' })
 }
-
 async function submitCopy() {
   copyModal.error = ''
-  if (!copyModal.newStartDate) {
-    copyModal.error = '請選擇新的開始日期';
-    return
-  }
+  if (!copyModal.newStartDate) { copyModal.error = '請選擇新的開始日期'; return }
   copyModal.saving = true
   try {
-    const body = {groupId: detailGroup.value.id, newStartDate: copyModal.newStartDate}
+    const body = { groupId: detailGroup.value.id, newStartDate: copyModal.newStartDate }
     if (copyModal.newName.trim()) body.newName = copyModal.newName.trim()
-    const res = await (await fetch(`${GROUP_BASE.value}/copy`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    })).json()
-    if (res.error) {
-      copyModal.error = res.error;
-      return
-    }
+    const res = await (await fetch(`${GROUP_BASE.value}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()
+    if (res.error) { copyModal.error = res.error; return }
     copyModal.open = false
     await fetchGroups()
     await openDetail(res.id) // 直接切到新複製出來的團體，方便微調
     if (res.failedSourceMembers && res.failedSourceMembers.length) {
       alert(`有 ${res.failedSourceMembers.length} 個項目複製失敗（來源資料可能已被刪除），請到詳情裡確認。`)
     }
-  } catch (e) {
-    copyModal.error = '複製失敗'
-  } finally {
-    copyModal.saving = false
-  }
+  } catch (e) { copyModal.error = '複製失敗' } finally { copyModal.saving = false }
 }
 
 const route = useRoute()
@@ -843,117 +655,26 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.segmented {
-  display: flex;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 3px;
-  gap: 2px;
-}
+.segmented { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+.segmented button { border: none; background: transparent; color: var(--text-muted); padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.segmented button:hover { background: var(--border-light); color: var(--text); }
+.seg-active, .seg-active:hover { background: #7c3aed; color: #fff; }
+.w-fit { width: fit-content; }
 
-.segmented button {
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
+.panel { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
 
-.segmented button:hover {
-  background: var(--border-light);
-  color: var(--text);
-}
+.status-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 
-.seg-active, .seg-active:hover {
-  background: #7c3aed;
-  color: #fff;
-}
+.mini-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.mini-btn:hover { background: var(--bg); }
+.mini-primary { background: #7c3aed; color: #fff; }
+.mini-primary:hover { background: #7c3aed; filter: brightness(1.08); }
+.mini-danger { background: transparent; border: 1px solid #e11d48; color: #e11d48; }
 
-.w-fit {
-  width: fit-content;
-}
+.btn-plain { padding: 7px 14px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 14px; font-weight: 600; }
+.btn-plain:hover { background: var(--bg); }
+.btn-primary { padding: 7px 14px; border-radius: 8px; background: #7c3aed; color: #fff; font-size: 14px; font-weight: 700; }
+.btn-primary:disabled { opacity: .5; }
 
-.panel {
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: var(--shadow);
-}
-
-.status-badge {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.mini-btn {
-  padding: 5px 10px;
-  border-radius: 6px;
-  background: var(--surface2);
-  color: var(--text-muted);
-  font-size: 12.5px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.mini-btn:hover {
-  background: var(--bg);
-}
-
-.mini-primary {
-  background: #7c3aed;
-  color: #fff;
-}
-
-.mini-primary:hover {
-  background: #7c3aed;
-  filter: brightness(1.08);
-}
-
-.mini-danger {
-  background: transparent;
-  border: 1px solid #e11d48;
-  color: #e11d48;
-}
-
-.btn-plain {
-  padding: 7px 14px;
-  border-radius: 8px;
-  background: var(--surface2);
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.btn-plain:hover {
-  background: var(--bg);
-}
-
-.btn-primary {
-  padding: 7px 14px;
-  border-radius: 8px;
-  background: #7c3aed;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.btn-primary:disabled {
-  opacity: .5;
-}
-
-.field-input {
-  padding: 6px 10px;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  font-size: 13.5px;
-  background: var(--surface2);
-  color: var(--text);
-}
+.field-input { padding: 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 13.5px; background: var(--surface2); color: var(--text); }
 </style>
