@@ -39,6 +39,7 @@ const navGroups = [
     label: '🏢 營運管理',
     items: [
       { to: '/staff/management/calendar', icon: '📅', label: '行事曆', key: 'management.calendar' },
+      { to: '/staff/management/group-itinerary', icon: '⚖️', label: '團體行程', key: 'management.group-itinerary' },
       { to: '/staff/management/body-composition', icon: '⚖️', label: '身體組成分析', key: 'management.body-composition' },
       { to: '/staff/management/lemon-sauce-inventory', icon: '🫙', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' },
       { to: '/staff/management/asset', icon: '🏷️', label: '財產登記', key: 'management.asset' },

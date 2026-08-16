@@ -4,6 +4,16 @@ const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
+const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
+
+// 團體行程名稱查表：訂位只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
+const groupNamesById = ref({})
+const fetchGroupNames = async () => {
+  try {
+    const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
+    groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
+  } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
+}
 
 // ── 共用日曆 ──────────────────────────────────────────────────────
 const apiOnline = ref(false)
@@ -484,6 +494,7 @@ onMounted(async () => {
   await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods()])
   selectedDate.value = todayStr
   await fetchBookings()
+  fetchGroupNames()
 })
 </script>
 
@@ -744,6 +755,11 @@ onMounted(async () => {
                           >
                             {{ booking.status }}
                           </button>
+                          <NuxtLink
+                            v-if="booking.groupItineraryId"
+                            :to="`/staff/management/group-itinerary?open=${booking.groupItineraryId}`"
+                            class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 hover:opacity-80 transition-colors"
+                          >🧳 {{ groupNamesById[booking.groupItineraryId] || '團體行程' }}</NuxtLink>
                         </div>
                         <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-hint-c">
                           <span
