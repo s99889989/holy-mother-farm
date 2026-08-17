@@ -175,6 +175,7 @@
               class="bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
               @click="sceneMapPickMode = true"
             >
+
               📍 在平面圖上定位
             </button>
             <span v-else class="text-[11px] text-[#6f8480]">
