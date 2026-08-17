@@ -225,16 +225,25 @@ export default defineEventHandler(async (event) => {
     body: headerBody.toString()
   })
 
-  if (!(headerRes.status >= 300 && headerRes.status < 400)) {
-    // 沒有導頁，通常代表原網站表單驗證失敗、把同一頁連錯誤訊息一起吐回來。
-    // 注意：明細這時候已經確定存進去了（第二步已經成功），只是表頭這次沒
-    // 存成功，不是整張單都沒存到。
+  const isRedirect = headerRes.status >= 300 && headerRes.status < 400
+
+  // 沒有導頁時，原本假設「一定是驗證失敗」，但這只符合 Create（新增訂貨單）
+  // 的 PRG pattern——原網站的 Edit（編輯既有訂貨單）動作存成功後很可能是
+  // 直接回傳 200（重新渲染同一頁），不會導頁。如果沒導頁但頁面裡也抓不到
+  // 任何驗證錯誤訊息，代表其實是存成功了，不能只看有沒有導頁就判定失敗
+  // ——這是實際發生過的誤判案例（明細跟表頭其實都存成功，卻被這裡誤報）。
+  let errMsg = ''
+  if (!isRedirect) {
     const html = await headerRes.text()
     const $ = load(html)
-    const errMsg = $('.sys-message').text().trim() || $('.field-validation-error').first().text().trim()
+    errMsg = $('.sys-message').text().trim() || $('.field-validation-error').first().text().trim()
+  }
+
+  if (!isRedirect && errMsg) {
+    // 明確抓到原網站吐回來的驗證錯誤訊息，這才是真的沒存成功。
     throw createError({
       statusCode: 422,
-      statusMessage: errMsg || '明細已儲存，但表頭儲存失敗（原網站沒有回傳導頁，可能是必填欄位驗證沒過），請重新整理後確認'
+      statusMessage: errMsg
     })
   }
 

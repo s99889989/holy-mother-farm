@@ -837,7 +837,7 @@ function handlePrint(fmt) {
               </select>
 
               <label class="ml-2 text-muted-c"><span class="text-red-600">*</span>交貨日期：</label>
-              <input v-model="header.primaryDate" type="text" placeholder="YYYY/MM/DD" class="w-28 rounded border border-light-c bg-surface px-2 py-1">
+              <DcErpDateInput v-model="header.primaryDate" />
 
               <label class="ml-2 text-muted-c">單據種類：</label>
               <select v-model="header.type" class="rounded border border-light-c bg-surface px-2 py-1">

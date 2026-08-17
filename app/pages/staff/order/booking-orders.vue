@@ -1,501 +1,504 @@
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'order.booking-orders'})
-const commonStore = useCommonStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
-const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
-const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
-const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
+  definePageMeta({layout: 'staff', requiredPermission: 'order.booking-orders'})
+  const commonStore = useCommonStore()
+  const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
+  const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
+  const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
+  const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
 
-// 團體行程名稱查表：訂位只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
-const groupNamesById = ref({})
-const fetchGroupNames = async () => {
-  try {
-    const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
-    groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
-  } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
-}
-
-// ── 共用日曆 ──────────────────────────────────────────────────────
-const apiOnline = ref(false)
-const selectedDate = ref('')
-const today = new Date()
-const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-const calYear = ref(today.getFullYear())
-const calMonth = ref(today.getMonth() + 1)
-
-const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
-const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
-
-const calendarDays = computed(() => {
-  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
-  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
-  const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+  // 團體行程名稱查表：訂位只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
+  const groupNamesById = ref({})
+  const fetchGroupNames = async () => {
+    try {
+      const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
+      groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
+    } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
   }
-  return days
-})
 
-const dayClass = (day) => {
-  if (!day.date) return 'cursor-default'
-  if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
-  if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
-  return 'text-base-c hover-surface2'
-}
+  // ── 共用日曆 ──────────────────────────────────────────────────────
+  const apiOnline = ref(false)
+  const selectedDate = ref('')
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const calYear = ref(today.getFullYear())
+  const calMonth = ref(today.getMonth() + 1)
 
-const prevMonth = () => {
-  if (calMonth.value === 1) {
-    calYear.value--;
-    calMonth.value = 12
-  } else calMonth.value--
-  fetchMarkedDates();
-  fetchSchedule();
-  fetchRecurring()
-}
-const nextMonth = () => {
-  if (calMonth.value === 12) {
-    calYear.value++;
-    calMonth.value = 1
-  } else calMonth.value++
-  fetchMarkedDates();
-  fetchSchedule();
-  fetchRecurring()
-}
+  const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
+  const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
 
-const selectDate = async (date) => {
-  selectedDate.value = date
-  await fetchBookings()
-}
+  const calendarDays = computed(() => {
+    const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+    const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+    const days = []
+    for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
+    for (let d = 1; d <= daysInMonth; d++) {
+      const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+      days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+    }
+    return days
+  })
 
-// ── 訂位狀態 ──────────────────────────────────────────────────────
-const BOOKING_STATUSES = ['待確認', '已確認', '已入位', '客戶提出取消', '已取消']
-const bookingStatusClass = (status) => {
-  switch (status) {
-    case '已確認':
-      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
-    case '已入位':
-      return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
-    case '客戶提出取消':
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
-    case '已取消':
-      return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
-    default:
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
+  const dayClass = (day) => {
+    if (!day.date) return 'cursor-default'
+    if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
+    if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
+    return 'text-base-c hover-surface2'
   }
-}
 
-// ── 時段設定 ──────────────────────────────────────────────────────
-// 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段
-const periods = ref([]) // [{ id, name, startTime, endTime, color }]
-const periodSettingsOpen = ref(false)
-const periodFormEditingId = ref('')
-const periodForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
-
-const PERIOD_COLORS = [
-  {
-    key: 'amber',
-    label: '琥珀',
-    class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
-  },
-  {
-    key: 'orange',
-    label: '橘',
-    class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'
-  },
-  {
-    key: 'indigo',
-    label: '靛',
-    class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'
-  },
-  {
-    key: 'purple',
-    label: '紫',
-    class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'
-  },
-  {
-    key: 'teal',
-    label: '青',
-    class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
-  },
-]
-const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
-
-const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
-
-// 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
-const findPeriod = (time) => {
-  if (!time) return null
-  return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
-}
-
-const fetchPeriods = async () => {
-  try {
-    periods.value = await (await fetch(`${PERIOD_BASE.value}/list`)).json()
-  } catch (e) {
-    console.error(e)
+  const prevMonth = () => {
+    if (calMonth.value === 1) {
+      calYear.value--;
+      calMonth.value = 12
+    } else calMonth.value--
+    fetchMarkedDates();
+    fetchSchedule();
+    fetchRecurring()
   }
-}
-
-const openPeriodForm = (period) => {
-  if (period) Object.assign(periodForm, period)
-  else Object.assign(periodForm, {id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
-  periodFormEditingId.value = period ? period.id : ''
-}
-
-const savePeriod = async () => {
-  if (!periodForm.name || !periodForm.startTime || !periodForm.endTime) return
-  try {
-    const saved = await (await fetch(`${PERIOD_BASE.value}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...periodForm})
-    })).json()
-    const idx = periods.value.findIndex(p => p.id === saved.id)
-    if (idx >= 0) periods.value[idx] = saved
-    else periods.value.push(saved)
-    openPeriodForm(null)
-    showToast('時段已儲存')
-  } catch {
-    showToast('儲存失敗')
+  const nextMonth = () => {
+    if (calMonth.value === 12) {
+      calYear.value++;
+      calMonth.value = 1
+    } else calMonth.value++
+    fetchMarkedDates();
+    fetchSchedule();
+    fetchRecurring()
   }
-}
 
-const deletePeriod = async (id) => {
-  if (!confirm('確定刪除此時段？')) return
-  try {
-    await fetch(`${PERIOD_BASE.value}/remove/${id}`, {method: 'DELETE'})
-    periods.value = periods.value.filter(p => p.id !== id)
-    if (periodFormEditingId.value === id) openPeriodForm(null)
-    showToast('已刪除')
-  } catch {
-    showToast('刪除失敗')
+  const selectDate = async (date) => {
+    selectedDate.value = date
+    await fetchBookings()
   }
-}
 
-// ── 訂位 ──────────────────────────────────────────────────────────
-const bookings = ref([])
-const markedDates = ref([])
+  // ── 訂位狀態 ──────────────────────────────────────────────────────
+  const BOOKING_STATUSES = ['待確認', '已確認', '已入位', '客戶提出取消', '已取消']
+  const bookingStatusClass = (status) => {
+    switch (status) {
+      case '已確認':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
+      case '已入位':
+        return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
+      case '客戶提出取消':
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
+      case '已取消':
+        return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
+      default:
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
+    }
+  }
 
-const bookingModal = reactive({show: false, isNew: true})
-const bForm = reactive({
-  id: '', date: '', name: '', phone: '', time: '12:00',
-  meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
-})
+  // ── 時段設定 ──────────────────────────────────────────────────────
+  // 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段
+  const periods = ref([]) // [{ id, name, startTime, endTime, color }]
+  const periodSettingsOpen = ref(false)
+  const periodFormEditingId = ref('')
+  const periodForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
 
-const openBookingModal = (booking) => {
-  bookingModal.isNew = !booking
-  Object.assign(bForm, booking ?? {
-    id: '', date: selectedDate.value, name: '', phone: '', time: '12:00',
+  const PERIOD_COLORS = [
+    {
+      key: 'amber',
+      label: '琥珀',
+      class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
+    },
+    {
+      key: 'orange',
+      label: '橘',
+      class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'
+    },
+    {
+      key: 'indigo',
+      label: '靛',
+      class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'
+    },
+    {
+      key: 'purple',
+      label: '紫',
+      class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'
+    },
+    {
+      key: 'teal',
+      label: '青',
+      class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
+    },
+  ]
+  const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
+
+  const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+
+  // 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
+  const findPeriod = (time) => {
+    if (!time) return null
+    return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
+  }
+
+  const fetchPeriods = async () => {
+    try {
+      periods.value = await (await fetch(`${PERIOD_BASE.value}/list`)).json()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const openPeriodForm = (period) => {
+    if (period) Object.assign(periodForm, period)
+    else Object.assign(periodForm, {id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
+    periodFormEditingId.value = period ? period.id : ''
+  }
+
+  const savePeriod = async () => {
+    if (!periodForm.name || !periodForm.startTime || !periodForm.endTime) return
+    try {
+      const saved = await (await fetch(`${PERIOD_BASE.value}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...periodForm})
+      })).json()
+      const idx = periods.value.findIndex(p => p.id === saved.id)
+      if (idx >= 0) periods.value[idx] = saved
+      else periods.value.push(saved)
+      openPeriodForm(null)
+      showToast('時段已儲存')
+    } catch {
+      showToast('儲存失敗')
+    }
+  }
+
+  const deletePeriod = async (id) => {
+    if (!confirm('確定刪除此時段？')) return
+    try {
+      await fetch(`${PERIOD_BASE.value}/remove/${id}`, {method: 'DELETE'})
+      periods.value = periods.value.filter(p => p.id !== id)
+      if (periodFormEditingId.value === id) openPeriodForm(null)
+      showToast('已刪除')
+    } catch {
+      showToast('刪除失敗')
+    }
+  }
+
+  // ── 訂位 ──────────────────────────────────────────────────────────
+  const bookings = ref([])
+  const markedDates = ref([])
+
+  const bookingModal = reactive({show: false, isNew: true})
+  const bForm = reactive({
+    id: '', date: '', name: '', phone: '', time: '12:00',
     meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
   })
-  bookingModal.show = true
-}
 
-const fetchMarkedDates = async () => {
-  try {
-    const res = await fetch(`${BASE.value}/dates/${yearMonth.value}`)
-    if (res.ok) markedDates.value = await res.json()
-    apiOnline.value = true
-  } catch {
-    apiOnline.value = false
-  }
-}
-
-const fetchBookings = async () => {
-  if (!selectedDate.value) return
-  bookings.value = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
-}
-
-const saveBooking = async () => {
-  if (!bForm.name) return
-  if (bookingModal.isNew) {
-    const saved = await (await fetch(`${BASE.value}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...bForm, date: selectedDate.value})
-    })).json()
-    bookings.value.push(saved)
-    bookings.value.sort((a, b) => a.time.localeCompare(b.time))
-    if (!markedDates.value.includes(selectedDate.value)) markedDates.value.push(selectedDate.value)
-    showToast('訂位已新增')
-  } else {
-    await fetch(`${BASE.value}/update`, {
-      method: 'PUT', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(bForm)
+  const openBookingModal = (booking) => {
+    bookingModal.isNew = !booking
+    Object.assign(bForm, booking ?? {
+      id: '', date: selectedDate.value, name: '', phone: '', time: '12:00',
+      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
     })
-    await fetchBookings()
-    showToast('訂位已更新')
+    bookingModal.show = true
   }
-  bookingModal.show = false
-}
 
-const confirmDeleteBooking = async (b) => {
-  if (!confirm(`確定刪除「${b.name}」的訂位？`)) return
-  await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, {method: 'DELETE'})
-  bookings.value = bookings.value.filter(x => x.id !== b.id)
-  if (!bookings.value.length) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
-  showToast('訂位已刪除')
-}
-
-const toggleBookingStatus = async (b) => {
-  const idx = BOOKING_STATUSES.indexOf(b.status)
-  const next = BOOKING_STATUSES[(idx + 1) % BOOKING_STATUSES.length]
-  await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
-  b.status = next
-  showToast(`狀態已更新為「${next}」`)
-}
-
-// ── 訂位人數統計 ──────────────────────────────────────────────────
-const bookingMeat = computed(() => bookings.value.reduce((s, b) => s + (Number(b.meatQty) || 0), 0))
-const bookingVeg = computed(() => bookings.value.reduce((s, b) => s + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
-
-const todayRecurBooking = computed(() => {
-  if (!selectedDate.value) return []
-  const dow = new Date(selectedDate.value).getDay()
-  return recurringRules.value.filter(r => r.type !== 'lunch'
-    && (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
-})
-const recurBookingGuests = computed(() =>
-  todayRecurBooking.value.reduce((s, r) =>
-    s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
-)
-const recurBookingMeat = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
-const recurBookingFull = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
-const recurBookingEgg = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
-const recurBookingSpice = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
-
-// 依時段彙總當日人數（訂位 + 包月），找不到對應時段者歸類為「未分類」
-const periodSummary = computed(() => {
-  const map = new Map()
-  const add = (time, qty) => {
-    const p = findPeriod(time)
-    const key = p ? p.id : '__none__'
-    const cur = map.get(key) || {id: key, name: p ? p.name : '未分類', color: p ? p.color : null, count: 0}
-    cur.count += qty
-    map.set(key, cur)
+  const fetchMarkedDates = async () => {
+    try {
+      const res = await fetch(`${BASE.value}/dates/${yearMonth.value}`)
+      if (res.ok) markedDates.value = await res.json()
+      apiOnline.value = true
+    } catch {
+      apiOnline.value = false
+    }
   }
-  for (const b of bookings.value) {
-    add(b.time, (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0))
+
+  const fetchBookings = async () => {
+    if (!selectedDate.value) return
+    bookings.value = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
   }
-  for (const r of todayRecurBooking.value) {
-    add(r.time, (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0))
+
+  const saveBooking = async () => {
+    if (!bForm.name || !bForm.date) return
+    if (bookingModal.isNew) {
+      const saved = await (await fetch(`${BASE.value}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...bForm})
+      })).json()
+      // 若新增的日期就是目前檢視中的日期，直接把訂位插入清單；否則清單留給下次選到該日期時再撈
+      if (saved.date === selectedDate.value) {
+        bookings.value.push(saved)
+        bookings.value.sort((a, b) => a.time.localeCompare(b.time))
+      }
+      if (!markedDates.value.includes(saved.date)) markedDates.value.push(saved.date)
+      showToast('訂位已新增')
+    } else {
+      await fetch(`${BASE.value}/update`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(bForm)
+      })
+      await fetchBookings()
+      showToast('訂位已更新')
+    }
+    bookingModal.show = false
   }
-  return [...map.values()].filter(g => g.count > 0).sort((a, b) => {
-    if (a.id === '__none__') return 1
-    if (b.id === '__none__') return -1
-    return a.name.localeCompare(b.name)
+
+  const confirmDeleteBooking = async (b) => {
+    if (!confirm(`確定刪除「${b.name}」的訂位？`)) return
+    await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, {method: 'DELETE'})
+    bookings.value = bookings.value.filter(x => x.id !== b.id)
+    if (!bookings.value.length) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
+    showToast('訂位已刪除')
+  }
+
+  const toggleBookingStatus = async (b) => {
+    const idx = BOOKING_STATUSES.indexOf(b.status)
+    const next = BOOKING_STATUSES[(idx + 1) % BOOKING_STATUSES.length]
+    await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
+    b.status = next
+    showToast(`狀態已更新為「${next}」`)
+  }
+
+  // ── 訂位人數統計 ──────────────────────────────────────────────────
+  const bookingMeat = computed(() => bookings.value.reduce((s, b) => s + (Number(b.meatQty) || 0), 0))
+  const bookingVeg = computed(() => bookings.value.reduce((s, b) => s + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
+
+  const todayRecurBooking = computed(() => {
+    if (!selectedDate.value) return []
+    const dow = new Date(selectedDate.value).getDay()
+    return recurringRules.value.filter(r => r.type !== 'lunch'
+      && (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
   })
-})
+  const recurBookingGuests = computed(() =>
+    todayRecurBooking.value.reduce((s, r) =>
+      s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
+  )
+  const recurBookingMeat = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
+  const recurBookingFull = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
+  const recurBookingEgg = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
+  const recurBookingSpice = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
 
-// ── 當月預定 ──────────────────────────────────────────────────────
-const RECUR_BASE = computed(() => commonStore.data.main_url + '/holy/recurring')
-const recurringRules = ref([])
-const recurModal = reactive({show: false, isNew: true})
-const recurForm = reactive({
-  id: '', name: '', type: 'booking', time: '12:00',
-  meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
-})
-const recurExpand = ref({})
+  // 依時段彙總當日人數（訂位 + 包月），找不到對應時段者歸類為「未分類」
+  const periodSummary = computed(() => {
+    const map = new Map()
+    const add = (time, qty) => {
+      const p = findPeriod(time)
+      const key = p ? p.id : '__none__'
+      const cur = map.get(key) || {id: key, name: p ? p.name : '未分類', color: p ? p.color : null, count: 0}
+      cur.count += qty
+      map.set(key, cur)
+    }
+    for (const b of bookings.value) {
+      add(b.time, (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0))
+    }
+    for (const r of todayRecurBooking.value) {
+      add(r.time, (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0))
+    }
+    return [...map.values()].filter(g => g.count > 0).sort((a, b) => {
+      if (a.id === '__none__') return 1
+      if (b.id === '__none__') return -1
+      return a.name.localeCompare(b.name)
+    })
+  })
 
-const fetchRecurring = async () => {
-  try {
+  // ── 當月預定 ──────────────────────────────────────────────────────
+  const RECUR_BASE = computed(() => commonStore.data.main_url + '/holy/recurring')
+  const recurringRules = ref([])
+  const recurModal = reactive({show: false, isNew: true})
+  const recurForm = reactive({
+    id: '', name: '', type: 'booking', time: '12:00',
+    meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
+  })
+  const recurExpand = ref({})
+
+  const fetchRecurring = async () => {
+    try {
+      const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
+      recurringRules.value = await (await fetch(`${RECUR_BASE.value}/list/${ym}`)).json()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const openRecurModal = (rule) => {
+    recurModal.isNew = !rule
+    if (rule) {
+      Object.assign(recurForm, {
+        id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00',
+        meatQty: rule.meatQty || 0, fullVegQty: rule.fullVegQty || 0,
+        eggVegQty: rule.eggVegQty || 0, spiceVegQty: rule.spiceVegQty || 0,
+        note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : []
+      })
+    } else {
+      Object.assign(recurForm, {
+        id: '', name: '', type: 'booking', time: '12:00',
+        meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
+      })
+    }
+    recurModal.show = true
+  }
+
+  const saveRecurring = async () => {
+    if (!recurForm.name) return
     const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
-    recurringRules.value = await (await fetch(`${RECUR_BASE.value}/list/${ym}`)).json()
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const openRecurModal = (rule) => {
-  recurModal.isNew = !rule
-  if (rule) {
-    Object.assign(recurForm, {
-      id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00',
-      meatQty: rule.meatQty || 0, fullVegQty: rule.fullVegQty || 0,
-      eggVegQty: rule.eggVegQty || 0, spiceVegQty: rule.spiceVegQty || 0,
-      note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : []
-    })
-  } else {
-    Object.assign(recurForm, {
-      id: '', name: '', type: 'booking', time: '12:00',
-      meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
-    })
-  }
-  recurModal.show = true
-}
-
-const saveRecurring = async () => {
-  if (!recurForm.name) return
-  const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
-  try {
-    const saved = await (await fetch(`${RECUR_BASE.value}/save/${ym}`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...recurForm})
-    })).json()
-    if (recurModal.isNew) recurringRules.value.push(saved)
-    else {
-      const idx = recurringRules.value.findIndex(r => r.id === saved.id)
-      if (idx >= 0) recurringRules.value[idx] = saved
+    try {
+      const saved = await (await fetch(`${RECUR_BASE.value}/save/${ym}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...recurForm})
+      })).json()
+      if (recurModal.isNew) recurringRules.value.push(saved)
+      else {
+        const idx = recurringRules.value.findIndex(r => r.id === saved.id)
+        if (idx >= 0) recurringRules.value[idx] = saved
+      }
+      recurModal.show = false
+      showToast(recurModal.isNew ? '已新增' : '已更新')
+    } catch {
+      showToast('儲存失敗')
     }
-    recurModal.show = false
-    showToast(recurModal.isNew ? '已新增' : '已更新')
-  } catch {
-    showToast('儲存失敗')
   }
-}
 
-const deleteRecurring = async (id) => {
-  if (!confirm('確定刪除此預定？')) return
-  const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
-  try {
-    await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, {method: 'DELETE'})
-    recurringRules.value = recurringRules.value.filter(r => r.id !== id)
-    showToast('已刪除')
-  } catch {
-    showToast('刪除失敗')
-  }
-}
-
-// ── 行事曆 ────────────────────────────────────────────────────────
-const SCHED_BASE = computed(() => commonStore.data.main_url + '/holy/schedule')
-const schedSettingsOpen = ref(false)
-const schedDefault = reactive({activity: '康樂', count: '', time: '', enabled: true})
-const schedNotes = ref('')
-const schedDayData = ref({})
-const schedModal = reactive({show: false, date: '', data: {}})
-
-const schedYearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
-
-const schedDayBookings = ref([])
-const schedDayLunch = ref([])
-const schedSelectedDate = ref('')
-
-const schedDayRecur = computed(() => {
-  if (!schedSelectedDate.value) return []
-  const dow = new Date(schedSelectedDate.value).getDay()
-  return recurringRules.value.filter(r =>
-    !r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow))
-})
-
-const schedDayTotal = computed(() => {
-  const bookingGuests = schedDayBookings.value.reduce((s, b) =>
-    s + (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0)
-  const recurGuests = schedDayRecur.value.reduce((s, r) => s + (Number(r.guests) || 0), 0)
-  return bookingGuests + recurGuests
-})
-
-const selectSchedDate = async (date) => {
-  schedSelectedDate.value = date
-  try {
-    const bRes = await fetch(`${BASE.value}/get/${date}`)
-    schedDayBookings.value = bRes.ok ? await bRes.json() : []
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const fetchSchedule = async () => {
-  try {
-    const ym = schedYearMonth.value
-    const [schedRes, bookDates, recurRes] = await Promise.all([
-      fetch(`${SCHED_BASE.value}/get/${ym}`),
-      fetch(`${BASE.value}/dates/${ym}`),
-      fetch(`${RECUR_BASE.value}/expand/${ym}`)
-    ])
-    if (schedRes.ok) {
-      const data = await schedRes.json()
-      const d = data.default || {}
-      schedDefault.activity = d.activity ?? '康樂'
-      schedDefault.count = d.count ?? ''
-      schedDefault.time = d.time ?? ''
-      schedDefault.enabled = d.enabled !== false
-      schedNotes.value = data.notes || ''
-      schedDayData.value = data.days || {}
+  const deleteRecurring = async (id) => {
+    if (!confirm('確定刪除此預定？')) return
+    const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
+    try {
+      await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, {method: 'DELETE'})
+      recurringRules.value = recurringRules.value.filter(r => r.id !== id)
+      showToast('已刪除')
+    } catch {
+      showToast('刪除失敗')
     }
-    if (bookDates.ok) markedDates.value = await bookDates.json()
-    if (recurRes.ok) recurExpand.value = await recurRes.json()
-  } catch (e) {
-    console.error(e)
   }
-}
 
-const saveSchedDefault = async () => {
-  try {
-    await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...schedDefault, notes: schedNotes.value})
-    })
-    await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(schedNotes.value)
-    })
-    showToast('預設值已儲存')
-    schedSettingsOpen.value = false
-  } catch {
-    showToast('儲存失敗')
+  // ── 行事曆 ────────────────────────────────────────────────────────
+  const SCHED_BASE = computed(() => commonStore.data.main_url + '/holy/schedule')
+  const schedSettingsOpen = ref(false)
+  const schedDefault = reactive({activity: '康樂', count: '', time: '', enabled: true})
+  const schedNotes = ref('')
+  const schedDayData = ref({})
+  const schedModal = reactive({show: false, date: '', data: {}})
+
+  const schedYearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
+
+  const schedDayBookings = ref([])
+  const schedDayLunch = ref([])
+  const schedSelectedDate = ref('')
+
+  const schedDayRecur = computed(() => {
+    if (!schedSelectedDate.value) return []
+    const dow = new Date(schedSelectedDate.value).getDay()
+    return recurringRules.value.filter(r =>
+      !r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow))
+  })
+
+  const schedDayTotal = computed(() => {
+    const bookingGuests = schedDayBookings.value.reduce((s, b) =>
+      s + (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0)
+    const recurGuests = schedDayRecur.value.reduce((s, r) => s + (Number(r.guests) || 0), 0)
+    return bookingGuests + recurGuests
+  })
+
+  const selectSchedDate = async (date) => {
+    schedSelectedDate.value = date
+    try {
+      const bRes = await fetch(`${BASE.value}/get/${date}`)
+      schedDayBookings.value = bRes.ok ? await bRes.json() : []
+    } catch (e) {
+      console.error(e)
+    }
   }
-}
 
-const openSchedModal = (day) => {
-  const custom = schedDayData.value[day.date] || {}
-  schedModal.date = day.date
-  schedModal.data = {
-    activity: custom.activity || '', count: custom.count || '',
-    time: custom.time || '', note: custom.note || '',
-    holiday: custom.holiday || '',
-    enabled: custom.enabled !== undefined ? custom.enabled : null
+  const fetchSchedule = async () => {
+    try {
+      const ym = schedYearMonth.value
+      const [schedRes, bookDates, recurRes] = await Promise.all([
+        fetch(`${SCHED_BASE.value}/get/${ym}`),
+        fetch(`${BASE.value}/dates/${ym}`),
+        fetch(`${RECUR_BASE.value}/expand/${ym}`)
+      ])
+      if (schedRes.ok) {
+        const data = await schedRes.json()
+        const d = data.default || {}
+        schedDefault.activity = d.activity ?? '康樂'
+        schedDefault.count = d.count ?? ''
+        schedDefault.time = d.time ?? ''
+        schedDefault.enabled = d.enabled !== false
+        schedNotes.value = data.notes || ''
+        schedDayData.value = data.days || {}
+      }
+      if (bookDates.ok) markedDates.value = await bookDates.json()
+      if (recurRes.ok) recurExpand.value = await recurRes.json()
+    } catch (e) {
+      console.error(e)
+    }
   }
-  schedModal.show = true
-}
 
-const saveSchedDay = async () => {
-  try {
-    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...schedModal.data})
-    })
-    const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
-    if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
-    else {
+  const saveSchedDefault = async () => {
+    try {
+      await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...schedDefault, notes: schedNotes.value})
+      })
+      await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(schedNotes.value)
+      })
+      showToast('預設值已儲存')
+      schedSettingsOpen.value = false
+    } catch {
+      showToast('儲存失敗')
+    }
+  }
+
+  const openSchedModal = (day) => {
+    const custom = schedDayData.value[day.date] || {}
+    schedModal.date = day.date
+    schedModal.data = {
+      activity: custom.activity || '', count: custom.count || '',
+      time: custom.time || '', note: custom.note || '',
+      holiday: custom.holiday || '',
+      enabled: custom.enabled !== undefined ? custom.enabled : null
+    }
+    schedModal.show = true
+  }
+
+  const saveSchedDay = async () => {
+    try {
+      await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...schedModal.data})
+      })
+      const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
+      if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
+      else {
+        const nd = {...schedDayData.value};
+        delete nd[schedModal.date];
+        schedDayData.value = nd
+      }
+      schedModal.show = false;
+      showToast('已儲存')
+    } catch {
+      showToast('儲存失敗')
+    }
+  }
+
+  const clearSchedDay = async () => {
+    try {
+      await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
       const nd = {...schedDayData.value};
       delete nd[schedModal.date];
       schedDayData.value = nd
+      schedModal.show = false;
+      showToast('已重設為預設')
+    } catch {
+      showToast('操作失敗')
     }
-    schedModal.show = false;
-    showToast('已儲存')
-  } catch {
-    showToast('儲存失敗')
   }
-}
 
-const clearSchedDay = async () => {
-  try {
-    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
-    const nd = {...schedDayData.value};
-    delete nd[schedModal.date];
-    schedDayData.value = nd
-    schedModal.show = false;
-    showToast('已重設為預設')
-  } catch {
-    showToast('操作失敗')
+  // ── Toast ─────────────────────────────────────────────────────────
+  const toast = reactive({show: false, message: ''})
+  const showToast = (msg) => {
+    toast.message = msg;
+    toast.show = true
+    setTimeout(() => toast.show = false, 2500)
   }
-}
 
-// ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({show: false, message: ''})
-const showToast = (msg) => {
-  toast.message = msg;
-  toast.show = true
-  setTimeout(() => toast.show = false, 2500)
-}
-
-// ── 初始化 ────────────────────────────────────────────────────────
-onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods()])
-  selectedDate.value = todayStr
-  await fetchBookings()
-  fetchGroupNames()
-})
+  // ── 初始化 ────────────────────────────────────────────────────────
+  onMounted(async () => {
+    await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods()])
+    selectedDate.value = todayStr
+    await fetchBookings()
+    fetchGroupNames()
+  })
 </script>
 
 <template>
@@ -542,7 +545,24 @@ onMounted(async () => {
       <div class="flex flex-col lg:flex-row gap-4 items-start">
         <!-- ── 左欄：日曆（常駐）── -->
         <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
-          <div class="bg-surface rounded-2xl border border-light-c shadow-sm p-4 lg:sticky lg:top-20">
+          <!-- 手機版：僅顯示日期選擇器，不顯示完整日曆 -->
+          <div class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 flex items-center gap-2 mb-3">
+            <input
+              :value="selectedDate"
+              type="date"
+              class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              @change="selectDate($event.target.value)"
+            >
+            <button
+              class="px-3 py-2 text-sm text-green-700 dark:text-green-400 hover:text-green-800 font-medium whitespace-nowrap flex-shrink-0"
+              @click="selectDate(todayStr)"
+            >
+              今天
+            </button>
+          </div>
+
+          <!-- 桌面版：完整日曆 -->
+          <div class="hidden lg:block bg-surface rounded-2xl border border-light-c shadow-sm p-4 lg:sticky lg:top-20">
             <div class="flex items-center justify-between mb-3">
               <button
                 class="p-1.5 hover-surface2 rounded-lg transition-colors"
@@ -957,6 +977,14 @@ onMounted(async () => {
         </div>
         <div class="space-y-3">
           <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">日期 *</label>
+            <input
+              v-model="bForm.date"
+              type="date"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+          </div>
+          <div>
             <label class="text-sm font-medium text-muted-c block mb-1">姓名 *</label>
             <input
               v-model="bForm.name"
@@ -1058,7 +1086,7 @@ onMounted(async () => {
             取消
           </button>
           <button
-            :disabled="!bForm.name"
+            :disabled="!bForm.name || !bForm.date"
             class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
             @click="saveBooking"
           >
@@ -1184,7 +1212,7 @@ onMounted(async () => {
             </div>
             <p class="text-xs text-hint-c mt-1.5">
               合計：{{
-                (recurForm.meatQty || 0) + (recurForm.fullVegQty || 0) + (recurForm.eggVegQty || 0) + (recurForm.spiceVegQty || 0)
+              (recurForm.meatQty || 0) + (recurForm.fullVegQty || 0) + (recurForm.eggVegQty || 0) + (recurForm.spiceVegQty || 0)
               }} 人
             </p>
           </div>
@@ -1395,12 +1423,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.3s, transform 0.3s;
+  }
 
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
+  .fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 </style>
