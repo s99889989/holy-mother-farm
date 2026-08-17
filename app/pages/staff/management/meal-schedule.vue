@@ -195,7 +195,19 @@
 
         <!-- ── 左欄：日曆（常駐）── -->
         <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
-          <div class="bg-surface rounded-2xl border border-light-c shadow-sm p-4 lg:sticky lg:top-20">
+          <!-- 手機版：僅顯示日期選擇器，不顯示完整日曆 -->
+          <div class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 flex items-center gap-2 mb-3">
+            <input :value="selectedDate" type="date"
+                   class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+                   @change="selectDate($event.target.value)"/>
+            <button @click="selectDate(todayStr)"
+                    class="px-3 py-2 text-sm text-green-700 dark:text-green-400 hover:text-green-800 font-medium whitespace-nowrap flex-shrink-0">
+              今天
+            </button>
+          </div>
+
+          <!-- 桌面版：完整日曆 -->
+          <div class="hidden lg:block bg-surface rounded-2xl border border-light-c shadow-sm p-4 lg:sticky lg:top-20">
             <div class="flex items-center justify-between mb-3">
               <button @click="prevMonth" class="p-1.5 hover-surface2 rounded-lg transition-colors">
                 <svg class="w-5 h-5 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
