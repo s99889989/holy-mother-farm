@@ -1,0 +1,59 @@
+{
+  "zones": [
+    { "id": "demo-zone", "name": "示範分區", "order": 1 }
+  ],
+  "scenes": [
+    {
+      "id": "scene-a",
+      "zoneId": "demo-zone",
+      "name": "玄關 / 衣帽區",
+      "initialYaw": 0,
+      "initialPitch": 0,
+      "tileConfig": {
+        "width": 3840,
+        "height": 1920,
+        "cols": 8,
+        "rows": 4,
+        "tileWidth": 480,
+        "tileHeight": 480,
+        "baseUrl": "preview.jpg",
+        "tileUrlPattern": "tiles/{col}x{row}.jpg"
+      }
+    },
+    {
+      "id": "scene-b",
+      "zoneId": "demo-zone",
+      "name": "臥室",
+      "initialYaw": 0,
+      "initialPitch": 0,
+      "tileConfig": {
+        "width": 3840,
+        "height": 1920,
+        "cols": 8,
+        "rows": 4,
+        "tileWidth": 480,
+        "tileHeight": 480,
+        "baseUrl": "preview.jpg",
+        "tileUrlPattern": "tiles/{col}x{row}.jpg"
+      }
+    }
+  ],
+  "hotspots": [
+    {
+      "id": "hs-1",
+      "sceneId": "scene-a",
+      "targetSceneId": "scene-b",
+      "yaw": 15,
+      "pitch": 0,
+      "label": "前往臥室"
+    },
+    {
+      "id": "hs-2",
+      "sceneId": "scene-b",
+      "targetSceneId": "scene-a",
+      "yaw": -160,
+      "pitch": 0,
+      "label": "返回玄關 / 衣帽區"
+    }
+  ]
+}

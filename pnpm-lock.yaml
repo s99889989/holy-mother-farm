@@ -23,6 +23,15 @@ importers:
       '@pdf-lib/fontkit':
         specifier: ^1.1.1
         version: 1.1.1
+      '@photo-sphere-viewer/core':
+        specifier: ^5.15.1
+        version: 5.15.1
+      '@photo-sphere-viewer/equirectangular-tiles-adapter':
+        specifier: ^5.15.1
+        version: 5.15.1(@photo-sphere-viewer/core@5.15.1)
+      '@photo-sphere-viewer/markers-plugin':
+        specifier: ^5.15.1
+        version: 5.15.1(@photo-sphere-viewer/core@5.15.1)
       '@pinia-plugin-persistedstate/nuxt':
         specifier: ^1.2.1
         version: 1.2.1(@pinia/nuxt@0.11.3(magicast@0.5.2)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3))))(magicast@0.5.2)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3)))
@@ -74,6 +83,9 @@ importers:
       tailwindcss:
         specifier: ^4.2.1
         version: 4.2.1
+      three:
+        specifier: ^0.185.1
+        version: 0.185.1
     devDependencies:
       '@nuxt/eslint':
         specifier: ^1.15.2
@@ -1265,6 +1277,19 @@ packages:
 
   '@pdf-lib/upng@1.0.1':
     resolution: {integrity: sha512-dQK2FUMQtowVP00mtIksrlZhdFXQZPC+taih1q4CvPZ5vqdxR/LKBaFg0oAfzd1GlHZXXSPdQfzQnt+ViGvEIQ==}
+
+  '@photo-sphere-viewer/core@5.15.1':
+    resolution: {integrity: sha512-nhJviczUB1xiAT/I7mGba9iDIw7DvsiK34hbR9t7kIrg9MySG33uA+a4QUk2dEOP5PjcKMj58wod8I/dQ7ePiw==}
+
+  '@photo-sphere-viewer/equirectangular-tiles-adapter@5.15.1':
+    resolution: {integrity: sha512-j3m38OjTKvUASU5V3gH8yAp9TAVqX5/LwVuxkWGI16q3eODHH/WyPVSEUN/GJX9m9y80/FweVoM8SduM9atR6Q==}
+    peerDependencies:
+      '@photo-sphere-viewer/core': 5.15.1
+
+  '@photo-sphere-viewer/markers-plugin@5.15.1':
+    resolution: {integrity: sha512-57WiHy8fcQfwid9x07ADiQJGxzcFxclbR2yIqeggzfPDguwJlCKwX5tj8brTRqwouUiHpkb80QWxHByxt45LcA==}
+    peerDependencies:
+      '@photo-sphere-viewer/core': 5.15.1
 
   '@pinia-plugin-persistedstate/nuxt@1.2.1':
     resolution: {integrity: sha512-q8s+4aQW/AjBMyeqLL48/qzBR5lcgnvvf1525ovNuKf6Wl9CsoLjPKh/5X8vNoKGwSow4gP7lVmdYPQRypgjgg==}
@@ -5254,6 +5279,9 @@ packages:
   text-decoder@1.2.7:
     resolution: {integrity: sha512-vlLytXkeP4xvEq2otHeJfSQIRyWxo/oZGEbXrtEEF9Hnmrdly59sUbzZ/QgyWuLYHctCHxFF4tRQZNQ9k60ExQ==}
 
+  three@0.185.1:
+    resolution: {integrity: sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==}
+
   tiny-inflate@1.0.3:
     resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
 
@@ -7268,6 +7296,18 @@ snapshots:
   '@pdf-lib/upng@1.0.1':
     dependencies:
       pako: 1.0.11
+
+  '@photo-sphere-viewer/core@5.15.1':
+    dependencies:
+      three: 0.185.1
+
+  '@photo-sphere-viewer/equirectangular-tiles-adapter@5.15.1(@photo-sphere-viewer/core@5.15.1)':
+    dependencies:
+      '@photo-sphere-viewer/core': 5.15.1
+
+  '@photo-sphere-viewer/markers-plugin@5.15.1(@photo-sphere-viewer/core@5.15.1)':
+    dependencies:
+      '@photo-sphere-viewer/core': 5.15.1
 
   '@pinia-plugin-persistedstate/nuxt@1.2.1(@pinia/nuxt@0.11.3(magicast@0.5.2)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3))))(magicast@0.5.2)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3)))':
     dependencies:
@@ -11551,6 +11591,8 @@ snapshots:
       b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
+
+  three@0.185.1: {}
 
   tiny-inflate@1.0.3: {}
 

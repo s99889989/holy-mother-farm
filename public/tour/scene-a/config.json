@@ -1,0 +1,11 @@
+{
+  "sceneId": "scene-a",
+  "width": 3840,
+  "height": 1920,
+  "cols": 8,
+  "rows": 4,
+  "tileWidth": 480,
+  "tileHeight": 480,
+  "baseUrl": "preview.jpg",
+  "tileUrlPattern": "tiles/{col}x{row}.jpg"
+}
