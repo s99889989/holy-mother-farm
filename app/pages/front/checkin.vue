@@ -240,6 +240,49 @@
   }
 
   // ════════════════════════════════════════════════════
+  // 全頁監聽掃描槍輸入 — DK-7322 這類 USB 鍵盤模擬掃描槍是把內容
+  // 「打」進目前有焦點的元素；如果沒有特別點過輸入框，焦點通常停在
+  // <body>，導致掃描沒反應。這裡改成監聽整個頁面的按鍵，只要焦點
+  // 不是落在其他輸入類元件上，就直接把按鍵收進 manualEmail，
+  // 不需要員工先手動點擊輸入框
+  // ════════════════════════════════════════════════════
+  let scannerBuffer = ''
+  let lastGlobalKeyTime = 0
+  const GLOBAL_SCAN_RESET_MS = 150
+
+  const isEditableTarget = (el) => {
+    if (!el) return false
+    const tag = el.tagName
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+  }
+
+  const handleGlobalKeydown = (e) => {
+    if (mode.value !== 'manual') return
+    // 焦點已經在輸入框（或其他表單元件）上時，交給原生 input/v-model 處理，避免重複輸入
+    if (isEditableTarget(e.target)) return
+
+    // Enter 一律先嘗試送出目前緩衝的內容，不要因為時間判斷被清空，
+    // 避免掃描槍的結尾 Enter 稍微延遲送達時整筆資料被誤判成過期而遺失
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (scannerBuffer) {
+        handleDecodedValue(scannerBuffer, { skipCooldown: true })
+        scannerBuffer = ''
+      }
+      return
+    }
+
+    const now = Date.now()
+    if (now - lastGlobalKeyTime > GLOBAL_SCAN_RESET_MS) scannerBuffer = ''
+    lastGlobalKeyTime = now
+
+    if (e.key.length === 1) {
+      scannerBuffer += e.key
+      manualEmail.value = scannerBuffer // 讓輸入框同步顯示掃描進度，方便確認
+    }
+  }
+
+  // ════════════════════════════════════════════════════
   // 今日簽到清單
   // ════════════════════════════════════════════════════
   const todayList = ref([])
@@ -272,11 +315,13 @@
     fetchTodayList()
     if (mode.value === 'camera') startCamera()
     else focusManualInput()
+    document.addEventListener('keydown', handleGlobalKeydown)
   })
 
   onUnmounted(() => {
     stopCamera()
     clearTimeout(bannerTimer)
+    document.removeEventListener('keydown', handleGlobalKeydown)
   })
 </script>
 
@@ -319,7 +364,7 @@
 
       <!-- 外接掃描器（如 DK-7322）／手動輸入 -->
       <form v-else class="ci-manual" @submit.prevent="submitManual">
-        <label class="ci-manual__label">掃描槍請對準此欄位掃描，或手動輸入會員 Email</label>
+        <label class="ci-manual__label">直接用掃描槍掃描即可（免點擊輸入框），或手動輸入會員 Email</label>
         <div class="ci-manual__row">
           <input
             ref="manualInputRef"
@@ -333,7 +378,7 @@
           >
           <button type="submit" class="ci-manual__btn" :disabled="submitting">簽到</button>
         </div>
-        <p class="ci-manual__scanner-tip">使用 DK-7322 等 USB 掃描槍：插上即可用（免驅動），掃描前先點一下上方欄位讓游標在裡面，接著掃描會員 QRCode，掃描槍會自動輸入內容並送出簽到。</p>
+        <p class="ci-manual__scanner-tip">使用 DK-7322 等 USB 掃描槍：插上即可用（免驅動），在此頁面上直接掃描會員 QRCode 即可自動簽到，不需要先點擊輸入框（除非游標正停在其他文字欄位裡）。</p>
       </form>
     </div>
 
