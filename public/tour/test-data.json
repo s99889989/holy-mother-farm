@@ -1,12 +1,36 @@
 {
   "zones": [
-    { "id": "demo-zone", "name": "示範分區", "order": 1 }
+    {
+      "id": "senior-service",
+      "name": "高齡服務園區",
+      "order": 1
+    },
+    {
+      "id": "lezhi-home",
+      "name": "樂智幸福家園",
+      "order": 2
+    },
+    {
+      "id": "main-venue",
+      "name": "主會場區",
+      "order": 3
+    },
+    {
+      "id": "vocational",
+      "name": "職能教室區",
+      "order": 4
+    },
+    {
+      "id": "outdoor",
+      "name": "戶外景觀",
+      "order": 5
+    }
   ],
   "scenes": [
     {
       "id": "scene-a",
-      "zoneId": "demo-zone",
-      "name": "玄關 / 衣帽區",
+      "zoneId": "main-venue",
+      "name": "快樂運動館 / 主會場",
       "initialYaw": 0,
       "initialPitch": 0,
       "tileConfig": {
@@ -18,12 +42,14 @@
         "tileHeight": 480,
         "baseUrl": "preview.jpg",
         "tileUrlPattern": "tiles/{col}x{row}.jpg"
-      }
+      },
+      "mapX": 30.7,
+      "mapY": 51.9
     },
     {
       "id": "scene-b",
-      "zoneId": "demo-zone",
-      "name": "臥室",
+      "zoneId": "lezhi-home",
+      "name": "樂智幸福家園",
       "initialYaw": 0,
       "initialPitch": 0,
       "tileConfig": {
@@ -35,7 +61,9 @@
         "tileHeight": 480,
         "baseUrl": "preview.jpg",
         "tileUrlPattern": "tiles/{col}x{row}.jpg"
-      }
+      },
+      "mapX": 60.4,
+      "mapY": 42.7
     }
   ],
   "hotspots": [

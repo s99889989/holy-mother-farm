@@ -49,7 +49,8 @@ async function fetchCategories() {
   } catch (err) {
     items.value = []
     if (err?.statusCode === 401 || err?.response?.status === 401) {
-      loadError.value = 'unauthorized'
+      await navigateTo('/staff/order/shopping-cart/login')
+      return
     } else {
       loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
     }
@@ -174,14 +175,7 @@ onMounted(fetchCategories)
         {{ toast.message }}
       </p>
 
-      <div v-if="loadError === 'unauthorized'" class="bg-surface rounded-xl border border-light-c p-6 text-center space-y-3">
-        <p class="text-muted-c text-sm">尚未登入購物車後台。</p>
-        <NuxtLink to="/staff/order/shopping-cart/login" class="inline-block px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 transition-colors">
-          前往登入購物車後台
-        </NuxtLink>
-      </div>
-
-      <template v-else>
+      <template>
         <div class="bg-surface rounded-xl border border-light-c overflow-hidden">
           <div class="bg-surface2 px-4 py-2.5 font-semibold text-base-c text-sm border-b border-light-c">
             {{ editingId ? '編輯分類' : '新增分類' }}

@@ -29,7 +29,8 @@ async function fetchUsers() {
   } catch (err) {
     rawUsers.value = []
     if (err?.statusCode === 401 || err?.response?.status === 401) {
-      loadError.value = 'unauthorized'
+      await navigateTo('/staff/order/shopping-cart/login')
+      return
     } else {
       loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
     }
@@ -132,14 +133,7 @@ onMounted(fetchUsers)
     </ScHeader>
 
     <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
-      <div v-if="loadError === 'unauthorized'" class="bg-surface rounded-xl border border-light-c p-6 text-center space-y-3">
-        <p class="text-muted-c text-sm">尚未登入購物車後台。</p>
-        <NuxtLink to="/staff/order/shopping-cart/login" class="inline-block px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 transition-colors">
-          前往登入購物車後台
-        </NuxtLink>
-      </div>
-
-      <template v-else>
+      <template>
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div class="flex items-center gap-2 text-sm text-muted-c">
             <button class="px-4 py-2 text-sm border border-green-700 text-green-700 dark:text-green-400 rounded-xl hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 transition-colors" :disabled="loading" @click="fetchUsers">

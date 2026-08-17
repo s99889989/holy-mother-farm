@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue'
+import {reactive, ref, computed, onMounted} from 'vue'
 
 // 這頁呼叫的是本專案自己的 server API route（server/api/shopping-cart/login.post.ts），
 // 由該 route 在伺服器端拿這組帳密去登入 shopping.st-mary.org.tw 的 admincp，
@@ -7,9 +7,9 @@ import { reactive, ref, computed, onMounted } from 'vue'
 // 瀏覽器端全程不會直接接觸原網站，避開 CORS。
 //
 // 注意：這是「購物車原網站」的獨立登入（跟 staff 的 Google 登入是兩回事），
-// 保留 layout: false 讓它自成一頁，但配色改用跟 staff 一致的 token。
+// 但仍套用 staff layout，讓上方導覽列維持顯示。
 definePageMeta({
-  layout: false
+  layout: 'staff'
 })
 
 const REMEMBER_KEY = 'sc_remember_login'
@@ -50,12 +50,12 @@ async function handleSubmit() {
   try {
     await $fetch('/api/shopping-cart/login', {
       method: 'POST',
-      body: { u: form.u, p: form.p }
+      body: {u: form.u, p: form.p}
     })
 
     try {
       if (rememberMe.value) {
-        localStorage.setItem(REMEMBER_KEY, JSON.stringify({ u: form.u, p: form.p }))
+        localStorage.setItem(REMEMBER_KEY, JSON.stringify({u: form.u, p: form.p}))
       } else {
         localStorage.removeItem(REMEMBER_KEY)
       }
@@ -74,7 +74,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center bg-surface2 p-6 transition-colors duration-300">
+  <div class="min-h-full flex flex-col items-center justify-center bg-surface2 p-6 transition-colors duration-300">
     <div class="w-full max-w-md bg-surface rounded-2xl border border-light-c shadow-sm p-8">
       <div class="flex justify-center mb-5">
         <div class="w-14 h-14 rounded-2xl bg-green-800 flex items-center justify-center text-white text-xl font-bold">
@@ -140,7 +140,8 @@ async function handleSubmit() {
 
     <footer class="mt-6 text-xs text-hint-c">
       © 2015 - {{ currentYear }}
-      <a href="http://st-mary.org.tw" target="_blank" rel="noopener" class="text-green-700 dark:text-green-400 hover:underline">
+      <a href="http://st-mary.org.tw" target="_blank" rel="noopener"
+         class="text-green-700 dark:text-green-400 hover:underline">
         台東聖母醫院
       </a>
     </footer>

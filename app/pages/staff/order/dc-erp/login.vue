@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue'
+import {reactive, ref, computed, onMounted} from 'vue'
 
 // 這頁對應原網站 https://dc.st-mary.org.tw/COAERP 的登入。
 // 跟購物車後台不同，這個原網站是 ASP.NET MVC，登入除了帳密還需要：
@@ -87,7 +87,7 @@ async function handleSubmit() {
 
     try {
       if (rememberMe.value) {
-        localStorage.setItem(REMEMBER_KEY, JSON.stringify({ account: form.account, password: form.password }))
+        localStorage.setItem(REMEMBER_KEY, JSON.stringify({account: form.account, password: form.password}))
       } else {
         localStorage.removeItem(REMEMBER_KEY)
       }
@@ -166,14 +166,14 @@ onMounted(loadCaptcha)
           <label for="code" class="text-sm font-medium text-muted-c">
             <span class="text-red-500 mr-0.5">*</span>驗證碼
           </label>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <input
               id="code"
               v-model.trim="form.code"
               type="text"
               placeholder="請輸入右方圖片數字"
               autocomplete="off"
-              class="flex-1 px-3 py-2.5 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              class="min-w-0 flex-1 px-3 py-2.5 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
             >
             <button
               type="button"

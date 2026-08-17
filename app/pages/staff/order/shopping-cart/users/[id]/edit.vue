@@ -33,7 +33,8 @@ async function fetchEdit() {
     form.value = await $fetch(`/api/shopping-cart/users/${memberId}/edit`)
   } catch (err) {
     if (err?.statusCode === 401 || err?.response?.status === 401) {
-      loadError.value = 'unauthorized'
+      await navigateTo('/staff/order/shopping-cart/login')
+      return
     } else {
       loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
     }
@@ -117,12 +118,6 @@ onMounted(fetchEdit)
       </p>
 
       <div v-if="loading" class="text-center py-10 text-hint-c">從原網站抓取資料中…</div>
-      <div v-else-if="loadError === 'unauthorized'" class="bg-surface rounded-xl border border-light-c p-6 text-center space-y-3">
-        <p class="text-muted-c text-sm">尚未登入購物車後台。</p>
-        <NuxtLink to="/staff/order/shopping-cart/login" class="inline-block px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 transition-colors">
-          前往登入購物車後台
-        </NuxtLink>
-      </div>
       <p v-else-if="loadError" class="text-red-600 dark:text-red-400 text-sm">{{ loadError }}</p>
 
       <div v-else-if="form" class="bg-surface rounded-xl border border-light-c overflow-hidden">

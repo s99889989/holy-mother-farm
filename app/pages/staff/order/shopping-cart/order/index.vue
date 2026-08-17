@@ -14,10 +14,10 @@ definePageMeta({
 })
 
 const statusOptions = [
-  {value: '0', label: '新訂單'},
-  {value: '1', label: '訂單成立'},
-  {value: '2', label: '備貨'},
-  {value: '3', label: '出貨'}
+  { value: '0', label: '新訂單' },
+  { value: '1', label: '訂單成立' },
+  { value: '2', label: '備貨' },
+  { value: '3', label: '出貨' }
 ]
 
 const filters = reactive({
@@ -40,7 +40,7 @@ async function fetchOrders() {
   loadError.value = ''
   try {
     const res = await $fetch('/api/shopping-cart/orders', {
-      query: {status: filters.status || undefined}
+      query: { status: filters.status || undefined }
     })
     rawOrders.value = res.items ?? []
   } catch (err) {
@@ -222,85 +222,85 @@ onMounted(fetchOrders)
           <div class="overflow-x-auto">
             <table class="w-full text-sm whitespace-nowrap">
               <thead class="bg-surface2 text-hint-c text-xs uppercase tracking-wide">
-              <tr>
-                <th class="px-3 py-2 text-center">序號</th>
-                <th class="px-3 py-2 text-center cursor-pointer select-none" @click="toggleSort('orderDate')">
-                  訂購日期 <span class="text-[10px]">{{ sortIcon('orderDate') }}</span>
-                </th>
-                <th class="px-3 py-2 text-center">訂單單號</th>
-                <th class="px-3 py-2 text-center">出貨日期</th>
-                <th class="px-3 py-2 text-center">下單會員</th>
-                <th class="px-3 py-2 text-center">收件人</th>
-                <th class="px-3 py-2 text-center">電話</th>
-                <th class="px-3 py-2 text-center">手機</th>
-                <th class="px-3 py-2 text-left">地址</th>
-                <th class="px-3 py-2 text-center">金額</th>
-                <th class="px-3 py-2 text-center">狀態</th>
-                <th class="px-3 py-2 text-center">處理員</th>
-                <th class="px-3 py-2 text-center">修改</th>
-                <th class="px-3 py-2 text-center">匯出</th>
-              </tr>
+                <tr>
+                  <th class="px-3 py-2 text-center">序號</th>
+                  <th class="px-3 py-2 text-center cursor-pointer select-none" @click="toggleSort('orderDate')">
+                    訂購日期 <span class="text-[10px]">{{ sortIcon('orderDate') }}</span>
+                  </th>
+                  <th class="px-3 py-2 text-center">訂單單號</th>
+                  <th class="px-3 py-2 text-center">出貨日期</th>
+                  <th class="px-3 py-2 text-center">下單會員</th>
+                  <th class="px-3 py-2 text-center">收件人</th>
+                  <th class="px-3 py-2 text-center">電話</th>
+                  <th class="px-3 py-2 text-center">手機</th>
+                  <th class="px-3 py-2 text-left">地址</th>
+                  <th class="px-3 py-2 text-center">金額</th>
+                  <th class="px-3 py-2 text-center">狀態</th>
+                  <th class="px-3 py-2 text-center">處理員</th>
+                  <th class="px-3 py-2 text-center">修改</th>
+                  <th class="px-3 py-2 text-center">匯出</th>
+                </tr>
               </thead>
               <tbody class="divide-y divide-light-c">
-              <tr v-if="loading">
-                <td colspan="14" class="px-3 py-8 text-center text-hint-c">從原網站抓取資料中…</td>
-              </tr>
-              <tr v-else-if="pagedOrders.length === 0">
-                <td colspan="14" class="px-3 py-8 text-center text-hint-c">查無資料</td>
-              </tr>
-              <tr
-                v-for="order in pagedOrders"
-                :key="order.orderNo"
-                class="hover-surface2"
-                :class="rowClass(order)"
-              >
-                <td class="px-3 py-2 text-center text-hint-c">{{ order.seq }}</td>
-                <td class="px-3 py-2 text-center text-base-c">{{ order.orderDate }}</td>
-                <td class="px-3 py-2 text-center">
-                  <NuxtLink
-                    :to="`/staff/order/shopping-cart/order/${order.orderNo}`"
-                    class="text-green-700 dark:text-green-400 hover:underline"
-                  >
-                    {{ order.orderNo }}
-                  </NuxtLink>
-                </td>
-                <td class="px-3 py-2 text-center text-base-c">{{ order.shipDate || '-' }}</td>
-                <td class="px-3 py-2 text-center text-base-c">{{ order.buyerName }}</td>
-                <td class="px-3 py-2 text-center text-base-c">{{ order.receiverName }}</td>
-                <td class="px-3 py-2 text-center text-base-c">{{ order.receiverPhone || '-' }}</td>
-                <td class="px-3 py-2 text-center text-base-c">{{ order.receiverMobile || '-' }}</td>
-                <td class="px-3 py-2 text-left text-base-c">{{ order.receiverAddress }}</td>
-                <td class="px-3 py-2 text-center text-base-c font-medium">{{ order.totalAmount }}</td>
-                <td class="px-3 py-2 text-center">
+                <tr v-if="loading">
+                  <td colspan="14" class="px-3 py-8 text-center text-hint-c">從原網站抓取資料中…</td>
+                </tr>
+                <tr v-else-if="pagedOrders.length === 0">
+                  <td colspan="14" class="px-3 py-8 text-center text-hint-c">查無資料</td>
+                </tr>
+                <tr
+                  v-for="order in pagedOrders"
+                  :key="order.orderNo"
+                  class="hover-surface2"
+                  :class="rowClass(order)"
+                >
+                  <td class="px-3 py-2 text-center text-hint-c">{{ order.seq }}</td>
+                  <td class="px-3 py-2 text-center text-base-c">{{ order.orderDate }}</td>
+                  <td class="px-3 py-2 text-center">
+                    <NuxtLink
+                      :to="`/staff/order/shopping-cart/order/${order.orderNo}`"
+                      class="text-green-700 dark:text-green-400 hover:underline"
+                    >
+                      {{ order.orderNo }}
+                    </NuxtLink>
+                  </td>
+                  <td class="px-3 py-2 text-center text-base-c">{{ order.shipDate || '-' }}</td>
+                  <td class="px-3 py-2 text-center text-base-c">{{ order.buyerName }}</td>
+                  <td class="px-3 py-2 text-center text-base-c">{{ order.receiverName }}</td>
+                  <td class="px-3 py-2 text-center text-base-c">{{ order.receiverPhone || '-' }}</td>
+                  <td class="px-3 py-2 text-center text-base-c">{{ order.receiverMobile || '-' }}</td>
+                  <td class="px-3 py-2 text-left text-base-c">{{ order.receiverAddress }}</td>
+                  <td class="px-3 py-2 text-center text-base-c font-medium">{{ order.totalAmount }}</td>
+                  <td class="px-3 py-2 text-center">
                     <span
                       class="inline-block px-2.5 py-1 rounded-full text-xs font-medium"
                       :class="statusBadgeClass(order.statusCode)"
                     >
                       {{ order.statusText }}
                     </span>
-                </td>
-                <td class="px-3 py-2 text-center text-base-c">{{ order.handlerName || '-' }}</td>
-                <td class="px-3 py-2 text-center">
-                  <NuxtLink
-                    :to="`/staff/order/shopping-cart/order/${order.orderNo}/edit`"
-                    class="text-green-700 dark:text-green-400 hover:underline"
-                  >
-                    修改
-                  </NuxtLink>
-                </td>
-                <td class="px-3 py-2 text-center">
-                  <a
-                    v-if="order.exportUrl"
-                    :href="order.exportUrl"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-green-700 dark:text-green-400 hover:underline"
-                  >
-                    匯出
-                  </a>
-                  <span v-else class="text-hint-c">-</span>
-                </td>
-              </tr>
+                  </td>
+                  <td class="px-3 py-2 text-center text-base-c">{{ order.handlerName || '-' }}</td>
+                  <td class="px-3 py-2 text-center">
+                    <NuxtLink
+                      :to="`/staff/order/shopping-cart/order/${order.orderNo}/edit`"
+                      class="text-green-700 dark:text-green-400 hover:underline"
+                    >
+                      修改
+                    </NuxtLink>
+                  </td>
+                  <td class="px-3 py-2 text-center">
+                    <a
+                      v-if="order.exportUrl"
+                      :href="order.exportUrl"
+                      target="_blank"
+                      rel="noopener"
+                      class="text-green-700 dark:text-green-400 hover:underline"
+                    >
+                      匯出
+                    </a>
+                    <span v-else class="text-hint-c">-</span>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

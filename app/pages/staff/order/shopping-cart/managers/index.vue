@@ -49,7 +49,8 @@ async function fetchManagers() {
   } catch (err) {
     rawManagers.value = []
     if (err?.statusCode === 401 || err?.response?.status === 401) {
-      loadError.value = 'unauthorized'
+      await navigateTo('/staff/order/shopping-cart/login')
+      return
     } else {
       loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
     }
@@ -170,12 +171,7 @@ onMounted(fetchManagers)
         {{ toast.message }}
       </p>
 
-      <div v-if="loadError === 'unauthorized'" class="bg-surface rounded-xl border border-light-c p-6 text-center space-y-3">
-        <p class="text-muted-c text-sm">尚未登入購物車後台。</p>
-        <NuxtLink to="/staff/order/shopping-cart/login" class="inline-block px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 transition-colors">
-          前往登入購物車後台
-        </NuxtLink>
-      </div>
+      <p v-if="loadError" class="text-red-600 dark:text-red-400 text-sm">{{ loadError }}</p>
 
       <template v-else>
         <!-- 新增/編輯管理員 -->

@@ -29,10 +29,8 @@ import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 // -----------------------------------------------------------------------
-// 測試階段：資料從 public/tour/test-data.json 讀取（純靜態檔案）。
-// 之後接後端時，只需把下面 loadTourData() 換成
-//   await $fetch(`${apiBase}/holy/tour/data`)
-// 其餘邏輯（場景切換、熱點渲染、tile adapter 設定）完全不用動。
+// 正式串接：資料改打真實後端 /holy/tour/data，
+// tile 圖片走 /holy/tour/image/{sceneId}/... 串流端點。
 // -----------------------------------------------------------------------
 
 definePageMeta({
@@ -41,6 +39,9 @@ definePageMeta({
 
 const route = useRoute()
 const router = useRouter()
+
+const commonStore = useCommonStore()
+const apiBase = computed(() => commonStore.data.main_url + '/holy/tour')
 
 const sceneId = computed(() => route.params.sceneId)
 
@@ -58,8 +59,7 @@ let markersPlugin = null
 
 async function loadTourData() {
   try {
-    // 測試用：直接抓靜態 json。正式串後端時改成打 /holy/tour/data 之類的 API。
-    const data = await $fetch('/tour/test-data.json')
+    const data = await $fetch(`${apiBase.value}/data`)
     zones.value = data.zones
     scenes.value = data.scenes
     hotspots.value = data.hotspots
@@ -73,14 +73,13 @@ function hotspotsForScene(id) {
 }
 
 function buildTileConfig(scene) {
-  const tc = scene.tileConfig
-  // Tile 圖片放在 /tour/<sceneId>/tiles/ 底下（比照 tile_generator.py 輸出結構）
-  const base = `/tour/${scene.id}`
+  // Tile / 預覽圖直接吃後端串流端點，不再是靜態檔案路徑
+  const base = `${apiBase.value}/image/${scene.id}`
   return {
-    width: tc.width,
-    cols: tc.cols,
-    rows: tc.rows,
-    baseUrl: `${base}/${tc.baseUrl}`,
+    width: scene.width,
+    cols: scene.cols,
+    rows: scene.rows,
+    baseUrl: `${base}/preview.jpg`,
     tileUrl: (col, row) => `${base}/tiles/${col}x${row}.jpg`
   }
 }
