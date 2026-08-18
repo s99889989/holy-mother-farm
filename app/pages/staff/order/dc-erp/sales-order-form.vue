@@ -859,6 +859,11 @@
             </button>
 
             <div v-show="showHeaderSection" class="space-y-2 border-t border-light-c p-3 pt-2">
+              <div v-if="!isNew" class="flex flex-wrap items-center gap-2">
+                <label class="text-muted-c">單號：</label>
+                <span class="font-medium text-base-c">{{ header.code }}</span>
+              </div>
+
               <div class="flex flex-wrap items-center gap-2">
                 <label class="text-muted-c"><span class="text-red-600">*</span>場別：</label>
                 <select v-model="header.workPlaceID" class="rounded border border-light-c bg-surface px-2 py-1">
