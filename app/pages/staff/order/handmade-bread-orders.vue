@@ -176,11 +176,110 @@ const fetchItems = async () => {
 }
 
 function addItemRow() {
-  itemsDraft.value.push({ code: '', name: '', price: 0, unit: '個', active: true })
+  itemsDraft.value.push({ code: '', name: '', price: 0, unit: '個', active: true, image: '' })
 }
 
 function removeItemRow(idx) {
   itemsDraft.value.splice(idx, 1)
+}
+
+// ── 品項圖片 ────────────────────────────────────────────────────
+const uploadingImageCode = ref('')
+
+function imgUrl(path) {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return commonStore.data.main_url + path
+}
+
+function thumbUrl(path) {
+  if (!path) return ''
+  const full = path.startsWith('http') ? path : commonStore.data.main_url + path
+  return full.replace('/holy/handmade-bread/image/', '/holy/handmade-bread/image/thumb/')
+}
+
+// 上傳前在前端壓縮（手機拍照通常 4–10MB，壓到 1200px / quality 0.82 後約 200–400KB）
+// 後端收到後仍會再統一轉成 WebP，確保格式一致
+function compressImage(file, maxWidth = 1200, quality = 0.82) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxWidth / img.width)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(
+        blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
+        'image/jpeg',
+        quality
+      )
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(file)
+    }
+    img.src = url
+  })
+}
+
+async function uploadItemImage(item, event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (!item.code) {
+    alert('請先填寫代碼並儲存品項設定，再上傳圖片')
+    event.target.value = ''
+    return
+  }
+  uploadingImageCode.value = item.code
+  try {
+    const compressed = await compressImage(file)
+    const formData = new FormData()
+    formData.append('file', compressed)
+    const res = await fetch(`${BASE.value}/admin/settings/items/image?code=${encodeURIComponent(item.code)}`, {
+      method: 'POST', credentials: 'include', body: formData
+    })
+    const data = await res.json()
+    if (data.error) {
+      alert('上傳失敗：' + data.error)
+      return
+    }
+    item.image = data.image
+    if (Array.isArray(data.items)) {
+      items.value = data.items
+      const target = itemsDraft.value.find(i => i.code === item.code)
+      if (target) target.image = data.image
+    }
+  } catch {
+    alert('上傳失敗')
+  } finally {
+    uploadingImageCode.value = ''
+    event.target.value = ''
+  }
+}
+
+async function removeItemImage(item) {
+  if (!item.code) {
+    item.image = ''
+    return
+  }
+  if (!confirm('確定要刪除此品項的圖片？')) return
+  try {
+    const res = await fetch(`${BASE.value}/admin/settings/items/image?code=${encodeURIComponent(item.code)}`, {
+      method: 'DELETE', credentials: 'include'
+    })
+    const data = await res.json()
+    if (data.error) {
+      alert('刪除失敗：' + data.error)
+      return
+    }
+    item.image = ''
+    if (Array.isArray(data.items)) items.value = data.items
+  } catch {
+    alert('刪除失敗')
+  }
 }
 
 async function saveItems() {
@@ -591,41 +690,77 @@ watch(selectedMonth, () => fetchData(false))
         <div
           v-for="(item, idx) in itemsDraft"
           :key="idx"
-          class="flex items-center gap-2 flex-wrap bg-surface2 rounded-lg px-3 py-2"
+          class="bg-surface2 rounded-lg px-3 py-2 space-y-2"
         >
-          <input
-            v-model="item.code"
-            placeholder="代碼"
-            class="w-14 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-          >
-          <input
-            v-model="item.name"
-            placeholder="名稱"
-            class="flex-1 min-w-[100px] px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-          >
-          <input
-            v-model.number="item.price"
-            type="number"
-            placeholder="單價"
-            class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-          >
-          <input
-            v-model="item.unit"
-            placeholder="單位"
-            class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-          >
-          <label class="flex items-center gap-1 text-xs text-hint-c">
+          <div class="flex items-center gap-2 flex-wrap">
             <input
-              v-model="item.active"
-              type="checkbox"
-            > 上架
-          </label>
-          <button
-            class="text-red-500 text-xs ml-auto"
-            @click="removeItemRow(idx)"
-          >
-            刪除
-          </button>
+              v-model="item.code"
+              placeholder="代碼"
+              class="w-14 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+            >
+            <input
+              v-model="item.name"
+              placeholder="名稱"
+              class="flex-1 min-w-[100px] px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+            >
+            <input
+              v-model.number="item.price"
+              type="number"
+              placeholder="單價"
+              class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+            >
+            <input
+              v-model="item.unit"
+              placeholder="單位"
+              class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+            >
+            <label class="flex items-center gap-1 text-xs text-hint-c">
+              <input
+                v-model="item.active"
+                type="checkbox"
+              > 上架
+            </label>
+            <button
+              class="text-red-500 text-xs ml-auto"
+              @click="removeItemRow(idx)"
+            >
+              刪除
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <img
+              v-if="item.image"
+              :src="thumbUrl(item.image)"
+              class="w-10 h-10 rounded object-cover border border-light-c flex-shrink-0 cursor-pointer"
+              alt=""
+              @click="imgUrl(item.image) && window.open(imgUrl(item.image), '_blank')"
+            >
+            <div
+              v-else
+              class="w-10 h-10 rounded border border-dashed border-light-c flex items-center justify-center text-hint-c text-[10px] flex-shrink-0"
+            >
+              無圖片
+            </div>
+            <label
+              class="px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c cursor-pointer"
+              :class="{ 'opacity-50 pointer-events-none': uploadingImageCode === item.code }"
+            >
+              {{ uploadingImageCode === item.code ? '上傳中…' : (item.image ? '更換圖片' : '上傳圖片') }}
+              <input
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="uploadItemImage(item, $event)"
+              >
+            </label>
+            <button
+              v-if="item.image"
+              class="text-red-500 text-xs"
+              @click="removeItemImage(item)"
+            >
+              移除圖片
+            </button>
+          </div>
         </div>
         <div class="flex items-center gap-2 pt-1">
           <button
@@ -764,9 +899,9 @@ watch(selectedMonth, () => fetchData(false))
           :class="isToday(group.date) ? 'text-amber-700' : 'text-base-c'"
         >
           {{ group.dateLabel }}<span
-            v-if="isToday(group.date)"
-            class="ml-1 text-xs"
-          >（今天）</span>
+          v-if="isToday(group.date)"
+          class="ml-1 text-xs"
+        >（今天）</span>
         </h2>
         <span class="text-xs text-hint-c">{{ group.breakdown }}　共 ${{ group.amount }}</span>
       </div>
@@ -886,8 +1021,8 @@ watch(selectedMonth, () => fetchData(false))
                       −
                     </button>
                     <span class="w-8 text-center text-sm font-semibold text-base-c">{{
-                      editForm.itemQty[it.code] || 0
-                    }}</span>
+                        editForm.itemQty[it.code] || 0
+                      }}</span>
                     <button
                       class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c flex items-center justify-center"
                       @click="adjEditQty(it.code, 1)"
