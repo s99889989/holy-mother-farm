@@ -67,10 +67,19 @@ export async function fetchDcUpstream(
     throw createError({ statusCode: 502, statusMessage: '無法連線到原網站，請稍後再試' })
   }
 
-  // session 過期時原網站會把請求導回 Account/Login
+  // session 過期時原網站會把請求導回 Account/Login——只比對這個特定路徑，
+  // 不要用寬鬆的 '/Account/' 子字串比對：COAERP 的 Account 底下可能還有
+  // 其他跟登入過期無關的正常轉址（例如簽核流程相關頁面），寬鬆比對會把
+  // 這些也誤判成「登入已過期」，導致明明已經寫入成功的請求被整包當失敗。
   if (res.status >= 300 && res.status < 400) {
     const location = res.headers.get('location') || ''
-    if (location.includes('/Account/')) {
+    let locationPath = location
+    try {
+      locationPath = new URL(location, `${DC_ORIGIN}/`).pathname
+    } catch {
+      // location 不是合法網址格式就直接用原字串比對，不影響下面的判斷
+    }
+    if (/\/Account\/Login\b/i.test(locationPath)) {
       throw createError({ statusCode: 401, statusMessage: '登入已過期，請重新登入' })
     }
   }
