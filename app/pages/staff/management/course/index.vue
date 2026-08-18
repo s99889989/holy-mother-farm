@@ -1,8 +1,8 @@
 <script setup>
 // 專案holy-mother-farm 位置staff/management/course/index.vue
-import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff' })
+definePageMeta({layout: 'staff'})
 
 const commonStore = useCommonStore()
 const imgUrl = (path) => {
@@ -21,17 +21,36 @@ const copyShareLink = async (course) => {
   }
 }
 
+// 簽到連結（學員自助簽到頁，前端路由，跟上面的分享連結不同網域基準，
+// 分享連結打的是後端 apiBase，簽到頁是 Nuxt 前端頁面，要用目前網站本身的網址）
+// 目前只有 /checkin/[regId] 做好（需要已知報名 id），/checkin 這個「選自己是誰」
+// 入口頁還沒做，先讓工作人員可以複製起來備用，之後接上就會直接可用
+const checkinUrl = (course) => {
+  if (!import.meta.client) return ''
+  return `${window.location.origin}/front/course/${course.id}/checkin`
+}
+const copyCheckinLink = async (course) => {
+  try {
+    await navigator.clipboard.writeText(checkinUrl(course))
+    showToast('簽到連結已複製')
+  } catch {
+    showToast('複製失敗，請手動選取', true)
+  }
+}
+
 const store = useCourseRegistrationStore()
 const loading = ref(false)
 const saving = ref(false)
-const toast = reactive({ show: false, message: '', error: false })
-const modal = reactive({ show: false })
-const form = reactive({ name: '' })
+const toast = reactive({show: false, message: '', error: false})
+const modal = reactive({show: false})
+const form = reactive({name: ''})
 const showDeleteConfirm = ref(false)
-const deleteTarget = reactive({ id: '', name: '' })
+const deleteTarget = reactive({id: '', name: ''})
 
 const showToast = (msg, error = false) => {
-  toast.message = msg; toast.error = error; toast.show = true
+  toast.message = msg;
+  toast.error = error;
+  toast.show = true
   setTimeout(() => toast.show = false, 2500)
 }
 
@@ -215,6 +234,24 @@ const capacityLabel = (course) => {
               >
                 刪除
               </button>
+            </div>
+            <div class="flex gap-2">
+              <button
+                class="flex-1 text-xs py-2 rounded-lg border"
+                style="border-color: var(--border-light); color: var(--accent)"
+                @click="copyCheckinLink(course)"
+              >
+                🔗 複製簽到連結
+              </button>
+              <a
+                :href="checkinUrl(course)"
+                target="_blank"
+                rel="noopener"
+                class="text-xs py-2 px-3 rounded-lg border flex items-center"
+                style="border-color: var(--border-light); color: var(--text-muted)"
+              >
+                📷 開啟
+              </a>
             </div>
           </div>
         </div>
