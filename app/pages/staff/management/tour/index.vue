@@ -59,30 +59,45 @@
           <!-- 選定分區後，這裡管理該分區在總覽圖上的位置 + 平面圖 -->
           <div v-if="activeZone" class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <div class="text-[11px] text-gray-500 dark:text-gray-400 mb-1.5">「{{ activeZone.name }}」設定</div>
-            <div class="flex gap-1.5">
-              <button
-                class="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] rounded-md px-2 py-1.5"
-                @click="zoneMapPickMode = true"
-              >
-                📍 總覽圖位置
-              </button>
-              <button
-                class="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] rounded-md px-2 py-1.5"
-                @click="floorPlanInput?.click()"
-              >
-                🗺️ {{ activeZone.hasFloorPlan ? '更換平面圖' : '上傳平面圖' }}
-              </button>
+
+            <label class="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300 mb-2 cursor-pointer">
               <input
-                ref="floorPlanInput"
-                type="file"
-                accept="image/jpeg"
-                class="hidden"
-                @change="onFloorPlanPick"
+                type="checkbox"
+                :checked="activeZone.mainMap"
+                @change="toggleMainMap($event.target.checked)"
               />
-            </div>
-            <p class="text-[10.5px] text-gray-400 dark:text-gray-500 mt-1.5">
-              沒平面圖的分區：訪客點總覽圖圖釘後直接進第一個場景，靠場景內熱點走。<br />
-              有平面圖的分區：點總覽圖圖釘後改顯示這張平面圖，各場景另外定位在平面圖上。
+              🛣️ 戶外/道路分區（場景直接定位在總覽圖上，不用另外傳平面圖）
+            </label>
+
+            <template v-if="!activeZone.mainMap">
+              <div class="flex gap-1.5">
+                <button
+                  class="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] rounded-md px-2 py-1.5"
+                  @click="zoneMapPickMode = true"
+                >
+                  📍 總覽圖位置
+                </button>
+                <button
+                  class="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] rounded-md px-2 py-1.5"
+                  @click="floorPlanInput?.click()"
+                >
+                  🗺️ {{ activeZone.hasFloorPlan ? '更換平面圖' : '上傳平面圖' }}
+                </button>
+                <input
+                  ref="floorPlanInput"
+                  type="file"
+                  accept="image/jpeg"
+                  class="hidden"
+                  @change="onFloorPlanPick"
+                />
+              </div>
+              <p class="text-[10.5px] text-gray-400 dark:text-gray-500 mt-1.5">
+                沒平面圖的分區：訪客點總覽圖圖釘後直接進第一個場景，靠場景內熱點走。<br />
+                有平面圖的分區：點總覽圖圖釘後改顯示這張平面圖，各場景另外定位在平面圖上。
+              </p>
+            </template>
+            <p v-else class="text-[10.5px] text-gray-400 dark:text-gray-500">
+              這個分區底下的每個場景（例如沿路的定點）都會直接定位在園區總覽圖上，選場景後點「📍 在總覽圖上定位」設定。
             </p>
           </div>
         </section>
@@ -133,9 +148,9 @@
               <span class="flex items-center gap-1.5 truncate">
                 {{ s.name }}
                 <span
-                  v-if="activeZone?.hasFloorPlan && s.mapX == null"
+                  v-if="canPositionScenes(activeZone) && s.mapX == null"
                   class="text-[10px] text-orange-500 dark:text-orange-400 shrink-0"
-                  title="尚未在平面圖上定位"
+                  title="尚未定位"
                 >●</span>
               </span>
               <button
@@ -181,11 +196,11 @@
               🔗 同空間群組
             </button>
             <button
-              v-if="activeZone?.hasFloorPlan"
+              v-if="canPositionScenes(activeZone)"
               class="bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
               @click="sceneMapPickMode = true"
             >
-              📍 在平面圖上定位
+              📍 {{ activeZone?.mainMap ? '在總覽圖上定位' : '在平面圖上定位' }}
             </button>
             <span v-else class="text-[11px] text-[#6f8480]">
               此分區沒有平面圖，場景位置請用熱點串接
@@ -265,7 +280,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl p-4 w-[92%] max-w-[480px]">
               <div class="flex justify-between items-center mb-2">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  在「{{ activeZone?.name }}」平面圖上設定「{{ selectedScene.name }}」的位置
+                  在{{ activeZone?.mainMap ? '園區總覽圖' : `「${activeZone?.name}」平面圖` }}上設定「{{ selectedScene.name }}」的位置
                 </h3>
                 <button
                   class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-md px-2.5 py-1"
@@ -279,9 +294,9 @@
                 @click="onSceneMapClick"
               >
                 <img
-                  :src="`${apiBase}/image/zone/${activeZoneId}/floorplan.jpg`"
+                  :src="sceneMapImageSrc"
                   class="w-full block pointer-events-none"
-                  alt="分區平面圖"
+                  alt="定位底圖"
                 />
                 <span
                   v-for="s in otherPositionedScenesInZone"
@@ -477,6 +492,15 @@ const sceneGroupMembers = computed(() => {
   if (!selectedScene.value?.groupId) return []
   return scenes.value.filter((s) => s.groupId === selectedScene.value.groupId)
 })
+const sceneMapImageSrc = computed(() =>
+  activeZone.value?.mainMap
+    ? '/tour/campus-map.jpg'
+    : `${apiBase.value}/image/zone/${activeZoneId.value}/floorplan.jpg`
+)
+
+function canPositionScenes(zone) {
+  return !!zone && (zone.mainMap || zone.hasFloorPlan)
+}
 
 function scenesInZone(zoneId) {
   return scenes.value.filter((s) => s.zoneId === zoneId)
@@ -484,6 +508,17 @@ function scenesInZone(zoneId) {
 
 function sceneName(id) {
   return scenes.value.find((s) => s.id === id)?.name || '(已刪除場景)'
+}
+
+async function toggleMainMap(checked) {
+  const zone = activeZone.value
+  if (!zone) return
+  const updated = await $fetch(`${apiBase.value}/zones/${zone.id}`, {
+    method: 'PUT',
+    body: { ...zone, mainMap: checked }
+  })
+  const idx = zones.value.findIndex((z) => z.id === zone.id)
+  if (idx !== -1) zones.value[idx] = { ...updated, hasFloorPlan: zone.hasFloorPlan }
 }
 
 async function loadAll() {
