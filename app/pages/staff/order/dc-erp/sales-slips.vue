@@ -1,124 +1,20 @@
 <script setup>
-import { reactive, ref, computed, nextTick, onMounted } from 'vue'
+  import { reactive, ref, computed, nextTick, onMounted } from 'vue'
 
-// 「銷貨單維護」自己重畫的畫面，跟訂貨單維護同一套做法。
-//
-// 查詢表單預設收起來只顯示第一排（filterExpanded），日期欄位用共用元件
-// DcErpRocDateInput（文字手打民國年格式 + 日曆圖示選日期），關鍵字欄位用
-// 共用元件 DcErpKeywordSearchInput（純前端 localStorage 記住最近搜尋過的
-// 關鍵字）。元件檔名要用 DcErp 開頭——Nuxt 的元件自動註冊在檔名已經是
-// 資料夾名稱（dc-erp → DcErp）開頭時才會省略前綴，不然要用
-// <DcErpXxx> 這種帶前綴的標籤才 resolve 得到，用短名字會直接不渲染。
-definePageMeta({
-  layout: 'staff',
-  requiredPermission: 'order.dc-erp'
-})
+  // 「銷貨單維護」自己重畫的畫面，跟訂貨單維護同一套做法。
+  //
+  // 查詢表單預設收起來只顯示第一排（filterExpanded），日期欄位用共用元件
+  // DcErpRocDateInput（文字手打民國年格式 + 日曆圖示選日期），關鍵字欄位用
+  // 共用元件 DcErpKeywordSearchInput（純前端 localStorage 記住最近搜尋過的
+  // 關鍵字）。元件檔名要用 DcErp 開頭——Nuxt 的元件自動註冊在檔名已經是
+  // 資料夾名稱（dc-erp → DcErp）開頭時才會省略前綴，不然要用
+  // <DcErpXxx> 這種帶前綴的標籤才 resolve 得到，用短名字會直接不渲染。
+  definePageMeta({
+    layout: 'staff',
+    requiredPermission: 'order.dc-erp'
+  })
 
-const filters = reactive({
-  workPlace: '0',
-  whSearch: 'whatever',
-  keyword: '',
-  sdate: '',
-  edate: '',
-  orderType: '-1',
-  signType: '-1',
-  scode: '',
-  ecode: '',
-  temperature: '-1',
-  firmCode: '',
-  parentFirm: '0',
-  customerCategory: '不拘',
-  invoiceCode: '',
-  isCreateInvoice: '0',
-  isPrintReceipt: '0'
-})
-
-const filterOptions = reactive({
-  workPlace: [],
-  whSearchField: [],
-  orderType: [],
-  signType: [],
-  temperature: [],
-  parentFirm: [],
-  customerCategory: [],
-  isCreateInvoice: [],
-  isPrintReceipt: []
-})
-
-const filterExpanded = ref(false)
-const viewMode = ref('table') // 'table' | 'card'
-
-const items = ref([])
-const totalCount = ref(0)
-const totalPages = ref(1)
-const page = ref(1)
-const pagesize = ref(20)
-const breadcrumb = ref([])
-const createUrl = ref('')
-const loading = ref(true)
-const errorMessage = ref('')
-const selectedGuids = ref(new Set())
-const signing = ref(false)
-
-// 「列印」燈箱：比照原網站 ReportPrint/SelectListReportBySalesSlip 選樣式，
-// 固定用「依選取結果」（即目前列表頁已勾選的訂單），不做「依查詢結果」。
-const printModalOpen = ref(false)
-const printLoading = ref(false)
-const printError = ref('')
-const printStyles = ref([])
-const titleTypeOptions = ref([])
-const titleType = ref('1')
-const printSubmitting = ref('')
-const printForm = ref(null)
-const submitGuids = ref('')
-const submitReportId = ref('')
-const submitReportFormat = ref('')
-
-// 「顯示銷貨單(中一刀-半長)」是最常用的樣式，常駐顯示；其餘樣式收進
-// 「更多樣式」收合區塊，避免每次列印都要在一長串樣式清單裡找。用
-// includes 比對而不是完全比對，避免原網站樣式名稱多一個空格/全形符號
-// 就整個匹配不到。
-const COMMON_PRINT_STYLE_MATCH = (name) => name.includes('中一刀') && name.includes('半長')
-const commonPrintStyles = computed(() => printStyles.value.filter(s => COMMON_PRINT_STYLE_MATCH(s.name)))
-const otherPrintStyles = computed(() => printStyles.value.filter(s => !COMMON_PRINT_STYLE_MATCH(s.name)))
-const printStylesExpanded = ref(false)
-
-async function load(targetPage = 1) {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const data = await $fetch('/api/dc-erp/sales-slips', {
-      query: {
-        page: targetPage,
-        pagesize: pagesize.value,
-        ...filters
-      }
-    })
-    Object.assign(filterOptions, data.filters)
-    items.value = data.items
-    totalCount.value = data.totalCount
-    totalPages.value = data.totalPages
-    page.value = data.page
-    pagesize.value = data.pagesize
-    breadcrumb.value = data.breadcrumb
-    createUrl.value = data.createUrl
-  } catch (err) {
-    if (err?.statusCode === 401 || err?.response?.status === 401) {
-      await navigateTo('/staff/order/dc-erp/login')
-      return
-    }
-    errorMessage.value = err?.data?.statusMessage || '無法載入銷貨單，請稍後再試'
-  } finally {
-    loading.value = false
-  }
-}
-
-function handleSearch() {
-  load(1)
-}
-
-function handleAllList() {
-  Object.assign(filters, {
+  const filters = reactive({
     workPlace: '0',
     whSearch: 'whatever',
     keyword: '',
@@ -136,106 +32,232 @@ function handleAllList() {
     isCreateInvoice: '0',
     isPrintReceipt: '0'
   })
-  load(1)
-}
 
-function goPage(p) {
-  if (p < 1 || p > totalPages.value) return
-  selectedGuids.value.clear()
-  load(p)
-}
-
-function toggleSelect(guid) {
-  if (selectedGuids.value.has(guid)) selectedGuids.value.delete(guid)
-  else selectedGuids.value.add(guid)
-}
-
-function toggleSelectAll(checked) {
-  if (checked) items.value.forEach((row) => selectedGuids.value.add(row.guid))
-  else selectedGuids.value.clear()
-}
-
-async function handleSignBatch(action) {
-  const guids = Array.from(selectedGuids.value)
-  if (!guids.length) return
-  const label = action === 'return' ? '簽退' : '簽核'
-  if (!confirm(`確定要${label}選取的 ${guids.length} 張銷貨單嗎？`)) return
-  signing.value = true
-  errorMessage.value = ''
-  try {
-    await $fetch('/api/dc-erp/sales-slip-sign', {
-      method: 'POST',
-      body: { guids, action }
-    })
-    selectedGuids.value.clear()
-    await load(page.value)
-  } catch (err) {
-    errorMessage.value = err?.data?.statusMessage || `${label}失敗，請稍後再試`
-  } finally {
-    signing.value = false
-  }
-}
-
-async function openPrintModal() {
-  if (!selectedGuids.value.size) return
-  printModalOpen.value = true
-  printStylesExpanded.value = false
-  printLoading.value = true
-  printError.value = ''
-  try {
-    const data = await $fetch('/api/dc-erp/sales-slip-print-styles')
-    printStyles.value = data.styles
-    titleTypeOptions.value = data.titleTypeOptions
-    const selected = titleTypeOptions.value.find((opt) => opt.selected)
-    titleType.value = selected ? selected.value : (titleTypeOptions.value[0]?.value || '1')
-  } catch (err) {
-    printError.value = err?.data?.statusMessage || '無法載入列印樣式，請稍後再試'
-  } finally {
-    printLoading.value = false
-  }
-}
-
-function closePrintModal() {
-  printModalOpen.value = false
-}
-
-function handlePrint(fmt) {
-  submitGuids.value = Array.from(selectedGuids.value).join(',')
-  submitReportId.value = fmt.reportId
-  submitReportFormat.value = fmt.format
-  printSubmitting.value = `${fmt.reportId}-${fmt.format}`
-  // hidden input 是用 :value 綁定的，要等 Vue 把新值 patch 進 DOM 之後
-  // 再送出表單，不然送出的還是上一次的 reportId/format。
-  nextTick(() => {
-    if (printForm.value?.requestSubmit) {
-      printForm.value.requestSubmit()
-    } else {
-      printForm.value?.submit()
-    }
-    setTimeout(() => { printSubmitting.value = '' }, 1500)
+  const filterOptions = reactive({
+    workPlace: [],
+    whSearchField: [],
+    orderType: [],
+    signType: [],
+    temperature: [],
+    parentFirm: [],
+    customerCategory: [],
+    isCreateInvoice: [],
+    isPrintReceipt: []
   })
-}
 
-// 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
-// settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
-const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
-function loadListSettings(key, defaults) {
-  try {
-    const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
-    if (!raw) return defaults
-    const all = JSON.parse(raw)
-    return { ...defaults, ...(all[key] || {}) }
-  } catch {
-    return defaults
+  const filterExpanded = ref(false)
+  const viewMode = ref('table') // 'table' | 'card'
+
+  const items = ref([])
+  const totalCount = ref(0)
+  const totalPages = ref(1)
+  const page = ref(1)
+  const pagesize = ref(20)
+  const breadcrumb = ref([])
+  const createUrl = ref('')
+  const loading = ref(true)
+  const errorMessage = ref('')
+  const selectedGuids = ref(new Set())
+  const signing = ref(false)
+
+  // 「列印」燈箱：比照原網站 ReportPrint/SelectListReportBySalesSlip 選樣式，
+  // 固定用「依選取結果」（即目前列表頁已勾選的訂單），不做「依查詢結果」。
+  const printModalOpen = ref(false)
+  const printLoading = ref(false)
+  const printError = ref('')
+  const printStyles = ref([])
+  const titleTypeOptions = ref([])
+  const titleType = ref('1')
+  const printSubmitting = ref('')
+  const printForm = ref(null)
+  const submitGuids = ref('')
+  const submitReportId = ref('')
+  const submitReportFormat = ref('')
+
+  // 「顯示銷貨單(中一刀-半長)」是最常用的樣式，常駐顯示；其餘樣式收進
+  // 「更多樣式」收合區塊，避免每次列印都要在一長串樣式清單裡找。用
+  // includes 比對而不是完全比對，避免原網站樣式名稱多一個空格/全形符號
+  // 就整個匹配不到。
+  const COMMON_PRINT_STYLE_MATCH = (name) => name.includes('中一刀') && name.includes('半長')
+  const commonPrintStyles = computed(() => printStyles.value.filter(s => COMMON_PRINT_STYLE_MATCH(s.name)))
+  const otherPrintStyles = computed(() => printStyles.value.filter(s => !COMMON_PRINT_STYLE_MATCH(s.name)))
+  const printStylesExpanded = ref(false)
+
+  async function load(targetPage = 1) {
+    loading.value = true
+    errorMessage.value = ''
+    try {
+      const data = await $fetch('/api/dc-erp/sales-slips', {
+        query: {
+          page: targetPage,
+          pagesize: pagesize.value,
+          ...filters
+        }
+      })
+      Object.assign(filterOptions, data.filters)
+      items.value = data.items
+      totalCount.value = data.totalCount
+      totalPages.value = data.totalPages
+      page.value = data.page
+      pagesize.value = data.pagesize
+      breadcrumb.value = data.breadcrumb
+      createUrl.value = data.createUrl
+    } catch (err) {
+      if (err?.statusCode === 401 || err?.response?.status === 401) {
+        await navigateTo('/staff/order/dc-erp/login')
+        return
+      }
+      errorMessage.value = err?.data?.statusMessage || '無法載入銷貨單，請稍後再試'
+    } finally {
+      loading.value = false
+    }
   }
-}
 
-onMounted(() => {
-  const listSettings = loadListSettings('salesSlips', { pagesize: pagesize.value, viewMode: viewMode.value })
-  pagesize.value = listSettings.pagesize
-  viewMode.value = listSettings.viewMode
-  load(1)
-})
+  function handleSearch() {
+    saveListSettings('salesSlips', { whSearch: filters.whSearch, keyword: filters.keyword })
+    load(1)
+  }
+
+  function handleAllList() {
+    Object.assign(filters, {
+      workPlace: '0',
+      whSearch: 'whatever',
+      keyword: '',
+      sdate: '',
+      edate: '',
+      orderType: '-1',
+      signType: '-1',
+      scode: '',
+      ecode: '',
+      temperature: '-1',
+      firmCode: '',
+      parentFirm: '0',
+      customerCategory: '不拘',
+      invoiceCode: '',
+      isCreateInvoice: '0',
+      isPrintReceipt: '0'
+    })
+    saveListSettings('salesSlips', { whSearch: filters.whSearch, keyword: filters.keyword })
+    load(1)
+  }
+
+  function goPage(p) {
+    if (p < 1 || p > totalPages.value) return
+    selectedGuids.value.clear()
+    load(p)
+  }
+
+  function toggleSelect(guid) {
+    if (selectedGuids.value.has(guid)) selectedGuids.value.delete(guid)
+    else selectedGuids.value.add(guid)
+  }
+
+  function toggleSelectAll(checked) {
+    if (checked) items.value.forEach((row) => selectedGuids.value.add(row.guid))
+    else selectedGuids.value.clear()
+  }
+
+  async function handleSignBatch(action) {
+    const guids = Array.from(selectedGuids.value)
+    if (!guids.length) return
+    const label = action === 'return' ? '簽退' : '簽核'
+    if (!confirm(`確定要${label}選取的 ${guids.length} 張銷貨單嗎？`)) return
+    signing.value = true
+    errorMessage.value = ''
+    try {
+      await $fetch('/api/dc-erp/sales-slip-sign', {
+        method: 'POST',
+        body: { guids, action }
+      })
+      selectedGuids.value.clear()
+      await load(page.value)
+    } catch (err) {
+      errorMessage.value = err?.data?.statusMessage || `${label}失敗，請稍後再試`
+    } finally {
+      signing.value = false
+    }
+  }
+
+  async function openPrintModal() {
+    if (!selectedGuids.value.size) return
+    printModalOpen.value = true
+    printStylesExpanded.value = false
+    printLoading.value = true
+    printError.value = ''
+    try {
+      const data = await $fetch('/api/dc-erp/sales-slip-print-styles')
+      printStyles.value = data.styles
+      titleTypeOptions.value = data.titleTypeOptions
+      const selected = titleTypeOptions.value.find((opt) => opt.selected)
+      titleType.value = selected ? selected.value : (titleTypeOptions.value[0]?.value || '1')
+    } catch (err) {
+      printError.value = err?.data?.statusMessage || '無法載入列印樣式，請稍後再試'
+    } finally {
+      printLoading.value = false
+    }
+  }
+
+  function closePrintModal() {
+    printModalOpen.value = false
+  }
+
+  function handlePrint(fmt) {
+    submitGuids.value = Array.from(selectedGuids.value).join(',')
+    submitReportId.value = fmt.reportId
+    submitReportFormat.value = fmt.format
+    printSubmitting.value = `${fmt.reportId}-${fmt.format}`
+    // hidden input 是用 :value 綁定的，要等 Vue 把新值 patch 進 DOM 之後
+    // 再送出表單，不然送出的還是上一次的 reportId/format。
+    nextTick(() => {
+      if (printForm.value?.requestSubmit) {
+        printForm.value.requestSubmit()
+      } else {
+        printForm.value?.submit()
+      }
+      setTimeout(() => { printSubmitting.value = '' }, 1500)
+    })
+  }
+
+  // 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
+  // settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
+  // 「依欄位」＋「關鍵字」則是這頁自己記的：使用者反應每次都要重新輸入
+  // 客戶代號很麻煩，所以送出查詢/列出全部時順便存起來，下次進來頁面直接
+  // 帶入上次查詢的值，不用重打。
+  const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
+  function loadListSettings(key, defaults) {
+    try {
+      const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+      if (!raw) return defaults
+      const all = JSON.parse(raw)
+      return { ...defaults, ...(all[key] || {}) }
+    } catch {
+      return defaults
+    }
+  }
+  function saveListSettings(key, patch) {
+    try {
+      const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+      const all = raw ? JSON.parse(raw) : {}
+      all[key] = { ...(all[key] || {}), ...patch }
+      window.localStorage.setItem(LIST_SETTINGS_KEY, JSON.stringify(all))
+    } catch {
+      // localStorage 不可用（例如無痕模式）就算了，不影響查詢功能本身
+    }
+  }
+
+  onMounted(() => {
+    const listSettings = loadListSettings('salesSlips', {
+      pagesize: pagesize.value,
+      viewMode: viewMode.value,
+      whSearch: filters.whSearch,
+      keyword: filters.keyword
+    })
+    pagesize.value = listSettings.pagesize
+    viewMode.value = listSettings.viewMode
+    filters.whSearch = listSettings.whSearch
+    filters.keyword = listSettings.keyword
+    load(1)
+  })
 </script>
 
 <template>
@@ -394,43 +416,43 @@ onMounted(() => {
           <div v-else class="overflow-x-auto">
             <table class="w-full text-base">
               <thead>
-                <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
-                  <th class="px-2 py-2 text-center">
-                    <input type="checkbox" @change="toggleSelectAll($event.target.checked)">
-                  </th>
-                  <th class="px-2 py-2 text-center">項次</th>
-                  <th class="px-2 py-2">銷貨單號</th>
-                  <th class="px-2 py-2 text-center">交貨日期</th>
-                  <th class="px-2 py-2">客戶名稱</th>
-                  <th class="px-2 py-2 text-right">總計金額</th>
-                  <th class="px-2 py-2 text-right">應收金額</th>
-                  <th class="px-2 py-2 text-center">簽核狀態</th>
-                  <th class="px-2 py-2">場別</th>
-                  <th class="px-2 py-2">備註</th>
-                </tr>
+              <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                <th class="px-2 py-2 text-center">
+                  <input type="checkbox" @change="toggleSelectAll($event.target.checked)">
+                </th>
+                <th class="px-2 py-2 text-center">項次</th>
+                <th class="px-2 py-2">銷貨單號</th>
+                <th class="px-2 py-2 text-center">交貨日期</th>
+                <th class="px-2 py-2">客戶名稱</th>
+                <th class="px-2 py-2 text-right">總計金額</th>
+                <th class="px-2 py-2 text-right">應收金額</th>
+                <th class="px-2 py-2 text-center">簽核狀態</th>
+                <th class="px-2 py-2">場別</th>
+                <th class="px-2 py-2">備註</th>
+              </tr>
               </thead>
               <tbody>
-                <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
-                  <td class="px-2 py-1.5 text-center">
-                    <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
-                  </td>
-                  <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
-                  <td class="px-2 py-1.5">
-                    <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-slip-detail">
-                      <NuxtLink :to="`/staff/order/dc-erp/sales-slip-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
-                    </DcErpItemsTooltip>
-                  </td>
-                  <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>
-                  <td class="px-2 py-1.5">{{ row.firmName }}</td>
-                  <td class="px-2 py-1.5 text-right">{{ row.total }}</td>
-                  <td class="px-2 py-1.5 text-right">{{ row.currentMoney }}</td>
-                  <td class="px-2 py-1.5 text-center">{{ row.signState }}</td>
-                  <td class="px-2 py-1.5">{{ row.workPlace }}</td>
-                  <td class="px-2 py-1.5">{{ row.remark }}</td>
-                </tr>
-                <tr v-if="!items.length">
-                  <td colspan="10" class="px-2 py-6 text-center text-hint-c">查無資料</td>
-                </tr>
+              <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
+                <td class="px-2 py-1.5 text-center">
+                  <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
+                </td>
+                <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
+                <td class="px-2 py-1.5">
+                  <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-slip-detail">
+                    <NuxtLink :to="`/staff/order/dc-erp/sales-slip-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                  </DcErpItemsTooltip>
+                </td>
+                <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>
+                <td class="px-2 py-1.5">{{ row.firmName }}</td>
+                <td class="px-2 py-1.5 text-right">{{ row.total }}</td>
+                <td class="px-2 py-1.5 text-right">{{ row.currentMoney }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.signState }}</td>
+                <td class="px-2 py-1.5">{{ row.workPlace }}</td>
+                <td class="px-2 py-1.5">{{ row.remark }}</td>
+              </tr>
+              <tr v-if="!items.length">
+                <td colspan="10" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -468,23 +490,23 @@ onMounted(() => {
         <template v-else>
           <table class="w-full text-base">
             <tbody>
-              <tr v-for="style in commonPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
-                <td class="px-2 py-2">{{ style.name }}</td>
-                <td class="px-2 py-2 text-right">
-                  <button
-                    v-for="fmt in style.formats"
-                    :key="`${fmt.reportId}-${fmt.format}`"
-                    class="ml-2 rounded border border-light-c px-3 py-1 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-                    :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
-                    @click="handlePrint(fmt)"
-                  >
-                    {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="!printStyles.length">
-                <td colspan="2" class="px-2 py-6 text-center text-hint-c">查無可用樣式</td>
-              </tr>
+            <tr v-for="style in commonPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
+              <td class="px-2 py-2">{{ style.name }}</td>
+              <td class="px-2 py-2 text-right">
+                <button
+                  v-for="fmt in style.formats"
+                  :key="`${fmt.reportId}-${fmt.format}`"
+                  class="ml-2 rounded border border-light-c px-3 py-1 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+                  :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
+                  @click="handlePrint(fmt)"
+                >
+                  {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!printStyles.length">
+              <td colspan="2" class="px-2 py-6 text-center text-hint-c">查無可用樣式</td>
+            </tr>
             </tbody>
           </table>
 
@@ -497,20 +519,20 @@ onMounted(() => {
           </button>
           <table v-show="printStylesExpanded" class="mt-2 w-full text-base">
             <tbody>
-              <tr v-for="style in otherPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
-                <td class="px-2 py-2">{{ style.name }}</td>
-                <td class="px-2 py-2 text-right">
-                  <button
-                    v-for="fmt in style.formats"
-                    :key="`${fmt.reportId}-${fmt.format}`"
-                    class="ml-2 rounded border border-light-c px-3 py-1 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-                    :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
-                    @click="handlePrint(fmt)"
-                  >
-                    {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
-                  </button>
-                </td>
-              </tr>
+            <tr v-for="style in otherPrintStyles" :key="style.name" class="border-b border-light-c last:border-b-0">
+              <td class="px-2 py-2">{{ style.name }}</td>
+              <td class="px-2 py-2 text-right">
+                <button
+                  v-for="fmt in style.formats"
+                  :key="`${fmt.reportId}-${fmt.format}`"
+                  class="ml-2 rounded border border-light-c px-3 py-1 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+                  :disabled="printSubmitting === `${fmt.reportId}-${fmt.format}`"
+                  @click="handlePrint(fmt)"
+                >
+                  {{ printSubmitting === `${fmt.reportId}-${fmt.format}` ? '處理中…' : fmt.label }}
+                </button>
+              </td>
+            </tr>
             </tbody>
           </table>
         </template>

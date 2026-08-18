@@ -1,7 +1,15 @@
 <template>
+  <ClientOnly>
   <div class="p-4">
-    <div class="mb-3">
+    <div class="mb-3 flex items-center justify-between">
       <h1 class="text-lg font-semibold text-gray-800 dark:text-gray-100">360 環景導覽管理</h1>
+      <NuxtLink
+        to="/staff/management/tour/preview"
+        target="_blank"
+        class="text-xs text-green-700 dark:text-green-400 hover:underline"
+      >
+        🔍 開啟預覽頁 →
+      </NuxtLink>
     </div>
 
     <div class="grid grid-cols-[300px_1fr] gap-4 items-start">
@@ -144,13 +152,15 @@
 
       <!-- 右側：全景檢視 + 熱點編輯（固定深色，作為看圖區） -->
       <div class="bg-[#10171a] rounded-xl min-h-[600px] flex flex-col overflow-hidden relative">
-        <div v-if="!selectedScene" class="flex-1 flex items-center justify-center text-[#6f8480] text-sm">
+        <div
+          v-if="!selectedScene"
+          class="absolute inset-0 z-10 flex items-center justify-center text-[#6f8480] text-sm bg-[#10171a]"
+        >
           選一個場景，或上傳新的全景圖開始編輯熱點
         </div>
 
-        <template v-else>
-          <div class="flex items-center gap-5 px-4 py-2.5 bg-[#1a2327] text-[#eef3f2] text-sm flex-wrap">
-            <strong>{{ selectedScene.name }}</strong>
+        <div v-show="selectedScene" class="flex items-center gap-5 px-4 py-2.5 bg-[#1a2327] text-[#eef3f2] text-sm flex-wrap">
+            <strong>{{ selectedScene?.name }}</strong>
             <div class="flex items-center gap-2 ml-auto">
               <label>熱點拾取模式</label>
               <div
@@ -175,7 +185,6 @@
               class="bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
               @click="sceneMapPickMode = true"
             >
-
               📍 在平面圖上定位
             </button>
             <span v-else class="text-[11px] text-[#6f8480]">
@@ -201,7 +210,7 @@
             </button>
           </div>
 
-          <div id="admin-viewer" class="flex-1 min-h-[500px]"></div>
+          <div id="admin-viewer" style="height: 600px; width: 100%;"></div>
 
           <!-- 熱點目標選擇彈窗 -->
           <div
@@ -379,7 +388,7 @@
             </div>
           </div>
 
-          <div class="bg-[#1a2327] text-[#eef3f2] px-4 py-2.5 text-xs max-h-[140px] overflow-y-auto">
+          <div v-show="selectedScene" class="bg-[#1a2327] text-[#eef3f2] px-4 py-2.5 text-xs max-h-[140px] overflow-y-auto">
             <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">此場景的熱點</div>
             <ul class="list-none m-0 p-0">
               <li
@@ -398,10 +407,10 @@
               <li v-if="!hotspotsForCurrentScene.length" class="text-[#6f8480] py-1">尚無熱點</li>
             </ul>
           </div>
-        </template>
       </div>
     </div>
   </div>
+  </ClientOnly>
 </template>
 
 <script setup>
