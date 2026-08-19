@@ -37,9 +37,25 @@ async function doLogout(mainUrl: string) {
 interface VerifyOptions {
   // 忽略 10 分鐘節流，一定重新驗證一次（例如 iOS 從背景切回時）
   force?: boolean
-  // 第一次 fetch 失敗時，延遲後再試一次，避免把「網路還沒就緒」
+  // 第一次失敗時，延遲後再試一次，避免把「網路還沒就緒」
   // 誤判成「session 失效」（比照 permission.js 的重試策略）
   retryOnFail?: boolean
+}
+
+// ── 單次 /me 呼叫（內部用）─────────────────────────────────────────
+// 不管是網路例外（fetch 拋錯）還是 HTTP 狀態碼本身，一律往上丟，
+// 交給 verifySession() 統一決定要不要重試。過去的寫法只在 fetch
+// 拋例外時重試，401 這種「回應本身」卻直接判定登出——但 iOS 從背景
+// 切回前景那一刻，cookie 常常還沒正確帶上，這種情況產生的 401 只是
+// 暫時性的，不代表真的登出，需要跟 permission.js 一樣重試後才能採信。
+async function fetchMe(mainUrl: string) {
+  const res = await callMe(mainUrl)
+  if (res.status === 401 || res.status === 403) {
+    const err = new Error(`me ${res.status}`)
+    ;(err as any).status = res.status
+    throw err
+  }
+  return res
 }
 
 export async function verifySession(mainUrl: string, options: VerifyOptions = {}) {
@@ -58,45 +74,48 @@ export async function verifySession(mainUrl: string, options: VerifyOptions = {}
 
   checking = true
   try {
-    let res: Response
-    try {
-      res = await callMe(mainUrl)
-    } catch {
-      if (retryOnFail) {
+    let lastErr: any = null
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt === 1) {
+        // 第一次失敗後，稍等一下再試一次，讓網路/cookie 有機會恢復
         await new Promise(resolve => setTimeout(resolve, 1200))
-        try {
-          res = await callMe(mainUrl)
-        } catch {
-          // 重試也失敗：離線/逾時，不登出，等下次再檢查
+      }
+      try {
+        const res = await fetchMe(mainUrl)
+
+        if (!res.ok) {
+          // 5xx / 502 / 503 / 504 等閘道逾時，跟登入狀態無關，不強制登出，
+          // 只重置 lastCheckedAt，讓下次導覽/切回前景再驗證一次
           lastCheckedAt = 0
           return { loggedOut: false, skipped: false }
         }
-      } else {
-        lastCheckedAt = 0
+
+        const data = await res.json()
+        if (data.error) {
+          // 後端明確表示「沒有這個登入」，不是暫時性的，直接判定登出
+          await doLogout(mainUrl)
+          return { loggedOut: true, skipped: false }
+        }
+
+        lastCheckedAt = now
         return { loggedOut: false, skipped: false }
+      } catch (err) {
+        lastErr = err
+        if (!retryOnFail) break
       }
     }
 
-    // 後端明確表示「沒有這個登入」，才是真的 session 失效
-    if (res.status === 401 || res.status === 403) {
+    // 兩次都失敗（或 retryOnFail=false 時的單次失敗）
+    const status = lastErr?.status
+    if (status === 401 || status === 403) {
+      // 連續兩次都明確是 401/403，才視為真的 session 失效
       await doLogout(mainUrl)
       return { loggedOut: true, skipped: false }
     }
 
-    if (!res.ok) {
-      // 5xx / 502 / 503 / 504 等閘道逾時，跟登入狀態無關，不強制登出，
-      // 只重置 lastCheckedAt，讓下次導覽/切回前景再驗證一次
-      lastCheckedAt = 0
-      return { loggedOut: false, skipped: false }
-    }
-
-    const data = await res.json()
-    if (data.error) {
-      await doLogout(mainUrl)
-      return { loggedOut: true, skipped: false }
-    }
-
-    lastCheckedAt = now
+    // 網路斷線 / timeout 等暫時性錯誤：不登出，等下次再檢查
+    lastCheckedAt = 0
     return { loggedOut: false, skipped: false }
   } finally {
     checking = false
