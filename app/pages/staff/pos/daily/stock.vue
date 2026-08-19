@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'pos.daily.stock' })
+definePageMeta({ layout: 'pos', requiredPermission: 'pos.daily.stock' })
 
 interface StockRow {
   matNo: string

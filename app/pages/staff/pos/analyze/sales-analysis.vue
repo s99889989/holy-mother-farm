@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'pos.analyze.pos-sales' })
+definePageMeta({ layout: 'pos', requiredPermission: 'pos.analyze.pos-sales' })
 
 // ══════════════════════════════════════════════════════════════════
 // 對應後端新增的 Bk35SalesAnalysisController（/holy/bk35sql/sales-analysis/*）

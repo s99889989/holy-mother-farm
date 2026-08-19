@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  definePageMeta({ layout: 'staff', requiredPermission: 'pos.daily.sales' })
+  definePageMeta({ layout: 'pos', requiredPermission: 'pos.daily.sales' })
 
   interface MenuType {
     typeNo: number

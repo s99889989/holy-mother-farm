@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'pos.settings.equipment-setting' })
+definePageMeta({ layout: 'pos', requiredPermission: 'pos.settings.equipment-setting' })
 </script>
 
 <template>

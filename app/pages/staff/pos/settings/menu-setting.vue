@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  definePageMeta({ layout: 'staff', requiredPermission: 'pos.pos-accounting' })
+  definePageMeta({ layout: 'pos', requiredPermission: 'pos.pos-accounting' })
 
   interface DataResponse {
     columns: string[]
