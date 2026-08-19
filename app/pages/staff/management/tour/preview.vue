@@ -3,7 +3,7 @@
     <div class="preview-page">
       <div class="preview-topbar">
         <NuxtLink to="/staff/management/tour" class="back-link">← 返回管理</NuxtLink>
-        <select v-model="currentSceneId" class="scene-select" @change="onSceneSelect(currentSceneId)">
+        <select v-model="currentSceneId" class="scene-select flex-1" @change="onSceneSelect(currentSceneId)">
           <optgroup v-for="grp in groupedScenes" :key="grp.category" :label="grp.category">
             <option v-for="s in grp.scenes" :key="s.id" :value="s.id">{{ s.name }}</option>
           </optgroup>
@@ -343,6 +343,7 @@ onBeforeUnmount(() => {
   color: #9fb0ac;
   text-decoration: none;
   font-size: 13px;
+  flex-shrink: 0;
 }
 
 .back-link:hover {
@@ -356,6 +357,8 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   padding: 5px 8px;
   font-size: 12.5px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .quick-points {
@@ -381,6 +384,8 @@ onBeforeUnmount(() => {
   padding: 4px 12px;
   font-size: 12px;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .quick-btn:hover {
@@ -416,6 +421,8 @@ onBeforeUnmount(() => {
   padding: 4px 12px;
   font-size: 12px;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .group-btn.active {
@@ -534,6 +541,53 @@ onBeforeUnmount(() => {
   padding: 0 3px;
   line-height: 1.4;
   pointer-events: none;
+}
+
+/* ---------------- 手機版調整 ---------------- */
+@media (max-width: 640px) {
+  .preview-topbar {
+    flex-wrap: nowrap;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .scene-select {
+    font-size: 12px;
+  }
+
+  .quick-points,
+  .group-switch {
+    padding: 6px 12px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .quick-points::-webkit-scrollbar,
+  .group-switch::-webkit-scrollbar {
+    display: none;
+  }
+
+  .minimap {
+    width: 100px;
+    height: 100px;
+    left: 10px;
+    bottom: 10px;
+  }
+
+  .minimap--expanded {
+    width: 230px;
+    height: 230px;
+  }
+
+  .minimap-dot--quick {
+    width: 13px;
+    height: 13px;
+    font-size: 8px;
+    line-height: 12px;
+  }
 }
 </style>
 

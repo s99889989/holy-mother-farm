@@ -570,7 +570,7 @@ watch(selectedMonth, () => fetchData(false))
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto p-4 pb-24">
+  <div class="max-w-3xl lg:max-w-none mx-auto p-4 lg:px-8 xl:px-12 pb-24">
     <!-- 標題列 -->
     <div class="flex items-center justify-between mb-4">
       <h1 class="text-lg font-bold text-base-c">
@@ -582,85 +582,88 @@ watch(selectedMonth, () => fetchData(false))
       >更新於 {{ lastUpdated }}</span>
     </div>
 
-    <!-- 出爐日排程面板 -->
-    <div class="bg-surface border border-light-c rounded-2xl mb-3">
-      <button
-        class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-base-c"
-        @click="businessPanelOpen = !businessPanelOpen"
-      >
-        <span>出爐日設定（目前：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
-        <span>{{ businessPanelOpen ? '收合 ▲' : '展開 ▼' }}</span>
-      </button>
-      <div
-        v-if="businessPanelOpen"
-        class="px-4 pb-4 space-y-3"
-      >
-        <div class="flex flex-wrap gap-2">
+    <div class="lg:flex lg:gap-6 lg:items-start">
+      <!-- 左側：設定面板 -->
+      <div class="space-y-3 mb-3 lg:mb-0 lg:w-80 xl:w-96 lg:flex-shrink-0 lg:sticky lg:top-4">
+        <!-- 出爐日排程面板 -->
+        <div class="bg-surface border border-light-c rounded-2xl">
           <button
-            v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
-            :key="dow"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
-            :class="businessDaysDraft.includes(dow) ? 'bg-amber-700 text-white border-amber-700' : 'bg-surface2 text-hint-c border-light-c'"
-            @click="toggleDraftDow(dow)"
+            class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-base-c"
+            @click="businessPanelOpen = !businessPanelOpen"
           >
-            {{ DOW_LABEL[dow] }}
+            <span>出爐日設定（目前：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
+            <span>{{ businessPanelOpen ? '收合 ▲' : '展開 ▼' }}</span>
           </button>
-        </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <label class="text-xs text-hint-c">生效日（留空＝立即生效）</label>
-          <input
-            v-model="businessDaysEffectiveFrom"
-            type="date"
-            class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c"
-          >
-          <button
-            :disabled="businessDaysSaving"
-            class="px-3 py-1.5 text-xs font-semibold bg-amber-700 text-white rounded-lg disabled:opacity-50"
-            @click="saveBusinessDays(businessDaysDraft, businessDaysEffectiveFrom)"
-          >
-            {{ businessDaysSaving ? '儲存中…' : (businessDaysSaved ? '已儲存 ✓' : '儲存') }}
-          </button>
-        </div>
-        <div
-          v-if="businessDaysSchedule.length"
-          class="space-y-1"
-        >
-          <p class="text-xs text-hint-c">
-            已排定的排程：
-          </p>
           <div
-            v-for="entry in businessDaysSchedule"
-            :key="entry.effectiveFrom"
-            class="flex items-center justify-between text-xs bg-surface2 rounded-lg px-3 py-1.5"
+            v-if="businessPanelOpen"
+            class="px-4 pb-4 space-y-3"
           >
-            <span>{{ entry.effectiveFrom }} 起：{{ entry.businessDays.map(d => DOW_LABEL[d]).join('、') }}</span>
-            <button
-              class="text-red-500"
-              @click="removeBusinessDaysScheduleEntry(entry.effectiveFrom)"
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
+                :key="dow"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+                :class="businessDaysDraft.includes(dow) ? 'bg-amber-700 text-white border-amber-700' : 'bg-surface2 text-hint-c border-light-c'"
+                @click="toggleDraftDow(dow)"
+              >
+                {{ DOW_LABEL[dow] }}
+              </button>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <label class="text-xs text-hint-c">生效日（留空＝立即生效）</label>
+              <input
+                v-model="businessDaysEffectiveFrom"
+                type="date"
+                class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c"
+              >
+              <button
+                :disabled="businessDaysSaving"
+                class="px-3 py-1.5 text-xs font-semibold bg-amber-700 text-white rounded-lg disabled:opacity-50"
+                @click="saveBusinessDays(businessDaysDraft, businessDaysEffectiveFrom)"
+              >
+                {{ businessDaysSaving ? '儲存中…' : (businessDaysSaved ? '已儲存 ✓' : '儲存') }}
+              </button>
+            </div>
+            <div
+              v-if="businessDaysSchedule.length"
+              class="space-y-1"
             >
-              刪除
-            </button>
-          </div>
-        </div>
+              <p class="text-xs text-hint-c">
+                已排定的排程：
+              </p>
+              <div
+                v-for="entry in businessDaysSchedule"
+                :key="entry.effectiveFrom"
+                class="flex items-center justify-between text-xs bg-surface2 rounded-lg px-3 py-1.5"
+              >
+                <span>{{ entry.effectiveFrom }} 起：{{ entry.businessDays.map(d => DOW_LABEL[d]).join('、') }}</span>
+                <button
+                  class="text-red-500"
+                  @click="removeBusinessDaysScheduleEntry(entry.effectiveFrom)"
+                >
+                  刪除
+                </button>
+              </div>
+            </div>
 
-        <div class="border-t border-light-c pt-3">
-          <p class="text-xs text-hint-c mb-1.5">
-            休息日
-          </p>
-          <div class="flex items-center gap-2 mb-2">
-            <input
-              v-model="newClosedDate"
-              type="date"
-              class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c"
-            >
-            <button
-              class="px-3 py-1.5 text-xs font-semibold bg-surface2 text-base-c border border-light-c rounded-lg"
-              @click="addClosedDate"
-            >
-              新增休息日
-            </button>
-          </div>
-          <div class="flex flex-wrap gap-2">
+            <div class="border-t border-light-c pt-3">
+              <p class="text-xs text-hint-c mb-1.5">
+                休息日
+              </p>
+              <div class="flex items-center gap-2 mb-2">
+                <input
+                  v-model="newClosedDate"
+                  type="date"
+                  class="px-2 py-1 text-xs border border-light-c rounded-lg bg-surface2 text-base-c"
+                >
+                <button
+                  class="px-3 py-1.5 text-xs font-semibold bg-surface2 text-base-c border border-light-c rounded-lg"
+                  @click="addClosedDate"
+                >
+                  新增休息日
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-2">
             <span
               v-for="d in closedDates"
               :key="d"
@@ -669,307 +672,392 @@ watch(selectedMonth, () => fetchData(false))
               {{ d }}
               <button @click="removeClosedDate(d)">✕</button>
             </span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 品項設定面板 -->
-    <div class="bg-surface border border-light-c rounded-2xl mb-3">
-      <button
-        class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-base-c"
-        @click="itemsPanelOpen = !itemsPanelOpen"
-      >
-        <span>麵包品項設定（共 {{ items.length }} 款）</span>
-        <span>{{ itemsPanelOpen ? '收合 ▲' : '展開 ▼' }}</span>
-      </button>
-      <div
-        v-if="itemsPanelOpen"
-        class="px-4 pb-4 space-y-2"
-      >
-        <div
-          v-for="(item, idx) in itemsDraft"
-          :key="idx"
-          class="bg-surface2 rounded-lg px-3 py-2 space-y-2"
-        >
-          <div class="flex items-center gap-2 flex-wrap">
-            <input
-              v-model="item.code"
-              placeholder="代碼"
-              class="w-14 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-            >
-            <input
-              v-model="item.name"
-              placeholder="名稱"
-              class="flex-1 min-w-[100px] px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-            >
-            <input
-              v-model.number="item.price"
-              type="number"
-              placeholder="單價"
-              class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-            >
-            <input
-              v-model="item.unit"
-              placeholder="單位"
-              class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
-            >
-            <label class="flex items-center gap-1 text-xs text-hint-c">
-              <input
-                v-model="item.active"
-                type="checkbox"
-              > 上架
-            </label>
-            <button
-              class="text-red-500 text-xs ml-auto"
-              @click="removeItemRow(idx)"
-            >
-              刪除
-            </button>
-          </div>
-          <div class="flex items-center gap-2">
-            <img
-              v-if="item.image"
-              :src="thumbUrl(item.image)"
-              class="w-10 h-10 rounded object-cover border border-light-c flex-shrink-0 cursor-pointer"
-              alt=""
-              @click="imgUrl(item.image) && window.open(imgUrl(item.image), '_blank')"
-            >
-            <div
-              v-else
-              class="w-10 h-10 rounded border border-dashed border-light-c flex items-center justify-center text-hint-c text-[10px] flex-shrink-0"
-            >
-              無圖片
-            </div>
-            <label
-              class="px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c cursor-pointer"
-              :class="{ 'opacity-50 pointer-events-none': uploadingImageCode === item.code }"
-            >
-              {{ uploadingImageCode === item.code ? '上傳中…' : (item.image ? '更換圖片' : '上傳圖片') }}
-              <input
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="uploadItemImage(item, $event)"
-              >
-            </label>
-            <button
-              v-if="item.image"
-              class="text-red-500 text-xs"
-              @click="removeItemImage(item)"
-            >
-              移除圖片
-            </button>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 pt-1">
-          <button
-            class="px-3 py-1.5 text-xs font-semibold bg-surface2 text-base-c border border-light-c rounded-lg"
-            @click="addItemRow"
-          >
-            ＋ 新增品項
-          </button>
-          <button
-            :disabled="itemsSaving"
-            class="px-3 py-1.5 text-xs font-semibold bg-amber-700 text-white rounded-lg disabled:opacity-50"
-            @click="saveItems"
-          >
-            {{ itemsSaving ? '儲存中…' : (itemsSaved ? '已儲存 ✓' : '儲存品項設定') }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 月份與篩選 -->
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-      <select
-        v-model="selectedMonth"
-        class="px-3 py-1.5 text-sm border border-light-c rounded-lg bg-surface text-base-c"
-      >
-        <option
-          v-for="opt in monthOptions"
-          :key="opt.val"
-          :value="opt.val"
-        >
-          {{ opt.label }}
-        </option>
-      </select>
-      <select
-        v-model="filterDay"
-        class="px-3 py-1.5 text-sm border border-light-c rounded-lg bg-surface text-base-c"
-      >
-        <option value="">
-          全部星期
-        </option>
-        <option
-          v-for="dow in businessDayOptions"
-          :key="dow.dow"
-          :value="dow.code"
-        >
-          {{ dow.label }}
-        </option>
-      </select>
-      <select
-        v-model="filterStatus"
-        class="px-3 py-1.5 text-sm border border-light-c rounded-lg bg-surface text-base-c"
-      >
-        <option value="">
-          全部狀態
-        </option>
-        <option
-          v-for="s in STATUSES"
-          :key="s"
-          :value="s"
-        >
-          {{ s }}
-        </option>
-      </select>
-      <!-- 客戶訂購連結 -->
-      <a
-        href="https://holyfarm.netlify.app/front/order/handmade-bread?og=20"
-        target="_blank"
-        class="flex items-center gap-1 px-2 py-1.5 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-amber-700 hover:text-white hover:border-amber-700 transition-colors text-xs"
-      >
-        <svg
-          class="w-3.5 h-3.5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-          />
-        </svg>
-        <span class="hidden sm:inline">訂購連結</span>
-      </a>
-      <button
-        class="px-3 py-1.5 text-sm bg-surface2 text-base-c border border-light-c rounded-lg"
-        @click="fetchData(false)"
-      >
-        🔄 重新整理
-      </button>
-    </div>
-
-    <!-- 總覽 -->
-    <div class="bg-surface border border-light-c rounded-2xl p-4 mb-4 flex items-center justify-between">
-      <div>
-        <p class="text-xs text-hint-c">
-          本月總金額（不含已取消）
-        </p>
-        <p class="text-xl font-bold text-base-c">
-          ${{ totalAmount }}
-        </p>
-      </div>
-      <div class="text-right text-xs text-hint-c leading-relaxed">
-        <div
-          v-for="(qty, code) in qtyByCode"
-          :key="code"
-        >
-          {{ code }}．{{ itemByCode(code)?.name || code }} × {{ qty }}
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="loading && orders.length === 0"
-      class="text-center text-hint-c py-10"
-    >
-      載入中…
-    </div>
-    <div
-      v-else-if="groupedOrders.length === 0"
-      class="text-center text-hint-c py-10"
-    >
-      這個月沒有訂單
-    </div>
-
-    <!-- 依取貨日分組列表 -->
-    <div
-      v-for="group in groupedOrders"
-      :id="`pickup-group-${group.date}`"
-      :key="group.date"
-      class="mb-5"
-    >
-      <div class="flex items-center justify-between mb-2 px-1">
-        <h2
-          class="text-sm font-bold"
-          :class="isToday(group.date) ? 'text-amber-700' : 'text-base-c'"
-        >
-          {{ group.dateLabel }}<span
-          v-if="isToday(group.date)"
-          class="ml-1 text-xs"
-        >（今天）</span>
-        </h2>
-        <span class="text-xs text-hint-c">{{ group.breakdown }}　共 ${{ group.amount }}</span>
-      </div>
-
-      <div class="space-y-2">
-        <div
-          v-for="order in group.orders"
-          :key="order.id"
-          class="bg-surface border border-light-c rounded-xl p-3"
-        >
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-semibold text-base-c text-sm">{{ order.name }}</span>
-                <span :class="statusClass(order.status)">{{ order.status }}</span>
               </div>
-              <p class="text-xs text-hint-c mt-0.5">
-                {{ order.contact }}　{{ pickupLabel(order) }}取貨
-              </p>
-              <p class="text-sm text-muted-c mt-1">
-                {{ itemsLabel(order) }}
-              </p>
-              <p
-                v-if="order.remark"
-                class="text-xs text-hint-c mt-1"
-              >
-                備註：{{ order.remark }}
-              </p>
-              <p class="text-xs text-hint-c mt-1">
-                訂購於 {{ formatCreatedAt(order.createdAt) }}
-              </p>
-            </div>
-            <div class="text-right flex-shrink-0">
-              <p class="font-bold text-base-c">
-                ${{ order.totalAmount }}
-              </p>
             </div>
           </div>
+        </div>
 
-          <div class="flex items-center justify-between mt-2 pt-2 border-t border-light-c">
-            <div class="flex flex-wrap gap-1">
+        <!-- 品項設定面板 -->
+        <div class="bg-surface border border-light-c rounded-2xl">
+          <button
+            class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-base-c"
+            @click="itemsPanelOpen = !itemsPanelOpen"
+          >
+            <span>麵包品項設定（共 {{ items.length }} 款）</span>
+            <span>{{ itemsPanelOpen ? '收合 ▲' : '展開 ▼' }}</span>
+          </button>
+          <div
+            v-if="itemsPanelOpen"
+            class="px-4 pb-4 space-y-2"
+          >
+            <div
+              v-for="(item, idx) in itemsDraft"
+              :key="idx"
+              class="bg-surface2 rounded-lg px-3 py-2 space-y-2"
+            >
+              <div class="flex items-center gap-2 flex-wrap">
+                <input
+                  v-model="item.code"
+                  placeholder="代碼"
+                  class="w-14 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+                >
+                <input
+                  v-model="item.name"
+                  placeholder="名稱"
+                  class="flex-1 min-w-[100px] px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+                >
+                <input
+                  v-model.number="item.price"
+                  type="number"
+                  placeholder="單價"
+                  class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+                >
+                <input
+                  v-model="item.unit"
+                  placeholder="單位"
+                  class="w-16 px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c"
+                >
+                <label class="flex items-center gap-1 text-xs text-hint-c">
+                  <input
+                    v-model="item.active"
+                    type="checkbox"
+                  > 上架
+                </label>
+                <button
+                  class="text-red-500 text-xs ml-auto"
+                  @click="removeItemRow(idx)"
+                >
+                  刪除
+                </button>
+              </div>
+              <div class="flex items-center gap-2">
+                <img
+                  v-if="item.image"
+                  :src="thumbUrl(item.image)"
+                  class="w-10 h-10 lg:w-20 lg:h-20 rounded object-cover border border-light-c flex-shrink-0 cursor-pointer"
+                  alt=""
+                  @click="imgUrl(item.image) && window.open(imgUrl(item.image), '_blank')"
+                >
+                <div
+                  v-else
+                  class="w-10 h-10 lg:w-20 lg:h-20 rounded border border-dashed border-light-c flex items-center justify-center text-hint-c text-[10px] lg:text-xs flex-shrink-0"
+                >
+                  無圖片
+                </div>
+                <label
+                  class="px-2 py-1 text-xs border border-light-c rounded bg-surface text-base-c cursor-pointer"
+                  :class="{ 'opacity-50 pointer-events-none': uploadingImageCode === item.code }"
+                >
+                  {{ uploadingImageCode === item.code ? '上傳中…' : (item.image ? '更換圖片' : '上傳圖片') }}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    class="hidden"
+                    @change="uploadItemImage(item, $event)"
+                  >
+                </label>
+                <button
+                  v-if="item.image"
+                  class="text-red-500 text-xs"
+                  @click="removeItemImage(item)"
+                >
+                  移除圖片
+                </button>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
               <button
+                class="px-3 py-1.5 text-xs font-semibold bg-surface2 text-base-c border border-light-c rounded-lg"
+                @click="addItemRow"
+              >
+                ＋ 新增品項
+              </button>
+              <button
+                :disabled="itemsSaving"
+                class="px-3 py-1.5 text-xs font-semibold bg-amber-700 text-white rounded-lg disabled:opacity-50"
+                @click="saveItems"
+              >
+                {{ itemsSaving ? '儲存中…' : (itemsSaved ? '已儲存 ✓' : '儲存品項設定') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側：訂單管理 -->
+      <div class="lg:flex-1 lg:min-w-0">
+
+        <!-- 月份與篩選 -->
+        <div class="flex flex-wrap items-center gap-2 mb-4 md:justify-between">
+          <div class="flex flex-wrap items-center gap-2">
+            <select
+              v-model="selectedMonth"
+              class="px-3 py-1.5 text-sm border border-light-c rounded-lg bg-surface text-base-c"
+            >
+              <option
+                v-for="opt in monthOptions"
+                :key="opt.val"
+                :value="opt.val"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+            <select
+              v-model="filterDay"
+              class="px-3 py-1.5 text-sm border border-light-c rounded-lg bg-surface text-base-c"
+            >
+              <option value="">
+                全部星期
+              </option>
+              <option
+                v-for="dow in businessDayOptions"
+                :key="dow.dow"
+                :value="dow.code"
+              >
+                {{ dow.label }}
+              </option>
+            </select>
+            <select
+              v-model="filterStatus"
+              class="px-3 py-1.5 text-sm border border-light-c rounded-lg bg-surface text-base-c"
+            >
+              <option value="">
+                全部狀態
+              </option>
+              <option
                 v-for="s in STATUSES"
                 :key="s"
-                :disabled="updatingId === order.id"
-                :class="order.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c'"
-                class="transition-all cursor-pointer disabled:opacity-50"
-                @click="updateStatus(order, s)"
+                :value="s"
               >
                 {{ s }}
-              </button>
-            </div>
-            <div class="flex gap-2 flex-shrink-0">
-              <button
-                class="text-xs text-blue-600"
-                @click="openEditModal(order)"
+              </option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <!-- 客戶訂購連結 -->
+            <a
+              href="https://holyfarm.netlify.app/front/order/handmade-bread?og=20"
+              target="_blank"
+              class="flex items-center gap-1 px-2 py-1.5 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-amber-700 hover:text-white hover:border-amber-700 transition-colors text-xs"
+            >
+              <svg
+                class="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                編輯
-              </button>
-              <button
-                class="text-xs text-red-500"
-                @click="openDeleteModal(order)"
-              >
-                刪除
-              </button>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
+              </svg>
+              <span class="hidden sm:inline">訂購連結</span>
+            </a>
+            <button
+              class="px-3 py-1.5 text-sm bg-surface2 text-base-c border border-light-c rounded-lg"
+              @click="fetchData(false)"
+            >
+              🔄 重新整理
+            </button>
+          </div>
+        </div>
+
+        <!-- 總覽 -->
+        <div class="bg-surface border border-light-c rounded-2xl p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p class="text-xs text-hint-c">
+              本月總金額（不含已取消）
+            </p>
+            <p class="text-xl font-bold text-base-c">
+              ${{ totalAmount }}
+            </p>
+          </div>
+          <div class="text-right md:flex md:flex-wrap md:justify-end md:gap-x-4 md:gap-y-1 text-xs text-hint-c leading-relaxed">
+            <div
+              v-for="(qty, code) in qtyByCode"
+              :key="code"
+            >
+              {{ code }}．{{ itemByCode(code)?.name || code }} × {{ qty }}
             </div>
           </div>
         </div>
+
+        <div
+          v-if="loading && orders.length === 0"
+          class="text-center text-hint-c py-10"
+        >
+          載入中…
+        </div>
+        <div
+          v-else-if="groupedOrders.length === 0"
+          class="text-center text-hint-c py-10"
+        >
+          這個月沒有訂單
+        </div>
+
+        <!-- 依取貨日分組列表 -->
+        <div
+          v-for="group in groupedOrders"
+          :id="`pickup-group-${group.date}`"
+          :key="group.date"
+          class="mb-5"
+        >
+          <div class="flex items-center justify-between mb-2 px-1">
+            <h2
+              class="text-sm font-bold"
+              :class="isToday(group.date) ? 'text-amber-700' : 'text-base-c'"
+            >
+              {{ group.dateLabel }}<span
+              v-if="isToday(group.date)"
+              class="ml-1 text-xs"
+            >（今天）</span>
+            </h2>
+            <span class="text-xs text-hint-c">{{ group.breakdown }}　共 ${{ group.amount }}</span>
+          </div>
+
+          <!-- 手機版：卡片列表 -->
+          <div class="space-y-2 md:hidden">
+            <div
+              v-for="order in group.orders"
+              :key="order.id"
+              class="bg-surface border border-light-c rounded-xl p-3"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-semibold text-base-c text-sm">{{ order.name }}</span>
+                    <span :class="statusClass(order.status)">{{ order.status }}</span>
+                  </div>
+                  <p class="text-xs text-hint-c mt-0.5">
+                    {{ order.contact }}　{{ pickupLabel(order) }}取貨
+                  </p>
+                  <p class="text-sm text-muted-c mt-1">
+                    {{ itemsLabel(order) }}
+                  </p>
+                  <p
+                    v-if="order.remark"
+                    class="text-xs text-hint-c mt-1"
+                  >
+                    備註：{{ order.remark }}
+                  </p>
+                  <p class="text-xs text-hint-c mt-1">
+                    訂購於 {{ formatCreatedAt(order.createdAt) }}
+                  </p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <p class="font-bold text-base-c">
+                    ${{ order.totalAmount }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between mt-2 pt-2 border-t border-light-c">
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    v-for="s in STATUSES"
+                    :key="s"
+                    :disabled="updatingId === order.id"
+                    :class="order.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c'"
+                    class="transition-all cursor-pointer disabled:opacity-50"
+                    @click="updateStatus(order, s)"
+                  >
+                    {{ s }}
+                  </button>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                  <button
+                    class="text-xs text-blue-600"
+                    @click="openEditModal(order)"
+                  >
+                    編輯
+                  </button>
+                  <button
+                    class="text-xs text-red-500"
+                    @click="openDeleteModal(order)"
+                  >
+                    刪除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 桌面版：表格列表 -->
+          <div class="hidden md:block overflow-x-auto rounded-xl border border-light-c bg-surface">
+            <table class="w-full text-sm">
+              <thead class="bg-surface2 text-hint-c text-xs">
+              <tr>
+                <th class="text-left px-3 py-2 font-medium">姓名／聯絡方式</th>
+                <th class="text-left px-3 py-2 font-medium">品項</th>
+                <th class="text-left px-3 py-2 font-medium">備註</th>
+                <th class="text-left px-3 py-2 font-medium whitespace-nowrap">訂購時間</th>
+                <th class="text-right px-3 py-2 font-medium">金額</th>
+                <th class="text-left px-3 py-2 font-medium">狀態</th>
+                <th class="text-right px-3 py-2 font-medium">操作</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr
+                v-for="order in group.orders"
+                :key="order.id"
+                class="border-t border-light-c hover:bg-surface2/50 align-top"
+              >
+                <td class="px-3 py-2">
+                  <div class="font-semibold text-base-c">
+                    {{ order.name }}
+                  </div>
+                  <div class="text-xs text-hint-c">
+                    {{ order.contact }}
+                  </div>
+                </td>
+                <td class="px-3 py-2 text-hint-c max-w-[240px]">
+                  {{ itemsLabel(order) }}
+                </td>
+                <td class="px-3 py-2 text-hint-c text-xs max-w-[160px]">
+                  {{ order.remark || '—' }}
+                </td>
+                <td class="px-3 py-2 text-hint-c text-xs whitespace-nowrap">
+                  {{ formatCreatedAt(order.createdAt) }}
+                </td>
+                <td class="px-3 py-2 text-right font-bold text-base-c whitespace-nowrap">
+                  ${{ order.totalAmount }}
+                </td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-wrap gap-1 max-w-[220px]">
+                    <button
+                      v-for="s in STATUSES"
+                      :key="s"
+                      :disabled="updatingId === order.id"
+                      :class="order.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c'"
+                      class="transition-all cursor-pointer disabled:opacity-50"
+                      @click="updateStatus(order, s)"
+                    >
+                      {{ s }}
+                    </button>
+                  </div>
+                </td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <button
+                    class="text-xs text-blue-600 mr-2"
+                    @click="openEditModal(order)"
+                  >
+                    編輯
+                  </button>
+                  <button
+                    class="text-xs text-red-500"
+                    @click="openDeleteModal(order)"
+                  >
+                    刪除
+                  </button>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -981,31 +1069,33 @@ watch(selectedMonth, () => fetchData(false))
           class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
           @click.self="closeEditModal"
         >
-          <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md p-5 max-h-[85vh] overflow-y-auto">
+          <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md lg:max-w-lg p-5 max-h-[85vh] overflow-y-auto">
             <h3 class="font-bold text-base-c mb-4">
               編輯訂單
             </h3>
             <div class="space-y-3">
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">姓名</label>
-                <input
-                  v-model="editForm.name"
-                  type="text"
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"
-                >
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">聯絡方式</label>
-                <input
-                  v-model="editForm.contact"
-                  type="text"
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"
-                >
+              <div class="sm:grid sm:grid-cols-2 sm:gap-3 space-y-3 sm:space-y-0">
+                <div>
+                  <label class="block text-xs font-medium text-hint-c mb-1">姓名</label>
+                  <input
+                    v-model="editForm.name"
+                    type="text"
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-hint-c mb-1">聯絡方式</label>
+                  <input
+                    v-model="editForm.contact"
+                    type="text"
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none"
+                  >
+                </div>
               </div>
 
               <div>
                 <label class="block text-xs font-medium text-hint-c mb-1.5">品項數量</label>
-                <div class="space-y-1.5">
+                <div class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-1.5">
                   <div
                     v-for="it in items"
                     :key="it.code"

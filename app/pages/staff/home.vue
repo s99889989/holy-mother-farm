@@ -163,6 +163,40 @@ function groupBookingByPeriod(items, rules) {
 
 const bookingPeriodGroups = computed(() => groupBookingByPeriod(bookings.value, bookingRecurRules.value))
 
+// 把便當訂單依用餐時段分組，跟訂位共用同一份時段設定（findPeriod），
+// 未落在任何時段區間內的歸為「未分類」並排在最後；沒有 rules（包月）這件事，結構比訂位單純
+function groupLunchByPeriod(items) {
+  const map = new Map()
+  const ensure = (period) => {
+    const key = period ? period.id : '__none__'
+    if (!map.has(key)) {
+      map.set(key, {
+        id: key, name: period ? period.name : '未分類', color: period ? period.color : null,
+        startTime: period ? period.startTime : '99:99',
+        items: [], count: 0, total: 0, meat: 0, fullVeg: 0, eggVeg: 0, spiceVeg: 0
+      })
+    }
+    return map.get(key)
+  }
+  for (const item of items) {
+    const g = ensure(findPeriod(item.time))
+    g.items.push(item)
+    g.count += 1
+    g.total += itemGuestTotal(item)
+    g.meat += Number(item.meatQty) || 0
+    g.fullVeg += Number(item.fullVegQty) || 0
+    g.eggVeg += Number(item.eggVegQty) || 0
+    g.spiceVeg += Number(item.spiceVegQty) || 0
+  }
+  return [...map.values()].sort((a, b) => {
+    if (a.id === '__none__') return 1
+    if (b.id === '__none__') return -1
+    return a.startTime.localeCompare(b.startTime)
+  })
+}
+
+const lunchPeriodGroups = computed(() => groupLunchByPeriod(lunchOrders.value))
+
 // 本週的 7 個日期（週一～週日）
 const CAL_WEEK_DATES = (() => {
   const dates = []
@@ -194,7 +228,7 @@ const weekDayCards = computed(() => {
       date,
       booking: {items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules},
       periodGroups: groupBookingByPeriod(bItems, recurRules),
-      lunch: {items: lItems, total: lMeat + lVeg},
+      lunch: {items: lItems, total: lMeat + lVeg, periodGroups: groupLunchByPeriod(lItems)},
       soybean: {items: sItems}
     }
   })
@@ -207,11 +241,6 @@ const bookingFullVeg = computed(() => summary.value?.booking?.fullVeg ?? 0)
 const bookingEggVeg = computed(() => summary.value?.booking?.eggVeg ?? 0)
 const bookingSpiceVeg = computed(() => summary.value?.booking?.spiceVeg ?? 0)
 const lunchTotal = computed(() => summary.value?.lunch?.total ?? 0)
-const lunchMeat = computed(() => summary.value?.lunch?.meat ?? 0)
-const lunchVeg = computed(() => summary.value?.lunch?.veg ?? 0)
-const lunchFullVeg = computed(() => summary.value?.lunch?.fullVeg ?? 0)
-const lunchEggVeg = computed(() => summary.value?.lunch?.eggVeg ?? 0)
-const lunchSpiceVeg = computed(() => summary.value?.lunch?.spiceVeg ?? 0)
 const soybeanSoymilk = computed(() => summary.value?.soybean?.soymilk ?? 0)
 const soybeanTofu = computed(() => summary.value?.soybean?.tofu ?? 0)
 // 豆漿總容量（毫升）：把每筆訂單的容量明細（volume×qty）全部加總
@@ -475,11 +504,14 @@ const calEventsByDay = computed(() => (
 ))
 const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
 
-// ── 今日備菜（來自備餐/出餐管理系統）：今日模式看「今天／明天」兩天，本週模式看整週，跟今日行事曆用同一套日期組 ──
+// ── 今日備菜（來自備餐/出餐管理系統）：今日模式不再侷限「今天／明天」兩天，
+// 改成往未來找「有排定餐次」的日子（今天起算），依日期近到遠排序；預設顯示前 2 天，
+// 點「顯示更多」最多展開到 5 天；本週模式維持看整週（含空的那幾天）不受影響 ──
 const MEAL_BASE = () => commonStore.data.main_url + '/holy/meal-schedule'
 const mealLoading = ref(false)
 const mealSessions = ref([])
 const mealViewMode = ref('day') // 備菜區塊自己的今日／本週切換，跟今日行事曆的 calViewMode 各自獨立
+const mealDayExpanded = ref(false) // 今日模式「顯示更多」：預設 2 天，點開後最多 5 天
 
 async function fetchMealSessions() {
   mealLoading.value = true
@@ -497,7 +529,26 @@ const mealTypeOrder = t => {
   return order[t] ?? 6
 }
 
-const mealDisplayDates = computed(() => (mealViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
+// 今天（含）以後、有排定餐次的所有日期，依日期由近到遠排序，去重
+const mealFutureDatesWithSessions = computed(() => {
+  const set = new Set(mealSessions.value.filter(s => s.date >= todayStr).map(s => s.date))
+  return [...set].sort()
+})
+
+const mealDisplayDates = computed(() => {
+  if (mealViewMode.value === 'week') return CAL_WEEK_DATES
+  const limit = mealDayExpanded.value ? 5 : 2
+  return mealFutureDatesWithSessions.value.slice(0, limit)
+})
+
+// 「顯示更多」按鈕：只有今日模式、還沒展開、且未來有排定餐次的天數超過 2 天時才出現
+const mealShowMoreAvailable = computed(() =>
+  mealViewMode.value === 'day' && !mealDayExpanded.value && mealFutureDatesWithSessions.value.length > 2
+)
+// 「收合」按鈕：展開後、且天數原本就超過 2 天（收合才有意義）時才出現，讓使用者能縮回預設的 2 天
+const mealShowCollapseAvailable = computed(() =>
+  mealViewMode.value === 'day' && mealDayExpanded.value && mealFutureDatesWithSessions.value.length > 2
+)
 
 const mealSessionsByDay = computed(() => (
   mealDisplayDates.value.map(date => ({
@@ -1984,20 +2035,21 @@ onUnmounted(() => {
                 </div>
                 <div
                   v-if="bookingPeriodGroups.length > 0"
-                  class="mt-2 pt-2 border-t border-light-c/60 space-y-3 max-h-64 xl:max-h-[32rem] overflow-y-auto"
+                  class="mt-3 pt-3 border-t-2 border-light-c space-y-2.5 max-h-64 xl:max-h-[32rem] overflow-y-auto"
                 >
                   <div
                     v-for="group in bookingPeriodGroups"
                     :key="group.id"
+                    class="rounded-xl border border-light-c/70 bg-surface2/50 p-2.5"
                   >
-                    <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
                       <span
-                        class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-semibold border"
-                        :style="{fontSize: fs(9, 13, 0.45)}"
+                        class="flex-shrink-0 rounded-full px-2 py-0.5 font-bold border"
+                        :style="{fontSize: fs(10, 14, 0.45)}"
                         :class="group.color ? periodColorClass(group.color) : 'bg-surface2 text-hint-c border-light-c'"
                       >{{ group.name }}</span>
                       <span
-                        class="text-hint-c"
+                        class="text-hint-c font-medium"
                         :style="{fontSize: fs(10, 14, 0.45)}"
                       >{{ group.count }}筆・{{ group.guestTotal }}人</span>
                     </div>
@@ -2089,60 +2141,75 @@ onUnmounted(() => {
                 <span
                   class="font-black"
                   :style="{fontSize: fs(24, 34, 0.45)}"
-                >{{ lunchTotal }}</span> 個
+                >{{ lunchOrders.length }}</span> 筆
+                  · <span class="font-semibold">{{ lunchTotal }}</span> 個
                 </p>
                 <div
-                  class="mt-1 space-y-0.5 text-orange-600 dark:text-orange-400"
-                  :style="{fontSize: fs(11, 15, 0.45)}"
+                  v-if="lunchPeriodGroups.length > 0"
+                  class="mt-3 pt-3 border-t-2 border-light-c space-y-2.5 max-h-64 xl:max-h-[32rem] overflow-y-auto"
                 >
-                  <div v-if="lunchMeat > 0">
-                    🍖 葷 {{ lunchMeat }}
-                  </div>
-                  <div v-if="lunchFullVeg > 0">
-                    🌿 全素 {{ lunchFullVeg }}
-                  </div>
-                  <div v-if="lunchEggVeg > 0">
-                    🥚 蛋奶素 {{ lunchEggVeg }}
-                  </div>
-                  <div v-if="lunchSpiceVeg > 0">
-                    🧄 五辛素 {{ lunchSpiceVeg }}
-                  </div>
-                </div>
-                <div
-                  class="mt-2 pt-2 border-t border-light-c/60 divide-y divide-base max-h-64 xl:max-h-[32rem] overflow-y-auto">
                   <div
-                    v-for="item in lunchOrders"
-                    :key="item.id"
-                    class="py-1.5 first:pt-0"
+                    v-for="group in lunchPeriodGroups"
+                    :key="group.id"
+                    class="rounded-xl border border-light-c/70 bg-surface2/50 p-2.5"
                   >
-                    <div class="flex items-center gap-2 flex-wrap">
-                    <span
-                      v-if="item.time"
-                      class="flex-shrink-0 font-mono text-hint-c"
+                    <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                      <span
+                        class="flex-shrink-0 rounded-full px-2 py-0.5 font-bold border"
+                        :style="{fontSize: fs(10, 14, 0.45)}"
+                        :class="group.color ? periodColorClass(group.color) : 'bg-surface2 text-hint-c border-light-c'"
+                      >{{ group.name }}</span>
+                      <span
+                        class="text-hint-c font-medium"
+                        :style="{fontSize: fs(10, 14, 0.45)}"
+                      >{{ group.count }}筆・{{ group.total }}個</span>
+                    </div>
+                    <div
+                      v-if="group.meat + group.fullVeg + group.eggVeg + group.spiceVeg > 0"
+                      class="mb-1.5 flex flex-wrap gap-x-2 text-orange-600 dark:text-orange-400"
                       :style="{fontSize: fs(10, 14, 0.45)}"
-                    >{{ item.time }}</span>
-                      <span
-                        class="flex-1 min-w-0 truncate font-semibold text-base-c"
-                        :style="{fontSize: fs(12, 17, 0.45)}"
-                      >{{ item.name || '未填姓名' }}</span>
-                      <span
-                        class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
-                        :style="{fontSize: fs(9, 13, 0.45)}"
-                        :class="detailStatusClass(item.status)"
-                      >{{ item.status }}</span>
-                    </div>
-                    <div
-                      class="text-hint-c mt-0.5"
-                      :style="{fontSize: fs(11, 15, 0.45)}"
                     >
-                      {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
+                      <span v-if="group.meat > 0">🍖 葷 {{ group.meat }}</span>
+                      <span v-if="group.fullVeg > 0">🌿 全素 {{ group.fullVeg }}</span>
+                      <span v-if="group.eggVeg > 0">🥚 蛋奶素 {{ group.eggVeg }}</span>
+                      <span v-if="group.spiceVeg > 0">🧄 五辛素 {{ group.spiceVeg }}</span>
                     </div>
-                    <div
-                      v-if="item.note"
-                      class="text-hint-c mt-0.5 whitespace-pre-wrap"
-                      :style="{fontSize: fs(11, 15, 0.45)}"
-                    >
-                      📝 {{ item.note }}
+                    <div class="divide-y divide-base">
+                      <div
+                        v-for="item in group.items"
+                        :key="item.id"
+                        class="py-1.5 first:pt-0"
+                      >
+                        <div class="flex items-center gap-2 flex-wrap">
+                        <span
+                          v-if="item.time"
+                          class="flex-shrink-0 font-mono text-hint-c"
+                          :style="{fontSize: fs(10, 14, 0.45)}"
+                        >{{ item.time }}</span>
+                          <span
+                            class="flex-1 min-w-0 truncate font-semibold text-base-c"
+                            :style="{fontSize: fs(12, 17, 0.45)}"
+                          >{{ item.name || '未填姓名' }}</span>
+                          <span
+                            class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
+                            :style="{fontSize: fs(9, 13, 0.45)}"
+                            :class="detailStatusClass(item.status)"
+                          >{{ item.status }}</span>
+                        </div>
+                        <div
+                          class="text-hint-c mt-0.5"
+                          :style="{fontSize: fs(11, 15, 0.45)}"
+                        >
+                          {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
+                        </div>
+                        <div
+                          v-if="item.note"
+                          class="text-hint-c mt-0.5 whitespace-pre-wrap"
+                          :style="{fontSize: fs(11, 15, 0.45)}"
+                        >
+                          📝 {{ item.note }}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2281,20 +2348,21 @@ onUnmounted(() => {
                   </div>
                   <div
                     v-else
-                    class="space-y-2.5"
+                    class="space-y-2"
                   >
                     <div
                       v-for="group in day.periodGroups"
                       :key="group.id"
+                      class="rounded-lg border border-light-c/70 bg-surface2/50 p-2"
                     >
                       <div class="flex items-center gap-1.5 mb-1 flex-wrap">
                         <span
-                          class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-semibold border"
+                          class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-bold border"
                           :style="{fontSize: fs(9, 12, 0.4)}"
                           :class="group.color ? periodColorClass(group.color) : 'bg-surface2 text-hint-c border-light-c'"
                         >{{ group.name }}</span>
                         <span
-                          class="text-hint-c"
+                          class="text-hint-c font-medium"
                           :style="{fontSize: fs(10, 13, 0.4)}"
                         >{{ group.count }}筆・{{ group.guestTotal }}人</span>
                       </div>
@@ -2386,40 +2454,59 @@ onUnmounted(() => {
                   </div>
                   <div
                     v-else
-                    class="space-y-1.5"
+                    class="space-y-2"
                   >
                     <div
-                      v-for="item in day.lunch.items"
-                      :key="item.id"
+                      v-for="group in day.lunch.periodGroups"
+                      :key="group.id"
+                      class="rounded-lg border border-light-c/70 bg-surface2/50 p-2"
                     >
-                      <div class="flex items-center gap-2 flex-wrap">
-                      <span
-                        v-if="item.time"
-                        class="flex-shrink-0 font-mono text-hint-c"
-                        :style="{fontSize: fs(10, 13, 0.4)}"
-                      >{{ item.time }}</span>
+                      <div class="flex items-center gap-1.5 mb-1 flex-wrap">
                         <span
-                          class="flex-1 min-w-0 truncate font-medium text-base-c"
-                          :style="{fontSize: fs(11, 14, 0.4)}"
-                        >{{ item.name || '未填姓名' }}</span>
-                        <span
-                          class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
+                          class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-bold border"
                           :style="{fontSize: fs(9, 12, 0.4)}"
-                          :class="detailStatusClass(item.status)"
-                        >{{ item.status }}</span>
+                          :class="group.color ? periodColorClass(group.color) : 'bg-surface2 text-hint-c border-light-c'"
+                        >{{ group.name }}</span>
+                        <span
+                          class="text-hint-c font-medium"
+                          :style="{fontSize: fs(10, 13, 0.4)}"
+                        >{{ group.count }}筆・{{ group.total }}個</span>
                       </div>
-                      <div
-                        class="text-hint-c"
-                        :style="{fontSize: fs(10, 13, 0.4)}"
-                      >
-                        {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
-                      </div>
-                      <div
-                        v-if="item.note"
-                        class="text-hint-c whitespace-pre-wrap"
-                        :style="{fontSize: fs(10, 13, 0.4)}"
-                      >
-                        📝 {{ item.note }}
+                      <div class="space-y-1.5">
+                        <div
+                          v-for="item in group.items"
+                          :key="item.id"
+                        >
+                          <div class="flex items-center gap-2 flex-wrap">
+                          <span
+                            v-if="item.time"
+                            class="flex-shrink-0 font-mono text-hint-c"
+                            :style="{fontSize: fs(10, 13, 0.4)}"
+                          >{{ item.time }}</span>
+                            <span
+                              class="flex-1 min-w-0 truncate font-medium text-base-c"
+                              :style="{fontSize: fs(11, 14, 0.4)}"
+                            >{{ item.name || '未填姓名' }}</span>
+                            <span
+                              class="flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium"
+                              :style="{fontSize: fs(9, 12, 0.4)}"
+                              :class="detailStatusClass(item.status)"
+                            >{{ item.status }}</span>
+                          </div>
+                          <div
+                            class="text-hint-c"
+                            :style="{fontSize: fs(10, 13, 0.4)}"
+                          >
+                            {{ typeBreakdown(item) || '尚未填寫葷素數量' }}
+                          </div>
+                          <div
+                            v-if="item.note"
+                            class="text-hint-c whitespace-pre-wrap"
+                            :style="{fontSize: fs(10, 13, 0.4)}"
+                          >
+                            📝 {{ item.note }}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2611,7 +2698,7 @@ onUnmounted(() => {
               class="font-semibold text-muted-c"
               style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
             >
-              {{ mealViewMode === 'week' ? '本週備菜' : '今日備菜' }}
+              {{ mealViewMode === 'week' ? '本週備菜' : '近期備菜' }}
               <span
                 v-if="mealViewMode === 'week'"
                 class="font-normal text-hint-c"
@@ -2624,9 +2711,9 @@ onUnmounted(() => {
                     class="rounded-full font-medium px-2.5 py-1 transition-colors"
                     style="font-size:clamp(11px, calc(11px + 0.45vw), 15px)"
                     :class="mealViewMode === 'day' ? 'bg-green-800 text-white shadow-sm' : 'text-hint-c'"
-                    @click="mealViewMode = 'day'"
+                    @click="mealViewMode = 'day'; mealDayExpanded = false"
                   >
-                    今日
+                    近期
                   </button>
                   <button
                     class="rounded-full font-medium px-2.5 py-1 transition-colors"
@@ -2659,10 +2746,10 @@ onUnmounted(() => {
               class="px-4 py-5 text-center text-hint-c"
               style="font-size:clamp(13px, calc(13px + 0.45vw), 18px)"
             >
-              {{ mealViewMode === 'week' ? '本週沒有排定的備餐' : '這兩天沒有排定的備餐' }}
+              {{ mealViewMode === 'week' ? '本週沒有排定的備餐' : '近期沒有排定的備餐' }}
             </div>
 
-            <!-- ── 每天各自獨立分組顯示，今天／明天兩組，跟今日行事曆用同一套日期 ── -->
+            <!-- ── 每天各自獨立分組顯示：今日模式是「未來有排定餐次的日子」，本週模式是整週，跟今日行事曆用同一套日期模板 ── -->
             <div
               v-else
               class="divide-y divide-base"
@@ -2736,6 +2823,23 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
+              <!-- 「顯示更多」：今日模式預設只看未來 2 天，點下去最多展開到 5 天；展開後可點「收合」縮回預設 2 天 -->
+              <button
+                v-if="mealShowMoreAvailable"
+                type="button"
+                class="w-full px-4 py-2.5 text-center text-green-700 dark:text-green-400 font-medium hover:bg-surface2/60 transition-colors"
+                style="font-size:clamp(12px, calc(12px + 0.45vw), 16px)"
+                @click="mealDayExpanded = true"
+              >顯示更多 ↓
+              </button>
+              <button
+                v-if="mealShowCollapseAvailable"
+                type="button"
+                class="w-full px-4 py-2.5 text-center text-hint-c font-medium hover:bg-surface2/60 transition-colors"
+                style="font-size:clamp(12px, calc(12px + 0.45vw), 16px)"
+                @click="mealDayExpanded = false"
+              >收合 ↑
+              </button>
             </div>
           </div>
 

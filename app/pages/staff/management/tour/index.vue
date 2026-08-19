@@ -1,8 +1,8 @@
 <template>
   <ClientOnly>
-    <div class="p-4">
-      <div class="mb-3 flex items-center justify-between">
-        <h1 class="text-lg font-semibold text-gray-800 dark:text-gray-100">360 環景導覽管理</h1>
+    <div class="p-3 sm:p-4">
+      <div class="mb-3 flex items-center justify-between flex-wrap gap-2">
+        <h1 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100">360 環景導覽管理</h1>
         <NuxtLink
           to="/staff/management/tour/preview"
           target="_blank"
@@ -12,7 +12,7 @@
         </NuxtLink>
       </div>
 
-      <div class="grid grid-cols-[300px_1fr] gap-4 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 items-start">
         <!-- 左側：分類 + 場景列表 + 上傳 -->
         <div>
           <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
@@ -27,7 +27,15 @@
                 <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenes.length }}</span>
               </li>
               <li
-                v-for="c in categories"
+                class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': activeCategory === '' }"
+                @click="activeCategory = ''"
+              >
+                <span>未分類</span>
+                <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenesInCategoryCount('') }}</span>
+              </li>
+              <li
+                v-for="c in categoryList"
                 :key="c"
                 class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': c === activeCategory }"
@@ -37,23 +45,35 @@
                 <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenesInCategoryCount(c) }}</span>
               </li>
             </ul>
+            <div class="flex gap-1.5 mt-2">
+              <input
+                v-model="newCategoryName"
+                placeholder="新增分類名稱"
+                class="flex-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-md px-2 py-1 text-xs"
+                @keyup.enter="addCategory"
+              />
+              <button
+                class="bg-green-700 hover:bg-green-800 text-white rounded-md px-3 py-1 text-xs"
+                @click="addCategory"
+              >
+                新增
+              </button>
+            </div>
             <p class="text-[10.5px] text-gray-400 dark:text-gray-500 mt-2">
-              分類只是場景列表的自由標籤，方便管理，不對應任何地圖或平面圖。上傳時填寫，可留空歸到「未分類」。
+              分類只是場景列表的自由標籤，方便管理，不對應任何地圖或平面圖。先在這裡新增，上傳/編輯場景時就能用選的。
             </p>
           </section>
 
           <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
             <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">上傳全景圖</div>
-            <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">分類（可留空）</label>
-            <input
+            <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">分類</label>
+            <select
               v-model="uploadCategory"
-              list="tour-category-list"
-              placeholder="例如：高齡服務園區"
-              class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-md px-2 py-1 text-xs mb-2"
-            />
-            <datalist id="tour-category-list">
-              <option v-for="c in categories" :key="c" :value="c" />
-            </datalist>
+              class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-md px-2 py-1 text-xs mb-2"
+            >
+              <option value="">未分類</option>
+              <option v-for="c in categoryList" :key="c" :value="c">{{ c }}</option>
+            </select>
             <div
               class="border-2 border-dashed rounded-lg px-3 py-5 text-center text-xs cursor-pointer transition-colors"
               :class="isDragging
@@ -82,7 +102,7 @@
 
           <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
             <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-              {{ activeCategory || '全部' }} 場景列表
+              {{ activeCategory === null ? '全部' : (activeCategory === '' ? '未分類' : activeCategory) }} 場景列表
             </div>
             <ul class="list-none m-0 p-0">
               <li
@@ -101,14 +121,15 @@
                       @keyup.enter="saveSceneMeta"
                       @keyup.esc="cancelEditName"
                     />
-                    <input
+                    <select
                       v-model="editingCategoryValue"
-                      list="tour-category-list"
-                      placeholder="分類"
-                      class="w-20 shrink-0 border border-green-500 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded px-1.5 py-0.5 text-sm"
+                      class="w-20 shrink-0 border border-green-500 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded px-1 py-0.5 text-sm"
                       @keyup.enter="saveSceneMeta"
                       @keyup.esc="cancelEditName"
-                    />
+                    >
+                      <option value="">未分類</option>
+                      <option v-for="c in categoryList" :key="c" :value="c">{{ c }}</option>
+                    </select>
                     <button class="text-green-700 dark:text-green-400 text-sm px-0.5" title="儲存" @click="saveSceneMeta">✓</button>
                     <button class="text-gray-400 dark:text-gray-500 text-sm px-0.5" title="取消" @click="cancelEditName">✕</button>
                   </div>
@@ -151,7 +172,7 @@
         </div>
 
         <!-- 右側：全景檢視 + 熱點編輯（固定深色，作為看圖區） -->
-        <div class="bg-[#10171a] rounded-xl min-h-[600px] flex flex-col overflow-hidden relative">
+        <div class="bg-[#10171a] rounded-xl min-h-[420px] lg:min-h-[600px] flex flex-col overflow-hidden relative">
           <div
             v-if="!selectedScene"
             class="absolute inset-0 z-10 flex items-center justify-center text-[#6f8480] text-sm bg-[#10171a]"
@@ -159,7 +180,7 @@
             選一個場景，或上傳新的全景圖開始編輯熱點
           </div>
 
-          <div v-show="selectedScene" class="flex items-center gap-5 px-4 py-2.5 bg-[#1a2327] text-[#eef3f2] text-sm flex-wrap">
+          <div v-show="selectedScene" class="flex items-center gap-3 sm:gap-5 px-3 sm:px-4 py-2.5 bg-[#1a2327] text-[#eef3f2] text-sm flex-wrap">
             <input
               v-if="selectedScene && editingSceneId === selectedScene.id"
               v-model="editingNameValue"
@@ -222,10 +243,20 @@
           <!-- 熱點目標選擇彈窗 -->
           <div
             v-if="pendingHotspot"
-            class="absolute inset-0 bg-black/45 flex items-center justify-center z-10"
+            class="absolute inset-0 bg-black/45 flex items-center justify-center z-10 p-4"
           >
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4.5 w-[280px]">
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-4.5 w-full max-w-[300px]">
               <h3 class="m-0 mb-3 text-sm text-gray-800 dark:text-gray-100">新增熱點</h3>
+              <label class="block text-xs text-gray-500 dark:text-gray-400 mt-2 mb-1">先篩選分類（可略過）</label>
+              <select
+                v-model="pendingHotspotCategory"
+                class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-md px-2 py-1.5 text-sm box-border"
+                @change="pendingHotspot.targetSceneId = ''"
+              >
+                <option :value="null">全部</option>
+                <option value="">未分類</option>
+                <option v-for="c in categoryList" :key="c" :value="c">{{ c }}</option>
+              </select>
               <label class="block text-xs text-gray-500 dark:text-gray-400 mt-2 mb-1">目標場景</label>
               <select
                 v-model="pendingHotspot.targetSceneId"
@@ -233,13 +264,16 @@
               >
                 <option value="" disabled>選擇要跳到哪個場景</option>
                 <option
-                  v-for="s in allScenesExceptCurrent"
+                  v-for="s in targetSceneOptions"
                   :key="s.id"
                   :value="s.id"
                 >
                   {{ s.name }}
                 </option>
               </select>
+              <p v-if="!targetSceneOptions.length" class="text-[11px] text-orange-500 dark:text-orange-400 mt-1">
+                這個分類底下沒有其他場景
+              </p>
               <label class="block text-xs text-gray-500 dark:text-gray-400 mt-2 mb-1">標籤文字</label>
               <input
                 v-model="pendingHotspot.label"
@@ -267,7 +301,7 @@
           <!-- 同空間群組編輯彈窗 -->
           <div
             v-if="groupEditMode"
-            class="absolute inset-0 bg-black/70 flex items-center justify-center z-20"
+            class="absolute inset-0 bg-black/70 flex items-center justify-center z-20 p-4"
           >
             <div class="bg-white dark:bg-gray-800 rounded-xl p-4 w-[92%] max-w-[360px]">
               <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">
@@ -351,10 +385,12 @@ const apiBase = computed(() => commonStore.data.main_url + '/holy/tour')
 
 const scenes = ref([])
 const hotspots = ref([])
+const categoryList = ref([])
 
 const activeCategory = ref(null)
 const selectedSceneId = ref(null)
 const uploadCategory = ref('')
+const newCategoryName = ref('')
 
 const isDragging = ref(false)
 const uploading = ref(false)
@@ -363,6 +399,7 @@ const fileInput = ref(null)
 
 const pickMode = ref(false)
 const pendingHotspot = ref(null)
+const pendingHotspotCategory = ref(null)
 const groupEditMode = ref(false)
 const groupEditSelection = ref(new Set())
 
@@ -379,19 +416,18 @@ const selectedScene = computed(() => scenes.value.find((s) => s.id === selectedS
 const allScenesExceptCurrent = computed(() =>
   scenes.value.filter((s) => s.id !== selectedSceneId.value)
 )
+const targetSceneOptions = computed(() => {
+  if (pendingHotspotCategory.value === null) return allScenesExceptCurrent.value
+  if (pendingHotspotCategory.value === '') return allScenesExceptCurrent.value.filter((s) => !s.category)
+  return allScenesExceptCurrent.value.filter((s) => s.category === pendingHotspotCategory.value)
+})
 const hotspotsForCurrentScene = computed(() =>
   hotspots.value.filter((h) => h.sceneId === selectedSceneId.value)
 )
-const categories = computed(() => {
-  const set = new Set()
-  for (const s of scenes.value) {
-    if (s.category) set.add(s.category)
-  }
-  return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
-})
 const scenesFiltered = computed(() => {
   if (activeCategory.value === null) return scenes.value
-  return scenes.value.filter((s) => (s.category || null) === activeCategory.value)
+  if (activeCategory.value === '') return scenes.value.filter((s) => !s.category)
+  return scenes.value.filter((s) => s.category === activeCategory.value)
 })
 const scenesInSameCategory = computed(() =>
   scenes.value.filter(
@@ -404,6 +440,7 @@ const sceneGroupMembers = computed(() => {
 })
 
 function scenesInCategoryCount(category) {
+  if (category === '') return scenes.value.filter((s) => !s.category).length
   return scenes.value.filter((s) => s.category === category).length
 }
 
@@ -479,6 +516,20 @@ async function loadAll() {
   const data = await $fetch(`${apiBase.value}/data`)
   scenes.value = data.scenes || []
   hotspots.value = data.hotspots || []
+}
+
+async function loadCategories() {
+  categoryList.value = await $fetch(`${apiBase.value}/categories`)
+}
+
+async function addCategory() {
+  const name = newCategoryName.value.trim()
+  if (!name) return
+  categoryList.value = await $fetch(`${apiBase.value}/categories`, {
+    method: 'POST',
+    body: { name }
+  })
+  newCategoryName.value = ''
 }
 
 function onDrop(e) {
@@ -587,6 +638,7 @@ async function initOrSwitchViewer() {
       if (!pickMode.value) return
       const yawDeg = +(data.yaw * 180 / Math.PI).toFixed(2)
       const pitchDeg = +(data.pitch * 180 / Math.PI).toFixed(2)
+      pendingHotspotCategory.value = null
       pendingHotspot.value = { yaw: yawDeg, pitch: pitchDeg, targetSceneId: '', label: '' }
     })
   } else {
@@ -668,6 +720,7 @@ watch(selectedSceneId, async (id) => {
 
 onMounted(() => {
   loadAll()
+  loadCategories()
   updateViewerHeight()
   window.addEventListener('resize', updateViewerHeight)
 })
