@@ -186,7 +186,6 @@
           </button>
           <!-- 匯入 Excel -->
           <button
-            v-if="perm.can('staff.inventory.edit')"
             title="匯入 Excel"
             class="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-3 sm:py-1.5 text-xs font-medium text-muted-c border border-base rounded-lg hover-surface2 transition-colors"
             @click="triggerImport"
@@ -215,7 +214,6 @@
           >
           <!-- 新增財產 -->
           <button
-            v-if="perm.can('staff.inventory.edit')"
             title="新增財產"
             class="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-3 sm:py-1.5 text-xs font-medium bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors"
             @click="openModal(null)"
@@ -684,14 +682,12 @@
                 <td class="px-3 py-2.5">
                   <div class="flex items-center gap-1 justify-center">
                     <button
-                      v-if="perm.can('staff.inventory.edit')"
                       class="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       @click="openModal(asset)"
                     >
                       編輯
                     </button>
                     <button
-                      v-if="perm.can('staff.inventory.edit')"
                       class="px-2 py-1 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       @click="confirmDelete(asset)"
                     >
@@ -825,14 +821,12 @@
             </p>
             <div class="flex gap-2">
               <button
-                v-if="perm.can('staff.inventory.edit')"
                 class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                 @click="openModal(asset)"
               >
                 編輯
               </button>
               <button
-                v-if="perm.can('staff.inventory.edit')"
                 class="flex-1 py-1.5 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 @click="confirmDelete(asset)"
               >
@@ -920,14 +914,12 @@
           </p>
           <div class="flex gap-2">
             <button
-              v-if="perm.can('staff.inventory.edit')"
               class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 transition-colors"
               @click="openModal(asset)"
             >
               編輯
             </button>
             <button
-              v-if="perm.can('staff.inventory.edit')"
               class="flex-1 py-1.5 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 transition-colors"
               @click="confirmDelete(asset)"
             >
