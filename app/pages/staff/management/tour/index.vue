@@ -1,181 +1,176 @@
 <template>
   <ClientOnly>
-  <div class="p-4">
-    <div class="mb-3 flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-gray-800 dark:text-gray-100">360 環景導覽管理</h1>
-      <NuxtLink
-        to="/staff/management/tour/preview"
-        target="_blank"
-        class="text-xs text-green-700 dark:text-green-400 hover:underline"
-      >
-        🔍 開啟預覽頁 →
-      </NuxtLink>
-    </div>
-
-    <div class="grid grid-cols-[300px_1fr] gap-4 items-start">
-      <!-- 左側：分區 + 場景列表 + 上傳 -->
-      <div>
-        <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
-          <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">分區（棟）</div>
-          <ul class="list-none m-0 p-0">
-            <li
-              v-for="z in zones"
-              :key="z.id"
-              class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': z.id === activeZoneId }"
-              @click="activeZoneId = z.id"
-            >
-              <span class="flex items-center gap-1.5 truncate">
-                {{ z.name }}
-                <span
-                  v-if="z.mapX == null"
-                  class="text-[10px] text-orange-500 dark:text-orange-400 shrink-0"
-                  title="尚未設定在總覽圖上的位置"
-                >●</span>
-                <span
-                  v-if="z.hasFloorPlan"
-                  class="text-[10px] text-blue-500 dark:text-blue-400 shrink-0"
-                  title="已上傳平面圖"
-                >🗺️</span>
-              </span>
-              <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenesInZone(z.id).length }}</span>
-            </li>
-          </ul>
-          <div class="flex gap-1.5 mt-2">
-            <input
-              v-model="newZoneName"
-              placeholder="新增分區名稱"
-              class="flex-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-md px-2 py-1 text-xs"
-              @keyup.enter="addZone"
-            />
-            <button
-              class="bg-green-700 hover:bg-green-800 text-white rounded-md px-3 py-1 text-xs"
-              @click="addZone"
-            >
-              新增
-            </button>
-          </div>
-
-          <!-- 選定分區後，這裡管理該分區在總覽圖上的位置 + 平面圖 -->
-          <div v-if="activeZone" class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 mb-1.5">「{{ activeZone.name }}」設定</div>
-
-            <label class="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300 mb-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="activeZone.mainMap"
-                @change="toggleMainMap($event.target.checked)"
-              />
-              🛣️ 戶外/道路分區（場景直接定位在總覽圖上，不用另外傳平面圖）
-            </label>
-
-            <template v-if="!activeZone.mainMap">
-              <div class="flex gap-1.5">
-                <button
-                  class="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] rounded-md px-2 py-1.5"
-                  @click="zoneMapPickMode = true"
-                >
-                  📍 總覽圖位置
-                </button>
-                <button
-                  class="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] rounded-md px-2 py-1.5"
-                  @click="floorPlanInput?.click()"
-                >
-                  🗺️ {{ activeZone.hasFloorPlan ? '更換平面圖' : '上傳平面圖' }}
-                </button>
-                <input
-                  ref="floorPlanInput"
-                  type="file"
-                  accept="image/jpeg"
-                  class="hidden"
-                  @change="onFloorPlanPick"
-                />
-              </div>
-              <p class="text-[10.5px] text-gray-400 dark:text-gray-500 mt-1.5">
-                沒平面圖的分區：訪客點總覽圖圖釘後直接進第一個場景，靠場景內熱點走。<br />
-                有平面圖的分區：點總覽圖圖釘後改顯示這張平面圖，各場景另外定位在平面圖上。
-              </p>
-            </template>
-            <p v-else class="text-[10.5px] text-gray-400 dark:text-gray-500">
-              這個分區底下的每個場景（例如沿路的定點）都會直接定位在園區總覽圖上，選場景後點「📍 在總覽圖上定位」設定。
-            </p>
-          </div>
-        </section>
-
-        <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
-          <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">上傳全景圖</div>
-          <div
-            class="border-2 border-dashed rounded-lg px-3 py-5 text-center text-xs cursor-pointer transition-colors"
-            :class="isDragging
-              ? 'border-green-600 bg-green-50 dark:bg-green-900/20'
-              : 'border-gray-300 dark:border-gray-600'"
-            @dragover.prevent="isDragging = true"
-            @dragleave.prevent="isDragging = false"
-            @drop.prevent="onDrop"
-            @click="fileInput?.click()"
-          >
-            <input
-              ref="fileInput"
-              type="file"
-              accept="image/jpeg"
-              multiple
-              class="hidden"
-              @change="onFilePick"
-            />
-            <p v-if="!uploading" class="text-gray-500 dark:text-gray-400">
-              拖曳全景圖到此，或點擊選檔<br />
-              <small>上傳後自動切 tile，不需要另外處理</small>
-            </p>
-            <p v-else class="text-gray-500 dark:text-gray-400">處理中… {{ uploadProgress }}</p>
-          </div>
-          <p v-if="!activeZoneId" class="text-orange-600 dark:text-orange-400 text-[11px] mt-1.5">
-            請先選一個分區才能上傳
-          </p>
-        </section>
-
-        <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
-          <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-            {{ activeZone?.name || '場景' }} 場景列表
-          </div>
-          <ul class="list-none m-0 p-0">
-            <li
-              v-for="s in scenesInZone(activeZoneId)"
-              :key="s.id"
-              class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': s.id === selectedSceneId }"
-              @click="selectScene(s.id)"
-            >
-              <span class="flex items-center gap-1.5 truncate">
-                {{ s.name }}
-                <span
-                  v-if="canPositionScenes(activeZone) && s.mapX == null"
-                  class="text-[10px] text-orange-500 dark:text-orange-400 shrink-0"
-                  title="尚未定位"
-                >●</span>
-              </span>
-              <button
-                class="bg-transparent border-none text-red-500 dark:text-red-400 text-base leading-none px-1 shrink-0"
-                title="刪除場景"
-                @click.stop="deleteScene(s.id)"
-              >
-                ×
-              </button>
-            </li>
-          </ul>
-        </section>
+    <div class="p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h1 class="text-lg font-semibold text-gray-800 dark:text-gray-100">360 環景導覽管理</h1>
+        <NuxtLink
+          to="/staff/management/tour/preview"
+          target="_blank"
+          class="text-xs text-green-700 dark:text-green-400 hover:underline"
+        >
+          🔍 開啟預覽頁 →
+        </NuxtLink>
       </div>
 
-      <!-- 右側：全景檢視 + 熱點編輯（固定深色，作為看圖區） -->
-      <div class="bg-[#10171a] rounded-xl min-h-[600px] flex flex-col overflow-hidden relative">
-        <div
-          v-if="!selectedScene"
-          class="absolute inset-0 z-10 flex items-center justify-center text-[#6f8480] text-sm bg-[#10171a]"
-        >
-          選一個場景，或上傳新的全景圖開始編輯熱點
+      <div class="grid grid-cols-[300px_1fr] gap-4 items-start">
+        <!-- 左側：分類 + 場景列表 + 上傳 -->
+        <div>
+          <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
+            <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">分類</div>
+            <ul class="list-none m-0 p-0">
+              <li
+                class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': activeCategory === null }"
+                @click="activeCategory = null"
+              >
+                <span>全部</span>
+                <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenes.length }}</span>
+              </li>
+              <li
+                v-for="c in categories"
+                :key="c"
+                class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': c === activeCategory }"
+                @click="activeCategory = c"
+              >
+                <span class="truncate">{{ c }}</span>
+                <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenesInCategoryCount(c) }}</span>
+              </li>
+            </ul>
+            <p class="text-[10.5px] text-gray-400 dark:text-gray-500 mt-2">
+              分類只是場景列表的自由標籤，方便管理，不對應任何地圖或平面圖。上傳時填寫，可留空歸到「未分類」。
+            </p>
+          </section>
+
+          <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
+            <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">上傳全景圖</div>
+            <label class="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">分類（可留空）</label>
+            <input
+              v-model="uploadCategory"
+              list="tour-category-list"
+              placeholder="例如：高齡服務園區"
+              class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-md px-2 py-1 text-xs mb-2"
+            />
+            <datalist id="tour-category-list">
+              <option v-for="c in categories" :key="c" :value="c" />
+            </datalist>
+            <div
+              class="border-2 border-dashed rounded-lg px-3 py-5 text-center text-xs cursor-pointer transition-colors"
+              :class="isDragging
+              ? 'border-green-600 bg-green-50 dark:bg-green-900/20'
+              : 'border-gray-300 dark:border-gray-600'"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="onDrop"
+              @click="fileInput?.click()"
+            >
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/jpeg"
+                multiple
+                class="hidden"
+                @change="onFilePick"
+              />
+              <p v-if="!uploading" class="text-gray-500 dark:text-gray-400">
+                拖曳全景圖到此，或點擊選檔<br />
+                <small>上傳後自動切 tile，不需要另外處理</small>
+              </p>
+              <p v-else class="text-gray-500 dark:text-gray-400">處理中… {{ uploadProgress }}</p>
+            </div>
+          </section>
+
+          <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
+            <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+              {{ activeCategory || '全部' }} 場景列表
+            </div>
+            <ul class="list-none m-0 p-0">
+              <li
+                v-for="s in scenesFiltered"
+                :key="s.id"
+                class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': s.id === selectedSceneId }"
+                @click="selectScene(s.id)"
+              >
+                <template v-if="editingSceneId === s.id">
+                  <div class="flex-1 min-w-0 flex items-center gap-1" @click.stop>
+                    <input
+                      v-model="editingNameValue"
+                      placeholder="名稱"
+                      class="flex-1 min-w-0 border border-green-500 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded px-1.5 py-0.5 text-sm"
+                      @keyup.enter="saveSceneMeta"
+                      @keyup.esc="cancelEditName"
+                    />
+                    <input
+                      v-model="editingCategoryValue"
+                      list="tour-category-list"
+                      placeholder="分類"
+                      class="w-20 shrink-0 border border-green-500 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded px-1.5 py-0.5 text-sm"
+                      @keyup.enter="saveSceneMeta"
+                      @keyup.esc="cancelEditName"
+                    />
+                    <button class="text-green-700 dark:text-green-400 text-sm px-0.5" title="儲存" @click="saveSceneMeta">✓</button>
+                    <button class="text-gray-400 dark:text-gray-500 text-sm px-0.5" title="取消" @click="cancelEditName">✕</button>
+                  </div>
+                </template>
+                <template v-else>
+                <span class="flex items-center gap-1.5 truncate">
+                  <span v-if="s.quickPoint" class="text-amber-400 shrink-0" title="快速點">★</span>
+                  {{ s.name }}
+                  <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">{{ s.category || '未分類' }}</span>
+                </span>
+                  <div class="flex items-center gap-0.5 shrink-0">
+                    <button
+                      class="bg-transparent border-none text-xs leading-none px-1"
+                      :class="s.quickPoint ? 'text-amber-400' : 'text-gray-400 dark:text-gray-500 hover:text-amber-400'"
+                      title="標記為快速點"
+                      @click.stop="toggleQuickPoint(s)"
+                    >
+                      {{ s.quickPoint ? '★' : '☆' }}
+                    </button>
+                    <button
+                      class="bg-transparent border-none text-gray-400 dark:text-gray-500 hover:text-green-700 dark:hover:text-green-400 text-xs leading-none px-1"
+                      title="重新命名／改分類"
+                      @click.stop="startEditName(s)"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      class="bg-transparent border-none text-red-500 dark:text-red-400 text-base leading-none px-1"
+                      title="刪除場景"
+                      @click.stop="deleteScene(s.id)"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </template>
+              </li>
+              <li v-if="!scenesFiltered.length" class="text-[12px] text-gray-400 dark:text-gray-500 py-2">尚無場景</li>
+            </ul>
+          </section>
         </div>
 
-        <div v-show="selectedScene" class="flex items-center gap-5 px-4 py-2.5 bg-[#1a2327] text-[#eef3f2] text-sm flex-wrap">
-            <strong>{{ selectedScene?.name }}</strong>
+        <!-- 右側：全景檢視 + 熱點編輯（固定深色，作為看圖區） -->
+        <div class="bg-[#10171a] rounded-xl min-h-[600px] flex flex-col overflow-hidden relative">
+          <div
+            v-if="!selectedScene"
+            class="absolute inset-0 z-10 flex items-center justify-center text-[#6f8480] text-sm bg-[#10171a]"
+          >
+            選一個場景，或上傳新的全景圖開始編輯熱點
+          </div>
+
+          <div v-show="selectedScene" class="flex items-center gap-5 px-4 py-2.5 bg-[#1a2327] text-[#eef3f2] text-sm flex-wrap">
+            <input
+              v-if="selectedScene && editingSceneId === selectedScene.id"
+              v-model="editingNameValue"
+              class="bg-[#0c1412] border border-[#4fae8f] text-[#eef3f2] rounded px-2 py-1 text-sm"
+              @keyup.enter="saveSceneMeta"
+              @keyup.esc="cancelEditName"
+              @blur="saveSceneMeta"
+            />
+            <strong v-else class="cursor-pointer hover:underline decoration-dotted" title="點擊重新命名" @click="selectedScene && startEditName(selectedScene)">
+              {{ selectedScene?.name }} ✎
+            </strong>
             <div class="flex items-center gap-2 ml-auto">
               <label>熱點拾取模式</label>
               <div
@@ -191,20 +186,17 @@
             </div>
             <button
               class="bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
+              title="把目前正在看的角度存成訪客進來時的預設視角"
+              @click="saveInitialView"
+            >
+              📌 設為起始視角
+            </button>
+            <button
+              class="bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
               @click="openGroupEdit"
             >
               🔗 同空間群組
             </button>
-            <button
-              v-if="canPositionScenes(activeZone)"
-              class="bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
-              @click="sceneMapPickMode = true"
-            >
-              📍 {{ activeZone?.mainMap ? '在總覽圖上定位' : '在平面圖上定位' }}
-            </button>
-            <span v-else class="text-[11px] text-[#6f8480]">
-              此分區沒有平面圖，場景位置請用熱點串接
-            </span>
           </div>
 
           <div
@@ -225,7 +217,7 @@
             </button>
           </div>
 
-          <div id="admin-viewer" style="height: 600px; width: 100%;"></div>
+          <div id="admin-viewer" :style="{ height: viewerHeight + 'px', width: '100%' }"></div>
 
           <!-- 熱點目標選擇彈窗 -->
           <div
@@ -272,90 +264,6 @@
             </div>
           </div>
 
-          <!-- 場景定位彈窗：點擊「所屬分區的平面圖」設定場景 mapX/mapY -->
-          <div
-            v-if="sceneMapPickMode"
-            class="absolute inset-0 bg-black/70 flex items-center justify-center z-20"
-          >
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 w-[92%] max-w-[480px]">
-              <div class="flex justify-between items-center mb-2">
-                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  在{{ activeZone?.mainMap ? '園區總覽圖' : `「${activeZone?.name}」平面圖` }}上設定「{{ selectedScene.name }}」的位置
-                </h3>
-                <button
-                  class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-md px-2.5 py-1"
-                  @click="sceneMapPickMode = false"
-                >
-                  完成
-                </button>
-              </div>
-              <div
-                class="relative rounded-lg overflow-hidden cursor-crosshair select-none"
-                @click="onSceneMapClick"
-              >
-                <img
-                  :src="sceneMapImageSrc"
-                  class="w-full block pointer-events-none"
-                  alt="定位底圖"
-                />
-                <span
-                  v-for="s in otherPositionedScenesInZone"
-                  :key="s.id"
-                  class="absolute w-2.5 h-2.5 rounded-full bg-gray-400 border border-white -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                  :style="{ left: s.mapX + '%', top: s.mapY + '%' }"
-                ></span>
-                <span
-                  v-if="selectedScene.mapX != null"
-                  class="absolute w-3.5 h-3.5 rounded-full bg-green-600 border-2 border-white shadow -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                  :style="{ left: selectedScene.mapX + '%', top: selectedScene.mapY + '%' }"
-                ></span>
-              </div>
-              <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
-                灰點是同分區其他場景的位置，綠點是目前這個場景，點擊圖片任意處即可移動
-              </p>
-            </div>
-          </div>
-
-          <!-- 分區定位彈窗：點擊「園區總覽圖」設定分區 mapX/mapY -->
-          <div
-            v-if="zoneMapPickMode"
-            class="absolute inset-0 bg-black/70 flex items-center justify-center z-20"
-          >
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 w-[92%] max-w-[480px]">
-              <div class="flex justify-between items-center mb-2">
-                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  在總覽圖上設定「{{ activeZone?.name }}」的位置
-                </h3>
-                <button
-                  class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-md px-2.5 py-1"
-                  @click="zoneMapPickMode = false"
-                >
-                  完成
-                </button>
-              </div>
-              <div
-                class="relative rounded-lg overflow-hidden cursor-crosshair select-none"
-                @click="onZoneMapClick"
-              >
-                <img src="/tour/campus-map.jpg" class="w-full block pointer-events-none" alt="園區總覽圖" />
-                <span
-                  v-for="z in otherPositionedZones"
-                  :key="z.id"
-                  class="absolute w-2.5 h-2.5 rounded-full bg-gray-400 border border-white -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                  :style="{ left: z.mapX + '%', top: z.mapY + '%' }"
-                ></span>
-                <span
-                  v-if="activeZone?.mapX != null"
-                  class="absolute w-3.5 h-3.5 rounded-full bg-green-600 border-2 border-white shadow -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                  :style="{ left: activeZone.mapX + '%', top: activeZone.mapY + '%' }"
-                ></span>
-              </div>
-              <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
-                灰點是其他分區的位置，綠點是目前這個分區，點擊圖片任意處即可移動
-              </p>
-            </div>
-          </div>
-
           <!-- 同空間群組編輯彈窗 -->
           <div
             v-if="groupEditMode"
@@ -370,7 +278,7 @@
               </p>
               <ul class="list-none m-0 p-0 max-h-[240px] overflow-y-auto">
                 <li
-                  v-for="s in scenesInSameZone"
+                  v-for="s in scenesInSameCategory"
                   :key="s.id"
                   class="flex items-center gap-2 py-1.5 text-sm text-gray-700 dark:text-gray-200"
                 >
@@ -382,8 +290,8 @@
                   />
                   <label :for="`grp-${s.id}`" class="cursor-pointer">{{ s.name }}</label>
                 </li>
-                <li v-if="!scenesInSameZone.length" class="text-[12px] text-gray-400 dark:text-gray-500 py-2">
-                  這個分區沒有其他場景
+                <li v-if="!scenesInSameCategory.length" class="text-[12px] text-gray-400 dark:text-gray-500 py-2">
+                  這個分類沒有其他場景
                 </li>
               </ul>
               <div class="flex gap-2 mt-3 justify-end">
@@ -422,9 +330,9 @@
               <li v-if="!hotspotsForCurrentScene.length" class="text-[#6f8480] py-1">尚無熱點</li>
             </ul>
           </div>
+        </div>
       </div>
     </div>
-  </div>
   </ClientOnly>
 </template>
 
@@ -441,31 +349,32 @@ definePageMeta({
 const commonStore = useCommonStore()
 const apiBase = computed(() => commonStore.data.main_url + '/holy/tour')
 
-const zones = ref([])
 const scenes = ref([])
 const hotspots = ref([])
 
-const activeZoneId = ref(null)
+const activeCategory = ref(null)
 const selectedSceneId = ref(null)
-const newZoneName = ref('')
+const uploadCategory = ref('')
 
 const isDragging = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref('')
 const fileInput = ref(null)
-const floorPlanInput = ref(null)
 
 const pickMode = ref(false)
 const pendingHotspot = ref(null)
-const sceneMapPickMode = ref(false)
-const zoneMapPickMode = ref(false)
 const groupEditMode = ref(false)
 const groupEditSelection = ref(new Set())
+
+const editingSceneId = ref(null)
+const editingNameValue = ref('')
+const editingCategoryValue = ref('')
+
+const viewerHeight = ref(600)
 
 let viewer = null
 let markersPlugin = null
 
-const activeZone = computed(() => zones.value.find((z) => z.id === activeZoneId.value))
 const selectedScene = computed(() => scenes.value.find((s) => s.id === selectedSceneId.value))
 const allScenesExceptCurrent = computed(() =>
   scenes.value.filter((s) => s.id !== selectedSceneId.value)
@@ -473,73 +382,103 @@ const allScenesExceptCurrent = computed(() =>
 const hotspotsForCurrentScene = computed(() =>
   hotspots.value.filter((h) => h.sceneId === selectedSceneId.value)
 )
-const otherPositionedScenesInZone = computed(() =>
+const categories = computed(() => {
+  const set = new Set()
+  for (const s of scenes.value) {
+    if (s.category) set.add(s.category)
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+})
+const scenesFiltered = computed(() => {
+  if (activeCategory.value === null) return scenes.value
+  return scenes.value.filter((s) => (s.category || null) === activeCategory.value)
+})
+const scenesInSameCategory = computed(() =>
   scenes.value.filter(
-    (s) =>
-      s.id !== selectedSceneId.value &&
-      s.zoneId === activeZoneId.value &&
-      s.mapX != null &&
-      s.mapY != null
+    (s) => (s.category || null) === (selectedScene.value?.category || null) && s.id !== selectedSceneId.value
   )
-)
-const otherPositionedZones = computed(() =>
-  zones.value.filter((z) => z.id !== activeZoneId.value && z.mapX != null && z.mapY != null)
-)
-const scenesInSameZone = computed(() =>
-  scenes.value.filter((s) => s.zoneId === activeZoneId.value && s.id !== selectedSceneId.value)
 )
 const sceneGroupMembers = computed(() => {
   if (!selectedScene.value?.groupId) return []
   return scenes.value.filter((s) => s.groupId === selectedScene.value.groupId)
 })
-const sceneMapImageSrc = computed(() =>
-  activeZone.value?.mainMap
-    ? '/tour/campus-map.jpg'
-    : `${apiBase.value}/image/zone/${activeZoneId.value}/floorplan.jpg`
-)
 
-function canPositionScenes(zone) {
-  return !!zone && (zone.mainMap || zone.hasFloorPlan)
-}
-
-function scenesInZone(zoneId) {
-  return scenes.value.filter((s) => s.zoneId === zoneId)
+function scenesInCategoryCount(category) {
+  return scenes.value.filter((s) => s.category === category).length
 }
 
 function sceneName(id) {
   return scenes.value.find((s) => s.id === id)?.name || '(已刪除場景)'
 }
 
-async function toggleMainMap(checked) {
-  const zone = activeZone.value
-  if (!zone) return
-  const updated = await $fetch(`${apiBase.value}/zones/${zone.id}`, {
+// 重新命名／改分類：只改顯示用的中繼資料，不動底層檔案/tile
+function startEditName(scene) {
+  editingSceneId.value = scene.id
+  editingNameValue.value = scene.name
+  editingCategoryValue.value = scene.category || ''
+}
+
+function cancelEditName() {
+  editingSceneId.value = null
+}
+
+async function saveSceneMeta() {
+  const id = editingSceneId.value
+  if (!id) return
+  const scene = scenes.value.find((s) => s.id === id)
+  const newName = editingNameValue.value.trim()
+  const newCategory = editingCategoryValue.value.trim() || null
+  editingSceneId.value = null
+  if (!scene || !newName) return
+  if (newName === scene.name && newCategory === (scene.category || null)) return
+  const updated = await $fetch(`${apiBase.value}/scenes/${id}`, {
     method: 'PUT',
-    body: { ...zone, mainMap: checked }
+    body: { ...scene, name: newName, category: newCategory }
   })
-  const idx = zones.value.findIndex((z) => z.id === zone.id)
-  if (idx !== -1) zones.value[idx] = { ...updated, hasFloorPlan: zone.hasFloorPlan }
+  const idx = scenes.value.findIndex((s) => s.id === id)
+  if (idx !== -1) scenes.value[idx] = updated
+}
+
+async function toggleQuickPoint(scene) {
+  const updated = await $fetch(`${apiBase.value}/scenes/${scene.id}`, {
+    method: 'PUT',
+    body: { ...scene, quickPoint: !scene.quickPoint }
+  })
+  const idx = scenes.value.findIndex((s) => s.id === scene.id)
+  if (idx !== -1) scenes.value[idx] = updated
+}
+
+// 把目前正在看的視角存成這個場景的起始視角（訪客進來時預設看到的方向）
+async function saveInitialView() {
+  const scene = selectedScene.value
+  if (!scene || !viewer) return
+  const pos = viewer.getPosition()
+  const initialYaw = +((pos.yaw * 180) / Math.PI).toFixed(2)
+  const initialPitch = +((pos.pitch * 180) / Math.PI).toFixed(2)
+  const updated = await $fetch(`${apiBase.value}/scenes/${scene.id}`, {
+    method: 'PUT',
+    body: { ...scene, initialYaw, initialPitch }
+  })
+  const idx = scenes.value.findIndex((s) => s.id === scene.id)
+  if (idx !== -1) scenes.value[idx] = updated
+}
+
+// 導覽區高度依「視窗剩餘空間」動態算，不再寫死 600px；下方還有一段熱點清單要留空間
+function updateViewerHeight() {
+  nextTick(() => {
+    const el = document.getElementById('admin-viewer')
+    if (!el) return
+    const top = el.getBoundingClientRect().top
+    const bottomReserve = 170
+    const h = window.innerHeight - top - bottomReserve
+    viewerHeight.value = Math.max(360, Math.round(h))
+  })
 }
 
 async function loadAll() {
   const data = await $fetch(`${apiBase.value}/data`)
-  zones.value = data.zones || []
   scenes.value = data.scenes || []
   hotspots.value = data.hotspots || []
-  if (!activeZoneId.value && zones.value.length) {
-    activeZoneId.value = zones.value[0].id
-  }
-}
-
-async function addZone() {
-  if (!newZoneName.value.trim()) return
-  const zone = await $fetch(`${apiBase.value}/zones`, {
-    method: 'POST',
-    body: { name: newZoneName.value.trim(), order: zones.value.length }
-  })
-  zones.value.push(zone)
-  activeZoneId.value = zone.id
-  newZoneName.value = ''
 }
 
 function onDrop(e) {
@@ -555,14 +494,15 @@ function onFilePick(e) {
 }
 
 async function uploadFiles(files) {
-  if (!activeZoneId.value || !files.length) return
+  if (!files.length) return
   uploading.value = true
+  const category = uploadCategory.value.trim() || ''
   for (let i = 0; i < files.length; i++) {
     uploadProgress.value = `${i + 1}/${files.length}`
     const form = new FormData()
     form.append('file', files[i])
     form.append('name', files[i].name.replace(/\.[^.]+$/, ''))
-    form.append('zoneId', activeZoneId.value)
+    form.append('category', category)
     try {
       const scene = await $fetch(`${apiBase.value}/scene/upload`, {
         method: 'POST',
@@ -575,24 +515,6 @@ async function uploadFiles(files) {
   }
   uploading.value = false
   uploadProgress.value = ''
-}
-
-async function onFloorPlanPick(e) {
-  const file = e.target.files[0]
-  e.target.value = ''
-  if (!file || !activeZoneId.value) return
-  const form = new FormData()
-  form.append('file', file)
-  try {
-    await $fetch(`${apiBase.value}/zone/${activeZoneId.value}/floorplan`, {
-      method: 'POST',
-      body: form
-    })
-    const idx = zones.value.findIndex((z) => z.id === activeZoneId.value)
-    if (idx !== -1) zones.value[idx] = { ...zones.value[idx], hasFloorPlan: true }
-  } catch (err) {
-    alert(`上傳平面圖失敗：${err.data?.error || err.message}`)
-  }
 }
 
 async function deleteScene(id) {
@@ -644,7 +566,7 @@ async function initOrSwitchViewer() {
   const { MarkersPlugin } = await import('@photo-sphere-viewer/markers-plugin')
   const { EquirectangularTilesAdapter } = await import(
     '@photo-sphere-viewer/equirectangular-tiles-adapter'
-  )
+    )
   await import('@photo-sphere-viewer/core/index.css')
   await import('@photo-sphere-viewer/markers-plugin/index.css')
 
@@ -654,6 +576,8 @@ async function initOrSwitchViewer() {
       container: document.getElementById('admin-viewer'),
       adapter: EquirectangularTilesAdapter,
       panorama: buildTileConfig(scene),
+      defaultYaw: `${scene.initialYaw || 0}deg`,
+      defaultPitch: `${scene.initialPitch || 0}deg`,
       navbar: ['zoom', 'move', 'fullscreen'],
       plugins: [[MarkersPlugin, { markers: [] }]]
     })
@@ -667,6 +591,7 @@ async function initOrSwitchViewer() {
     })
   } else {
     await viewer.setPanorama(buildTileConfig(scene))
+    viewer.rotate({ yaw: `${scene.initialYaw || 0}deg`, pitch: `${scene.initialPitch || 0}deg` })
   }
   refreshMarkers()
 }
@@ -686,42 +611,6 @@ async function saveHotspot() {
   hotspots.value.push(created)
   pendingHotspot.value = null
   refreshMarkers()
-}
-
-function onSceneMapClick(e) {
-  const rect = e.currentTarget.getBoundingClientRect()
-  const x = ((e.clientX - rect.left) / rect.width) * 100
-  const y = ((e.clientY - rect.top) / rect.height) * 100
-  saveScenePosition(+x.toFixed(2), +y.toFixed(2))
-}
-
-async function saveScenePosition(mapX, mapY) {
-  const scene = selectedScene.value
-  if (!scene) return
-  const updated = await $fetch(`${apiBase.value}/scenes/${scene.id}`, {
-    method: 'PUT',
-    body: { ...scene, mapX, mapY }
-  })
-  const idx = scenes.value.findIndex((s) => s.id === scene.id)
-  if (idx !== -1) scenes.value[idx] = updated
-}
-
-function onZoneMapClick(e) {
-  const rect = e.currentTarget.getBoundingClientRect()
-  const x = ((e.clientX - rect.left) / rect.width) * 100
-  const y = ((e.clientY - rect.top) / rect.height) * 100
-  saveZonePosition(+x.toFixed(2), +y.toFixed(2))
-}
-
-async function saveZonePosition(mapX, mapY) {
-  const zone = activeZone.value
-  if (!zone) return
-  const updated = await $fetch(`${apiBase.value}/zones/${zone.id}`, {
-    method: 'PUT',
-    body: { ...zone, mapX, mapY }
-  })
-  const idx = zones.value.findIndex((z) => z.id === zone.id)
-  if (idx !== -1) zones.value[idx] = { ...updated, hasFloorPlan: zone.hasFloorPlan }
 }
 
 function openGroupEdit() {
@@ -772,19 +661,19 @@ async function saveGroupEdit() {
 }
 
 watch(selectedSceneId, async (id) => {
-  sceneMapPickMode.value = false
   pendingHotspot.value = null
   groupEditMode.value = false
   if (id) await initOrSwitchViewer()
 })
 
-watch(activeZoneId, () => {
-  zoneMapPickMode.value = false
+onMounted(() => {
+  loadAll()
+  updateViewerHeight()
+  window.addEventListener('resize', updateViewerHeight)
 })
 
-onMounted(loadAll)
-
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewerHeight)
   if (viewer) {
     viewer.destroy()
     viewer = null
