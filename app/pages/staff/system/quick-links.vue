@@ -158,17 +158,6 @@
 
                 <div v-if="editMode" class="absolute top-2 right-2 flex gap-1">
                   <button
-                    v-if="categories.length > 1"
-                    class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
-                    title="更改分類"
-                    @click.stop="openMoveCategory(link)"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"/>
-                    </svg>
-                  </button>
-                  <button
                     class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
                     title="編輯"
                     @click.stop="openEditLink(link)"
@@ -243,6 +232,16 @@
           style="font-size:13px" placeholder="例如：庫存系統"
         />
 
+        <label v-if="categories.length > 1" class="block text-hint-c mb-1" style="font-size:12px">分類</label>
+        <select
+          v-if="categories.length > 1"
+          v-model="linkModal.catId"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-3 bg-surface2 text-base-c"
+          style="font-size:13px"
+        >
+          <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+        </select>
+
         <label class="block text-hint-c mb-1" style="font-size:12px">網址</label>
         <input
           v-model="linkModal.url" type="url"
@@ -264,31 +263,6 @@
           <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeLinkModal">取消</button>
           <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" style="font-size:13px" :disabled="saving" @click="saveLinkModal">
             {{ saving ? '儲存中...' : '儲存' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== 更改分類 Modal ===== -->
-    <div v-if="moveModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeMoveModal">
-      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
-        <h2 class="font-bold text-base-c mb-3" style="font-size:15px">更改分類</h2>
-        <p class="text-hint-c mb-3" style="font-size:12.5px">「{{ moveModal.link?.name }}」要移到哪個分類？</p>
-
-        <select
-          v-model="moveModal.catId"
-          class="w-full border border-light-c rounded-lg px-3 py-2 mb-1 bg-surface2 text-base-c"
-          style="font-size:13px"
-        >
-          <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-        </select>
-        <p v-if="modalError" class="text-red-500 mt-1 mb-2" style="font-size:11.5px">{{ modalError }}</p>
-        <div class="h-3" v-else></div>
-
-        <div class="flex justify-end gap-2 mt-2">
-          <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeMoveModal">取消</button>
-          <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" style="font-size:13px" :disabled="saving" @click="saveMoveModal">
-            {{ saving ? '更改中...' : '確定' }}
           </button>
         </div>
       </div>
@@ -475,8 +449,9 @@
     saving.value = true
     modalError.value = ''
     try {
+      const originalCatId = activeCat.value?.id ?? null
       const body = {
-        catId: linkModal.catId,
+        catId: linkModal.id ? originalCatId : linkModal.catId,
         name: linkModal.name.trim(),
         url: linkModal.url.trim(),
         note: linkModal.note.trim(),
@@ -487,6 +462,20 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+
+      // 編輯時若分類有變更，另外呼叫移動分類 API
+      if (linkModal.id && linkModal.catId !== originalCatId) {
+        await fetch(`${BASE()}/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromCatId: originalCatId,
+            toCatId: linkModal.catId,
+            id: linkModal.id,
+          }),
+        })
+      }
+
       closeLinkModal()
       await fetchLinks()
     } catch (e) {
@@ -503,48 +492,6 @@
       await fetch(`${BASE()}/remove/${activeCat.value.id}/${link.id}`, { method: 'DELETE' })
       await fetchLinks()
     } catch (e) { console.error(e) }
-  }
-
-  /* ---------------- 網址：更改分類 ---------------- */
-
-  const moveModal = reactive({ open: false, link: null, catId: null })
-
-  function openMoveCategory(link) {
-    if (!activeCat.value) return
-    moveModal.open = true
-    moveModal.link = link
-    moveModal.catId = activeCat.value.id
-    modalError.value = ''
-  }
-  function closeMoveModal() {
-    moveModal.open = false
-  }
-  async function saveMoveModal() {
-    if (!moveModal.link || !activeCat.value) return
-    if (moveModal.catId === activeCat.value.id) {
-      closeMoveModal()
-      return
-    }
-    saving.value = true
-    modalError.value = ''
-    try {
-      await fetch(`${BASE()}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fromCatId: activeCat.value.id,
-          toCatId: moveModal.catId,
-          id: moveModal.link.id,
-        }),
-      })
-      closeMoveModal()
-      await fetchLinks()
-    } catch (e) {
-      console.error(e)
-      modalError.value = '更改失敗，請稍後再試'
-    } finally {
-      saving.value = false
-    }
   }
 
   /* ---------------- 網址：拖曳排序 ---------------- */
