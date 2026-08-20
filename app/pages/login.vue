@@ -17,7 +17,7 @@ onMounted(async () => {
   // 已用帳密登入 → 後台
   if (localStorage.getItem('holy_auth')) {
     loggedIn.value = true
-    await navigateTo('/admin/permission-management')
+    await navigateTo('/admin/admin-permission-management')
     return
   }
 })

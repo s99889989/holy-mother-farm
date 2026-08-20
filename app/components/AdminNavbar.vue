@@ -12,9 +12,9 @@ const toggleDark = () => { darkStore.change_dark_mode() }
 watch(() => route.path, () => { mobileOpen.value = false })
 
 const navItems = [
-  { to: '/admin/customer-management', label: '帳號管理' },
-  { to: '/admin/permission-management', label: '權限組' },
-  { to: '/admin/permission-keys', label: '權限設定' }
+  { to: '/admin/admin-customer-management', label: '帳號管理' },
+  { to: '/admin/admin-permission-management', label: '權限組' },
+  { to: '/admin/admin-permission-keys', label: '權限設定' }
 ]
 
 // ── 頭像選單 ──────────────────────────────────────────────────────

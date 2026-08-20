@@ -1,7 +1,7 @@
 // middleware/holy-auth.global.ts
 import { verifySession } from '~/composables/useSessionCheck'
 
-const ADMIN_HOME = '/admin/customer-management'
+const ADMIN_HOME = '/admin/admin-customer-management'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/staff') return navigateTo('/staff/home')

@@ -27,6 +27,9 @@ const searchText = ref('')
 const filterStatus = ref('')
 const filterGroup = ref('')
 const deleteTarget = ref(null)
+const viewMode = ref('table') // 'table' | 'card'
+const groupByPermission = ref(false)
+const collapsedGroups = reactive({})
 const editError = ref('')
 const permError = ref('')
 const toast = reactive({ show: false, message: '' })
@@ -59,6 +62,29 @@ const filtered = computed(() => {
   })
 })
 
+// 依權限群組分類（使用「使用中群組」歸類，找不到則歸入未分類）
+const groupedCustomers = computed(() => {
+  const buckets = new Map()
+  permGroups.value.forEach(g => buckets.set(g.id, { id: g.id, label: g.label, customers: [] }))
+  buckets.set('__unassigned', { id: '__unassigned', label: '未分類', customers: [] })
+
+  filtered.value.forEach((c) => {
+    const perm = userPermMap.value[c.id]
+    let gid = perm?.activeGroup
+    if (!gid || !buckets.has(gid)) gid = perm?.groups?.[0]
+    if (!gid || !buckets.has(gid)) gid = perm?.group
+    if (!gid || !buckets.has(gid)) gid = '__unassigned'
+    buckets.get(gid).customers.push(c)
+  })
+
+  return [...buckets.values()].filter(b => b.customers.length > 0)
+})
+
+// 分組開關關閉時，顯示單一「全部客戶」清單（維持切換前的行為）
+const displayGroups = computed(() => groupByPermission.value
+  ? groupedCustomers.value
+  : [{ id: '__all', label: '全部客戶', customers: filtered.value }])
+
 // ── 工具 ──────────────────────────────────────────────────────────
 const showToast = (msg) => {
   toast.message = msg
@@ -68,6 +94,10 @@ const showToast = (msg) => {
 
 const groupLabel = groupId =>
   permGroups.value.find(g => g.id === groupId)?.label ?? groupId ?? '—'
+
+const toggleGroupCollapse = (groupId) => {
+  collapsedGroups[groupId] = !collapsedGroups[groupId]
+}
 
 // ── 開啟編輯 ──────────────────────────────────────────────────────
 const openEdit = (c) => {
@@ -119,10 +149,13 @@ const quickSwitchActiveGroup = async (customerId, groupId) => {
       method: 'PUT',
       headers: adminHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ group: groupId })
+      body: JSON.stringify({group: groupId})
     })
     const data = await res.json()
-    if (data.error) { showToast('❌ ' + data.error); return }
+    if (data.error) {
+      showToast('❌ ' + data.error);
+      return
+    }
     if (userPermMap.value[customerId]) userPermMap.value[customerId].activeGroup = groupId
     showToast('使用中群組已切換')
   } catch (e) {
@@ -158,7 +191,9 @@ const fetchPermData = async () => {
     ])
     permGroups.value = await gRes.json()
     defaultGroup.value = (await dRes.json()).defaultGroup ?? 'guest'
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const fetchUserPerms = async () => {
@@ -169,9 +204,13 @@ const fetchUserPerms = async () => {
       )
     )
     const map = {}
-    perms.forEach((p) => { if (p.customerId) map[p.customerId] = p })
+    perms.forEach((p) => {
+      if (p.customerId) map[p.customerId] = p
+    })
     userPermMap.value = map
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 // ── API：儲存編輯 ──────────────────────────────────────────────────
@@ -183,7 +222,7 @@ const saveEdit = async () => {
       method: 'PUT',
       headers: adminHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ id: editModal.customer.id, ...editForm })
+      body: JSON.stringify({id: editModal.customer.id, ...editForm})
     })
     const data = await res.json()
     if (data.success) {
@@ -203,7 +242,10 @@ const saveEdit = async () => {
 // ── API：儲存用戶所屬群組 + 使用中群組 ────────────────────────────
 const savePerm = async () => {
   permError.value = ''
-  if (permModal.groups.length === 0) { permError.value = '請至少選擇一個群組'; return }
+  if (permModal.groups.length === 0) {
+    permError.value = '請至少選擇一個群組';
+    return
+  }
 
   saving.value = true
   const customerId = permModal.customer.id
@@ -212,7 +254,7 @@ const savePerm = async () => {
       method: 'PUT',
       headers: adminHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ groups: permModal.groups })
+      body: JSON.stringify({groups: permModal.groups})
     })
     const groupsData = await groupsRes.json()
     if (groupsData.error) throw new Error('群組儲存失敗：' + groupsData.error)
@@ -221,7 +263,7 @@ const savePerm = async () => {
       method: 'PUT',
       headers: adminHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ group: permModal.activeGroup })
+      body: JSON.stringify({group: permModal.activeGroup})
     })
     const activeData = await activeRes.json()
     if (activeData.error) throw new Error('切換使用中群組失敗：' + activeData.error)
@@ -247,7 +289,7 @@ const toggleBlock = async (c) => {
       method: 'PUT',
       headers: adminHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ status: newStatus })
+      body: JSON.stringify({status: newStatus})
     })
     const data = await res.json()
     if (data.success) {
@@ -263,7 +305,9 @@ const toggleBlock = async (c) => {
 }
 
 // ── API：刪除 ─────────────────────────────────────────────────────
-const confirmDelete = (c) => { deleteTarget.value = c }
+const confirmDelete = (c) => {
+  deleteTarget.value = c
+}
 
 const doDelete = async () => {
   saving.value = true
@@ -295,13 +339,14 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen bg-surface2 transition-colors duration-300">
-    <AdminNavbar />
+    <AdminNavbar/>
 
     <!-- ── Header ── -->
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+          <div
+            class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             客
           </div>
           <div>
@@ -361,7 +406,7 @@ onMounted(async () => {
         v-if="loading"
         class="flex items-center justify-center py-16 text-hint-c gap-2"
       >
-        <div class="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div class="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"/>
         載入中…
       </div>
 
@@ -373,265 +418,347 @@ onMounted(async () => {
         {{ customers.length === 0 ? '尚無客戶資料' : '找不到符合條件的客戶' }}
       </div>
 
-      <!-- 桌機表格 -->
+      <!-- 檢視控制列：權限群組分類切換 + 卡片/列表切換 -->
       <div
-        v-else
-        class="hidden md:block bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
+        v-if="!loading && filtered.length > 0"
+        class="flex flex-wrap items-center justify-between gap-2 mb-3"
       >
-        <table class="w-full text-sm whitespace-nowrap">
-          <thead class="bg-surface2 text-xs text-hint-c uppercase tracking-wide">
-          <tr>
-            <th class="px-3 py-3 text-left">
-              客戶
-            </th>
-            <th class="px-3 py-3 text-left">
-              Email
-            </th>
-            <th class="px-3 py-3 text-left">
-              電話
-            </th>
-            <th class="px-3 py-3 text-center">
-              權限群組
-            </th>
-            <th class="px-3 py-3 text-center">
-              訂位
-            </th>
-            <th class="px-3 py-3 text-center">
-              便當
-            </th>
-            <th class="px-3 py-3 text-left">
-              建立時間
-            </th>
-            <th class="px-3 py-3 text-center">
-              狀態
-            </th>
-            <th class="px-3 py-3 text-center">
-              操作
-            </th>
-          </tr>
-          </thead>
-          <tbody class="divide-y divide-base">
-          <tr
-            v-for="c in filtered"
-            :key="c.id"
-            class="hover-surface2/30 transition-colors"
-            :class="c.status === 'blocked' ? 'opacity-50' : ''"
+        <button
+          type="button"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors"
+          :class="groupByPermission
+            ? 'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-700 dark:bg-violet-900/20 dark:text-violet-400'
+            : 'border-light-c text-muted-c hover-surface2'"
+          @click="groupByPermission = !groupByPermission"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7H5m14 14H5"/>
+          </svg>
+          依權限群組分類
+        </button>
+
+        <div class="flex items-center gap-1 p-0.5 rounded-lg border border-light-c bg-surface">
+          <button
+            type="button"
+            class="flex items-center gap-1 px-2.5 py-1 text-xs rounded-md transition-colors"
+            :class="viewMode === 'table' ? 'bg-blue-600 text-white' : 'text-muted-c hover-surface2'"
+            @click="viewMode = 'table'"
           >
-            <!-- 客戶 -->
-            <td class="px-3 py-2.5">
-              <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            列表
+          </button>
+          <button
+            type="button"
+            class="flex items-center gap-1 px-2.5 py-1 text-xs rounded-md transition-colors"
+            :class="viewMode === 'card' ? 'bg-blue-600 text-white' : 'text-muted-c hover-surface2'"
+            @click="viewMode = 'card'"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"/>
+            </svg>
+            卡片
+          </button>
+        </div>
+      </div>
+
+      <!-- 分組清單（依權限群組分類，關閉時為單一「全部客戶」清單） -->
+      <div
+        v-for="group in displayGroups"
+        :key="group.id"
+        class="mb-5"
+      >
+        <button
+          v-if="groupByPermission"
+          type="button"
+          class="w-full flex items-center gap-2 px-3 py-2 mb-2 rounded-xl bg-surface border border-light-c hover-surface2 transition-colors"
+          @click="toggleGroupCollapse(group.id)"
+        >
+          <svg
+            class="w-3.5 h-3.5 text-hint-c transition-transform flex-shrink-0"
+            :class="collapsedGroups[group.id] ? '-rotate-90' : ''"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+          <span
+            class="w-2 h-2 rounded-full flex-shrink-0"
+            :class="group.id === '__unassigned' ? 'bg-gray-400' : 'bg-violet-500'"
+          />
+          <span class="text-sm font-semibold text-base-c">{{ group.label }}</span>
+          <span class="text-xs text-hint-c">{{ group.customers.length }} 位</span>
+        </button>
+
+        <div v-show="!groupByPermission || !collapsedGroups[group.id]">
+          <div
+            v-if="viewMode === 'table'"
+            class="hidden md:block bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden"
+          >
+            <table class="w-full text-sm whitespace-nowrap">
+              <thead class="bg-surface2 text-xs text-hint-c uppercase tracking-wide">
+              <tr>
+                <th class="px-3 py-3 text-left">
+                  客戶
+                </th>
+                <th class="px-3 py-3 text-left">
+                  Email
+                </th>
+                <th class="px-3 py-3 text-left">
+                  電話
+                </th>
+                <th class="px-3 py-3 text-center">
+                  權限群組
+                </th>
+                <th class="px-3 py-3 text-center">
+                  訂位
+                </th>
+                <th class="px-3 py-3 text-center">
+                  便當
+                </th>
+                <th class="px-3 py-3 text-left">
+                  建立時間
+                </th>
+                <th class="px-3 py-3 text-center">
+                  狀態
+                </th>
+                <th class="px-3 py-3 text-center">
+                  操作
+                </th>
+              </tr>
+              </thead>
+              <tbody class="divide-y divide-base">
+              <tr
+                v-for="c in group.customers"
+                :key="c.id"
+                class="hover-surface2/30 transition-colors"
+                :class="c.status === 'blocked' ? 'opacity-50' : ''"
+              >
+                <!-- 客戶 -->
+                <td class="px-3 py-2.5">
+                  <div class="flex items-center gap-2">
+                    <img
+                      v-if="c.picture"
+                      :src="c.picture"
+                      :alt="c.name"
+                      class="w-8 h-8 rounded-full object-cover border border-light-c flex-shrink-0"
+                    >
+                    <div
+                      v-else
+                      class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0"
+                    >
+                      {{ c.name?.charAt(0) || '?' }}
+                    </div>
+                    <span class="font-medium text-base-c">{{ c.name }}</span>
+                  </div>
+                </td>
+                <td class="px-3 py-2.5 text-hint-c">
+                  {{ c.email }}
+                </td>
+                <td class="px-3 py-2.5 text-muted-c">
+                  {{ c.mobile || c.landline || '—' }}
+                </td>
+                <!-- 權限群組（可複選 + 快速切換使用中） -->
+                <td class="px-3 py-2.5 text-center">
+                  <div class="flex justify-center">
+                    <select
+                      v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
+                      :value="userPermMap[c.id]?.activeGroup"
+                      class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400"
+                      @change="quickSwitchActiveGroup(c.id, $event.target.value)"
+                    >
+                      <option
+                        v-for="gid in userPermMap[c.id].groups"
+                        :key="gid"
+                        :value="gid"
+                      >
+                        {{ groupLabel(gid) }}
+                      </option>
+                    </select>
+                    <span
+                      v-else-if="userPermMap[c.id]?.groups?.length === 1"
+                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+                    >
+                      {{ groupLabel(userPermMap[c.id].activeGroup || userPermMap[c.id].groups[0]) }}
+                    </span>
+                    <span
+                      v-else
+                      class="text-hint-c text-xs"
+                    >—</span>
+                  </div>
+                </td>
+                <td class="px-3 py-2.5 text-center">
+                  <span
+                    class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 font-medium">
+                    {{ c.bookingCount ?? '—' }}
+                  </span>
+                </td>
+                <td class="px-3 py-2.5 text-center">
+                  <span
+                    class="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 font-medium">
+                    {{ c.lunchCount ?? '—' }}
+                  </span>
+                </td>
+                <td class="px-3 py-2.5 text-hint-c text-xs">
+                  {{ c.createdAt }}
+                </td>
+                <td class="px-3 py-2.5 text-center">
+                  <span
+                    :class="c.status === 'blocked'
+                      ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
+                    class="px-2 py-0.5 rounded-full text-xs font-medium"
+                  >
+                    {{ c.status === 'blocked' ? '已封鎖' : '正常' }}
+                  </span>
+                </td>
+                <td class="px-3 py-2.5">
+                  <div class="flex items-center gap-1 justify-center">
+                    <button
+                      class="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      @click="openEdit(c)"
+                    >
+                      編輯
+                    </button>
+                    <button
+                      class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                      @click="openPermModal(c)"
+                    >
+                      權限
+                    </button>
+                    <button
+                      :class="c.status === 'blocked'
+                        ? 'border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                        : 'border-yellow-300 dark:border-yellow-700 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'"
+                      class="px-2 py-1 text-xs border rounded-lg transition-colors"
+                      @click="toggleBlock(c)"
+                    >
+                      {{ c.status === 'blocked' ? '解鎖' : '封鎖' }}
+                    </button>
+                    <button
+                      class="px-2 py-1 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      @click="confirmDelete(c)"
+                    >
+                      刪除
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 卡片：卡片模式時各尺寸皆顯示；列表模式時僅手機版 fallback -->
+          <div
+            :class="viewMode === 'card' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'md:hidden space-y-3'">
+            <div
+              v-for="c in group.customers"
+              :key="c.id"
+              class="bg-surface rounded-2xl border border-light-c shadow-sm p-4"
+              :class="c.status === 'blocked' ? 'opacity-60' : ''"
+            >
+              <div class="flex items-start gap-3 mb-3">
                 <img
                   v-if="c.picture"
                   :src="c.picture"
                   :alt="c.name"
-                  class="w-8 h-8 rounded-full object-cover border border-light-c flex-shrink-0"
+                  class="w-12 h-12 rounded-full object-cover border border-light-c flex-shrink-0"
                 >
                 <div
                   v-else
-                  class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0"
+                  class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold flex-shrink-0"
                 >
                   {{ c.name?.charAt(0) || '?' }}
                 </div>
-                <span class="font-medium text-base-c">{{ c.name }}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <p class="font-semibold text-base-c truncate">
+                      {{ c.name }}
+                    </p>
+                    <div class="flex gap-1.5 flex-wrap justify-end items-center">
+                      <select
+                        v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
+                        :value="userPermMap[c.id]?.activeGroup"
+                        class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400"
+                        @change="quickSwitchActiveGroup(c.id, $event.target.value)"
+                      >
+                        <option
+                          v-for="gid in userPermMap[c.id].groups"
+                          :key="gid"
+                          :value="gid"
+                        >
+                          {{ groupLabel(gid) }}
+                        </option>
+                      </select>
+                      <span
+                        v-else-if="userPermMap[c.id]?.groups?.length === 1"
+                        class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+                      >
+                      {{ groupLabel(userPermMap[c.id].activeGroup || userPermMap[c.id].groups[0]) }}
+                    </span>
+                      <span
+                        :class="c.status === 'blocked'
+                        ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                        : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
+                        class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
+                      >
+                      {{ c.status === 'blocked' ? '已封鎖' : '正常' }}
+                    </span>
+                    </div>
+                  </div>
+                  <p class="text-xs text-hint-c mt-0.5 truncate">
+                    {{ c.email }}
+                  </p>
+                </div>
               </div>
-            </td>
-            <td class="px-3 py-2.5 text-hint-c">
-              {{ c.email }}
-            </td>
-            <td class="px-3 py-2.5 text-muted-c">
-              {{ c.mobile || c.landline || '—' }}
-            </td>
-            <!-- 權限群組（可複選 + 快速切換使用中） -->
-            <td class="px-3 py-2.5 text-center">
-              <div class="flex justify-center">
-                <select
-                  v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
-                  :value="userPermMap[c.id]?.activeGroup"
-                  class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400"
-                  @change="quickSwitchActiveGroup(c.id, $event.target.value)"
-                >
-                  <option
-                    v-for="gid in userPermMap[c.id].groups"
-                    :key="gid"
-                    :value="gid"
-                  >
-                    {{ groupLabel(gid) }}
-                  </option>
-                </select>
-                <span
-                  v-else-if="userPermMap[c.id]?.groups?.length === 1"
-                  class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
-                >
-                    {{ groupLabel(userPermMap[c.id].activeGroup || userPermMap[c.id].groups[0]) }}
-                  </span>
-                <span
-                  v-else
-                  class="text-hint-c text-xs"
-                >—</span>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-c mb-3">
+                <div v-if="c.mobile || c.landline">
+                  <span class="text-hint-c">電話：</span>{{ c.mobile || c.landline }}
+                </div>
+                <div v-if="c.birthday">
+                  <span class="text-hint-c">生日：</span>{{ c.birthday }}
+                </div>
+                <div><span class="text-hint-c">訂位：</span><span
+                  class="text-teal-600 font-medium">{{ c.bookingCount ?? '—' }} 筆</span></div>
+                <div><span class="text-hint-c">便當：</span><span
+                  class="text-orange-600 font-medium">{{ c.lunchCount ?? '—' }} 筆</span></div>
+                <div class="col-span-2 text-hint-c">
+                  建立：{{ c.createdAt }}
+                </div>
               </div>
-            </td>
-            <td class="px-3 py-2.5 text-center">
-                <span class="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 font-medium">
-                  {{ c.bookingCount ?? '—' }}
-                </span>
-            </td>
-            <td class="px-3 py-2.5 text-center">
-                <span class="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 font-medium">
-                  {{ c.lunchCount ?? '—' }}
-                </span>
-            </td>
-            <td class="px-3 py-2.5 text-hint-c text-xs">
-              {{ c.createdAt }}
-            </td>
-            <td class="px-3 py-2.5 text-center">
-                <span
-                  :class="c.status === 'blocked'
-                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
-                  class="px-2 py-0.5 rounded-full text-xs font-medium"
-                >
-                  {{ c.status === 'blocked' ? '已封鎖' : '正常' }}
-                </span>
-            </td>
-            <td class="px-3 py-2.5">
-              <div class="flex items-center gap-1 justify-center">
+              <div class="flex gap-2">
                 <button
-                  class="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 transition-colors"
                   @click="openEdit(c)"
                 >
                   編輯
                 </button>
                 <button
-                  class="px-2 py-1 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                  class="flex-1 py-1.5 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-xl hover:bg-violet-50 transition-colors"
                   @click="openPermModal(c)"
                 >
                   權限
                 </button>
                 <button
                   :class="c.status === 'blocked'
-                      ? 'border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
-                      : 'border-yellow-300 dark:border-yellow-700 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'"
-                  class="px-2 py-1 text-xs border rounded-lg transition-colors"
+                  ? 'border-green-300 text-green-600 hover:bg-green-50'
+                  : 'border-yellow-300 text-yellow-600 hover:bg-yellow-50'"
+                  class="flex-1 py-1.5 text-xs border rounded-xl transition-colors"
                   @click="toggleBlock(c)"
                 >
                   {{ c.status === 'blocked' ? '解鎖' : '封鎖' }}
                 </button>
                 <button
-                  class="px-2 py-1 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  class="flex-1 py-1.5 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 transition-colors"
                   @click="confirmDelete(c)"
                 >
                   刪除
                 </button>
               </div>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 手機卡片 -->
-      <div class="md:hidden space-y-3">
-        <div
-          v-for="c in filtered"
-          :key="c.id"
-          class="bg-surface rounded-2xl border border-light-c shadow-sm p-4"
-          :class="c.status === 'blocked' ? 'opacity-60' : ''"
-        >
-          <div class="flex items-start gap-3 mb-3">
-            <img
-              v-if="c.picture"
-              :src="c.picture"
-              :alt="c.name"
-              class="w-12 h-12 rounded-full object-cover border border-light-c flex-shrink-0"
-            >
-            <div
-              v-else
-              class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold flex-shrink-0"
-            >
-              {{ c.name?.charAt(0) || '?' }}
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between gap-2 flex-wrap">
-                <p class="font-semibold text-base-c truncate">
-                  {{ c.name }}
-                </p>
-                <div class="flex gap-1.5 flex-wrap justify-end items-center">
-                  <select
-                    v-if="(userPermMap[c.id]?.groups?.length || 0) > 1"
-                    :value="userPermMap[c.id]?.activeGroup"
-                    class="text-xs px-2 py-1 rounded-full border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 outline-none focus:ring-1 focus:ring-violet-400"
-                    @change="quickSwitchActiveGroup(c.id, $event.target.value)"
-                  >
-                    <option
-                      v-for="gid in userPermMap[c.id].groups"
-                      :key="gid"
-                      :value="gid"
-                    >
-                      {{ groupLabel(gid) }}
-                    </option>
-                  </select>
-                  <span
-                    v-else-if="userPermMap[c.id]?.groups?.length === 1"
-                    class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
-                  >
-                    {{ groupLabel(userPermMap[c.id].activeGroup || userPermMap[c.id].groups[0]) }}
-                  </span>
-                  <span
-                    :class="c.status === 'blocked'
-                      ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
-                    class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
-                  >
-                    {{ c.status === 'blocked' ? '已封鎖' : '正常' }}
-                  </span>
-                </div>
-              </div>
-              <p class="text-xs text-hint-c mt-0.5 truncate">
-                {{ c.email }}
-              </p>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-c mb-3">
-            <div v-if="c.mobile || c.landline">
-              <span class="text-hint-c">電話：</span>{{ c.mobile || c.landline }}
-            </div>
-            <div v-if="c.birthday">
-              <span class="text-hint-c">生日：</span>{{ c.birthday }}
-            </div>
-            <div><span class="text-hint-c">訂位：</span><span class="text-teal-600 font-medium">{{ c.bookingCount ?? '—' }} 筆</span></div>
-            <div><span class="text-hint-c">便當：</span><span class="text-orange-600 font-medium">{{ c.lunchCount ?? '—' }} 筆</span></div>
-            <div class="col-span-2 text-hint-c">
-              建立：{{ c.createdAt }}
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <button
-              class="flex-1 py-1.5 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 transition-colors"
-              @click="openEdit(c)"
-            >
-              編輯
-            </button>
-            <button
-              class="flex-1 py-1.5 text-xs border border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 rounded-xl hover:bg-violet-50 transition-colors"
-              @click="openPermModal(c)"
-            >
-              權限
-            </button>
-            <button
-              :class="c.status === 'blocked'
-                ? 'border-green-300 text-green-600 hover:bg-green-50'
-                : 'border-yellow-300 text-yellow-600 hover:bg-yellow-50'"
-              class="flex-1 py-1.5 text-xs border rounded-xl transition-colors"
-              @click="toggleBlock(c)"
-            >
-              {{ c.status === 'blocked' ? '解鎖' : '封鎖' }}
-            </button>
-            <button
-              class="flex-1 py-1.5 text-xs border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 transition-colors"
-              @click="confirmDelete(c)"
-            >
-              刪除
-            </button>
           </div>
         </div>
       </div>
@@ -900,7 +1027,9 @@ onMounted(async () => {
           確認刪除
         </h3>
         <p class="text-sm text-hint-c mb-5">
-          確定要刪除 <span class="font-semibold text-base-c">{{ deleteTarget.name }}</span>（{{ deleteTarget.email }}）的帳號嗎？此操作無法復原。
+          確定要刪除 <span class="font-semibold text-base-c">{{ deleteTarget.name }}</span>（{{
+            deleteTarget.email
+          }}）的帳號嗎？此操作無法復原。
         </p>
         <div class="flex gap-2">
           <button
