@@ -104,6 +104,12 @@ const loadError = ref(null)
 
 const minimapExpanded = ref(false)
 
+// 推進轉場：點熱點箭頭切換時，先記住熱點的方向 (yaw/pitch, deg)，
+// 讓 initOrSwitchViewer 在真正切換全景圖之前先「轉向＋拉近」，模擬向前走近的感覺。
+// 從下拉選單/快速點/同空間切換等沒有明確方向的入口進來時維持 null，走原本的淡入淡出。
+const pendingDirection = ref(null)
+const PUSH_ZOOM_DELTA = 18 // 推進時額外拉近的縮放百分比（0-100 制，數字越大代表拉得越近）
+
 let viewer = null
 let markersPlugin = null
 
@@ -251,7 +257,7 @@ function buildMarkers(id) {
       </div>
     `,
     tooltip: h.label,
-    data: { targetSceneId: h.targetSceneId }
+    data: { targetSceneId: h.targetSceneId, yaw: h.yaw, pitch: h.pitch }
   }))
 }
 
@@ -268,7 +274,7 @@ async function loadData() {
   }
 }
 
-async function initOrSwitchViewer() {
+async function initOrSwitchViewer(direction) {
   const scene = currentScene.value
   if (!scene) return
 
@@ -295,20 +301,52 @@ async function initOrSwitchViewer() {
 
     markersPlugin.addEventListener('select-marker', ({ marker }) => {
       const target = marker.data?.targetSceneId
-      if (target) onSceneSelect(target)
+      if (target) {
+        const yaw = marker.data?.yaw
+        const pitch = marker.data?.pitch
+        onSceneSelect(target, (yaw != null && pitch != null) ? { yaw, pitch } : null)
+      }
     })
+  } else if (direction) {
+    // 推進轉場：先原地轉向熱點方向並把鏡頭拉近，模擬向前走過去，
+    // 再切換到下一張全景圖並把縮放還原，銜接淡入淡出，取代單純的跳接。
+    const currentZoom = viewer.getZoomLevel ? viewer.getZoomLevel() : 50
+    try {
+      await viewer.animate({
+        yaw: `${direction.yaw}deg`,
+        pitch: `${direction.pitch}deg`,
+        zoom: Math.min(currentZoom + PUSH_ZOOM_DELTA, 100),
+        speed: '8rpm'
+      })
+    } catch (e) {
+      // 動畫被中途打斷（例如使用者又點了別的熱點）也沒關係，繼續切換場景
+    }
+
+    await viewer.setPanorama(buildTileConfig(scene), {
+      position: { yaw: `${direction.yaw}deg`, pitch: `${direction.pitch}deg` },
+      zoom: currentZoom,
+      transition: { rotation: false, effect: 'fade', speed: 280 },
+      showLoader: false
+    })
+    markersPlugin.setMarkers(buildMarkers(scene.id))
   } else {
+    // 沒有明確方向的切換（下拉選單／快速點／同空間切換）：維持原本淡入淡出
     await viewer.setPanorama(buildTileConfig(scene), { transition: true, showLoader: true })
     markersPlugin.setMarkers(buildMarkers(scene.id))
   }
 }
 
-function onSceneSelect(id) {
+function onSceneSelect(id, direction = null) {
+  pendingDirection.value = direction
   currentSceneId.value = id
 }
 
 watch(currentSceneId, async (id) => {
-  if (id) await initOrSwitchViewer()
+  if (id) {
+    const direction = pendingDirection.value
+    pendingDirection.value = null
+    await initOrSwitchViewer(direction)
+  }
 })
 
 onMounted(loadData)
