@@ -3,13 +3,13 @@
 
     <!-- Header -->
     <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-20">
-      <div class="max-w-2xl mx-auto flex items-center gap-2">
+      <div class="max-w-2xl md:max-w-6xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0" style="font-size:14px">🔗</div>
         <div class="flex-1">
           <h1 class="font-bold text-base-c leading-none" style="font-size:15px">常用網址</h1>
         </div>
         <button
-          class="px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0"
+          class="px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0 md:hidden"
           :class="editMode ? 'bg-green-700 text-white' : 'bg-surface2 text-muted-c hover-surface2'"
           style="font-size:12.5px"
           @click="toggleEditMode"
@@ -19,14 +19,27 @@
       </div>
     </header>
 
-    <!-- 分類 Tab 列 -->
-    <div v-if="categories.length > 0 || editMode"
-         class="bg-surface border-b border-light-c sticky top-0 z-10">
-      <div class="max-w-2xl mx-auto">
-        <div class="flex flex-wrap gap-1.5 px-3 py-2">
+    <!-- 電腦版：左側控制（分類）＋ 右側選項（網址）；手機版：分類為上方水平 Tab -->
+    <div class="max-w-2xl md:max-w-6xl mx-auto md:flex md:items-start md:gap-6 md:px-4 md:pt-4">
+
+      <!-- 分類 Tab / 側邊控制欄 -->
+      <div v-if="categories.length > 0 || editMode"
+           class="bg-surface border-b border-light-c sticky top-0 z-10 md:static md:sticky md:top-4 md:w-52 md:flex-shrink-0 md:border md:border-light-c md:rounded-2xl md:shadow-sm md:p-3">
+
+        <!-- 管理／完成編輯（電腦版顯示於側邊欄頂部） -->
+        <button
+          class="hidden md:flex w-full items-center justify-center px-3 py-2 rounded-lg font-semibold transition-colors mb-3"
+          :class="editMode ? 'bg-green-700 text-white' : 'bg-surface2 text-muted-c hover-surface2'"
+          style="font-size:12.5px"
+          @click="toggleEditMode"
+        >
+          {{ editMode ? '完成編輯' : '管理' }}
+        </button>
+
+        <div class="flex flex-wrap gap-1.5 px-3 py-2 md:flex-col md:flex-nowrap md:gap-1.5 md:px-0 md:py-0">
           <button
             v-for="(cat, idx) in categories" :key="cat.id"
-            class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5"
+            class="tab-btn flex-shrink-0 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5 md:w-full md:justify-between"
             :class="[
               activeId === cat.id ? 'bg-green-700 text-white font-semibold' : 'bg-surface2 text-muted-c hover-surface2',
               editMode ? 'cursor-move' : ''
@@ -59,7 +72,7 @@
 
           <button
             v-if="editMode"
-            class="flex-shrink-0 px-3 py-1.5 rounded-lg border border-dashed border-light-c text-hint-c whitespace-nowrap hover-surface2"
+            class="flex-shrink-0 px-3 py-1.5 rounded-lg border border-dashed border-light-c text-hint-c whitespace-nowrap hover-surface2 md:w-full md:text-center"
             style="font-size:13px"
             @click="openAddCategory"
           >
@@ -67,131 +80,131 @@
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- 內容區 -->
-    <div class="max-w-2xl mx-auto px-3 sm:px-4 py-4">
+      <!-- 內容區 -->
+      <div class="px-3 sm:px-4 py-4 md:flex-1 md:min-w-0 md:px-0 md:py-0">
 
-      <!-- 載入中 -->
-      <div v-if="loading" class="text-center py-8 text-hint-c" style="font-size:13px">載入中...</div>
+        <!-- 載入中 -->
+        <div v-if="loading" class="text-center py-8 text-hint-c" style="font-size:13px">載入中...</div>
 
-      <template v-else>
+        <template v-else>
 
-        <!-- 空狀態（唯讀模式且完全沒有分類） -->
-        <div v-if="categories.length === 0 && !editMode"
-             class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
-          <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
-                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-          </svg>
-          <p style="font-size:13px" class="mb-3">目前尚無任何常用網址</p>
-          <button
-            class="px-4 py-2 rounded-lg bg-green-700 text-white font-semibold hover:opacity-90"
-            style="font-size:13px"
-            @click="openAddCategory"
-          >
-            ＋ 新增分類
-          </button>
-        </div>
-
-        <template v-if="activeCat">
-
-          <!-- 此分類無連結（唯讀模式） -->
-          <div v-if="activeCat.links.length === 0 && !editMode"
-               class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm"
-               style="font-size:13px">
-            此分類尚無網址
-          </div>
-
-          <!-- 卡片 Grid -->
-          <div v-else class="link-grid">
-            <div
-              v-for="(link, idx) in activeCat.links" :key="link.id"
-              class="link-card bg-surface border border-light-c rounded-2xl p-3 flex flex-col gap-2 shadow-sm relative"
-              :class="editMode ? 'cursor-move' : ''"
-              :draggable="editMode"
-              @dragstart="onLinkDragStart(idx)"
-              @dragover.prevent
-              @dragenter.prevent
-              @drop="onLinkDrop(idx)"
-            >
-              <a
-                :href="link.url" target="_blank" rel="noopener"
-                class="flex flex-col gap-2"
-                :class="editMode ? 'pointer-events-none' : ''"
-              >
-                <div class="flex items-start justify-between">
-                  <div class="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    <img
-                      :src="`https://www.google.com/s2/favicons?domain=${getDomain(link.url)}&sz=64`"
-                      class="w-6 h-6 rounded"
-                      @error="onFaviconError($event, link.name)"
-                    />
-                  </div>
-                  <svg v-if="!editMode" class="w-3 h-3 text-hint-c flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                  </svg>
-                </div>
-
-                <div>
-                  <p class="font-semibold text-base-c leading-snug line-clamp-2" style="font-size:13px">
-                    {{ link.name }}
-                  </p>
-                  <p v-if="link.note" class="text-hint-c mt-0.5 line-clamp-1" style="font-size:11px">
-                    {{ link.note }}
-                  </p>
-                </div>
-              </a>
-
-              <div v-if="editMode" class="absolute top-2 right-2 flex gap-1">
-                <button
-                  v-if="categories.length > 1"
-                  class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
-                  title="更改分類"
-                  @click.stop="openMoveCategory(link)"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"/>
-                  </svg>
-                </button>
-                <button
-                  class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
-                  title="編輯"
-                  @click.stop="openEditLink(link)"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                  </svg>
-                </button>
-                <button
-                  class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
-                  @click.stop="deleteLinkConfirm(link)"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- 新增網址卡 -->
+          <!-- 空狀態（唯讀模式且完全沒有分類） -->
+          <div v-if="categories.length === 0 && !editMode"
+               class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
+            <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+            <p style="font-size:13px" class="mb-3">目前尚無任何常用網址</p>
             <button
-              v-if="editMode"
-              class="link-card border border-dashed border-light-c rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-hint-c hover-surface2"
-              style="min-height:96px"
-              @click="openAddLink"
+              class="px-4 py-2 rounded-lg bg-green-700 text-white font-semibold hover:opacity-90"
+              style="font-size:13px"
+              @click="openAddCategory"
             >
-              <span style="font-size:22px;line-height:1;">＋</span>
-              <span style="font-size:12px;">新增網址</span>
+              ＋ 新增分類
             </button>
           </div>
 
+          <template v-if="activeCat">
+
+            <!-- 此分類無連結（唯讀模式） -->
+            <div v-if="activeCat.links.length === 0 && !editMode"
+                 class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm"
+                 style="font-size:13px">
+              此分類尚無網址
+            </div>
+
+            <!-- 卡片 Grid -->
+            <div v-else class="link-grid">
+              <div
+                v-for="(link, idx) in activeCat.links" :key="link.id"
+                class="link-card bg-surface border border-light-c rounded-2xl p-3 flex flex-col gap-2 shadow-sm relative"
+                :class="editMode ? 'cursor-move' : ''"
+                :draggable="editMode"
+                @dragstart="onLinkDragStart(idx)"
+                @dragover.prevent
+                @dragenter.prevent
+                @drop="onLinkDrop(idx)"
+              >
+                <a
+                  :href="link.url" target="_blank" rel="noopener"
+                  class="flex flex-col gap-2"
+                  :class="editMode ? 'pointer-events-none' : ''"
+                >
+                  <div class="flex items-start justify-between">
+                    <div class="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      <img
+                        :src="`https://www.google.com/s2/favicons?domain=${getDomain(link.url)}&sz=64`"
+                        class="w-6 h-6 rounded"
+                        @error="onFaviconError($event, link.name)"
+                      />
+                    </div>
+                    <svg v-if="!editMode" class="w-3 h-3 text-hint-c flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </div>
+
+                  <div>
+                    <p class="font-semibold text-base-c leading-snug line-clamp-2" style="font-size:13px">
+                      {{ link.name }}
+                    </p>
+                    <p v-if="link.note" class="text-hint-c mt-0.5 line-clamp-1" style="font-size:11px">
+                      {{ link.note }}
+                    </p>
+                  </div>
+                </a>
+
+                <div v-if="editMode" class="absolute top-2 right-2 flex gap-1">
+                  <button
+                    v-if="categories.length > 1"
+                    class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
+                    title="更改分類"
+                    @click.stop="openMoveCategory(link)"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
+                    title="編輯"
+                    @click.stop="openEditLink(link)"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
+                    @click.stop="deleteLinkConfirm(link)"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 新增網址卡 -->
+              <button
+                v-if="editMode"
+                class="link-card border border-dashed border-light-c rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-hint-c hover-surface2"
+                style="min-height:96px"
+                @click="openAddLink"
+              >
+                <span style="font-size:22px;line-height:1;">＋</span>
+                <span style="font-size:12px;">新增網址</span>
+              </button>
+            </div>
+
+          </template>
         </template>
-      </template>
+      </div>
     </div>
 
     <!-- ===== 分類 新增／編輯 Modal ===== -->

@@ -365,6 +365,107 @@
                   <span>共 <b class="text-base-c">{{ customerRecords.length }}</b> 筆檢測紀錄</span>
                 </div>
 
+                <!-- Google 帳號綁定 -->
+                <div class="mb-4 p-3 rounded border border-base bg-surface2/40">
+                  <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-2">
+                    前台 Google 帳號綁定
+                  </div>
+
+                  <div v-if="boundLoading" class="text-xs text-hint-c dark:text-hint-c">
+                    載入中…
+                  </div>
+
+                  <template v-else>
+                    <!-- 已綁定 -->
+                    <div v-if="boundAccount?.bound" class="flex items-center gap-3">
+                      <img
+                        v-if="boundAccount.picture"
+                        :src="boundAccount.picture"
+                        :alt="boundAccount.name"
+                        class="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                      >
+                      <div class="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0" v-else>
+                        {{ (boundAccount.name || boundAccount.email || '?').charAt(0).toUpperCase() }}
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <div class="text-sm font-semibold text-base-c truncate">{{ boundAccount.name || '（未提供姓名）' }}</div>
+                        <div class="text-xs text-hint-c dark:text-hint-c truncate">{{ boundAccount.email }}</div>
+                      </div>
+                      <button
+                        class="text-xs bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 px-3 py-1.5 rounded hover:bg-rose-200 dark:hover:bg-rose-900/60 flex-shrink-0"
+                        @click="unbindAccount"
+                      >
+                        解除綁定
+                      </button>
+                    </div>
+
+                    <!-- 未綁定 -->
+                    <div v-else-if="!bindPanelOpen" class="flex items-center justify-between gap-2">
+                      <span class="text-xs text-hint-c dark:text-hint-c">尚未綁定 Google 帳號，客戶無法從前台查詢此筆資料</span>
+                      <button
+                        class="text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded flex-shrink-0"
+                        @click="openBindPanel"
+                      >
+                        ＋ 綁定帳號
+                      </button>
+                    </div>
+
+                    <!-- 搜尋 / 選擇 Google 帳號 -->
+                    <div v-else>
+                      <div class="flex gap-2 mb-2">
+                        <input
+                          v-model="bindKeyword"
+                          type="text"
+                          placeholder="輸入姓名或 Email 搜尋前台帳號"
+                          class="flex-1 min-w-0 border border-base rounded px-3 py-1.5 text-sm bg-surface text-base-c placeholder:text-hint-c dark:placeholder:text-hint-c"
+                          @input="onBindKeywordInput"
+                          @keyup.enter="searchBindAccounts"
+                        >
+                        <button
+                          class="text-xs bg-surface2 hover-border text-base-c px-3 py-1.5 rounded flex-shrink-0"
+                          @click="closeBindPanel"
+                        >
+                          取消
+                        </button>
+                      </div>
+
+                      <div v-if="bindSearching" class="text-xs text-hint-c dark:text-hint-c py-2">
+                        搜尋中…
+                      </div>
+                      <div v-else-if="bindKeyword.trim() && !bindResults.length" class="text-xs text-hint-c dark:text-hint-c py-2">
+                        查無符合的前台帳號
+                      </div>
+
+                      <div v-if="bindResults.length" class="max-h-56 overflow-y-auto rounded border border-base divide-y divide-base bg-surface">
+                        <button
+                          v-for="acc in bindResults"
+                          :key="acc.customerId"
+                          class="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50"
+                          :disabled="bindSubmitting"
+                          @click="selectBindAccount(acc)"
+                        >
+                          <img
+                            v-if="acc.picture"
+                            :src="acc.picture"
+                            :alt="acc.name"
+                            class="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                          >
+                          <div class="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0" v-else>
+                            {{ (acc.name || acc.email || '?').charAt(0).toUpperCase() }}
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="text-sm text-base-c truncate">{{ acc.name || '（未提供姓名）' }}</div>
+                            <div class="text-xs text-hint-c dark:text-hint-c truncate">{{ acc.email }}</div>
+                          </div>
+                          <span v-if="acc.tabcPatnr" class="text-[10px] text-amber-700 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap">
+                            已綁定 PATNR {{ acc.tabcPatnr }}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
                 <!-- 最新測量狀態：標準範圍色帶（InBody 報告常見呈現方式） -->
                 <div v-if="latestRecord" class="grid md:grid-cols-3 gap-4 mb-5 p-3 rounded border border-base bg-surface2/40">
                   <div v-for="bar in rangeBars" :key="bar.title">
@@ -677,11 +778,101 @@
     } finally {
       customerLoading.value = false
     }
+    await loadBoundAccount(patnr)
   }
   function closeCustomer() {
     selectedPatnr.value = null
     selectedCustomer.value = null
     customerRecords.value = []
+    closeBindPanel()
+  }
+
+  // ── Google 帳號綁定 ────────────────────────────────────
+  const boundAccount = ref<any>(null)      // { bound, customerId, name, email, picture }
+  const boundLoading = ref(false)
+
+  async function loadBoundAccount(patnr: number) {
+    boundLoading.value = true
+    try {
+      boundAccount.value = await $fetch<any>(`${BASE()}/customers/${patnr}/bound-account`)
+    } catch {
+      boundAccount.value = null
+    } finally {
+      boundLoading.value = false
+    }
+  }
+
+  // 搜尋 / 選擇 Google 帳號
+  const bindPanelOpen = ref(false)
+  const bindKeyword = ref('')
+  const bindResults = ref<any[]>([])
+  const bindSearching = ref(false)
+  const bindSubmitting = ref(false)
+
+  function openBindPanel() {
+    bindPanelOpen.value = true
+    bindKeyword.value = ''
+    bindResults.value = []
+  }
+  function closeBindPanel() {
+    bindPanelOpen.value = false
+    bindKeyword.value = ''
+    bindResults.value = []
+  }
+
+  let bindSearchTimer: ReturnType<typeof setTimeout> | null = null
+  function onBindKeywordInput() {
+    if (bindSearchTimer) clearTimeout(bindSearchTimer)
+    bindSearchTimer = setTimeout(searchBindAccounts, 300)
+  }
+
+  async function searchBindAccounts() {
+    const kw = bindKeyword.value.trim()
+    if (!kw) { bindResults.value = []; return }
+    bindSearching.value = true
+    try {
+      bindResults.value = await $fetch<any[]>(`${BASE()}/google-accounts/search`, {
+        params: { keyword: kw }
+      }) ?? []
+    } catch {
+      bindResults.value = []
+    } finally {
+      bindSearching.value = false
+    }
+  }
+
+  async function selectBindAccount(account: any) {
+    if (!selectedPatnr.value) return
+    if (account.tabcPatnr && account.tabcPatnr !== String(selectedPatnr.value)) {
+      if (!confirm(`「${account.name || account.email}」目前已綁定其他客戶編號（PATNR=${account.tabcPatnr}），\n改綁後將自動解除原本的綁定，確定要繼續嗎？`)) {
+        return
+      }
+    }
+    bindSubmitting.value = true
+    try {
+      const data = await $fetch<any>(`${BASE()}/customers/${selectedPatnr.value}/bind`, {
+        method: 'PUT',
+        body: { customerId: account.customerId }
+      })
+      if (data?.error) { alert('綁定失敗：' + data.error); return }
+      closeBindPanel()
+      await loadBoundAccount(selectedPatnr.value)
+    } catch (e: any) {
+      alert('綁定失敗：' + (e?.data?.error ?? e?.statusMessage ?? '未知錯誤'))
+    } finally {
+      bindSubmitting.value = false
+    }
+  }
+
+  async function unbindAccount() {
+    if (!selectedPatnr.value || !boundAccount.value?.bound) return
+    if (!confirm(`確定要解除「${boundAccount.value.name || boundAccount.value.email}」與此客戶編號的綁定嗎？`)) return
+    try {
+      await $fetch(`${BASE()}/customers/${selectedPatnr.value}/unbind`, { method: 'PUT' })
+      await loadBoundAccount(selectedPatnr.value)
+    } catch (e: any) {
+      alert('解除綁定失敗：' + (e?.data?.error ?? e?.statusMessage ?? '未知錯誤'))
+    }
   }
 
   // ── 標準範圍色帶（BMI / 體脂率 / 內臟脂肪）─────────────────────
