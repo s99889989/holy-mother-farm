@@ -17,34 +17,72 @@
         <div>
           <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-3">
             <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">分類</div>
-            <ul class="list-none m-0 p-0">
-              <li
-                class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': activeCategory === null }"
-                @click="activeCategory = null"
-              >
-                <span>全部</span>
-                <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenes.length }}</span>
-              </li>
-              <li
-                class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': activeCategory === '' }"
-                @click="activeCategory = ''"
-              >
-                <span>未分類</span>
-                <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenesInCategoryCount('') }}</span>
-              </li>
-              <li
-                v-for="c in categoryList"
-                :key="c"
-                class="flex justify-between items-center px-2.5 py-1.5 rounded-md cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                :class="{ 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold': c === activeCategory }"
-                @click="activeCategory = c"
-              >
-                <span class="truncate">{{ c }}</span>
-                <span class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{{ scenesInCategoryCount(c) }}</span>
-              </li>
-            </ul>
+            <div class="flex gap-1.5">
+              <template v-if="editingCategoryName !== null">
+                <input
+                  v-model="editingCategoryNewValue"
+                  placeholder="新的分類名稱"
+                  class="flex-1 min-w-0 border border-green-500 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-md px-2 py-1.5 text-xs"
+                  @keyup.enter="saveEditCategory"
+                  @keyup.esc="cancelEditCategory"
+                />
+                <button
+                  class="shrink-0 text-green-700 dark:text-green-400 text-sm px-1.5"
+                  title="儲存"
+                  @click="saveEditCategory"
+                >
+                  ✓
+                </button>
+                <button
+                  class="shrink-0 text-gray-400 dark:text-gray-500 text-sm px-1.5"
+                  title="取消"
+                  @click="cancelEditCategory"
+                >
+                  ✕
+                </button>
+              </template>
+              <template v-else>
+                <select
+                  v-model="activeCategory"
+                  class="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-md px-2 py-1.5 text-xs"
+                >
+                  <option :value="null">全部（{{ scenes.length }}）</option>
+                  <option value="">未分類（{{ scenesInCategoryCount('') }}）</option>
+                  <option v-for="c in categoryList" :key="c" :value="c">
+                    {{ c }}（{{ scenesInCategoryCount(c) }}）{{ blockedCategories.includes(c) ? ' 🔒遊客不可見' : '' }}
+                  </option>
+                </select>
+                <button
+                  v-if="activeCategory !== null && activeCategory !== ''"
+                  class="shrink-0 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-2.5 py-1 text-xs"
+                  title="改分類名稱"
+                  @click="startEditCategory(activeCategory)"
+                >
+                  改名
+                </button>
+                <button
+                  v-if="activeCategory !== null && activeCategory !== ''"
+                  class="shrink-0 border rounded-md px-2.5 py-1 text-xs"
+                  :class="isActiveCategoryBlocked
+                    ? 'border-amber-400 dark:border-amber-600 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                  :title="isActiveCategoryBlocked
+                    ? '目前遊客瀏覽頁看不到這個分類，點擊改成開放'
+                    : '點擊後遊客瀏覽頁（front/tour/）會完全看不到這個分類底下的場景，也連不進去'"
+                  @click="toggleCategoryBlocked(activeCategory)"
+                >
+                  {{ isActiveCategoryBlocked ? '🔒 遊客不可見' : '🔓 遊客可見' }}
+                </button>
+                <button
+                  v-if="activeCategory !== null && activeCategory !== ''"
+                  class="shrink-0 border border-red-300 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md px-2.5 py-1 text-xs"
+                  title="刪除這個分類（底下場景會變成未分類，場景本身不會被刪除）"
+                  @click="deleteCategory(activeCategory)"
+                >
+                  刪除
+                </button>
+              </template>
+            </div>
             <div class="flex gap-1.5 mt-2">
               <input
                 v-model="newCategoryName"
@@ -137,6 +175,7 @@
                 <template v-else>
                 <span class="flex items-center gap-1.5 truncate">
                   <span v-if="s.quickPoint" class="text-amber-400 shrink-0" title="快速點">★</span>
+                  <span v-if="s.id === settings.startSceneId" class="text-sky-400 shrink-0" title="預設進入場景">🚪</span>
                   {{ s.name }}
                   <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">{{ s.category || '未分類' }}</span>
                 </span>
@@ -213,11 +252,36 @@
               📌 設為起始視角
             </button>
             <button
+              class="text-xs rounded-md px-3 py-1.5"
+              :class="selectedScene && settings.startSceneId === selectedScene.id
+                ? 'bg-[#4fae8f] text-[#0c1412]'
+                : 'bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2]'"
+              title="訪客第一次打開導覽（瀏覽器裡還沒有瀏覽紀錄）時，預設會看到這張場景"
+              @click="setAsStartScene"
+            >
+              {{ selectedScene && settings.startSceneId === selectedScene.id ? '🚪 目前的預設進入場景' : '🚪 設為預設進入場景' }}
+            </button>
+            <button
               class="bg-[#2a3438] hover:bg-[#33403f] text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
               @click="openGroupEdit"
             >
               🔗 同空間群組
             </button>
+            <button
+              class="bg-[#2a3438] hover:bg-[#33403f] disabled:opacity-50 disabled:cursor-not-allowed text-[#eef3f2] text-xs rounded-md px-3 py-1.5"
+              title="上傳另一張全景圖，取代目前這張（tile 和預覽圖都會重新產生）"
+              :disabled="replacingImage"
+              @click="triggerReplaceImage"
+            >
+              {{ replacingImage ? '處理中…' : '🖼 更換全景圖' }}
+            </button>
+            <input
+              ref="replaceImageInput"
+              type="file"
+              accept="image/jpeg"
+              class="hidden"
+              @change="onReplaceImagePick"
+            />
           </div>
 
           <div
@@ -386,11 +450,14 @@ const apiBase = computed(() => commonStore.data.main_url + '/holy/tour')
 const scenes = ref([])
 const hotspots = ref([])
 const categoryList = ref([])
+const settings = ref({ startSceneId: null, blockedCategories: [] })
 
 const activeCategory = ref(null)
 const selectedSceneId = ref(null)
 const uploadCategory = ref('')
 const newCategoryName = ref('')
+const editingCategoryName = ref(null)
+const editingCategoryNewValue = ref('')
 
 const isDragging = ref(false)
 const uploading = ref(false)
@@ -406,6 +473,9 @@ const groupEditSelection = ref(new Set())
 const editingSceneId = ref(null)
 const editingNameValue = ref('')
 const editingCategoryValue = ref('')
+
+const replaceImageInput = ref(null)
+const replacingImage = ref(false)
 
 const viewerHeight = ref(600)
 
@@ -438,6 +508,13 @@ const sceneGroupMembers = computed(() => {
   if (!selectedScene.value?.groupId) return []
   return scenes.value.filter((s) => s.groupId === selectedScene.value.groupId)
 })
+
+// 遊客不可見的分類清單（即 settings.blockedCategories），這裡統一開一個
+// computed 是為了防呆：settings.value 剛載入完成前可能還沒有這個欄位
+const blockedCategories = computed(() => settings.value.blockedCategories || [])
+const isActiveCategoryBlocked = computed(
+  () => activeCategory.value !== null && activeCategory.value !== '' && blockedCategories.value.includes(activeCategory.value)
+)
 
 function scenesInCategoryCount(category) {
   if (category === '') return scenes.value.filter((s) => !s.category).length
@@ -500,6 +577,37 @@ async function saveInitialView() {
   if (idx !== -1) scenes.value[idx] = updated
 }
 
+// 設定訪客第一次打開導覽（瀏覽器裡沒有瀏覽紀錄）時預設看到的場景。
+// 方向直接沿用這個場景自己的 initialYaw/initialPitch（上面「設為起始視角」設的那組），
+// 不用另外存一份方向設定。
+//
+// PUT /settings 是整包覆蓋，所以這裡要把目前的 settings 全部帶上，只改
+// startSceneId 這一個欄位，不然會把 blockedCategories 也一起洗掉。
+async function setAsStartScene() {
+  const scene = selectedScene.value
+  if (!scene) return
+  const updated = await $fetch(`${apiBase.value}/settings`, {
+    method: 'PUT',
+    body: { ...settings.value, startSceneId: scene.id }
+  })
+  settings.value = updated
+}
+
+// 切換某個分類是否限制遊客瀏覽（front/tour/ 看不看得到）。
+// 同樣要帶上完整的 settings，只改 blockedCategories 這一個欄位。
+async function toggleCategoryBlocked(category) {
+  if (category === null || category === '') return
+  const current = blockedCategories.value
+  const next = current.includes(category)
+    ? current.filter((c) => c !== category)
+    : [...current, category]
+  const updated = await $fetch(`${apiBase.value}/settings`, {
+    method: 'PUT',
+    body: { ...settings.value, blockedCategories: next }
+  })
+  settings.value = updated
+}
+
 // 導覽區高度依「視窗剩餘空間」動態算，不再寫死 600px；下方還有一段熱點清單要留空間
 function updateViewerHeight() {
   nextTick(() => {
@@ -516,6 +624,7 @@ async function loadAll() {
   const data = await $fetch(`${apiBase.value}/data`)
   scenes.value = data.scenes || []
   hotspots.value = data.hotspots || []
+  settings.value = data.settings || { startSceneId: null, blockedCategories: [] }
 }
 
 async function loadCategories() {
@@ -530,6 +639,40 @@ async function addCategory() {
     body: { name }
   })
   newCategoryName.value = ''
+}
+
+// 刪除分類：分類底下的場景會被後端一併改成未分類，場景本身不會被刪除
+async function deleteCategory(name) {
+  if (!confirm(`確定要刪除分類「${name}」？底下的場景會變成未分類，場景本身不會被刪除`)) return
+  categoryList.value = await $fetch(`${apiBase.value}/categories/${encodeURIComponent(name)}`, {
+    method: 'DELETE'
+  })
+  activeCategory.value = null
+  await loadAll()
+}
+
+function startEditCategory(name) {
+  editingCategoryName.value = name
+  editingCategoryNewValue.value = name
+}
+
+function cancelEditCategory() {
+  editingCategoryName.value = null
+}
+
+// 改分類名稱：底下場景會被後端一併同步改成新名字；如果新名字跟現有分類撞名，
+// 後端會當作合併處理，不會出現兩個同名分類
+async function saveEditCategory() {
+  const oldName = editingCategoryName.value
+  const newName = editingCategoryNewValue.value.trim()
+  editingCategoryName.value = null
+  if (oldName === null || !newName || newName === oldName) return
+  categoryList.value = await $fetch(`${apiBase.value}/categories/${encodeURIComponent(oldName)}`, {
+    method: 'PUT',
+    body: { name: newName }
+  })
+  if (activeCategory.value === oldName) activeCategory.value = newName
+  await loadAll()
 }
 
 function onDrop(e) {
@@ -576,6 +719,38 @@ async function deleteScene(id) {
   if (selectedSceneId.value === id) selectedSceneId.value = null
 }
 
+function triggerReplaceImage() {
+  replaceImageInput.value?.click()
+}
+
+// 上傳新圖取代目前選中場景的全景圖：後端重新切 tile + 產生預覽圖，
+// 場景 id/名稱/分類/熱點都不變，只有圖片內容換掉。
+async function onReplaceImagePick(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file || !selectedScene.value) return
+  if (!confirm('確定要用這張新圖取代目前的全景圖嗎？原本的圖會被覆蓋，無法復原')) return
+
+  replacingImage.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const updated = await $fetch(`${apiBase.value}/scenes/${selectedScene.value.id}/replace-image`, {
+      method: 'POST',
+      body: form
+    })
+    const idx = scenes.value.findIndex((s) => s.id === updated.id)
+    if (idx !== -1) scenes.value[idx] = updated
+    if (viewer && selectedSceneId.value === updated.id) {
+      await viewer.setPanorama(buildTileConfig(updated))
+    }
+  } catch (err) {
+    alert(`更換圖片失敗：${err.data?.error || err.message}`)
+  } finally {
+    replacingImage.value = false
+  }
+}
+
 async function deleteHotspot(id) {
   await $fetch(`${apiBase.value}/hotspots/${id}`, { method: 'DELETE' })
   hotspots.value = hotspots.value.filter((h) => h.id !== id)
@@ -587,13 +762,16 @@ function selectScene(id) {
 }
 
 function buildTileConfig(scene) {
+  // tile/preview 網址走 30 天 immutable 快取，換圖後檔名不會變，
+  // 所以要靠 imageVersion 當 query string 破快取，不然瀏覽器會一直顯示舊圖
+  const v = scene.imageVersion || 0
   const base = `${apiBase.value}/image/${scene.id}`
   return {
     width: scene.width,
     cols: scene.cols,
     rows: scene.rows,
-    baseUrl: `${base}/preview.jpg`,
-    tileUrl: (col, row) => `${base}/tiles/${col}x${row}.jpg`
+    baseUrl: `${base}/preview.jpg?v=${v}`,
+    tileUrl: (col, row) => `${base}/tiles/${col}x${row}.jpg?v=${v}`
   }
 }
 
@@ -712,15 +890,58 @@ async function saveGroupEdit() {
   groupEditMode.value = false
 }
 
+// -----------------------------------------------------------------------
+// 重新整理後記住上次選的分類 / 場景，不用每次都重新點一次
+// -----------------------------------------------------------------------
+const STORAGE_KEY_CATEGORY = 'holyMotherFarmTourAdmin.activeCategory'
+const STORAGE_KEY_SCENE = 'holyMotherFarmTourAdmin.selectedSceneId'
+
+function loadPersisted(key) {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const raw = localStorage.getItem(key)
+    return raw === null ? undefined : JSON.parse(raw)
+  } catch {
+    return undefined
+  }
+}
+
+function savePersisted(key, value) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // localStorage 不可用（例如無痕模式滿了）就算了，不影響其他功能
+  }
+}
+
+watch(activeCategory, (val) => savePersisted(STORAGE_KEY_CATEGORY, val))
+
 watch(selectedSceneId, async (id) => {
   pendingHotspot.value = null
   groupEditMode.value = false
+  savePersisted(STORAGE_KEY_SCENE, id)
   if (id) await initOrSwitchViewer()
 })
 
-onMounted(() => {
-  loadAll()
-  loadCategories()
+onMounted(async () => {
+  await Promise.all([loadAll(), loadCategories()])
+
+  // 還原上次的分類篩選 / 選中的場景，但要先確認資料還存在——
+  // 分類被刪掉或場景被刪掉的話，還原一個不存在的值畫面只會空空的
+  const persistedCategory = loadPersisted(STORAGE_KEY_CATEGORY)
+  if (
+    persistedCategory !== undefined &&
+    (persistedCategory === null || persistedCategory === '' || categoryList.value.includes(persistedCategory))
+  ) {
+    activeCategory.value = persistedCategory
+  }
+
+  const persistedSceneId = loadPersisted(STORAGE_KEY_SCENE)
+  if (persistedSceneId && scenes.value.some((s) => s.id === persistedSceneId)) {
+    selectedSceneId.value = persistedSceneId
+  }
+
   updateViewerHeight()
   window.addEventListener('resize', updateViewerHeight)
 })

@@ -1,6 +1,6 @@
 <template>
   <div class="h-screen flex flex-col bg-page transition-colors">
-    <StaffNavbar />
+    <StaffNavbar v-if="!hideNavbar" />
     <div id="staff-scroll-wrap" class="flex-1 overflow-y-auto">
       <slot />
     </div>
@@ -9,6 +9,9 @@
 
 <script setup>
 import { verifySession } from '~/composables/useSessionCheck'
+
+const route = useRoute()
+const hideNavbar = computed(() => !!route.meta.hideNavbar)
 
 const commonStore = useCommonStore()
 const customerStore = useCustomerStore()
