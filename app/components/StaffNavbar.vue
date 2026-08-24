@@ -286,7 +286,7 @@ const logout = async () => {
 <template>
   <nav class="staff-nav">
     <!-- 桌機 -->
-    <div class="hidden lg:flex items-center gap-0.5">
+    <div class="hidden xl:flex items-center gap-0.5">
       <!-- Logo -->
       <NuxtLink
         to="/staff/home"
@@ -436,7 +436,7 @@ const logout = async () => {
             >
               {{ customer.name?.charAt(0) || '?' }}
             </div>
-            <span class="text-xl font-medium hidden lg:block max-w-[80px] truncate">{{ customer.name }}</span>
+            <span class="text-xl font-medium hidden xl:block max-w-[80px] truncate">{{ customer.name }}</span>
             <svg
               class="w-3 h-3 transition-transform"
               :class="menuOpen ? 'rotate-180' : ''"
@@ -553,7 +553,7 @@ const logout = async () => {
     </div>
 
     <!-- 手機 navbar -->
-    <div class="lg:hidden flex items-center justify-between">
+    <div class="xl:hidden flex items-center justify-between">
       <NuxtLink
         to="/staff/home"
         class="nav-logo flex items-center gap-1.5 font-bold text-sm"
@@ -636,7 +636,7 @@ const logout = async () => {
       >
         <div
           v-if="mobileOpen"
-          class="nav-fullscreen lg:hidden fixed inset-0 z-[100] flex flex-col"
+          class="nav-fullscreen xl:hidden fixed inset-0 z-[100] flex flex-col"
         >
           <!-- 頂部標題列 -->
           <div class="nav-fullscreen-header flex items-center justify-between px-4 py-3 flex-shrink-0">
