@@ -295,7 +295,24 @@
     <div v-if="qrModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeQrModal">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-xs p-5 text-center">
         <h2 class="font-bold text-base-c mb-1 line-clamp-1" style="font-size:15px">{{ qrModal.name }}</h2>
-        <p class="text-hint-c mb-4 break-all" style="font-size:11px">{{ qrModal.url }}</p>
+        <p class="text-hint-c mb-3 break-all" style="font-size:11px">{{ qrModal.url }}</p>
+
+        <div class="flex items-center justify-center gap-2 mb-3">
+          <span class="text-hint-c" style="font-size:12px">進階樣式（含圖示）</span>
+          <button
+            class="relative w-9 h-5 rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
+            :class="qrModal.withLogo ? 'bg-green-700' : 'bg-surface2 border border-light-c'"
+            role="switch"
+            :aria-checked="qrModal.withLogo"
+            :disabled="qrModal.generating"
+            @click="toggleQrLogo"
+          >
+            <span
+              class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+              :class="qrModal.withLogo ? 'translate-x-4' : ''"
+            ></span>
+          </button>
+        </div>
 
         <div class="flex items-center justify-center mb-4">
           <div
@@ -589,32 +606,142 @@
     open: false,
     name: '',
     url: '',
+    link: null,
     dataUrl: '',
     generating: false,
     error: '',
+    withLogo: false,
   })
 
-  async function openQrModal(link) {
-    qrModal.open = true
-    qrModal.name = link.name
-    qrModal.url = link.url
+  // 畫圓角矩形（用於中心圖示的白色底框）
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.arcTo(x + w, y, x + w, y + h, r)
+    ctx.arcTo(x + w, y + h, x, y + h, r)
+    ctx.arcTo(x, y + h, x, y, r)
+    ctx.arcTo(x, y, x + w, y, r)
+    ctx.closePath()
+  }
+
+  // 嘗試把網站的 favicon 轉成 data URL（用 fetch+blob 而非直接畫 <img>，
+  // 避免來源沒有開放 CORS 時把 canvas「污染」導致之後 toDataURL 失敗；
+  // 若來源不允許 CORS，fetch 本身就會失敗，直接回傳 null 走備用方案）
+  async function fetchFaviconAsDataUrl(domain) {
+    try {
+      const res = await fetch(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`, { mode: 'cors' })
+      if (!res.ok) return null
+      const blob = await res.blob()
+      return await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => resolve(null)
+        reader.readAsDataURL(blob)
+      })
+    } catch {
+      return null
+    }
+  }
+
+  function loadImageEl(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = src
+    })
+  }
+
+  // 產生 QRCode；withLogo 時使用高容錯等級，並在中心疊加圓形圖示做出類似 LINE 的樣式：
+  // 優先使用網站本身的 favicon，若無法取得（跨網域不開放）則改用名稱首字當作圖示
+  async function generateQrDataUrl(link, withLogo) {
+    const { default: QRCode } = await import('qrcode')
+    const canvas = document.createElement('canvas')
+    await QRCode.toCanvas(canvas, link.url, {
+      width: 300,
+      margin: 1,
+      errorCorrectionLevel: withLogo ? 'H' : 'M',
+      color: { dark: '#000000', light: '#ffffff' },
+    })
+
+    if (withLogo) {
+      const ctx  = canvas.getContext('2d')
+      const size = canvas.width
+      const cx   = size / 2
+      const cy   = size / 2
+
+      const logoSize = Math.round(size * 0.22)
+      const pad      = 6
+      const boxSize  = logoSize + pad * 2
+
+      // 外層白色圓角方框，避免圖示直接壓在 QR 模組上造成邊緣難以辨識
+      ctx.fillStyle = '#ffffff'
+      roundRect(ctx, cx - boxSize / 2, cy - boxSize / 2, boxSize, boxSize, 10)
+      ctx.fill()
+
+      let drewFavicon = false
+      const faviconDataUrl = await fetchFaviconAsDataUrl(getDomain(link.url))
+      if (faviconDataUrl) {
+        try {
+          const img = await loadImageEl(faviconDataUrl)
+          ctx.save()
+          ctx.beginPath()
+          ctx.arc(cx, cy, logoSize / 2, 0, Math.PI * 2)
+          ctx.closePath()
+          ctx.clip()
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize)
+          ctx.drawImage(img, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize)
+          ctx.restore()
+          drewFavicon = true
+        } catch { /* 圖片載入失敗，改用備用文字圖示 */ }
+      }
+
+      if (!drewFavicon) {
+        // 備用：品牌色圓形 ＋ 名稱首字
+        ctx.fillStyle = '#15803d'
+        ctx.beginPath()
+        ctx.arc(cx, cy, logoSize / 2, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#ffffff'
+        ctx.font = `bold ${Math.round(logoSize * 0.5)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText((link.name || '?').trim().charAt(0).toUpperCase(), cx, cy + 1)
+      }
+    }
+
+    return canvas.toDataURL('image/png')
+  }
+
+  async function regenerateQr() {
+    if (!qrModal.link) return
     qrModal.dataUrl = ''
     qrModal.error = ''
     qrModal.generating = true
     try {
-      const { default: QRCode } = await import('qrcode')
-      qrModal.dataUrl = await QRCode.toDataURL(link.url, {
-        width: 300,
-        margin: 1,
-        errorCorrectionLevel: 'M',
-        color: { dark: '#000000', light: '#ffffff' },
-      })
+      qrModal.dataUrl = await generateQrDataUrl(qrModal.link, qrModal.withLogo)
     } catch (e) {
       console.error(e)
       qrModal.error = '產生 QRCode 失敗'
     } finally {
       qrModal.generating = false
     }
+  }
+
+  async function openQrModal(link) {
+    qrModal.open = true
+    qrModal.name = link.name
+    qrModal.url = link.url
+    qrModal.link = link
+    qrModal.withLogo = false
+    await regenerateQr()
+  }
+
+  function toggleQrLogo() {
+    qrModal.withLogo = !qrModal.withLogo
+    regenerateQr()
   }
 
   function closeQrModal() {
