@@ -156,6 +156,29 @@
                   </div>
                 </a>
 
+                <!-- QRCode 產生按鈕（唯讀模式，位於卡片右下角，避免與上方外連結圖示重疊） -->
+                <button
+                  v-if="!editMode"
+                  class="icon-btn absolute bottom-2 right-2 w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-hint-c hover-surface2"
+                  title="產生 QRCode"
+                  @click="openQrModal(link)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                    <rect width="5" height="5" x="3" y="3" rx="1"/>
+                    <rect width="5" height="5" x="16" y="3" rx="1"/>
+                    <rect width="5" height="5" x="3" y="16" rx="1"/>
+                    <path d="M21 16h-3a2 2 0 0 0-2 2v3"/>
+                    <path d="M21 21v.01"/>
+                    <path d="M12 7v3a2 2 0 0 1-2 2H7"/>
+                    <path d="M3 12h.01"/>
+                    <path d="M12 3h.01"/>
+                    <path d="M12 16v.01"/>
+                    <path d="M16 12h1"/>
+                    <path d="M21 12v.01"/>
+                    <path d="M12 21v-1"/>
+                  </svg>
+                </button>
+
                 <div v-if="editMode" class="absolute top-2 right-2 flex gap-1">
                   <button
                     class="icon-btn w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-muted-c hover-surface2"
@@ -263,6 +286,51 @@
           <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeLinkModal">取消</button>
           <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" style="font-size:13px" :disabled="saving" @click="saveLinkModal">
             {{ saving ? '儲存中...' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== QRCode Modal ===== -->
+    <div v-if="qrModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeQrModal">
+      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-xs p-5 text-center">
+        <h2 class="font-bold text-base-c mb-1 line-clamp-1" style="font-size:15px">{{ qrModal.name }}</h2>
+        <p class="text-hint-c mb-4 break-all" style="font-size:11px">{{ qrModal.url }}</p>
+
+        <div class="flex items-center justify-center mb-4">
+          <div
+            v-if="qrModal.generating"
+            class="w-48 h-48 rounded-lg border border-light-c flex items-center justify-center text-hint-c"
+            style="font-size:12px"
+          >
+            產生中...
+          </div>
+          <div
+            v-else-if="qrModal.error"
+            class="w-48 h-48 rounded-lg border border-light-c flex items-center justify-center text-red-500 px-3"
+            style="font-size:12px"
+          >
+            {{ qrModal.error }}
+          </div>
+          <img
+            v-else
+            :src="qrModal.dataUrl"
+            class="w-48 h-48 rounded-lg border border-light-c bg-white p-2"
+            alt="QRCode"
+          />
+        </div>
+
+        <div class="flex justify-center gap-2">
+          <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeQrModal">
+            關閉
+          </button>
+          <button
+            class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50"
+            style="font-size:13px"
+            :disabled="qrModal.generating || !!qrModal.error || !qrModal.dataUrl"
+            @click="downloadQr"
+          >
+            下載圖片
           </button>
         </div>
       </div>
@@ -513,6 +581,54 @@
         body: JSON.stringify({ type: 'link', catId: activeCat.value.id, ids: arr.map(l => l.id) }),
       })
     } catch (e) { console.error(e) }
+  }
+
+  /* ---------------- QRCode 產生／下載 ---------------- */
+
+  const qrModal = reactive({
+    open: false,
+    name: '',
+    url: '',
+    dataUrl: '',
+    generating: false,
+    error: '',
+  })
+
+  async function openQrModal(link) {
+    qrModal.open = true
+    qrModal.name = link.name
+    qrModal.url = link.url
+    qrModal.dataUrl = ''
+    qrModal.error = ''
+    qrModal.generating = true
+    try {
+      const { default: QRCode } = await import('qrcode')
+      qrModal.dataUrl = await QRCode.toDataURL(link.url, {
+        width: 300,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+        color: { dark: '#000000', light: '#ffffff' },
+      })
+    } catch (e) {
+      console.error(e)
+      qrModal.error = '產生 QRCode 失敗'
+    } finally {
+      qrModal.generating = false
+    }
+  }
+
+  function closeQrModal() {
+    qrModal.open = false
+  }
+
+  function downloadQr() {
+    if (!qrModal.dataUrl) return
+    const a = document.createElement('a')
+    a.href = qrModal.dataUrl
+    a.download = `${qrModal.name || 'qrcode'}.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   onMounted(fetchLinks)
