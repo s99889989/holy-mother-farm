@@ -29,6 +29,21 @@
     } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
   }
 
+  // ── 24 小時制時間選擇（避免原生 time input 出現上午/下午） ──────────
+  const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0'))
+  const MINUTE_OPTIONS = Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0'))
+  // 給定 reactive 物件與欄位名稱（值為 "HH:mm" 字串），回傳可分別綁定「時」「分」的 computed
+  const timePart = (obj, key, part) => computed({
+    get: () => {
+      const [h, m] = (obj[key] || '00:00').split(':')
+      return part === 'h' ? h : m
+    },
+    set: (v) => {
+      const [h, m] = (obj[key] || '00:00').split(':')
+      obj[key] = part === 'h' ? `${v}:${m}` : `${h}:${v}`
+    }
+  })
+
   // ── 共用日曆 ──────────────────────────────────────────────────────
   const apiOnline = ref(false)
   const selectedDate = ref('')
@@ -106,6 +121,10 @@
   const periodSettingsOpen = ref(false)
   const periodFormEditingId = ref('')
   const periodForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
+  const periodStartHour = timePart(periodForm, 'startTime', 'h')
+  const periodStartMinute = timePart(periodForm, 'startTime', 'm')
+  const periodEndHour = timePart(periodForm, 'endTime', 'h')
+  const periodEndMinute = timePart(periodForm, 'endTime', 'm')
 
   const PERIOD_COLORS = [
     {
@@ -193,14 +212,16 @@
 
   const bookingModal = reactive({show: false, isNew: true})
   const bForm = reactive({
-    id: '', date: '', name: '', phone: '', time: '12:00',
+    id: '', date: '', name: '', phone: '', time: '11:30',
     meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
   })
+  const bFormHour = timePart(bForm, 'time', 'h')
+  const bFormMinute = timePart(bForm, 'time', 'm')
 
   const openBookingModal = (booking) => {
     bookingModal.isNew = !booking
     Object.assign(bForm, booking ?? {
-      id: '', date: selectedDate.value, name: '', phone: '', time: '12:00',
+      id: '', date: selectedDate.value, name: '', phone: '', time: '11:30',
       meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
     })
     bookingModal.show = true
@@ -312,6 +333,8 @@
     id: '', name: '', type: 'booking', time: '12:00',
     meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
   })
+  const recurFormHour = timePart(recurForm, 'time', 'h')
+  const recurFormMinute = timePart(recurForm, 'time', 'm')
   const recurExpand = ref({})
 
   const fetchRecurring = async () => {
@@ -1047,11 +1070,21 @@
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">用餐時段</label>
-            <input
-              v-model="bForm.time"
-              type="time"
-              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            >
+            <div class="flex items-center gap-2">
+              <select
+                v-model="bFormHour"
+                class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+                <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+              </select>
+              <span class="text-muted-c font-medium">:</span>
+              <select
+                v-model="bFormMinute"
+                class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+                <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
@@ -1205,11 +1238,21 @@
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">用餐時段</label>
-            <input
-              v-model="recurForm.time"
-              type="time"
-              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            >
+            <div class="flex items-center gap-2">
+              <select
+                v-model="recurFormHour"
+                class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+                <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+              </select>
+              <span class="text-muted-c font-medium">:</span>
+              <select
+                v-model="recurFormMinute"
+                class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+                <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
@@ -1391,19 +1434,39 @@
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-sm font-medium text-muted-c block mb-1">開始時間 *</label>
-              <input
-                v-model="periodForm.startTime"
-                type="time"
-                class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-              >
+              <div class="flex items-center gap-1">
+                <select
+                  v-model="periodStartHour"
+                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+                >
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                </select>
+                <span class="text-muted-c font-medium">:</span>
+                <select
+                  v-model="periodStartMinute"
+                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+                >
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+                </select>
+              </div>
             </div>
             <div>
               <label class="text-sm font-medium text-muted-c block mb-1">結束時間 *</label>
-              <input
-                v-model="periodForm.endTime"
-                type="time"
-                class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-              >
+              <div class="flex items-center gap-1">
+                <select
+                  v-model="periodEndHour"
+                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+                >
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                </select>
+                <span class="text-muted-c font-medium">:</span>
+                <select
+                  v-model="periodEndMinute"
+                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+                >
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+                </select>
+              </div>
             </div>
           </div>
           <div>

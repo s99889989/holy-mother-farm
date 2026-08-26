@@ -95,6 +95,20 @@
     }
   }
 
+  // ── 24 小時制時間選擇（避免原生 time input 出現上午/下午） ──────────
+  const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0'))
+  const MINUTE_OPTIONS = Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0'))
+  const timePart = (obj, key, part) => computed({
+    get: () => {
+      const [h, m] = (obj[key] || '00:00').split(':')
+      return part === 'h' ? h : m
+    },
+    set: (v) => {
+      const [h, m] = (obj[key] || '00:00').split(':')
+      obj[key] = part === 'h' ? `${v}:${m}` : `${h}:${v}`
+    }
+  })
+
   // ── 便當資料 ──────────────────────────────────────────────────────
   const lunchOrders = ref([])
   const lunchMarkedDates = ref([])
@@ -102,8 +116,10 @@
   const lunchModal = reactive({show: false, isNew: true})
   const lForm = reactive({
     id: '', date: '', name: '', phone: '',
-    meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '12:00', status: '已確認', note: ''
+    meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '11:30', status: '已確認', note: ''
   })
+  const lFormHour = timePart(lForm, 'time', 'h')
+  const lFormMinute = timePart(lForm, 'time', 'm')
 
   const totalMeat = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.meatQty) || 0), 0))
   const totalFullVeg = computed(() => lunchOrders.value.reduce((s, o) => s + (Number(o.fullVegQty) || 0), 0))
@@ -115,7 +131,7 @@
     lunchModal.isNew = !order
     Object.assign(lForm, order ?? {
       id: '', date: selectedDate.value, name: '', phone: '',
-      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '12:00', status: '已確認', note: ''
+      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '11:30', status: '已確認', note: ''
     })
     lunchModal.show = true
   }
@@ -461,8 +477,17 @@
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">取餐時段</label>
-            <input v-model="lForm.time" type="time"
-                   class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"/>
+            <div class="flex items-center gap-2">
+              <select v-model="lFormHour"
+                      class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400">
+                <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+              </select>
+              <span class="text-muted-c font-medium">:</span>
+              <select v-model="lFormMinute"
+                      class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400">
+                <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">葷素數量</label>
