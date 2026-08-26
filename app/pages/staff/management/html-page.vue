@@ -21,118 +21,127 @@
     </header>
 
     <!-- 內容區 -->
-    <div class="max-w-2xl mx-auto px-3 sm:px-4 py-4">
+    <div class="max-w-5xl mx-auto px-3 sm:px-4 py-4">
+      <div class="flex flex-col sm:flex-row gap-4 items-start">
 
-      <!-- 分類篩選 -->
-      <div v-if="!loading" class="flex items-center gap-2 mb-3 overflow-x-auto pb-1">
-        <button @click="categoryFilter = ''"
-                class="px-3 py-1.5 rounded-full whitespace-nowrap transition-colors flex-shrink-0"
-                :class="categoryFilter === ''
-                  ? 'bg-green-700 text-white'
-                  : 'bg-surface border border-light-c text-hint-c hover-surface2'"
-                style="font-size:12px">
-          全部 ({{ pageList.length }})
-        </button>
-        <div v-for="cat in categoryCounts" :key="cat.name"
-             class="relative flex-shrink-0 group">
-          <button @click="categoryFilter = cat.name"
-                  class="px-3 py-1.5 rounded-full whitespace-nowrap transition-colors"
-                  :class="categoryFilter === cat.name
-                    ? 'bg-green-700 text-white'
-                    : 'bg-surface border border-light-c text-hint-c hover-surface2'"
-                  style="font-size:12px">
-            {{ cat.name }} ({{ cat.count }})
-          </button>
-          <button v-if="cat.count === 0" @click="removeCategory(cat.name)"
-                  title="移除這個尚未使用的分類"
-                  class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex"
-                  style="font-size:10px; line-height:1">×</button>
-        </div>
-        <button @click="openAddCategory"
-                class="px-3 py-1.5 rounded-full whitespace-nowrap border border-dashed border-light-c text-hint-c hover-surface2 transition-colors flex-shrink-0 flex items-center gap-1"
-                style="font-size:12px">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-          </svg>
-          新增分類
-        </button>
-      </div>
-
-      <!-- 載入中 -->
-      <div v-if="loading" class="text-center py-8 text-hint-c" style="font-size:13px">載入中...</div>
-
-      <template v-else>
-
-        <!-- 空狀態 -->
-        <div v-if="pageList.length === 0"
-             class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
-          <p style="font-size:13px">目前沒有頁面，點「上傳 HTML」開始新增</p>
-        </div>
-
-        <!-- 篩選後無結果 -->
-        <div v-else-if="filteredList.length === 0"
-             class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
-          <p style="font-size:13px">此分類目前沒有頁面</p>
-        </div>
-
-        <!-- 列表：依分類分組顯示，組與組之間隔開 -->
-        <div v-else class="space-y-3">
-          <div v-for="group in groupedList" :key="group.name || '__none__'"
-               class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
-            <div v-if="!categoryFilter"
-                 class="px-4 py-2 bg-surface2 border-b border-light-c text-hint-c font-semibold"
-                 style="font-size:11px">
-              {{ group.name || '未分類' }} ({{ group.items.length }})
+        <!-- 分類篩選（左側） -->
+        <aside v-if="!loading" class="w-full sm:w-48 flex-shrink-0 sm:sticky" style="top: 64px">
+          <div class="flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-visible pb-1 sm:pb-0">
+            <button @click="categoryFilter = ''"
+                    class="px-3 py-1.5 rounded-full sm:rounded-xl whitespace-nowrap sm:w-full sm:text-left transition-colors flex-shrink-0"
+                    :class="categoryFilter === ''
+                      ? 'bg-green-700 text-white'
+                      : 'bg-surface border border-light-c text-hint-c hover-surface2'"
+                    style="font-size:12px">
+              全部 ({{ pageList.length }})
+            </button>
+            <div v-for="cat in categoryCounts" :key="cat.name"
+                 class="relative flex-shrink-0 sm:flex-shrink sm:w-full group">
+              <button @click="categoryFilter = cat.name"
+                      class="px-3 py-1.5 rounded-full sm:rounded-xl whitespace-nowrap sm:w-full sm:text-left transition-colors"
+                      :class="categoryFilter === cat.name
+                        ? 'bg-green-700 text-white'
+                        : 'bg-surface border border-light-c text-hint-c hover-surface2'"
+                      style="font-size:12px">
+                {{ cat.name }} ({{ cat.count }})
+              </button>
+              <button v-if="cat.count === 0" @click="removeCategory(cat.name)"
+                      title="移除這個尚未使用的分類"
+                      class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex"
+                      style="font-size:10px; line-height:1">×</button>
             </div>
-            <div v-for="(page, idx) in group.items" :key="page.slug">
-              <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 px-4 py-3">
-                <div class="flex items-center gap-3 min-w-0">
-                  <div class="text-xl flex-shrink-0">📄</div>
-                  <div class="flex-1 min-w-0">
-                    <p class="font-semibold text-base-c truncate" style="font-size:14px">{{ page.title }}</p>
-                    <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
-                      <p class="text-hint-c font-mono truncate" style="font-size:11px">/html/{{ page.slug }}</p>
-                      <select :value="page.category || ''"
-                              @change="quickSetCategory(page, $event.target.value)"
-                              class="px-1.5 py-0.5 rounded-md border outline-none cursor-pointer"
-                              :class="page.category
-                                ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20'
-                                : 'bg-surface2 text-hint-c border-light-c'"
-                              style="font-size:10px">
-                        <option value="">未分類</option>
-                        <option v-for="cat in allCategories" :key="cat" :value="cat">{{ cat }}</option>
-                      </select>
+            <button @click="openAddCategory"
+                    class="px-3 py-1.5 rounded-full sm:rounded-xl whitespace-nowrap sm:w-full sm:text-left border border-dashed border-light-c text-hint-c hover-surface2 transition-colors flex-shrink-0 flex items-center gap-1"
+                    style="font-size:12px">
+              <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+              </svg>
+              新增分類
+            </button>
+          </div>
+        </aside>
+
+        <!-- 主要內容（右側） -->
+        <div class="flex-1 w-full min-w-0">
+
+          <!-- 載入中 -->
+          <div v-if="loading" class="text-center py-8 text-hint-c" style="font-size:13px">載入中...</div>
+
+          <template v-else>
+
+            <!-- 空狀態 -->
+            <div v-if="pageList.length === 0"
+                 class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
+              <p style="font-size:13px">目前沒有頁面，點「上傳 HTML」開始新增</p>
+            </div>
+
+            <!-- 篩選後無結果 -->
+            <div v-else-if="filteredList.length === 0"
+                 class="bg-surface rounded-2xl border border-light-c px-4 py-10 text-center text-hint-c shadow-sm">
+              <p style="font-size:13px">此分類目前沒有頁面</p>
+            </div>
+
+            <!-- 列表：依分類分組顯示，組與組之間隔開 -->
+            <div v-else class="space-y-3">
+              <div v-for="group in groupedList" :key="group.name || '__none__'"
+                   class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
+                <div v-if="!categoryFilter"
+                     class="px-4 py-2 bg-surface2 border-b border-light-c text-hint-c font-semibold"
+                     style="font-size:11px">
+                  {{ group.name || '未分類' }} ({{ group.items.length }})
+                </div>
+                <div v-for="(page, idx) in group.items" :key="page.slug">
+                  <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 px-4 py-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                      <div class="text-xl flex-shrink-0">📄</div>
+                      <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-base-c truncate" style="font-size:14px">{{ page.title }}</p>
+                        <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <p class="text-hint-c font-mono truncate" style="font-size:11px">/html/{{ page.slug }}</p>
+                          <select :value="page.category || ''"
+                                  @change="quickSetCategory(page, $event.target.value)"
+                                  class="px-1.5 py-0.5 rounded-md border outline-none cursor-pointer"
+                                  :class="page.category
+                                    ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20'
+                                    : 'bg-surface2 text-hint-c border-light-c'"
+                                  style="font-size:10px">
+                            <option value="">未分類</option>
+                            <option v-for="cat in allCategories" :key="cat" :value="cat">{{ cat }}</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex gap-1.5 flex-wrap sm:flex-none sm:justify-end">
+                      <button @click="openInTab(page.slug)"
+                              class="px-2 py-1 rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
+                              style="font-size:12px">查看</button>
+                      <button @click="copyUrl(page.slug)"
+                              class="px-2 py-1 rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
+                              style="font-size:12px">複製</button>
+                      <button @click="downloadPage(page)"
+                              class="px-2 py-1 rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
+                              style="font-size:12px">下載</button>
+                      <button @click="openContentEditor(page)"
+                              class="px-2 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
+                              style="font-size:12px">編輯內容</button>
+                      <button @click="openEdit(page)"
+                              class="px-2 py-1 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
+                              style="font-size:12px">編輯</button>
+                      <button @click="confirmDelete(page)"
+                              class="px-2 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                              style="font-size:12px">刪除</button>
                     </div>
                   </div>
-                </div>
-                <div class="flex gap-1.5 flex-wrap sm:flex-none sm:justify-end">
-                  <button @click="openInTab(page.slug)"
-                          class="px-2 py-1 rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
-                          style="font-size:12px">查看</button>
-                  <button @click="copyUrl(page.slug)"
-                          class="px-2 py-1 rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
-                          style="font-size:12px">複製</button>
-                  <button @click="downloadPage(page)"
-                          class="px-2 py-1 rounded-lg border border-light-c text-hint-c hover-surface2 transition-colors"
-                          style="font-size:12px">下載</button>
-                  <button @click="openContentEditor(page)"
-                          class="px-2 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
-                          style="font-size:12px">編輯內容</button>
-                  <button @click="openEdit(page)"
-                          class="px-2 py-1 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
-                          style="font-size:12px">編輯</button>
-                  <button @click="confirmDelete(page)"
-                          class="px-2 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
-                          style="font-size:12px">刪除</button>
+                  <div v-if="idx < group.items.length - 1"
+                       class="border-b border-dashed border-light-c mx-4"></div>
                 </div>
               </div>
-              <div v-if="idx < group.items.length - 1"
-                   class="border-b border-dashed border-light-c mx-4"></div>
             </div>
-          </div>
+
+          </template>
         </div>
 
-      </template>
+      </div>
     </div>
 
     <!-- ════ 新增 / 編輯 Modal ════ -->
