@@ -1,1645 +1,1651 @@
 <script setup>
-definePageMeta({layout: 'staff', requiredPermission: 'staff.home'})
+  definePageMeta({layout: 'staff', requiredPermission: 'staff.home'})
 
-const commonStore = useCommonStore()
-const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
-const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
-const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
-const ROOMS_SETTINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'
-const BOOKING_BASE = () => commonStore.data.main_url + '/holy/booking'
-const PERIOD_BASE = () => commonStore.data.main_url + '/holy/booking/period'
-const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
+  const commonStore = useCommonStore()
+  const HOME_BASE = () => commonStore.data.main_url + '/holy/home'
+  const CAL_BASE = () => commonStore.data.main_url + '/holy/calendar'
+  const RECUR_BASE = () => commonStore.data.main_url + '/holy/recurring'
+  const ROOMS_SETTINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'
+  const BOOKING_BASE = () => commonStore.data.main_url + '/holy/booking'
+  const PERIOD_BASE = () => commonStore.data.main_url + '/holy/booking/period'
+  const LUNCH_BASE = () => commonStore.data.main_url + '/holy/lunch'
 
-const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
-const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
+  const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
+  const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
 
-const today = new Date()
-const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${weekDays[today.getDay()]}`
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const todayLabel = `${today.getMonth() + 1} 月 ${today.getDate()} 日　${weekDays[today.getDay()]}`
 
-// 本週（週一～週日）範圍，跟後端 /holy/home/week 的週界算法一致
-function fmtDateStr(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-const calWeekMonday = new Date(today)
-calWeekMonday.setDate(today.getDate() + (today.getDay() === 0 ? -6 : 1 - today.getDay()))
-const calWeekSunday = new Date(calWeekMonday)
-calWeekSunday.setDate(calWeekMonday.getDate() + 6)
-const calWeekStart = fmtDateStr(calWeekMonday)
-const calWeekEnd = fmtDateStr(calWeekSunday)
-
-// 明天的日期，「今日行事曆」要多顯示明天，方便提早一天準備
-const tomorrowDate = new Date(today)
-tomorrowDate.setDate(today.getDate() + 1)
-const tomorrowStr = fmtDateStr(tomorrowDate)
-// 抓資料的範圍要涵蓋到明天，正常情況明天本來就在本週範圍內；
-// 只有在今天剛好是週日、明天跨到下週（甚至跨月）時才會超出，這裡保底往後延一天
-const fetchRangeEnd = tomorrowStr > calWeekEnd ? tomorrowStr : calWeekEnd
-
-// ── 顯示模式：今日 / 本週 ────────────────────────────────────────────
-const viewMode = ref('day') // 'day' | 'week'
-const calViewMode = ref('day') // 行事曆自己的今日／本週切換，跟上面的概況切換各自獨立
-
-// ── 今日概況 / 本週概況 ───────────────────────────────────────────────
-const loading = ref(false)
-const loadingWeek = ref(false)
-const daySummary = ref(null)
-const weekSummary = ref(null)
-const allEvents = ref([]) // 本月所有行事曆事件（含 Google），今日／本週都從這裡篩選
-const recurringRules = ref([]) // 包月訂位規則（跨月時含兩個月），今日／本週都從這裡依星期篩選
-
-const summary = computed(() => (viewMode.value === 'week' ? weekSummary.value : daySummary.value))
-const summaryLoading = computed(() => (viewMode.value === 'week' ? loadingWeek.value : loading.value))
-
-const fmtMD = (dateStr) => {
-  if (!dateStr) return ''
-  const [, m, d] = dateStr.split('-')
-  return `${Number(m)}/${Number(d)}`
-}
-
-const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
-const fmtMDWeekday = (dateStr) => {
-  if (!dateStr) return ''
-  const weekday = WEEKDAY_LABELS[new Date(`${dateStr}T00:00:00`).getDay()]
-  return `${fmtMD(dateStr)}（週${weekday}）`
-}
-
-const weekRangeLabel = computed(() => {
-  if (!weekSummary.value?.weekStart || !weekSummary.value?.weekEnd) return ''
-  return `${fmtMD(weekSummary.value.weekStart)} - ${fmtMD(weekSummary.value.weekEnd)}`
-})
-
-const bookings = computed(() => summary.value?.booking?.items ?? [])
-const lunchOrders = computed(() => summary.value?.lunch?.items ?? [])
-const soybeanOrders = computed(() => summary.value?.soybean?.items ?? [])
-
-// ── 包月訂位（recurring）：跟訂位頁一樣，只算 type !== 'lunch'、依星期（JS getDay()：0=日...6=六）篩選當天適用的規則
-function recurBookingRulesForDate(date) {
-  if (!date) return []
-  const dow = new Date(`${date}T00:00:00`).getDay()
-  return recurringRules.value.filter(r => r.type !== 'lunch' &&
-    (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
-}
-
-const recurGuestsOf = rules => rules.reduce((s, r) =>
-  s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
-
-const bookingRecurRules = computed(() => recurBookingRulesForDate(todayStr))
-const bookingRecurGuests = computed(() => recurGuestsOf(bookingRecurRules.value))
-const bookingRecurMeat = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
-const bookingRecurFullVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
-const bookingRecurEggVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
-const bookingRecurSpiceVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
-
-// ── 訂位時段設定（例如 11:00–14:00 為午餐）：跟訂位頁 booking-orders.vue 共用同一份設定 ─────
-const periods = ref([])
-
-const PERIOD_COLORS = {
-  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40',
-  orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40',
-  indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40',
-  purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40',
-  teal: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
-}
-const periodColorClass = (colorKey) => PERIOD_COLORS[colorKey] || PERIOD_COLORS.amber
-
-const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
-
-// 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
-function findPeriod(time) {
-  if (!time) return null
-  return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
-}
-
-async function fetchPeriods() {
-  try {
-    const res = await fetch(`${PERIOD_BASE()}/list`, {credentials: 'include'})
-    if (res.ok) periods.value = await res.json()
-  } catch (e) { console.error(e) }
-}
-
-// 把一天的訂位（items）＋包月規則（rules）依用餐時段分組，
-// 未落在任何時段區間內的歸為「未分類」並排在最後
-function groupBookingByPeriod(items, rules) {
-  const map = new Map()
-  const ensure = (period) => {
-    const key = period ? period.id : '__none__'
-    if (!map.has(key)) {
-      map.set(key, {
-        id: key, name: period ? period.name : '未分類', color: period ? period.color : null,
-        startTime: period ? period.startTime : '99:99',
-        items: [], rules: [], count: 0, guestTotal: 0, meat: 0, fullVeg: 0, eggVeg: 0, spiceVeg: 0
-      })
-    }
-    return map.get(key)
-  }
-  const addQty = (g, obj) => {
-    g.meat += Number(obj.meatQty) || 0
-    g.fullVeg += Number(obj.fullVegQty) || 0
-    g.eggVeg += Number(obj.eggVegQty) || 0
-    g.spiceVeg += Number(obj.spiceVegQty) || 0
-  }
-  for (const item of items) {
-    const g = ensure(findPeriod(item.time))
-    g.items.push(item)
-    g.count += 1
-    g.guestTotal += itemGuestTotal(item)
-    addQty(g, item)
-  }
-  for (const rule of rules) {
-    const g = ensure(findPeriod(rule.time))
-    g.rules.push(rule)
-    g.guestTotal += (Number(rule.meatQty) || 0) + (Number(rule.fullVegQty) || 0) + (Number(rule.eggVegQty) || 0) + (Number(rule.spiceVegQty) || 0)
-    addQty(g, rule)
-  }
-  return [...map.values()].sort((a, b) => {
-    if (a.id === '__none__') return 1
-    if (b.id === '__none__') return -1
-    return a.startTime.localeCompare(b.startTime)
-  })
-}
-
-const bookingPeriodGroups = computed(() => groupBookingByPeriod(bookings.value, bookingRecurRules.value))
-
-// 把便當訂單依用餐時段分組，跟訂位共用同一份時段設定（findPeriod），
-// 未落在任何時段區間內的歸為「未分類」並排在最後；沒有 rules（包月）這件事，結構比訂位單純
-function groupLunchByPeriod(items) {
-  const map = new Map()
-  const ensure = (period) => {
-    const key = period ? period.id : '__none__'
-    if (!map.has(key)) {
-      map.set(key, {
-        id: key, name: period ? period.name : '未分類', color: period ? period.color : null,
-        startTime: period ? period.startTime : '99:99',
-        items: [], count: 0, total: 0, meat: 0, fullVeg: 0, eggVeg: 0, spiceVeg: 0
-      })
-    }
-    return map.get(key)
-  }
-  for (const item of items) {
-    const g = ensure(findPeriod(item.time))
-    g.items.push(item)
-    g.count += 1
-    g.total += itemGuestTotal(item)
-    g.meat += Number(item.meatQty) || 0
-    g.fullVeg += Number(item.fullVegQty) || 0
-    g.eggVeg += Number(item.eggVegQty) || 0
-    g.spiceVeg += Number(item.spiceVegQty) || 0
-  }
-  return [...map.values()].sort((a, b) => {
-    if (a.id === '__none__') return 1
-    if (b.id === '__none__') return -1
-    return a.startTime.localeCompare(b.startTime)
-  })
-}
-
-const lunchPeriodGroups = computed(() => groupLunchByPeriod(lunchOrders.value))
-
-// 本週的 7 個日期（週一～週日）
-const CAL_WEEK_DATES = (() => {
-  const dates = []
-  const d = new Date(calWeekMonday)
-  for (let i = 0; i < 7; i++) {
-    dates.push(fmtDateStr(d))
-    d.setDate(d.getDate() + 1)
-  }
-  return dates
-})()
-
-const sumQty = (items, field) => items.reduce((s, i) => s + (i[field] || 0), 0)
-
-// 本週檢視：每天各自獨立算自己的統計（不把整週加總在一起），依日期排序下去
-const weekDayCards = computed(() => {
-  if (viewMode.value !== 'week') return []
-  return CAL_WEEK_DATES.map((date) => {
-    const bItems = bookings.value.filter(i => i.date === date)
-    const lItems = lunchOrders.value.filter(i => i.date === date)
-    const sItems = soybeanOrders.value.filter(i => i.date === date)
-    const bMeat = sumQty(bItems, 'meatQty'),
-      bVeg = sumQty(bItems, 'fullVegQty') + sumQty(bItems, 'eggVegQty') + sumQty(bItems, 'spiceVegQty')
-    const lMeat = sumQty(lItems, 'meatQty'),
-      lVeg = sumQty(lItems, 'fullVegQty') + sumQty(lItems, 'eggVegQty') + sumQty(lItems, 'spiceVegQty')
-    const recurRules = recurBookingRulesForDate(date)
-    const recurG = recurGuestsOf(recurRules)
-    const bOnsite = bMeat + bVeg
-    return {
-      date,
-      booking: {items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules},
-      periodGroups: groupBookingByPeriod(bItems, recurRules),
-      lunch: {items: lItems, total: lMeat + lVeg, periodGroups: groupLunchByPeriod(lItems)},
-      soybean: {items: sItems}
-    }
-  })
-})
-
-const bookingTotal = computed(() => summary.value?.booking?.total ?? 0)
-const bookingMeat = computed(() => summary.value?.booking?.meat ?? 0)
-const bookingVeg = computed(() => summary.value?.booking?.veg ?? 0)
-const bookingFullVeg = computed(() => summary.value?.booking?.fullVeg ?? 0)
-const bookingEggVeg = computed(() => summary.value?.booking?.eggVeg ?? 0)
-const bookingSpiceVeg = computed(() => summary.value?.booking?.spiceVeg ?? 0)
-const lunchTotal = computed(() => summary.value?.lunch?.total ?? 0)
-const soybeanSoymilk = computed(() => summary.value?.soybean?.soymilk ?? 0)
-const soybeanTofu = computed(() => summary.value?.soybean?.tofu ?? 0)
-// 豆漿總容量（毫升）：把每筆訂單的容量明細（volume×qty）全部加總
-const soybeanSoymilkTotalMl = computed(() => soybeanOrders.value.reduce((sum, item) => {
-  const list = item.soymilkBreakdown || []
-  return sum + list.reduce((s, b) => s + (Number(b.volume) || 0) * (Number(b.qty) || 0), 0)
-}, 0))
-// 豆製品後端會自動抓「未來最近一個出貨日」的訂單，不一定等於今天，這裡算出來給畫面顯示是哪一天
-const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
-const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
-
-// 豆製品區塊可收合（今日／本週共用同一個狀態），收合後訂位／便當文字放大一號（+2px）
-const soybeanCollapsed = ref(false)
-
-function fs(min, max, vw = 0.45) {
-  const bump = soybeanCollapsed.value ? 2 : 0
-  return `clamp(${min + bump}px, calc(${min + bump}px + ${vw}vw), ${max + bump}px)`
-}
-
-// ── 房務狀況：一律看「今天」的資料，不受上面今日／本週概況切換影響（房務本來就是當天的事）───
-// 房務狀況要比照「訂單管理」列表呈現房型/棟別/金額，這些資訊只有房間設定 API 才有，
-// 這裡直接複用跟 rooms-orders.vue 一樣的 /holy/rooms/settings/list 抓法，跟 today() 彙總資料分開拉
-const roomBuildings = ref([])
-const rooms = computed(() => roomBuildings.value.flatMap(b => (b.rooms || []).map(r => ({
-  ...r,
-  buildingId: b.id,
-  buildingName: b.name
-}))))
-
-function roomById(roomId) {
-  return rooms.value.find(r => r.id === roomId)
-}
-
-function roomTypeOfRoom(roomId) {
-  const r = roomById(roomId)
-  return r ? r.type : ''
-}
-
-function buildingNameOfRoom(roomId) {
-  const r = roomById(roomId)
-  return r ? r.buildingName : ''
-}
-
-function hkNights(checkIn, checkOut) {
-  if (!checkIn || !checkOut) return 0
-  const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
-  return d > 0 ? d : 0
-}
-
-function hkOccupancyLabel(item) {
-  const r = roomById(item.roomId)
-  return r ? `${item.guests}/${r.capacity}` : `${item.guests} 人`
-}
-
-function hkBookingTotal(item) {
-  const r = roomById(item.roomId)
-  if (!r) return 0
-  return r.price * hkNights(item.checkIn, item.checkOut)
-}
-
-function hkStatusLabel(s) {
-  return {
-    unassigned: '待指派',
-    pending: '待確認',
-    confirmed: '已確認',
-    completed: '已退房',
-    cancelled: '已取消'
-  }[s] || s
-}
-
-function hkStatusClass(s) {
-  return {
-    unassigned: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-    pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    confirmed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    completed: 'bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300',
-    cancelled: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  }[s] || 'bg-stone-100 text-stone-600'
-}
-
-async function fetchRoomBuildings() {
-  try {
-    const res = await fetch(`${ROOMS_SETTINGS_BASE()}/list`)
-    if (res.ok) roomBuildings.value = await res.json()
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const housekeeping = computed(() => daySummary.value?.housekeeping ?? null)
-
-// 同一棟連續的房間只在第一筆前面插一個棟別小標題，不用每一列都重複顯示棟別名稱（比照訂房管理／訂單管理的做法）
-function withBuildingHeaders(list) {
-  let lastBuildingName
-  return list.map(item => {
-    const buildingName = buildingNameOfRoom(item.roomId)
-    const showBuildingHeader = !!item.roomId && buildingName !== lastBuildingName
-    if (item.roomId) lastBuildingName = buildingName
-    return {...item, buildingName, showBuildingHeader}
-  })
-}
-
-const hkCheckouts = computed(() => withBuildingHeaders(housekeeping.value?.checkouts ?? []))
-const hkCheckins = computed(() => withBuildingHeaders(housekeeping.value?.checkins ?? []))
-
-// 合併退房＋入住成單一清單（比照訂單管理，同一個 groupId 用一個團體表頭列，其餘依房號排序，
-// 同一棟連續的房間一樣只在第一筆前面插棟別小標題），每列自己用小標籤標示是退房整理還是入住備妥。
-// 不再依日期插分隔列——表頭列／每列本身就已經顯示入住、退房的完整日期（含星期），不需要
-// 再用日期分隔列重複交代一次；同一個 groupId 也只出現一張表頭列（合併入住/退房兩批成員，
-// 表頭的日期區間文字本身就同時顯示入住、退房日期，不用為了兩個日期各自出現一次表頭列）
-const expandedHkGroups = ref(new Set())
-
-function toggleHkGroup(key) {
-  const s = new Set(expandedHkGroups.value)
-  if (s.has(key)) s.delete(key); else s.add(key)
-  expandedHkGroups.value = s
-}
-
-// 房務狀況目前出現的所有團體 id（用來做「全部展開／全部收合」，不受目前展開狀態影響）
-const hkAllGroupIds = computed(() => {
-  const ids = new Set()
-  for (const item of [...(housekeeping.value?.checkouts ?? []), ...(housekeeping.value?.checkins ?? [])]) {
-    if (item.groupId) ids.add(item.groupId)
-  }
-  return [...ids]
-})
-
-function expandAllHkGroups() {
-  expandedHkGroups.value = new Set(hkAllGroupIds.value)
-}
-
-function collapseAllHkGroups() {
-  expandedHkGroups.value = new Set()
-}
-
-function hkGroupDateRangeLabel(members) {
-  const ins = members.map(m => m.checkIn).sort()
-  const outs = members.map(m => m.checkOut).sort()
-  const minIn = ins[0], maxOut = outs[outs.length - 1]
-  const sameRange = ins.every(d => d === minIn) && outs.every(d => d === maxOut)
-  const inLabel = minIn ? fmtMDWeekday(minIn) : ''
-  const outLabel = maxOut ? fmtMDWeekday(maxOut) : ''
-  return sameRange ? `入住 ${inLabel} → 退房 ${outLabel}` : `入住 ${inLabel} ～ 退房 ${outLabel}（各房日期不同）`
-}
-
-function hkGroupStatusSummary(members) {
-  const counts = {}
-  for (const m of members) counts[m.status] = (counts[m.status] || 0) + 1
-  return Object.entries(counts).map(([s, c]) => `${hkStatusLabel(s)} ${c}`).join('・')
-}
-
-const hkRows = computed(() => {
-  const combined = [
-    ...(housekeeping.value?.checkouts ?? []).map(item => ({...item, kind: 'checkout', dateKey: item.checkOut})),
-    ...(housekeeping.value?.checkins ?? []).map(item => ({...item, kind: 'checkin', dateKey: item.checkIn})),
-  ]
-  // 「舊客退房、新客入住」是指同一天有兩筆『不同』訂單（各自的 id 不同），這種情況才只留入住那筆。
-  // 如果一筆訂單只在 30 天內看得到「退房」這一半（例如很早之前就入住、還沒排進這次視窗內的入住清單，
-  // 或團體裡有房間中途加進來、入住日已經過了），代表它沒有對應的「入住」筆可以代替顯示，不能整筆跳過，
-  // 不然這筆訂單（連同它所屬的團體展開後）會憑空消失、展開了也看不到任何列
-  const idsWithCheckin = new Set((housekeeping.value?.checkins ?? []).map(i => i.id))
-
-  // 同一個 groupId 底下的成員（不分入住/退房兩種 kind）先各自去重收集起來（同一筆訂單的
-  // 入住列跟退房列會有相同 id，用 id 去重合併成一筆），用來算「共幾間房」跟表頭列的日期區間，
-  // 避免同一團在入住日、退房日各自產生一張表頭列
-  const groupAllMembers = new Map() // groupId -> Map(id -> member)
-  for (const item of combined) {
-    if (!item.groupId) continue
-    if (!groupAllMembers.has(item.groupId)) groupAllMembers.set(item.groupId, new Map())
-    groupAllMembers.get(item.groupId).set(item.id, item)
+  // 本週（週一～週日）範圍，跟後端 /holy/home/week 的週界算法一致
+  function fmtDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 
-  // 排序：團體用「最早的入住日」當排序依據，個人訂單用自己的日期，同一天再依房號排序
-  function sortKeyOf(item) {
-    if (item.groupId) return [...groupAllMembers.get(item.groupId).values()].map(m => m.checkIn).sort()[0]
-    return item.dateKey
+  const calWeekMonday = new Date(today)
+  calWeekMonday.setDate(today.getDate() + (today.getDay() === 0 ? -6 : 1 - today.getDay()))
+  const calWeekSunday = new Date(calWeekMonday)
+  calWeekSunday.setDate(calWeekMonday.getDate() + 6)
+  const calWeekStart = fmtDateStr(calWeekMonday)
+  const calWeekEnd = fmtDateStr(calWeekSunday)
+
+  // 明天的日期，「今日行事曆」要多顯示明天，方便提早一天準備
+  const tomorrowDate = new Date(today)
+  tomorrowDate.setDate(today.getDate() + 1)
+  const tomorrowStr = fmtDateStr(tomorrowDate)
+  // 抓資料的範圍要涵蓋到明天，正常情況明天本來就在本週範圍內；
+  // 只有在今天剛好是週日、明天跨到下週（甚至跨月）時才會超出，這裡保底往後延一天
+  const fetchRangeEnd = tomorrowStr > calWeekEnd ? tomorrowStr : calWeekEnd
+
+  // ── 顯示模式：今日 / 本週 ────────────────────────────────────────────
+  const viewMode = ref('day') // 'day' | 'week'
+  const calViewMode = ref('day') // 行事曆自己的今日／本週切換，跟上面的概況切換各自獨立
+
+  // ── 今日概況 / 本週概況 ───────────────────────────────────────────────
+  const loading = ref(false)
+  const loadingWeek = ref(false)
+  const daySummary = ref(null)
+  const weekSummary = ref(null)
+  const allEvents = ref([]) // 本月所有行事曆事件（含 Google），今日／本週都從這裡篩選
+  const recurringRules = ref([]) // 包月訂位規則（跨月時含兩個月），今日／本週都從這裡依星期篩選
+
+  const summary = computed(() => (viewMode.value === 'week' ? weekSummary.value : daySummary.value))
+  const summaryLoading = computed(() => (viewMode.value === 'week' ? loadingWeek.value : loading.value))
+
+  const fmtMD = (dateStr) => {
+    if (!dateStr) return ''
+    const [, m, d] = dateStr.split('-')
+    return `${Number(m)}/${Number(d)}`
   }
 
-  const sorted = [...combined].sort((a, b) => {
-    const ka = sortKeyOf(a), kb = sortKeyOf(b)
-    if (ka !== kb) return ka < kb ? -1 : 1
-    return String(a.roomId).localeCompare(String(b.roomId))
+  const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+  const fmtMDWeekday = (dateStr) => {
+    if (!dateStr) return ''
+    const weekday = WEEKDAY_LABELS[new Date(`${dateStr}T00:00:00`).getDay()]
+    return `${fmtMD(dateStr)}（週${weekday}）`
+  }
+
+  // 卡片目前只顯示今天～週日（見 WEEK_DATES_FROM_TODAY 的說明），標題範圍也跟著顯示今天起算，
+  // 避免寫著「週一～週日」但實際上週一～昨天沒有卡片，看起來對不上
+  const weekRangeLabel = computed(() => {
+    if (!weekSummary.value?.weekEnd) return ''
+    return `${fmtMD(todayStr)} - ${fmtMD(weekSummary.value.weekEnd)}`
   })
 
-  const rows = []
-  let lastBuildingName
-  const emittedGroupIds = new Set()
-  let currentGroupExpanded = false
+  const bookings = computed(() => summary.value?.booking?.items ?? [])
+  const lunchOrders = computed(() => summary.value?.lunch?.items ?? [])
+  const soybeanOrders = computed(() => summary.value?.soybean?.items ?? [])
 
-  for (const item of sorted) {
-    if (item.groupId) {
-      currentGroupExpanded = expandedHkGroups.value.has(item.groupId)
-      if (!emittedGroupIds.has(item.groupId)) {
-        emittedGroupIds.add(item.groupId)
-        rows.push({
-          rowKind: 'groupHeader', groupKey: item.groupId,
-          groupId: item.groupId, groupName: item.groupName,
-          members: [...groupAllMembers.get(item.groupId).values()], expanded: currentGroupExpanded,
+  // ── 包月訂位（recurring）：跟訂位頁一樣，只算 type !== 'lunch'、依星期（JS getDay()：0=日...6=六）篩選當天適用的規則
+  function recurBookingRulesForDate(date) {
+    if (!date) return []
+    const dow = new Date(`${date}T00:00:00`).getDay()
+    return recurringRules.value.filter(r => r.type !== 'lunch' &&
+      (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
+  }
+
+  const recurGuestsOf = rules => rules.reduce((s, r) =>
+    s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
+
+  const bookingRecurRules = computed(() => recurBookingRulesForDate(todayStr))
+  const bookingRecurGuests = computed(() => recurGuestsOf(bookingRecurRules.value))
+  const bookingRecurMeat = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
+  const bookingRecurFullVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
+  const bookingRecurEggVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
+  const bookingRecurSpiceVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
+
+  // ── 訂位時段設定（例如 11:00–14:00 為午餐）：跟訂位頁 booking-orders.vue 共用同一份設定 ─────
+  const periods = ref([])
+
+  const PERIOD_COLORS = {
+    amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40',
+    orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40',
+    indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40',
+    purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40',
+    teal: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
+  }
+  const periodColorClass = (colorKey) => PERIOD_COLORS[colorKey] || PERIOD_COLORS.amber
+
+  const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+
+  // 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
+  function findPeriod(time) {
+    if (!time) return null
+    return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
+  }
+
+  async function fetchPeriods() {
+    try {
+      const res = await fetch(`${PERIOD_BASE()}/list`, {credentials: 'include'})
+      if (res.ok) periods.value = await res.json()
+    } catch (e) { console.error(e) }
+  }
+
+  // 把一天的訂位（items）＋包月規則（rules）依用餐時段分組，
+  // 未落在任何時段區間內的歸為「未分類」並排在最後
+  function groupBookingByPeriod(items, rules) {
+    const map = new Map()
+    const ensure = (period) => {
+      const key = period ? period.id : '__none__'
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key, name: period ? period.name : '未分類', color: period ? period.color : null,
+          startTime: period ? period.startTime : '99:99',
+          items: [], rules: [], count: 0, guestTotal: 0, meat: 0, fullVeg: 0, eggVeg: 0, spiceVeg: 0
         })
       }
-      if (!currentGroupExpanded) continue // 團體收合時不畫出每一間房的列，只留表頭列
-      // 團體展開後同一間房如果同一天「舊客退房、新客入住」（兩筆不同訂單）才只留入住那筆；
-      // 只有退房、沒有對應入住筆的訂單（表頭列的「共幾間房」是用 groupAllMembers 依 id 去重算的，
-      // 不受這裡的顯示邏輯影響，不會變少）仍要顯示，不然這間房展開後就憑空不見
-      if (item.kind === 'checkout' && idsWithCheckin.has(item.id)) continue
+      return map.get(key)
+    }
+    const addQty = (g, obj) => {
+      g.meat += Number(obj.meatQty) || 0
+      g.fullVeg += Number(obj.fullVegQty) || 0
+      g.eggVeg += Number(obj.eggVegQty) || 0
+      g.spiceVeg += Number(obj.spiceVegQty) || 0
+    }
+    for (const item of items) {
+      const g = ensure(findPeriod(item.time))
+      g.items.push(item)
+      g.count += 1
+      g.guestTotal += itemGuestTotal(item)
+      addQty(g, item)
+    }
+    for (const rule of rules) {
+      const g = ensure(findPeriod(rule.time))
+      g.rules.push(rule)
+      g.guestTotal += (Number(rule.meatQty) || 0) + (Number(rule.fullVegQty) || 0) + (Number(rule.eggVegQty) || 0) + (Number(rule.spiceVegQty) || 0)
+      addQty(g, rule)
+    }
+    return [...map.values()].sort((a, b) => {
+      if (a.id === '__none__') return 1
+      if (b.id === '__none__') return -1
+      return a.startTime.localeCompare(b.startTime)
+    })
+  }
+
+  const bookingPeriodGroups = computed(() => groupBookingByPeriod(bookings.value, bookingRecurRules.value))
+
+  // 把便當訂單依用餐時段分組，跟訂位共用同一份時段設定（findPeriod），
+  // 未落在任何時段區間內的歸為「未分類」並排在最後；沒有 rules（包月）這件事，結構比訂位單純
+  function groupLunchByPeriod(items) {
+    const map = new Map()
+    const ensure = (period) => {
+      const key = period ? period.id : '__none__'
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key, name: period ? period.name : '未分類', color: period ? period.color : null,
+          startTime: period ? period.startTime : '99:99',
+          items: [], count: 0, total: 0, meat: 0, fullVeg: 0, eggVeg: 0, spiceVeg: 0
+        })
+      }
+      return map.get(key)
+    }
+    for (const item of items) {
+      const g = ensure(findPeriod(item.time))
+      g.items.push(item)
+      g.count += 1
+      g.total += itemGuestTotal(item)
+      g.meat += Number(item.meatQty) || 0
+      g.fullVeg += Number(item.fullVegQty) || 0
+      g.eggVeg += Number(item.eggVegQty) || 0
+      g.spiceVeg += Number(item.spiceVegQty) || 0
+    }
+    return [...map.values()].sort((a, b) => {
+      if (a.id === '__none__') return 1
+      if (b.id === '__none__') return -1
+      return a.startTime.localeCompare(b.startTime)
+    })
+  }
+
+  const lunchPeriodGroups = computed(() => groupLunchByPeriod(lunchOrders.value))
+
+  // 本週的 7 個日期（週一～週日）
+  const CAL_WEEK_DATES = (() => {
+    const dates = []
+    const d = new Date(calWeekMonday)
+    for (let i = 0; i < 7; i++) {
+      dates.push(fmtDateStr(d))
+      d.setDate(d.getDate() + 1)
+    }
+    return dates
+  })()
+
+  const sumQty = (items, field) => items.reduce((s, i) => s + (i[field] || 0), 0)
+
+  // 本週檢視：每天各自獨立算自己的統計（不把整週加總在一起），依日期排序下去
+  // 目前後端 /holy/home/week 只回傳「今天起到週日」的資料（週一到昨天沒有），
+  // 這裡先在前端把已經過去的日子隱藏，只顯示今天～週日，避免出現一堆空白的舊日期卡片；
+  // 之後後端補齊整週資料後，這裡要記得改回 CAL_WEEK_DATES（顯示週一～週日）
+  const WEEK_DATES_FROM_TODAY = CAL_WEEK_DATES.filter(date => date >= todayStr)
+  const weekDayCards = computed(() => {
+    if (viewMode.value !== 'week') return []
+    return WEEK_DATES_FROM_TODAY.map((date) => {
+      const bItems = bookings.value.filter(i => i.date === date)
+      const lItems = lunchOrders.value.filter(i => i.date === date)
+      const sItems = soybeanOrders.value.filter(i => i.date === date)
+      const bMeat = sumQty(bItems, 'meatQty'),
+        bVeg = sumQty(bItems, 'fullVegQty') + sumQty(bItems, 'eggVegQty') + sumQty(bItems, 'spiceVegQty')
+      const lMeat = sumQty(lItems, 'meatQty'),
+        lVeg = sumQty(lItems, 'fullVegQty') + sumQty(lItems, 'eggVegQty') + sumQty(lItems, 'spiceVegQty')
+      const recurRules = recurBookingRulesForDate(date)
+      const recurG = recurGuestsOf(recurRules)
+      const bOnsite = bMeat + bVeg
+      return {
+        date,
+        booking: {items: bItems, total: bOnsite + recurG, onsiteTotal: bOnsite, recurGuests: recurG, recurRules},
+        periodGroups: groupBookingByPeriod(bItems, recurRules),
+        lunch: {items: lItems, total: lMeat + lVeg, periodGroups: groupLunchByPeriod(lItems)},
+        soybean: {items: sItems}
+      }
+    })
+  })
+
+  const bookingTotal = computed(() => summary.value?.booking?.total ?? 0)
+  const bookingMeat = computed(() => summary.value?.booking?.meat ?? 0)
+  const bookingVeg = computed(() => summary.value?.booking?.veg ?? 0)
+  const bookingFullVeg = computed(() => summary.value?.booking?.fullVeg ?? 0)
+  const bookingEggVeg = computed(() => summary.value?.booking?.eggVeg ?? 0)
+  const bookingSpiceVeg = computed(() => summary.value?.booking?.spiceVeg ?? 0)
+  const lunchTotal = computed(() => summary.value?.lunch?.total ?? 0)
+  const soybeanSoymilk = computed(() => summary.value?.soybean?.soymilk ?? 0)
+  const soybeanTofu = computed(() => summary.value?.soybean?.tofu ?? 0)
+  // 豆漿總容量（毫升）：把每筆訂單的容量明細（volume×qty）全部加總
+  const soybeanSoymilkTotalMl = computed(() => soybeanOrders.value.reduce((sum, item) => {
+    const list = item.soymilkBreakdown || []
+    return sum + list.reduce((s, b) => s + (Number(b.volume) || 0) * (Number(b.qty) || 0), 0)
+  }, 0))
+  // 豆製品後端會自動抓「未來最近一個出貨日」的訂單，不一定等於今天，這裡算出來給畫面顯示是哪一天
+  const soybeanPickupDate = computed(() => summary.value?.soybean?.date ?? '')
+  const soybeanIsToday = computed(() => soybeanPickupDate.value === todayStr)
+
+  // 豆製品區塊可收合（今日／本週共用同一個狀態），收合後訂位／便當文字放大一號（+2px）
+  const soybeanCollapsed = ref(false)
+
+  function fs(min, max, vw = 0.45) {
+    const bump = soybeanCollapsed.value ? 2 : 0
+    return `clamp(${min + bump}px, calc(${min + bump}px + ${vw}vw), ${max + bump}px)`
+  }
+
+  // ── 房務狀況：一律看「今天」的資料，不受上面今日／本週概況切換影響（房務本來就是當天的事）───
+  // 房務狀況要比照「訂單管理」列表呈現房型/棟別/金額，這些資訊只有房間設定 API 才有，
+  // 這裡直接複用跟 rooms-orders.vue 一樣的 /holy/rooms/settings/list 抓法，跟 today() 彙總資料分開拉
+  const roomBuildings = ref([])
+  const rooms = computed(() => roomBuildings.value.flatMap(b => (b.rooms || []).map(r => ({
+    ...r,
+    buildingId: b.id,
+    buildingName: b.name
+  }))))
+
+  function roomById(roomId) {
+    return rooms.value.find(r => r.id === roomId)
+  }
+
+  function roomTypeOfRoom(roomId) {
+    const r = roomById(roomId)
+    return r ? r.type : ''
+  }
+
+  function buildingNameOfRoom(roomId) {
+    const r = roomById(roomId)
+    return r ? r.buildingName : ''
+  }
+
+  function hkNights(checkIn, checkOut) {
+    if (!checkIn || !checkOut) return 0
+    const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
+    return d > 0 ? d : 0
+  }
+
+  function hkOccupancyLabel(item) {
+    const r = roomById(item.roomId)
+    return r ? `${item.guests}/${r.capacity}` : `${item.guests} 人`
+  }
+
+  function hkBookingTotal(item) {
+    const r = roomById(item.roomId)
+    if (!r) return 0
+    return r.price * hkNights(item.checkIn, item.checkOut)
+  }
+
+  function hkStatusLabel(s) {
+    return {
+      unassigned: '待指派',
+      pending: '待確認',
+      confirmed: '已確認',
+      completed: '已退房',
+      cancelled: '已取消'
+    }[s] || s
+  }
+
+  function hkStatusClass(s) {
+    return {
+      unassigned: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+      pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      confirmed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+      completed: 'bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300',
+      cancelled: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+    }[s] || 'bg-stone-100 text-stone-600'
+  }
+
+  async function fetchRoomBuildings() {
+    try {
+      const res = await fetch(`${ROOMS_SETTINGS_BASE()}/list`)
+      if (res.ok) roomBuildings.value = await res.json()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const housekeeping = computed(() => daySummary.value?.housekeeping ?? null)
+
+  // 同一棟連續的房間只在第一筆前面插一個棟別小標題，不用每一列都重複顯示棟別名稱（比照訂房管理／訂單管理的做法）
+  function withBuildingHeaders(list) {
+    let lastBuildingName
+    return list.map(item => {
       const buildingName = buildingNameOfRoom(item.roomId)
       const showBuildingHeader = !!item.roomId && buildingName !== lastBuildingName
       if (item.roomId) lastBuildingName = buildingName
-      rows.push({rowKind: 'item', item: {...item, buildingName, showBuildingHeader}})
-      continue
-    }
-    // 個人訂單：同一間房若同一天「舊客退房、新客入住」（兩筆不同訂單）會各出現一筆，只留入住
-    // 那筆就夠；但如果這筆訂單只看得到退房、沒有對應的入住筆，代表它沒有別筆能代替顯示，要保留
-    if (item.kind === 'checkout' && idsWithCheckin.has(item.id)) continue
-    const buildingName = buildingNameOfRoom(item.roomId)
-    rows.push({rowKind: 'item', item: {...item, buildingName}})
-  }
-  return rows
-})
-const hkPendingCount = computed(() => housekeeping.value?.pendingCount ?? 0)
-const hkSavingRoomIds = ref([]) // 正在送出中的房號，避免同一個房間被連續快速點擊
-
-async function toggleCleaned(item) {
-  const roomId = item.roomId
-  if (hkSavingRoomIds.value.includes(roomId)) return
-  const nextCleaned = !item.cleaned
-  hkSavingRoomIds.value = [...hkSavingRoomIds.value, roomId]
-  try {
-    const res = await fetch(`${HOME_BASE()}/housekeeping/status`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify({date: todayStr, roomId, cleaned: nextCleaned})
+      return {...item, buildingName, showBuildingHeader}
     })
-    if (res.ok) {
-      // 同一間房可能同時出現在「退房」跟「入住」兩份清單（今天連續订：舊客退房、新客馬上入住），
-      // 打掃狀態是依房號存的，兩邊要一起同步更新，不用等下一次重新抓資料
-      const hk = daySummary.value?.housekeeping
-      if (hk) {
-        for (const it of [...(hk.checkouts || []), ...(hk.checkins || [])]) {
-          if (it.roomId === roomId) it.cleaned = nextCleaned
-        }
-        hk.pendingCount = (hk.checkouts || []).filter(it => !it.cleaned).length
-      }
+  }
+
+  const hkCheckouts = computed(() => withBuildingHeaders(housekeeping.value?.checkouts ?? []))
+  const hkCheckins = computed(() => withBuildingHeaders(housekeeping.value?.checkins ?? []))
+
+  // 合併退房＋入住成單一清單（比照訂單管理，同一個 groupId 用一個團體表頭列，其餘依房號排序，
+  // 同一棟連續的房間一樣只在第一筆前面插棟別小標題），每列自己用小標籤標示是退房整理還是入住備妥。
+  // 不再依日期插分隔列——表頭列／每列本身就已經顯示入住、退房的完整日期（含星期），不需要
+  // 再用日期分隔列重複交代一次；同一個 groupId 也只出現一張表頭列（合併入住/退房兩批成員，
+  // 表頭的日期區間文字本身就同時顯示入住、退房日期，不用為了兩個日期各自出現一次表頭列）
+  const expandedHkGroups = ref(new Set())
+
+  function toggleHkGroup(key) {
+    const s = new Set(expandedHkGroups.value)
+    if (s.has(key)) s.delete(key); else s.add(key)
+    expandedHkGroups.value = s
+  }
+
+  // 房務狀況目前出現的所有團體 id（用來做「全部展開／全部收合」，不受目前展開狀態影響）
+  const hkAllGroupIds = computed(() => {
+    const ids = new Set()
+    for (const item of [...(housekeeping.value?.checkouts ?? []), ...(housekeeping.value?.checkins ?? [])]) {
+      if (item.groupId) ids.add(item.groupId)
     }
-  } catch (e) {
-    console.error(e)
-  } finally {
-    hkSavingRoomIds.value = hkSavingRoomIds.value.filter(id => id !== roomId)
-  }
-}
-
-// 今日行事曆現在同時顯示「今天」跟「明天」兩天，本週行事曆維持顯示整週，兩邊都用同一套「每天分組」模板呈現
-const CAL_TODAY_DATES = [todayStr, tomorrowStr]
-const calDisplayDates = computed(() => (calViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
-const calEventsByDay = computed(() => (
-  calDisplayDates.value.map(date => ({
-    date,
-    events: allEvents.value.filter(e => e.date === date)
-  }))
-))
-const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
-
-// ── 今日備菜（來自備餐/出餐管理系統）：今日模式不再侷限「今天／明天」兩天，
-// 改成往未來找「有排定餐次」的日子（今天起算），依日期近到遠排序；預設顯示前 2 天，
-// 點「顯示更多」最多展開到 5 天；本週模式維持看整週（含空的那幾天）不受影響 ──
-const MEAL_BASE = () => commonStore.data.main_url + '/holy/meal-schedule'
-const mealLoading = ref(false)
-const mealSessions = ref([])
-const mealViewMode = ref('day') // 備菜區塊自己的今日／本週切換，跟今日行事曆的 calViewMode 各自獨立
-const mealDayExpanded = ref(false) // 今日模式「顯示更多」：預設 2 天，點開後最多 5 天
-
-async function fetchMealSessions() {
-  mealLoading.value = true
-  try {
-    mealSessions.value = await (await fetch(`${MEAL_BASE()}/list`)).json()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    mealLoading.value = false
-  }
-}
-
-const mealTypeOrder = t => {
-  const order = { 早餐: 0, 上午點心: 1, 午餐: 2, 下午茶: 3, 晚餐: 4, 宵夜: 5 }
-  return order[t] ?? 6
-}
-
-// 今天（含）以後、有排定餐次的所有日期，依日期由近到遠排序，去重
-const mealFutureDatesWithSessions = computed(() => {
-  const set = new Set(mealSessions.value.filter(s => s.date >= todayStr).map(s => s.date))
-  return [...set].sort()
-})
-
-const mealDisplayDates = computed(() => {
-  if (mealViewMode.value === 'week') return CAL_WEEK_DATES
-  const limit = mealDayExpanded.value ? 5 : 2
-  return mealFutureDatesWithSessions.value.slice(0, limit)
-})
-
-// 「顯示更多」按鈕：只有今日模式、還沒展開、且未來有排定餐次的天數超過 2 天時才出現
-const mealShowMoreAvailable = computed(() =>
-  mealViewMode.value === 'day' && !mealDayExpanded.value && mealFutureDatesWithSessions.value.length > 2
-)
-// 「收合」按鈕：展開後、且天數原本就超過 2 天（收合才有意義）時才出現，讓使用者能縮回預設的 2 天
-const mealShowCollapseAvailable = computed(() =>
-  mealViewMode.value === 'day' && mealDayExpanded.value && mealFutureDatesWithSessions.value.length > 2
-)
-
-const mealSessionsByDay = computed(() => (
-  mealDisplayDates.value.map(date => ({
-    date,
-    sessions: mealSessions.value
-      .filter(s => s.date === date)
-      .sort((a, b) => mealTypeOrder(a.mealType) - mealTypeOrder(b.mealType))
-  }))
-))
-const mealHasAnySessions = computed(() => mealSessionsByDay.value.some(day => day.sessions.length > 0))
-
-// 備菜區塊的每日標題：今日模式直接標示「今天／明天」，本週模式維持只顯示日期，跟 calDayHeaderLabel 同一套規則
-function mealDayHeaderLabel(date) {
-  if (mealViewMode.value !== 'week') {
-    if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
-    if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
-  }
-  return fmtMDWeekday(date)
-}
-
-function mealTypeBadgeClass(mealType) {
-  if (mealType === '早餐') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
-  if (mealType === '上午點心') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/30'
-  if (mealType === '午餐') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
-  if (mealType === '下午茶') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border border-pink-200 dark:border-pink-800/30'
-  if (mealType === '晚餐') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30'
-  if (mealType === '宵夜') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/30'
-  return 'bg-surface2 text-hint-c'
-}
-
-// 備菜卡片內文：九宮格便當精簡列出 9 格內容，一般餐次列出菜色（含附註）
-function mealDishSummary(session) {
-  if (session.boxGrid && session.boxGrid.length === 9) return session.boxGrid.join('、')
-  if (session.dishes && session.dishes.length) {
-    return session.dishes.map(d => (d.note ? `${d.name}（${d.note}）` : d.name)).join('、')
-  }
-  return ''
-}
-
-function mealServingSummary(session) {
-  if (!session.servingPoints || !session.servingPoints.length) return ''
-  return session.servingPoints
-    .map(sp => `${sp.name || '—'}${sp.count != null ? ' ' + sp.count + '位' : ''}`)
-    .join('　')
-}
-
-// 今日行事曆的每日標題：今天／明天直接標示文字，比只看日期清楚；本週行事曆維持只顯示日期
-function calDayHeaderLabel(date) {
-  if (calViewMode.value !== 'week') {
-    if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
-    if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
-  }
-  return fmtMDWeekday(date)
-}
-
-// 事件詳細內容：跟 calendar.vue 一致統一用 description 欄位；Google 的內容可能帶 HTML 標籤，用同一套 stripHtml 去掉再顯示
-function stripHtml(html) {
-  if (!html) return ''
-  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
-}
-
-function calEventDetail(ev) {
-  return stripHtml(ev.description || '')
-}
-
-const calWeekRangeLabel = `${fmtMD(calWeekStart)} - ${fmtMD(calWeekEnd)}`
-
-// 依葷素細項組成簡短標籤，例如「葷2・全素1・蛋奶素1」，用於卡片內每筆訂單顯示
-function typeBreakdown(item) {
-  const parts = []
-  if (item.meatQty) parts.push(`🍖葷${item.meatQty}`)
-  if (item.fullVegQty) parts.push(`🌿全素${item.fullVegQty}`)
-  if (item.eggVegQty) parts.push(`🥚蛋奶素${item.eggVegQty}`)
-  if (item.spiceVegQty) parts.push(`🧄五辛素${item.spiceVegQty}`)
-  return parts.join('・')
-}
-
-// 單筆訂位/包月的總人數（葷素加總）
-function itemGuestTotal(item) {
-  return (Number(item.meatQty) || 0) + (Number(item.fullVegQty) || 0) + (Number(item.eggVegQty) || 0) + (Number(item.spiceVegQty) || 0)
-}
-
-// 容量數字格式化：滿 1000ml 就換算成 L 顯示（例如 8700 -> 8.7L，8000 -> 8L），避免小數字太長
-function formatVolume(ml) {
-  if (!ml) return '0ml'
-  if (ml >= 1000) {
-    const l = ml / 1000
-    return `${Number.isInteger(l) ? l : l.toFixed(1)}L`
-  }
-  return `${ml}ml`
-}
-
-// 豆漿容量明細，例如「800ml×2、1200ml×1」——同一筆訂單可能混搭不同容量
-function soymilkBreakdownText(item) {
-  const list = item.soymilkBreakdown || []
-  if (!list.length) return item.soymilkQty ? `豆漿${item.soymilkQty}` : ''
-  return list.map(b => `${b.volume}ml×${b.qty}`).join('、')
-}
-
-const detailStatusClass = (status) => {
-  switch (status) {
-    case '已確認':
-    case '已入位':
-      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-    case '客戶提出取消':
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-    case '已取消':
-      return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-    default:
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-  }
-}
-
-// ── 新訂單通知（SSE 即時推播＋跳出訊息＋提示音）───────────────────────
-let eventSource = null
-// 記錄目前已知的訂單內容（不只 ID，連內容一起存，刪除時才有資料可顯示）
-const knownBookings = new Map()
-const knownLunches = new Map()
-const knownSoybeans = new Map()
-
-const notifications = ref([])
-let notifySeq = 0
-
-// 提示音開關（記住使用者偏好；預設開啟，但實際能否播放仍受瀏覽器自動播放限制）
-const soundEnabled = ref(true)
-
-function loadSoundPref() {
-  try {
-    const saved = localStorage.getItem('holy_home_sound_enabled')
-    if (saved !== null) soundEnabled.value = saved === '1'
-  } catch (e) { /* 無法讀取偏好時使用預設值 */
-  }
-}
-
-function saveSoundPref() {
-  try {
-    localStorage.setItem('holy_home_sound_enabled', soundEnabled.value ? '1' : '0')
-  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
-  }
-}
-
-// 提示音效（叮咚聲，非語音）音量倍率：現場如果覺得叮咚聲蓋不過音樂，可以自己調大聲一點。
-// 這個只影響 playTones() 產生的音效，不影響語音播報本身——瀏覽器 Web Speech API 的
-// utter.volume 上限就是 1（100%），沒辦法再往上加大，這是 API 本身的天花板，調這個滑桿沒用。
-// 範圍刻意允許超過 100%（最高 250%），因為叮咚聲是我們自己用 Web Audio API 產生的波形，
-// GainNode 的 gain 值本來就不受「1 = 最大」限制，可以放得比原本更大聲（超過某個程度可能會
-// 聽起來有點破音，現場可以自己抓感覺剛好的位置）。
-const alertVolume = ref(1.6)
-
-function loadAlertVolumePref() {
-  try {
-    const saved = localStorage.getItem('holy_home_alert_volume')
-    if (saved !== null) {
-      const n = parseFloat(saved)
-      if (!isNaN(n) && n > 0) alertVolume.value = n
-    }
-  } catch (e) { /* 無法讀取偏好時使用預設值 */
-  }
-}
-
-function saveAlertVolumePref() {
-  try {
-    localStorage.setItem('holy_home_alert_volume', String(alertVolume.value))
-  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
-  }
-}
-
-function onAlertVolumeInput(e) {
-  alertVolume.value = parseFloat(e.target.value)
-  saveAlertVolumePref()
-}
-
-// ── 設定區塊（可收縮）：定時檢查（輪詢）開關 ─────────────────────────
-const showSettings = ref(false)
-const pollEnabled = ref(true)
-
-function loadPollPref() {
-  try {
-    const saved = localStorage.getItem('holy_home_poll_enabled')
-    if (saved !== null) pollEnabled.value = saved === '1'
-  } catch (e) { /* 無法讀取偏好時使用預設值 */
-  }
-}
-
-function savePollPref() {
-  try {
-    localStorage.setItem('holy_home_poll_enabled', pollEnabled.value ? '1' : '0')
-  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
-  }
-}
-
-function togglePoll() {
-  pollEnabled.value = !pollEnabled.value
-  savePollPref()
-}
-
-// ── 設定區塊：是否接收內場語音廣播（有些裝置/畫面不需要放出聲音，可以關掉）───
-const broadcastReceiveEnabled = ref(true)
-
-function loadBroadcastReceivePref() {
-  try {
-    const saved = localStorage.getItem('holy_home_broadcast_receive_enabled')
-    if (saved !== null) broadcastReceiveEnabled.value = saved === '1'
-  } catch (e) { /* 無法讀取偏好時使用預設值 */
-  }
-}
-
-function saveBroadcastReceivePref() {
-  try {
-    localStorage.setItem('holy_home_broadcast_receive_enabled', broadcastReceiveEnabled.value ? '1' : '0')
-  } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
-  }
-}
-
-function toggleBroadcastReceive() {
-  broadcastReceiveEnabled.value = !broadcastReceiveEnabled.value
-  saveBroadcastReceivePref()
-  if (broadcastReceiveEnabled.value) {
-    connectBroadcastSignaling()
-  } else {
-    disconnectBroadcastSignaling() // 立刻斷開信令連線＋收掉任何正在播放的廣播，不用等重新整理頁面
-  }
-}
-
-// 瀏覽器多半要求先有使用者互動才允許播放音效，先建立/解鎖 AudioContext
-let audioCtx = null
-
-function getAudioCtx() {
-  if (!audioCtx) {
-    const AudioCtxClass = window.AudioContext || window.webkitAudioContext
-    if (AudioCtxClass) audioCtx = new AudioCtxClass()
-  }
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {
+    return [...ids]
   })
-  return audioCtx
-}
 
-function unlockAudio() {
-  getAudioCtx()
-  primeSpeech()
-}
-
-// 接一個 MediaStream，持續量測音量大小寫進 levelRef（0～1，粗略 RMS），回傳一個停止函式。
-// 用途：證明「聲音資料真的有傳過來」跟「傳過來但這台放不出聲音」是兩件不同的事——
-// 如果這個量表會跳，代表 WebRTC 音訊資料確實收到了，問題就出在這台電腦的喇叭/音量/
-// 輸出裝置設定，不是連線或程式的問題；如果完全不跳，才需要往連線本身去查。
-function startLevelMeter(stream, levelRef) {
-  try {
-    const ctx = getAudioCtx()
-    if (!ctx) return null
-    const source = ctx.createMediaStreamSource(stream)
-    const analyser = ctx.createAnalyser()
-    analyser.fftSize = 512
-    source.connect(analyser) // 只接來做分析，不接 destination，不會因此多播放一次聲音
-    const data = new Uint8Array(analyser.frequencyBinCount)
-    let rafId = null
-    const tick = () => {
-      analyser.getByteTimeDomainData(data)
-      let sumSquares = 0
-      for (let i = 0; i < data.length; i++) {
-        const v = (data[i] - 128) / 128
-        sumSquares += v * v
-      }
-      levelRef.value = Math.sqrt(sumSquares / data.length)
-      rafId = requestAnimationFrame(tick)
-    }
-    tick()
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId)
-      try {
-        source.disconnect()
-      } catch (e) { /* 忽略 */
-      }
-      try {
-        analyser.disconnect()
-      } catch (e) { /* 忽略 */
-      }
-    }
-  } catch (e) {
-    console.error('[broadcast] 無法建立音量偵測', e)
-    return null
+  function expandAllHkGroups() {
+    expandedHkGroups.value = new Set(hkAllGroupIds.value)
   }
-}
 
-function playTones(tones, waveType) {
-  try {
-    const ctx = getAudioCtx()
-    if (!ctx) return
-    // 基準峰值音量 0.5，再乘上使用者設定的 alertVolume 倍率（預設 1.6 倍，比原本更大聲）；
-    // GainNode 允許超過 1，所以倍率拉高真的會比「音量開到最大」更大聲，不是無效設定。
-    const peak = 0.5 * alertVolume.value
-    tones.forEach((freq, i) => {
-      const start = ctx.currentTime + i * 0.18
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = waveType
-      osc.frequency.setValueAtTime(freq, start)
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(peak, start + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.44)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(start)
-      osc.stop(start + 0.46)
+  function collapseAllHkGroups() {
+    expandedHkGroups.value = new Set()
+  }
+
+  function hkGroupDateRangeLabel(members) {
+    const ins = members.map(m => m.checkIn).sort()
+    const outs = members.map(m => m.checkOut).sort()
+    const minIn = ins[0], maxOut = outs[outs.length - 1]
+    const sameRange = ins.every(d => d === minIn) && outs.every(d => d === maxOut)
+    const inLabel = minIn ? fmtMDWeekday(minIn) : ''
+    const outLabel = maxOut ? fmtMDWeekday(maxOut) : ''
+    return sameRange ? `入住 ${inLabel} → 退房 ${outLabel}` : `入住 ${inLabel} ～ 退房 ${outLabel}（各房日期不同）`
+  }
+
+  function hkGroupStatusSummary(members) {
+    const counts = {}
+    for (const m of members) counts[m.status] = (counts[m.status] || 0) + 1
+    return Object.entries(counts).map(([s, c]) => `${hkStatusLabel(s)} ${c}`).join('・')
+  }
+
+  const hkRows = computed(() => {
+    const combined = [
+      ...(housekeeping.value?.checkouts ?? []).map(item => ({...item, kind: 'checkout', dateKey: item.checkOut})),
+      ...(housekeeping.value?.checkins ?? []).map(item => ({...item, kind: 'checkin', dateKey: item.checkIn})),
+    ]
+    // 「舊客退房、新客入住」是指同一天有兩筆『不同』訂單（各自的 id 不同），這種情況才只留入住那筆。
+    // 如果一筆訂單只在 30 天內看得到「退房」這一半（例如很早之前就入住、還沒排進這次視窗內的入住清單，
+    // 或團體裡有房間中途加進來、入住日已經過了），代表它沒有對應的「入住」筆可以代替顯示，不能整筆跳過，
+    // 不然這筆訂單（連同它所屬的團體展開後）會憑空消失、展開了也看不到任何列
+    const idsWithCheckin = new Set((housekeeping.value?.checkins ?? []).map(i => i.id))
+
+    // 同一個 groupId 底下的成員（不分入住/退房兩種 kind）先各自去重收集起來（同一筆訂單的
+    // 入住列跟退房列會有相同 id，用 id 去重合併成一筆），用來算「共幾間房」跟表頭列的日期區間，
+    // 避免同一團在入住日、退房日各自產生一張表頭列
+    const groupAllMembers = new Map() // groupId -> Map(id -> member)
+    for (const item of combined) {
+      if (!item.groupId) continue
+      if (!groupAllMembers.has(item.groupId)) groupAllMembers.set(item.groupId, new Map())
+      groupAllMembers.get(item.groupId).set(item.id, item)
+    }
+
+    // 排序：團體用「最早的入住日」當排序依據，個人訂單用自己的日期，同一天再依房號排序
+    function sortKeyOf(item) {
+      if (item.groupId) return [...groupAllMembers.get(item.groupId).values()].map(m => m.checkIn).sort()[0]
+      return item.dateKey
+    }
+
+    const sorted = [...combined].sort((a, b) => {
+      const ka = sortKeyOf(a), kb = sortKeyOf(b)
+      if (ka !== kb) return ka < kb ? -1 : 1
+      return String(a.roomId).localeCompare(String(b.roomId))
     })
-  } catch (e) { /* 音效播放失敗不影響其他功能 */
-  }
-}
 
-// 新訂單：明亮上揚的四音「叮咚叮咚」
-function playCreateSound() {
-  playTones([880, 1046, 880, 1318], 'sine')
-}
+    const rows = []
+    let lastBuildingName
+    const emittedGroupIds = new Set()
+    let currentGroupExpanded = false
 
-// 刪除訂單：低沉下降的兩音，跟新訂單的音效明顯不同
-function playDeleteSound() {
-  playTones([523, 349], 'triangle')
-}
-
-// ── 語音播報新訂單（瀏覽器內建 Web Speech API，不需要額外服務）───────────
-function primeSpeech() {
-  // 部分瀏覽器（尤其 Chrome）需要先有一次使用者互動才願意播放語音，這裡先「唸」一個空字串預熱
-  try {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(''))
-  } catch (e) { /* 忽略 */
-  }
-}
-
-function speakText(text) {
-  try {
-    if (!window.speechSynthesis || !text) return
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = 'zh-TW'
-    utter.rate = 1
-    // utter.volume 的合法範圍是 0～1，1 已經是 Web Speech API 允許的最大值，沒辦法再往上加大；
-    // 如果語音本身聽起來還是太小聲，只能透過拉高叮咚提示音（alertVolume）先抓住注意力，
-    // 或是調整這台電腦本身的系統音量/瀏覽器分頁音量。
-    utter.volume = 1
-    window.speechSynthesis.speak(utter)
-  } catch (e) { /* 語音播放失敗不影響其他功能 */
-  }
-}
-
-// 時間唸法，例如 "12:00" → "12點"，"12:30" → "12點30分"
-function timeToSpoken(t) {
-  if (!t) return ''
-  const [h, m] = t.split(':').map(Number)
-  if (Number.isNaN(h)) return t
-  return m ? `${h}點${m}分` : `${h}點`
-}
-
-// 訂位／便當的葷素細項唸法，例如「葷2位、全素1位」或「葷便當2個、全素便當1個」
-function spokenTypeBreakdown(item, unit) {
-  const parts = []
-  if (item.meatQty) parts.push(`葷${unit}${item.meatQty}`)
-  if (item.fullVegQty) parts.push(`全素${unit}${item.fullVegQty}`)
-  if (item.eggVegQty) parts.push(`蛋奶素${unit}${item.eggVegQty}`)
-  if (item.spiceVegQty) parts.push(`五辛素${unit}${item.spiceVegQty}`)
-  return parts.join('、')
-}
-
-function bookingSpokenText(item, prefix = '新訂位') {
-  const detail = spokenTypeBreakdown(item, '') || '尚未填寫數量'
-  const timeText = timeToSpoken(item.time)
-  const nameText = item.name || '未填姓名'
-  const noteText = item.note ? `，備註：${item.note}` : ''
-  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}位${noteText}`
-}
-
-function lunchSpokenText(item, prefix = '新便當訂單') {
-  const parts = []
-  if (item.meatQty) parts.push(`葷便當${item.meatQty}個`)
-  if (item.fullVegQty) parts.push(`全素便當${item.fullVegQty}個`)
-  if (item.eggVegQty) parts.push(`蛋奶素便當${item.eggVegQty}個`)
-  if (item.spiceVegQty) parts.push(`五辛素便當${item.spiceVegQty}個`)
-  const detail = parts.join('、') || '尚未填寫數量'
-  const timeText = timeToSpoken(item.time)
-  const nameText = item.name || '未填姓名'
-  const noteText = item.note ? `，備註：${item.note}` : ''
-  return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}${noteText}`
-}
-
-function soybeanSpokenText(item, prefix = '新豆製品訂購') {
-  const parts = []
-  for (const b of (item.soymilkBreakdown || [])) {
-    parts.push(`豆漿${b.volume}毫升${b.qty}袋`)
-  }
-  if (item.tofuQty) parts.push(`豆腐${item.tofuQty}塊`)
-  const detail = parts.join('、') || '尚未填寫數量'
-  const nameText = item.name || '未填姓名'
-  return `${prefix}，${nameText}，${detail}`
-}
-
-function toggleSound() {
-  soundEnabled.value = !soundEnabled.value
-  saveSoundPref()
-  if (soundEnabled.value) {
-    unlockAudio()
-    // 依序播兩種聲音，讓使用者一次聽出新訂單／刪除的差異
-    playCreateSound()
-    setTimeout(playDeleteSound, 1050)
-    setTimeout(() => speakText('新訂位，王先生，12點，葷2位'), 1700)
-    setTimeout(() => speakText('訂位取消，王先生，12點，葷2位'), 3500)
-  }
-}
-
-function pushNotification(icon, title, detail, tab) {
-  const id = ++notifySeq
-  notifications.value.push({id, icon, title, detail, tab})
-  setTimeout(() => {
-    notifications.value = notifications.value.filter(n => n.id !== id)
-  }, 8000)
-}
-
-function dismissNotification(id) {
-  notifications.value = notifications.value.filter(n => n.id !== id)
-}
-
-function openNotification(n) {
-  viewMode.value = 'day'
-  dismissNotification(n.id)
-}
-
-const qtyOf = (item) => (item.meatQty || 0) + (item.fullVegQty || 0) + (item.eggVegQty || 0) + (item.spiceVegQty || 0)
-
-// 判斷同一筆訂位／便當訂單，內容是否有被編輯過（姓名/時間/狀態/葷素數量/備註任一有變），
-// 用來在「已入位」以外的一般編輯（例如改時間、改數量）時也跳通知＋語音
-function bookingSnapshotEqual(a, b) {
-  return a.name === b.name && a.time === b.time && a.status === b.status &&
-    a.meatQty === b.meatQty && a.fullVegQty === b.fullVegQty &&
-    a.eggVegQty === b.eggVegQty && a.spiceVegQty === b.spiceVegQty &&
-    (a.note || '') === (b.note || '')
-}
-
-function lunchSnapshotEqual(a, b) {
-  return a.name === b.name && a.time === b.time && a.status === b.status &&
-    a.meatQty === b.meatQty && a.fullVegQty === b.fullVegQty &&
-    a.eggVegQty === b.eggVegQty && a.spiceVegQty === b.spiceVegQty &&
-    (a.note || '') === (b.note || '')
-}
-
-function syncKnownItems(data) {
-  knownBookings.clear()
-  ;(data?.booking?.items ?? []).forEach(i => knownBookings.set(i.id, i))
-  knownLunches.clear()
-  ;(data?.lunch?.items ?? []).forEach(i => knownLunches.set(i.id, i))
-  knownSoybeans.clear()
-  ;(data?.soybean?.items ?? []).forEach(i => knownSoybeans.set(i.id, i))
-}
-
-async function syncNewOrders() {
-  try {
-    const res = await fetch(`${HOME_BASE()}/today`, {credentials: 'include'})
-    if (!res.ok) return
-    const data = await res.json()
-
-    const newBookings = data?.booking?.items ?? []
-    const newLunches = data?.lunch?.items ?? []
-    const newSoybeans = data?.soybean?.items ?? []
-    const newBookingIds = new Set(newBookings.map(i => i.id))
-    const newLunchIds = new Set(newLunches.map(i => i.id))
-    const newSoybeanIds = new Set(newSoybeans.map(i => i.id))
-    let gotCreated = false
-    let gotDeleted = false
-    let gotCheckedIn = false
-    let gotModified = false
-    const spokenPhrases = []
-    const spokenModifiedPhrases = []
-
-    // 新增／已入位／一般編輯（改時間、改數量等，跟已入位分開處理，避免重複跳兩次通知）
-    for (const item of newBookings) {
-      const prev = knownBookings.get(item.id)
-      if (!prev) {
-        gotCreated = true
-        pushNotification('🍽️', '新訂位', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
-        spokenPhrases.push(bookingSpokenText(item))
-      } else if (prev.status !== '已入位' && item.status === '已入位') {
-        gotCheckedIn = true
-        pushNotification('🪑', '訂位已入位', `${item.name || '未填姓名'}　${item.time || ''}`, 'booking')
-        spokenPhrases.push(`${item.name || '未填姓名'}，已入位`)
-      } else if (!bookingSnapshotEqual(prev, item)) {
-        gotModified = true
-        pushNotification('✏️', '訂位異動', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
-        spokenModifiedPhrases.push(bookingSpokenText(item, '訂位異動'))
+    for (const item of sorted) {
+      if (item.groupId) {
+        currentGroupExpanded = expandedHkGroups.value.has(item.groupId)
+        if (!emittedGroupIds.has(item.groupId)) {
+          emittedGroupIds.add(item.groupId)
+          rows.push({
+            rowKind: 'groupHeader', groupKey: item.groupId,
+            groupId: item.groupId, groupName: item.groupName,
+            members: [...groupAllMembers.get(item.groupId).values()], expanded: currentGroupExpanded,
+          })
+        }
+        if (!currentGroupExpanded) continue // 團體收合時不畫出每一間房的列，只留表頭列
+        // 團體展開後同一間房如果同一天「舊客退房、新客入住」（兩筆不同訂單）才只留入住那筆；
+        // 只有退房、沒有對應入住筆的訂單（表頭列的「共幾間房」是用 groupAllMembers 依 id 去重算的，
+        // 不受這裡的顯示邏輯影響，不會變少）仍要顯示，不然這間房展開後就憑空不見
+        if (item.kind === 'checkout' && idsWithCheckin.has(item.id)) continue
+        const buildingName = buildingNameOfRoom(item.roomId)
+        const showBuildingHeader = !!item.roomId && buildingName !== lastBuildingName
+        if (item.roomId) lastBuildingName = buildingName
+        rows.push({rowKind: 'item', item: {...item, buildingName, showBuildingHeader}})
+        continue
       }
+      // 個人訂單：同一間房若同一天「舊客退房、新客入住」（兩筆不同訂單）會各出現一筆，只留入住
+      // 那筆就夠；但如果這筆訂單只看得到退房、沒有對應的入住筆，代表它沒有別筆能代替顯示，要保留
+      if (item.kind === 'checkout' && idsWithCheckin.has(item.id)) continue
+      const buildingName = buildingNameOfRoom(item.roomId)
+      rows.push({rowKind: 'item', item: {...item, buildingName}})
     }
-    for (const item of newLunches) {
-      const prev = knownLunches.get(item.id)
-      if (!prev) {
-        gotCreated = true
-        pushNotification('🍱', '新便當訂單', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
-        spokenPhrases.push(lunchSpokenText(item))
-      } else if (!lunchSnapshotEqual(prev, item)) {
-        gotModified = true
-        pushNotification('✏️', '便當訂單異動', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
-        spokenModifiedPhrases.push(lunchSpokenText(item, '便當訂單異動'))
-      }
-    }
-    for (const item of newSoybeans) {
-      if (!knownSoybeans.has(item.id)) {
-        gotCreated = true
-        const parts = []
-        const soyText = soymilkBreakdownText(item)
-        if (soyText) parts.push(`豆漿 ${soyText}`)
-        if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
-        pushNotification('🥛', '新豆製品訂購', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
-        spokenPhrases.push(soybeanSpokenText(item))
-      }
-    }
+    return rows
+  })
+  const hkPendingCount = computed(() => housekeeping.value?.pendingCount ?? 0)
+  const hkSavingRoomIds = ref([]) // 正在送出中的房號，避免同一個房間被連續快速點擊
 
-    // 刪除（用刪除前記住的內容顯示，因為新資料裡已經沒有這筆了）
-    const spokenDeletePhrases = []
-    for (const [id, item] of knownBookings) {
-      if (!newBookingIds.has(id)) {
-        gotDeleted = true
-        pushNotification('🗑️', '訂位已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
-        spokenDeletePhrases.push(bookingSpokenText(item, '訂位取消'))
-      }
-    }
-    for (const [id, item] of knownLunches) {
-      if (!newLunchIds.has(id)) {
-        gotDeleted = true
-        pushNotification('🗑️', '便當訂單已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
-        spokenDeletePhrases.push(lunchSpokenText(item, '便當訂單取消'))
-      }
-    }
-    for (const [id, item] of knownSoybeans) {
-      if (!newSoybeanIds.has(id)) {
-        gotDeleted = true
-        const parts = []
-        const soyText = soymilkBreakdownText(item)
-        if (soyText) parts.push(`豆漿 ${soyText}`)
-        if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
-        pushNotification('🗑️', '豆製品訂購已刪除', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
-        spokenDeletePhrases.push(soybeanSpokenText(item, '豆製品訂購取消'))
-      }
-    }
-
-    syncKnownItems(data)
-
-    const gotPositive = gotCreated || gotCheckedIn || gotModified
-    if (gotPositive || gotDeleted) {
-      if (soundEnabled.value) {
-        if (gotPositive) playCreateSound()
-        if (gotDeleted) setTimeout(playDeleteSound, gotPositive ? 520 : 0)
-        const allPhrases = [...spokenPhrases, ...spokenModifiedPhrases, ...spokenDeletePhrases]
-        if (allPhrases.length) {
-          // 等提示音都播完再開始念，語音本身會自動排隊依序念完，不用逐句手動間隔
-          const chimeDuration = gotDeleted && gotPositive ? 1050 : 650
-          setTimeout(() => allPhrases.forEach(speakText), chimeDuration)
+  async function toggleCleaned(item) {
+    const roomId = item.roomId
+    if (hkSavingRoomIds.value.includes(roomId)) return
+    const nextCleaned = !item.cleaned
+    hkSavingRoomIds.value = [...hkSavingRoomIds.value, roomId]
+    try {
+      const res = await fetch(`${HOME_BASE()}/housekeeping/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({date: todayStr, roomId, cleaned: nextCleaned})
+      })
+      if (res.ok) {
+        // 同一間房可能同時出現在「退房」跟「入住」兩份清單（今天連續订：舊客退房、新客馬上入住），
+        // 打掃狀態是依房號存的，兩邊要一起同步更新，不用等下一次重新抓資料
+        const hk = daySummary.value?.housekeeping
+        if (hk) {
+          for (const it of [...(hk.checkouts || []), ...(hk.checkins || [])]) {
+            if (it.roomId === roomId) it.cleaned = nextCleaned
+          }
+          hk.pendingCount = (hk.checkouts || []).filter(it => !it.cleaned).length
         }
       }
-      if (viewMode.value === 'day') daySummary.value = data
-      if (weekSummary.value) fetchWeek()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      hkSavingRoomIds.value = hkSavingRoomIds.value.filter(id => id !== roomId)
     }
-  } catch (e) {
-    console.error(e)
   }
-}
 
-function connectStream() {
-  if (typeof EventSource === 'undefined') return
-  // 直接連後端原始網址（commonStore.data.just_url），刻意避開 main_url 的 /api 反向代理：
-  // 這條 proxy 在 Netlify 上是跑在 serverless function 裡，函式執行有逾時限制，撐不住
-  // 「大部分時間閒置、只在有新訂單時才推播」的長連線，本地開發沒有這層代理限制才會正常。
-  // 這條 stream 只推播 "category:action" 這種通用事件、不含任何個資，不需要帶 cookie，
-  // 所以直接跨網域連過去即可，後端只要開放 CORS（不需要 withCredentials）。
-  eventSource = new EventSource(`${commonStore.data.just_url}/holy/home/stream`)
-  eventSource.addEventListener('order', () => {
-    syncNewOrders()
+  // 今日行事曆現在同時顯示「今天」跟「明天」兩天，本週行事曆維持顯示整週，兩邊都用同一套「每天分組」模板呈現
+  const CAL_TODAY_DATES = [todayStr, tomorrowStr]
+  const calDisplayDates = computed(() => (calViewMode.value === 'week' ? CAL_WEEK_DATES : CAL_TODAY_DATES))
+  const calEventsByDay = computed(() => (
+    calDisplayDates.value.map(date => ({
+      date,
+      events: allEvents.value.filter(e => e.date === date)
+    }))
+  ))
+  const calHasAnyEvents = computed(() => calEventsByDay.value.some(day => day.events.length > 0))
+
+  // ── 今日備菜（來自備餐/出餐管理系統）：今日模式不再侷限「今天／明天」兩天，
+  // 改成往未來找「有排定餐次」的日子（今天起算），依日期近到遠排序；預設顯示前 2 天，
+  // 點「顯示更多」最多展開到 5 天；本週模式維持看整週（含空的那幾天）不受影響 ──
+  const MEAL_BASE = () => commonStore.data.main_url + '/holy/meal-schedule'
+  const mealLoading = ref(false)
+  const mealSessions = ref([])
+  const mealViewMode = ref('day') // 備菜區塊自己的今日／本週切換，跟今日行事曆的 calViewMode 各自獨立
+  const mealDayExpanded = ref(false) // 今日模式「顯示更多」：預設 2 天，點開後最多 5 天
+
+  async function fetchMealSessions() {
+    mealLoading.value = true
+    try {
+      mealSessions.value = await (await fetch(`${MEAL_BASE()}/list`)).json()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      mealLoading.value = false
+    }
+  }
+
+  const mealTypeOrder = t => {
+    const order = { 早餐: 0, 上午點心: 1, 午餐: 2, 下午茶: 3, 晚餐: 4, 宵夜: 5 }
+    return order[t] ?? 6
+  }
+
+  // 今天（含）以後、有排定餐次的所有日期，依日期由近到遠排序，去重
+  const mealFutureDatesWithSessions = computed(() => {
+    const set = new Set(mealSessions.value.filter(s => s.date >= todayStr).map(s => s.date))
+    return [...set].sort()
   })
-  // 連線出錯時瀏覽器會自動重連，這裡只需記錄，不用手動處理
-  eventSource.onerror = () => {
-  }
-}
 
-function disconnectStream() {
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
-  }
-}
+  const mealDisplayDates = computed(() => {
+    if (mealViewMode.value === 'week') return CAL_WEEK_DATES
+    const limit = mealDayExpanded.value ? 5 : 2
+    return mealFutureDatesWithSessions.value.slice(0, limit)
+  })
 
-// ── 內場語音廣播（WebRTC，接近即時）─────────────────────────────────────
-// 這台主機（收話端）常駐連著信令 WebSocket；手機按下開始廣播時會連過來，兩邊
-// 透過這條 WebSocket 交換 WebRTC 的 offer/answer/ICE，談好之後音訊直接走瀏覽器
-// 內建的點對點連線播放，不再經過伺服器中繼、也不用切段錄音上傳，延遲降到接近
-// 即時（只受 WebRTC 本身的網路延遲影響）。
-//
-// 跟訂單通知走不同的連線（/holy/broadcast/ws），原因跟上面的訂單 SSE 一樣：
-// 要避開 main_url 的 /api 反向代理（對長連線不友善），所以直接連 just_url。
-const broadcastWsUrl = () => commonStore.data.just_url.replace(/^http/, 'ws') + '/holy/broadcast/ws'
+  // 「顯示更多」按鈕：只有今日模式、還沒展開、且未來有排定餐次的天數超過 2 天時才出現
+  const mealShowMoreAvailable = computed(() =>
+    mealViewMode.value === 'day' && !mealDayExpanded.value && mealFutureDatesWithSessions.value.length > 2
+  )
+  // 「收合」按鈕：展開後、且天數原本就超過 2 天（收合才有意義）時才出現，讓使用者能縮回預設的 2 天
+  const mealShowCollapseAvailable = computed(() =>
+    mealViewMode.value === 'day' && mealDayExpanded.value && mealFutureDatesWithSessions.value.length > 2
+  )
 
-// STUN 只能幫忙在一般家用 NAT 底下探出對外位址讓兩邊直連；這台電腦在公司網路，
-// 防火牆/企業級 NAT 常常擋掉這種 P2P 直連，這時就需要 TURN 當中繼備援。
-// udp 版本走 3478（優先，延遲較低）；tcp 版本是備援，公司網路如果連 UDP 都整個擋掉，
-// 至少還能靠 TCP 3478 打通（比較慢一點，但至少有聲音）。
-//
-// 實測發現公司網路連 DNS 解析都會失敗（連 Google 的 stun.l.google.com 都解析不出來，
-// 研判是網域白名單機制擋掉了不在清單上的網域），所以 TURN_HOST 這個網域名稱那組很可能
-// 在公司網路完全用不上；因此額外加了 TURN_IP 直接用 IP 位址連，跳過 DNS 這一步。
-// 兩組都放進 ICE_SERVERS，瀏覽器會自動挑能用的那個：DNS 政策哪天鬆綁了，網域那組會自動
-// 生效（而且會跟著 DDNS 自動更新，不用管）；DNS 還是被擋的話，就靠 IP 那組頂著。
-//
-// ⚠️ TURN_IP 是目前的公網 IP，因為是動態 IP，哪天 ISP 換了 IP 給你，這裡要跟著手動更新
-// （跟 turnserver.conf 的 external-ip 要保持一致），不然 IP 這組也會失效。
-const TURN_HOST = 'madustrialtd.asuscomm.com'
-const TURN_IP = '61.227.78.231'
-const TURN_USERNAME = 'holyfarm'
-const TURN_CREDENTIAL = 'changeme123'
-const ICE_SERVERS = [
-  {urls: 'stun:stun.l.google.com:19302'},
-  {urls: `turn:${TURN_HOST}:3478`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
-  {urls: `turn:${TURN_HOST}:3478?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
-  {urls: `turn:${TURN_IP}:3478`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
-  {urls: `turn:${TURN_IP}:3478?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
-  // TURN over TLS，走 443：有些嚴格防火牆（DPI）就算放行 443 的 TCP 連線，
-  // 也會擋掉裡面不是合法 TLS 封包的內容（例如裸的 TURN 協定），偽裝成走 443 但
-  // 沒包 TLS 還是可能連不上。turns: 是真的 TLS 握手，看起來就是一般 HTTPS 流量，
-  // 用這個當最後一層備援。網域跟 IP 都放，邏輯跟上面幾組一樣。
-  {urls: `turns:${TURN_HOST}:443?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
-  {urls: `turns:${TURN_IP}:443?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
-]
+  const mealSessionsByDay = computed(() => (
+    mealDisplayDates.value.map(date => ({
+      date,
+      sessions: mealSessions.value
+        .filter(s => s.date === date)
+        .sort((a, b) => mealTypeOrder(a.mealType) - mealTypeOrder(b.mealType))
+    }))
+  ))
+  const mealHasAnySessions = computed(() => mealSessionsByDay.value.some(day => day.sessions.length > 0))
 
-const broadcastPlaying = ref(false)
-const broadcastFrom = ref('')
-// 有連線、橫幅也出現，但瀏覽器自動播放限制擋下了 audioEl.play()，導致完全沒聲音的情況——
-// 這種通常發生在這台電腦的分頁本身很久沒人點過（例如放著沒人操作的常駐螢幕），瀏覽器就不
-// 允許在沒有「使用者手勢」的情況下自動出聲。擋下時会把這個設 true，畫面上會跳出可以點的
-// 提示，讓現場自己點一下就能解除，不用等重新整理頁面或叫人來處理。
-const broadcastAudioBlocked = ref(false)
-// 目前收到的廣播音訊音量（0～1，粗略值），給畫面顯示小音量計用，證明資料確實有傳過來
-const broadcastAudioLevel = ref(0)
-
-// 訊令 WebSocket 連線狀態，純粹給畫面顯示＋ console 除錯用，不影響功能本身。
-// 主要是為了分辨「完全沒反應」到底是卡在哪一步：
-// - 一直停在 connecting/retrying：代表這台電腦（可能受公司網路/防火牆限制）連不到
-//   /holy/broadcast/ws 這個 WebSocket，要往網路設定或後端反向代理去查
-// - 顯示 connected，但手機廣播時還是沒有畫面反應：代表訊令本身有連上，問題出在後端
-//   沒有把 offer 轉發過來、或是手機端（broadcast.vue）根本沒送出 offer，要往那邊查
-const broadcastWsStatus = ref('idle') // idle | connecting | connected | retrying | error
-const broadcastReconnectCount = ref(0)
-
-let broadcastWs = null
-let broadcastReconnectTimer = null
-// callerId（手機那端的信令連線 id）-> {pc, audioEl, label}
-const broadcastPeers = new Map()
-
-function updateBroadcastBanner() {
-  const active = broadcastPeers.values().next().value
-  broadcastPlaying.value = broadcastPeers.size > 0
-  broadcastFrom.value = active ? active.label : ''
-  if (broadcastPeers.size === 0) {
-    broadcastAudioBlocked.value = false
-    broadcastAudioLevel.value = 0
-  }
-}
-
-function sendBroadcastSignal(payload) {
-  if (broadcastWs && broadcastWs.readyState === WebSocket.OPEN) {
-    broadcastWs.send(JSON.stringify(payload))
-  }
-}
-
-function closeBroadcastPeer(callerId) {
-  const entry = broadcastPeers.get(callerId)
-  if (!entry) return
-  try {
-    entry.pc.close()
-  } catch (e) { /* 忽略 */
-  }
-  if (entry.stopLevelMeter) entry.stopLevelMeter()
-  if (entry.audioEl) {
-    entry.audioEl.pause()
-    entry.audioEl.srcObject = null
-  }
-  broadcastPeers.delete(callerId)
-  updateBroadcastBanner()
-}
-
-// 這個一定要在真正的使用者點擊事件裡「直接」呼叫 play()，才算數（瀏覽器認的是呼叫當下
-// 在不在使用者手勢的呼叫堆疊裡，不是元素本身建立的時間點），所以不能包在其他非同步流程後面。
-function retryBroadcastAudio() {
-  for (const entry of broadcastPeers.values()) {
-    entry.audioEl.play().then(() => {
-      broadcastAudioBlocked.value = false
-    }).catch((err) => {
-      console.error('[broadcast] 手動重試播放仍失敗', err.name, err.message)
-    })
-  }
-}
-
-async function handleBroadcastOffer(msg) {
-  closeBroadcastPeer(msg.from) // 同一支手機重新發 offer（例如重連）時，先收掉舊的連線
-
-  const pc = new RTCPeerConnection({iceServers: ICE_SERVERS})
-  const audioEl = new Audio()
-  audioEl.autoplay = true
-  broadcastPeers.set(msg.from, {pc, audioEl, label: msg.label || ''})
-  updateBroadcastBanner()
-
-  pc.ontrack = (e) => {
-    audioEl.srcObject = e.streams[0]
-    const tracks = e.streams[0].getAudioTracks()
-    console.log('[broadcast] 收到音訊軌', tracks.map(t => ({
-      enabled: t.enabled,
-      muted: t.muted,
-      readyState: t.readyState
-    })))
-    const entry = broadcastPeers.get(msg.from)
-    if (entry) entry.stopLevelMeter = startLevelMeter(e.streams[0], broadcastAudioLevel)
-    audioEl.play().then(() => {
-      broadcastAudioBlocked.value = false
-    }).catch((err) => {
-      // 最常見是 NotAllowedError：瀏覽器自動播放限制擋下，橫幅仍會顯示廣播中但完全沒聲音，
-      // 之前這裡是靜默吞掉完全看不出來——現在會 log 出來，並在畫面跳出可點的提示解除。
-      console.error('[broadcast] audioEl.play() 被擋下', err.name, err.message)
-      if (err.name === 'NotAllowedError') broadcastAudioBlocked.value = true
-    })
-  }
-  pc.onicecandidate = (e) => {
-    if (e.candidate) sendBroadcastSignal({type: 'ice', to: msg.from, candidate: e.candidate})
-  }
-  pc.oniceconnectionstatechange = () => {
-    console.log('[broadcast] ICE 連線狀態', pc.iceConnectionState)
-  }
-  pc.onconnectionstatechange = () => {
-    console.log('[broadcast] 整體連線狀態', pc.connectionState)
-    if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) closeBroadcastPeer(msg.from)
+  // 備菜區塊的每日標題：今日模式直接標示「今天／明天」，本週模式維持只顯示日期，跟 calDayHeaderLabel 同一套規則
+  function mealDayHeaderLabel(date) {
+    if (mealViewMode.value !== 'week') {
+      if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
+      if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
+    }
+    return fmtMDWeekday(date)
   }
 
-  try {
-    await pc.setRemoteDescription(msg.sdp)
-    const answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-    sendBroadcastSignal({type: 'answer', to: msg.from, sdp: pc.localDescription})
-  } catch (e) {
-    console.error(e)
-    closeBroadcastPeer(msg.from)
+  function mealTypeBadgeClass(mealType) {
+    if (mealType === '早餐') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
+    if (mealType === '上午點心') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/30'
+    if (mealType === '午餐') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
+    if (mealType === '下午茶') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border border-pink-200 dark:border-pink-800/30'
+    if (mealType === '晚餐') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30'
+    if (mealType === '宵夜') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/30'
+    return 'bg-surface2 text-hint-c'
   }
-}
 
-async function handleBroadcastSignal(msg) {
-  console.log('[broadcast] 收到訊令訊息', msg.type, msg.from || '')
-  if (msg.type === 'offer') {
-    handleBroadcastOffer(msg)
-  } else if (msg.type === 'ice') {
-    const entry = broadcastPeers.get(msg.from)
-    if (entry && msg.candidate) {
-      try {
-        await entry.pc.addIceCandidate(msg.candidate)
-      } catch (e) { /* 忽略偶爾晚到或重複的 candidate */
+  // 備菜卡片內文：九宮格便當精簡列出 9 格內容，一般餐次列出菜色（含附註）
+  function mealDishSummary(session) {
+    if (session.boxGrid && session.boxGrid.length === 9) return session.boxGrid.join('、')
+    if (session.dishes && session.dishes.length) {
+      return session.dishes.map(d => (d.note ? `${d.name}（${d.note}）` : d.name)).join('、')
+    }
+    return ''
+  }
+
+  function mealServingSummary(session) {
+    if (!session.servingPoints || !session.servingPoints.length) return ''
+    return session.servingPoints
+      .map(sp => `${sp.name || '—'}${sp.count != null ? ' ' + sp.count + '位' : ''}`)
+      .join('　')
+  }
+
+  // 今日行事曆的每日標題：今天／明天直接標示文字，比只看日期清楚；本週行事曆維持只顯示日期
+  function calDayHeaderLabel(date) {
+    if (calViewMode.value !== 'week') {
+      if (date === todayStr) return `今天　${fmtMDWeekday(date)}`
+      if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
+    }
+    return fmtMDWeekday(date)
+  }
+
+  // 事件詳細內容：跟 calendar.vue 一致統一用 description 欄位；Google 的內容可能帶 HTML 標籤，用同一套 stripHtml 去掉再顯示
+  function stripHtml(html) {
+    if (!html) return ''
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+  }
+
+  function calEventDetail(ev) {
+    return stripHtml(ev.description || '')
+  }
+
+  const calWeekRangeLabel = `${fmtMD(calWeekStart)} - ${fmtMD(calWeekEnd)}`
+
+  // 依葷素細項組成簡短標籤，例如「葷2・全素1・蛋奶素1」，用於卡片內每筆訂單顯示
+  function typeBreakdown(item) {
+    const parts = []
+    if (item.meatQty) parts.push(`🍖葷${item.meatQty}`)
+    if (item.fullVegQty) parts.push(`🌿全素${item.fullVegQty}`)
+    if (item.eggVegQty) parts.push(`🥚蛋奶素${item.eggVegQty}`)
+    if (item.spiceVegQty) parts.push(`🧄五辛素${item.spiceVegQty}`)
+    return parts.join('・')
+  }
+
+  // 單筆訂位/包月的總人數（葷素加總）
+  function itemGuestTotal(item) {
+    return (Number(item.meatQty) || 0) + (Number(item.fullVegQty) || 0) + (Number(item.eggVegQty) || 0) + (Number(item.spiceVegQty) || 0)
+  }
+
+  // 容量數字格式化：滿 1000ml 就換算成 L 顯示（例如 8700 -> 8.7L，8000 -> 8L），避免小數字太長
+  function formatVolume(ml) {
+    if (!ml) return '0ml'
+    if (ml >= 1000) {
+      const l = ml / 1000
+      return `${Number.isInteger(l) ? l : l.toFixed(1)}L`
+    }
+    return `${ml}ml`
+  }
+
+  // 豆漿容量明細，例如「800ml×2、1200ml×1」——同一筆訂單可能混搭不同容量
+  function soymilkBreakdownText(item) {
+    const list = item.soymilkBreakdown || []
+    if (!list.length) return item.soymilkQty ? `豆漿${item.soymilkQty}` : ''
+    return list.map(b => `${b.volume}ml×${b.qty}`).join('、')
+  }
+
+  const detailStatusClass = (status) => {
+    switch (status) {
+      case '已確認':
+      case '已入位':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+      case '客戶提出取消':
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+      case '已取消':
+        return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+      default:
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+    }
+  }
+
+  // ── 新訂單通知（SSE 即時推播＋跳出訊息＋提示音）───────────────────────
+  let eventSource = null
+  // 記錄目前已知的訂單內容（不只 ID，連內容一起存，刪除時才有資料可顯示）
+  const knownBookings = new Map()
+  const knownLunches = new Map()
+  const knownSoybeans = new Map()
+
+  const notifications = ref([])
+  let notifySeq = 0
+
+  // 提示音開關（記住使用者偏好；預設開啟，但實際能否播放仍受瀏覽器自動播放限制）
+  const soundEnabled = ref(true)
+
+  function loadSoundPref() {
+    try {
+      const saved = localStorage.getItem('holy_home_sound_enabled')
+      if (saved !== null) soundEnabled.value = saved === '1'
+    } catch (e) { /* 無法讀取偏好時使用預設值 */
+    }
+  }
+
+  function saveSoundPref() {
+    try {
+      localStorage.setItem('holy_home_sound_enabled', soundEnabled.value ? '1' : '0')
+    } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
+    }
+  }
+
+  // 提示音效（叮咚聲，非語音）音量倍率：現場如果覺得叮咚聲蓋不過音樂，可以自己調大聲一點。
+  // 這個只影響 playTones() 產生的音效，不影響語音播報本身——瀏覽器 Web Speech API 的
+  // utter.volume 上限就是 1（100%），沒辦法再往上加大，這是 API 本身的天花板，調這個滑桿沒用。
+  // 範圍刻意允許超過 100%（最高 250%），因為叮咚聲是我們自己用 Web Audio API 產生的波形，
+  // GainNode 的 gain 值本來就不受「1 = 最大」限制，可以放得比原本更大聲（超過某個程度可能會
+  // 聽起來有點破音，現場可以自己抓感覺剛好的位置）。
+  const alertVolume = ref(1.6)
+
+  function loadAlertVolumePref() {
+    try {
+      const saved = localStorage.getItem('holy_home_alert_volume')
+      if (saved !== null) {
+        const n = parseFloat(saved)
+        if (!isNaN(n) && n > 0) alertVolume.value = n
       }
-    }
-  } else if (msg.type === 'bye') {
-    closeBroadcastPeer(msg.from)
-  }
-}
-
-function scheduleBroadcastReconnect() {
-  if (broadcastReconnectTimer) return
-  broadcastReconnectTimer = setTimeout(() => {
-    broadcastReconnectTimer = null
-    connectBroadcastSignaling()
-  }, 3000)
-}
-
-function connectBroadcastSignaling() {
-  if (typeof WebSocket === 'undefined') return
-  broadcastWsStatus.value = broadcastReconnectCount.value > 0 ? 'retrying' : 'connecting'
-  const url = broadcastWsUrl()
-  console.log('[broadcast] 嘗試連線訊令 WebSocket', url, '第', broadcastReconnectCount.value, '次重試')
-  try {
-    broadcastWs = new WebSocket(url)
-  } catch (e) {
-    console.error('[broadcast] 建立 WebSocket 失敗', e)
-    broadcastWsStatus.value = 'error'
-    broadcastReconnectCount.value++
-    scheduleBroadcastReconnect()
-    return
-  }
-  broadcastWs.onopen = () => {
-    console.log('[broadcast] 訊令 WebSocket 已連線')
-    broadcastWsStatus.value = 'connected'
-    broadcastReconnectCount.value = 0
-    sendBroadcastSignal({type: 'hello', role: 'receiver'})
-  }
-  broadcastWs.onmessage = (e) => {
-    try {
-      handleBroadcastSignal(JSON.parse(e.data))
-    } catch (err) { /* 忽略格式異常的訊息 */
+    } catch (e) { /* 無法讀取偏好時使用預設值 */
     }
   }
-  broadcastWs.onclose = (e) => {
-    console.log('[broadcast] 訊令 WebSocket 已斷線，3 秒後重試', 'code=', e.code, 'reason=', e.reason)
-    broadcastWsStatus.value = 'retrying'
-    // 這台主機是常駐收話端，斷線要自動重連，不然之後手機廣播都收不到
-    for (const id of Array.from(broadcastPeers.keys())) closeBroadcastPeer(id)
-    broadcastReconnectCount.value++
-    scheduleBroadcastReconnect()
-  }
-  broadcastWs.onerror = (e) => {
-    // 之前這裡是空的，連線失敗完全看不出來；補上 log 才有辦法判斷是不是被公司網路擋掉
-    console.error('[broadcast] 訊令 WebSocket 發生錯誤', e)
-    broadcastWsStatus.value = 'error'
-  }
-}
 
-function disconnectBroadcastSignaling() {
-  if (broadcastReconnectTimer) {
-    clearTimeout(broadcastReconnectTimer)
-    broadcastReconnectTimer = null
-  }
-  for (const id of Array.from(broadcastPeers.keys())) closeBroadcastPeer(id)
-  if (broadcastWs) {
-    broadcastWs.onclose = null // 卸載頁面時的正常關閉，不用觸發自動重連
+  function saveAlertVolumePref() {
     try {
-      broadcastWs.close()
+      localStorage.setItem('holy_home_alert_volume', String(alertVolume.value))
+    } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
+    }
+  }
+
+  function onAlertVolumeInput(e) {
+    alertVolume.value = parseFloat(e.target.value)
+    saveAlertVolumePref()
+  }
+
+  // ── 設定區塊（可收縮）：定時檢查（輪詢）開關 ─────────────────────────
+  const showSettings = ref(false)
+  const pollEnabled = ref(true)
+
+  function loadPollPref() {
+    try {
+      const saved = localStorage.getItem('holy_home_poll_enabled')
+      if (saved !== null) pollEnabled.value = saved === '1'
+    } catch (e) { /* 無法讀取偏好時使用預設值 */
+    }
+  }
+
+  function savePollPref() {
+    try {
+      localStorage.setItem('holy_home_poll_enabled', pollEnabled.value ? '1' : '0')
+    } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
+    }
+  }
+
+  function togglePoll() {
+    pollEnabled.value = !pollEnabled.value
+    savePollPref()
+  }
+
+  // ── 設定區塊：是否接收內場語音廣播（有些裝置/畫面不需要放出聲音，可以關掉）───
+  const broadcastReceiveEnabled = ref(true)
+
+  function loadBroadcastReceivePref() {
+    try {
+      const saved = localStorage.getItem('holy_home_broadcast_receive_enabled')
+      if (saved !== null) broadcastReceiveEnabled.value = saved === '1'
+    } catch (e) { /* 無法讀取偏好時使用預設值 */
+    }
+  }
+
+  function saveBroadcastReceivePref() {
+    try {
+      localStorage.setItem('holy_home_broadcast_receive_enabled', broadcastReceiveEnabled.value ? '1' : '0')
+    } catch (e) { /* 無痕模式等情況可能無法儲存，忽略即可 */
+    }
+  }
+
+  function toggleBroadcastReceive() {
+    broadcastReceiveEnabled.value = !broadcastReceiveEnabled.value
+    saveBroadcastReceivePref()
+    if (broadcastReceiveEnabled.value) {
+      connectBroadcastSignaling()
+    } else {
+      disconnectBroadcastSignaling() // 立刻斷開信令連線＋收掉任何正在播放的廣播，不用等重新整理頁面
+    }
+  }
+
+  // 瀏覽器多半要求先有使用者互動才允許播放音效，先建立/解鎖 AudioContext
+  let audioCtx = null
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext
+      if (AudioCtxClass) audioCtx = new AudioCtxClass()
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {
+    })
+    return audioCtx
+  }
+
+  function unlockAudio() {
+    getAudioCtx()
+    primeSpeech()
+  }
+
+  // 接一個 MediaStream，持續量測音量大小寫進 levelRef（0～1，粗略 RMS），回傳一個停止函式。
+  // 用途：證明「聲音資料真的有傳過來」跟「傳過來但這台放不出聲音」是兩件不同的事——
+  // 如果這個量表會跳，代表 WebRTC 音訊資料確實收到了，問題就出在這台電腦的喇叭/音量/
+  // 輸出裝置設定，不是連線或程式的問題；如果完全不跳，才需要往連線本身去查。
+  function startLevelMeter(stream, levelRef) {
+    try {
+      const ctx = getAudioCtx()
+      if (!ctx) return null
+      const source = ctx.createMediaStreamSource(stream)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 512
+      source.connect(analyser) // 只接來做分析，不接 destination，不會因此多播放一次聲音
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      let rafId = null
+      const tick = () => {
+        analyser.getByteTimeDomainData(data)
+        let sumSquares = 0
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128
+          sumSquares += v * v
+        }
+        levelRef.value = Math.sqrt(sumSquares / data.length)
+        rafId = requestAnimationFrame(tick)
+      }
+      tick()
+      return () => {
+        if (rafId) cancelAnimationFrame(rafId)
+        try {
+          source.disconnect()
+        } catch (e) { /* 忽略 */
+        }
+        try {
+          analyser.disconnect()
+        } catch (e) { /* 忽略 */
+        }
+      }
+    } catch (e) {
+      console.error('[broadcast] 無法建立音量偵測', e)
+      return null
+    }
+  }
+
+  function playTones(tones, waveType) {
+    try {
+      const ctx = getAudioCtx()
+      if (!ctx) return
+      // 基準峰值音量 0.5，再乘上使用者設定的 alertVolume 倍率（預設 1.6 倍，比原本更大聲）；
+      // GainNode 允許超過 1，所以倍率拉高真的會比「音量開到最大」更大聲，不是無效設定。
+      const peak = 0.5 * alertVolume.value
+      tones.forEach((freq, i) => {
+        const start = ctx.currentTime + i * 0.18
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = waveType
+        osc.frequency.setValueAtTime(freq, start)
+        gain.gain.setValueAtTime(0.0001, start)
+        gain.gain.exponentialRampToValueAtTime(peak, start + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.44)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(start)
+        osc.stop(start + 0.46)
+      })
+    } catch (e) { /* 音效播放失敗不影響其他功能 */
+    }
+  }
+
+  // 新訂單：明亮上揚的四音「叮咚叮咚」
+  function playCreateSound() {
+    playTones([880, 1046, 880, 1318], 'sine')
+  }
+
+  // 刪除訂單：低沉下降的兩音，跟新訂單的音效明顯不同
+  function playDeleteSound() {
+    playTones([523, 349], 'triangle')
+  }
+
+  // ── 語音播報新訂單（瀏覽器內建 Web Speech API，不需要額外服務）───────────
+  function primeSpeech() {
+    // 部分瀏覽器（尤其 Chrome）需要先有一次使用者互動才願意播放語音，這裡先「唸」一個空字串預熱
+    try {
+      if (!window.speechSynthesis) return
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(''))
     } catch (e) { /* 忽略 */
     }
-    broadcastWs = null
   }
-  broadcastWsStatus.value = 'idle'
-  broadcastReconnectCount.value = 0
-}
 
-// ── 定時輪詢備援（SSE 推播目前不穩，後端暫時不能動，先在前端加保險）───────
-// 每隔固定秒數主動打一次 /today 跟本地已知清單比對，邏輯跟 SSE 收到事件時完全共用 syncNewOrders()，
-// 有差異（新增／刪除／入位）才會跳通知＋語音，沒差異就悄悄結束，不會有重複或多餘的提示。
-const POLL_INTERVAL_MS = 20000
-let pollTimer = null
-
-function startPolling() {
-  stopPolling()
-  pollTimer = setInterval(() => {
-    if (pollEnabled.value) syncNewOrders()
-  }, POLL_INTERVAL_MS)
-}
-
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
+  function speakText(text) {
+    try {
+      if (!window.speechSynthesis || !text) return
+      const utter = new SpeechSynthesisUtterance(text)
+      utter.lang = 'zh-TW'
+      utter.rate = 1
+      // utter.volume 的合法範圍是 0～1，1 已經是 Web Speech API 允許的最大值，沒辦法再往上加大；
+      // 如果語音本身聽起來還是太小聲，只能透過拉高叮咚提示音（alertVolume）先抓住注意力，
+      // 或是調整這台電腦本身的系統音量/瀏覽器分頁音量。
+      utter.volume = 1
+      window.speechSynthesis.speak(utter)
+    } catch (e) { /* 語音播放失敗不影響其他功能 */
+    }
   }
-}
 
-// ── 手動刷新按鈕（保底用，萬一 SSE 跟定時輪詢都剛好失敗，員工可以自己按一下）───
-const refreshing = ref(false)
-
-async function refreshNow() {
-  if (refreshing.value) return
-  refreshing.value = true
-  try {
-    await syncNewOrders() // 跟 SSE／輪詢共用同一套比對邏輯，有差異才會跳通知＋語音
-    if (weekSummary.value) await fetchWeek()
-  } finally {
-    refreshing.value = false
+  // 時間唸法，例如 "12:00" → "12點"，"12:30" → "12點30分"
+  function timeToSpoken(t) {
+    if (!t) return ''
+    const [h, m] = t.split(':').map(Number)
+    if (Number.isNaN(h)) return t
+    return m ? `${h}點${m}分` : `${h}點`
   }
-}
 
-// ── 行事曆顏色 ────────────────────────────────────────────────────
-const calTypeColor = {醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb'}
-// 建築分類：優先用 building 欄位，舊資料 type 直接就是建築分類值時當備援
-const calEventBuilding = ev => ev.source === 'google' ? '' : (ev.building || ev.type)
-const calChipBg = ev => ev.source === 'google'
-  ? '#dbeafe'
-  : ({
-    醫院: '#fee2e2',
-    園區: '#dcfce7',
-    芳心: '#fce7f3'
-  }[calEventBuilding(ev)] || '#f0f0f0')
-const calChipText = ev => ev.source === 'google' ? '#1d4ed8' : (calTypeColor[calEventBuilding(ev)] || '#555')
-const calBarColor = ev => ev.source === 'google' ? '#2563eb' : (calTypeColor[calEventBuilding(ev)] || '#ccc')
-const calBadgeLabel = ev => ev.source === 'google' ? 'Google' : (calEventBuilding(ev) || '院內')
+  // 訂位／便當的葷素細項唸法，例如「葷2位、全素1位」或「葷便當2個、全素便當1個」
+  function spokenTypeBreakdown(item, unit) {
+    const parts = []
+    if (item.meatQty) parts.push(`葷${unit}${item.meatQty}`)
+    if (item.fullVegQty) parts.push(`全素${unit}${item.fullVegQty}`)
+    if (item.eggVegQty) parts.push(`蛋奶素${unit}${item.eggVegQty}`)
+    if (item.spiceVegQty) parts.push(`五辛素${unit}${item.spiceVegQty}`)
+    return parts.join('、')
+  }
 
-async function fetchToday() {
-  loading.value = true
-  try {
-    // 本週可能跨月（例如週一在上個月），系統行事曆 API 是按月查詢，兩個月不同就都抓；
-    // 範圍也要涵蓋到明天（fetchRangeEnd），保底處理「今天是週日、明天跨到下週/下個月」的情況
-    const startMonth = calWeekStart.slice(0, 7)
-    const endMonth = fetchRangeEnd.slice(0, 7)
-    const months = startMonth === endMonth ? [startMonth] : [startMonth, endMonth]
+  function bookingSpokenText(item, prefix = '新訂位') {
+    const detail = spokenTypeBreakdown(item, '') || '尚未填寫數量'
+    const timeText = timeToSpoken(item.time)
+    const nameText = item.name || '未填姓名'
+    const noteText = item.note ? `，備註：${item.note}` : ''
+    return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}位${noteText}`
+  }
 
-    const homePromise = fetch(`${HOME_BASE()}/today`, {credentials: 'include'})
-    const calPromises = months.map(ym => fetch(`${CAL_BASE()}/list?yearMonth=${ym}`))
-    // 包月訂位（recurring）是照月份存的，跟行事曆一樣可能跨月，兩個月都要抓
-    const recurPromises = months.map(ym => fetch(`${RECUR_BASE()}/list/${ym}`, {credentials: 'include'}))
+  function lunchSpokenText(item, prefix = '新便當訂單') {
+    const parts = []
+    if (item.meatQty) parts.push(`葷便當${item.meatQty}個`)
+    if (item.fullVegQty) parts.push(`全素便當${item.fullVegQty}個`)
+    if (item.eggVegQty) parts.push(`蛋奶素便當${item.eggVegQty}個`)
+    if (item.spiceVegQty) parts.push(`五辛素便當${item.spiceVegQty}個`)
+    const detail = parts.join('、') || '尚未填寫數量'
+    const timeText = timeToSpoken(item.time)
+    const nameText = item.name || '未填姓名'
+    const noteText = item.note ? `，備註：${item.note}` : ''
+    return `${prefix}，${nameText}，${timeText ? timeText + '，' : ''}${detail}${noteText}`
+  }
 
-    let googlePromise = Promise.resolve(null)
-    if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
-      // 直接抓「本週＋明天」涵蓋的範圍，今日／明日／本週事件都落在裡面，一次抓夠三種檢視模式用
-      const timeMin = encodeURIComponent(new Date(`${calWeekStart}T00:00:00`).toISOString())
-      const timeMax = encodeURIComponent(new Date(`${fetchRangeEnd}T23:59:59`).toISOString())
-      const gUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
-        + `?key=${GOOGLE_API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=100`
-      googlePromise = fetch(gUrl).catch(() => null)
+  function soybeanSpokenText(item, prefix = '新豆製品訂購') {
+    const parts = []
+    for (const b of (item.soymilkBreakdown || [])) {
+      parts.push(`豆漿${b.volume}毫升${b.qty}袋`)
     }
+    if (item.tofuQty) parts.push(`豆腐${item.tofuQty}塊`)
+    const detail = parts.join('、') || '尚未填寫數量'
+    const nameText = item.name || '未填姓名'
+    return `${prefix}，${nameText}，${detail}`
+  }
 
-    const [homeRes, calResults, recurResults, gRes] = await Promise.all([
-      homePromise,
-      Promise.all(calPromises),
-      Promise.all(recurPromises),
-      googlePromise
-    ])
-    if (homeRes?.ok) daySummary.value = await homeRes.json()
-
-    const recurRules = []
-    for (const rRes of recurResults) {
-      if (!rRes.ok) continue
-      const monthRules = await rRes.json()
-      recurRules.push(...monthRules)
+  function toggleSound() {
+    soundEnabled.value = !soundEnabled.value
+    saveSoundPref()
+    if (soundEnabled.value) {
+      unlockAudio()
+      // 依序播兩種聲音，讓使用者一次聽出新訂單／刪除的差異
+      playCreateSound()
+      setTimeout(playDeleteSound, 1050)
+      setTimeout(() => speakText('新訂位，王先生，12點，葷2位'), 1700)
+      setTimeout(() => speakText('訂位取消，王先生，12點，葷2位'), 3500)
     }
-    recurringRules.value = recurRules
+  }
 
-    const sysEvents = []
-    for (const cRes of calResults) {
-      if (!cRes.ok) continue
-      const monthEvents = await cRes.json()
-      // 首頁行事曆只顯示「園區」建築分類的活動；新資料是 type=院內 + building=園區，
-      // 舊資料（尚未重新儲存）type 可能直接就是園區，兩種都判斷相容
-      sysEvents.push(...monthEvents.filter(e => (e.building || e.type) === '園區'))
-    }
+  function pushNotification(icon, title, detail, tab) {
+    const id = ++notifySeq
+    notifications.value.push({id, icon, title, detail, tab})
+    setTimeout(() => {
+      notifications.value = notifications.value.filter(n => n.id !== id)
+    }, 8000)
+  }
 
-    let gEvents = []
-    if (gRes?.ok) {
-      const gData = await gRes.json()
-      gEvents = (gData.items || []).map((item) => {
-        const isAllDay = !!item.start?.date
-        const startRaw = isAllDay ? item.start.date : item.start?.dateTime
-        const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
-        const date = startRaw ? startRaw.slice(0, 10) : ''
-        let time = ''
-        if (!isAllDay && startRaw) {
-          const s = new Date(startRaw)
-          const e = endRaw ? new Date(endRaw) : null
-          const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-          time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+  function dismissNotification(id) {
+    notifications.value = notifications.value.filter(n => n.id !== id)
+  }
+
+  function openNotification(n) {
+    viewMode.value = 'day'
+    dismissNotification(n.id)
+  }
+
+  const qtyOf = (item) => (item.meatQty || 0) + (item.fullVegQty || 0) + (item.eggVegQty || 0) + (item.spiceVegQty || 0)
+
+  // 判斷同一筆訂位／便當訂單，內容是否有被編輯過（姓名/時間/狀態/葷素數量/備註任一有變），
+  // 用來在「已入位」以外的一般編輯（例如改時間、改數量）時也跳通知＋語音
+  function bookingSnapshotEqual(a, b) {
+    return a.name === b.name && a.time === b.time && a.status === b.status &&
+      a.meatQty === b.meatQty && a.fullVegQty === b.fullVegQty &&
+      a.eggVegQty === b.eggVegQty && a.spiceVegQty === b.spiceVegQty &&
+      (a.note || '') === (b.note || '')
+  }
+
+  function lunchSnapshotEqual(a, b) {
+    return a.name === b.name && a.time === b.time && a.status === b.status &&
+      a.meatQty === b.meatQty && a.fullVegQty === b.fullVegQty &&
+      a.eggVegQty === b.eggVegQty && a.spiceVegQty === b.spiceVegQty &&
+      (a.note || '') === (b.note || '')
+  }
+
+  function syncKnownItems(data) {
+    knownBookings.clear()
+    ;(data?.booking?.items ?? []).forEach(i => knownBookings.set(i.id, i))
+    knownLunches.clear()
+    ;(data?.lunch?.items ?? []).forEach(i => knownLunches.set(i.id, i))
+    knownSoybeans.clear()
+    ;(data?.soybean?.items ?? []).forEach(i => knownSoybeans.set(i.id, i))
+  }
+
+  async function syncNewOrders() {
+    try {
+      const res = await fetch(`${HOME_BASE()}/today`, {credentials: 'include'})
+      if (!res.ok) return
+      const data = await res.json()
+
+      const newBookings = data?.booking?.items ?? []
+      const newLunches = data?.lunch?.items ?? []
+      const newSoybeans = data?.soybean?.items ?? []
+      const newBookingIds = new Set(newBookings.map(i => i.id))
+      const newLunchIds = new Set(newLunches.map(i => i.id))
+      const newSoybeanIds = new Set(newSoybeans.map(i => i.id))
+      let gotCreated = false
+      let gotDeleted = false
+      let gotCheckedIn = false
+      let gotModified = false
+      const spokenPhrases = []
+      const spokenModifiedPhrases = []
+
+      // 新增／已入位／一般編輯（改時間、改數量等，跟已入位分開處理，避免重複跳兩次通知）
+      for (const item of newBookings) {
+        const prev = knownBookings.get(item.id)
+        if (!prev) {
+          gotCreated = true
+          pushNotification('🍽️', '新訂位', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+          spokenPhrases.push(bookingSpokenText(item))
+        } else if (prev.status !== '已入位' && item.status === '已入位') {
+          gotCheckedIn = true
+          pushNotification('🪑', '訂位已入位', `${item.name || '未填姓名'}　${item.time || ''}`, 'booking')
+          spokenPhrases.push(`${item.name || '未填姓名'}，已入位`)
+        } else if (!bookingSnapshotEqual(prev, item)) {
+          gotModified = true
+          pushNotification('✏️', '訂位異動', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+          spokenModifiedPhrases.push(bookingSpokenText(item, '訂位異動'))
         }
-        return {
-          id: item.id, date, time, title: item.summary || '（無標題）',
-          allDay: isAllDay,
-          type: 'Google', source: 'google', googleLink: item.htmlLink || '', description: item.description || ''
+      }
+      for (const item of newLunches) {
+        const prev = knownLunches.get(item.id)
+        if (!prev) {
+          gotCreated = true
+          pushNotification('🍱', '新便當訂單', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+          spokenPhrases.push(lunchSpokenText(item))
+        } else if (!lunchSnapshotEqual(prev, item)) {
+          gotModified = true
+          pushNotification('✏️', '便當訂單異動', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+          spokenModifiedPhrases.push(lunchSpokenText(item, '便當訂單異動'))
         }
+      }
+      for (const item of newSoybeans) {
+        if (!knownSoybeans.has(item.id)) {
+          gotCreated = true
+          const parts = []
+          const soyText = soymilkBreakdownText(item)
+          if (soyText) parts.push(`豆漿 ${soyText}`)
+          if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
+          pushNotification('🥛', '新豆製品訂購', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
+          spokenPhrases.push(soybeanSpokenText(item))
+        }
+      }
+
+      // 刪除（用刪除前記住的內容顯示，因為新資料裡已經沒有這筆了）
+      const spokenDeletePhrases = []
+      for (const [id, item] of knownBookings) {
+        if (!newBookingIds.has(id)) {
+          gotDeleted = true
+          pushNotification('🗑️', '訂位已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '人'}`, 'booking')
+          spokenDeletePhrases.push(bookingSpokenText(item, '訂位取消'))
+        }
+      }
+      for (const [id, item] of knownLunches) {
+        if (!newLunchIds.has(id)) {
+          gotDeleted = true
+          pushNotification('🗑️', '便當訂單已刪除', `${item.name || '未填姓名'}　${item.time || ''}　${typeBreakdown(item) || qtyOf(item) + '個'}`, 'lunch')
+          spokenDeletePhrases.push(lunchSpokenText(item, '便當訂單取消'))
+        }
+      }
+      for (const [id, item] of knownSoybeans) {
+        if (!newSoybeanIds.has(id)) {
+          gotDeleted = true
+          const parts = []
+          const soyText = soymilkBreakdownText(item)
+          if (soyText) parts.push(`豆漿 ${soyText}`)
+          if (item.tofuQty) parts.push(`豆腐${item.tofuQty}`)
+          pushNotification('🗑️', '豆製品訂購已刪除', `${item.name || '未填姓名'}　${parts.join('・')}`, 'soybean')
+          spokenDeletePhrases.push(soybeanSpokenText(item, '豆製品訂購取消'))
+        }
+      }
+
+      syncKnownItems(data)
+
+      const gotPositive = gotCreated || gotCheckedIn || gotModified
+      if (gotPositive || gotDeleted) {
+        if (soundEnabled.value) {
+          if (gotPositive) playCreateSound()
+          if (gotDeleted) setTimeout(playDeleteSound, gotPositive ? 520 : 0)
+          const allPhrases = [...spokenPhrases, ...spokenModifiedPhrases, ...spokenDeletePhrases]
+          if (allPhrases.length) {
+            // 等提示音都播完再開始念，語音本身會自動排隊依序念完，不用逐句手動間隔
+            const chimeDuration = gotDeleted && gotPositive ? 1050 : 650
+            setTimeout(() => allPhrases.forEach(speakText), chimeDuration)
+          }
+        }
+        if (viewMode.value === 'day') daySummary.value = data
+        if (weekSummary.value) fetchWeek()
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  function connectStream() {
+    if (typeof EventSource === 'undefined') return
+    // 直接連後端原始網址（commonStore.data.just_url），刻意避開 main_url 的 /api 反向代理：
+    // 這條 proxy 在 Netlify 上是跑在 serverless function 裡，函式執行有逾時限制，撐不住
+    // 「大部分時間閒置、只在有新訂單時才推播」的長連線，本地開發沒有這層代理限制才會正常。
+    // 這條 stream 只推播 "category:action" 這種通用事件、不含任何個資，不需要帶 cookie，
+    // 所以直接跨網域連過去即可，後端只要開放 CORS（不需要 withCredentials）。
+    eventSource = new EventSource(`${commonStore.data.just_url}/holy/home/stream`)
+    eventSource.addEventListener('order', () => {
+      syncNewOrders()
+    })
+    // 連線出錯時瀏覽器會自動重連，這裡只需記錄，不用手動處理
+    eventSource.onerror = () => {
+    }
+  }
+
+  function disconnectStream() {
+    if (eventSource) {
+      eventSource.close()
+      eventSource = null
+    }
+  }
+
+  // ── 內場語音廣播（WebRTC，接近即時）─────────────────────────────────────
+  // 這台主機（收話端）常駐連著信令 WebSocket；手機按下開始廣播時會連過來，兩邊
+  // 透過這條 WebSocket 交換 WebRTC 的 offer/answer/ICE，談好之後音訊直接走瀏覽器
+  // 內建的點對點連線播放，不再經過伺服器中繼、也不用切段錄音上傳，延遲降到接近
+  // 即時（只受 WebRTC 本身的網路延遲影響）。
+  //
+  // 跟訂單通知走不同的連線（/holy/broadcast/ws），原因跟上面的訂單 SSE 一樣：
+  // 要避開 main_url 的 /api 反向代理（對長連線不友善），所以直接連 just_url。
+  const broadcastWsUrl = () => commonStore.data.just_url.replace(/^http/, 'ws') + '/holy/broadcast/ws'
+
+  // STUN 只能幫忙在一般家用 NAT 底下探出對外位址讓兩邊直連；這台電腦在公司網路，
+  // 防火牆/企業級 NAT 常常擋掉這種 P2P 直連，這時就需要 TURN 當中繼備援。
+  // udp 版本走 3478（優先，延遲較低）；tcp 版本是備援，公司網路如果連 UDP 都整個擋掉，
+  // 至少還能靠 TCP 3478 打通（比較慢一點，但至少有聲音）。
+  //
+  // 實測發現公司網路連 DNS 解析都會失敗（連 Google 的 stun.l.google.com 都解析不出來，
+  // 研判是網域白名單機制擋掉了不在清單上的網域），所以 TURN_HOST 這個網域名稱那組很可能
+  // 在公司網路完全用不上；因此額外加了 TURN_IP 直接用 IP 位址連，跳過 DNS 這一步。
+  // 兩組都放進 ICE_SERVERS，瀏覽器會自動挑能用的那個：DNS 政策哪天鬆綁了，網域那組會自動
+  // 生效（而且會跟著 DDNS 自動更新，不用管）；DNS 還是被擋的話，就靠 IP 那組頂著。
+  //
+  // ⚠️ TURN_IP 是目前的公網 IP，因為是動態 IP，哪天 ISP 換了 IP 給你，這裡要跟著手動更新
+  // （跟 turnserver.conf 的 external-ip 要保持一致），不然 IP 這組也會失效。
+  const TURN_HOST = 'madustrialtd.asuscomm.com'
+  const TURN_IP = '61.227.78.231'
+  const TURN_USERNAME = 'holyfarm'
+  const TURN_CREDENTIAL = 'changeme123'
+  const ICE_SERVERS = [
+    {urls: 'stun:stun.l.google.com:19302'},
+    {urls: `turn:${TURN_HOST}:3478`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+    {urls: `turn:${TURN_HOST}:3478?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+    {urls: `turn:${TURN_IP}:3478`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+    {urls: `turn:${TURN_IP}:3478?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+    // TURN over TLS，走 443：有些嚴格防火牆（DPI）就算放行 443 的 TCP 連線，
+    // 也會擋掉裡面不是合法 TLS 封包的內容（例如裸的 TURN 協定），偽裝成走 443 但
+    // 沒包 TLS 還是可能連不上。turns: 是真的 TLS 握手，看起來就是一般 HTTPS 流量，
+    // 用這個當最後一層備援。網域跟 IP 都放，邏輯跟上面幾組一樣。
+    {urls: `turns:${TURN_HOST}:443?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+    {urls: `turns:${TURN_IP}:443?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL},
+  ]
+
+  const broadcastPlaying = ref(false)
+  const broadcastFrom = ref('')
+  // 有連線、橫幅也出現，但瀏覽器自動播放限制擋下了 audioEl.play()，導致完全沒聲音的情況——
+  // 這種通常發生在這台電腦的分頁本身很久沒人點過（例如放著沒人操作的常駐螢幕），瀏覽器就不
+  // 允許在沒有「使用者手勢」的情況下自動出聲。擋下時会把這個設 true，畫面上會跳出可以點的
+  // 提示，讓現場自己點一下就能解除，不用等重新整理頁面或叫人來處理。
+  const broadcastAudioBlocked = ref(false)
+  // 目前收到的廣播音訊音量（0～1，粗略值），給畫面顯示小音量計用，證明資料確實有傳過來
+  const broadcastAudioLevel = ref(0)
+
+  // 訊令 WebSocket 連線狀態，純粹給畫面顯示＋ console 除錯用，不影響功能本身。
+  // 主要是為了分辨「完全沒反應」到底是卡在哪一步：
+  // - 一直停在 connecting/retrying：代表這台電腦（可能受公司網路/防火牆限制）連不到
+  //   /holy/broadcast/ws 這個 WebSocket，要往網路設定或後端反向代理去查
+  // - 顯示 connected，但手機廣播時還是沒有畫面反應：代表訊令本身有連上，問題出在後端
+  //   沒有把 offer 轉發過來、或是手機端（broadcast.vue）根本沒送出 offer，要往那邊查
+  const broadcastWsStatus = ref('idle') // idle | connecting | connected | retrying | error
+  const broadcastReconnectCount = ref(0)
+
+  let broadcastWs = null
+  let broadcastReconnectTimer = null
+  // callerId（手機那端的信令連線 id）-> {pc, audioEl, label}
+  const broadcastPeers = new Map()
+
+  function updateBroadcastBanner() {
+    const active = broadcastPeers.values().next().value
+    broadcastPlaying.value = broadcastPeers.size > 0
+    broadcastFrom.value = active ? active.label : ''
+    if (broadcastPeers.size === 0) {
+      broadcastAudioBlocked.value = false
+      broadcastAudioLevel.value = 0
+    }
+  }
+
+  function sendBroadcastSignal(payload) {
+    if (broadcastWs && broadcastWs.readyState === WebSocket.OPEN) {
+      broadcastWs.send(JSON.stringify(payload))
+    }
+  }
+
+  function closeBroadcastPeer(callerId) {
+    const entry = broadcastPeers.get(callerId)
+    if (!entry) return
+    try {
+      entry.pc.close()
+    } catch (e) { /* 忽略 */
+    }
+    if (entry.stopLevelMeter) entry.stopLevelMeter()
+    if (entry.audioEl) {
+      entry.audioEl.pause()
+      entry.audioEl.srcObject = null
+    }
+    broadcastPeers.delete(callerId)
+    updateBroadcastBanner()
+  }
+
+  // 這個一定要在真正的使用者點擊事件裡「直接」呼叫 play()，才算數（瀏覽器認的是呼叫當下
+  // 在不在使用者手勢的呼叫堆疊裡，不是元素本身建立的時間點），所以不能包在其他非同步流程後面。
+  function retryBroadcastAudio() {
+    for (const entry of broadcastPeers.values()) {
+      entry.audioEl.play().then(() => {
+        broadcastAudioBlocked.value = false
+      }).catch((err) => {
+        console.error('[broadcast] 手動重試播放仍失敗', err.name, err.message)
       })
     }
-    allEvents.value = [...sysEvents, ...gEvents].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
   }
-}
 
-async function fetchWeek() {
-  loadingWeek.value = true
-  try {
-    const res = await fetch(`${HOME_BASE()}/week?date=${todayStr}`, {credentials: 'include'})
-    if (res.ok) weekSummary.value = await res.json()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loadingWeek.value = false
+  async function handleBroadcastOffer(msg) {
+    closeBroadcastPeer(msg.from) // 同一支手機重新發 offer（例如重連）時，先收掉舊的連線
+
+    const pc = new RTCPeerConnection({iceServers: ICE_SERVERS})
+    const audioEl = new Audio()
+    audioEl.autoplay = true
+    broadcastPeers.set(msg.from, {pc, audioEl, label: msg.label || ''})
+    updateBroadcastBanner()
+
+    pc.ontrack = (e) => {
+      audioEl.srcObject = e.streams[0]
+      const tracks = e.streams[0].getAudioTracks()
+      console.log('[broadcast] 收到音訊軌', tracks.map(t => ({
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState
+      })))
+      const entry = broadcastPeers.get(msg.from)
+      if (entry) entry.stopLevelMeter = startLevelMeter(e.streams[0], broadcastAudioLevel)
+      audioEl.play().then(() => {
+        broadcastAudioBlocked.value = false
+      }).catch((err) => {
+        // 最常見是 NotAllowedError：瀏覽器自動播放限制擋下，橫幅仍會顯示廣播中但完全沒聲音，
+        // 之前這裡是靜默吞掉完全看不出來——現在會 log 出來，並在畫面跳出可點的提示解除。
+        console.error('[broadcast] audioEl.play() 被擋下', err.name, err.message)
+        if (err.name === 'NotAllowedError') broadcastAudioBlocked.value = true
+      })
+    }
+    pc.onicecandidate = (e) => {
+      if (e.candidate) sendBroadcastSignal({type: 'ice', to: msg.from, candidate: e.candidate})
+    }
+    pc.oniceconnectionstatechange = () => {
+      console.log('[broadcast] ICE 連線狀態', pc.iceConnectionState)
+    }
+    pc.onconnectionstatechange = () => {
+      console.log('[broadcast] 整體連線狀態', pc.connectionState)
+      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) closeBroadcastPeer(msg.from)
+    }
+
+    try {
+      await pc.setRemoteDescription(msg.sdp)
+      const answer = await pc.createAnswer()
+      await pc.setLocalDescription(answer)
+      sendBroadcastSignal({type: 'answer', to: msg.from, sdp: pc.localDescription})
+    } catch (e) {
+      console.error(e)
+      closeBroadcastPeer(msg.from)
+    }
   }
-}
 
-function switchView(mode) {
-  if (viewMode.value === mode) return
-  viewMode.value = mode
-  if (mode === 'week' && !weekSummary.value) fetchWeek()
-}
+  async function handleBroadcastSignal(msg) {
+    console.log('[broadcast] 收到訊令訊息', msg.type, msg.from || '')
+    if (msg.type === 'offer') {
+      handleBroadcastOffer(msg)
+    } else if (msg.type === 'ice') {
+      const entry = broadcastPeers.get(msg.from)
+      if (entry && msg.candidate) {
+        try {
+          await entry.pc.addIceCandidate(msg.candidate)
+        } catch (e) { /* 忽略偶爾晚到或重複的 candidate */
+        }
+      }
+    } else if (msg.type === 'bye') {
+      closeBroadcastPeer(msg.from)
+    }
+  }
 
-// ── 快速新增（訂位／便當，一律新增在「今天」）───────────────────────────
-const quickModal = reactive({show: false, type: 'booking'}) // type: 'booking' | 'lunch'
-const quickSaving = ref(false)
-const qForm = reactive({
-  name: '', time: '12:00',
-  meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
-})
+  function scheduleBroadcastReconnect() {
+    if (broadcastReconnectTimer) return
+    broadcastReconnectTimer = setTimeout(() => {
+      broadcastReconnectTimer = null
+      connectBroadcastSignaling()
+    }, 3000)
+  }
 
-const quickTitle = computed(() => (quickModal.type === 'lunch' ? '新增便當訂單' : '新增訂位'))
+  function connectBroadcastSignaling() {
+    if (typeof WebSocket === 'undefined') return
+    broadcastWsStatus.value = broadcastReconnectCount.value > 0 ? 'retrying' : 'connecting'
+    const url = broadcastWsUrl()
+    console.log('[broadcast] 嘗試連線訊令 WebSocket', url, '第', broadcastReconnectCount.value, '次重試')
+    try {
+      broadcastWs = new WebSocket(url)
+    } catch (e) {
+      console.error('[broadcast] 建立 WebSocket 失敗', e)
+      broadcastWsStatus.value = 'error'
+      broadcastReconnectCount.value++
+      scheduleBroadcastReconnect()
+      return
+    }
+    broadcastWs.onopen = () => {
+      console.log('[broadcast] 訊令 WebSocket 已連線')
+      broadcastWsStatus.value = 'connected'
+      broadcastReconnectCount.value = 0
+      sendBroadcastSignal({type: 'hello', role: 'receiver'})
+    }
+    broadcastWs.onmessage = (e) => {
+      try {
+        handleBroadcastSignal(JSON.parse(e.data))
+      } catch (err) { /* 忽略格式異常的訊息 */
+      }
+    }
+    broadcastWs.onclose = (e) => {
+      console.log('[broadcast] 訊令 WebSocket 已斷線，3 秒後重試', 'code=', e.code, 'reason=', e.reason)
+      broadcastWsStatus.value = 'retrying'
+      // 這台主機是常駐收話端，斷線要自動重連，不然之後手機廣播都收不到
+      for (const id of Array.from(broadcastPeers.keys())) closeBroadcastPeer(id)
+      broadcastReconnectCount.value++
+      scheduleBroadcastReconnect()
+    }
+    broadcastWs.onerror = (e) => {
+      // 之前這裡是空的，連線失敗完全看不出來；補上 log 才有辦法判斷是不是被公司網路擋掉
+      console.error('[broadcast] 訊令 WebSocket 發生錯誤', e)
+      broadcastWsStatus.value = 'error'
+    }
+  }
 
-function openQuickAdd(type) {
-  quickModal.type = type
-  Object.assign(qForm, {
+  function disconnectBroadcastSignaling() {
+    if (broadcastReconnectTimer) {
+      clearTimeout(broadcastReconnectTimer)
+      broadcastReconnectTimer = null
+    }
+    for (const id of Array.from(broadcastPeers.keys())) closeBroadcastPeer(id)
+    if (broadcastWs) {
+      broadcastWs.onclose = null // 卸載頁面時的正常關閉，不用觸發自動重連
+      try {
+        broadcastWs.close()
+      } catch (e) { /* 忽略 */
+      }
+      broadcastWs = null
+    }
+    broadcastWsStatus.value = 'idle'
+    broadcastReconnectCount.value = 0
+  }
+
+  // ── 定時輪詢備援（SSE 推播目前不穩，後端暫時不能動，先在前端加保險）───────
+  // 每隔固定秒數主動打一次 /today 跟本地已知清單比對，邏輯跟 SSE 收到事件時完全共用 syncNewOrders()，
+  // 有差異（新增／刪除／入位）才會跳通知＋語音，沒差異就悄悄結束，不會有重複或多餘的提示。
+  const POLL_INTERVAL_MS = 20000
+  let pollTimer = null
+
+  function startPolling() {
+    stopPolling()
+    pollTimer = setInterval(() => {
+      if (pollEnabled.value) syncNewOrders()
+    }, POLL_INTERVAL_MS)
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  // ── 手動刷新按鈕（保底用，萬一 SSE 跟定時輪詢都剛好失敗，員工可以自己按一下）───
+  const refreshing = ref(false)
+
+  async function refreshNow() {
+    if (refreshing.value) return
+    refreshing.value = true
+    try {
+      await syncNewOrders() // 跟 SSE／輪詢共用同一套比對邏輯，有差異才會跳通知＋語音
+      if (weekSummary.value) await fetchWeek()
+    } finally {
+      refreshing.value = false
+    }
+  }
+
+  // ── 行事曆顏色 ────────────────────────────────────────────────────
+  const calTypeColor = {醫院: '#e0534a', 園區: '#3d6b52', 芳心: '#a06080', Google: '#2563eb'}
+  // 建築分類：優先用 building 欄位，舊資料 type 直接就是建築分類值時當備援
+  const calEventBuilding = ev => ev.source === 'google' ? '' : (ev.building || ev.type)
+  const calChipBg = ev => ev.source === 'google'
+    ? '#dbeafe'
+    : ({
+      醫院: '#fee2e2',
+      園區: '#dcfce7',
+      芳心: '#fce7f3'
+    }[calEventBuilding(ev)] || '#f0f0f0')
+  const calChipText = ev => ev.source === 'google' ? '#1d4ed8' : (calTypeColor[calEventBuilding(ev)] || '#555')
+  const calBarColor = ev => ev.source === 'google' ? '#2563eb' : (calTypeColor[calEventBuilding(ev)] || '#ccc')
+  const calBadgeLabel = ev => ev.source === 'google' ? 'Google' : (calEventBuilding(ev) || '院內')
+
+  async function fetchToday() {
+    loading.value = true
+    try {
+      // 本週可能跨月（例如週一在上個月），系統行事曆 API 是按月查詢，兩個月不同就都抓；
+      // 範圍也要涵蓋到明天（fetchRangeEnd），保底處理「今天是週日、明天跨到下週/下個月」的情況
+      const startMonth = calWeekStart.slice(0, 7)
+      const endMonth = fetchRangeEnd.slice(0, 7)
+      const months = startMonth === endMonth ? [startMonth] : [startMonth, endMonth]
+
+      const homePromise = fetch(`${HOME_BASE()}/today`, {credentials: 'include'})
+      const calPromises = months.map(ym => fetch(`${CAL_BASE()}/list?yearMonth=${ym}`))
+      // 包月訂位（recurring）是照月份存的，跟行事曆一樣可能跨月，兩個月都要抓
+      const recurPromises = months.map(ym => fetch(`${RECUR_BASE()}/list/${ym}`, {credentials: 'include'}))
+
+      let googlePromise = Promise.resolve(null)
+      if (GOOGLE_CALENDAR_ID && !GOOGLE_CALENDAR_ID.includes('your-calendar')) {
+        // 直接抓「本週＋明天」涵蓋的範圍，今日／明日／本週事件都落在裡面，一次抓夠三種檢視模式用
+        const timeMin = encodeURIComponent(new Date(`${calWeekStart}T00:00:00`).toISOString())
+        const timeMax = encodeURIComponent(new Date(`${fetchRangeEnd}T23:59:59`).toISOString())
+        const gUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
+          + `?key=${GOOGLE_API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=100`
+        googlePromise = fetch(gUrl).catch(() => null)
+      }
+
+      const [homeRes, calResults, recurResults, gRes] = await Promise.all([
+        homePromise,
+        Promise.all(calPromises),
+        Promise.all(recurPromises),
+        googlePromise
+      ])
+      if (homeRes?.ok) daySummary.value = await homeRes.json()
+
+      const recurRules = []
+      for (const rRes of recurResults) {
+        if (!rRes.ok) continue
+        const monthRules = await rRes.json()
+        recurRules.push(...monthRules)
+      }
+      recurringRules.value = recurRules
+
+      const sysEvents = []
+      for (const cRes of calResults) {
+        if (!cRes.ok) continue
+        const monthEvents = await cRes.json()
+        // 首頁行事曆只顯示「園區」建築分類的活動；新資料是 type=院內 + building=園區，
+        // 舊資料（尚未重新儲存）type 可能直接就是園區，兩種都判斷相容
+        sysEvents.push(...monthEvents.filter(e => (e.building || e.type) === '園區'))
+      }
+
+      let gEvents = []
+      if (gRes?.ok) {
+        const gData = await gRes.json()
+        gEvents = (gData.items || []).map((item) => {
+          const isAllDay = !!item.start?.date
+          const startRaw = isAllDay ? item.start.date : item.start?.dateTime
+          const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
+          const date = startRaw ? startRaw.slice(0, 10) : ''
+          let time = ''
+          if (!isAllDay && startRaw) {
+            const s = new Date(startRaw)
+            const e = endRaw ? new Date(endRaw) : null
+            const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+            time = e ? `${fmt(s)}-${fmt(e)}` : fmt(s)
+          }
+          return {
+            id: item.id, date, time, title: item.summary || '（無標題）',
+            allDay: isAllDay,
+            type: 'Google', source: 'google', googleLink: item.htmlLink || '', description: item.description || ''
+          }
+        })
+      }
+      allEvents.value = [...sysEvents, ...gEvents].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))
+    } catch (e) {
+      console.error(e)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchWeek() {
+    loadingWeek.value = true
+    try {
+      const res = await fetch(`${HOME_BASE()}/week?date=${todayStr}`, {credentials: 'include'})
+      if (res.ok) weekSummary.value = await res.json()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      loadingWeek.value = false
+    }
+  }
+
+  function switchView(mode) {
+    if (viewMode.value === mode) return
+    viewMode.value = mode
+    if (mode === 'week' && !weekSummary.value) fetchWeek()
+  }
+
+  // ── 快速新增（訂位／便當，一律新增在「今天」）───────────────────────────
+  const quickModal = reactive({show: false, type: 'booking'}) // type: 'booking' | 'lunch'
+  const quickSaving = ref(false)
+  const qForm = reactive({
     name: '', time: '12:00',
     meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
   })
-  quickModal.show = true
-}
 
-// 葷素數量 +／− 快速按鈕
-function qInc(field) {
-  qForm[field] = (Number(qForm[field]) || 0) + 1
-}
+  const quickTitle = computed(() => (quickModal.type === 'lunch' ? '新增便當訂單' : '新增訂位'))
 
-function qDec(field) {
-  qForm[field] = Math.max(0, (Number(qForm[field]) || 0) - 1)
-}
-
-// 姓名留空時依序帶入「未知人物A」「未知人物B」...，避免同一天多筆都叫「未知人物」而分不清
-function suffixLetters(n) {
-  let s = ''
-  n++
-  while (n > 0) {
-    n--
-    s = String.fromCharCode(65 + (n % 26)) + s
-    n = Math.floor(n / 26)
-  }
-  return s
-}
-
-function nextUnknownName(isLunch) {
-  const items = (isLunch ? daySummary.value?.lunch?.items : daySummary.value?.booking?.items) ?? []
-  const used = new Set(
-    items
-      .map(i => i.name || '')
-      .filter(n => n.startsWith('未知人物'))
-      .map(n => n.slice(4))
-  )
-  let i = 0
-  while (used.has(suffixLetters(i))) i++
-  return '未知人物' + suffixLetters(i)
-}
-
-async function saveQuickAdd() {
-  if (quickSaving.value) return
-  quickSaving.value = true
-  try {
-    const isLunch = quickModal.type === 'lunch'
-    const base = isLunch ? LUNCH_BASE() : BOOKING_BASE()
-    const payload = {
-      ...qForm,
-      name: qForm.name.trim() || nextUnknownName(isLunch), // 姓名留空時自動帶入「未知人物A」「未知人物B」...
-      date: todayStr,
-    }
-    const res = await fetch(`${base}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
+  function openQuickAdd(type) {
+    quickModal.type = type
+    Object.assign(qForm, {
+      name: '', time: '12:00',
+      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
     })
-    if (!res.ok) {
-      alert('新增失敗，請稍後再試')
-      return
-    }
-    const saved = await res.json()
-    quickModal.show = false
-    pushNotification(
-      isLunch ? '🍱' : '🍽️',
-      isLunch ? '便當訂單已新增' : '訂位已新增',
-      `${saved.name || payload.name}　${saved.time || ''}　${typeBreakdown(saved) || qtyOf(saved) + (isLunch ? '個' : '人')}`,
-      isLunch ? 'lunch' : 'booking'
-    )
-    // 重新抓今日（及本週，若已載入過）資料，並同步已知清單，
-    // 避免輪詢／SSE 推播把這筆自己剛新增的訂單又當成「新訂單」重複跳出通知一次
-    await fetchToday()
-    syncKnownItems(daySummary.value)
-    if (weekSummary.value) await fetchWeek()
-  } catch (e) {
-    console.error(e)
-    alert('新增失敗，請稍後再試')
-  } finally {
-    quickSaving.value = false
+    quickModal.show = true
   }
-}
 
-const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown']
+  // 葷素數量 +／− 快速按鈕
+  function qInc(field) {
+    qForm[field] = (Number(qForm[field]) || 0) + 1
+  }
 
-onMounted(() => {
-  loadSoundPref()
-  loadAlertVolumePref()
-  loadPollPref()
-  loadBroadcastReceivePref()
-  UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, {once: true}))
-  fetchRoomBuildings() // 房務狀況要用到房型/棟別/金額，跟今日概況分開拉，互不影響彼此的載入中狀態
-  fetchMealSessions() // 今日備菜跟今日概況、房務狀況都各自獨立拉，互不影響彼此的載入中狀態
-  fetchPeriods() // 訂位時段設定，跟今日概況/房務狀況各自獨立拉，不影響彼此載入中狀態
-  fetchToday().then(() => {
-    syncKnownItems(daySummary.value)
-    connectStream()
-    startPolling()
+  function qDec(field) {
+    qForm[field] = Math.max(0, (Number(qForm[field]) || 0) - 1)
+  }
+
+  // 姓名留空時依序帶入「未知人物A」「未知人物B」...，避免同一天多筆都叫「未知人物」而分不清
+  function suffixLetters(n) {
+    let s = ''
+    n++
+    while (n > 0) {
+      n--
+      s = String.fromCharCode(65 + (n % 26)) + s
+      n = Math.floor(n / 26)
+    }
+    return s
+  }
+
+  function nextUnknownName(isLunch) {
+    const items = (isLunch ? daySummary.value?.lunch?.items : daySummary.value?.booking?.items) ?? []
+    const used = new Set(
+      items
+        .map(i => i.name || '')
+        .filter(n => n.startsWith('未知人物'))
+        .map(n => n.slice(4))
+    )
+    let i = 0
+    while (used.has(suffixLetters(i))) i++
+    return '未知人物' + suffixLetters(i)
+  }
+
+  async function saveQuickAdd() {
+    if (quickSaving.value) return
+    quickSaving.value = true
+    try {
+      const isLunch = quickModal.type === 'lunch'
+      const base = isLunch ? LUNCH_BASE() : BOOKING_BASE()
+      const payload = {
+        ...qForm,
+        name: qForm.name.trim() || nextUnknownName(isLunch), // 姓名留空時自動帶入「未知人物A」「未知人物B」...
+        date: todayStr,
+      }
+      const res = await fetch(`${base}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        alert('新增失敗，請稍後再試')
+        return
+      }
+      const saved = await res.json()
+      quickModal.show = false
+      pushNotification(
+        isLunch ? '🍱' : '🍽️',
+        isLunch ? '便當訂單已新增' : '訂位已新增',
+        `${saved.name || payload.name}　${saved.time || ''}　${typeBreakdown(saved) || qtyOf(saved) + (isLunch ? '個' : '人')}`,
+        isLunch ? 'lunch' : 'booking'
+      )
+      // 重新抓今日（及本週，若已載入過）資料，並同步已知清單，
+      // 避免輪詢／SSE 推播把這筆自己剛新增的訂單又當成「新訂單」重複跳出通知一次
+      await fetchToday()
+      syncKnownItems(daySummary.value)
+      if (weekSummary.value) await fetchWeek()
+    } catch (e) {
+      console.error(e)
+      alert('新增失敗，請稍後再試')
+    } finally {
+      quickSaving.value = false
+    }
+  }
+
+  const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown']
+
+  onMounted(() => {
+    loadSoundPref()
+    loadAlertVolumePref()
+    loadPollPref()
+    loadBroadcastReceivePref()
+    UNLOCK_EVENTS.forEach(evt => window.addEventListener(evt, unlockAudio, {once: true}))
+    fetchRoomBuildings() // 房務狀況要用到房型/棟別/金額，跟今日概況分開拉，互不影響彼此的載入中狀態
+    fetchMealSessions() // 今日備菜跟今日概況、房務狀況都各自獨立拉，互不影響彼此的載入中狀態
+    fetchPeriods() // 訂位時段設定，跟今日概況/房務狀況各自獨立拉，不影響彼此載入中狀態
+    fetchToday().then(() => {
+      syncKnownItems(daySummary.value)
+      connectStream()
+      startPolling()
+    })
+    if (broadcastReceiveEnabled.value) connectBroadcastSignaling()
   })
-  if (broadcastReceiveEnabled.value) connectBroadcastSignaling()
-})
 
-onUnmounted(() => {
-  disconnectStream()
-  stopPolling()
-  disconnectBroadcastSignaling()
-  UNLOCK_EVENTS.forEach(evt => window.removeEventListener(evt, unlockAudio))
-})
+  onUnmounted(() => {
+    disconnectStream()
+    stopPolling()
+    disconnectBroadcastSignaling()
+    UNLOCK_EVENTS.forEach(evt => window.removeEventListener(evt, unlockAudio))
+  })
 </script>
 
 <template>
@@ -2664,7 +2670,7 @@ onUnmounted(() => {
                     <tr v-if="row.item.showBuildingHeader" class="border-t border-light-c"
                         :class="row.item.groupId ? 'group-member-row group-building-row' : ''">
                       <td class="py-1 px-1 text-hint-c font-semibold text-sm" colspan="5">🏠 {{
-                          row.item.buildingName
+                        row.item.buildingName
                         }}
                       </td>
                     </tr>
@@ -3022,7 +3028,7 @@ onUnmounted(() => {
             </div>
             <div>
               <label class="text-sm font-medium text-muted-c block mb-1">{{
-                  quickModal.type === 'lunch' ? '取餐時段' : '用餐時段'
+                quickModal.type === 'lunch' ? '取餐時段' : '用餐時段'
                 }}</label>
               <input
                 v-model="qForm.time"
@@ -3161,46 +3167,46 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.notify-enter-active,
-.notify-leave-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
+  .notify-enter-active,
+  .notify-leave-active {
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
 
-.notify-enter-from,
-.notify-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
+  .notify-enter-from,
+  .notify-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 
-.notify-leave-active {
-  position: absolute;
-}
+  .notify-leave-active {
+    position: absolute;
+  }
 
-.group-header-row {
-  background: rgba(139, 92, 246, .16);
-}
+  .group-header-row {
+    background: rgba(139, 92, 246, .16);
+  }
 
-.group-header-row button:hover {
-  opacity: .85;
-}
+  .group-header-row button:hover {
+    opacity: .85;
+  }
 
-.group-member-row {
-  background: rgba(139, 92, 246, .06);
-}
+  .group-member-row {
+    background: rgba(139, 92, 246, .06);
+  }
 
-.group-member-row td:first-child {
-  border-left: 3px solid #a78bfa;
-  padding-left: 12px;
-}
+  .group-member-row td:first-child {
+    border-left: 3px solid #a78bfa;
+    padding-left: 12px;
+  }
 
-.group-building-row {
-  background: rgba(139, 92, 246, .18);
-  border-top: 2px solid rgba(167, 139, 250, .55) !important;
-}
+  .group-building-row {
+    background: rgba(139, 92, 246, .18);
+    border-top: 2px solid rgba(167, 139, 250, .55) !important;
+  }
 
-.group-building-row td {
-  padding-top: 7px;
-  padding-bottom: 7px;
-}
+  .group-building-row td {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
 
 </style>
