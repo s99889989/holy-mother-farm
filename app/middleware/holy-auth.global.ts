@@ -45,9 +45,22 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // 節流、去重邏輯都在 useSessionCheck 裡，跟 layouts/staff.vue 的
   // visibilitychange 檢查共用同一份「上次驗證時間 / 是否驗證中」的狀態，
   // 避免兩邊在切回前景那一刻各打各的、彼此結果對不上造成畫面跳動。
+  //
+  // retryOnFail: true 是必要的，不能省略——這裡是「每次導覽到 /staff」
+  // 都會經過的路徑，iOS 從背景切回、觸發第一次導覽時最容易撞上網路
+  // 堆疊還沒就緒的空窗期。沒有這個選項時，verifySession 遇到單次
+  // 401/403 會直接呼叫 doLogout() 清空 customer——即使 cookie 其實
+  // 只是還沒完全就緒、幾百毫秒後就會恢復正常。加上 retryOnFail，才會
+  // 跟 layouts/staff.vue 的 checkSessionOnVisible 一樣，先等 1.2 秒
+  // 讓網路/cookie 有機會恢復，再重試一次，兩次都真的失敗才判定登出。
+  //
+  // （這正是「customer 被清空、但幾乎同時 permission 又抓到正確資料」
+  // 這種矛盾狀態的成因：這裡誤判登出把 customer 清空之後，
+  // layouts/staff.vue 的 onMounted 又獨立打了一次 my-perms，這時
+  // cookie 已經恢復正常，權限就抓到了，但沒有人把 customer 補回來。）
   if (to.path.startsWith('/staff') && customerStore.isLoggedIn) {
     const commonStore = useCommonStore()
-    const { loggedOut } = await verifySession(commonStore.data.main_url)
+    const { loggedOut } = await verifySession(commonStore.data.main_url, { retryOnFail: true })
     if (loggedOut) return navigateTo('/')
   }
 
