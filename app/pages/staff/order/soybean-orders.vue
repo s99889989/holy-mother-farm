@@ -937,7 +937,7 @@
   <div class="min-h-full bg-surface2 transition-colors">
     <!-- Header -->
     <header class="bg-surface border-b border-light-c px-4 py-3">
-      <div class="max-w-6xl mx-auto flex items-center gap-2">
+      <div class="max-w-7xl mx-auto flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1080,92 +1080,94 @@
     </header>
 
     <!-- 內容區 -->
-    <div class="max-w-6xl mx-auto px-3 sm:px-4 py-4">
-      <!-- ── 提示訊息設定面板 ── -->
-      <Transition name="hint-panel">
-        <div
-          v-if="showHintSettings"
-          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
-        >
-          <div class="flex items-center justify-between px-4 py-3 border-b border-light-c">
-            <div class="flex items-center gap-2">
-              <svg
-                class="w-4 h-4 text-hint-c"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 lg:flex lg:items-start lg:gap-4">
+      <!-- 控制區塊：電腦版靠右，手機版在上方 -->
+      <div class="lg:order-2 lg:w-80 lg:flex-shrink-0">
+        <!-- ── 提示訊息設定面板 ── -->
+        <Transition name="hint-panel">
+          <div
+            v-if="showHintSettings"
+            class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+          >
+            <div class="flex items-center justify-between px-4 py-3 border-b border-light-c">
+              <div class="flex items-center gap-2">
+                <svg
+                  class="w-4 h-4 text-hint-c"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                  />
+                </svg>
+                <span class="text-sm font-semibold text-base-c">前台提示訊息設定</span>
+                <span class="text-xs text-hint-c">（客戶在「我的紀錄」看到的說明文字）</span>
+              </div>
+              <button
+                class="text-hint-c hover:text-hint-c transition-colors"
+                @click="showHintSettings = false"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                />
-              </svg>
-              <span class="text-sm font-semibold text-base-c">前台提示訊息設定</span>
-              <span class="text-xs text-hint-c">（客戶在「我的紀錄」看到的說明文字）</span>
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
             </div>
-            <button
-              class="text-hint-c hover:text-hint-c transition-colors"
-              @click="showHintSettings = false"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div
+                v-for="s in HINT_STATUSES"
+                :key="s"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-          <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div
-              v-for="s in HINT_STATUSES"
-              :key="s"
-            >
-              <label class="flex items-center gap-2 mb-1.5">
+                <label class="flex items-center gap-2 mb-1.5">
                 <span :class="['inline-block px-2 py-0.5 rounded-full text-xs font-semibold', hintBadgeClass(s)]">{{
                     s
                   }}</span>
-                <span class="text-xs text-hint-c">顯示訊息</span>
-              </label>
-              <textarea
-                v-model="hints[s]"
-                rows="2"
-                class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500 resize-none font-sans leading-relaxed"
-                :placeholder="'「' + s + '」狀態的提示訊息'"
-              />
-            </div>
-          </div>
-          <div class="px-4 pb-4 flex items-center gap-3">
-            <button
-              :disabled="hintSaving"
-              class="flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors"
-              @click="saveHints"
-            >
-              <svg
-                v-if="hintSaving"
-                class="w-3.5 h-3.5 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-              >
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
+                  <span class="text-xs text-hint-c">顯示訊息</span>
+                </label>
+                <textarea
+                  v-model="hints[s]"
+                  rows="2"
+                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500 resize-none font-sans leading-relaxed"
+                  :placeholder="'「' + s + '」狀態的提示訊息'"
                 />
-              </svg>
-              {{ hintSaving ? '儲存中…' : '儲存設定' }}
-            </button>
-            <Transition name="fade">
+              </div>
+            </div>
+            <div class="px-4 pb-4 flex items-center gap-3">
+              <button
+                :disabled="hintSaving"
+                class="flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors"
+                @click="saveHints"
+              >
+                <svg
+                  v-if="hintSaving"
+                  class="w-3.5 h-3.5 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                  />
+                </svg>
+                {{ hintSaving ? '儲存中…' : '儲存設定' }}
+              </button>
+              <Transition name="fade">
               <span
                 v-if="hintSaved"
                 class="text-sm text-emerald-600 flex items-center gap-1"
@@ -1183,101 +1185,49 @@
                 /></svg>
                 已儲存
               </span>
-            </Transition>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- ── 休息日設定面板 ── -->
-      <Transition name="hint-panel">
-        <div
-          v-if="showHintSettings"
-          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
-        >
-          <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-            <svg
-              class="w-4 h-4 text-red-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-              />
-            </svg>
-            <span class="text-sm font-semibold text-base-c">休息日設定</span>
-            <span class="text-xs text-hint-c">（設定後客戶無法訂購該取貨日）</span>
-          </div>
-          <div class="p-4">
-            <!-- 新增輸入 -->
-            <div class="flex gap-2 mb-3">
-              <input
-                v-model="closedDateInput"
-                type="date"
-                class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-400"
-              >
-              <button
-                :disabled="closedSaving || !closedDateInput"
-                class="flex items-center gap-1 px-3 py-2 bg-red-500 text-white text-sm rounded-xl hover:bg-red-600 disabled:opacity-40 transition-colors font-medium whitespace-nowrap"
-                @click="addClosedDate"
-              >
-                <svg
-                  class="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2.5"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                新增
-              </button>
+              </Transition>
             </div>
+          </div>
+        </Transition>
 
-            <!-- 休息日清單 -->
-            <div
-              v-if="closedDates.length === 0"
-              class="text-xs text-hint-c py-2 text-center"
-            >
-              尚未設定任何休息日
-            </div>
-            <div
-              v-else
-              class="flex flex-wrap gap-2"
-            >
-              <div
-                v-for="d in closedDates.slice().sort()"
-                :key="d"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-xs"
+        <!-- ── 休息日設定面板 ── -->
+        <Transition name="hint-panel">
+          <div
+            v-if="showHintSettings"
+            class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+          >
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
+              <svg
+                class="w-4 h-4 text-red-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <svg
-                  class="w-3 h-3 text-red-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                />
+              </svg>
+              <span class="text-sm font-semibold text-base-c">休息日設定</span>
+              <span class="text-xs text-hint-c">（設定後客戶無法訂購該取貨日）</span>
+            </div>
+            <div class="p-4">
+              <!-- 新增輸入 -->
+              <div class="flex gap-2 mb-3">
+                <input
+                  v-model="closedDateInput"
+                  type="date"
+                  class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-400"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <span class="text-red-700 dark:text-red-300 font-medium">{{ formatClosedDate(d) }}</span>
                 <button
-                  :disabled="closedSaving"
-                  class="ml-0.5 text-red-400 hover:text-red-600 disabled:opacity-40 transition-colors"
-                  @click="removeClosedDate(d)"
+                  :disabled="closedSaving || !closedDateInput"
+                  class="flex items-center gap-1 px-3 py-2 bg-red-500 text-white text-sm rounded-xl hover:bg-red-600 disabled:opacity-40 transition-colors font-medium whitespace-nowrap"
+                  @click="addClosedDate"
                 >
                   <svg
-                    class="w-3 h-3"
+                    class="w-3.5 h-3.5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1286,84 +1236,68 @@
                       stroke-linecap="round"
                       stroke-linejoin="round"
                       stroke-width="2.5"
-                      d="M6 18L18 6M6 6l12 12"
+                      d="M12 4v16m8-8H4"
                     />
                   </svg>
+                  新增
                 </button>
               </div>
-            </div>
 
-            <Transition name="fade">
-              <p
-                v-if="closedSaved"
-                class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
+              <!-- 休息日清單 -->
+              <div
+                v-if="closedDates.length === 0"
+                class="text-xs text-hint-c py-2 text-center"
               >
-                <svg
-                  class="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <polyline
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2.5"
-                    points="20 6 9 17 4 12"
-                  />
-                </svg>
-                已更新
-              </p>
-            </Transition>
-          </div>
-        </div>
-      </Transition>
-      <!-- ── 營業日設定面板 ── -->
-      <Transition name="hint-panel">
-        <div
-          v-if="showHintSettings"
-          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
-        >
-          <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-            <svg
-              class="w-4 h-4 text-hint-c"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <span class="text-sm font-semibold text-base-c">營業日設定</span>
-            <span class="text-xs text-hint-c">（目前生效中：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
-          </div>
-          <div class="p-4 space-y-5">
-
-            <!-- 立即調整：今天起馬上生效 -->
-            <div>
-              <p class="text-xs font-medium text-hint-c mb-2">立即調整（今天起生效）</p>
-              <div class="flex items-center gap-2 flex-wrap">
-                <button
-                  v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
-                  :key="dow"
-                  :disabled="businessDaysSaving"
-                  :class="businessDays.includes(dow)
-                    ? 'bg-accent-solid text-white'
-                    : 'bg-surface text-hint-c border-light-c'"
-                  class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
-                  @click="businessDays.includes(dow)
-                    ? saveBusinessDays(businessDays.filter(d => d !== dow))
-                    : saveBusinessDays([...businessDays, dow].sort())"
-                >
-                  {{ DOW_LABEL[dow] }}
-                </button>
+                尚未設定任何休息日
               </div>
+              <div
+                v-else
+                class="flex flex-wrap gap-2"
+              >
+                <div
+                  v-for="d in closedDates.slice().sort()"
+                  :key="d"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-xs"
+                >
+                  <svg
+                    class="w-3 h-3 text-red-400 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span class="text-red-700 dark:text-red-300 font-medium">{{ formatClosedDate(d) }}</span>
+                  <button
+                    :disabled="closedSaving"
+                    class="ml-0.5 text-red-400 hover:text-red-600 disabled:opacity-40 transition-colors"
+                    @click="removeClosedDate(d)"
+                  >
+                    <svg
+                      class="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.5"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
               <Transition name="fade">
                 <p
-                  v-if="businessDaysSaved"
+                  v-if="closedSaved"
                   class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
                 >
                   <svg
@@ -1383,52 +1317,120 @@
                 </p>
               </Transition>
             </div>
+          </div>
+        </Transition>
+        <!-- ── 營業日設定面板 ── -->
+        <Transition name="hint-panel">
+          <div
+            v-if="showHintSettings"
+            class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+          >
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
+              <svg
+                class="w-4 h-4 text-hint-c"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <span class="text-sm font-semibold text-base-c">營業日設定</span>
+              <span class="text-xs text-hint-c">（目前生效中：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
+            </div>
+            <div class="p-4 space-y-5">
 
-            <!-- 排定未來生效：例如「下週一起改成二、四」 -->
-            <div class="pt-4 border-t border-light-c">
-              <p class="text-xs font-medium text-hint-c mb-2">排定未來生效（例如下週開始改成不同的星期）</p>
-              <div class="flex items-center gap-2 flex-wrap mb-2">
-                <button
-                  v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
-                  :key="dow"
-                  :disabled="businessDaysSaving"
-                  :class="businessDaysDraft.includes(dow)
+              <!-- 立即調整：今天起馬上生效 -->
+              <div>
+                <p class="text-xs font-medium text-hint-c mb-2">立即調整（今天起生效）</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button
+                    v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
+                    :key="dow"
+                    :disabled="businessDaysSaving"
+                    :class="businessDays.includes(dow)
+                    ? 'bg-accent-solid text-white'
+                    : 'bg-surface text-hint-c border-light-c'"
+                    class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
+                    @click="businessDays.includes(dow)
+                    ? saveBusinessDays(businessDays.filter(d => d !== dow))
+                    : saveBusinessDays([...businessDays, dow].sort())"
+                  >
+                    {{ DOW_LABEL[dow] }}
+                  </button>
+                </div>
+                <Transition name="fade">
+                  <p
+                    v-if="businessDaysSaved"
+                    class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <polyline
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.5"
+                        points="20 6 9 17 4 12"
+                      />
+                    </svg>
+                    已更新
+                  </p>
+                </Transition>
+              </div>
+
+              <!-- 排定未來生效：例如「下週一起改成二、四」 -->
+              <div class="pt-4 border-t border-light-c">
+                <p class="text-xs font-medium text-hint-c mb-2">排定未來生效（例如下週開始改成不同的星期）</p>
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <button
+                    v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
+                    :key="dow"
+                    :disabled="businessDaysSaving"
+                    :class="businessDaysDraft.includes(dow)
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-surface text-hint-c border-light-c'"
-                  class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
-                  @click="toggleDraftDow(dow)"
-                >
-                  {{ DOW_LABEL[dow] }}
-                </button>
+                    class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
+                    @click="toggleDraftDow(dow)"
+                  >
+                    {{ DOW_LABEL[dow] }}
+                  </button>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <label class="text-xs text-hint-c">生效日</label>
+                  <input
+                    v-model="businessDaysEffectiveFrom"
+                    type="date"
+                    :min="todayDateStr()"
+                    class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                  <button
+                    :disabled="businessDaysSaving || !businessDaysEffectiveFrom"
+                    class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+                    @click="saveBusinessDays(businessDaysDraft, businessDaysEffectiveFrom)"
+                  >
+                    儲存排程
+                  </button>
+                  <span class="text-xs text-hint-c">未選生效日則無法儲存（避免誤觸立即生效）</span>
+                </div>
               </div>
-              <div class="flex items-center gap-2 flex-wrap">
-                <label class="text-xs text-hint-c">生效日</label>
-                <input
-                  v-model="businessDaysEffectiveFrom"
-                  type="date"
-                  :min="todayDateStr()"
-                  class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                <button
-                  :disabled="businessDaysSaving || !businessDaysEffectiveFrom"
-                  class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
-                  @click="saveBusinessDays(businessDaysDraft, businessDaysEffectiveFrom)"
-                >
-                  儲存排程
-                </button>
-                <span class="text-xs text-hint-c">未選生效日則無法儲存（避免誤觸立即生效）</span>
-              </div>
-            </div>
 
-            <!-- 已排定的營業日清單 -->
-            <div v-if="businessDaysSchedule.length" class="pt-4 border-t border-light-c">
-              <p class="text-xs font-medium text-hint-c mb-2">已排定的營業日設定</p>
-              <div class="space-y-1.5">
-                <div
-                  v-for="entry in businessDaysSchedule"
-                  :key="entry.effectiveFrom"
-                  class="flex items-center justify-between gap-2 px-3 py-2 bg-surface2 rounded-xl text-sm"
-                >
+              <!-- 已排定的營業日清單 -->
+              <div v-if="businessDaysSchedule.length" class="pt-4 border-t border-light-c">
+                <p class="text-xs font-medium text-hint-c mb-2">已排定的營業日設定</p>
+                <div class="space-y-1.5">
+                  <div
+                    v-for="entry in businessDaysSchedule"
+                    :key="entry.effectiveFrom"
+                    class="flex items-center justify-between gap-2 px-3 py-2 bg-surface2 rounded-xl text-sm"
+                  >
                   <span class="text-base-c">
                     <span class="font-semibold">{{ entry.effectiveFrom }}</span> 起 →
                     {{ entry.businessDays.map(d => DOW_LABEL[d]).join('、') }}
@@ -1436,258 +1438,262 @@
                           class="ml-1 text-xs text-emerald-600">（生效中）</span>
                     <span v-else class="ml-1 text-xs text-amber-600">（尚未生效）</span>
                   </span>
-                  <button
-                    class="text-red-400 hover:text-red-500 text-xs font-medium transition-colors"
-                    @click="removeBusinessDaysScheduleEntry(entry.effectiveFrom)"
-                  >
-                    刪除
-                  </button>
+                    <button
+                      class="text-red-400 hover:text-red-500 text-xs font-medium transition-colors"
+                      @click="removeBusinessDaysScheduleEntry(entry.effectiveFrom)"
+                    >
+                      刪除
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
+            </div>
           </div>
-        </div>
-      </Transition>
-      <!-- ── 取貨提醒設定面板 ── -->
-      <Transition name="hint-panel">
-        <div
-          v-if="showHintSettings"
-          class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
-        >
-          <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-            <svg
-              class="w-4 h-4 text-hint-c"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            <span class="text-sm font-semibold text-base-c">LINE / Discord 取貨提醒</span>
-            <span class="text-xs text-hint-c">（每天固定時間，把隔天所有客戶的訂單合併發送到 LINE 群組／Discord 頻道）</span>
-          </div>
-          <div class="p-4 space-y-4">
-
-            <!-- 獨立設定：不沿用其他功能的 LINE↔Discord 設定 -->
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="sm:col-span-2">
-                <label class="block text-xs font-medium text-hint-c mb-1">LINE Channel Access Token</label>
-                <input
-                  v-model="notifyLineAccessToken"
-                  type="text"
-                  placeholder="用來發送 LINE 訊息的 Channel Access Token"
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                >
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">LINE 群組 ID</label>
-                <input
-                  v-model="notifyLineGroupId"
-                  type="text"
-                  placeholder="例如：Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                >
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">Discord Webhook URL</label>
-                <input
-                  v-model="notifyDiscordWebhook"
-                  type="text"
-                  placeholder="https://discord.com/api/webhooks/..."
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                >
-              </div>
-            </div>
-            <p class="text-xs text-hint-c">LINE 跟 Discord 可以只設定一邊（例如只想發 Discord，LINE 的兩個欄位留空即可），留空的那邊不會發送。這裡是豆製品訂單專用的獨立設定，跟其他功能無關。</p>
-
-            <!-- 取貨提醒 -->
-            <div class="pt-4 border-t border-light-c">
-              <p class="text-sm font-medium text-base-c mb-1">啟用取貨提醒</p>
-              <p class="text-xs text-hint-c mb-3">每天固定時間，把隔天所有客戶的訂單合併成一則訊息發送；LINE、Discord 可以分開開關。</p>
-              <div class="flex items-center gap-5 mb-3">
-                <label class="flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    v-model="reminderLineEnabled"
-                    type="checkbox"
-                    class="w-4 h-4 rounded accent-green-700"
-                  >
-                  <span class="text-sm font-medium text-base-c">LINE 提醒</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    v-model="reminderDiscordEnabled"
-                    type="checkbox"
-                    class="w-4 h-4 rounded accent-green-700"
-                  >
-                  <span class="text-sm font-medium text-base-c">Discord 提醒</span>
-                </label>
-              </div>
-              <div class="flex items-center gap-2 flex-wrap">
-                <label class="text-xs text-hint-c">每天</label>
-                <select
-                  v-model.number="reminderHour"
-                  class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ String(h).padStart(2, '0') }}:00</option>
-                </select>
-                <span class="text-xs text-hint-c">檢查隔天訂單並發送提醒</span>
-                <div class="ml-auto flex items-center gap-2">
-                  <button
-                    :disabled="reminderTesting"
-                    class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
-                    @click="testReminder(0)"
-                  >
-                    {{ reminderTesting ? '測試中…' : '立即測試發送（今天）' }}
-                  </button>
-                  <button
-                    :disabled="reminderTesting"
-                    class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
-                    @click="testReminder(1)"
-                  >
-                    {{ reminderTesting ? '測試中…' : '立即測試發送（明天）' }}
-                  </button>
-                </div>
-              </div>
-              <p class="text-xs text-hint-c mt-1.5">
-                測試按鈕會忽略上面設定的時間，直接檢查該日期有沒有訂單並馬上發送；沒有訂單就不會發送任何訊息。「今天」是給取貨當天想臨時再次確認名單用的，正常的提醒排程只會檢查「明天」。
-              </p>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <button
-                :disabled="notifySaving"
-                class="px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors font-medium"
-                @click="saveNotifySettings"
+        </Transition>
+        <!-- ── 取貨提醒設定面板 ── -->
+        <Transition name="hint-panel">
+          <div
+            v-if="showHintSettings"
+            class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+          >
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
+              <svg
+                class="w-4 h-4 text-hint-c"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                {{ notifySaving ? '儲存中…' : '儲存通知設定' }}
-              </button>
-              <Transition name="fade">
-                <p v-if="notifySaved" class="text-xs text-emerald-600 flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12" />
-                  </svg>
-                  已更新
-                </p>
-              </Transition>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
+              </svg>
+              <span class="text-sm font-semibold text-base-c">LINE / Discord 取貨提醒</span>
+              <span class="text-xs text-hint-c">（每天固定時間，把隔天所有客戶的訂單合併發送到 LINE 群組／Discord 頻道）</span>
             </div>
+            <div class="p-4 space-y-4">
 
+              <!-- 獨立設定：不沿用其他功能的 LINE↔Discord 設定 -->
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                  <label class="block text-xs font-medium text-hint-c mb-1">LINE Channel Access Token</label>
+                  <input
+                    v-model="notifyLineAccessToken"
+                    type="text"
+                    placeholder="用來發送 LINE 訊息的 Channel Access Token"
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-hint-c mb-1">LINE 群組 ID</label>
+                  <input
+                    v-model="notifyLineGroupId"
+                    type="text"
+                    placeholder="例如：Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-hint-c mb-1">Discord Webhook URL</label>
+                  <input
+                    v-model="notifyDiscordWebhook"
+                    type="text"
+                    placeholder="https://discord.com/api/webhooks/..."
+                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                </div>
+              </div>
+              <p class="text-xs text-hint-c">LINE 跟 Discord 可以只設定一邊（例如只想發 Discord，LINE 的兩個欄位留空即可），留空的那邊不會發送。這裡是豆製品訂單專用的獨立設定，跟其他功能無關。</p>
+
+              <!-- 取貨提醒 -->
+              <div class="pt-4 border-t border-light-c">
+                <p class="text-sm font-medium text-base-c mb-1">啟用取貨提醒</p>
+                <p class="text-xs text-hint-c mb-3">每天固定時間，把隔天所有客戶的訂單合併成一則訊息發送；LINE、Discord 可以分開開關。</p>
+                <div class="flex items-center gap-5 mb-3">
+                  <label class="flex items-center gap-2 cursor-pointer w-fit">
+                    <input
+                      v-model="reminderLineEnabled"
+                      type="checkbox"
+                      class="w-4 h-4 rounded accent-green-700"
+                    >
+                    <span class="text-sm font-medium text-base-c">LINE 提醒</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer w-fit">
+                    <input
+                      v-model="reminderDiscordEnabled"
+                      type="checkbox"
+                      class="w-4 h-4 rounded accent-green-700"
+                    >
+                    <span class="text-sm font-medium text-base-c">Discord 提醒</span>
+                  </label>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <label class="text-xs text-hint-c">每天</label>
+                  <select
+                    v-model.number="reminderHour"
+                    class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ String(h).padStart(2, '0') }}:00</option>
+                  </select>
+                  <span class="text-xs text-hint-c">檢查隔天訂單並發送提醒</span>
+                  <div class="ml-auto flex items-center gap-2">
+                    <button
+                      :disabled="reminderTesting"
+                      class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
+                      @click="testReminder(0)"
+                    >
+                      {{ reminderTesting ? '測試中…' : '立即測試發送（今天）' }}
+                    </button>
+                    <button
+                      :disabled="reminderTesting"
+                      class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
+                      @click="testReminder(1)"
+                    >
+                      {{ reminderTesting ? '測試中…' : '立即測試發送（明天）' }}
+                    </button>
+                  </div>
+                </div>
+                <p class="text-xs text-hint-c mt-1.5">
+                  測試按鈕會忽略上面設定的時間，直接檢查該日期有沒有訂單並馬上發送；沒有訂單就不會發送任何訊息。「今天」是給取貨當天想臨時再次確認名單用的，正常的提醒排程只會檢查「明天」。
+                </p>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <button
+                  :disabled="notifySaving"
+                  class="px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors font-medium"
+                  @click="saveNotifySettings"
+                >
+                  {{ notifySaving ? '儲存中…' : '儲存通知設定' }}
+                </button>
+                <Transition name="fade">
+                  <p v-if="notifySaved" class="text-xs text-emerald-600 flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12" />
+                    </svg>
+                    已更新
+                  </p>
+                </Transition>
+              </div>
+
+            </div>
+          </div>
+        </Transition>
+      </div>
+
+      <!-- 訂單區塊：電腦版靠左，手機版在下方 -->
+      <div class="lg:order-1 lg:flex-1 lg:min-w-0">
+        <div
+          class="flex items-center gap-2 mb-3 bg-surface border border-light-c rounded-xl px-3 py-2 shadow-sm flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-hint-c">本月訂單</span>
+            <span class="text-base font-extrabold text-base-c">{{ orders.length }}</span>
+            <span class="text-xs text-hint-c">筆</span>
+          </div>
+          <div class="w-px h-4 bg-surface2 mx-1"/>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-green-600">豆漿</span>
+            <span class="text-base font-extrabold text-green-700">{{ totalSoymilk }}</span>
+            <span class="text-xs text-green-500">袋</span>
+          </div>
+          <div class="w-px h-4 bg-surface2 mx-1"/>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-amber-600">豆腐</span>
+            <span class="text-base font-extrabold text-amber-600">{{ totalTofu }}</span>
+            <span class="text-xs text-amber-500">塊</span>
+          </div>
+          <div
+            v-if="lastUpdated"
+            class="ml-auto text-xs text-hint-c whitespace-nowrap"
+          >
+            更新 {{ lastUpdated }}
           </div>
         </div>
-      </Transition>
-      <div
-        class="flex items-center gap-2 mb-3 bg-surface border border-light-c rounded-xl px-3 py-2 shadow-sm flex-wrap">
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-hint-c">本月訂單</span>
-          <span class="text-base font-extrabold text-base-c">{{ orders.length }}</span>
-          <span class="text-xs text-hint-c">筆</span>
-        </div>
-        <div class="w-px h-4 bg-surface2 mx-1"/>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-green-600">豆漿</span>
-          <span class="text-base font-extrabold text-green-700">{{ totalSoymilk }}</span>
-          <span class="text-xs text-green-500">袋</span>
-        </div>
-        <div class="w-px h-4 bg-surface2 mx-1"/>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-amber-600">豆腐</span>
-          <span class="text-base font-extrabold text-amber-600">{{ totalTofu }}</span>
-          <span class="text-xs text-amber-500">塊</span>
-        </div>
-        <div
-          v-if="lastUpdated"
-          class="ml-auto text-xs text-hint-c whitespace-nowrap"
-        >
-          更新 {{ lastUpdated }}
-        </div>
-      </div>
 
-      <!-- 篩選列 -->
-      <div
-        class="bg-surface border border-light-c rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs text-hint-c whitespace-nowrap">取貨日</span>
-          <button
-            :class="['filter-chip', { active: filterDay === '' }]"
-            @click="filterDay = ''"
-          >
-            全部
-          </button>
-          <button
-            v-for="opt in businessDayOptions"
-            :key="opt.code"
-            :class="['filter-chip', { active: filterDay === opt.code }]"
-            @click="filterDay = opt.code"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs text-hint-c whitespace-nowrap">狀態</span>
-          <button
-            :class="['filter-chip', { active: filterStatus === '' }]"
-            @click="filterStatus = ''"
-          >
-            全部
-          </button>
-          <button
-            v-for="s in STATUSES"
-            :key="s"
-            :class="['filter-chip', { active: filterStatus === s }]"
-            @click="filterStatus = s"
-          >
-            {{ s }}
-          </button>
-        </div>
+        <!-- 篩選列 -->
         <div
-          v-if="filterDay || filterStatus"
-          class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap"
-        >
-          篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong>
-          塊（{{ filteredOrders.length }} 筆）
+          class="bg-surface border border-light-c rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs text-hint-c whitespace-nowrap">取貨日</span>
+            <button
+              :class="['filter-chip', { active: filterDay === '' }]"
+              @click="filterDay = ''"
+            >
+              全部
+            </button>
+            <button
+              v-for="opt in businessDayOptions"
+              :key="opt.code"
+              :class="['filter-chip', { active: filterDay === opt.code }]"
+              @click="filterDay = opt.code"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs text-hint-c whitespace-nowrap">狀態</span>
+            <button
+              :class="['filter-chip', { active: filterStatus === '' }]"
+              @click="filterStatus = ''"
+            >
+              全部
+            </button>
+            <button
+              v-for="s in STATUSES"
+              :key="s"
+              :class="['filter-chip', { active: filterStatus === s }]"
+              @click="filterStatus = s"
+            >
+              {{ s }}
+            </button>
+          </div>
+          <div
+            v-if="filterDay || filterStatus"
+            class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap"
+          >
+            篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong>
+            塊（{{ filteredOrders.length }} 筆）
+          </div>
         </div>
-      </div>
 
-      <!-- 訂單列表（按日期分組） -->
-      <div
-        v-if="loading && orders.length === 0"
-        class="text-center py-16 text-hint-c text-sm"
-      >
-        載入中…
-      </div>
-      <div
-        v-else-if="filteredOrders.length === 0"
-        class="text-center py-16 text-hint-c text-sm border-2 border-dashed border-light-c rounded-2xl"
-      >
-        本月尚無訂購紀錄
-      </div>
-      <template v-else>
+        <!-- 訂單列表（按日期分組） -->
         <div
-          v-for="group in groupedOrders"
-          :id="`pickup-group-${group.date}`"
-          :key="group.date"
-          class="mb-4 scroll-mt-4"
-          :class="{ 'ring-2 ring-green-500 rounded-2xl bg-green-50/60 dark:bg-green-900/10 p-2 -m-2 mb-4': isToday(group.date) }"
+          v-if="loading && orders.length === 0"
+          class="text-center py-16 text-hint-c text-sm"
         >
-          <!-- 日期分隔標題 -->
-          <div class="flex items-center gap-2 mb-2 flex-wrap">
+          載入中…
+        </div>
+        <div
+          v-else-if="filteredOrders.length === 0"
+          class="text-center py-16 text-hint-c text-sm border-2 border-dashed border-light-c rounded-2xl"
+        >
+          本月尚無訂購紀錄
+        </div>
+        <template v-else>
+          <div
+            v-for="group in groupedOrders"
+            :id="`pickup-group-${group.date}`"
+            :key="group.date"
+            class="mb-4 scroll-mt-4"
+            :class="{ 'ring-2 ring-green-500 rounded-2xl bg-green-50/60 dark:bg-green-900/10 p-2 -m-2 mb-4': isToday(group.date) }"
+          >
+            <!-- 日期分隔標題 -->
+            <div class="flex items-center gap-2 mb-2 flex-wrap">
             <span
               class="text-xs font-bold whitespace-nowrap"
               :class="isToday(group.date) ? 'text-green-700 dark:text-green-400' : 'text-hint-c'"
             >{{ group.dateLabel }}</span>
-            <span
-              v-if="isToday(group.date)"
-              class="px-1.5 py-0.5 bg-green-600 text-white rounded text-xs font-bold whitespace-nowrap"
-            >今天</span>
-            <span
-              v-if="isClosedDate(group.date)"
-              class="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium"
-            >
+              <span
+                v-if="isToday(group.date)"
+                class="px-1.5 py-0.5 bg-green-600 text-white rounded text-xs font-bold whitespace-nowrap"
+              >今天</span>
+              <span
+                v-if="isClosedDate(group.date)"
+                class="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium"
+              >
               <svg
                 class="w-3 h-3"
                 fill="none"
@@ -1703,8 +1709,8 @@
               </svg>
               休息日
             </span>
-            <div class="flex-1 h-px bg-surface2 dark:bg-surface2"/>
-            <div class="flex items-center gap-2 text-xs whitespace-nowrap">
+              <div class="flex-1 h-px bg-surface2 dark:bg-surface2"/>
+              <div class="flex items-center gap-2 text-xs whitespace-nowrap">
               <span
                 v-if="group.soymilk"
                 class="text-green-700 font-semibold"
@@ -1712,234 +1718,235 @@
                 v-if="group.soymilkBreakdown"
                 class="text-hint-c font-normal text-xs"
               >（{{ group.soymilkBreakdown }}）</span><span class="text-hint-c font-normal text-xs">・{{ group.soymilk }} 袋</span></span>
-              <span
-                v-if="group.soymilk && group.tofu"
-                class="text-hint-c"
-              >／</span>
-              <span
-                v-if="group.tofu"
-                class="text-amber-600 font-semibold"
-              >豆腐 {{ group.tofu }} 塊</span>
-              <span class="text-hint-c">{{ group.orders.length }} 筆</span>
-            </div>
-          </div>
-
-          <!-- 手機：卡片列表 -->
-          <div class="flex flex-col gap-2 sm:hidden">
-            <div
-              v-for="o in group.orders"
-              :key="o.id"
-              class="bg-surface border border-light-c rounded-2xl px-4 py-3 shadow-sm"
-              :class="{ 'opacity-40': o.status === '已取消' }"
-            >
-              <!-- 頂行：姓名 + 狀態 + 操作 -->
-              <div class="flex items-center gap-2 mb-2">
-                <span class="font-bold text-base-c text-sm flex-1">{{ o.name }}</span>
-                <span :class="statusClass(o.status)">{{ o.status }}</span>
-                <button
-                  :disabled="updatingId === o.id"
-                  class="p-1.5 rounded-lg border border-blue-200 dark:border-blue-900 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 transition-colors"
-                  @click="openEditModal(o)"
-                >
-                  <svg
-                    class="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  :disabled="updatingId === o.id"
-                  class="p-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 transition-colors"
-                  @click="openDeleteModal(o)"
-                >
-                  <svg
-                    class="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
+                <span
+                  v-if="group.soymilk && group.tofu"
+                  class="text-hint-c"
+                >／</span>
+                <span
+                  v-if="group.tofu"
+                  class="text-amber-600 font-semibold"
+                >豆腐 {{ group.tofu }} 塊</span>
+                <span class="text-hint-c">{{ group.orders.length }} 筆</span>
               </div>
-              <!-- 中間：品項資訊 -->
-              <div class="flex items-center gap-3 mb-2 flex-wrap">
+            </div>
+
+            <!-- 手機：卡片列表 -->
+            <div class="flex flex-col gap-2 sm:hidden">
+              <div
+                v-for="o in group.orders"
+                :key="o.id"
+                class="bg-surface border border-light-c rounded-2xl px-4 py-3 shadow-sm"
+                :class="{ 'opacity-40': o.status === '已取消' }"
+              >
+                <!-- 頂行：姓名 + 狀態 + 操作 -->
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-bold text-base-c text-sm flex-1">{{ o.name }}</span>
+                  <span :class="statusClass(o.status)">{{ o.status }}</span>
+                  <button
+                    :disabled="updatingId === o.id"
+                    class="p-1.5 rounded-lg border border-blue-200 dark:border-blue-900 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 transition-colors"
+                    @click="openEditModal(o)"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    :disabled="updatingId === o.id"
+                    class="p-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 transition-colors"
+                    @click="openDeleteModal(o)"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <!-- 中間：品項資訊 -->
+                <div class="flex items-center gap-3 mb-2 flex-wrap">
                 <span
                   class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
                   :class="colorForCode(o.pickupDay).bg"
                 >
                   {{ pickupLabel(o) }}
                 </span>
-                <span
-                  v-if="normalizeSoymilkItems(o).length"
-                  class="text-sm font-semibold text-green-700"
-                >
+                  <span
+                    v-if="normalizeSoymilkItems(o).length"
+                    class="text-sm font-semibold text-green-700"
+                  >
                   豆漿 {{ totalSoymilkQty(normalizeSoymilkItems(o)) }} 袋
                   <span class="text-xs text-hint-c font-normal">（{{ soymilkItemsLabel(o) }}）</span>
                 </span>
-                <span
-                  v-if="o.tofuQty"
-                  class="text-sm font-semibold text-amber-600"
-                >
+                  <span
+                    v-if="o.tofuQty"
+                    class="text-sm font-semibold text-amber-600"
+                  >
                   豆腐 {{ o.tofuQty }} 塊
                 </span>
-                <span class="text-sm font-bold text-base-c ml-auto">
+                  <span class="text-sm font-bold text-base-c ml-auto">
                   ${{ calcTotal(o) }}
                 </span>
-              </div>
-              <!-- 底行：聯絡 + 備註 + 時間 -->
-              <div class="flex items-center gap-2 text-xs text-hint-c flex-wrap">
-                <span>{{ o.contact }}</span>
-                <span
-                  v-if="o.remark"
-                  class="text-hint-c"
-                >｜</span>
-                <span
-                  v-if="o.remark"
-                  class="text-hint-c truncate max-w-[120px]"
-                >{{ o.remark }}</span>
-                <span class="ml-auto text-hint-c">{{ formatCreatedAt(o.createdAt) }}</span>
+                </div>
+                <!-- 底行：聯絡 + 備註 + 時間 -->
+                <div class="flex items-center gap-2 text-xs text-hint-c flex-wrap">
+                  <span>{{ o.contact }}</span>
+                  <span
+                    v-if="o.remark"
+                    class="text-hint-c"
+                  >｜</span>
+                  <span
+                    v-if="o.remark"
+                    class="text-hint-c truncate max-w-[120px]"
+                  >{{ o.remark }}</span>
+                  <span class="ml-auto text-hint-c">{{ formatCreatedAt(o.createdAt) }}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- 桌機：表格 -->
-          <div class="hidden sm:block bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-surface2 /50 border-b border-light-c">
-                <tr>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    訂購時間
-                  </th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    姓名
-                  </th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    聯絡
-                  </th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    取貨日
-                  </th>
-                  <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
-                    豆漿
-                  </th>
-                  <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
-                    豆腐
-                  </th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    金額
-                  </th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    備註
-                  </th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    狀態
-                  </th>
-                  <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                    操作
-                  </th>
-                </tr>
-                </thead>
-                <tbody class="divide-y divide-base">
-                <tr
-                  v-for="o in group.orders"
-                  :key="o.id"
-                  class="hover-surface2/30 transition-colors"
-                  :class="{ 'opacity-40': o.status === '已取消' }"
-                >
-                  <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">
-                    {{ formatCreatedAt(o.createdAt) }}
-                  </td>
-                  <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">
-                    {{ o.name }}
-                  </td>
-                  <td class="px-3 py-2.5 text-xs text-hint-c">
-                    {{ o.contact }}
-                  </td>
-                  <td class="px-3 py-2.5">
+            <!-- 桌機：表格 -->
+            <div class="hidden sm:block bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="bg-surface2 /50 border-b border-light-c">
+                  <tr>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      訂購時間
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      姓名
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      聯絡
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      取貨日
+                    </th>
+                    <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
+                      豆漿
+                    </th>
+                    <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
+                      豆腐
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      金額
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      備註
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      狀態
+                    </th>
+                    <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
+                      操作
+                    </th>
+                  </tr>
+                  </thead>
+                  <tbody class="divide-y divide-base">
+                  <tr
+                    v-for="o in group.orders"
+                    :key="o.id"
+                    class="hover-surface2/30 transition-colors"
+                    :class="{ 'opacity-40': o.status === '已取消' }"
+                  >
+                    <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">
+                      {{ formatCreatedAt(o.createdAt) }}
+                    </td>
+                    <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">
+                      {{ o.name }}
+                    </td>
+                    <td class="px-3 py-2.5 text-xs text-hint-c">
+                      {{ o.contact }}
+                    </td>
+                    <td class="px-3 py-2.5">
                       <span
                         class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
                         :class="colorForCode(o.pickupDay).bg"
                       >
                         {{ pickupLabel(o) }}
                       </span>
-                  </td>
-                  <td class="px-3 py-2.5">
-                    <div
-                      v-if="normalizeSoymilkItems(o).length"
-                      class="text-xs text-green-700 font-semibold space-y-0.5"
-                    >
+                    </td>
+                    <td class="px-3 py-2.5">
                       <div
-                        v-for="(item, idx) in normalizeSoymilkItems(o)"
-                        :key="idx"
-                        class="whitespace-nowrap"
+                        v-if="normalizeSoymilkItems(o).length"
+                        class="text-xs text-green-700 font-semibold space-y-0.5"
                       >
-                        {{ item.volume }}ml × {{ item.qty }}
+                        <div
+                          v-for="(item, idx) in normalizeSoymilkItems(o)"
+                          :key="idx"
+                          class="whitespace-nowrap"
+                        >
+                          {{ item.volume }}ml × {{ item.qty }}
+                        </div>
                       </div>
-                    </div>
-                    <span
-                      v-else
-                      class="text-hint-c text-xs"
-                    >—</span>
-                  </td>
-                  <td class="px-3 py-2.5 text-center">
+                      <span
+                        v-else
+                        class="text-hint-c text-xs"
+                      >—</span>
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
                       <span
                         v-if="o.tofuQty"
                         class="font-semibold text-amber-600 text-xs"
                       >{{ o.tofuQty }} 塊</span>
-                    <span
-                      v-else
-                      class="text-hint-c text-xs"
-                    >—</span>
-                  </td>
-                  <td class="px-3 py-2.5 font-semibold text-base-c text-xs whitespace-nowrap">
-                    ${{ calcTotal(o) }}
-                  </td>
-                  <td class="px-3 py-2.5 text-xs text-hint-c max-w-[100px] truncate">
-                    {{ o.remark || '—' }}
-                  </td>
-                  <td class="px-3 py-2.5">
-                    <span :class="statusClass(o.status)">{{ o.status }}</span>
-                  </td>
-                  <td class="px-3 py-2.5">
-                    <div class="flex gap-1 flex-wrap">
-                      <button
-                        :disabled="updatingId === o.id"
-                        class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-surface text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                        @click="openEditModal(o)"
-                      >
-                        編輯
-                      </button>
-                      <button
-                        :disabled="updatingId === o.id"
-                        class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                        @click="openDeleteModal(o)"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                </tbody>
-              </table>
+                      <span
+                        v-else
+                        class="text-hint-c text-xs"
+                      >—</span>
+                    </td>
+                    <td class="px-3 py-2.5 font-semibold text-base-c text-xs whitespace-nowrap">
+                      ${{ calcTotal(o) }}
+                    </td>
+                    <td class="px-3 py-2.5 text-xs text-hint-c max-w-[100px] truncate">
+                      {{ o.remark || '—' }}
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <span :class="statusClass(o.status)">{{ o.status }}</span>
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <div class="flex gap-1 flex-wrap">
+                        <button
+                          :disabled="updatingId === o.id"
+                          class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-surface text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                          @click="openEditModal(o)"
+                        >
+                          編輯
+                        </button>
+                        <button
+                          :disabled="updatingId === o.id"
+                          class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                          @click="openDeleteModal(o)"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
+      </div>
     </div>
 
     <!-- 新增訂單 Modal -->
