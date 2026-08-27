@@ -1,271 +1,271 @@
 <script setup>
-  const route = useRoute()
-  const mobileOpen = ref(false)
-  const menuOpen = ref(false)
-  const dropOpen = ref({})
-  const darkStore = useDarkModeStore()
-  const isDark = computed(() => darkStore.data.dark)
-  const perm = usePermission()
-  const customerStore = useCustomerStore()
-  const commonStore = useCommonStore()
-  const customer = computed(() => customerStore.customer)
-  const { groups: posNavGroups } = usePosNav()
+const route = useRoute()
+const mobileOpen = ref(false)
+const menuOpen = ref(false)
+const dropOpen = ref({})
+const darkStore = useDarkModeStore()
+const isDark = computed(() => darkStore.data.dark)
+const perm = usePermission()
+const customerStore = useCustomerStore()
+const commonStore = useCommonStore()
+const customer = computed(() => customerStore.customer)
+const { groups: posNavGroups } = usePosNav()
 
-  const toggleDark = () => {
-    darkStore.change_dark_mode()
+const toggleDark = () => {
+  darkStore.change_dark_mode()
+}
+
+watch(() => route.path, () => {
+  mobileOpen.value = false
+  dropOpen.value = {}
+  menuOpen.value = false
+})
+
+watch(mobileOpen, (val) => {
+  if (import.meta.client) {
+    document.body.style.overflow = val ? 'hidden' : ''
   }
+})
 
-  watch(() => route.path, () => {
-    mobileOpen.value = false
-    dropOpen.value = {}
-    menuOpen.value = false
-  })
-
-  watch(mobileOpen, (val) => {
-    if (import.meta.client) {
-      document.body.style.overflow = val ? 'hidden' : ''
-    }
-  })
-
-  const navGroups = [
-    {
-      label: '📦 訂單管理',
-      items: [
-        { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
-        { to: '/staff/order/booking-orders', icon: '📅', label: '訂位管理', key: 'order.booking-orders' },
-        { to: '/staff/order/lunch-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
-        { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
-        { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
-        { to: '/staff/order/shopping-cart', icon: '🛒', label: '購物車', key: 'order.shopping-cart' },
-        { to: '/staff/order/dc-erp', icon: '🌾️', label: '農莊ERP', key: 'order.dc-erp' },
-        { to: '/staff/order/rooms-orders', icon: '🛏️', label: '訂房管理', key: 'order.rooms-orders' },
-        { to: '/staff/order/venue/venue-orders', icon: '🏛️', label: '場地租借', key: 'order.venue-orders' }
-      ]
-    },
-    {
-      label: '📊 庫存銷售',
-      items: [
-        { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
-        { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
-        { to: '/staff/stock/pos-data-table', icon: '🗃️', label: '資料表', key: 'stock.pos-data-table' },
-        { to: '/staff/stock/pos-files', icon: '🗂️', label: '資料管理', key: 'stock.pos-files' }
-      ]
-    },
-    {
-      label: '📅 行事曆與行程',
-      items: [
-        { to: '/staff/management/calendar', icon: '📅', label: '行事曆', key: 'management.calendar' },
-        { to: '/staff/management/group-itinerary', icon: '🚌️', label: '團體行程', key: 'management.group-itinerary' }
-      ]
-    },
-    {
-      label: '🍽️ 餐飲廚房',
-      items: [
-        { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
-        { to: '/staff/management/meal-schedule', icon: '👨‍🍳', label: '備餐管理', key: 'management.meal-schedule' },
-        { to: '/staff/management/lemon-sauce-inventory', icon: '🫙', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' }
-      ]
-    },
-    {
-      label: '🏃 健康運動',
-      items: [
-        { to: '/staff/management/body-composition', icon: '⚖️', label: '身體組成分析', key: 'management.body-composition' },
-        { to: '/staff/management/course', icon: '🎓', label: '課程報名', key: 'management.course' }
-      ]
-    },
-    {
-      label: '🖥️ 內容管理',
-      items: [
-        { to: '/staff/management/html-page', icon: '🖥️', label: '網頁頁面', key: 'management.html-page' },
-        { to: '/staff/management/front-website', icon: '📢️', label: '前台管理', key: 'content.news' },
-        { to: '/staff/management/tour', icon: '🌐️', label: '環景導覽管理', key: 'management.tour' },
-        { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'management.files' }
-      ]
-    },
-    {
-      label: '🛡️ 設施安全',
-      items: [
-        { to: '/staff/management/asset', icon: '🏷️', label: '財產登記', key: 'management.asset' },
-        { to: '/staff/management/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'management.fire-extinguisher' }
-      ]
-    },
-    {
-      label: '👥 人事',
-      items: [
-        { to: '/staff/personnel/class-schedule', icon: '🗓️', label: '假表', key: 'personnel.class-schedule' },
-        { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
-        { to: '/staff/personnel/work-manual', icon: '📕', label: '工作手冊', key: 'personnel.work-manual' },
-        { to: '/staff/other/broadcast', icon: '📣', label: '廣播', key: 'other.broadcast' }
-      ]
-    },
-    {
-      label: '🖨️ 列印中心',
-      items: [
-        { to: '/staff/print/guild-hall-print', icon: '🏛️', label: '會館訂貨', key: 'print.guild-hall-print' },
-        { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
-        { to: '/staff/print/fire-extinguisher-print', icon: '🧯', label: '滅火器 QRCode', key: 'print.fire-extinguisher-print' },
-        { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
-      ]
-    },
-    {
-      label: '🔐 權限',
-      items: [
-        { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
-        { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
-      ]
-    }
-  ]
-
-  const standaloneItems = [
-    // POS 系統本身不在頂部展開子項目，只當一個入口；子頁面切換交給 layouts/pos.vue 的左側導覽。
-    // key 給整組 pos 權限清單，只要使用者有其中任一權限就會看到這個入口。
-    // 使用頻率高，獨立成單一連結而非藏在下拉選單裡。
-    { to: '/staff/pos/daily/sales', icon: '🛒', label: 'POS 系統', key: posNavGroups.flatMap(g => g.items.map(i => i.key)) },
-    { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
-  ]
-
-  const permStore = usePermissionStore()
-
-  const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
-
-  // ── 選單是空的背景自動重試 ────────────────────────────────────────────
-  // session/權限的重驗證（visibilitychange 時打 /me、補拉權限）已經統一
-  // 交給 layouts/staff.vue 的 checkSessionOnVisible 處理，這裡不再重複
-  // 監聽 visibilitychange，避免兩邊同時呼叫 permStore.load() 互相競爭。
-  // 但如果訊號很差（例如只有 1-2 格），fetch 常常是逾時/網路錯誤而不是
-  // 明確的 401/403，這種情況本來就不該被登出，只能一直重試等網路恢復。
-  // 這裡在 navbar 端做：選單空著的時候，每隔固定秒數背景補拉一次，
-  // 直到選單有內容（成功）或元件卸載（使用者離開這頁）為止。
-  const PERM_RETRY_INTERVAL_MS = 6000
-  let permRetryTimer = null
-
-  const stopPermRetryLoop = () => {
-    if (permRetryTimer) {
-      clearInterval(permRetryTimer)
-      permRetryTimer = null
-    }
+const navGroups = [
+  {
+    label: '📦 訂單管理',
+    items: [
+      { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
+      { to: '/staff/order/booking-orders', icon: '📅', label: '訂位管理', key: 'order.booking-orders' },
+      { to: '/staff/order/bento-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
+      { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
+      { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
+      { to: '/staff/order/shopping-cart', icon: '🛒', label: '購物車', key: 'order.shopping-cart' },
+      { to: '/staff/order/dc-erp', icon: '🌾️', label: '農莊ERP', key: 'order.dc-erp' },
+      { to: '/staff/order/rooms-orders', icon: '🛏️', label: '訂房管理', key: 'order.rooms-orders' },
+      { to: '/staff/order/venue/venue-orders', icon: '🏛️', label: '場地租借', key: 'order.venue-orders' }
+    ]
+  },
+  {
+    label: '📊 庫存銷售',
+    items: [
+      { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
+      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
+      { to: '/staff/stock/pos-data-table', icon: '🗃️', label: '資料表', key: 'stock.pos-data-table' },
+      { to: '/staff/stock/pos-files', icon: '🗂️', label: '資料管理', key: 'stock.pos-files' }
+    ]
+  },
+  {
+    label: '📅 行事曆與行程',
+    items: [
+      { to: '/staff/management/calendar', icon: '📅', label: '行事曆', key: 'management.calendar' },
+      { to: '/staff/management/group-itinerary', icon: '🚌️', label: '團體行程', key: 'management.group-itinerary' }
+    ]
+  },
+  {
+    label: '🍽️ 餐飲廚房',
+    items: [
+      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
+      { to: '/staff/management/meal-schedule', icon: '👨‍🍳', label: '備餐管理', key: 'management.meal-schedule' },
+      { to: '/staff/management/lemon-sauce-inventory', icon: '🫙', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' }
+    ]
+  },
+  {
+    label: '🏃 健康運動',
+    items: [
+      { to: '/staff/management/body-composition', icon: '⚖️', label: '身體組成分析', key: 'management.body-composition' },
+      { to: '/staff/management/course', icon: '🎓', label: '課程報名', key: 'management.course' }
+    ]
+  },
+  {
+    label: '🖥️ 內容管理',
+    items: [
+      { to: '/staff/management/html-page', icon: '🖥️', label: '網頁頁面', key: 'management.html-page' },
+      { to: '/staff/management/front-website', icon: '📢️', label: '前台管理', key: 'content.news' },
+      { to: '/staff/management/tour', icon: '🌐️', label: '環景導覽管理', key: 'management.tour' },
+      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'management.files' }
+    ]
+  },
+  {
+    label: '🛡️ 設施安全',
+    items: [
+      { to: '/staff/management/asset', icon: '🏷️', label: '財產登記', key: 'management.asset' },
+      { to: '/staff/management/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'management.fire-extinguisher' }
+    ]
+  },
+  {
+    label: '👥 人事',
+    items: [
+      { to: '/staff/personnel/class-schedule', icon: '🗓️', label: '假表', key: 'personnel.class-schedule' },
+      { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
+      { to: '/staff/personnel/work-manual', icon: '📕', label: '工作手冊', key: 'personnel.work-manual' },
+      { to: '/staff/other/broadcast', icon: '📣', label: '廣播', key: 'other.broadcast' }
+    ]
+  },
+  {
+    label: '🖨️ 列印中心',
+    items: [
+      { to: '/staff/print/guild-hall-print', icon: '🏛️', label: '會館訂貨', key: 'print.guild-hall-print' },
+      { to: '/staff/print/herbs-label-print', icon: '🌿', label: '花園 QRCode', key: 'print.herbs-label-print' },
+      { to: '/staff/print/fire-extinguisher-print', icon: '🧯', label: '滅火器 QRCode', key: 'print.fire-extinguisher-print' },
+      { to: '/staff/print/table-card-print', icon: '🪧', label: '桌牌', key: 'print.table-card-print' }
+    ]
+  },
+  {
+    label: '🔐 權限',
+    items: [
+      { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
+      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
+    ]
   }
+]
 
-  const startPermRetryLoop = () => {
-    if (permRetryTimer) return // 已經在跑了，不重複啟動
-    permRetryTimer = setInterval(() => {
-      if (!customer.value || hasPerms.value) {
-        stopPermRetryLoop()
-        return
-      }
-      permStore.load(customer.value.id, commonStore.data.main_url, true)
-    }, PERM_RETRY_INTERVAL_MS)
+const standaloneItems = [
+  // POS 系統本身不在頂部展開子項目，只當一個入口；子頁面切換交給 layouts/pos.vue 的左側導覽。
+  // key 給整組 pos 權限清單，只要使用者有其中任一權限就會看到這個入口。
+  // 使用頻率高，獨立成單一連結而非藏在下拉選單裡。
+  { to: '/staff/pos/daily/sales', icon: '🛒', label: 'POS 系統', key: posNavGroups.flatMap(g => g.items.map(i => i.key)) },
+  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
+]
+
+const permStore = usePermissionStore()
+
+const hasPerms = computed(() => Object.keys(permStore.perms).length > 0)
+
+// ── 選單是空的背景自動重試 ────────────────────────────────────────────
+// session/權限的重驗證（visibilitychange 時打 /me、補拉權限）已經統一
+// 交給 layouts/staff.vue 的 checkSessionOnVisible 處理，這裡不再重複
+// 監聽 visibilitychange，避免兩邊同時呼叫 permStore.load() 互相競爭。
+// 但如果訊號很差（例如只有 1-2 格），fetch 常常是逾時/網路錯誤而不是
+// 明確的 401/403，這種情況本來就不該被登出，只能一直重試等網路恢復。
+// 這裡在 navbar 端做：選單空著的時候，每隔固定秒數背景補拉一次，
+// 直到選單有內容（成功）或元件卸載（使用者離開這頁）為止。
+const PERM_RETRY_INTERVAL_MS = 6000
+let permRetryTimer = null
+
+const stopPermRetryLoop = () => {
+  if (permRetryTimer) {
+    clearInterval(permRetryTimer)
+    permRetryTimer = null
   }
+}
 
-  const ensurePermsLoaded = async () => {
-    if (!customer.value) return
-    if (hasPerms.value) return
-    await permStore.load(customer.value.id, commonStore.data.main_url, true)
-    if (!hasPerms.value) {
-      // 這次補拉還是空的：啟動背景重試迴圈，持續打到成功為止
-      startPermRetryLoop()
-    }
-  }
-
-  // 讓使用者在畫面上能主動戳一下重試，不用乾等背景迴圈的下一次間隔
-  const manualRetryPerms = () => {
-    if (!customer.value) return
-    permStore.load(customer.value.id, commonStore.data.main_url, true)
-    startPermRetryLoop()
-  }
-
-  // 選單有內容了就停止背景重試；反過來，只要選單「變空」了就立刻
-  // 補拉一次並啟動重試迴圈——不管是哪個時間點、哪個原因造成的
-  // （visibilitychange 沒抓到、pageshow 沒抓到、silent 刷新的殘留
-  // 問題……等等），與其一直去猜對的觸發時機，不如直接對「畫面現在
-  // 是空的」這個結果本身做反應：偵測到空導覽，就重新抓資料。
-  watch(hasPerms, (val) => {
-    if (val) {
+const startPermRetryLoop = () => {
+  if (permRetryTimer) return // 已經在跑了，不重複啟動
+  permRetryTimer = setInterval(() => {
+    if (!customer.value || hasPerms.value) {
       stopPermRetryLoop()
       return
     }
-    if (!customer.value) return
-    // 立刻補拉一次，不用等下一次 6 秒的重試間隔才有動作
     permStore.load(customer.value.id, commonStore.data.main_url, true)
+  }, PERM_RETRY_INTERVAL_MS)
+}
+
+const ensurePermsLoaded = async () => {
+  if (!customer.value) return
+  if (hasPerms.value) return
+  await permStore.load(customer.value.id, commonStore.data.main_url, true)
+  if (!hasPerms.value) {
+    // 這次補拉還是空的：啟動背景重試迴圈，持續打到成功為止
     startPermRetryLoop()
-  })
+  }
+}
 
-  watch(customer, (val) => {
-    // 換人登入/登出時，先停掉舊的重試迴圈，重新檢查一次
+// 讓使用者在畫面上能主動戳一下重試，不用乾等背景迴圈的下一次間隔
+const manualRetryPerms = () => {
+  if (!customer.value) return
+  permStore.load(customer.value.id, commonStore.data.main_url, true)
+  startPermRetryLoop()
+}
+
+// 選單有內容了就停止背景重試；反過來，只要選單「變空」了就立刻
+// 補拉一次並啟動重試迴圈——不管是哪個時間點、哪個原因造成的
+// （visibilitychange 沒抓到、pageshow 沒抓到、silent 刷新的殘留
+// 問題……等等），與其一直去猜對的觸發時機，不如直接對「畫面現在
+// 是空的」這個結果本身做反應：偵測到空導覽，就重新抓資料。
+watch(hasPerms, (val) => {
+  if (val) {
     stopPermRetryLoop()
-    if (val) ensurePermsLoaded()
-  })
+    return
+  }
+  if (!customer.value) return
+  // 立刻補拉一次，不用等下一次 6 秒的重試間隔才有動作
+  permStore.load(customer.value.id, commonStore.data.main_url, true)
+  startPermRetryLoop()
+})
 
-  // key 可以是單一字串（沿用原本邏輯），也可以是字串陣列（例如 POS 系統入口）——
-  // 陣列時只要使用者擁有其中任一權限就顯示這個項目。
-  const filterItems = items => items.filter((i) => {
-    if (!i.key) return true
-    if (Array.isArray(i.key)) return i.key.some(k => perm.can(k))
-    return perm.can(i.key)
-  })
+watch(customer, (val) => {
+  // 換人登入/登出時，先停掉舊的重試迴圈，重新檢查一次
+  stopPermRetryLoop()
+  if (val) ensurePermsLoaded()
+})
 
-  const visibleGroups = computed(() => {
-    if (!hasPerms.value) return []
-    return navGroups
-      .map(g => ({ ...g, items: filterItems(g.items) }))
-      .filter(g => g.items.length > 0)
-  })
+// key 可以是單一字串（沿用原本邏輯），也可以是字串陣列（例如 POS 系統入口）——
+// 陣列時只要使用者擁有其中任一權限就顯示這個項目。
+const filterItems = items => items.filter((i) => {
+  if (!i.key) return true
+  if (Array.isArray(i.key)) return i.key.some(k => perm.can(k))
+  return perm.can(i.key)
+})
 
-  const visibleStandaloneItems = computed(() => {
-    if (!hasPerms.value) return []
-    return filterItems(standaloneItems)
-  })
+const visibleGroups = computed(() => {
+  if (!hasPerms.value) return []
+  return navGroups
+    .map(g => ({ ...g, items: filterItems(g.items) }))
+    .filter(g => g.items.length > 0)
+})
 
-  const activeGroup = computed(() =>
-    visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
-  )
+const visibleStandaloneItems = computed(() => {
+  if (!hasPerms.value) return []
+  return filterItems(standaloneItems)
+})
 
-  function toggleDrop(label) {
-    dropOpen.value = {
-      ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
-      [label]: !dropOpen.value[label]
-    }
+const activeGroup = computed(() =>
+  visibleGroups.value.find(g => g.items.some(i => route.path.startsWith(i.to)))
+)
+
+function toggleDrop(label) {
+  dropOpen.value = {
+    ...Object.fromEntries(Object.keys(dropOpen.value).map(k => [k, false])),
+    [label]: !dropOpen.value[label]
+  }
+  menuOpen.value = false
+}
+
+function onClickOutside(e) {
+  if (!e.target.closest('.nav-dropdown-wrap')) {
+    dropOpen.value = {}
     menuOpen.value = false
   }
+}
 
-  function onClickOutside(e) {
-    if (!e.target.closest('.nav-dropdown-wrap')) {
-      dropOpen.value = {}
-      menuOpen.value = false
-    }
+onMounted(() => {
+  document.addEventListener('click', onClickOutside)
+  ensurePermsLoaded()
+})
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside)
+  stopPermRetryLoop()
+  if (import.meta.client) {
+    document.body.style.overflow = ''
   }
+})
 
-  onMounted(() => {
-    document.addEventListener('click', onClickOutside)
-    ensurePermsLoaded()
-  })
-  onUnmounted(() => {
-    document.removeEventListener('click', onClickOutside)
-    stopPermRetryLoop()
-    if (import.meta.client) {
-      document.body.style.overflow = ''
-    }
-  })
+const goProfile = () => {
+  menuOpen.value = false
+  nextTick(() => navigateTo('/staff/profile/settings'))
+}
 
-  const goProfile = () => {
-    menuOpen.value = false
-    nextTick(() => navigateTo('/staff/profile/settings'))
+const logout = async () => {
+  try {
+    await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+  } catch { /* 即使失敗也繼續清除本地狀態 */
   }
-
-  const logout = async () => {
-    try {
-      await fetch(`${commonStore.data.main_url}/holy/customer/logout`, {
-        method: 'POST',
-        credentials: 'include'
-      })
-    } catch { /* 即使失敗也繼續清除本地狀態 */
-    }
-    customerStore.clearCustomer()
-    usePermissionStore().clear()
-    menuOpen.value = false
-    mobileOpen.value = false
-    navigateTo('/')
-  }
+  customerStore.clearCustomer()
+  usePermissionStore().clear()
+  menuOpen.value = false
+  mobileOpen.value = false
+  navigateTo('/')
+}
 </script>
 
 <template>

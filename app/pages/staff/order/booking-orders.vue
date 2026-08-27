@@ -1,541 +1,644 @@
 <script setup>
-  definePageMeta({layout: 'staff', requiredPermission: 'order.booking-orders'})
-  const commonStore = useCommonStore()
-  const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
-  const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
-  const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
-  const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
+definePageMeta({layout: 'staff', requiredPermission: 'order.booking-orders'})
+const commonStore = useCommonStore()
+const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
+const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
+const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
+const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
+const HOURS_BASE = computed(() => commonStore.data.main_url + '/holy/booking/settings')
 
-  // ── 客戶訂位連結 ──────────────────────────────────────────────────
-  const CUSTOMER_BOOKING_URL = 'https://holyfarm.netlify.app/front/order/booking'
-  const copyCustomerBookingLink = async () => {
-    try {
-      await navigator.clipboard.writeText(CUSTOMER_BOOKING_URL)
-      showToast('連結已複製')
-    } catch {
-      showToast('複製失敗')
-    }
+// ── 客戶訂位連結 ──────────────────────────────────────────────────
+const CUSTOMER_BOOKING_URL = 'https://holyfarm.netlify.app/front/order/booking'
+const copyCustomerBookingLink = async () => {
+  try {
+    await navigator.clipboard.writeText(CUSTOMER_BOOKING_URL)
+    showToast('連結已複製')
+  } catch {
+    showToast('複製失敗')
   }
-  const openCustomerBookingLink = () => {
-    window.open(CUSTOMER_BOOKING_URL, '_blank')
+}
+const openCustomerBookingLink = () => {
+  window.open(CUSTOMER_BOOKING_URL, '_blank')
+}
+
+// 團體行程名稱查表：訂位只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
+const groupNamesById = ref({})
+const fetchGroupNames = async () => {
+  try {
+    const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
+    groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
+  } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
+}
+
+// ── 24 小時制時間選擇（避免原生 time input 出現上午/下午） ──────────
+const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0'))
+const MINUTE_OPTIONS = Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0'))
+// 給定 reactive 物件與欄位名稱（值為 "HH:mm" 字串），回傳可分別綁定「時」「分」的 computed
+const timePart = (obj, key, part) => computed({
+  get: () => {
+    const [h, m] = (obj[key] || '00:00').split(':')
+    return part === 'h' ? h : m
+  },
+  set: (v) => {
+    const [h, m] = (obj[key] || '00:00').split(':')
+    obj[key] = part === 'h' ? `${v}:${m}` : `${h}:${v}`
   }
+})
 
-  // 團體行程名稱查表：訂位只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
-  const groupNamesById = ref({})
-  const fetchGroupNames = async () => {
-    try {
-      const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
-      groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
-    } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
+// ── 共用日曆 ──────────────────────────────────────────────────────
+const apiOnline = ref(false)
+const selectedDate = ref('')
+const today = new Date()
+const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+const calYear = ref(today.getFullYear())
+const calMonth = ref(today.getMonth() + 1)
+
+const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
+const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
+
+const calendarDays = computed(() => {
+  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+  const days = []
+  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
   }
+  return days
+})
 
-  // ── 24 小時制時間選擇（避免原生 time input 出現上午/下午） ──────────
-  const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0'))
-  const MINUTE_OPTIONS = Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0'))
-  // 給定 reactive 物件與欄位名稱（值為 "HH:mm" 字串），回傳可分別綁定「時」「分」的 computed
-  const timePart = (obj, key, part) => computed({
-    get: () => {
-      const [h, m] = (obj[key] || '00:00').split(':')
-      return part === 'h' ? h : m
-    },
-    set: (v) => {
-      const [h, m] = (obj[key] || '00:00').split(':')
-      obj[key] = part === 'h' ? `${v}:${m}` : `${h}:${v}`
-    }
-  })
+const dayClass = (day) => {
+  if (!day.date) return 'cursor-default'
+  if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
+  if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
+  if (dayHoursMark(day.date) === 'closed') return 'text-hint-c opacity-50 hover-surface2'
+  return 'text-base-c hover-surface2'
+}
 
-  // ── 共用日曆 ──────────────────────────────────────────────────────
-  const apiOnline = ref(false)
-  const selectedDate = ref('')
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const calYear = ref(today.getFullYear())
-  const calMonth = ref(today.getMonth() + 1)
+const prevMonth = () => {
+  if (calMonth.value === 1) {
+    calYear.value--;
+    calMonth.value = 12
+  } else calMonth.value--
+  fetchMarkedDates();
+  fetchSchedule();
+  fetchRecurring()
+}
+const nextMonth = () => {
+  if (calMonth.value === 12) {
+    calYear.value++;
+    calMonth.value = 1
+  } else calMonth.value++
+  fetchMarkedDates();
+  fetchSchedule();
+  fetchRecurring()
+}
 
-  const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
-  const yearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
+const selectDate = async (date) => {
+  selectedDate.value = date
+  await fetchBookings()
+}
 
-  const calendarDays = computed(() => {
-    const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
-    const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
-    const days = []
-    for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
-    for (let d = 1; d <= daysInMonth; d++) {
-      const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-      days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
-    }
-    return days
-  })
-
-  const dayClass = (day) => {
-    if (!day.date) return 'cursor-default'
-    if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
-    if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
-    return 'text-base-c hover-surface2'
+// ── 訂位狀態 ──────────────────────────────────────────────────────
+const BOOKING_STATUSES = ['待確認', '已確認', '已入位', '客戶提出取消', '已取消']
+const bookingStatusClass = (status) => {
+  switch (status) {
+    case '已確認':
+      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
+    case '已入位':
+      return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
+    case '客戶提出取消':
+      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
+    case '已取消':
+      return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
+    default:
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
   }
+}
 
-  const prevMonth = () => {
-    if (calMonth.value === 1) {
-      calYear.value--;
-      calMonth.value = 12
-    } else calMonth.value--
-    fetchMarkedDates();
-    fetchSchedule();
-    fetchRecurring()
+// ── 時段設定 ──────────────────────────────────────────────────────
+// 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段
+const periods = ref([]) // [{ id, name, startTime, endTime, color }]
+const periodSettingsOpen = ref(false)
+const periodFormEditingId = ref('')
+const periodForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
+const periodStartHour = timePart(periodForm, 'startTime', 'h')
+const periodStartMinute = timePart(periodForm, 'startTime', 'm')
+const periodEndHour = timePart(periodForm, 'endTime', 'h')
+const periodEndMinute = timePart(periodForm, 'endTime', 'm')
+
+const PERIOD_COLORS = [
+  {
+    key: 'amber',
+    label: '琥珀',
+    class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
+  },
+  {
+    key: 'orange',
+    label: '橘',
+    class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'
+  },
+  {
+    key: 'indigo',
+    label: '靛',
+    class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'
+  },
+  {
+    key: 'purple',
+    label: '紫',
+    class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'
+  },
+  {
+    key: 'teal',
+    label: '青',
+    class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
+  },
+]
+const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
+
+const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+
+// 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
+const findPeriod = (time) => {
+  if (!time) return null
+  return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
+}
+
+const fetchPeriods = async () => {
+  try {
+    periods.value = await (await fetch(`${PERIOD_BASE.value}/list`)).json()
+  } catch (e) {
+    console.error(e)
   }
-  const nextMonth = () => {
-    if (calMonth.value === 12) {
-      calYear.value++;
-      calMonth.value = 1
-    } else calMonth.value++
-    fetchMarkedDates();
-    fetchSchedule();
-    fetchRecurring()
+}
+
+const openPeriodForm = (period) => {
+  if (period) Object.assign(periodForm, period)
+  else Object.assign(periodForm, {id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
+  periodFormEditingId.value = period ? period.id : ''
+}
+
+const savePeriod = async () => {
+  if (!periodForm.name || !periodForm.startTime || !periodForm.endTime) return
+  try {
+    const saved = await (await fetch(`${PERIOD_BASE.value}/save`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...periodForm})
+    })).json()
+    const idx = periods.value.findIndex(p => p.id === saved.id)
+    if (idx >= 0) periods.value[idx] = saved
+    else periods.value.push(saved)
+    openPeriodForm(null)
+    showToast('時段已儲存')
+  } catch {
+    showToast('儲存失敗')
   }
+}
 
-  const selectDate = async (date) => {
-    selectedDate.value = date
-    await fetchBookings()
+const deletePeriod = async (id) => {
+  if (!confirm('確定刪除此時段？')) return
+  try {
+    await fetch(`${PERIOD_BASE.value}/remove/${id}`, {method: 'DELETE'})
+    periods.value = periods.value.filter(p => p.id !== id)
+    if (periodFormEditingId.value === id) openPeriodForm(null)
+    showToast('已刪除')
+  } catch {
+    showToast('刪除失敗')
   }
+}
 
-  // ── 訂位狀態 ──────────────────────────────────────────────────────
-  const BOOKING_STATUSES = ['待確認', '已確認', '已入位', '客戶提出取消', '已取消']
-  const bookingStatusClass = (status) => {
-    switch (status) {
-      case '已確認':
-        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200'
-      case '已入位':
-        return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200'
-      case '客戶提出取消':
-        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200'
-      case '已取消':
-        return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200'
-      default:
-        return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200'
-    }
+// ── 營業設定（固定營業星期 / 國定假日公休 / 週六等臨時開放）────────────
+// 目前固定營業日一~五；週六視訂位人數決定，店家評估足夠後把該週六加進「臨時開放日」；
+// 未來客人變多要改一~六營業，直接在這裡把「六」加進固定營業日即可，前台會自動同步
+const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+const hoursSettingsOpen = ref(false)
+const hoursSettings = reactive({openWeekdays: [1, 2, 3, 4, 5], closedDates: {}, openDates: {}})
+const closedDateForm = reactive({date: '', note: ''})
+const openDateForm = reactive({date: '', note: ''})
+
+const fetchHoursSettings = async () => {
+  try {
+    const data = await (await fetch(`${HOURS_BASE.value}/get`)).json()
+    hoursSettings.openWeekdays = data.openWeekdays || [1, 2, 3, 4, 5]
+    hoursSettings.closedDates = data.closedDates || {}
+    hoursSettings.openDates = data.openDates || {}
+  } catch (e) {
+    console.error(e)
   }
+}
 
-  // ── 時段設定 ──────────────────────────────────────────────────────
-  // 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段
-  const periods = ref([]) // [{ id, name, startTime, endTime, color }]
-  const periodSettingsOpen = ref(false)
-  const periodFormEditingId = ref('')
-  const periodForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
-  const periodStartHour = timePart(periodForm, 'startTime', 'h')
-  const periodStartMinute = timePart(periodForm, 'startTime', 'm')
-  const periodEndHour = timePart(periodForm, 'endTime', 'h')
-  const periodEndMinute = timePart(periodForm, 'endTime', 'm')
-
-  const PERIOD_COLORS = [
-    {
-      key: 'amber',
-      label: '琥珀',
-      class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
-    },
-    {
-      key: 'orange',
-      label: '橘',
-      class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'
-    },
-    {
-      key: 'indigo',
-      label: '靛',
-      class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'
-    },
-    {
-      key: 'purple',
-      label: '紫',
-      class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'
-    },
-    {
-      key: 'teal',
-      label: '青',
-      class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
-    },
-  ]
-  const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
-
-  const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
-
-  // 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
-  const findPeriod = (time) => {
-    if (!time) return null
-    return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
+const toggleOpenWeekday = async (dow) => {
+  const next = hoursSettings.openWeekdays.includes(dow)
+    ? hoursSettings.openWeekdays.filter(d => d !== dow)
+    : [...hoursSettings.openWeekdays, dow].sort((a, b) => a - b)
+  try {
+    const saved = await (await fetch(`${HOURS_BASE.value}/weekdays`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(next)
+    })).json()
+    hoursSettings.openWeekdays = saved.openWeekdays
+    showToast('固定營業日已更新')
+  } catch {
+    showToast('儲存失敗')
   }
+}
 
-  const fetchPeriods = async () => {
-    try {
-      periods.value = await (await fetch(`${PERIOD_BASE.value}/list`)).json()
-    } catch (e) {
-      console.error(e)
-    }
+const addClosedDate = async () => {
+  if (!closedDateForm.date) return
+  try {
+    const saved = await (await fetch(`${HOURS_BASE.value}/closed-date`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...closedDateForm})
+    })).json()
+    hoursSettings.closedDates = saved.closedDates
+    hoursSettings.openDates = saved.openDates
+    Object.assign(closedDateForm, {date: '', note: ''})
+    showToast('公休日已新增')
+  } catch {
+    showToast('新增失敗')
   }
+}
 
-  const openPeriodForm = (period) => {
-    if (period) Object.assign(periodForm, period)
-    else Object.assign(periodForm, {id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
-    periodFormEditingId.value = period ? period.id : ''
+const removeClosedDate = async (date) => {
+  try {
+    const saved = await (await fetch(`${HOURS_BASE.value}/closed-date/${date}`, {method: 'DELETE'})).json()
+    hoursSettings.closedDates = saved.closedDates
+    showToast('已移除')
+  } catch {
+    showToast('移除失敗')
   }
+}
 
-  const savePeriod = async () => {
-    if (!periodForm.name || !periodForm.startTime || !periodForm.endTime) return
-    try {
-      const saved = await (await fetch(`${PERIOD_BASE.value}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...periodForm})
-      })).json()
-      const idx = periods.value.findIndex(p => p.id === saved.id)
-      if (idx >= 0) periods.value[idx] = saved
-      else periods.value.push(saved)
-      openPeriodForm(null)
-      showToast('時段已儲存')
-    } catch {
-      showToast('儲存失敗')
-    }
+const addOpenDate = async () => {
+  if (!openDateForm.date) return
+  try {
+    const saved = await (await fetch(`${HOURS_BASE.value}/open-date`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...openDateForm})
+    })).json()
+    hoursSettings.openDates = saved.openDates
+    hoursSettings.closedDates = saved.closedDates
+    Object.assign(openDateForm, {date: '', note: ''})
+    showToast('臨時開放日已新增')
+  } catch {
+    showToast('新增失敗')
   }
+}
 
-  const deletePeriod = async (id) => {
-    if (!confirm('確定刪除此時段？')) return
-    try {
-      await fetch(`${PERIOD_BASE.value}/remove/${id}`, {method: 'DELETE'})
-      periods.value = periods.value.filter(p => p.id !== id)
-      if (periodFormEditingId.value === id) openPeriodForm(null)
-      showToast('已刪除')
-    } catch {
-      showToast('刪除失敗')
-    }
+const removeOpenDate = async (date) => {
+  try {
+    const saved = await (await fetch(`${HOURS_BASE.value}/open-date/${date}`, {method: 'DELETE'})).json()
+    hoursSettings.openDates = saved.openDates
+    showToast('已移除')
+  } catch {
+    showToast('移除失敗')
   }
+}
 
-  // ── 訂位 ──────────────────────────────────────────────────────────
-  const bookings = ref([])
-  const markedDates = ref([])
+const sortedClosedDates = computed(() =>
+  Object.entries(hoursSettings.closedDates).sort((a, b) => a[0].localeCompare(b[0])))
+const sortedOpenDates = computed(() =>
+  Object.entries(hoursSettings.openDates).sort((a, b) => a[0].localeCompare(b[0])))
 
-  const bookingModal = reactive({show: false, isNew: true})
-  const bForm = reactive({
-    id: '', date: '', name: '', phone: '', time: '11:30',
+// 日曆上該日期的營業標記：'closed' 公休／'open' 臨時開放／null 依固定營業星期
+const dayHoursMark = (date) => {
+  if (hoursSettings.closedDates[date] !== undefined) return 'closed'
+  if (hoursSettings.openDates[date] !== undefined) return 'open'
+  return null
+}
+
+// ── 訂位 ──────────────────────────────────────────────────────────
+const bookings = ref([])
+const markedDates = ref([])
+
+const bookingModal = reactive({show: false, isNew: true})
+const bForm = reactive({
+  id: '', date: '', name: '', phone: '', time: '11:30',
+  meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
+})
+const bFormHour = timePart(bForm, 'time', 'h')
+const bFormMinute = timePart(bForm, 'time', 'm')
+
+const openBookingModal = (booking) => {
+  bookingModal.isNew = !booking
+  Object.assign(bForm, booking ?? {
+    id: '', date: selectedDate.value, name: '', phone: '', time: '11:30',
     meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
   })
-  const bFormHour = timePart(bForm, 'time', 'h')
-  const bFormMinute = timePart(bForm, 'time', 'm')
+  bookingModal.show = true
+}
 
-  const openBookingModal = (booking) => {
-    bookingModal.isNew = !booking
-    Object.assign(bForm, booking ?? {
-      id: '', date: selectedDate.value, name: '', phone: '', time: '11:30',
-      meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, status: '已確認', note: ''
+const fetchMarkedDates = async () => {
+  try {
+    const res = await fetch(`${BASE.value}/dates/${yearMonth.value}`)
+    if (res.ok) markedDates.value = await res.json()
+    apiOnline.value = true
+  } catch {
+    apiOnline.value = false
+  }
+}
+
+const fetchBookings = async () => {
+  if (!selectedDate.value) return
+  bookings.value = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
+}
+
+const saveBooking = async () => {
+  if (!bForm.name || !bForm.date) return
+  if (bookingModal.isNew) {
+    // staff=true：後台人工新增訂位，略過「該日是否開放線上訂位」檢查（例如公休日包場、臨時加開）
+    const saved = await (await fetch(`${BASE.value}/save?staff=true`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...bForm})
+    })).json()
+    // 若新增的日期就是目前檢視中的日期，直接把訂位插入清單；否則清單留給下次選到該日期時再撈
+    if (saved.date === selectedDate.value) {
+      bookings.value.push(saved)
+      bookings.value.sort((a, b) => a.time.localeCompare(b.time))
+    }
+    if (!markedDates.value.includes(saved.date)) markedDates.value.push(saved.date)
+    showToast('訂位已新增')
+  } else {
+    await fetch(`${BASE.value}/update`, {
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(bForm)
     })
-    bookingModal.show = true
+    await fetchBookings()
+    showToast('訂位已更新')
   }
+  bookingModal.show = false
+}
 
-  const fetchMarkedDates = async () => {
-    try {
-      const res = await fetch(`${BASE.value}/dates/${yearMonth.value}`)
-      if (res.ok) markedDates.value = await res.json()
-      apiOnline.value = true
-    } catch {
-      apiOnline.value = false
-    }
+const confirmDeleteBooking = async (b) => {
+  if (!confirm(`確定刪除「${b.name}」的訂位？`)) return
+  await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, {method: 'DELETE'})
+  bookings.value = bookings.value.filter(x => x.id !== b.id)
+  if (!bookings.value.length) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
+  showToast('訂位已刪除')
+}
+
+const toggleBookingStatus = async (b) => {
+  const idx = BOOKING_STATUSES.indexOf(b.status)
+  const next = BOOKING_STATUSES[(idx + 1) % BOOKING_STATUSES.length]
+  await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
+  b.status = next
+  showToast(`狀態已更新為「${next}」`)
+}
+
+// ── 訂位人數統計 ──────────────────────────────────────────────────
+const bookingMeat = computed(() => bookings.value.reduce((s, b) => s + (Number(b.meatQty) || 0), 0))
+const bookingVeg = computed(() => bookings.value.reduce((s, b) => s + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
+
+const todayRecurBooking = computed(() => {
+  if (!selectedDate.value) return []
+  const dow = new Date(selectedDate.value).getDay()
+  return recurringRules.value.filter(r => r.type !== 'lunch'
+    && (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
+})
+const recurBookingGuests = computed(() =>
+  todayRecurBooking.value.reduce((s, r) =>
+    s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
+)
+const recurBookingMeat = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
+const recurBookingFull = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
+const recurBookingEgg = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
+const recurBookingSpice = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
+
+// 依時段彙總當日人數（訂位 + 包月），找不到對應時段者歸類為「未分類」
+const periodSummary = computed(() => {
+  const map = new Map()
+  const add = (time, qty) => {
+    const p = findPeriod(time)
+    const key = p ? p.id : '__none__'
+    const cur = map.get(key) || {id: key, name: p ? p.name : '未分類', color: p ? p.color : null, count: 0}
+    cur.count += qty
+    map.set(key, cur)
   }
-
-  const fetchBookings = async () => {
-    if (!selectedDate.value) return
-    bookings.value = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
+  for (const b of bookings.value) {
+    add(b.time, (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0))
   }
-
-  const saveBooking = async () => {
-    if (!bForm.name || !bForm.date) return
-    if (bookingModal.isNew) {
-      const saved = await (await fetch(`${BASE.value}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...bForm})
-      })).json()
-      // 若新增的日期就是目前檢視中的日期，直接把訂位插入清單；否則清單留給下次選到該日期時再撈
-      if (saved.date === selectedDate.value) {
-        bookings.value.push(saved)
-        bookings.value.sort((a, b) => a.time.localeCompare(b.time))
-      }
-      if (!markedDates.value.includes(saved.date)) markedDates.value.push(saved.date)
-      showToast('訂位已新增')
-    } else {
-      await fetch(`${BASE.value}/update`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(bForm)
-      })
-      await fetchBookings()
-      showToast('訂位已更新')
-    }
-    bookingModal.show = false
+  for (const r of todayRecurBooking.value) {
+    add(r.time, (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0))
   }
-
-  const confirmDeleteBooking = async (b) => {
-    if (!confirm(`確定刪除「${b.name}」的訂位？`)) return
-    await fetch(`${BASE.value}/remove/${b.date}/${b.id}`, {method: 'DELETE'})
-    bookings.value = bookings.value.filter(x => x.id !== b.id)
-    if (!bookings.value.length) markedDates.value = markedDates.value.filter(d => d !== selectedDate.value)
-    showToast('訂位已刪除')
-  }
-
-  const toggleBookingStatus = async (b) => {
-    const idx = BOOKING_STATUSES.indexOf(b.status)
-    const next = BOOKING_STATUSES[(idx + 1) % BOOKING_STATUSES.length]
-    await fetch(`${BASE.value}/status/${b.date}/${b.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
-    b.status = next
-    showToast(`狀態已更新為「${next}」`)
-  }
-
-  // ── 訂位人數統計 ──────────────────────────────────────────────────
-  const bookingMeat = computed(() => bookings.value.reduce((s, b) => s + (Number(b.meatQty) || 0), 0))
-  const bookingVeg = computed(() => bookings.value.reduce((s, b) => s + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0))
-
-  const todayRecurBooking = computed(() => {
-    if (!selectedDate.value) return []
-    const dow = new Date(selectedDate.value).getDay()
-    return recurringRules.value.filter(r => r.type !== 'lunch'
-      && (!r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow)))
+  return [...map.values()].filter(g => g.count > 0).sort((a, b) => {
+    if (a.id === '__none__') return 1
+    if (b.id === '__none__') return -1
+    return a.name.localeCompare(b.name)
   })
-  const recurBookingGuests = computed(() =>
-    todayRecurBooking.value.reduce((s, r) =>
-      s + (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0), 0)
-  )
-  const recurBookingMeat = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.meatQty) || 0), 0))
-  const recurBookingFull = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.fullVegQty) || 0), 0))
-  const recurBookingEgg = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
-  const recurBookingSpice = computed(() => todayRecurBooking.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
+})
 
-  // 依時段彙總當日人數（訂位 + 包月），找不到對應時段者歸類為「未分類」
-  const periodSummary = computed(() => {
-    const map = new Map()
-    const add = (time, qty) => {
-      const p = findPeriod(time)
-      const key = p ? p.id : '__none__'
-      const cur = map.get(key) || {id: key, name: p ? p.name : '未分類', color: p ? p.color : null, count: 0}
-      cur.count += qty
-      map.set(key, cur)
-    }
-    for (const b of bookings.value) {
-      add(b.time, (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0))
-    }
-    for (const r of todayRecurBooking.value) {
-      add(r.time, (Number(r.meatQty) || 0) + (Number(r.fullVegQty) || 0) + (Number(r.eggVegQty) || 0) + (Number(r.spiceVegQty) || 0))
-    }
-    return [...map.values()].filter(g => g.count > 0).sort((a, b) => {
-      if (a.id === '__none__') return 1
-      if (b.id === '__none__') return -1
-      return a.name.localeCompare(b.name)
+// ── 當月預定 ──────────────────────────────────────────────────────
+const RECUR_BASE = computed(() => commonStore.data.main_url + '/holy/recurring')
+const recurringRules = ref([])
+const recurModal = reactive({show: false, isNew: true})
+const recurForm = reactive({
+  id: '', name: '', type: 'booking', time: '12:00',
+  meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
+})
+const recurFormHour = timePart(recurForm, 'time', 'h')
+const recurFormMinute = timePart(recurForm, 'time', 'm')
+const recurExpand = ref({})
+
+const fetchRecurring = async () => {
+  try {
+    const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
+    recurringRules.value = await (await fetch(`${RECUR_BASE.value}/list/${ym}`)).json()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const openRecurModal = (rule) => {
+  recurModal.isNew = !rule
+  if (rule) {
+    Object.assign(recurForm, {
+      id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00',
+      meatQty: rule.meatQty || 0, fullVegQty: rule.fullVegQty || 0,
+      eggVegQty: rule.eggVegQty || 0, spiceVegQty: rule.spiceVegQty || 0,
+      note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : []
     })
-  })
-
-  // ── 當月預定 ──────────────────────────────────────────────────────
-  const RECUR_BASE = computed(() => commonStore.data.main_url + '/holy/recurring')
-  const recurringRules = ref([])
-  const recurModal = reactive({show: false, isNew: true})
-  const recurForm = reactive({
-    id: '', name: '', type: 'booking', time: '12:00',
-    meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
-  })
-  const recurFormHour = timePart(recurForm, 'time', 'h')
-  const recurFormMinute = timePart(recurForm, 'time', 'm')
-  const recurExpand = ref({})
-
-  const fetchRecurring = async () => {
-    try {
-      const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
-      recurringRules.value = await (await fetch(`${RECUR_BASE.value}/list/${ym}`)).json()
-    } catch (e) {
-      console.error(e)
-    }
+  } else {
+    Object.assign(recurForm, {
+      id: '', name: '', type: 'booking', time: '12:00',
+      meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
+    })
   }
+  recurModal.show = true
+}
 
-  const openRecurModal = (rule) => {
-    recurModal.isNew = !rule
-    if (rule) {
-      Object.assign(recurForm, {
-        id: rule.id, name: rule.name, type: rule.type || 'booking', time: rule.time || '12:00',
-        meatQty: rule.meatQty || 0, fullVegQty: rule.fullVegQty || 0,
-        eggVegQty: rule.eggVegQty || 0, spiceVegQty: rule.spiceVegQty || 0,
-        note: rule.note || '', weekdays: rule.weekdays ? [...rule.weekdays] : []
-      })
-    } else {
-      Object.assign(recurForm, {
-        id: '', name: '', type: 'booking', time: '12:00',
-        meatQty: 2, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, note: '', weekdays: []
-      })
+const saveRecurring = async () => {
+  if (!recurForm.name) return
+  const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
+  try {
+    const saved = await (await fetch(`${RECUR_BASE.value}/save/${ym}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...recurForm})
+    })).json()
+    if (recurModal.isNew) recurringRules.value.push(saved)
+    else {
+      const idx = recurringRules.value.findIndex(r => r.id === saved.id)
+      if (idx >= 0) recurringRules.value[idx] = saved
     }
-    recurModal.show = true
+    recurModal.show = false
+    showToast(recurModal.isNew ? '已新增' : '已更新')
+  } catch {
+    showToast('儲存失敗')
   }
+}
 
-  const saveRecurring = async () => {
-    if (!recurForm.name) return
-    const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
-    try {
-      const saved = await (await fetch(`${RECUR_BASE.value}/save/${ym}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...recurForm})
-      })).json()
-      if (recurModal.isNew) recurringRules.value.push(saved)
-      else {
-        const idx = recurringRules.value.findIndex(r => r.id === saved.id)
-        if (idx >= 0) recurringRules.value[idx] = saved
-      }
-      recurModal.show = false
-      showToast(recurModal.isNew ? '已新增' : '已更新')
-    } catch {
-      showToast('儲存失敗')
+const deleteRecurring = async (id) => {
+  if (!confirm('確定刪除此預定？')) return
+  const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
+  try {
+    await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, {method: 'DELETE'})
+    recurringRules.value = recurringRules.value.filter(r => r.id !== id)
+    showToast('已刪除')
+  } catch {
+    showToast('刪除失敗')
+  }
+}
+
+// ── 行事曆 ────────────────────────────────────────────────────────
+const SCHED_BASE = computed(() => commonStore.data.main_url + '/holy/schedule')
+const schedSettingsOpen = ref(false)
+const schedDefault = reactive({activity: '康樂', count: '', time: '', enabled: true})
+const schedNotes = ref('')
+const schedDayData = ref({})
+const schedModal = reactive({show: false, date: '', data: {}})
+
+const schedYearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
+
+const schedDayBookings = ref([])
+const schedDayLunch = ref([])
+const schedSelectedDate = ref('')
+
+const schedDayRecur = computed(() => {
+  if (!schedSelectedDate.value) return []
+  const dow = new Date(schedSelectedDate.value).getDay()
+  return recurringRules.value.filter(r =>
+    !r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow))
+})
+
+const schedDayTotal = computed(() => {
+  const bookingGuests = schedDayBookings.value.reduce((s, b) =>
+    s + (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0)
+  const recurGuests = schedDayRecur.value.reduce((s, r) => s + (Number(r.guests) || 0), 0)
+  return bookingGuests + recurGuests
+})
+
+const selectSchedDate = async (date) => {
+  schedSelectedDate.value = date
+  try {
+    const bRes = await fetch(`${BASE.value}/get/${date}`)
+    schedDayBookings.value = bRes.ok ? await bRes.json() : []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const fetchSchedule = async () => {
+  try {
+    const ym = schedYearMonth.value
+    const [schedRes, bookDates, recurRes] = await Promise.all([
+      fetch(`${SCHED_BASE.value}/get/${ym}`),
+      fetch(`${BASE.value}/dates/${ym}`),
+      fetch(`${RECUR_BASE.value}/expand/${ym}`)
+    ])
+    if (schedRes.ok) {
+      const data = await schedRes.json()
+      const d = data.default || {}
+      schedDefault.activity = d.activity ?? '康樂'
+      schedDefault.count = d.count ?? ''
+      schedDefault.time = d.time ?? ''
+      schedDefault.enabled = d.enabled !== false
+      schedNotes.value = data.notes || ''
+      schedDayData.value = data.days || {}
     }
+    if (bookDates.ok) markedDates.value = await bookDates.json()
+    if (recurRes.ok) recurExpand.value = await recurRes.json()
+  } catch (e) {
+    console.error(e)
   }
+}
 
-  const deleteRecurring = async (id) => {
-    if (!confirm('確定刪除此預定？')) return
-    const ym = `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`
-    try {
-      await fetch(`${RECUR_BASE.value}/remove/${ym}/${id}`, {method: 'DELETE'})
-      recurringRules.value = recurringRules.value.filter(r => r.id !== id)
-      showToast('已刪除')
-    } catch {
-      showToast('刪除失敗')
-    }
+const saveSchedDefault = async () => {
+  try {
+    await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...schedDefault, notes: schedNotes.value})
+    })
+    await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(schedNotes.value)
+    })
+    showToast('預設值已儲存')
+    schedSettingsOpen.value = false
+  } catch {
+    showToast('儲存失敗')
   }
+}
 
-  // ── 行事曆 ────────────────────────────────────────────────────────
-  const SCHED_BASE = computed(() => commonStore.data.main_url + '/holy/schedule')
-  const schedSettingsOpen = ref(false)
-  const schedDefault = reactive({activity: '康樂', count: '', time: '', enabled: true})
-  const schedNotes = ref('')
-  const schedDayData = ref({})
-  const schedModal = reactive({show: false, date: '', data: {}})
-
-  const schedYearMonth = computed(() => `${calYear.value}-${String(calMonth.value).padStart(2, '0')}`)
-
-  const schedDayBookings = ref([])
-  const schedDayLunch = ref([])
-  const schedSelectedDate = ref('')
-
-  const schedDayRecur = computed(() => {
-    if (!schedSelectedDate.value) return []
-    const dow = new Date(schedSelectedDate.value).getDay()
-    return recurringRules.value.filter(r =>
-      !r.weekdays || r.weekdays.length === 0 || r.weekdays.includes(dow))
-  })
-
-  const schedDayTotal = computed(() => {
-    const bookingGuests = schedDayBookings.value.reduce((s, b) =>
-      s + (Number(b.meatQty) || 0) + (Number(b.fullVegQty) || 0) + (Number(b.eggVegQty) || 0) + (Number(b.spiceVegQty) || 0), 0)
-    const recurGuests = schedDayRecur.value.reduce((s, r) => s + (Number(r.guests) || 0), 0)
-    return bookingGuests + recurGuests
-  })
-
-  const selectSchedDate = async (date) => {
-    schedSelectedDate.value = date
-    try {
-      const bRes = await fetch(`${BASE.value}/get/${date}`)
-      schedDayBookings.value = bRes.ok ? await bRes.json() : []
-    } catch (e) {
-      console.error(e)
-    }
+const openSchedModal = (day) => {
+  const custom = schedDayData.value[day.date] || {}
+  schedModal.date = day.date
+  schedModal.data = {
+    activity: custom.activity || '', count: custom.count || '',
+    time: custom.time || '', note: custom.note || '',
+    holiday: custom.holiday || '',
+    enabled: custom.enabled !== undefined ? custom.enabled : null
   }
+  schedModal.show = true
+}
 
-  const fetchSchedule = async () => {
-    try {
-      const ym = schedYearMonth.value
-      const [schedRes, bookDates, recurRes] = await Promise.all([
-        fetch(`${SCHED_BASE.value}/get/${ym}`),
-        fetch(`${BASE.value}/dates/${ym}`),
-        fetch(`${RECUR_BASE.value}/expand/${ym}`)
-      ])
-      if (schedRes.ok) {
-        const data = await schedRes.json()
-        const d = data.default || {}
-        schedDefault.activity = d.activity ?? '康樂'
-        schedDefault.count = d.count ?? ''
-        schedDefault.time = d.time ?? ''
-        schedDefault.enabled = d.enabled !== false
-        schedNotes.value = data.notes || ''
-        schedDayData.value = data.days || {}
-      }
-      if (bookDates.ok) markedDates.value = await bookDates.json()
-      if (recurRes.ok) recurExpand.value = await recurRes.json()
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const saveSchedDefault = async () => {
-    try {
-      await fetch(`${SCHED_BASE.value}/default/${schedYearMonth.value}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...schedDefault, notes: schedNotes.value})
-      })
-      await fetch(`${SCHED_BASE.value}/notes/${schedYearMonth.value}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(schedNotes.value)
-      })
-      showToast('預設值已儲存')
-      schedSettingsOpen.value = false
-    } catch {
-      showToast('儲存失敗')
-    }
-  }
-
-  const openSchedModal = (day) => {
-    const custom = schedDayData.value[day.date] || {}
-    schedModal.date = day.date
-    schedModal.data = {
-      activity: custom.activity || '', count: custom.count || '',
-      time: custom.time || '', note: custom.note || '',
-      holiday: custom.holiday || '',
-      enabled: custom.enabled !== undefined ? custom.enabled : null
-    }
-    schedModal.show = true
-  }
-
-  const saveSchedDay = async () => {
-    try {
-      await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...schedModal.data})
-      })
-      const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
-      if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
-      else {
-        const nd = {...schedDayData.value};
-        delete nd[schedModal.date];
-        schedDayData.value = nd
-      }
-      schedModal.show = false;
-      showToast('已儲存')
-    } catch {
-      showToast('儲存失敗')
-    }
-  }
-
-  const clearSchedDay = async () => {
-    try {
-      await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
+const saveSchedDay = async () => {
+  try {
+    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...schedModal.data})
+    })
+    const d = Object.fromEntries(Object.entries({...schedModal.data}).filter(([, v]) => v !== '' && v !== null))
+    if (Object.keys(d).length > 0) schedDayData.value = {...schedDayData.value, [schedModal.date]: d}
+    else {
       const nd = {...schedDayData.value};
       delete nd[schedModal.date];
       schedDayData.value = nd
-      schedModal.show = false;
-      showToast('已重設為預設')
-    } catch {
-      showToast('操作失敗')
     }
+    schedModal.show = false;
+    showToast('已儲存')
+  } catch {
+    showToast('儲存失敗')
   }
+}
 
-  // ── Toast ─────────────────────────────────────────────────────────
-  const toast = reactive({show: false, message: ''})
-  const showToast = (msg) => {
-    toast.message = msg;
-    toast.show = true
-    setTimeout(() => toast.show = false, 2500)
+const clearSchedDay = async () => {
+  try {
+    await fetch(`${SCHED_BASE.value}/day/${schedModal.date}`, {method: 'DELETE'})
+    const nd = {...schedDayData.value};
+    delete nd[schedModal.date];
+    schedDayData.value = nd
+    schedModal.show = false;
+    showToast('已重設為預設')
+  } catch {
+    showToast('操作失敗')
   }
+}
 
-  // ── 初始化 ────────────────────────────────────────────────────────
-  onMounted(async () => {
-    await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods()])
-    selectedDate.value = todayStr
-    await fetchBookings()
-    fetchGroupNames()
-  })
+// ── Toast ─────────────────────────────────────────────────────────
+const toast = reactive({show: false, message: ''})
+const showToast = (msg) => {
+  toast.message = msg;
+  toast.show = true
+  setTimeout(() => toast.show = false, 2500)
+}
+
+// ── 初始化 ────────────────────────────────────────────────────────
+onMounted(async () => {
+  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods(), fetchHoursSettings()])
+  selectedDate.value = todayStr
+  await fetchBookings()
+  fetchGroupNames()
+})
 </script>
 
 <template>
@@ -593,6 +696,12 @@
             @click="periodSettingsOpen = true"
           >
             ⏱️ <span class="hidden sm:inline">時段設定</span>
+          </button>
+          <button
+            class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
+            @click="hoursSettingsOpen = true"
+          >
+            📅 <span class="hidden sm:inline">營業設定</span>
           </button>
           <span
             :class="apiOnline ? 'text-green-600' : 'text-red-500'"
@@ -684,8 +793,14 @@
                 :key="idx"
                 class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
                 :class="dayClass(day)"
+                :title="day.date && hoursSettings.closedDates[day.date] ? '公休：' + hoursSettings.closedDates[day.date]
+                  : day.date && hoursSettings.openDates[day.date] ? '臨時開放：' + hoursSettings.openDates[day.date] : ''"
                 @click="day.date && selectDate(day.date)"
               >
+                <span
+                  v-if="day.date && dayHoursMark(day.date)"
+                  class="absolute top-0.5 right-0.5 text-[9px] leading-none"
+                >{{ dayHoursMark(day.date) === 'closed' ? '🚫' : '⭐' }}</span>
                 <span>{{ day.label }}</span>
                 <div
                   v-if="day.date && markedDates.includes(day.date)"
@@ -1299,7 +1414,7 @@
             </div>
             <p class="text-xs text-hint-c mt-1.5">
               合計：{{
-              (recurForm.meatQty || 0) + (recurForm.fullVegQty || 0) + (recurForm.eggVegQty || 0) + (recurForm.spiceVegQty || 0)
+                (recurForm.meatQty || 0) + (recurForm.fullVegQty || 0) + (recurForm.eggVegQty || 0) + (recurForm.spiceVegQty || 0)
               }} 人
             </p>
           </div>
@@ -1504,6 +1619,170 @@
       </div>
     </div>
 
+    <!-- ════════ 營業設定 Modal ════════ -->
+    <div
+      v-if="hoursSettingsOpen"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+    >
+      <div
+        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-base-c">
+              營業設定
+            </h3>
+            <p class="text-xs text-hint-c mt-0.5">
+              固定營業星期、國定假日公休、週六等臨時開放
+            </p>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="hoursSettingsOpen = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- 固定營業星期 -->
+        <div class="mb-5">
+          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">
+            固定營業星期
+          </p>
+          <p class="text-xs text-hint-c mb-2">
+            目前為一~五；未來客人變多可加選「六」改為一~六營業。
+          </p>
+          <div class="flex gap-1.5">
+            <button
+              v-for="(label, dow) in WEEKDAY_LABELS"
+              :key="dow"
+              type="button"
+              :class="hoursSettings.openWeekdays.includes(dow)
+                ? (dow === 0 || dow === 6 ? 'bg-red-500 text-white border-red-500' : 'bg-green-700 text-white border-green-700')
+                : 'bg-surface text-hint-c border-light-c'"
+              class="flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+              @click="toggleOpenWeekday(dow)"
+            >
+              {{ label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 臨時開放日（例：週六訂位人數足夠） -->
+        <div class="mb-5 border-t border-light-c pt-4">
+          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">
+            臨時開放日
+          </p>
+          <p class="text-xs text-hint-c mb-2">
+            例如某週六訂位人數足夠，評估後開放當天線上訂位。
+          </p>
+          <div class="space-y-2 mb-3">
+            <div
+              v-if="sortedOpenDates.length === 0"
+              class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
+            >
+              尚未設定臨時開放日
+            </div>
+            <div
+              v-for="[date, note] in sortedOpenDates"
+              :key="date"
+              class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2"
+            >
+              <span class="text-sm text-muted-c font-medium flex-shrink-0">{{ date }}</span>
+              <span class="text-xs text-hint-c flex-1 min-w-0 truncate">{{ note }}</span>
+              <button
+                class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0"
+                @click="removeOpenDate(date)"
+              >
+                移除
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <input
+              v-model="openDateForm.date"
+              type="date"
+              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+            <input
+              v-model="openDateForm.note"
+              placeholder="備註（選填）"
+              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+            <button
+              :disabled="!openDateForm.date"
+              class="px-3 py-2 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors flex-shrink-0"
+              @click="addOpenDate"
+            >
+              新增
+            </button>
+          </div>
+        </div>
+
+        <!-- 公休日（國定假日、臨時店休…） -->
+        <div class="border-t border-light-c pt-4">
+          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">
+            公休日
+          </p>
+          <p class="text-xs text-hint-c mb-2">
+            國定假日或臨時店休，加入後即使是固定營業日也不開放線上訂位。
+          </p>
+          <div class="space-y-2 mb-3">
+            <div
+              v-if="sortedClosedDates.length === 0"
+              class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
+            >
+              尚未設定公休日
+            </div>
+            <div
+              v-for="[date, note] in sortedClosedDates"
+              :key="date"
+              class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2"
+            >
+              <span class="text-sm text-muted-c font-medium flex-shrink-0">{{ date }}</span>
+              <span class="text-xs text-hint-c flex-1 min-w-0 truncate">{{ note }}</span>
+              <button
+                class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0"
+                @click="removeClosedDate(date)"
+              >
+                移除
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <input
+              v-model="closedDateForm.date"
+              type="date"
+              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+            <input
+              v-model="closedDateForm.note"
+              placeholder="備註（選填，如：中秋節）"
+              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+            <button
+              :disabled="!closedDateForm.date"
+              class="px-3 py-2 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors flex-shrink-0"
+              @click="addClosedDate"
+            >
+              新增
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast -->
     <transition name="fade">
       <div
@@ -1530,12 +1809,12 @@
 </template>
 
 <style scoped>
-  .fade-enter-active, .fade-leave-active {
-    transition: opacity 0.3s, transform 0.3s;
-  }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
 
-  .fade-enter-from, .fade-leave-to {
-    opacity: 0;
-    transform: translateY(8px);
-  }
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>
