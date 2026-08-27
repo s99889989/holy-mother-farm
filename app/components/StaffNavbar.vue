@@ -112,7 +112,8 @@ const navGroups = [
     label: '🔐 權限',
     items: [
       { to: '/staff/permission/customer-management', icon: '👤', label: '帳號管理', key: 'permission.customer-management' },
-      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' }
+      { to: '/staff/permission/permission-management', icon: '🛡️', label: '權限組', key: 'permission.permission-management' },
+      { to: '/staff/permission/permission-keys', icon: '🔖', label: '權限值', key: 'permission.permission-keys' }
     ]
   }
 ]
