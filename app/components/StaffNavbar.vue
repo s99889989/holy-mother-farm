@@ -55,7 +55,8 @@ const navGroups = [
     label: '📅 行事曆與行程',
     items: [
       { to: '/staff/management/calendar', icon: '📅', label: '行事曆', key: 'management.calendar' },
-      { to: '/staff/management/group-itinerary', icon: '🚌️', label: '團體行程', key: 'management.group-itinerary' }
+      { to: '/staff/management/group-itinerary', icon: '🚌️', label: '團體行程', key: 'management.group-itinerary' },
+      { to: '/staff/timeline/business-hours', icon: '🕛️', label: '營業時間', key: 'timeline.business-hours' }
     ]
   },
   {

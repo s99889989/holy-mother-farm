@@ -5,7 +5,7 @@ const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
 const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
-const HOURS_BASE = computed(() => commonStore.data.main_url + '/holy/booking/settings')
+const HOURS_BASE = computed(() => commonStore.data.main_url + '/holy/restaurant/hours')
 
 // ── 客戶訂位連結 ──────────────────────────────────────────────────
 const CUSTOMER_BOOKING_URL = 'https://holyfarm.netlify.app/front/order/booking'
@@ -117,43 +117,17 @@ const bookingStatusClass = (status) => {
   }
 }
 
-// ── 時段設定 ──────────────────────────────────────────────────────
-// 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段
+// ── 時段設定（唯讀，供訂位列表標示時段用；要新增/編輯/刪除請到「餐廳設定」頁面）───
+// 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段。
+// 跟便當共用同一份時段設定（/holy/booking/period），不是訂位獨立一份。
 const periods = ref([]) // [{ id, name, startTime, endTime, color }]
-const periodSettingsOpen = ref(false)
-const periodFormEditingId = ref('')
-const periodForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
-const periodStartHour = timePart(periodForm, 'startTime', 'h')
-const periodStartMinute = timePart(periodForm, 'startTime', 'm')
-const periodEndHour = timePart(periodForm, 'endTime', 'h')
-const periodEndMinute = timePart(periodForm, 'endTime', 'm')
 
 const PERIOD_COLORS = [
-  {
-    key: 'amber',
-    label: '琥珀',
-    class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
-  },
-  {
-    key: 'orange',
-    label: '橘',
-    class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'
-  },
-  {
-    key: 'indigo',
-    label: '靛',
-    class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'
-  },
-  {
-    key: 'purple',
-    label: '紫',
-    class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'
-  },
-  {
-    key: 'teal',
-    label: '青',
-    class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
-  },
+  { key: 'amber', class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40' },
+  { key: 'orange', class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40' },
+  { key: 'indigo', class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40' },
+  { key: 'purple', class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40' },
+  { key: 'teal', class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40' },
 ]
 const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
 
@@ -173,49 +147,9 @@ const fetchPeriods = async () => {
   }
 }
 
-const openPeriodForm = (period) => {
-  if (period) Object.assign(periodForm, period)
-  else Object.assign(periodForm, {id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange'})
-  periodFormEditingId.value = period ? period.id : ''
-}
-
-const savePeriod = async () => {
-  if (!periodForm.name || !periodForm.startTime || !periodForm.endTime) return
-  try {
-    const saved = await (await fetch(`${PERIOD_BASE.value}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...periodForm})
-    })).json()
-    const idx = periods.value.findIndex(p => p.id === saved.id)
-    if (idx >= 0) periods.value[idx] = saved
-    else periods.value.push(saved)
-    openPeriodForm(null)
-    showToast('時段已儲存')
-  } catch {
-    showToast('儲存失敗')
-  }
-}
-
-const deletePeriod = async (id) => {
-  if (!confirm('確定刪除此時段？')) return
-  try {
-    await fetch(`${PERIOD_BASE.value}/remove/${id}`, {method: 'DELETE'})
-    periods.value = periods.value.filter(p => p.id !== id)
-    if (periodFormEditingId.value === id) openPeriodForm(null)
-    showToast('已刪除')
-  } catch {
-    showToast('刪除失敗')
-  }
-}
-
-// ── 營業設定（固定營業星期 / 國定假日公休 / 週六等臨時開放）────────────
-// 目前固定營業日一~五；週六視訂位人數決定，店家評估足夠後把該週六加進「臨時開放日」；
-// 未來客人變多要改一~六營業，直接在這裡把「六」加進固定營業日即可，前台會自動同步
-const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
-const hoursSettingsOpen = ref(false)
+// ── 營業設定（唯讀，供日曆標示公休/臨時開放；要編輯請到「餐廳設定」頁面）──────
+// 跟便當共用同一份餐廳營業規則（RestaurantHoursController），不是訂位獨立一份
 const hoursSettings = reactive({openWeekdays: [1, 2, 3, 4, 5], closedDates: {}, openDates: {}})
-const closedDateForm = reactive({date: '', note: ''})
-const openDateForm = reactive({date: '', note: ''})
 
 const fetchHoursSettings = async () => {
   try {
@@ -227,79 +161,6 @@ const fetchHoursSettings = async () => {
     console.error(e)
   }
 }
-
-const toggleOpenWeekday = async (dow) => {
-  const next = hoursSettings.openWeekdays.includes(dow)
-    ? hoursSettings.openWeekdays.filter(d => d !== dow)
-    : [...hoursSettings.openWeekdays, dow].sort((a, b) => a - b)
-  try {
-    const saved = await (await fetch(`${HOURS_BASE.value}/weekdays`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(next)
-    })).json()
-    hoursSettings.openWeekdays = saved.openWeekdays
-    showToast('固定營業日已更新')
-  } catch {
-    showToast('儲存失敗')
-  }
-}
-
-const addClosedDate = async () => {
-  if (!closedDateForm.date) return
-  try {
-    const saved = await (await fetch(`${HOURS_BASE.value}/closed-date`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...closedDateForm})
-    })).json()
-    hoursSettings.closedDates = saved.closedDates
-    hoursSettings.openDates = saved.openDates
-    Object.assign(closedDateForm, {date: '', note: ''})
-    showToast('公休日已新增')
-  } catch {
-    showToast('新增失敗')
-  }
-}
-
-const removeClosedDate = async (date) => {
-  try {
-    const saved = await (await fetch(`${HOURS_BASE.value}/closed-date/${date}`, {method: 'DELETE'})).json()
-    hoursSettings.closedDates = saved.closedDates
-    showToast('已移除')
-  } catch {
-    showToast('移除失敗')
-  }
-}
-
-const addOpenDate = async () => {
-  if (!openDateForm.date) return
-  try {
-    const saved = await (await fetch(`${HOURS_BASE.value}/open-date`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...openDateForm})
-    })).json()
-    hoursSettings.openDates = saved.openDates
-    hoursSettings.closedDates = saved.closedDates
-    Object.assign(openDateForm, {date: '', note: ''})
-    showToast('臨時開放日已新增')
-  } catch {
-    showToast('新增失敗')
-  }
-}
-
-const removeOpenDate = async (date) => {
-  try {
-    const saved = await (await fetch(`${HOURS_BASE.value}/open-date/${date}`, {method: 'DELETE'})).json()
-    hoursSettings.openDates = saved.openDates
-    showToast('已移除')
-  } catch {
-    showToast('移除失敗')
-  }
-}
-
-const sortedClosedDates = computed(() =>
-  Object.entries(hoursSettings.closedDates).sort((a, b) => a[0].localeCompare(b[0])))
-const sortedOpenDates = computed(() =>
-  Object.entries(hoursSettings.openDates).sort((a, b) => a[0].localeCompare(b[0])))
 
 // 日曆上該日期的營業標記：'closed' 公休／'open' 臨時開放／null 依固定營業星期
 const dayHoursMark = (date) => {
@@ -691,18 +552,13 @@ onMounted(async () => {
             </svg>
             <span class="hidden sm:inline">客戶訂位連結</span>
           </button>
-          <button
+          <NuxtLink
+            to="/staff/management/restaurant-hours"
             class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
-            @click="periodSettingsOpen = true"
+            title="時段設定 / 營業設定（跟便當共用）"
           >
-            ⏱️ <span class="hidden sm:inline">時段設定</span>
-          </button>
-          <button
-            class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
-            @click="hoursSettingsOpen = true"
-          >
-            📅 <span class="hidden sm:inline">營業設定</span>
-          </button>
+            ⚙️ <span class="hidden sm:inline">餐廳設定</span>
+          </NuxtLink>
           <span
             :class="apiOnline ? 'text-green-600' : 'text-red-500'"
             class="text-xs flex items-center gap-1.5 font-medium"
@@ -1460,325 +1316,6 @@ onMounted(async () => {
           >
             儲存
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════════ 時段設定 Modal ════════ -->
-    <div
-      v-if="periodSettingsOpen"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
-    >
-      <div
-        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h3 class="font-bold text-base-c">
-              時段設定
-            </h3>
-            <p class="text-xs text-hint-c mt-0.5">
-              設定用餐時間區間，例如 11:00–14:00 為午餐
-            </p>
-          </div>
-          <button
-            class="text-hint-c hover:text-muted-c p-1"
-            @click="periodSettingsOpen = false; openPeriodForm(null)"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <!-- 現有時段列表 -->
-        <div class="space-y-2 mb-4">
-          <div
-            v-if="sortedPeriods.length === 0"
-            class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
-          >
-            尚未設定任何時段
-          </div>
-          <div
-            v-for="p in sortedPeriods"
-            :key="p.id"
-            class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2"
-          >
-            <span
-              class="px-2 py-0.5 rounded-full text-xs font-medium border flex-shrink-0"
-              :class="periodColorClass(p.color)"
-            >{{ p.name }}</span>
-            <span class="text-sm text-muted-c flex-1 min-w-0">{{ p.startTime }} – {{ p.endTime }}</span>
-            <button
-              class="text-xs text-blue-500 hover:text-blue-700 px-1.5 flex-shrink-0"
-              @click="openPeriodForm(p)"
-            >
-              編輯
-            </button>
-            <button
-              class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0"
-              @click="deletePeriod(p.id)"
-            >
-              刪除
-            </button>
-          </div>
-        </div>
-
-        <!-- 新增／編輯表單 -->
-        <div class="border-t border-light-c pt-4 space-y-3">
-          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest">
-            {{ periodFormEditingId ? '編輯時段' : '新增時段' }}
-          </p>
-          <div>
-            <label class="text-sm font-medium text-muted-c block mb-1">名稱 *</label>
-            <input
-              v-model="periodForm.name"
-              placeholder="早餐 / 午餐 / 晚餐…"
-              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            >
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="text-sm font-medium text-muted-c block mb-1">開始時間 *</label>
-              <div class="flex items-center gap-1">
-                <select
-                  v-model="periodStartHour"
-                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-                >
-                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
-                </select>
-                <span class="text-muted-c font-medium">:</span>
-                <select
-                  v-model="periodStartMinute"
-                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-                >
-                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label class="text-sm font-medium text-muted-c block mb-1">結束時間 *</label>
-              <div class="flex items-center gap-1">
-                <select
-                  v-model="periodEndHour"
-                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-                >
-                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
-                </select>
-                <span class="text-muted-c font-medium">:</span>
-                <select
-                  v-model="periodEndMinute"
-                  class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-                >
-                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-muted-c block mb-1">標籤顏色</label>
-            <div class="flex gap-2 flex-wrap">
-              <button
-                v-for="c in PERIOD_COLORS"
-                :key="c.key"
-                type="button"
-                class="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
-                :class="[periodColorClass(c.key), periodForm.color === c.key ? 'ring-2 ring-offset-1 ring-green-400' : 'opacity-50']"
-                @click="periodForm.color = c.key"
-              >
-                {{ c.label }}
-              </button>
-            </div>
-          </div>
-          <div class="flex gap-2 pt-1">
-            <button
-              v-if="periodFormEditingId"
-              class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors"
-              @click="openPeriodForm(null)"
-            >
-              取消編輯
-            </button>
-            <button
-              :disabled="!periodForm.name || !periodForm.startTime || !periodForm.endTime"
-              class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
-              @click="savePeriod"
-            >
-              {{ periodFormEditingId ? '儲存變更' : '新增時段' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════════ 營業設定 Modal ════════ -->
-    <div
-      v-if="hoursSettingsOpen"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
-    >
-      <div
-        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h3 class="font-bold text-base-c">
-              營業設定
-            </h3>
-            <p class="text-xs text-hint-c mt-0.5">
-              固定營業星期、國定假日公休、週六等臨時開放
-            </p>
-          </div>
-          <button
-            class="text-hint-c hover:text-muted-c p-1"
-            @click="hoursSettingsOpen = false"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <!-- 固定營業星期 -->
-        <div class="mb-5">
-          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">
-            固定營業星期
-          </p>
-          <p class="text-xs text-hint-c mb-2">
-            目前為一~五；未來客人變多可加選「六」改為一~六營業。
-          </p>
-          <div class="flex gap-1.5">
-            <button
-              v-for="(label, dow) in WEEKDAY_LABELS"
-              :key="dow"
-              type="button"
-              :class="hoursSettings.openWeekdays.includes(dow)
-                ? (dow === 0 || dow === 6 ? 'bg-red-500 text-white border-red-500' : 'bg-green-700 text-white border-green-700')
-                : 'bg-surface text-hint-c border-light-c'"
-              class="flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors"
-              @click="toggleOpenWeekday(dow)"
-            >
-              {{ label }}
-            </button>
-          </div>
-        </div>
-
-        <!-- 臨時開放日（例：週六訂位人數足夠） -->
-        <div class="mb-5 border-t border-light-c pt-4">
-          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">
-            臨時開放日
-          </p>
-          <p class="text-xs text-hint-c mb-2">
-            例如某週六訂位人數足夠，評估後開放當天線上訂位。
-          </p>
-          <div class="space-y-2 mb-3">
-            <div
-              v-if="sortedOpenDates.length === 0"
-              class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
-            >
-              尚未設定臨時開放日
-            </div>
-            <div
-              v-for="[date, note] in sortedOpenDates"
-              :key="date"
-              class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2"
-            >
-              <span class="text-sm text-muted-c font-medium flex-shrink-0">{{ date }}</span>
-              <span class="text-xs text-hint-c flex-1 min-w-0 truncate">{{ note }}</span>
-              <button
-                class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0"
-                @click="removeOpenDate(date)"
-              >
-                移除
-              </button>
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <input
-              v-model="openDateForm.date"
-              type="date"
-              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            >
-            <input
-              v-model="openDateForm.note"
-              placeholder="備註（選填）"
-              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            >
-            <button
-              :disabled="!openDateForm.date"
-              class="px-3 py-2 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors flex-shrink-0"
-              @click="addOpenDate"
-            >
-              新增
-            </button>
-          </div>
-        </div>
-
-        <!-- 公休日（國定假日、臨時店休…） -->
-        <div class="border-t border-light-c pt-4">
-          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest mb-2">
-            公休日
-          </p>
-          <p class="text-xs text-hint-c mb-2">
-            國定假日或臨時店休，加入後即使是固定營業日也不開放線上訂位。
-          </p>
-          <div class="space-y-2 mb-3">
-            <div
-              v-if="sortedClosedDates.length === 0"
-              class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
-            >
-              尚未設定公休日
-            </div>
-            <div
-              v-for="[date, note] in sortedClosedDates"
-              :key="date"
-              class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2"
-            >
-              <span class="text-sm text-muted-c font-medium flex-shrink-0">{{ date }}</span>
-              <span class="text-xs text-hint-c flex-1 min-w-0 truncate">{{ note }}</span>
-              <button
-                class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0"
-                @click="removeClosedDate(date)"
-              >
-                移除
-              </button>
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <input
-              v-model="closedDateForm.date"
-              type="date"
-              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            >
-            <input
-              v-model="closedDateForm.note"
-              placeholder="備註（選填，如：中秋節）"
-              class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
-            >
-            <button
-              :disabled="!closedDateForm.date"
-              class="px-3 py-2 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors flex-shrink-0"
-              @click="addClosedDate"
-            >
-              新增
-            </button>
-          </div>
         </div>
       </div>
     </div>

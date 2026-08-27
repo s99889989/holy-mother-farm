@@ -1,8 +1,9 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'order.lunch-orders' })
+definePageMeta({layout: 'staff', requiredPermission: 'order.lunch-orders'})
 const commonStore = useCommonStore()
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
+const HOURS_BASE = computed(() => commonStore.data.main_url + '/holy/restaurant/hours')
 
 // ── 客戶訂餐連結 ──────────────────────────────────────────────────
 const CUSTOMER_LUNCH_URL = 'https://holyfarm.netlify.app/front/order/bento'
@@ -28,6 +29,26 @@ const fetchGroupNames = async () => {
   }
 }
 
+// ── 營業設定（唯讀，供日曆標示公休/臨時開放；要編輯請到「餐廳設定」頁面）──────
+// 跟訂位共用同一份餐廳營業規則（RestaurantHoursController），不是便當自己一份
+const hoursSettings = reactive({openWeekdays: [1, 2, 3, 4, 5], closedDates: {}, openDates: {}})
+const fetchHoursSettings = async () => {
+  try {
+    const data = await (await fetch(`${HOURS_BASE.value}/get`)).json()
+    hoursSettings.openWeekdays = data.openWeekdays || [1, 2, 3, 4, 5]
+    hoursSettings.closedDates = data.closedDates || {}
+    hoursSettings.openDates = data.openDates || {}
+  } catch (e) {
+    console.error(e)
+  }
+}
+// 日曆上該日期的營業標記：'closed' 公休／'open' 臨時開放／null 依固定營業星期
+const dayHoursMark = (date) => {
+  if (hoursSettings.closedDates[date] !== undefined) return 'closed'
+  if (hoursSettings.openDates[date] !== undefined) return 'open'
+  return null
+}
+
 // ── 日曆 ──────────────────────────────────────────────────────────
 const apiOnline = ref(false)
 const selectedDate = ref('')
@@ -43,10 +64,10 @@ const calendarDays = computed(() => {
   const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
+  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
   for (let d = 1; d <= daysInMonth; d++) {
     const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
+    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
   }
   return days
 })
@@ -55,6 +76,7 @@ const dayClass = (day) => {
   if (!day.date) return 'cursor-default'
   if (day.date === selectedDate.value) return 'bg-orange-600 text-white font-bold shadow-sm'
   if (day.date === todayStr) return 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 font-semibold hover:bg-orange-200'
+  if (dayHoursMark(day.date) === 'closed') return 'text-hint-c opacity-50 hover-surface2'
   return 'text-base-c hover-surface2'
 }
 
@@ -96,8 +118,8 @@ const lunchStatusClass = (status) => {
 }
 
 // ── 24 小時制時間選擇（避免原生 time input 出現上午/下午） ──────────
-const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
-const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))
+const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0'))
+const MINUTE_OPTIONS = Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0'))
 const timePart = (obj, key, part) => computed({
   get: () => {
     const [h, m] = (obj[key] || '00:00').split(':')
@@ -113,7 +135,7 @@ const timePart = (obj, key, part) => computed({
 const lunchOrders = ref([])
 const lunchMarkedDates = ref([])
 
-const lunchModal = reactive({ show: false, isNew: true })
+const lunchModal = reactive({show: false, isNew: true})
 const lForm = reactive({
   id: '', date: '', name: '', phone: '',
   meatQty: 0, fullVegQty: 0, eggVegQty: 0, spiceVegQty: 0, time: '11:30', status: '已確認', note: ''
@@ -154,9 +176,10 @@ const fetchLunchOrders = async () => {
 const saveLunch = async () => {
   if (!lForm.name || !lForm.date) return
   if (lunchModal.isNew) {
-    const saved = await (await fetch(`${LUNCH_BASE.value}/save`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...lForm })
+    // staff=true：後台人工新增訂單，略過「該日是否開放線上訂購」檢查（例如公休日包場、臨時加開）
+    const saved = await (await fetch(`${LUNCH_BASE.value}/save?staff=true`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...lForm})
     })).json()
     // 若新增的日期就是目前檢視中的日期，直接把訂單插入清單；否則清單留給下次選到該日期時再撈
     if (saved.date === selectedDate.value) {
@@ -167,7 +190,7 @@ const saveLunch = async () => {
     showToast('便當訂單已新增')
   } else {
     await fetch(`${LUNCH_BASE.value}/update`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(lForm)
     })
     await fetchLunchOrders()
@@ -178,7 +201,7 @@ const saveLunch = async () => {
 
 const confirmDeleteLunch = async (o) => {
   if (!confirm(`確定刪除「${o.name}」的便當訂單？`)) return
-  await fetch(`${LUNCH_BASE.value}/remove/${o.date}/${o.id}`, { method: 'DELETE' })
+  await fetch(`${LUNCH_BASE.value}/remove/${o.date}/${o.id}`, {method: 'DELETE'})
   lunchOrders.value = lunchOrders.value.filter(x => x.id !== o.id)
   if (!lunchOrders.value.length) lunchMarkedDates.value = lunchMarkedDates.value.filter(d => d !== selectedDate.value)
   showToast('便當訂單已刪除')
@@ -187,13 +210,13 @@ const confirmDeleteLunch = async (o) => {
 const toggleLunchStatus = async (o) => {
   const idx = LUNCH_STATUSES.indexOf(o.status)
   const next = LUNCH_STATUSES[(idx + 1) % LUNCH_STATUSES.length]
-  await fetch(`${LUNCH_BASE.value}/status/${o.date}/${o.id}?status=${encodeURIComponent(next)}`, { method: 'PATCH' })
+  await fetch(`${LUNCH_BASE.value}/status/${o.date}/${o.id}?status=${encodeURIComponent(next)}`, {method: 'PATCH'})
   o.status = next
   showToast(`狀態已更新為「${next}」`)
 }
 
 // ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({ show: false, message: '' })
+const toast = reactive({show: false, message: ''})
 const showToast = (msg) => {
   toast.message = msg
   toast.show = true
@@ -202,7 +225,7 @@ const showToast = (msg) => {
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
-  await fetchMarkedDates()
+  await Promise.all([fetchMarkedDates(), fetchHoursSettings()])
   selectedDate.value = todayStr
   await fetchLunchOrders()
   fetchGroupNames()
@@ -270,6 +293,13 @@ onMounted(async () => {
             </svg>
             <span class="hidden sm:inline">客戶訂購連結</span>
           </button>
+          <NuxtLink
+            to="/staff/management/restaurant-hours"
+            class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
+            title="時段設定 / 營業設定（跟訂位共用）"
+          >
+            ⚙️ <span class="hidden sm:inline">餐廳設定</span>
+          </NuxtLink>
           <span
             :class="apiOnline ? 'text-green-600' : 'text-red-500'"
             class="text-xs flex items-center gap-1.5 font-medium"
@@ -289,7 +319,8 @@ onMounted(async () => {
         <!-- ── 左欄：日曆 ── -->
         <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
           <!-- 手機版：僅顯示日期選擇器，不顯示完整日曆 -->
-          <div class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 flex items-center gap-2 mb-3">
+          <div
+            class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 flex items-center gap-2 mb-3">
             <input
               :value="selectedDate"
               type="date"
@@ -360,14 +391,20 @@ onMounted(async () => {
                 :key="idx"
                 class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
                 :class="dayClass(day)"
+                :title="day.date && hoursSettings.closedDates[day.date] ? '公休：' + hoursSettings.closedDates[day.date]
+                  : day.date && hoursSettings.openDates[day.date] ? '臨時開放：' + hoursSettings.openDates[day.date] : ''"
                 @click="day.date && selectDate(day.date)"
               >
+                <span
+                  v-if="day.date && dayHoursMark(day.date)"
+                  class="absolute top-0.5 right-0.5 text-[9px] leading-none"
+                >{{ dayHoursMark(day.date) === 'closed' ? '🚫' : '⭐' }}</span>
                 <span>{{ day.label }}</span>
                 <div
                   v-if="day.date && lunchMarkedDates.includes(day.date)"
                   class="absolute bottom-1 flex gap-0.5"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-orange-400"/>
                 </div>
               </div>
             </div>
@@ -436,7 +473,7 @@ onMounted(async () => {
             <div class="mb-5">
               <div class="flex items-center justify-between mb-2">
                 <p class="text-xs font-semibold text-hint-c uppercase tracking-widest flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full bg-orange-400" /> 便當
+                  <span class="w-2 h-2 rounded-full bg-orange-400"/> 便當
                   <span
                     v-if="lunchOrders.length > 0"
                     class="text-orange-600 dark:text-orange-400 normal-case font-normal flex flex-wrap gap-x-2"
@@ -474,8 +511,8 @@ onMounted(async () => {
                       <span
                         class="text-sm font-black text-orange-700 dark:text-orange-300 leading-tight mt-0.5 text-center"
                       >{{
-                        order.time
-                      }}</span>
+                          order.time
+                        }}</span>
                     </div>
                     <div class="flex-1 px-3 py-2.5 flex items-center justify-between gap-2">
                       <div class="flex-1 min-w-0">
@@ -501,26 +538,26 @@ onMounted(async () => {
                             v-if="order.meatQty > 0"
                             class="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 px-1.5 py-0.5 rounded-full font-medium"
                           >🍖 葷 {{
-                            order.meatQty
-                          }}</span>
+                              order.meatQty
+                            }}</span>
                           <span
                             v-if="order.fullVegQty > 0"
                             class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium"
                           >🌿 全素 {{
-                            order.fullVegQty
-                          }}</span>
+                              order.fullVegQty
+                            }}</span>
                           <span
                             v-if="order.eggVegQty > 0"
                             class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium"
                           >🥚 蛋奶素 {{
-                            order.eggVegQty
-                          }}</span>
+                              order.eggVegQty
+                            }}</span>
                           <span
                             v-if="order.spiceVegQty > 0"
                             class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium"
                           >🧄 五辛素 {{
-                            order.spiceVegQty
-                          }}</span>
+                              order.spiceVegQty
+                            }}</span>
                         </div>
                         <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-hint-c">
                           <span>📞 {{ order.phone }}</span>
@@ -766,12 +803,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-  .fade-enter-active, .fade-leave-active {
-    transition: opacity 0.3s, transform 0.3s;
-  }
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
 
-  .fade-enter-from, .fade-leave-to {
-    opacity: 0;
-    transform: translateY(8px);
-  }
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
 </style>
