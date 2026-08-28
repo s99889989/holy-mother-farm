@@ -8,7 +8,7 @@ const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itine
 const HOURS_BASE = computed(() => commonStore.data.main_url + '/holy/restaurant/hours')
 
 // ── 客戶訂位連結 ──────────────────────────────────────────────────
-const CUSTOMER_BOOKING_URL = 'https://holyfarm.netlify.app/front/order/booking'
+const CUSTOMER_BOOKING_URL = 'https://holyfarm.netlify.app/front/order/restaurant'
 const copyCustomerBookingLink = async () => {
   try {
     await navigator.clipboard.writeText(CUSTOMER_BOOKING_URL)
