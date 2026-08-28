@@ -32,8 +32,8 @@ const navGroups = [
     label: '📦 訂單管理',
     items: [
       { to: '/staff/order/black-cat-orders', icon: '🚚', label: '黑貓貨單', key: 'order.black-cat-orders' },
-      { to: '/staff/order/booking-orders', icon: '📅', label: '訂位管理', key: 'order.booking-orders' },
-      { to: '/staff/order/bento-orders', icon: '🍱', label: '便當訂單', key: 'order.lunch-orders' },
+      { to: '/staff/order/restaurant-orders', icon: '📅', label: '餐廳訂位', key: 'order.restaurant-orders' },
+      { to: '/staff/order/bento-orders', icon: '🍱', label: '便當訂單', key: 'order.bento-orders' },
       { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
       { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
       { to: '/staff/order/shopping-cart', icon: '🛒', label: '購物車', key: 'order.shopping-cart' },
@@ -114,7 +114,7 @@ const standaloneItems = [
   // key 給整組 pos 權限清單，只要使用者有其中任一權限就會看到這個入口。
   // 使用頻率高，獨立成單一連結而非藏在下拉選單裡。
   { to: '/staff/pos/daily/sales', icon: '🛒', label: 'POS 系統', key: posNavGroups.flatMap(g => g.items.map(i => i.key)) },
-  { to: '/staff/other/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
+  { to: '/staff/other/quick-links', icon: '🔗', label: '常用網址', key: 'other.quick-links' }
 ]
 
 const permStore = usePermissionStore()

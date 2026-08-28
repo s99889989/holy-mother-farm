@@ -1,7 +1,7 @@
 <script setup>
   import { useFloorplanShapes } from '~/composables/useFloorplanShapes'
 
-  definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'order.rooms-orders' })
 
   const commonStore = useCommonStore()
   const ROOMS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'

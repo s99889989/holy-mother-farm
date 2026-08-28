@@ -1,3 +1,1336 @@
+<script setup>
+  definePageMeta({ layout: 'staff', requiredPermission: 'timeline.calendar' })
+  const perm = usePermission()
+
+  const commonStore = useCommonStore()
+  const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
+  // 「行程」功能：跟院內行事曆結構類似，但資料完全獨立、互不相干（獨立 API + 獨立 YML）
+  const BASE_ITINERARY = computed(() => commonStore.data.main_url + '/holy/itinerary')
+  // 訂位／便當／豆漿／訂房：純顯示用（唯讀），實際新增/編輯/刪除都在各自的管理頁面進行
+  const BASE_BOOKING = computed(() => commonStore.data.main_url + '/holy/booking')
+  const BASE_LUNCH = computed(() => commonStore.data.main_url + '/holy/lunch')
+  const BASE_SOYBEAN = computed(() => commonStore.data.main_url + '/holy/soybean')
+  const BASE_ROOMS = computed(() => commonStore.data.main_url + '/holy/rooms/bookings')
+  const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
+
+  // 團體行程名稱查表：行程項目只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
+  const groupNamesById = ref({})
+  const fetchGroupNames = async () => {
+    try {
+      const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
+      groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
+    } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
+  }
+
+  const TYPES = ['醫院', '園區', '芳心'] // 建築分類：本地院內活動底下的細分類別（新增/編輯表單、院內篩選底下的建築分類子篩選都用這組值）
+  // 星期標頭：依 weekStartOption 決定週日或週一排最前面；同時標記哪一欄是週日/週六（給紅/藍字用）
+  const WEEKDAY_BASE = [
+    { label: '日', isSun: true, isSat: false },
+    { label: '一', isSun: false, isSat: false },
+    { label: '二', isSun: false, isSat: false },
+    { label: '三', isSun: false, isSat: false },
+    { label: '四', isSun: false, isSat: false },
+    { label: '五', isSun: false, isSat: false },
+    { label: '六', isSun: false, isSat: true }
+  ]
+  const weekdayHeaderItems = computed(() => {
+    return weekStartOption.value === 1 ? [...WEEKDAY_BASE.slice(1), WEEKDAY_BASE[0]] : WEEKDAY_BASE
+  })
+
+  // ── Google Calendar 設定 ──────────────────────────────────────────
+  const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
+  const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
+
+  const googleEvents = ref([])
+  const googleLoading = ref(false)
+  const itineraryEvents = ref([]) // 「行程」資料（獨立來源，跟院內活動互不相干）
+  // 訂位／便當／豆漿／訂房：唯讀顯示用，正規化成跟 CalendarEvent 一樣的 {id,date,endDate,time,title,owner,room,source} 形狀
+  const bookingEvents = ref([])
+  const lunchEvents = ref([])
+  const soybeanEvents = ref([])
+  const roomOrderEvents = ref([])
+
+  // ── 顏色工具 ─────────────────────────────────────────────────────
+  // 「類型」只分院內／Google 兩種，但顏色沿用以前的建築分類配色：
+  // 院內活動依 building（醫院/園區/芳心）決定顏色，Google 固定藍色，
+  // 院內活動沒有 building 時（少數舊資料）退回琥珀色
+  // 徽章文字：本地活動有建築分類時直接顯示建築名稱（顏色也是那個建築的顏色），沒有才顯示「院內」
+  function eventBadgeLabel(ev) {
+    if (ev.source === 'google') return 'Google'
+    if (ev.source === 'itinerary') return '行程'
+    if (SOURCE_TYPE_LABEL[ev.source]) return SOURCE_TYPE_LABEL[ev.source]
+    return eventBuilding(ev) || '院內'
+  }
+
+  // 活動的建築分類：優先用 building 欄位，舊資料 type 若剛好是建築分類值就當備援
+  function eventBuilding(ev) {
+    return ev.building || (TYPES.includes(ev.type) ? ev.type : '')
+  }
+
+  function typeColorClass(ev) {
+    if (ev.source === 'google') return 'google'
+    if (ev.source === 'itinerary') return 'itinerary'
+    if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return ev.source
+    return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[eventBuilding(ev)] || 'onsite'
+  }
+
+  function typeChipClass(ev) {
+    if (ev.source === 'google') return 'chip-google'
+    if (ev.source === 'itinerary') return 'chip-itinerary'
+    if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return `chip-${ev.source}`
+    return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[eventBuilding(ev)] || 'chip-onsite'
+  }
+
+  function chipClass(ev) {
+    return typeChipClass(ev)
+  }
+
+  // 跨多天顯示為連續色條的活動：每筆活動（不論系統或 Google）都直接帶 date（起）/ endDate（迄），
+  // 不再需要用「內容是否相同 + 日期是否連續」去猜，也不會有斷天或重複的問題
+  function isBannerEvent(ev) {
+    return !!(ev.endDate && ev.endDate !== ev.date)
+  }
+
+  // 跨天活動的分組鍵：每筆活動本身就是唯一一筆資料（不再逐日展開），直接用 id 分組即可
+  function bannerGroupKey(ev) {
+    return ev.id
+  }
+
+  // 活動的日期範圍是否與某天有交集（含頭尾）
+  function eventCoversDate(ev, dateStr) {
+    const end = ev.endDate || ev.date
+    return dateStr >= ev.date && dateStr <= end
+  }
+
+  // 活動的日期範圍是否與某個月份（yearMonth，例如 "2026-08"）有交集
+  function eventOverlapsMonth(ev, ym) {
+    const end = ev.endDate || ev.date
+    const monthStart = `${ym}-01`
+    const monthEnd = `${ym}-31` // 字串比較用，31 一定 >= 該月最後一天
+    return ev.date <= monthEnd && end >= monthStart
+  }
+
+  // 活動時間顯示文字：同一天顯示「起-迄」，跨天顯示「起始日 起時 ～ 結束日 迄時」
+  function eventTimeLabel(ev) {
+    if (!ev.date) return ''
+    if (isBannerEvent(ev)) {
+      const startPart = ev.time ? `${ev.date} ${ev.time}` : ev.date
+      const endPart = ev.endTime ? `${ev.endDate} ${ev.endTime}` : ev.endDate
+      return `${startPart} ～ ${endPart}`
+    }
+    if (ev.time && ev.endTime) return `${ev.time}-${ev.endTime}`
+    return ev.time || ev.endTime || ''
+  }
+
+  // ── 跟隨游標的活動提示框 ─────────────────────────────────────────
+  const tooltipEvent = ref(null)
+  const tooltipPos = reactive({ x: 0, y: 0 })
+  const TOOLTIP_OFFSET = 18
+  const TOOLTIP_WIDTH = 280
+  const TOOLTIP_MAX_HEIGHT = 300
+
+  const tooltipStyle = computed(() => {
+    if (!import.meta.client) return {}
+    let left = tooltipPos.x + TOOLTIP_OFFSET
+    let top = tooltipPos.y + TOOLTIP_OFFSET
+
+    // 靠右邊界時翻到游標左側
+    if (left + TOOLTIP_WIDTH > window.innerWidth - 8) {
+      left = tooltipPos.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET
+    }
+    // 靠下邊界時翻到游標上方
+    if (top + TOOLTIP_MAX_HEIGHT > window.innerHeight - 8) {
+      top = tooltipPos.y - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET
+    }
+    if (left < 8) left = 8
+    if (top < 8) top = 8
+
+    return { left: `${left}px`, top: `${top}px` }
+  })
+
+  function showTooltip(ev, e) {
+    tooltipEvent.value = ev
+    tooltipPos.x = e.clientX
+    tooltipPos.y = e.clientY
+  }
+
+  function moveTooltip(e) {
+    tooltipPos.x = e.clientX
+    tooltipPos.y = e.clientY
+  }
+
+  function hideTooltip() {
+    tooltipEvent.value = null
+  }
+
+  function stripHtml(html) {
+    if (!html) return ''
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+  }
+
+  function typeBarClass(ev) {
+    if (ev.source === 'google') return 'bg-blue-500'
+    if (ev.source === 'itinerary') return 'bg-teal-500'
+    if (ev.source === 'booking') return 'bg-pink-500'
+    if (ev.source === 'lunch') return 'bg-orange-500'
+    if (ev.source === 'soybean') return 'bg-lime-600'
+    if (ev.source === 'roomorder') return 'bg-violet-600'
+    return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[eventBuilding(ev)] || 'bg-amber-500'
+  }
+
+  // ── 月份狀態 ──────────────────────────────────────────────────────
+  const today = new Date()
+  const currentYear = ref(today.getFullYear())
+  const currentMonth = ref(today.getMonth() + 1) // 1-based
+
+  // ── 上方資訊區收合狀態 ────────────────────────────────────────────
+  const panelExpanded = ref(true)
+
+  // ── 每週第一天設定：0 = 週日在最前面（預設），1 = 週一在最前面 ─────────
+  const weekStartOption = ref(0)
+
+  // ── 篩選狀態：類型改成複選 checkbox（每個圖例項目都能各自勾選/取消）─────
+  // 十個「葉節點」分類：院內原本的醫院/園區/芳心/未分類拆開各自可勾，其餘來源各自一個
+  // 院內底下的 4 個子分類會顯示成一個「院內」大項＋縮排子項，用一個父層 checkbox 統一勾/取消全部子項
+  const LOCAL_SUB_ITEMS = [
+    { key: '醫院', label: '醫院', dot: 'bg-red-400' },
+    { key: '園區', label: '園區', dot: 'bg-emerald-500' },
+    { key: '芳心', label: '芳心', dot: 'bg-purple-400' },
+    { key: '院內未分類', label: '院內（未分類）', dot: 'bg-amber-500' }
+  ]
+  const OTHER_LEGEND_ITEMS = [
+    { key: '行程', label: '行程', dot: 'bg-teal-500' },
+    { key: 'Google', label: 'Google', dot: 'bg-blue-500' },
+    { key: '訂位', label: '訂位', dot: 'bg-pink-500' },
+    { key: '便當', label: '便當', dot: 'bg-orange-500' },
+    { key: '豆漿', label: '豆漿', dot: 'bg-lime-600' },
+    { key: '訂房', label: '訂房', dot: 'bg-violet-600' }
+  ]
+  const LEGEND_ITEMS = [...LOCAL_SUB_ITEMS, ...OTHER_LEGEND_ITEMS] // 給還需要「全部十項」的地方用（全選/全取消/總計）
+  const activeCategories = reactive(Object.fromEntries(LEGEND_ITEMS.map(i => [i.key, true])))
+  const filterLocation = ref('') // 空字串 = 全部地點
+
+  // 判斷一筆事件屬於哪個「葉節點」分類
+  function eventLeafCategory(e) {
+    if (e.source === 'itinerary') return '行程'
+    if (e.source === 'google') return 'Google'
+    if (SOURCE_TYPE_LABEL[e.source]) return SOURCE_TYPE_LABEL[e.source]
+    return eventBuilding(e) || '院內未分類'
+  }
+
+  // 這筆事件目前是否應該顯示（依 activeCategories 勾選狀態）
+  function isCategoryActive(e) {
+    return activeCategories[eventLeafCategory(e)] !== false
+  }
+
+  function toggleCategory(key) {
+    activeCategories[key] = !activeCategories[key]
+  }
+
+  function selectAllCategories() {
+    LEGEND_ITEMS.forEach(i => { activeCategories[i.key] = true })
+  }
+
+  function clearAllCategories() {
+    LEGEND_ITEMS.forEach(i => { activeCategories[i.key] = false })
+  }
+
+  // 「院內」父層 checkbox：全部子分類都勾 → 打勾；都沒勾 → 空；部分勾 → 半勾（indeterminate）
+  const localActiveCount = computed(() => LOCAL_SUB_ITEMS.filter(i => activeCategories[i.key]).length)
+  const localAllActive = computed(() => localActiveCount.value === LOCAL_SUB_ITEMS.length)
+  const localSomeActive = computed(() => localActiveCount.value > 0 && !localAllActive.value)
+  const localTotalCount = computed(() => LOCAL_SUB_ITEMS.reduce((sum, i) => sum + (leafTypeCount.value[i.key] || 0), 0))
+
+  function toggleLocalGroup() {
+    const turnOn = !localAllActive.value
+    LOCAL_SUB_ITEMS.forEach(i => { activeCategories[i.key] = turnOn })
+  }
+
+  // ── 月份 / 類型 / 地點 / 收合 狀態持久化（記住使用者上次的選擇）───
+  // 注意：這段刻意不放在 setup 最上層直接執行——放在最上層的話，SSR 出來的畫面跟
+  // client 讀到 localStorage 後的狀態會兜不起來（hydration mismatch），畫面會先閃一下
+  // SSR 版本再被套用 client 版本蓋掉。改成在 onMounted（一定是 client、且在 hydrate 完成後）才套用，
+  // 避免重新整理時「先出現一下又不見」的閃爍。
+  const CALENDAR_STATE_KEY = 'calendar_filter_state'
+  function restoreCalendarState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CALENDAR_STATE_KEY) || 'null')
+      if (saved) {
+        if (saved.year) currentYear.value = saved.year
+        if (saved.month) currentMonth.value = saved.month
+        if (saved.categories) Object.assign(activeCategories, saved.categories) // 舊存檔沒有的分類維持預設 true
+        if (saved.location !== undefined) filterLocation.value = saved.location
+        if (saved.expanded !== undefined) panelExpanded.value = saved.expanded
+        if (saved.weekStart !== undefined) weekStartOption.value = saved.weekStart
+      }
+    } catch {}
+  }
+
+  watch([currentYear, currentMonth, activeCategories, filterLocation, panelExpanded, weekStartOption], () => {
+    if (import.meta.client) {
+      localStorage.setItem(CALENDAR_STATE_KEY, JSON.stringify({
+        year: currentYear.value,
+        month: currentMonth.value,
+        categories: { ...activeCategories },
+        location: filterLocation.value,
+        expanded: panelExpanded.value,
+        weekStart: weekStartOption.value
+      }))
+    }
+  }, { deep: true })
+
+  // room 欄位去掉場地代碼前綴："P0I10201 水電實習廠" → "水電實習廠"
+  function extractLocation(room) {
+    if (!room || !room.trim()) return ''
+    return room.trim().replace(/^[A-Z0-9]+\s*/, '').trim() || room.trim()
+  }
+
+  // 每個資料來源對應的篩選類型標籤（跟篩選下拉的 option value 一致）
+  const SOURCE_TYPE_LABEL = {
+    google: 'Google', itinerary: '行程',
+    booking: '訂位', lunch: '便當', soybean: '豆漿', roomorder: '訂房'
+  }
+
+  // 依目前勾選的分類動態產生可選地點（去重、排序）
+  const availableLocations = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    const base = allEvents.value.filter(e => eventOverlapsMonth(e, ym) && isCategoryActive(e))
+    return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+  })
+
+  // 院內活動中，各建築分類的當月筆數
+  const buildingCount = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    const counts = {}
+    events.value
+      .filter(e => eventOverlapsMonth(e, ym))
+      .forEach((e) => {
+        const b = eventBuilding(e) || '未分類'
+        counts[b] = (counts[b] || 0) + 1
+      })
+    return counts
+  })
+
+  function prevMonth() {
+    if (currentMonth.value === 1) {
+      currentMonth.value = 12
+      currentYear.value--
+    } else currentMonth.value--
+  }
+
+  function nextMonth() {
+    if (currentMonth.value === 12) {
+      currentMonth.value = 1
+      currentYear.value++
+    } else currentMonth.value++
+  }
+
+  function goToday() {
+    currentYear.value = today.getFullYear()
+    currentMonth.value = today.getMonth() + 1
+  }
+
+  // ── 月曆格子計算 ─────────────────────────────────────────────────
+  const calendarCells = computed(() => {
+    const year = currentYear.value
+    const month = currentMonth.value
+    const firstWeekday = new Date(year, month - 1, 1).getDay() // 實際星期幾，0=Sun
+    // 依 weekStartOption 換算「月初前要留幾個空格」：週日排最前面用原本的 firstWeekday，
+    // 週一排最前面則要扣掉 1 天位移（週日這天要排到最後一欄）
+    const leadingEmpty = (firstWeekday - weekStartOption.value + 7) % 7
+    const daysInMonth = new Date(year, month, 0).getDate()
+
+    const cells = []
+
+    // 填充前空格
+    for (let i = 0; i < leadingEmpty; i++) {
+      cells.push({ day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i })
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const actualDow = (firstWeekday + d - 1) % 7 // 實際星期幾，0=Sun，跟顯示欄位順序無關，紅/藍字判斷要用這個
+      const weekdayIdx = (leadingEmpty + d - 1) % 7 // 顯示欄位（0 = 該週第一欄），給跨天色條的 gridColumn 用
+      const isToday = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
+      const isWeekend = actualDow === 0 || actualDow === 6
+      const isSunday = actualDow === 0
+      const isSaturday = actualDow === 6
+      const dayEvents = eventsOnDate(dateStr)
+      const chipEvents = dayEvents.filter(e => !isBannerEvent(e))
+      cells.push({ day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, isSunday, isSaturday, weekdayIdx })
+    }
+
+    return cells
+  })
+
+  // 依週切分 calendarCells，方便跨天活動渲染成連續色條（橫跨整週的 overlay）
+  const calendarWeeks = computed(() => {
+    const cells = calendarCells.value
+    const weeks = []
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+    return weeks
+  })
+
+  // 每週跨天活動的色條資料：依活動 id 分組、
+  // 計算橫跨欄位與是否為活動實際起訖日（決定圓角端）
+  // 並用簡單貪婪法分配 lane（垂直層），避免同週重疊的跨天活動互相覆蓋
+  // 色條堆疊高度：手機版 .week-banner-bar 變矮（15px+1px margin），需跟著縮小，
+  // 避免下方一般活動 chip 跟色條之間留下多餘空隙
+  const isMobileViewport = ref(false)
+  let mobileMql = null
+
+  function updateMobileViewport(e) {
+    isMobileViewport.value = e.matches
+  }
+
+  const BANNER_ROW_HEIGHT = computed(() => isMobileViewport.value ? 16 : 20)
+
+  const weekBanners = computed(() => {
+    return calendarWeeks.value.map((week) => {
+      const map = new Map()
+      week.forEach((cell, col) => {
+        if (!cell.day) return
+        cell.events.forEach((ev) => {
+          if (!isBannerEvent(ev)) return
+          const key = bannerGroupKey(ev)
+          if (!map.has(key)) {
+            map.set(key, { ev, startCol: col, endCol: col })
+          } else {
+            map.get(key).endCol = col
+          }
+        })
+      })
+      const banners = [...map.values()].map(b => ({
+        key: `${bannerGroupKey(b.ev)}_${week[b.startCol].dateStr}`,
+        ev: b.ev,
+        startCol: b.startCol,
+        endCol: b.endCol,
+        roundLeft: week[b.startCol].dateStr === b.ev.date,
+        roundRight: week[b.endCol].dateStr === (b.ev.endDate || b.ev.date),
+        lane: 0
+      }))
+      banners.sort((a, b) => a.startCol - b.startCol)
+      const laneEnds = []
+      banners.forEach((b) => {
+        let lane = 0
+        while (laneEnds[lane] !== undefined && laneEnds[lane] >= b.startCol) lane++
+        b.lane = lane
+        laneEnds[lane] = b.endCol
+      })
+      return banners
+    })
+  })
+
+  // 每週需要保留的色條層數（讓下方的一般活動 chip 往下讓出空間，避免被色條蓋住）
+  const weekBannerLanes = computed(() =>
+    weekBanners.value.map(list => list.reduce((max, b) => Math.max(max, b.lane + 1), 0))
+  )
+
+  const monthEventCount = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    return allEvents.value.filter((e) => {
+      if (!eventOverlapsMonth(e, ym)) return false
+      if (!isCategoryActive(e)) return false
+      if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
+      return true
+    }).length
+  })
+
+  // 各葉節點分類的當月筆數（給圖例 checkbox 旁邊的數字用）
+  const leafTypeCount = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    const overlap = list => list.filter(e => eventOverlapsMonth(e, ym)).length
+    return {
+      醫院: buildingCount.value['醫院'] || 0,
+      園區: buildingCount.value['園區'] || 0,
+      芳心: buildingCount.value['芳心'] || 0,
+      院內未分類: buildingCount.value['未分類'] || 0,
+      行程: overlap(itineraryEvents.value),
+      Google: overlap(googleEvents.value),
+      訂位: overlap(bookingEvents.value),
+      便當: overlap(lunchEvents.value),
+      豆漿: overlap(soybeanEvents.value),
+      訂房: overlap(roomOrderEvents.value)
+    }
+  })
+
+  // 某天有哪些活動：直接用 date/endDate 範圍判斷是否涵蓋該日，
+  // 不需要逐日展開資料，也不需要用內容比對去猜測是不是同一個跨天活動
+  function eventsOnDate(dateStr) {
+    return allEvents.value
+      .filter((e) => {
+        if (!eventCoversDate(e, dateStr)) return false
+        if (!isCategoryActive(e)) return false
+        if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
+        return true
+      })
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+  }
+
+  // ── 主資料狀態 ────────────────────────────────────────────────────
+  const events = ref([])
+  const loading = ref(false)
+  const saving = ref(false)
+  const toast = reactive({ show: false, message: '' })
+
+  // 系統活動 + 行程 + Google 活動合併（都是「一筆活動一筆資料」，用 date/endDate 表示範圍）
+  const allEvents = computed(() => [
+    ...events.value, ...itineraryEvents.value, ...googleEvents.value,
+    ...bookingEvents.value, ...lunchEvents.value, ...soybeanEvents.value, ...roomOrderEvents.value
+  ])
+
+  async function fetchEvents() {
+    loading.value = true
+    try {
+      const res = await fetch(`${BASE.value}/list`)
+      events.value = res.ok ? await res.json() : []
+    } catch (e) {
+      console.error(e)
+      showToast('載入失敗')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 「行程」資料：獨立 API + 獨立資料表，跟院內活動互不相干（結構相同，一次抓全部月份）
+  // 後端回傳的 JSON 沒有 source 欄位，前端要自己補上 'itinerary' 才能跟院內/Google 活動分辨
+  async function fetchItineraryEvents() {
+    try {
+      const res = await fetch(`${BASE_ITINERARY.value}/list`)
+      const list = res.ok ? await res.json() : []
+      itineraryEvents.value = list.map(ev => ({ ...ev, source: 'itinerary' }))
+    } catch (e) {
+      console.error(e)
+      showToast('行程載入失敗')
+    }
+  }
+
+  // ── 訂位／便當／豆漿／訂房：唯讀顯示，正規化成通用的月曆事件格式 ──────────
+  // 這四個系統本身都有自己完整的管理頁面（訂單/新增/編輯/刪除都在那邊做），
+  // 這裡只負責「讀」出來顯示在月曆上，點了只能看詳細資料，不能編輯。
+
+  function summarizeMeal(o) {
+    const parts = []
+    if (o.meatQty) parts.push(`肉${o.meatQty}`)
+    if (o.fullVegQty) parts.push(`全素${o.fullVegQty}`)
+    if (o.eggVegQty) parts.push(`蛋奶素${o.eggVegQty}`)
+    if (o.spiceVegQty) parts.push(`五辛素${o.spiceVegQty}`)
+    return parts.join('・')
+  }
+  function mealTotal(o) {
+    return (o.meatQty || 0) + (o.fullVegQty || 0) + (o.eggVegQty || 0) + (o.spiceVegQty || 0)
+  }
+
+  // 訂位（RestaurantOrderController /holy/booking）：單日，用 /dates 取當月有訂位的日期，逐日 /get 撈明細
+  async function fetchBookingEvents() {
+    try {
+      const dRes = await fetch(`${BASE_BOOKING.value}/dates/${currentYearMonth.value}`)
+      const dates = dRes.ok ? await dRes.json() : []
+      const lists = await Promise.all(dates.map(async (date) => {
+        const res = await fetch(`${BASE_BOOKING.value}/get/${date}`)
+        return res.ok ? await res.json() : []
+      }))
+      bookingEvents.value = lists.flat().map(o => ({
+        id: `booking_${o.id}`,
+        date: o.date,
+        endDate: o.date,
+        time: o.time || '',
+        title: `${o.name}／訂位${mealTotal(o)}位`,
+        owner: o.name,
+        room: '',
+        description: [summarizeMeal(o), o.note].filter(Boolean).join('\n'),
+        status: o.status,
+        phone: o.phone,
+        source: 'booking',
+        groupItineraryId: o.groupItineraryId || ''
+      }))
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  // 便當（BentoOrderController /holy/lunch）：單日，用 /dates 取當月有訂單的日期，逐日 /get 撈明細
+  async function fetchLunchEvents() {
+    try {
+      const dRes = await fetch(`${BASE_LUNCH.value}/dates/${currentYearMonth.value}`)
+      const dates = dRes.ok ? await dRes.json() : []
+      const lists = await Promise.all(dates.map(async (date) => {
+        const res = await fetch(`${BASE_LUNCH.value}/get/${date}`)
+        return res.ok ? await res.json() : []
+      }))
+      lunchEvents.value = lists.flat().map(o => ({
+        id: `lunch_${o.id}`,
+        date: o.date,
+        endDate: o.date,
+        time: o.time || '',
+        title: `${o.name}／便當${mealTotal(o)}份`,
+        owner: o.name,
+        room: '',
+        description: [summarizeMeal(o), o.note].filter(Boolean).join('\n'),
+        status: o.status,
+        phone: o.phone,
+        source: 'lunch',
+        groupItineraryId: o.groupItineraryId || ''
+      }))
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  // 豆漿/豆腐（SoybeanController /holy/soybean）：/admin/list?month= 直接回傳整月訂單
+  async function fetchSoybeanEvents() {
+    try {
+      const res = await fetch(`${BASE_SOYBEAN.value}/admin/list?month=${currentYearMonth.value}`)
+      const data = res.ok ? await res.json() : { orders: [] }
+      soybeanEvents.value = (data.orders || [])
+        .filter(o => o.pickupDate)
+        .map(o => ({
+          id: `soybean_${o.id}`,
+          date: o.pickupDate,
+          endDate: o.pickupDate,
+          time: '',
+          title: `${o.name}／豆漿${o.soymilkQty || 0}‧豆腐${o.tofuQty || 0}`,
+          owner: o.name,
+          room: '',
+          description: [o.remark].filter(Boolean).join('\n'),
+          status: o.status,
+          phone: o.contact,
+          source: 'soybean'
+        }))
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  // 訂房（RoomOrdersController /holy/rooms/bookings）：/list 一次回傳全部訂單（不分月），跟院內/行程一樣只在掛載時抓一次
+  async function fetchRoomOrderEvents() {
+    try {
+      const res = await fetch(`${BASE_ROOMS.value}/list`)
+      const raw = res.ok ? await res.json() : []
+      roomOrderEvents.value = groupRoomOrders(raw.filter(o => o.checkIn))
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  // 團體訂房（有 groupId）合併成一筆顯示「團名（N 間）」，日期取整團最早入住～最晚退房；
+  // 沒有 groupId 的個人訂房照舊逐筆列出。比照 home.vue 房務清單的合併寫法（用 groupId 分組、
+  // 只留一筆代表整團，其餘成員資料收進 members 供詳細面板使用）
+  function groupRoomOrders(list) {
+    const groupMembers = new Map() // groupId -> [booking, ...]
+    const solo = []
+    for (const o of list) {
+      if (o.groupId) {
+        if (!groupMembers.has(o.groupId)) groupMembers.set(o.groupId, [])
+        groupMembers.get(o.groupId).push(o)
+      } else {
+        solo.push(o)
+      }
+    }
+
+    const events = solo.map(o => ({
+      id: `room_${o.id}`,
+      date: o.checkIn,
+      endDate: o.checkOut || o.checkIn,
+      time: '',
+      title: `${o.name}／${o.guests}人${o.roomId ? '（' + o.roomId + '）' : ''}`,
+      owner: o.name,
+      room: o.roomId || '',
+      description: [o.notes].filter(Boolean).join('\n'),
+      status: o.status,
+      phone: o.phone,
+      source: 'roomorder',
+      groupItineraryId: o.groupItineraryId || ''
+    }))
+
+    for (const [groupId, members] of groupMembers) {
+      const minCheckIn = members.map(m => m.checkIn).sort()[0]
+      const maxCheckOut = members.map(m => m.checkOut || m.checkIn).sort().slice(-1)[0]
+      const sameRange = members.every(m => m.checkIn === minCheckIn) && members.every(m => (m.checkOut || m.checkIn) === maxCheckOut)
+      const totalGuests = members.reduce((sum, m) => sum + (m.guests || 0), 0)
+      const rooms = members.map(m => m.roomId).filter(Boolean)
+      const statusCounts = {}
+      members.forEach(m => { statusCounts[m.status] = (statusCounts[m.status] || 0) + 1 })
+      const groupName = members[0].groupName || members[0].name
+      events.push({
+        id: `room_group_${groupId}`,
+        date: minCheckIn,
+        endDate: maxCheckOut,
+        time: '',
+        title: `${groupName}（${members.length} 間）`,
+        owner: groupName,
+        room: rooms.join('、'),
+        description: [
+          !sameRange ? '（各房入住/退房日期不同）' : '',
+          ...members.map(m => `${m.roomId || '未指派'}／${m.guests}人／${m.status}`)
+        ].filter(Boolean).join('\n'),
+        status: Object.entries(statusCounts).map(([s, c]) => `${s} ${c}`).join('・'),
+        phone: members[0].phone,
+        isGroup: true,
+        guests: totalGuests,
+        members,
+        source: 'roomorder',
+        groupItineraryId: members[0].groupItineraryId || ''
+      })
+    }
+
+    return events
+  }
+
+  // ── Google Calendar API ───────────────────────────────────────────
+  async function fetchGoogleEvents() {
+    if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
+    googleLoading.value = true
+    googleEvents.value = []
+    try {
+      const year = currentYear.value
+      const month = currentMonth.value
+      const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
+      const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
+        + `?key=${GOOGLE_API_KEY}`
+        + `&timeMin=${timeMin}&timeMax=${timeMax}`
+        + `&singleEvents=true&orderBy=startTime&maxResults=250`
+      const res = await fetch(url)
+      const data = res.ok ? await res.json() : {}
+      const result = []
+      for (const item of data.items || []) {
+        const isAllDay = !!item.start?.date
+        const startRaw = isAllDay ? item.start.date : item.start?.dateTime
+        const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
+        if (!startRaw) continue
+
+        const base = {
+          id: `google_${item.id}`,
+          googleEventId: item.id,
+          title: item.summary || '（無標題）',
+          owner: item.organizer?.displayName || '',
+          room: item.location || '',
+          type: 'Google',
+          source: 'google',
+          googleLink: item.htmlLink || '',
+          description: item.description || ''
+        }
+
+        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+
+        if (!isAllDay) {
+          // 有時間的活動：直接取 Google 給的起訖日期/時間，不逐日展開
+          const s = new Date(startRaw)
+          const e = endRaw ? new Date(endRaw) : null
+          result.push({
+            ...base,
+            date: startRaw.slice(0, 10),
+            endDate: e ? endRaw.slice(0, 10) : startRaw.slice(0, 10),
+            time: fmt(s),
+            endTime: e ? fmt(e) : ''
+          })
+          continue
+        }
+
+        // 全天活動：Google 的 end.date 是「不含」的下一天，換算成實際結束日（含）
+        const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(`${startRaw}T00:00:00`)
+        endDate.setDate(endDate.getDate() - 1)
+        const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
+        result.push({
+          ...base,
+          date: startRaw,
+          endDate: endDateStr,
+          time: '',
+          endTime: ''
+        })
+      }
+      googleEvents.value = result
+    } catch (e) {
+      console.warn('Google 日曆載入失敗', e)
+    } finally {
+      googleLoading.value = false
+    }
+  }
+
+  // ── 日面板（點 +N 展開當日所有活動）──────────────────────────────
+  const dayPanel = reactive({ show: false, dateStr: '', events: [] })
+
+  function openDayPanel(cell) {
+    dayPanel.dateStr = cell.dateStr
+    dayPanel.events = cell.events
+    dayPanel.show = true
+  }
+
+  // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
+  // source: 'local' = 院內活動, 'itinerary' = 行程（獨立資料，跟院內互不相干）
+  const formModal = reactive({ show: false, isNew: true, id: null, source: 'local' })
+  const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: '' })
+  const formError = ref('')
+
+  // 從日曆格子點 + 新增，自動帶入日期；source 預設為院內活動，行程新增會另外傳 'itinerary'
+  function openAddOnDate(dateStr, source = 'local') {
+    formModal.isNew = true
+    formModal.id = null
+    formModal.source = source
+    Object.assign(form, {
+      date: dateStr || '',
+      time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: ''
+    })
+    formError.value = ''
+    formModal.show = true
+  }
+
+  // ── Google 活動詳細 Modal ──────────────────────────────────────────
+  const googleDetailModal = reactive({ show: false, ev: null })
+
+  function openGoogleDetail(ev) {
+    googleDetailModal.ev = ev
+    googleDetailModal.show = true
+  }
+
+  // ── 行程詳細 Modal（點行程先看資料，裡面才有編輯／刪除）──────────────────
+  const itineraryDetailModal = reactive({ show: false, ev: null })
+
+  // 訂位／便當／豆漿／訂房：唯讀來源，點了只開詳細資料 Modal（不能編輯/刪除）
+  const ORDER_SOURCES = ['booking', 'lunch', 'soybean', 'roomorder']
+  // 所有來源（院內／Google／行程／訂位系列）點擊都要能開詳細 Modal
+  function isDetailClickable(ev) {
+    return true
+  }
+  function openEventDetail(ev) {
+    if (ev.source === 'itinerary') openItineraryDetail(ev)
+    else if (ORDER_SOURCES.includes(ev.source)) openOrderDetail(ev)
+    else if (ev.source === 'google') openGoogleDetail(ev)
+    else openLocalDetail(ev)
+  }
+
+  // ── 院內活動詳細 Modal（點院內活動只看資料，唯讀；編輯/刪除請到日面板或月曆格子）──
+  const localDetailModal = reactive({ show: false, ev: null })
+  function openLocalDetail(ev) {
+    localDetailModal.ev = ev
+    localDetailModal.show = true
+  }
+
+  function openItineraryDetail(ev) {
+    itineraryDetailModal.ev = ev
+    itineraryDetailModal.show = true
+  }
+
+  function editItineraryFromDetail() {
+    const ev = itineraryDetailModal.ev
+    itineraryDetailModal.show = false
+    openEdit(ev)
+  }
+
+  async function deleteItineraryFromDetail() {
+    const ev = itineraryDetailModal.ev
+    const ok = await deleteEvent(ev)
+    if (ok) itineraryDetailModal.show = false
+  }
+
+  // ── 訂位／便當／豆漿／訂房 詳細 Modal（唯讀，編輯/刪除請到各自管理頁）──────
+  // 假設沿用 Nuxt 檔案路由（xxx-orders.vue → /xxx-orders），如實際路由不同請自行調整
+  const ORDER_ADMIN_PATH = {
+    booking: '/booking-orders',
+    lunch: '/lunch-orders',
+    soybean: '/soybean-orders',
+    roomorder: '/rooms-orders'
+  }
+  const orderDetailModal = reactive({ show: false, ev: null })
+
+  function openOrderDetail(ev) {
+    orderDetailModal.ev = ev
+    orderDetailModal.show = true
+  }
+
+  function openEdit(ev) {
+    // Google 活動顯示詳細面板，不直接跳轉
+    if (ev.source === 'google') {
+      openGoogleDetail(ev)
+      return
+    }
+    // 訂位／便當／豆漿／訂房是唯讀資料，沒有編輯表單可用，一律導去詳細面板
+    if (ORDER_SOURCES.includes(ev.source)) {
+      openOrderDetail(ev)
+      return
+    }
+    formModal.isNew = false
+    formModal.id = ev.id
+    formModal.source = ev.source === 'itinerary' ? 'itinerary' : 'local'
+    Object.assign(form, {
+      date: ev.date, time: ev.time || '',
+      endDate: ev.endDate && ev.endDate !== ev.date ? ev.endDate : '', endTime: ev.endTime || '',
+      title: ev.title, owner: ev.owner, room: ev.room, building: eventBuilding(ev) || '醫院',
+      description: ev.description || ''
+    })
+    formError.value = ''
+    formModal.show = true
+  }
+
+  // 一筆活動＝一次 API 呼叫（不論單日或跨天），後端直接存 date/endDate，
+  // 前端不用再逐日展開、也不用事後用內容比對去猜是不是同一個跨天活動
+  // source === 'local' 存到院內行事曆；source === 'itinerary' 存到獨立的行程資料，兩邊互不相干
+  async function saveForm() {
+    if (!form.date || !form.title.trim()) {
+      formError.value = '日期和標題為必填'
+      return
+    }
+    if (form.endDate && form.endDate < form.date) {
+      formError.value = '結束日期不能早於起始日期'
+      return
+    }
+    saving.value = true
+    formError.value = ''
+    const isItinerary = formModal.source === 'itinerary'
+    try {
+      const payload = {
+        id: formModal.isNew ? null : formModal.id,
+        date: form.date,
+        endDate: form.endDate || form.date,
+        time: form.time,
+        endTime: form.endTime,
+        title: form.title,
+        owner: form.owner,
+        room: form.room,
+        type: isItinerary ? '行程' : '院內',
+        building: isItinerary ? '' : form.building
+      }
+      if (isItinerary) payload.description = form.description
+      const res = await fetch(`${(isItinerary ? BASE_ITINERARY : BASE).value}/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('儲存失敗')
+      const saved = await res.json()
+      if (isItinerary) saved.source = 'itinerary'
+      const list = isItinerary ? itineraryEvents : events
+      if (formModal.isNew) {
+        list.value.push(saved)
+        showToast(isItinerary ? '行程已新增' : '活動已新增')
+      } else {
+        const idx = list.value.findIndex(e => e.id === formModal.id)
+        if (idx !== -1) list.value[idx] = saved
+        // 同步更新側板
+        if (dayPanel.show && eventCoversDate(saved, dayPanel.dateStr)) {
+          dayPanel.events = eventsOnDate(dayPanel.dateStr)
+        }
+        showToast(isItinerary ? '行程已更新' : '活動已更新')
+      }
+      formModal.show = false
+    } catch (e) {
+      formError.value = e.message
+    } finally {
+      saving.value = false
+    }
+  }
+
+  // DELETE /holy/calendar/{id}?date=YYYY-MM-DD 或 /holy/itinerary/{id}?date=YYYY-MM-DD（依 source 而定）
+  // 一筆活動只有一個 id，跨天活動會整筆一起刪除
+  async function deleteEvent(ev) {
+    // 訂位／便當／豆漿／訂房是唯讀資料，這裡沒有對應的刪除端點，一律擋掉
+    if (ORDER_SOURCES.includes(ev.source)) {
+      showToast('這筆資料請到對應的管理頁面操作')
+      return false
+    }
+    const hint = isBannerEvent(ev) ? `（跨天${ev.source === 'itinerary' ? '行程' : '活動'} ${ev.date} ~ ${ev.endDate}，將整筆刪除）` : ''
+    if (!confirm(`確定要刪除「${ev.title}」？${hint}`)) return false
+    const isItinerary = ev.source === 'itinerary'
+    try {
+      const res = await fetch(`${(isItinerary ? BASE_ITINERARY : BASE).value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      if (isItinerary) {
+        itineraryEvents.value = itineraryEvents.value.filter(e => e.id !== ev.id)
+      } else {
+        events.value = events.value.filter(e => e.id !== ev.id)
+      }
+      // 同步更新側板
+      if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+      showToast('已刪除')
+      return true
+    } catch {
+      showToast('刪除失敗')
+      return false
+    }
+  }
+
+  // ── 清空當月（活動 + 備注，不含 Google 同步活動）──────────────────
+  const clearMonthModal = reactive({ show: false })
+  const clearMonthConfirmText = ref('')
+  const clearMonthError = ref('')
+  const clearingMonth = ref(false)
+
+  // 當月可清空的系統活動（排除 Google 來源）；用「起始日」而非月份交集判斷，
+  // 因為後端資料是依起始日所在月份存檔（見 CalendarController.path()），
+  // 清空當月即是清空存在該月 YML 檔裡的所有活動（即使跨天活動的結束日落到下個月也一併清掉）
+  const clearableMonthEvents = computed(() => {
+    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+    return events.value.filter(e => e.date?.startsWith(ym))
+  })
+  const clearableEventCount = computed(() => clearableMonthEvents.value.length)
+
+  function openClearMonthModal() {
+    clearMonthConfirmText.value = ''
+    clearMonthError.value = ''
+    clearMonthModal.show = true
+  }
+
+  function closeClearMonthModal() {
+    clearMonthModal.show = false
+  }
+
+  async function confirmClearMonth() {
+    if (clearMonthConfirmText.value !== String(currentMonth.value)) return
+    clearingMonth.value = true
+    clearMonthError.value = ''
+    try {
+      const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+      const targets = clearableMonthEvents.value
+      // 逐筆刪除系統活動（後端僅提供單筆 DELETE，沒有批次清空 API）
+      const results = await Promise.allSettled(
+        targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' }))
+      )
+      const failedCount = results.filter(r => r.status === 'rejected' || !r.value?.ok).length
+      const deletedIds = new Set(
+        targets.filter((_, i) => results[i].status === 'fulfilled' && results[i].value?.ok).map(ev => ev.id)
+      )
+      events.value = events.value.filter(e => !deletedIds.has(e.id))
+
+      // 清空當月備注
+      await fetch(`${BASE.value}/notes?yearMonth=${ym}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([])
+      })
+      notes.value = []
+
+      // 同步更新側板
+      if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+
+      clearMonthModal.show = false
+      if (failedCount > 0) {
+        showToast(`已清空，但有 ${failedCount} 筆活動刪除失敗`)
+      } else {
+        showToast(`已清空 ${currentYear.value} 年 ${currentMonth.value} 月內容`)
+      }
+    } catch (e) {
+      clearMonthError.value = '清空失敗，請稍後再試'
+    } finally {
+      clearingMonth.value = false
+    }
+  }
+
+  // ── TXT 解析 ──────────────────────────────────────────────────────
+  const showTxtModal = ref(false)
+  const txtInput = ref('')
+  const txtResult = ref(null)
+
+  function closeTxtModal() {
+    showTxtModal.value = false
+    txtInput.value = ''
+    txtResult.value = null
+  }
+
+  const TXT_TYPE = '(醫院|園區|芳心|Google)'
+  // 跨天：8/4 08:00 ～ 8/7 17:00 標題 (owner room)類型
+  const TXT_CROSS_DAY_RE = new RegExp(`^(\\d{1,2})/(\\d{1,2})\\s+(\\d{2}:\\d{2})\\s*[～~]\\s*(\\d{1,2})/(\\d{1,2})\\s+(\\d{2}:\\d{2})\\s+(.+?)\\s*\\(([^)]*)\\)${TXT_TYPE}$`)
+  // 同天、日期寫在行首：8/3 08:00–12:00 標題 (owner room)類型
+  const TXT_SAME_DAY_RE = new RegExp(`^(\\d{1,2})/(\\d{1,2})\\s+(\\d{2}:\\d{2})\\s*[-–—]\\s*(\\d{2}:\\d{2})\\s+(.+?)\\s*\\(([^)]*)\\)${TXT_TYPE}$`)
+  // 舊格式相容：日期寫成獨立一行「16」，事件行只有時間：08:00-12:00 標題 (owner room)類型
+  const TXT_OLD_STYLE_RE = new RegExp(`^(\\d{2}:\\d{2})\\s*[-–—]\\s*(\\d{2}:\\d{2})\\s+(.+?)\\s*\\(([^)]*)\\)${TXT_TYPE}$`)
+
+  function splitOwnerRoom(inner) {
+    const parts = inner.trim().split(/\s+/).filter(Boolean)
+    return { owner: parts[0] || '', room: parts.slice(1).join(' ') }
+  }
+
+  function cleanTitle(t) {
+    return t.replace(/\s*\.\.\s*$/, '').trim()
+  }
+
+  // 回傳 { events: [], notes: [] }；events 已經是「一筆活動一筆資料」，跨天活動直接帶 endDate/endTime
+  function parseTxtContent(raw) {
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+    const evList = []
+    const noteList = []
+    let year = null, month = null, day = null
+    let inNotes = false
+
+    for (const line of lines) {
+      // 年月行
+      const ym = line.match(/^(\d{4})年(\d{1,2})月/)
+      if (ym) {
+        year = +ym[1]
+        month = +ym[2]
+        inNotes = false
+        continue
+      }
+
+      // 備注區塊起始：「備 註 :」「備註：」等變體
+      if (/^備\s*[註注]\s*[:：]/.test(line)) {
+        inNotes = true
+        continue
+      }
+
+      // ── 備注區 ──
+      if (inNotes) {
+        // 格式：1.(2026-04-03-14:00)文字內容
+        // → 保留成「(2026-04-03-14:00) 文字內容」
+        const m = line.match(/^\d+\.\s*(\([^)]*\))?\s*(.+)$/)
+        if (m) {
+          const prefix = m[1] ? m[1] + ' ' : ''
+          const text = m[2].trim()
+          if (text) noteList.push(prefix + text)
+        } else if (line && !/^備/.test(line)) {
+          noteList.push(line)
+        }
+        continue
+      }
+
+      if (!year) continue
+
+      // 舊格式：獨立一行的日期數字（1~31），記住當前 day，供下面的舊格式時間行使用
+      if (/^\d{1,2}$/.test(line) && +line >= 1 && +line <= 31) {
+        day = +line
+        continue
+      }
+
+      // ── 跨天活動：M/D HH:MM ～ M/D HH:MM 標題 (owner room)類型 ──
+      const cross = line.match(TXT_CROSS_DAY_RE)
+      if (cross) {
+        const [, sm, sd, stime, em, ed, etime, titleRaw, inner, type] = cross
+        const startMonth = +sm, endMonth = +em
+        const startDate = `${year}-${String(startMonth).padStart(2, '0')}-${String(+sd).padStart(2, '0')}`
+        // 跨年（例如 12月 ～ 1月）：結束日期年份 +1
+        const endYear = endMonth < startMonth ? year + 1 : year
+        const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(+ed).padStart(2, '0')}`
+        const { owner, room } = splitOwnerRoom(inner)
+        // TXT 貼上匯入的活動一律歸類為「院內」，行尾解析到的標籤保留在 building 欄位（原本的建築分類）
+        evList.push({ date: startDate, endDate, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
+        month = startMonth; day = +sd
+        continue
+      }
+
+      // ── 同天活動、日期在行首：M/D HH:MM-HH:MM 標題 (owner room)類型 ──
+      const sameDay = line.match(TXT_SAME_DAY_RE)
+      if (sameDay) {
+        const [, m, d, stime, etime, titleRaw, inner, type] = sameDay
+        const date = `${year}-${String(+m).padStart(2, '0')}-${String(+d).padStart(2, '0')}`
+        const { owner, room } = splitOwnerRoom(inner)
+        evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
+        month = +m; day = +d
+        continue
+      }
+
+      // ── 舊格式：純時間行，日期沿用前面獨立的日期行 ──
+      if (year && month && day) {
+        const old = line.match(TXT_OLD_STYLE_RE)
+        if (old) {
+          const [, stime, etime, titleRaw, inner, type] = old
+          const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const { owner, room } = splitOwnerRoom(inner)
+          evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
+        }
+      }
+    }
+    return { events: evList, notes: noteList }
+  }
+
+  function eventKey(e) {
+    return `${e.date}|${e.endDate}|${e.time}|${e.endTime}|${e.title}|${e.owner}|${e.room}`
+  }
+
+  function parseTxt() {
+    const { events: parsed, notes: parsedNotes } = parseTxtContent(txtInput.value)
+    const existing = new Set(events.value.map(eventKey))
+    const added = [], skipped = { count: 0 }
+
+    for (const ev of parsed) {
+      if (existing.has(eventKey(ev))) {
+        skipped.count++
+        continue
+      }
+      existing.add(eventKey(ev))
+      added.push(ev)
+    }
+    txtResult.value = { total: parsed.length, added, skipped: skipped.count, notes: parsedNotes }
+  }
+
+  async function confirmImportTxt() {
+    if (!txtResult.value?.added.length && !txtResult.value?.notes.length) return
+    saving.value = true
+    try {
+      // ① 匯入活動
+      if (txtResult.value.added.length > 0) {
+        const res = await fetch(`${BASE.value}/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(txtResult.value.added)
+        })
+        if (!res.ok) throw new Error('活動匯入失敗')
+        const saved = await res.json()
+        events.value.push(...saved)
+      }
+
+      // ② 匯入備注：按月份分組，合併到現有備注後儲存
+      if (txtResult.value.notes.length > 0) {
+        // 找出解析到的活動所在月份（取第一筆），若無活動就取 currentYearMonth
+        const targetYm = txtResult.value.added.length > 0
+          ? txtResult.value.added[0].date.slice(0, 7)
+          : currentYearMonth.value
+
+        // 先抓現有備注，再合併新備注（去重）
+        let existing = []
+        try {
+          const r = await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`)
+          if (r.ok) existing = await r.json()
+        } catch {
+        }
+        const merged = [...existing]
+        for (const n of txtResult.value.notes) {
+          if (!merged.includes(n)) merged.push(n)
+        }
+        await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(merged)
+        })
+        // 若當前月份就是 targetYm，同步更新畫面
+        if (targetYm === currentYearMonth.value) {
+          notes.value = merged
+        }
+      }
+
+      // ③ 跳至第一筆活動的月份
+      if (txtResult.value.added.length > 0) {
+        const firstDate = txtResult.value.added[0].date
+        currentYear.value = +firstDate.slice(0, 4)
+        currentMonth.value = +firstDate.slice(5, 7)
+      }
+
+      const evCount = txtResult.value.added.length
+      const noteCount = txtResult.value.notes.length
+      showToast(`匯入 ${evCount} 筆活動、${noteCount} 條備注`)
+      closeTxtModal()
+    } catch (e) {
+      showToast(e.message)
+    } finally {
+      saving.value = false
+    }
+  }
+
+  // ── 備注 ──────────────────────────────────────────────────────────
+  // GET  /holy/calendar/notes?yearMonth=2026-04  → String[]
+  // POST /holy/calendar/notes?yearMonth=2026-04  body: String[]
+  const notes = ref([]) // 當月備注陣列
+  const notesSaving = ref(false)
+  const noteEditIdx = ref(-1) // 正在編輯的備注 index，-1 表示無
+  const noteEditValue = ref('')
+
+  const currentYearMonth = computed(() =>
+    `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+  )
+
+  // 切換月份時重新載入備注（類型 / 地點篩選維持不變，跨月份記住）
+  watch(currentYearMonth, () => {
+    fetchNotes()
+    fetchGoogleEvents()
+    fetchBookingEvents()
+    fetchLunchEvents()
+    fetchSoybeanEvents()
+    noteEditIdx.value = -1
+  })
+
+  async function fetchNotes() {
+    try {
+      const res = await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`)
+      notes.value = res.ok ? await res.json() : []
+    } catch {
+      notes.value = []
+    }
+  }
+
+  async function saveNotes() {
+    notesSaving.value = true
+    try {
+      await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notes.value)
+      })
+    } catch {
+      showToast('備注儲存失敗')
+    } finally {
+      notesSaving.value = false
+    }
+  }
+
+  function addNote() {
+    notes.value.push('')
+    noteEditIdx.value = notes.value.length - 1
+    noteEditValue.value = ''
+  }
+
+  function startEditNote(idx) {
+    noteEditIdx.value = idx
+    noteEditValue.value = notes.value[idx]
+  }
+
+  async function confirmEditNote(idx) {
+    if (!noteEditValue.value.trim()) {
+      // 空白就直接刪除
+      notes.value.splice(idx, 1)
+    } else {
+      notes.value[idx] = noteEditValue.value.trim()
+    }
+    noteEditIdx.value = -1
+    await saveNotes()
+  }
+
+  function cancelEditNote() {
+    // 若是剛新增的空白項就移除
+    if (notes.value[noteEditIdx.value] === '') {
+      notes.value.splice(noteEditIdx.value, 1)
+    }
+    noteEditIdx.value = -1
+  }
+
+  async function deleteNote(idx) {
+    notes.value.splice(idx, 1)
+    await saveNotes()
+    showToast('備注已刪除')
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────
+  function showToast(msg) {
+    toast.message = msg
+    toast.show = true
+    setTimeout(() => {
+      toast.show = false
+    }, 2500)
+  }
+
+  onMounted(() => {
+    restoreCalendarState() // 一定要在下面幾個依賴 currentYear/currentMonth 的 fetch 之前執行
+
+    fetchEvents()
+    fetchItineraryEvents()
+    fetchNotes()
+    fetchGoogleEvents()
+    fetchBookingEvents()
+    fetchLunchEvents()
+    fetchSoybeanEvents()
+    fetchRoomOrderEvents() // /list 一次回傳全部訂單，不用像上面三個依月份重抓
+    fetchGroupNames()
+
+    if (import.meta.client && window.matchMedia) {
+      mobileMql = window.matchMedia('(max-width: 640px)')
+      isMobileViewport.value = mobileMql.matches
+      mobileMql.addEventListener('change', updateMobileViewport)
+    }
+  })
+
+  onUnmounted(() => {
+    if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
+  })
+</script>
+
 <template>
   <div class="min-h-full bg-surface2 dark:bg-[#15171c] transition-colors lg:flex lg:items-start">
     <!-- ══ 左側功能欄（lg 以上固定在左側；手機維持在最上方）══ -->
@@ -1694,1339 +3027,6 @@
     </Teleport>
   </div>
 </template>
-
-<script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'timeline.calendar' })
-const perm = usePermission()
-
-const commonStore = useCommonStore()
-const BASE = computed(() => commonStore.data.main_url + '/holy/calendar')
-// 「行程」功能：跟院內行事曆結構類似，但資料完全獨立、互不相干（獨立 API + 獨立 YML）
-const BASE_ITINERARY = computed(() => commonStore.data.main_url + '/holy/itinerary')
-// 訂位／便當／豆漿／訂房：純顯示用（唯讀），實際新增/編輯/刪除都在各自的管理頁面進行
-const BASE_BOOKING = computed(() => commonStore.data.main_url + '/holy/booking')
-const BASE_LUNCH = computed(() => commonStore.data.main_url + '/holy/lunch')
-const BASE_SOYBEAN = computed(() => commonStore.data.main_url + '/holy/soybean')
-const BASE_ROOMS = computed(() => commonStore.data.main_url + '/holy/rooms/bookings')
-const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
-
-// 團體行程名稱查表：行程項目只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
-const groupNamesById = ref({})
-const fetchGroupNames = async () => {
-  try {
-    const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
-    groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
-  } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
-}
-
-const TYPES = ['醫院', '園區', '芳心'] // 建築分類：本地院內活動底下的細分類別（新增/編輯表單、院內篩選底下的建築分類子篩選都用這組值）
-// 星期標頭：依 weekStartOption 決定週日或週一排最前面；同時標記哪一欄是週日/週六（給紅/藍字用）
-const WEEKDAY_BASE = [
-  { label: '日', isSun: true, isSat: false },
-  { label: '一', isSun: false, isSat: false },
-  { label: '二', isSun: false, isSat: false },
-  { label: '三', isSun: false, isSat: false },
-  { label: '四', isSun: false, isSat: false },
-  { label: '五', isSun: false, isSat: false },
-  { label: '六', isSun: false, isSat: true }
-]
-const weekdayHeaderItems = computed(() => {
-  return weekStartOption.value === 1 ? [...WEEKDAY_BASE.slice(1), WEEKDAY_BASE[0]] : WEEKDAY_BASE
-})
-
-// ── Google Calendar 設定 ──────────────────────────────────────────
-const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
-const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
-
-const googleEvents = ref([])
-const googleLoading = ref(false)
-const itineraryEvents = ref([]) // 「行程」資料（獨立來源，跟院內活動互不相干）
-// 訂位／便當／豆漿／訂房：唯讀顯示用，正規化成跟 CalendarEvent 一樣的 {id,date,endDate,time,title,owner,room,source} 形狀
-const bookingEvents = ref([])
-const lunchEvents = ref([])
-const soybeanEvents = ref([])
-const roomOrderEvents = ref([])
-
-// ── 顏色工具 ─────────────────────────────────────────────────────
-// 「類型」只分院內／Google 兩種，但顏色沿用以前的建築分類配色：
-// 院內活動依 building（醫院/園區/芳心）決定顏色，Google 固定藍色，
-// 院內活動沒有 building 時（少數舊資料）退回琥珀色
-// 徽章文字：本地活動有建築分類時直接顯示建築名稱（顏色也是那個建築的顏色），沒有才顯示「院內」
-function eventBadgeLabel(ev) {
-  if (ev.source === 'google') return 'Google'
-  if (ev.source === 'itinerary') return '行程'
-  if (SOURCE_TYPE_LABEL[ev.source]) return SOURCE_TYPE_LABEL[ev.source]
-  return eventBuilding(ev) || '院內'
-}
-
-// 活動的建築分類：優先用 building 欄位，舊資料 type 若剛好是建築分類值就當備援
-function eventBuilding(ev) {
-  return ev.building || (TYPES.includes(ev.type) ? ev.type : '')
-}
-
-function typeColorClass(ev) {
-  if (ev.source === 'google') return 'google'
-  if (ev.source === 'itinerary') return 'itinerary'
-  if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return ev.source
-  return { 醫院: 'hospital', 園區: 'park', 芳心: 'fragrant' }[eventBuilding(ev)] || 'onsite'
-}
-
-function typeChipClass(ev) {
-  if (ev.source === 'google') return 'chip-google'
-  if (ev.source === 'itinerary') return 'chip-itinerary'
-  if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return `chip-${ev.source}`
-  return { 醫院: 'chip-hospital', 園區: 'chip-park', 芳心: 'chip-fragrant' }[eventBuilding(ev)] || 'chip-onsite'
-}
-
-function chipClass(ev) {
-  return typeChipClass(ev)
-}
-
-// 跨多天顯示為連續色條的活動：每筆活動（不論系統或 Google）都直接帶 date（起）/ endDate（迄），
-// 不再需要用「內容是否相同 + 日期是否連續」去猜，也不會有斷天或重複的問題
-function isBannerEvent(ev) {
-  return !!(ev.endDate && ev.endDate !== ev.date)
-}
-
-// 跨天活動的分組鍵：每筆活動本身就是唯一一筆資料（不再逐日展開），直接用 id 分組即可
-function bannerGroupKey(ev) {
-  return ev.id
-}
-
-// 活動的日期範圍是否與某天有交集（含頭尾）
-function eventCoversDate(ev, dateStr) {
-  const end = ev.endDate || ev.date
-  return dateStr >= ev.date && dateStr <= end
-}
-
-// 活動的日期範圍是否與某個月份（yearMonth，例如 "2026-08"）有交集
-function eventOverlapsMonth(ev, ym) {
-  const end = ev.endDate || ev.date
-  const monthStart = `${ym}-01`
-  const monthEnd = `${ym}-31` // 字串比較用，31 一定 >= 該月最後一天
-  return ev.date <= monthEnd && end >= monthStart
-}
-
-// 活動時間顯示文字：同一天顯示「起-迄」，跨天顯示「起始日 起時 ～ 結束日 迄時」
-function eventTimeLabel(ev) {
-  if (!ev.date) return ''
-  if (isBannerEvent(ev)) {
-    const startPart = ev.time ? `${ev.date} ${ev.time}` : ev.date
-    const endPart = ev.endTime ? `${ev.endDate} ${ev.endTime}` : ev.endDate
-    return `${startPart} ～ ${endPart}`
-  }
-  if (ev.time && ev.endTime) return `${ev.time}-${ev.endTime}`
-  return ev.time || ev.endTime || ''
-}
-
-// ── 跟隨游標的活動提示框 ─────────────────────────────────────────
-const tooltipEvent = ref(null)
-const tooltipPos = reactive({ x: 0, y: 0 })
-const TOOLTIP_OFFSET = 18
-const TOOLTIP_WIDTH = 280
-const TOOLTIP_MAX_HEIGHT = 300
-
-const tooltipStyle = computed(() => {
-  if (!import.meta.client) return {}
-  let left = tooltipPos.x + TOOLTIP_OFFSET
-  let top = tooltipPos.y + TOOLTIP_OFFSET
-
-  // 靠右邊界時翻到游標左側
-  if (left + TOOLTIP_WIDTH > window.innerWidth - 8) {
-    left = tooltipPos.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET
-  }
-  // 靠下邊界時翻到游標上方
-  if (top + TOOLTIP_MAX_HEIGHT > window.innerHeight - 8) {
-    top = tooltipPos.y - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET
-  }
-  if (left < 8) left = 8
-  if (top < 8) top = 8
-
-  return { left: `${left}px`, top: `${top}px` }
-})
-
-function showTooltip(ev, e) {
-  tooltipEvent.value = ev
-  tooltipPos.x = e.clientX
-  tooltipPos.y = e.clientY
-}
-
-function moveTooltip(e) {
-  tooltipPos.x = e.clientX
-  tooltipPos.y = e.clientY
-}
-
-function hideTooltip() {
-  tooltipEvent.value = null
-}
-
-function stripHtml(html) {
-  if (!html) return ''
-  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
-}
-
-function typeBarClass(ev) {
-  if (ev.source === 'google') return 'bg-blue-500'
-  if (ev.source === 'itinerary') return 'bg-teal-500'
-  if (ev.source === 'booking') return 'bg-pink-500'
-  if (ev.source === 'lunch') return 'bg-orange-500'
-  if (ev.source === 'soybean') return 'bg-lime-600'
-  if (ev.source === 'roomorder') return 'bg-violet-600'
-  return { 醫院: 'bg-red-400', 園區: 'bg-emerald-500', 芳心: 'bg-purple-400' }[eventBuilding(ev)] || 'bg-amber-500'
-}
-
-// ── 月份狀態 ──────────────────────────────────────────────────────
-const today = new Date()
-const currentYear = ref(today.getFullYear())
-const currentMonth = ref(today.getMonth() + 1) // 1-based
-
-// ── 上方資訊區收合狀態 ────────────────────────────────────────────
-const panelExpanded = ref(true)
-
-// ── 每週第一天設定：0 = 週日在最前面（預設），1 = 週一在最前面 ─────────
-const weekStartOption = ref(0)
-
-// ── 篩選狀態：類型改成複選 checkbox（每個圖例項目都能各自勾選/取消）─────
-// 十個「葉節點」分類：院內原本的醫院/園區/芳心/未分類拆開各自可勾，其餘來源各自一個
-// 院內底下的 4 個子分類會顯示成一個「院內」大項＋縮排子項，用一個父層 checkbox 統一勾/取消全部子項
-const LOCAL_SUB_ITEMS = [
-  { key: '醫院', label: '醫院', dot: 'bg-red-400' },
-  { key: '園區', label: '園區', dot: 'bg-emerald-500' },
-  { key: '芳心', label: '芳心', dot: 'bg-purple-400' },
-  { key: '院內未分類', label: '院內（未分類）', dot: 'bg-amber-500' }
-]
-const OTHER_LEGEND_ITEMS = [
-  { key: '行程', label: '行程', dot: 'bg-teal-500' },
-  { key: 'Google', label: 'Google', dot: 'bg-blue-500' },
-  { key: '訂位', label: '訂位', dot: 'bg-pink-500' },
-  { key: '便當', label: '便當', dot: 'bg-orange-500' },
-  { key: '豆漿', label: '豆漿', dot: 'bg-lime-600' },
-  { key: '訂房', label: '訂房', dot: 'bg-violet-600' }
-]
-const LEGEND_ITEMS = [...LOCAL_SUB_ITEMS, ...OTHER_LEGEND_ITEMS] // 給還需要「全部十項」的地方用（全選/全取消/總計）
-const activeCategories = reactive(Object.fromEntries(LEGEND_ITEMS.map(i => [i.key, true])))
-const filterLocation = ref('') // 空字串 = 全部地點
-
-// 判斷一筆事件屬於哪個「葉節點」分類
-function eventLeafCategory(e) {
-  if (e.source === 'itinerary') return '行程'
-  if (e.source === 'google') return 'Google'
-  if (SOURCE_TYPE_LABEL[e.source]) return SOURCE_TYPE_LABEL[e.source]
-  return eventBuilding(e) || '院內未分類'
-}
-
-// 這筆事件目前是否應該顯示（依 activeCategories 勾選狀態）
-function isCategoryActive(e) {
-  return activeCategories[eventLeafCategory(e)] !== false
-}
-
-function toggleCategory(key) {
-  activeCategories[key] = !activeCategories[key]
-}
-
-function selectAllCategories() {
-  LEGEND_ITEMS.forEach(i => { activeCategories[i.key] = true })
-}
-
-function clearAllCategories() {
-  LEGEND_ITEMS.forEach(i => { activeCategories[i.key] = false })
-}
-
-// 「院內」父層 checkbox：全部子分類都勾 → 打勾；都沒勾 → 空；部分勾 → 半勾（indeterminate）
-const localActiveCount = computed(() => LOCAL_SUB_ITEMS.filter(i => activeCategories[i.key]).length)
-const localAllActive = computed(() => localActiveCount.value === LOCAL_SUB_ITEMS.length)
-const localSomeActive = computed(() => localActiveCount.value > 0 && !localAllActive.value)
-const localTotalCount = computed(() => LOCAL_SUB_ITEMS.reduce((sum, i) => sum + (leafTypeCount.value[i.key] || 0), 0))
-
-function toggleLocalGroup() {
-  const turnOn = !localAllActive.value
-  LOCAL_SUB_ITEMS.forEach(i => { activeCategories[i.key] = turnOn })
-}
-
-// ── 月份 / 類型 / 地點 / 收合 狀態持久化（記住使用者上次的選擇）───
-// 注意：這段刻意不放在 setup 最上層直接執行——放在最上層的話，SSR 出來的畫面跟
-// client 讀到 localStorage 後的狀態會兜不起來（hydration mismatch），畫面會先閃一下
-// SSR 版本再被套用 client 版本蓋掉。改成在 onMounted（一定是 client、且在 hydrate 完成後）才套用，
-// 避免重新整理時「先出現一下又不見」的閃爍。
-const CALENDAR_STATE_KEY = 'calendar_filter_state'
-function restoreCalendarState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CALENDAR_STATE_KEY) || 'null')
-    if (saved) {
-      if (saved.year) currentYear.value = saved.year
-      if (saved.month) currentMonth.value = saved.month
-      if (saved.categories) Object.assign(activeCategories, saved.categories) // 舊存檔沒有的分類維持預設 true
-      if (saved.location !== undefined) filterLocation.value = saved.location
-      if (saved.expanded !== undefined) panelExpanded.value = saved.expanded
-      if (saved.weekStart !== undefined) weekStartOption.value = saved.weekStart
-    }
-  } catch {}
-}
-
-watch([currentYear, currentMonth, activeCategories, filterLocation, panelExpanded, weekStartOption], () => {
-  if (import.meta.client) {
-    localStorage.setItem(CALENDAR_STATE_KEY, JSON.stringify({
-      year: currentYear.value,
-      month: currentMonth.value,
-      categories: { ...activeCategories },
-      location: filterLocation.value,
-      expanded: panelExpanded.value,
-      weekStart: weekStartOption.value
-    }))
-  }
-}, { deep: true })
-
-// room 欄位去掉場地代碼前綴："P0I10201 水電實習廠" → "水電實習廠"
-function extractLocation(room) {
-  if (!room || !room.trim()) return ''
-  return room.trim().replace(/^[A-Z0-9]+\s*/, '').trim() || room.trim()
-}
-
-// 每個資料來源對應的篩選類型標籤（跟篩選下拉的 option value 一致）
-const SOURCE_TYPE_LABEL = {
-  google: 'Google', itinerary: '行程',
-  booking: '訂位', lunch: '便當', soybean: '豆漿', roomorder: '訂房'
-}
-
-// 依目前勾選的分類動態產生可選地點（去重、排序）
-const availableLocations = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const base = allEvents.value.filter(e => eventOverlapsMonth(e, ym) && isCategoryActive(e))
-  return [...new Set(base.map(e => extractLocation(e.room)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'))
-})
-
-// 院內活動中，各建築分類的當月筆數
-const buildingCount = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const counts = {}
-  events.value
-    .filter(e => eventOverlapsMonth(e, ym))
-    .forEach((e) => {
-      const b = eventBuilding(e) || '未分類'
-      counts[b] = (counts[b] || 0) + 1
-    })
-  return counts
-})
-
-function prevMonth() {
-  if (currentMonth.value === 1) {
-    currentMonth.value = 12
-    currentYear.value--
-  } else currentMonth.value--
-}
-
-function nextMonth() {
-  if (currentMonth.value === 12) {
-    currentMonth.value = 1
-    currentYear.value++
-  } else currentMonth.value++
-}
-
-function goToday() {
-  currentYear.value = today.getFullYear()
-  currentMonth.value = today.getMonth() + 1
-}
-
-// ── 月曆格子計算 ─────────────────────────────────────────────────
-const calendarCells = computed(() => {
-  const year = currentYear.value
-  const month = currentMonth.value
-  const firstWeekday = new Date(year, month - 1, 1).getDay() // 實際星期幾，0=Sun
-  // 依 weekStartOption 換算「月初前要留幾個空格」：週日排最前面用原本的 firstWeekday，
-  // 週一排最前面則要扣掉 1 天位移（週日這天要排到最後一欄）
-  const leadingEmpty = (firstWeekday - weekStartOption.value + 7) % 7
-  const daysInMonth = new Date(year, month, 0).getDate()
-
-  const cells = []
-
-  // 填充前空格
-  for (let i = 0; i < leadingEmpty; i++) {
-    cells.push({ day: null, dateStr: null, events: [], isToday: false, isWeekend: false, weekdayIdx: i })
-  }
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    const actualDow = (firstWeekday + d - 1) % 7 // 實際星期幾，0=Sun，跟顯示欄位順序無關，紅/藍字判斷要用這個
-    const weekdayIdx = (leadingEmpty + d - 1) % 7 // 顯示欄位（0 = 該週第一欄），給跨天色條的 gridColumn 用
-    const isToday = d === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear()
-    const isWeekend = actualDow === 0 || actualDow === 6
-    const isSunday = actualDow === 0
-    const isSaturday = actualDow === 6
-    const dayEvents = eventsOnDate(dateStr)
-    const chipEvents = dayEvents.filter(e => !isBannerEvent(e))
-    cells.push({ day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, isSunday, isSaturday, weekdayIdx })
-  }
-
-  return cells
-})
-
-// 依週切分 calendarCells，方便跨天活動渲染成連續色條（橫跨整週的 overlay）
-const calendarWeeks = computed(() => {
-  const cells = calendarCells.value
-  const weeks = []
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
-  return weeks
-})
-
-// 每週跨天活動的色條資料：依活動 id 分組、
-// 計算橫跨欄位與是否為活動實際起訖日（決定圓角端）
-// 並用簡單貪婪法分配 lane（垂直層），避免同週重疊的跨天活動互相覆蓋
-// 色條堆疊高度：手機版 .week-banner-bar 變矮（15px+1px margin），需跟著縮小，
-// 避免下方一般活動 chip 跟色條之間留下多餘空隙
-const isMobileViewport = ref(false)
-let mobileMql = null
-
-function updateMobileViewport(e) {
-  isMobileViewport.value = e.matches
-}
-
-const BANNER_ROW_HEIGHT = computed(() => isMobileViewport.value ? 16 : 20)
-
-const weekBanners = computed(() => {
-  return calendarWeeks.value.map((week) => {
-    const map = new Map()
-    week.forEach((cell, col) => {
-      if (!cell.day) return
-      cell.events.forEach((ev) => {
-        if (!isBannerEvent(ev)) return
-        const key = bannerGroupKey(ev)
-        if (!map.has(key)) {
-          map.set(key, { ev, startCol: col, endCol: col })
-        } else {
-          map.get(key).endCol = col
-        }
-      })
-    })
-    const banners = [...map.values()].map(b => ({
-      key: `${bannerGroupKey(b.ev)}_${week[b.startCol].dateStr}`,
-      ev: b.ev,
-      startCol: b.startCol,
-      endCol: b.endCol,
-      roundLeft: week[b.startCol].dateStr === b.ev.date,
-      roundRight: week[b.endCol].dateStr === (b.ev.endDate || b.ev.date),
-      lane: 0
-    }))
-    banners.sort((a, b) => a.startCol - b.startCol)
-    const laneEnds = []
-    banners.forEach((b) => {
-      let lane = 0
-      while (laneEnds[lane] !== undefined && laneEnds[lane] >= b.startCol) lane++
-      b.lane = lane
-      laneEnds[lane] = b.endCol
-    })
-    return banners
-  })
-})
-
-// 每週需要保留的色條層數（讓下方的一般活動 chip 往下讓出空間，避免被色條蓋住）
-const weekBannerLanes = computed(() =>
-  weekBanners.value.map(list => list.reduce((max, b) => Math.max(max, b.lane + 1), 0))
-)
-
-const monthEventCount = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  return allEvents.value.filter((e) => {
-    if (!eventOverlapsMonth(e, ym)) return false
-    if (!isCategoryActive(e)) return false
-    if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
-    return true
-  }).length
-})
-
-// 各葉節點分類的當月筆數（給圖例 checkbox 旁邊的數字用）
-const leafTypeCount = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  const overlap = list => list.filter(e => eventOverlapsMonth(e, ym)).length
-  return {
-    醫院: buildingCount.value['醫院'] || 0,
-    園區: buildingCount.value['園區'] || 0,
-    芳心: buildingCount.value['芳心'] || 0,
-    院內未分類: buildingCount.value['未分類'] || 0,
-    行程: overlap(itineraryEvents.value),
-    Google: overlap(googleEvents.value),
-    訂位: overlap(bookingEvents.value),
-    便當: overlap(lunchEvents.value),
-    豆漿: overlap(soybeanEvents.value),
-    訂房: overlap(roomOrderEvents.value)
-  }
-})
-
-// 某天有哪些活動：直接用 date/endDate 範圍判斷是否涵蓋該日，
-// 不需要逐日展開資料，也不需要用內容比對去猜測是不是同一個跨天活動
-function eventsOnDate(dateStr) {
-  return allEvents.value
-    .filter((e) => {
-      if (!eventCoversDate(e, dateStr)) return false
-      if (!isCategoryActive(e)) return false
-      if (filterLocation.value && extractLocation(e.room) !== filterLocation.value) return false
-      return true
-    })
-    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-}
-
-// ── 主資料狀態 ────────────────────────────────────────────────────
-const events = ref([])
-const loading = ref(false)
-const saving = ref(false)
-const toast = reactive({ show: false, message: '' })
-
-// 系統活動 + 行程 + Google 活動合併（都是「一筆活動一筆資料」，用 date/endDate 表示範圍）
-const allEvents = computed(() => [
-  ...events.value, ...itineraryEvents.value, ...googleEvents.value,
-  ...bookingEvents.value, ...lunchEvents.value, ...soybeanEvents.value, ...roomOrderEvents.value
-])
-
-async function fetchEvents() {
-  loading.value = true
-  try {
-    const res = await fetch(`${BASE.value}/list`)
-    events.value = res.ok ? await res.json() : []
-  } catch (e) {
-    console.error(e)
-    showToast('載入失敗')
-  } finally {
-    loading.value = false
-  }
-}
-
-// 「行程」資料：獨立 API + 獨立資料表，跟院內活動互不相干（結構相同，一次抓全部月份）
-// 後端回傳的 JSON 沒有 source 欄位，前端要自己補上 'itinerary' 才能跟院內/Google 活動分辨
-async function fetchItineraryEvents() {
-  try {
-    const res = await fetch(`${BASE_ITINERARY.value}/list`)
-    const list = res.ok ? await res.json() : []
-    itineraryEvents.value = list.map(ev => ({ ...ev, source: 'itinerary' }))
-  } catch (e) {
-    console.error(e)
-    showToast('行程載入失敗')
-  }
-}
-
-// ── 訂位／便當／豆漿／訂房：唯讀顯示，正規化成通用的月曆事件格式 ──────────
-// 這四個系統本身都有自己完整的管理頁面（訂單/新增/編輯/刪除都在那邊做），
-// 這裡只負責「讀」出來顯示在月曆上，點了只能看詳細資料，不能編輯。
-
-function summarizeMeal(o) {
-  const parts = []
-  if (o.meatQty) parts.push(`肉${o.meatQty}`)
-  if (o.fullVegQty) parts.push(`全素${o.fullVegQty}`)
-  if (o.eggVegQty) parts.push(`蛋奶素${o.eggVegQty}`)
-  if (o.spiceVegQty) parts.push(`五辛素${o.spiceVegQty}`)
-  return parts.join('・')
-}
-function mealTotal(o) {
-  return (o.meatQty || 0) + (o.fullVegQty || 0) + (o.eggVegQty || 0) + (o.spiceVegQty || 0)
-}
-
-// 訂位（RestaurantOrderController /holy/booking）：單日，用 /dates 取當月有訂位的日期，逐日 /get 撈明細
-async function fetchBookingEvents() {
-  try {
-    const dRes = await fetch(`${BASE_BOOKING.value}/dates/${currentYearMonth.value}`)
-    const dates = dRes.ok ? await dRes.json() : []
-    const lists = await Promise.all(dates.map(async (date) => {
-      const res = await fetch(`${BASE_BOOKING.value}/get/${date}`)
-      return res.ok ? await res.json() : []
-    }))
-    bookingEvents.value = lists.flat().map(o => ({
-      id: `booking_${o.id}`,
-      date: o.date,
-      endDate: o.date,
-      time: o.time || '',
-      title: `${o.name}／訂位${mealTotal(o)}位`,
-      owner: o.name,
-      room: '',
-      description: [summarizeMeal(o), o.note].filter(Boolean).join('\n'),
-      status: o.status,
-      phone: o.phone,
-      source: 'booking',
-      groupItineraryId: o.groupItineraryId || ''
-    }))
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// 便當（BentoOrderController /holy/lunch）：單日，用 /dates 取當月有訂單的日期，逐日 /get 撈明細
-async function fetchLunchEvents() {
-  try {
-    const dRes = await fetch(`${BASE_LUNCH.value}/dates/${currentYearMonth.value}`)
-    const dates = dRes.ok ? await dRes.json() : []
-    const lists = await Promise.all(dates.map(async (date) => {
-      const res = await fetch(`${BASE_LUNCH.value}/get/${date}`)
-      return res.ok ? await res.json() : []
-    }))
-    lunchEvents.value = lists.flat().map(o => ({
-      id: `lunch_${o.id}`,
-      date: o.date,
-      endDate: o.date,
-      time: o.time || '',
-      title: `${o.name}／便當${mealTotal(o)}份`,
-      owner: o.name,
-      room: '',
-      description: [summarizeMeal(o), o.note].filter(Boolean).join('\n'),
-      status: o.status,
-      phone: o.phone,
-      source: 'lunch',
-      groupItineraryId: o.groupItineraryId || ''
-    }))
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// 豆漿/豆腐（SoybeanController /holy/soybean）：/admin/list?month= 直接回傳整月訂單
-async function fetchSoybeanEvents() {
-  try {
-    const res = await fetch(`${BASE_SOYBEAN.value}/admin/list?month=${currentYearMonth.value}`)
-    const data = res.ok ? await res.json() : { orders: [] }
-    soybeanEvents.value = (data.orders || [])
-      .filter(o => o.pickupDate)
-      .map(o => ({
-        id: `soybean_${o.id}`,
-        date: o.pickupDate,
-        endDate: o.pickupDate,
-        time: '',
-        title: `${o.name}／豆漿${o.soymilkQty || 0}‧豆腐${o.tofuQty || 0}`,
-        owner: o.name,
-        room: '',
-        description: [o.remark].filter(Boolean).join('\n'),
-        status: o.status,
-        phone: o.contact,
-        source: 'soybean'
-      }))
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// 訂房（RoomOrdersController /holy/rooms/bookings）：/list 一次回傳全部訂單（不分月），跟院內/行程一樣只在掛載時抓一次
-async function fetchRoomOrderEvents() {
-  try {
-    const res = await fetch(`${BASE_ROOMS.value}/list`)
-    const raw = res.ok ? await res.json() : []
-    roomOrderEvents.value = groupRoomOrders(raw.filter(o => o.checkIn))
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// 團體訂房（有 groupId）合併成一筆顯示「團名（N 間）」，日期取整團最早入住～最晚退房；
-// 沒有 groupId 的個人訂房照舊逐筆列出。比照 home.vue 房務清單的合併寫法（用 groupId 分組、
-// 只留一筆代表整團，其餘成員資料收進 members 供詳細面板使用）
-function groupRoomOrders(list) {
-  const groupMembers = new Map() // groupId -> [booking, ...]
-  const solo = []
-  for (const o of list) {
-    if (o.groupId) {
-      if (!groupMembers.has(o.groupId)) groupMembers.set(o.groupId, [])
-      groupMembers.get(o.groupId).push(o)
-    } else {
-      solo.push(o)
-    }
-  }
-
-  const events = solo.map(o => ({
-    id: `room_${o.id}`,
-    date: o.checkIn,
-    endDate: o.checkOut || o.checkIn,
-    time: '',
-    title: `${o.name}／${o.guests}人${o.roomId ? '（' + o.roomId + '）' : ''}`,
-    owner: o.name,
-    room: o.roomId || '',
-    description: [o.notes].filter(Boolean).join('\n'),
-    status: o.status,
-    phone: o.phone,
-    source: 'roomorder',
-    groupItineraryId: o.groupItineraryId || ''
-  }))
-
-  for (const [groupId, members] of groupMembers) {
-    const minCheckIn = members.map(m => m.checkIn).sort()[0]
-    const maxCheckOut = members.map(m => m.checkOut || m.checkIn).sort().slice(-1)[0]
-    const sameRange = members.every(m => m.checkIn === minCheckIn) && members.every(m => (m.checkOut || m.checkIn) === maxCheckOut)
-    const totalGuests = members.reduce((sum, m) => sum + (m.guests || 0), 0)
-    const rooms = members.map(m => m.roomId).filter(Boolean)
-    const statusCounts = {}
-    members.forEach(m => { statusCounts[m.status] = (statusCounts[m.status] || 0) + 1 })
-    const groupName = members[0].groupName || members[0].name
-    events.push({
-      id: `room_group_${groupId}`,
-      date: minCheckIn,
-      endDate: maxCheckOut,
-      time: '',
-      title: `${groupName}（${members.length} 間）`,
-      owner: groupName,
-      room: rooms.join('、'),
-      description: [
-        !sameRange ? '（各房入住/退房日期不同）' : '',
-        ...members.map(m => `${m.roomId || '未指派'}／${m.guests}人／${m.status}`)
-      ].filter(Boolean).join('\n'),
-      status: Object.entries(statusCounts).map(([s, c]) => `${s} ${c}`).join('・'),
-      phone: members[0].phone,
-      isGroup: true,
-      guests: totalGuests,
-      members,
-      source: 'roomorder',
-      groupItineraryId: members[0].groupItineraryId || ''
-    })
-  }
-
-  return events
-}
-
-// ── Google Calendar API ───────────────────────────────────────────
-async function fetchGoogleEvents() {
-  if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
-  googleLoading.value = true
-  googleEvents.value = []
-  try {
-    const year = currentYear.value
-    const month = currentMonth.value
-    const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
-    const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
-      + `?key=${GOOGLE_API_KEY}`
-      + `&timeMin=${timeMin}&timeMax=${timeMax}`
-      + `&singleEvents=true&orderBy=startTime&maxResults=250`
-    const res = await fetch(url)
-    const data = res.ok ? await res.json() : {}
-    const result = []
-    for (const item of data.items || []) {
-      const isAllDay = !!item.start?.date
-      const startRaw = isAllDay ? item.start.date : item.start?.dateTime
-      const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
-      if (!startRaw) continue
-
-      const base = {
-        id: `google_${item.id}`,
-        googleEventId: item.id,
-        title: item.summary || '（無標題）',
-        owner: item.organizer?.displayName || '',
-        room: item.location || '',
-        type: 'Google',
-        source: 'google',
-        googleLink: item.htmlLink || '',
-        description: item.description || ''
-      }
-
-      const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-
-      if (!isAllDay) {
-        // 有時間的活動：直接取 Google 給的起訖日期/時間，不逐日展開
-        const s = new Date(startRaw)
-        const e = endRaw ? new Date(endRaw) : null
-        result.push({
-          ...base,
-          date: startRaw.slice(0, 10),
-          endDate: e ? endRaw.slice(0, 10) : startRaw.slice(0, 10),
-          time: fmt(s),
-          endTime: e ? fmt(e) : ''
-        })
-        continue
-      }
-
-      // 全天活動：Google 的 end.date 是「不含」的下一天，換算成實際結束日（含）
-      const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(`${startRaw}T00:00:00`)
-      endDate.setDate(endDate.getDate() - 1)
-      const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
-      result.push({
-        ...base,
-        date: startRaw,
-        endDate: endDateStr,
-        time: '',
-        endTime: ''
-      })
-    }
-    googleEvents.value = result
-  } catch (e) {
-    console.warn('Google 日曆載入失敗', e)
-  } finally {
-    googleLoading.value = false
-  }
-}
-
-// ── 日面板（點 +N 展開當日所有活動）──────────────────────────────
-const dayPanel = reactive({ show: false, dateStr: '', events: [] })
-
-function openDayPanel(cell) {
-  dayPanel.dateStr = cell.dateStr
-  dayPanel.events = cell.events
-  dayPanel.show = true
-}
-
-// ── 新增 / 編輯 Modal ─────────────────────────────────────────────
-// source: 'local' = 院內活動, 'itinerary' = 行程（獨立資料，跟院內互不相干）
-const formModal = reactive({ show: false, isNew: true, id: null, source: 'local' })
-const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: '' })
-const formError = ref('')
-
-// 從日曆格子點 + 新增，自動帶入日期；source 預設為院內活動，行程新增會另外傳 'itinerary'
-function openAddOnDate(dateStr, source = 'local') {
-  formModal.isNew = true
-  formModal.id = null
-  formModal.source = source
-  Object.assign(form, {
-    date: dateStr || '',
-    time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: ''
-  })
-  formError.value = ''
-  formModal.show = true
-}
-
-// ── Google 活動詳細 Modal ──────────────────────────────────────────
-const googleDetailModal = reactive({ show: false, ev: null })
-
-function openGoogleDetail(ev) {
-  googleDetailModal.ev = ev
-  googleDetailModal.show = true
-}
-
-// ── 行程詳細 Modal（點行程先看資料，裡面才有編輯／刪除）──────────────────
-const itineraryDetailModal = reactive({ show: false, ev: null })
-
-// 訂位／便當／豆漿／訂房：唯讀來源，點了只開詳細資料 Modal（不能編輯/刪除）
-const ORDER_SOURCES = ['booking', 'lunch', 'soybean', 'roomorder']
-// 所有來源（院內／Google／行程／訂位系列）點擊都要能開詳細 Modal
-function isDetailClickable(ev) {
-  return true
-}
-function openEventDetail(ev) {
-  if (ev.source === 'itinerary') openItineraryDetail(ev)
-  else if (ORDER_SOURCES.includes(ev.source)) openOrderDetail(ev)
-  else if (ev.source === 'google') openGoogleDetail(ev)
-  else openLocalDetail(ev)
-}
-
-// ── 院內活動詳細 Modal（點院內活動只看資料，唯讀；編輯/刪除請到日面板或月曆格子）──
-const localDetailModal = reactive({ show: false, ev: null })
-function openLocalDetail(ev) {
-  localDetailModal.ev = ev
-  localDetailModal.show = true
-}
-
-function openItineraryDetail(ev) {
-  itineraryDetailModal.ev = ev
-  itineraryDetailModal.show = true
-}
-
-function editItineraryFromDetail() {
-  const ev = itineraryDetailModal.ev
-  itineraryDetailModal.show = false
-  openEdit(ev)
-}
-
-async function deleteItineraryFromDetail() {
-  const ev = itineraryDetailModal.ev
-  const ok = await deleteEvent(ev)
-  if (ok) itineraryDetailModal.show = false
-}
-
-// ── 訂位／便當／豆漿／訂房 詳細 Modal（唯讀，編輯/刪除請到各自管理頁）──────
-// 假設沿用 Nuxt 檔案路由（xxx-orders.vue → /xxx-orders），如實際路由不同請自行調整
-const ORDER_ADMIN_PATH = {
-  booking: '/booking-orders',
-  lunch: '/lunch-orders',
-  soybean: '/soybean-orders',
-  roomorder: '/rooms-orders'
-}
-const orderDetailModal = reactive({ show: false, ev: null })
-
-function openOrderDetail(ev) {
-  orderDetailModal.ev = ev
-  orderDetailModal.show = true
-}
-
-function openEdit(ev) {
-  // Google 活動顯示詳細面板，不直接跳轉
-  if (ev.source === 'google') {
-    openGoogleDetail(ev)
-    return
-  }
-  // 訂位／便當／豆漿／訂房是唯讀資料，沒有編輯表單可用，一律導去詳細面板
-  if (ORDER_SOURCES.includes(ev.source)) {
-    openOrderDetail(ev)
-    return
-  }
-  formModal.isNew = false
-  formModal.id = ev.id
-  formModal.source = ev.source === 'itinerary' ? 'itinerary' : 'local'
-  Object.assign(form, {
-    date: ev.date, time: ev.time || '',
-    endDate: ev.endDate && ev.endDate !== ev.date ? ev.endDate : '', endTime: ev.endTime || '',
-    title: ev.title, owner: ev.owner, room: ev.room, building: eventBuilding(ev) || '醫院',
-    description: ev.description || ''
-  })
-  formError.value = ''
-  formModal.show = true
-}
-
-// 一筆活動＝一次 API 呼叫（不論單日或跨天），後端直接存 date/endDate，
-// 前端不用再逐日展開、也不用事後用內容比對去猜是不是同一個跨天活動
-// source === 'local' 存到院內行事曆；source === 'itinerary' 存到獨立的行程資料，兩邊互不相干
-async function saveForm() {
-  if (!form.date || !form.title.trim()) {
-    formError.value = '日期和標題為必填'
-    return
-  }
-  if (form.endDate && form.endDate < form.date) {
-    formError.value = '結束日期不能早於起始日期'
-    return
-  }
-  saving.value = true
-  formError.value = ''
-  const isItinerary = formModal.source === 'itinerary'
-  try {
-    const payload = {
-      id: formModal.isNew ? null : formModal.id,
-      date: form.date,
-      endDate: form.endDate || form.date,
-      time: form.time,
-      endTime: form.endTime,
-      title: form.title,
-      owner: form.owner,
-      room: form.room,
-      type: isItinerary ? '行程' : '院內',
-      building: isItinerary ? '' : form.building
-    }
-    if (isItinerary) payload.description = form.description
-    const res = await fetch(`${(isItinerary ? BASE_ITINERARY : BASE).value}/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-    if (!res.ok) throw new Error('儲存失敗')
-    const saved = await res.json()
-    if (isItinerary) saved.source = 'itinerary'
-    const list = isItinerary ? itineraryEvents : events
-    if (formModal.isNew) {
-      list.value.push(saved)
-      showToast(isItinerary ? '行程已新增' : '活動已新增')
-    } else {
-      const idx = list.value.findIndex(e => e.id === formModal.id)
-      if (idx !== -1) list.value[idx] = saved
-      // 同步更新側板
-      if (dayPanel.show && eventCoversDate(saved, dayPanel.dateStr)) {
-        dayPanel.events = eventsOnDate(dayPanel.dateStr)
-      }
-      showToast(isItinerary ? '行程已更新' : '活動已更新')
-    }
-    formModal.show = false
-  } catch (e) {
-    formError.value = e.message
-  } finally {
-    saving.value = false
-  }
-}
-
-// DELETE /holy/calendar/{id}?date=YYYY-MM-DD 或 /holy/itinerary/{id}?date=YYYY-MM-DD（依 source 而定）
-// 一筆活動只有一個 id，跨天活動會整筆一起刪除
-async function deleteEvent(ev) {
-  // 訂位／便當／豆漿／訂房是唯讀資料，這裡沒有對應的刪除端點，一律擋掉
-  if (ORDER_SOURCES.includes(ev.source)) {
-    showToast('這筆資料請到對應的管理頁面操作')
-    return false
-  }
-  const hint = isBannerEvent(ev) ? `（跨天${ev.source === 'itinerary' ? '行程' : '活動'} ${ev.date} ~ ${ev.endDate}，將整筆刪除）` : ''
-  if (!confirm(`確定要刪除「${ev.title}」？${hint}`)) return false
-  const isItinerary = ev.source === 'itinerary'
-  try {
-    const res = await fetch(`${(isItinerary ? BASE_ITINERARY : BASE).value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' })
-    if (!res.ok) throw new Error()
-    if (isItinerary) {
-      itineraryEvents.value = itineraryEvents.value.filter(e => e.id !== ev.id)
-    } else {
-      events.value = events.value.filter(e => e.id !== ev.id)
-    }
-    // 同步更新側板
-    if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
-    showToast('已刪除')
-    return true
-  } catch {
-    showToast('刪除失敗')
-    return false
-  }
-}
-
-// ── 清空當月（活動 + 備注，不含 Google 同步活動）──────────────────
-const clearMonthModal = reactive({ show: false })
-const clearMonthConfirmText = ref('')
-const clearMonthError = ref('')
-const clearingMonth = ref(false)
-
-// 當月可清空的系統活動（排除 Google 來源）；用「起始日」而非月份交集判斷，
-// 因為後端資料是依起始日所在月份存檔（見 CalendarController.path()），
-// 清空當月即是清空存在該月 YML 檔裡的所有活動（即使跨天活動的結束日落到下個月也一併清掉）
-const clearableMonthEvents = computed(() => {
-  const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-  return events.value.filter(e => e.date?.startsWith(ym))
-})
-const clearableEventCount = computed(() => clearableMonthEvents.value.length)
-
-function openClearMonthModal() {
-  clearMonthConfirmText.value = ''
-  clearMonthError.value = ''
-  clearMonthModal.show = true
-}
-
-function closeClearMonthModal() {
-  clearMonthModal.show = false
-}
-
-async function confirmClearMonth() {
-  if (clearMonthConfirmText.value !== String(currentMonth.value)) return
-  clearingMonth.value = true
-  clearMonthError.value = ''
-  try {
-    const ym = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-    const targets = clearableMonthEvents.value
-    // 逐筆刪除系統活動（後端僅提供單筆 DELETE，沒有批次清空 API）
-    const results = await Promise.allSettled(
-      targets.map(ev => fetch(`${BASE.value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' }))
-    )
-    const failedCount = results.filter(r => r.status === 'rejected' || !r.value?.ok).length
-    const deletedIds = new Set(
-      targets.filter((_, i) => results[i].status === 'fulfilled' && results[i].value?.ok).map(ev => ev.id)
-    )
-    events.value = events.value.filter(e => !deletedIds.has(e.id))
-
-    // 清空當月備注
-    await fetch(`${BASE.value}/notes?yearMonth=${ym}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify([])
-    })
-    notes.value = []
-
-    // 同步更新側板
-    if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
-
-    clearMonthModal.show = false
-    if (failedCount > 0) {
-      showToast(`已清空，但有 ${failedCount} 筆活動刪除失敗`)
-    } else {
-      showToast(`已清空 ${currentYear.value} 年 ${currentMonth.value} 月內容`)
-    }
-  } catch (e) {
-    clearMonthError.value = '清空失敗，請稍後再試'
-  } finally {
-    clearingMonth.value = false
-  }
-}
-
-// ── TXT 解析 ──────────────────────────────────────────────────────
-const showTxtModal = ref(false)
-const txtInput = ref('')
-const txtResult = ref(null)
-
-function closeTxtModal() {
-  showTxtModal.value = false
-  txtInput.value = ''
-  txtResult.value = null
-}
-
-const TXT_TYPE = '(醫院|園區|芳心|Google)'
-// 跨天：8/4 08:00 ～ 8/7 17:00 標題 (owner room)類型
-const TXT_CROSS_DAY_RE = new RegExp(`^(\\d{1,2})/(\\d{1,2})\\s+(\\d{2}:\\d{2})\\s*[～~]\\s*(\\d{1,2})/(\\d{1,2})\\s+(\\d{2}:\\d{2})\\s+(.+?)\\s*\\(([^)]*)\\)${TXT_TYPE}$`)
-// 同天、日期寫在行首：8/3 08:00–12:00 標題 (owner room)類型
-const TXT_SAME_DAY_RE = new RegExp(`^(\\d{1,2})/(\\d{1,2})\\s+(\\d{2}:\\d{2})\\s*[-–—]\\s*(\\d{2}:\\d{2})\\s+(.+?)\\s*\\(([^)]*)\\)${TXT_TYPE}$`)
-// 舊格式相容：日期寫成獨立一行「16」，事件行只有時間：08:00-12:00 標題 (owner room)類型
-const TXT_OLD_STYLE_RE = new RegExp(`^(\\d{2}:\\d{2})\\s*[-–—]\\s*(\\d{2}:\\d{2})\\s+(.+?)\\s*\\(([^)]*)\\)${TXT_TYPE}$`)
-
-function splitOwnerRoom(inner) {
-  const parts = inner.trim().split(/\s+/).filter(Boolean)
-  return { owner: parts[0] || '', room: parts.slice(1).join(' ') }
-}
-
-function cleanTitle(t) {
-  return t.replace(/\s*\.\.\s*$/, '').trim()
-}
-
-// 回傳 { events: [], notes: [] }；events 已經是「一筆活動一筆資料」，跨天活動直接帶 endDate/endTime
-function parseTxtContent(raw) {
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
-  const evList = []
-  const noteList = []
-  let year = null, month = null, day = null
-  let inNotes = false
-
-  for (const line of lines) {
-    // 年月行
-    const ym = line.match(/^(\d{4})年(\d{1,2})月/)
-    if (ym) {
-      year = +ym[1]
-      month = +ym[2]
-      inNotes = false
-      continue
-    }
-
-    // 備注區塊起始：「備 註 :」「備註：」等變體
-    if (/^備\s*[註注]\s*[:：]/.test(line)) {
-      inNotes = true
-      continue
-    }
-
-    // ── 備注區 ──
-    if (inNotes) {
-      // 格式：1.(2026-04-03-14:00)文字內容
-      // → 保留成「(2026-04-03-14:00) 文字內容」
-      const m = line.match(/^\d+\.\s*(\([^)]*\))?\s*(.+)$/)
-      if (m) {
-        const prefix = m[1] ? m[1] + ' ' : ''
-        const text = m[2].trim()
-        if (text) noteList.push(prefix + text)
-      } else if (line && !/^備/.test(line)) {
-        noteList.push(line)
-      }
-      continue
-    }
-
-    if (!year) continue
-
-    // 舊格式：獨立一行的日期數字（1~31），記住當前 day，供下面的舊格式時間行使用
-    if (/^\d{1,2}$/.test(line) && +line >= 1 && +line <= 31) {
-      day = +line
-      continue
-    }
-
-    // ── 跨天活動：M/D HH:MM ～ M/D HH:MM 標題 (owner room)類型 ──
-    const cross = line.match(TXT_CROSS_DAY_RE)
-    if (cross) {
-      const [, sm, sd, stime, em, ed, etime, titleRaw, inner, type] = cross
-      const startMonth = +sm, endMonth = +em
-      const startDate = `${year}-${String(startMonth).padStart(2, '0')}-${String(+sd).padStart(2, '0')}`
-      // 跨年（例如 12月 ～ 1月）：結束日期年份 +1
-      const endYear = endMonth < startMonth ? year + 1 : year
-      const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(+ed).padStart(2, '0')}`
-      const { owner, room } = splitOwnerRoom(inner)
-      // TXT 貼上匯入的活動一律歸類為「院內」，行尾解析到的標籤保留在 building 欄位（原本的建築分類）
-      evList.push({ date: startDate, endDate, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
-      month = startMonth; day = +sd
-      continue
-    }
-
-    // ── 同天活動、日期在行首：M/D HH:MM-HH:MM 標題 (owner room)類型 ──
-    const sameDay = line.match(TXT_SAME_DAY_RE)
-    if (sameDay) {
-      const [, m, d, stime, etime, titleRaw, inner, type] = sameDay
-      const date = `${year}-${String(+m).padStart(2, '0')}-${String(+d).padStart(2, '0')}`
-      const { owner, room } = splitOwnerRoom(inner)
-      evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
-      month = +m; day = +d
-      continue
-    }
-
-    // ── 舊格式：純時間行，日期沿用前面獨立的日期行 ──
-    if (year && month && day) {
-      const old = line.match(TXT_OLD_STYLE_RE)
-      if (old) {
-        const [, stime, etime, titleRaw, inner, type] = old
-        const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        const { owner, room } = splitOwnerRoom(inner)
-        evList.push({ date, endDate: date, time: stime, endTime: etime, title: cleanTitle(titleRaw), owner, room, type: '院內', building: type })
-      }
-    }
-  }
-  return { events: evList, notes: noteList }
-}
-
-function eventKey(e) {
-  return `${e.date}|${e.endDate}|${e.time}|${e.endTime}|${e.title}|${e.owner}|${e.room}`
-}
-
-function parseTxt() {
-  const { events: parsed, notes: parsedNotes } = parseTxtContent(txtInput.value)
-  const existing = new Set(events.value.map(eventKey))
-  const added = [], skipped = { count: 0 }
-
-  for (const ev of parsed) {
-    if (existing.has(eventKey(ev))) {
-      skipped.count++
-      continue
-    }
-    existing.add(eventKey(ev))
-    added.push(ev)
-  }
-  txtResult.value = { total: parsed.length, added, skipped: skipped.count, notes: parsedNotes }
-}
-
-async function confirmImportTxt() {
-  if (!txtResult.value?.added.length && !txtResult.value?.notes.length) return
-  saving.value = true
-  try {
-    // ① 匯入活動
-    if (txtResult.value.added.length > 0) {
-      const res = await fetch(`${BASE.value}/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(txtResult.value.added)
-      })
-      if (!res.ok) throw new Error('活動匯入失敗')
-      const saved = await res.json()
-      events.value.push(...saved)
-    }
-
-    // ② 匯入備注：按月份分組，合併到現有備注後儲存
-    if (txtResult.value.notes.length > 0) {
-      // 找出解析到的活動所在月份（取第一筆），若無活動就取 currentYearMonth
-      const targetYm = txtResult.value.added.length > 0
-        ? txtResult.value.added[0].date.slice(0, 7)
-        : currentYearMonth.value
-
-      // 先抓現有備注，再合併新備注（去重）
-      let existing = []
-      try {
-        const r = await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`)
-        if (r.ok) existing = await r.json()
-      } catch {
-      }
-      const merged = [...existing]
-      for (const n of txtResult.value.notes) {
-        if (!merged.includes(n)) merged.push(n)
-      }
-      await fetch(`${BASE.value}/notes?yearMonth=${targetYm}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(merged)
-      })
-      // 若當前月份就是 targetYm，同步更新畫面
-      if (targetYm === currentYearMonth.value) {
-        notes.value = merged
-      }
-    }
-
-    // ③ 跳至第一筆活動的月份
-    if (txtResult.value.added.length > 0) {
-      const firstDate = txtResult.value.added[0].date
-      currentYear.value = +firstDate.slice(0, 4)
-      currentMonth.value = +firstDate.slice(5, 7)
-    }
-
-    const evCount = txtResult.value.added.length
-    const noteCount = txtResult.value.notes.length
-    showToast(`匯入 ${evCount} 筆活動、${noteCount} 條備注`)
-    closeTxtModal()
-  } catch (e) {
-    showToast(e.message)
-  } finally {
-    saving.value = false
-  }
-}
-
-// ── 備注 ──────────────────────────────────────────────────────────
-// GET  /holy/calendar/notes?yearMonth=2026-04  → String[]
-// POST /holy/calendar/notes?yearMonth=2026-04  body: String[]
-const notes = ref([]) // 當月備注陣列
-const notesSaving = ref(false)
-const noteEditIdx = ref(-1) // 正在編輯的備注 index，-1 表示無
-const noteEditValue = ref('')
-
-const currentYearMonth = computed(() =>
-  `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
-)
-
-// 切換月份時重新載入備注（類型 / 地點篩選維持不變，跨月份記住）
-watch(currentYearMonth, () => {
-  fetchNotes()
-  fetchGoogleEvents()
-  fetchBookingEvents()
-  fetchLunchEvents()
-  fetchSoybeanEvents()
-  noteEditIdx.value = -1
-})
-
-async function fetchNotes() {
-  try {
-    const res = await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`)
-    notes.value = res.ok ? await res.json() : []
-  } catch {
-    notes.value = []
-  }
-}
-
-async function saveNotes() {
-  notesSaving.value = true
-  try {
-    await fetch(`${BASE.value}/notes?yearMonth=${currentYearMonth.value}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(notes.value)
-    })
-  } catch {
-    showToast('備注儲存失敗')
-  } finally {
-    notesSaving.value = false
-  }
-}
-
-function addNote() {
-  notes.value.push('')
-  noteEditIdx.value = notes.value.length - 1
-  noteEditValue.value = ''
-}
-
-function startEditNote(idx) {
-  noteEditIdx.value = idx
-  noteEditValue.value = notes.value[idx]
-}
-
-async function confirmEditNote(idx) {
-  if (!noteEditValue.value.trim()) {
-    // 空白就直接刪除
-    notes.value.splice(idx, 1)
-  } else {
-    notes.value[idx] = noteEditValue.value.trim()
-  }
-  noteEditIdx.value = -1
-  await saveNotes()
-}
-
-function cancelEditNote() {
-  // 若是剛新增的空白項就移除
-  if (notes.value[noteEditIdx.value] === '') {
-    notes.value.splice(noteEditIdx.value, 1)
-  }
-  noteEditIdx.value = -1
-}
-
-async function deleteNote(idx) {
-  notes.value.splice(idx, 1)
-  await saveNotes()
-  showToast('備注已刪除')
-}
-
-// ── Toast ─────────────────────────────────────────────────────────
-function showToast(msg) {
-  toast.message = msg
-  toast.show = true
-  setTimeout(() => {
-    toast.show = false
-  }, 2500)
-}
-
-onMounted(() => {
-  restoreCalendarState() // 一定要在下面幾個依賴 currentYear/currentMonth 的 fetch 之前執行
-
-  fetchEvents()
-  fetchItineraryEvents()
-  fetchNotes()
-  fetchGoogleEvents()
-  fetchBookingEvents()
-  fetchLunchEvents()
-  fetchSoybeanEvents()
-  fetchRoomOrderEvents() // /list 一次回傳全部訂單，不用像上面三個依月份重抓
-  fetchGroupNames()
-
-  if (import.meta.client && window.matchMedia) {
-    mobileMql = window.matchMedia('(max-width: 640px)')
-    isMobileViewport.value = mobileMql.matches
-    mobileMql.addEventListener('change', updateMobileViewport)
-  }
-})
-
-onUnmounted(() => {
-  if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
-})
-</script>
 
 <style scoped>
 /* ── 月曆格線 ── */

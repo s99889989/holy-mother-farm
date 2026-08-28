@@ -62,7 +62,7 @@
 // 共用的購物車後台頁首：sticky header + 四個模組分頁（訂單/會員/管理員/商品）。
 // 取代原本獨立的 app/layouts/shopping-cart.vue 導覽列 —
 // 現在頁面改用 layout: 'staff'，這個元件直接放在頁面模板最上面即可，
-// 風格比照 staff/order/booking-orders.vue 的 sticky header 寫法。
+// 風格比照 staff/order/restaurant-orders.vue 的 sticky header 寫法。
 defineProps({
   title: {
     type: String,

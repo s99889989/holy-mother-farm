@@ -95,7 +95,7 @@
   const bookingRecurEggVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.eggVegQty) || 0), 0))
   const bookingRecurSpiceVeg = computed(() => bookingRecurRules.value.reduce((s, r) => s + (Number(r.spiceVegQty) || 0), 0))
 
-  // ── 訂位時段設定（例如 11:00–14:00 為午餐）：跟訂位頁 booking-orders.vue 共用同一份設定 ─────
+  // ── 訂位時段設定（例如 11:00–14:00 為午餐）：跟訂位頁 restaurant-orders.vue 共用同一份設定 ─────
   const periods = ref([])
 
   const PERIOD_COLORS = {
