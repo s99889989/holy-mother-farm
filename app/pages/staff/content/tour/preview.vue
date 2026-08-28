@@ -3,7 +3,7 @@
     <div class="preview-page">
       <div class="preview-topbar">
         <NuxtLink
-          to="/staff/management/tour"
+          to="/staff/content/tour"
           class="back-link"
         >← 返回管理</NuxtLink>
         <select

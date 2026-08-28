@@ -4,7 +4,7 @@
       <div class="mb-3 flex items-center justify-between flex-wrap gap-2">
         <h1 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100">360 環景導覽管理</h1>
         <NuxtLink
-          to="/staff/management/tour/preview"
+          to="/staff/content/tour/preview"
           target="_blank"
           class="text-xs text-green-700 dark:text-green-400 hover:underline"
         >

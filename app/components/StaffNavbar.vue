@@ -43,51 +43,43 @@ const navGroups = [
     ]
   },
   {
-    label: '📊 庫存銷售',
-    items: [
-      { to: '/staff/stock/cash-count', icon: '💵', label: '點鈔記錄', key: 'stock.cash-count' },
-      { to: '/staff/stock/pos-analysis', icon: '📊', label: '銷售分析', key: 'stock.pos-analysis' },
-      { to: '/staff/stock/pos-data-table', icon: '🗃️', label: '資料表', key: 'stock.pos-data-table' },
-      { to: '/staff/stock/pos-files', icon: '🗂️', label: '資料管理', key: 'stock.pos-files' }
-    ]
-  },
-  {
     label: '📅 行事曆與行程',
     items: [
-      { to: '/staff/management/calendar', icon: '📅', label: '行事曆', key: 'management.calendar' },
-      { to: '/staff/management/group-itinerary', icon: '🚌️', label: '團體行程', key: 'management.group-itinerary' },
+      { to: '/staff/timeline/calendar', icon: '📅', label: '行事曆', key: 'timeline.calendar' },
+      { to: '/staff/timeline/group-itinerary', icon: '🚌️', label: '團體行程', key: 'timeline.group-itinerary' },
       { to: '/staff/timeline/business-hours', icon: '🕛️', label: '營業時間', key: 'timeline.business-hours' }
     ]
   },
   {
     label: '🍽️ 餐飲廚房',
     items: [
-      { to: '/staff/management/daily-menu', icon: '🍽️', label: '每日菜色', key: 'management.daily-menu' },
-      { to: '/staff/management/meal-schedule', icon: '👨‍🍳', label: '備餐管理', key: 'management.meal-schedule' },
-      { to: '/staff/management/lemon-sauce-inventory', icon: '🫙', label: '鹹檸檬醬進銷', key: 'management.lemon-sauce-inventory' }
+      { to: '/staff/catering-kitchen/daily-menu', icon: '🍽️', label: '每日菜色', key: 'catering-kitchen.daily-menu' },
+      { to: '/staff/catering-kitchen/meal-schedule', icon: '👨‍🍳', label: '備餐管理', key: 'catering-kitchen.meal-schedule' },
+      { to: '/staff/catering-kitchen/lemon-sauce-inventory', icon: '🫙', label: '鹹檸檬醬進銷', key: 'catering-kitchen.lemon-sauce-inventory' },
+      { to: '/staff/catering-kitchen/broadcast', icon: '📣', label: '廚房廣播', key: 'catering-kitchen.broadcast' }
     ]
   },
   {
-    label: '🏃 健康運動',
+    label: '🏃 健康活動',
     items: [
-      { to: '/staff/management/body-composition', icon: '⚖️', label: '身體組成分析', key: 'management.body-composition' },
-      { to: '/staff/management/course', icon: '🎓', label: '課程報名', key: 'management.course' }
+      { to: '/staff/health-activities/body-composition', icon: '⚖️', label: '身體組成分析', key: 'health-activities.body-composition' },
+      { to: '/staff/health-activities/course', icon: '🎓', label: '課程報名', key: 'health-activities.course' }
     ]
   },
   {
     label: '🖥️ 內容管理',
     items: [
-      { to: '/staff/management/html-page', icon: '🖥️', label: '網頁頁面', key: 'management.html-page' },
-      { to: '/staff/management/front-website', icon: '📢️', label: '前台管理', key: 'content.news' },
-      { to: '/staff/management/tour', icon: '🌐️', label: '環景導覽管理', key: 'management.tour' },
-      { to: '/staff/management/files', icon: '📁', label: '檔案管理', key: 'management.files' }
+      { to: '/staff/content/html-page', icon: '🖥️', label: '網頁頁面', key: 'content.html-page' },
+      { to: '/staff/content/front-website', icon: '📢️', label: '前台管理', key: 'content.front-website' },
+      { to: '/staff/content/tour', icon: '🌐️', label: '環景導覽管理', key: 'content.tour' },
+      { to: '/staff/content/files', icon: '📁', label: '檔案管理', key: 'content.files' }
     ]
   },
   {
     label: '🛡️ 設施安全',
     items: [
-      { to: '/staff/management/asset', icon: '🏷️', label: '財產登記', key: 'management.asset' },
-      { to: '/staff/management/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'management.fire-extinguisher' }
+      { to: '/staff/facility-safety/asset', icon: '🏷️', label: '財產登記', key: 'facility-safety.asset' },
+      { to: '/staff/facility-safety/fire-extinguisher', icon: '🧯', label: '滅火器巡檢', key: 'facility-safety.fire-extinguisher' }
     ]
   },
   {
@@ -95,8 +87,7 @@ const navGroups = [
     items: [
       { to: '/staff/personnel/class-schedule', icon: '🗓️', label: '假表', key: 'personnel.class-schedule' },
       { to: '/staff/personnel/phone-directory', icon: '📞', label: '電話', key: 'personnel.phone-directory' },
-      { to: '/staff/personnel/work-manual', icon: '📕', label: '工作手冊', key: 'personnel.work-manual' },
-      { to: '/staff/other/broadcast', icon: '📣', label: '廣播', key: 'other.broadcast' }
+      { to: '/staff/personnel/work-manual', icon: '📕', label: '工作手冊', key: 'personnel.work-manual' }
     ]
   },
   {
@@ -123,7 +114,7 @@ const standaloneItems = [
   // key 給整組 pos 權限清單，只要使用者有其中任一權限就會看到這個入口。
   // 使用頻率高，獨立成單一連結而非藏在下拉選單裡。
   { to: '/staff/pos/daily/sales', icon: '🛒', label: 'POS 系統', key: posNavGroups.flatMap(g => g.items.map(i => i.key)) },
-  { to: '/staff/system/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
+  { to: '/staff/other/quick-links', icon: '🔗', label: '常用網址', key: 'system.quick-links' }
 ]
 
 const permStore = usePermissionStore()
