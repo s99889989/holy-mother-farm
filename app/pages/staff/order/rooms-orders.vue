@@ -1,3 +1,1837 @@
+<script setup>
+  import { useFloorplanShapes } from '~/composables/useFloorplanShapes'
+
+  definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
+
+  const commonStore = useCommonStore()
+  const ROOMS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'
+  const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
+  const GROUP_BASE = () => commonStore.data.main_url + '/holy/group-itinerary'
+
+  // Modal 背景點擊關閉：只有「mousedown 跟 click 都落在背景本身」才關閉。
+  // 若只用 @click.self，在 Modal 內容裡按住滑鼠（例如選取文字、拖曳 input）
+  // 再放開到背景外面，瀏覽器合成的 click 事件 target 會被判成背景本身，
+  // 導致誤關閉；改成先在 mousedown 記錄是否真的點在背景上，click 時再一併確認。
+  const backdropMouseDownOnSelf = ref(false)
+  function onBackdropMousedown(e) {
+    backdropMouseDownOnSelf.value = e.target === e.currentTarget
+  }
+  function onBackdropClick(e, close) {
+    if (backdropMouseDownOnSelf.value && e.target === e.currentTarget) close()
+    backdropMouseDownOnSelf.value = false
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+
+  // 「查看日期」：訂單管理頁的房况總覽／平面圖，預設顯示今天的狀況，
+  // 但可以切換到別的日期，回推或預覽當天／未來某天各房間的訂房狀況
+  const viewDate = ref(today)
+  // 房况總覽可收合，避免佔掉太多版面（尤其是手機或訂單很多棟別展開時）；
+  // 收合狀態存 localStorage，重新整理或下次再開這頁時會記得上次的選擇
+  const OVERVIEW_COLLAPSED_KEY = 'holymotherfarm_rooms_overview_collapsed'
+  const overviewCollapsed = ref(false)
+  onMounted(() => {
+    if (typeof window === 'undefined') return
+    overviewCollapsed.value = localStorage.getItem(OVERVIEW_COLLAPSED_KEY) === '1'
+  })
+  watch(overviewCollapsed, (v) => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(OVERVIEW_COLLAPSED_KEY, v ? '1' : '0')
+  })
+  const isViewingToday = computed(() => viewDate.value === today)
+  function shiftViewDate(days) {
+    const d = new Date(viewDate.value)
+    d.setDate(d.getDate() + days)
+    viewDate.value = d.toISOString().slice(0, 10)
+  }
+  function resetViewDate() { viewDate.value = today }
+
+  /* 「查看日期」自訂選擇器：原生 <input type="date"> 沒辦法在有訂房的日子加標記，
+       所以自己刻一個小月曆彈出選單，跟房况總覽／平面圖共用同一份 viewDate。 */
+  const viewDatePickerOpen = ref(false)
+  const viewDatePickerMonth = ref(today.slice(0, 7)) // 'YYYY-MM'
+  function toggleViewDatePicker() {
+    if (!viewDatePickerOpen.value) viewDatePickerMonth.value = viewDate.value.slice(0, 7)
+    viewDatePickerOpen.value = !viewDatePickerOpen.value
+  }
+  function shiftViewDatePickerMonth(diff) {
+    const [y, m] = viewDatePickerMonth.value.split('-').map(Number)
+    const d = new Date(y, m - 1 + diff, 1)
+    viewDatePickerMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+  // 目前顯示的月份裡，哪些日子有進行中的訂單（依目前的棟別篩選），有的話小月曆會點一個標記
+  const viewDatePickerBookedDates = computed(() => {
+    const [y, m] = viewDatePickerMonth.value.split('-').map(Number)
+    const monthStart = `${viewDatePickerMonth.value}-01`
+    const monthEnd = `${viewDatePickerMonth.value}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+    const set = new Set()
+    for (const b of activeBookings.value.filter(bookingInSelectedBuilding)) {
+      let d = b.checkIn > monthStart ? b.checkIn : monthStart
+      const last = b.checkOut < monthEnd ? b.checkOut : monthEnd
+      while (d <= last) {
+        set.add(d)
+        const nd = new Date(d)
+        nd.setDate(nd.getDate() + 1)
+        d = nd.toISOString().slice(0, 10)
+      }
+    }
+    return set
+  })
+  const viewDatePickerCells = computed(() => {
+    const [y, m] = viewDatePickerMonth.value.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    const leadingBlanks = new Date(y, m - 1, 1).getDay()
+    const cells = []
+    for (let i = 0; i < leadingBlanks; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      cells.push({ day: d, date, hasBooking: viewDatePickerBookedDates.value.has(date) })
+    }
+    while (cells.length % 7 !== 0) cells.push(null)
+    return cells
+  })
+  function pickViewDate(date) {
+    viewDate.value = date
+    viewDatePickerOpen.value = false
+  }
+
+  const loading = ref(false)
+  const tab = ref('dashboard') // dashboard | orders | floorplan | calendar | overview | history
+  // 日曆／甘特圖需要比較寬的版面才擺得下，這兩個 tab 不套用 max-w-5xl 置中限制，直接吃滿版面寬度
+  const wideTab = computed(() => tab.value === 'calendar' || tab.value === 'gantt' || tab.value === 'sheet')
+  // 行內樣式備援：避免外部/全域 CSS 蓋掉 .seg-active 的優先權，導致選中狀態沒有亮起
+  const segActiveStyle = { background: '#15803d', color: '#fff' }
+
+  const buildings = ref([]) // [{id, name, rooms:[...]}]
+  const bookings = ref([]) // 全部訂單（raw）
+  // 團體行程名稱查表：訂房只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
+  const groupNamesById = ref({})
+  async function fetchGroupNames() {
+    try {
+      const list = await (await fetch(`${GROUP_BASE()}/list`)).json()
+      groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
+    } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
+  }
+
+  const rooms = computed(() =>
+    buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
+  )
+
+  async function fetchAll() {
+    loading.value = true
+    try {
+      const [b, o] = await Promise.all([
+        (await fetch(`${ROOMS_BASE()}/list`)).json(),
+        (await fetch(`${BOOKINGS_BASE()}/list`)).json()
+      ])
+      buildings.value = b
+      bookings.value = o
+      fetchGroupNames()
+    } catch (e) { console.error(e) } finally { loading.value = false }
+  }
+
+  /* ---------------- 共用小工具 ---------------- */
+
+  function nights(checkIn, checkOut) {
+    if (!checkIn || !checkOut) return 0
+    const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
+    return d > 0 ? d : 0
+  }
+  function statusLabel(s) {
+    return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
+  }
+  function statusClass(s) {
+    return {
+      unassigned: 'bg-sky-100 text-sky-700',
+      pending: 'bg-amber-100 text-amber-700',
+      confirmed: 'bg-emerald-100 text-emerald-700',
+      completed: 'bg-stone-200 text-stone-600',
+      cancelled: 'bg-rose-100 text-rose-700'
+    }[s] || 'bg-stone-100 text-stone-600'
+  }
+  function roomById(id) { return rooms.value.find(r => r.id === id) }
+  // 下拉選單選房間（非平面圖）時，也比照平面圖選房：人數直接預設為該房可住上限
+  function applyRoomCapacityAsGuests(target) {
+    if (target === 'order') {
+      const r = roomById(newOrder.value.roomId)
+      if (r) newOrder.value.guests = r.capacity
+    } else if (target === 'edit') {
+      const r = roomById(editOrder.value.roomId)
+      if (r) editOrder.value.guests = r.capacity
+    }
+  }
+  function applyGroupRoomCapacityAsGuests(idx) {
+    const row = newGroup.value.rooms[idx]
+    if (!row) return
+    const r = roomById(row.roomId)
+    if (r) row.guests = r.capacity
+  }
+  function roomLabel(roomId) {
+    const r = roomById(roomId)
+    return r ? `${r.id} ${r.type}` : '尚未指派'
+  }
+  function roomIdOf(roomId) {
+    const r = roomById(roomId)
+    return r ? r.id : '尚未指派'
+  }
+  function roomTypeOf(roomId) {
+    const r = roomById(roomId)
+    return r ? r.type : ''
+  }
+  /* 人數欄顯示「入住人數／房間可住人數」，例如 6 人房入住 1 位就顯示 1/6；尚未指派房間時只顯示人數 */
+  function occupancyLabel(b) {
+    const r = roomById(b.roomId)
+    return r ? `${b.guests}/${r.capacity}` : `${b.guests} 人`
+  }
+  function buildingNameOf(id) {
+    const b = buildings.value.find(x => x.id === id)
+    return b ? b.name : id
+  }
+  function bookingTotal(b) {
+    const r = roomById(b.roomId)
+    if (!r) return 0
+    return r.price * nights(b.checkIn, b.checkOut)
+  }
+  function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+    return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
+  }
+  function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
+    return !bookings.value.some(b =>
+      b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed'
+      && b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
+    )
+  }
+  function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
+
+  /* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
+  const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
+  const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
+  const upcomingBookings = computed(() =>
+    [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
+  )
+
+  /* ---------------- 訂單管理 ---------------- */
+
+  const ordersBuilding = ref('all')
+  const ordersStatus = ref('all')
+  const ordersKeyword = ref('')
+  const ordersDateFrom = ref('')
+  const ordersDateTo = ref('')
+  const ordersMonthPick = ref(today.slice(0, 7)) // 'YYYY-MM'，快速選月用
+  // 把「時段」篩選一次設成整個月的第一天到最後一天，比自己手動點兩次日期快
+  function applyOrdersMonth(ym) {
+    if (!ym) return
+    const [y, m] = ym.split('-').map(Number)
+    ordersDateFrom.value = `${ym}-01`
+    ordersDateTo.value = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+  }
+  function shiftOrdersMonth(diff) {
+    const [y, m] = ordersMonthPick.value.split('-').map(Number)
+    const d = new Date(y, m - 1 + diff, 1)
+    ordersMonthPick.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    applyOrdersMonth(ordersMonthPick.value)
+  }
+  function resetOrdersMonth() {
+    ordersMonthPick.value = today.slice(0, 7)
+    applyOrdersMonth(ordersMonthPick.value)
+  }
+
+  function bookingInSelectedBuilding(b) {
+    if (ordersBuilding.value === 'all') return true
+    if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
+    return b.buildingPref === ordersBuilding.value
+  }
+
+  const filteredOrders = computed(() => {
+    const kw = ordersKeyword.value.trim().toLowerCase()
+    return activeBookings.value
+      .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
+      .filter(bookingInSelectedBuilding)
+      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
+      .filter(b => (!ordersDateFrom.value && !ordersDateTo.value) || rangesOverlap(
+        ordersDateFrom.value || b.checkIn, ordersDateTo.value || b.checkOut, b.checkIn, b.checkOut
+      ))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  })
+
+  /* 列表檢視：屬於同一個團體的訂單一律排到最上方，用一個常駐的「團體表頭列」統一控制展開/收合
+       （點表頭本身就能收合，不需要每一列都放一顆收合按鈕）；沒有 groupId 的訂單照舊依入住日期排序，
+       接在所有團體後面 */
+  const expandedGroups = ref(new Set())
+  function toggleGroup(groupId) {
+    const s = new Set(expandedGroups.value)
+    if (s.has(groupId)) s.delete(groupId); else s.add(groupId)
+    expandedGroups.value = s
+  }
+  function groupDateRangeLabel(members) {
+    const ins = members.map(m => m.checkIn).sort()
+    const outs = members.map(m => m.checkOut).sort()
+    const minIn = ins[0], maxOut = outs[outs.length - 1]
+    const sameRange = ins.every(d => d === minIn) && outs.every(d => d === maxOut)
+    return sameRange ? `${minIn} → ${maxOut}` : `${minIn} ～ ${maxOut}（各房日期不同）`
+  }
+  function groupStatusSummary(members) {
+    const counts = {}
+    for (const m of members) counts[m.status] = (counts[m.status] || 0) + 1
+    return Object.entries(counts).map(([s, c]) => `${statusLabel(s)} ${c}`).join('・')
+  }
+  const orderRows = computed(() => {
+    const groups = new Map()
+    const singles = []
+    for (const b of filteredOrders.value) {
+      if (b.groupId) {
+        if (!groups.has(b.groupId)) groups.set(b.groupId, { groupId: b.groupId, groupName: b.groupName, members: [] })
+        groups.get(b.groupId).members.push(b)
+      } else {
+        singles.push(b)
+      }
+    }
+    const rows = []
+    for (const g of [...groups.values()].sort((a, b) => (a.members[0].checkIn < b.members[0].checkIn ? -1 : 1))) {
+      const expanded = expandedGroups.value.has(g.groupId)
+      rows.push({ kind: 'groupHeader', groupId: g.groupId, groupName: g.groupName, members: g.members, expanded })
+      if (expanded) {
+        // 團體展開後依棟別排序（穩定排序，同棟房間維持原本相對順序），
+        // 這樣後來用「+ 新增房間」補進去的房間會插回自己棟別那一段，不會整個跑到清單最後面
+        const buildingIndex = (b) => {
+          const room = roomById(b.roomId)
+          if (!room) return buildings.value.length // 尚未指派房間的排最後
+          const idx = buildings.value.findIndex(bd => bd.id === room.buildingId)
+          return idx === -1 ? buildings.value.length : idx
+        }
+        const sortedMembers = [...g.members].sort((a, b) => buildingIndex(a) - buildingIndex(b))
+        // 同步更新 row 上的 members，讓表頭列統計/摘要顯示也用同一份排序
+        rows[rows.length - 1].members = sortedMembers
+        let lastBuildingId
+        for (const b of sortedMembers) {
+          const room = roomById(b.roomId)
+          const buildingId = room ? room.buildingId : ''
+          const showBuildingHeader = !!b.roomId && buildingId !== lastBuildingId
+          lastBuildingId = b.roomId ? buildingId : lastBuildingId
+          rows.push({ kind: 'booking', booking: b, inGroup: true, showBuildingHeader, buildingName: room ? room.buildingName : '' })
+        }
+      }
+    }
+    for (const b of singles) rows.push({ kind: 'booking', booking: b, inGroup: false, showBuildingHeader: false, buildingName: roomById(b.roomId)?.buildingName || '' })
+    return rows
+  })
+
+  /* ---------------- 訂房總表：依棟別分欄，比照人工試算表格式（一列＝一個團體或一筆單獨訂單，一欄＝一個棟別） ---------------- */
+  const sheetKeyword = ref('')
+  const sheetMonthPick = ref(today.slice(0, 7))
+  const sheetDateFrom = ref('')
+  const sheetDateTo = ref('')
+  function applySheetMonth(ym) {
+    if (!ym) return
+    const [y, m] = ym.split('-').map(Number)
+    sheetDateFrom.value = `${ym}-01`
+    sheetDateTo.value = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+  }
+  function shiftSheetMonth(diff) {
+    const [y, m] = sheetMonthPick.value.split('-').map(Number)
+    const d = new Date(y, m - 1 + diff, 1)
+    sheetMonthPick.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    applySheetMonth(sheetMonthPick.value)
+  }
+  function resetSheetMonth() {
+    sheetMonthPick.value = today.slice(0, 7)
+    applySheetMonth(sheetMonthPick.value)
+  }
+  function clearSheetMonth() { sheetDateFrom.value = ''; sheetDateTo.value = '' }
+  // 入退日期顯示成試算表慣用的「8/4-6」（同月）或「8/28-9/8」（跨月）格式
+  function sheetDateRangeLabel(checkIn, checkOut) {
+    if (!checkIn || !checkOut) return ''
+    const [, m1, d1] = checkIn.split('-')
+    const [, m2, d2] = checkOut.split('-')
+    return Number(m1) === Number(m2) ? `${Number(m1)}/${d1}-${d2}` : `${Number(m1)}/${d1}-${Number(m2)}/${d2}`
+  }
+  const sheetRows = computed(() => {
+    const kw = sheetKeyword.value.trim().toLowerCase()
+    // 團體底下所有房間合成一列；沒有 groupId 的單獨訂單各自成一列
+    const groups = new Map()
+    for (const b of activeBookings.value) {
+      const key = b.groupId || `single_${b.id}`
+      if (!groups.has(key)) groups.set(key, { key, groupId: b.groupId || null, groupName: b.groupName, members: [] })
+      groups.get(key).members.push(b)
+    }
+    const rows = [...groups.values()].map((g) => {
+      const ins = g.members.map(m => m.checkIn).sort()
+      const outs = g.members.map(m => m.checkOut).sort()
+      const checkIn = ins[0]
+      const checkOut = outs[outs.length - 1]
+      const byBuilding = {}
+      for (const bd of buildings.value) byBuilding[bd.id] = []
+      for (const m of g.members) {
+        const room = roomById(m.roomId)
+        if (room) byBuilding[room.buildingId].push(room.id)
+        else if (m.buildingPref && byBuilding[m.buildingPref]) byBuilding[m.buildingPref].push('待指派')
+      }
+      // 該棟上架房間全部都被這一列包走時，直接顯示「全包」（比照人工表格慣例）
+      for (const bd of buildings.value) {
+        const activeIds = rooms.value.filter(r => r.active && r.buildingId === bd.id).map(r => r.id)
+        const got = byBuilding[bd.id].filter(x => x !== '待指派')
+        if (activeIds.length > 0 && activeIds.every(id => got.includes(id))) byBuilding[bd.id] = ['全包']
+      }
+      return {
+        key: g.key, groupId: g.groupId, groupName: g.groupName,
+        name: g.groupId ? (g.groupName || '未命名團體') : g.members[0].name,
+        checkIn, checkOut, byBuilding, members: g.members
+      }
+    })
+    return rows
+      .filter(r => (!sheetDateFrom.value && !sheetDateTo.value) || rangesOverlap(sheetDateFrom.value || r.checkIn, sheetDateTo.value || r.checkOut, r.checkIn, r.checkOut))
+      .filter(r => !kw || r.name.toLowerCase().includes(kw) || r.members.some(m => m.roomId && m.roomId.toLowerCase().includes(kw)))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  })
+
+  /* 房况總覽：依棟別篩選為範圍，並依 viewDate（可切換的查看日期）判斷住房狀況 */
+  function isOccupiedNow(roomId) {
+    return bookings.value.some(b => b.roomId === roomId && b.status === 'confirmed' && b.checkIn <= viewDate.value && viewDate.value < b.checkOut)
+  }
+  const roomsInSelectedBuilding = computed(() =>
+    ordersBuilding.value === 'all' ? rooms.value : rooms.value.filter(r => r.buildingId === ordersBuilding.value)
+  )
+  /* 依可住人數（X人房）分類統計：總間數／上架間數／目前住房中／空房可訂 */
+  const roomTypeSummary = computed(() => {
+    const map = new Map()
+    for (const r of roomsInSelectedBuilding.value) {
+      if (!map.has(r.capacity)) map.set(r.capacity, { capacity: r.capacity, types: new Set(), total: 0, active: 0, occupiedNow: 0 })
+      const g = map.get(r.capacity)
+      g.types.add(r.type)
+      g.total++
+      if (r.active) {
+        g.active++
+        if (isOccupiedNow(r.id)) g.occupiedNow++
+      }
+    }
+    return [...map.values()]
+      .sort((a, b) => a.capacity - b.capacity)
+      .map(g => ({ ...g, typesLabel: [...g.types].join('／'), vacant: g.active - g.occupiedNow }))
+  })
+  const orderStats = computed(() =>
+    roomTypeSummary.value.reduce((acc, g) => {
+      acc.total += g.total; acc.active += g.active; acc.occupiedNow += g.occupiedNow; acc.vacant += g.vacant
+      return acc
+    }, { total: 0, active: 0, occupiedNow: 0, vacant: 0 })
+  )
+  /* 應入住／應退房：依 viewDate 計算（預設今天），切換日期即可預覽/回顧當天的異動量 */
+  const checkinTodayCount = computed(() =>
+    bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed' && b.checkIn === viewDate.value && bookingInSelectedBuilding(b)).length
+  )
+  const checkoutTodayCount = computed(() =>
+    bookings.value.filter(b => b.status === 'confirmed' && b.checkOut === viewDate.value && bookingInSelectedBuilding(b)).length
+  )
+  const ordersUnassignedCount = computed(() => bookings.value.filter(b => b.status === 'unassigned' && bookingInSelectedBuilding(b)).length)
+  const ordersPendingCount = computed(() => bookings.value.filter(b => b.status === 'pending' && bookingInSelectedBuilding(b)).length)
+
+  const visibleOrderBuildings = computed(() =>
+    ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
+  )
+  const unassignedForFloor = computed(() =>
+    [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  )
+
+  // 同一間房可以有多筆「日期不重疊」的進行中訂單（例如 201 房 7/31~8/2 一筆、8/21~8/26 另一筆），
+  // 所以這裡回傳的是「全部」進行中訂單（依入住日期排序），不是只有一筆
+  function roomBookingsForRoom(roomId) {
+    return bookings.value
+      .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  }
+  // 平面圖顏色／標籤要回答的是「viewDate 這一天，這間房是什麼狀態」，
+  // 所以要挑的是「checkIn <= viewDate < checkOut」的那一筆，不是不分日期抓最早的一筆
+  function bookingOnDate(roomId, date) {
+    return roomBookingsForRoom(roomId).find(b => b.checkIn <= date && date < b.checkOut) || null
+  }
+  function orderTileClass(r) {
+    if (!r.active) return 'tile-inactive'
+    const b = bookingOnDate(r.id, viewDate.value)
+    if (!b) return 'tile-vacant'
+    return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
+  }
+  function orderTileLabel(r) {
+    if (!r.active) return '已下架'
+    const list = roomBookingsForRoom(r.id)
+    const b = bookingOnDate(r.id, viewDate.value)
+    const more = list.length > (b ? 1 : 0) ? `（+${list.length - (b ? 1 : 0)} 筆其他時段）` : ''
+    if (!b) return '空房' + more
+    return (b.status === 'pending' ? '待確認・' : '已確認・') + (b.groupName || b.name) + more
+  }
+  // 給 RoomFloorplan 的 statusResolver prop：訂單管理要分「待確認」跟「已確認」兩種顏色，
+  // 跟房間管理預設的「今日住房中／空房」邏輯不同，所以這裡自訂
+  function orderStatusResolver(r) {
+    return { cls: orderTileClass(r), label: orderTileLabel(r) }
+  }
+
+  const tileTarget = ref(null)
+  function openBookingTile(room, buildingId) {
+    tileTarget.value = { room, buildingId, bookings: roomBookingsForRoom(room.id) }
+  }
+  async function quickSetTile(bookingId, status) {
+    if (!tileTarget.value) return
+    await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
+    if (tileTarget.value) {
+      tileTarget.value = { ...tileTarget.value, bookings: roomBookingsForRoom(tileTarget.value.room.id) }
+    }
+  }
+
+  /* ---------------- 日曆檢視 ---------------- */
+
+  const calendarMonth = ref(today.slice(0, 7)) // 'YYYY-MM'
+  const calendarMonthLabel = computed(() => {
+    const [y, m] = calendarMonth.value.split('-')
+    return `${y} 年 ${Number(m)} 月`
+  })
+  function shiftCalendarMonth(diff) {
+    const [y, m] = calendarMonth.value.split('-').map(Number)
+    const d = new Date(y, m - 1 + diff, 1)
+    calendarMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+  function resetCalendarMonth() { calendarMonth.value = today.slice(0, 7) }
+
+  function calendarPillClass(status) {
+    return { unassigned: 'bg-sky-600', pending: 'bg-amber-600', confirmed: 'bg-emerald-600' }[status] || 'bg-stone-500'
+  }
+  // 某一天有哪些訂單「有關」：入住日／退房日／中間在住都算，並標記是入住還是退房，
+  // 方便日曆一眼看出當天要接待誰、要送誰走。同一個團體當天不管佔了幾間房，都合併成一筆
+  // 摘要（而不是一間房一筆、洗版整個日曆），沒有 groupId 的個人訂房則照舊逐筆列出。
+  function bookingsOnCalendarDate(date) {
+    const raw = activeBookings.value
+      .filter(bookingInSelectedBuilding)
+      .filter(b => b.checkIn <= date && date <= b.checkOut)
+      .map(b => ({ ...b, calTag: b.checkIn === date ? '入住' : (b.checkOut === date ? '退房' : '') }))
+
+    const groupMap = new Map()
+    const singles = []
+    for (const b of raw) {
+      if (b.groupId) {
+        if (!groupMap.has(b.groupId)) groupMap.set(b.groupId, [])
+        groupMap.get(b.groupId).push(b)
+      } else {
+        singles.push(b)
+      }
+    }
+    const groupEntries = [...groupMap.entries()].map(([groupId, members]) => {
+      const tags = new Set(members.map(m => m.calTag).filter(Boolean))
+      return {
+        id: 'grp_' + groupId,
+        isGroup: true,
+        groupId,
+        groupName: members[0].groupName,
+        calTag: tags.size === 1 ? [...tags][0] : '',
+        checkIn: members.reduce((min, m) => (m.checkIn < min ? m.checkIn : min), members[0].checkIn),
+        members
+      }
+    })
+    return [...groupEntries, ...singles].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  }
+  // 產生月曆格子：前後補空白湊滿整週（星期日開頭），每格帶當天日期字串與當天訂單清單
+  const calendarCells = computed(() => {
+    const [y, m] = calendarMonth.value.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    const leadingBlanks = new Date(y, m - 1, 1).getDay()
+    const cells = []
+    for (let i = 0; i < leadingBlanks; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      cells.push({ day: d, date, bookings: bookingsOnCalendarDate(date) })
+    }
+    while (cells.length % 7 !== 0) cells.push(null)
+    return cells
+  })
+
+  /* ---------------- 甘特圖 ---------------- */
+
+  // 本月每一天：day 數字、星期幾（0=日...6=六）、是否為今天，用來畫甘特圖橫軸表頭
+  const ganttDays = computed(() => {
+    const [y, m] = calendarMonth.value.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    const list = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      list.push({ day: d, date, dow: new Date(y, m - 1, d).getDay(), isToday: date === today })
+    }
+    return list
+  })
+  // 某個房間在本月要畫的橫條：把訂單的入住～退房區間裁切到本月範圍內，換算成甘特圖的欄位起訖
+  function ganttBarsForRoom(roomId) {
+    const [y, m] = calendarMonth.value.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    const monthStart = new Date(y, m - 1, 1)
+    const monthEnd = new Date(y, m - 1, daysInMonth)
+    return bookings.value
+      .filter(b => b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed')
+      .filter(b => new Date(b.checkIn) <= monthEnd && new Date(b.checkOut) > monthStart)
+      .map((b) => {
+        let occStart = new Date(b.checkIn)
+        let occEnd = new Date(b.checkOut)
+        occEnd.setDate(occEnd.getDate() - 1) // 退房日當天不算住宿夜，橫條畫到退房前一天
+        if (occStart < monthStart) occStart = monthStart
+        if (occEnd > monthEnd) occEnd = monthEnd
+        const startDay = occStart.getDate()
+        const endDay = Math.max(startDay, occEnd.getDate())
+        return {
+          booking: b,
+          colStart: startDay,
+          colEnd: endDay + 1,
+          label: b.groupName || b.name,
+          title: `${b.groupName || b.name}｜${b.checkIn} → ${b.checkOut}｜${statusLabel(b.status)}`,
+          cls: b.groupId ? 'bg-violet-600' : calendarPillClass(b.status)
+        }
+      })
+  }
+
+  const dayTarget = ref(null)
+  async function quickSetDay(bookingId, status) {
+    if (!dayTarget.value) return
+    await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
+    if (dayTarget.value) {
+      dayTarget.value = { ...dayTarget.value, bookings: bookingsOnCalendarDate(dayTarget.value.date) }
+    }
+  }
+
+  /* ---------------- 狀態轉換 / 刪除 ---------------- */
+
+  async function setStatus(id, status) {
+    try {
+      await fetch(`${BOOKINGS_BASE()}/status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status })
+      })
+      await fetchAll()
+    } catch (e) { console.error(e) }
+  }
+  async function removeBooking(id) {
+    if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
+    try {
+      await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
+      await fetchAll()
+    } catch (e) { console.error(e) }
+  }
+  async function restoreBooking(b) {
+    await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
+  }
+
+  /* ---------------- 指派房間 ---------------- */
+
+  const assignTarget = ref(null)
+  const assignBuildingFilter = ref('all')
+  const assignError = ref('')
+  const assignMode = ref('single') // 'single' 指定單一房間 ・ 'group' 拆成好幾間房分配給團體
+  const splitGroupName = ref('')
+  const splitRows = ref([{ roomId: '', guests: 1, name: '', notes: '' }])
+  const splitError = ref('')
+  const splitSaving = ref(false)
+
+  function openAssign(booking) {
+    assignTarget.value = booking
+    assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
+    assignError.value = ''
+    assignMode.value = 'single'
+    splitGroupName.value = booking.name
+    splitRows.value = [{ roomId: '', guests: booking.guests, name: '', notes: '' }]
+    splitError.value = ''
+  }
+  const eligibleRooms = computed(() => {
+    if (!assignTarget.value) return []
+    const b = assignTarget.value
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => r.capacity >= b.guests)
+      .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
+      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
+      .sort((r1, r2) => {
+        const pref = b.buildingPref
+        if (pref && pref !== 'all') {
+          if (r1.buildingId === pref && r2.buildingId !== pref) return -1
+          if (r2.buildingId === pref && r1.buildingId !== pref) return 1
+        }
+        return r1.capacity - r2.capacity || r1.price - r2.price
+      })
+  })
+  async function assignRoom(room) {
+    assignError.value = ''
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id })
+      })).json()
+      if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
+      assignTarget.value = null
+      await fetchAll()
+    } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
+  }
+
+  // 「分配到多間房（團體）」：人數太多、單一房間住不下時，把這筆訂單拆成好幾間房。
+  // 同一份表單裡已經被別列選走的房間要排除，避免自己選重複。
+  function addSplitRow() { splitRows.value.push({ roomId: '', guests: 1, name: '', notes: '' }) }
+  function removeSplitRow(idx) {
+    if (splitRows.value.length <= 1) return
+    splitRows.value.splice(idx, 1)
+  }
+  function eligibleRoomsForSplitRow(idx) {
+    if (!assignTarget.value) return []
+    const b = assignTarget.value
+    const pickedElsewhere = splitRows.value.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => !pickedElsewhere.includes(r.id))
+      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  }
+  const splitTotalGuests = computed(() => splitRows.value.reduce((s, r) => s + (Number(r.guests) || 0), 0))
+
+  async function submitSplit() {
+    splitError.value = ''
+    if (!assignTarget.value) return
+    if (!splitGroupName.value.trim()) { splitError.value = '請填寫團體名稱'; return }
+    const rows = splitRows.value.filter(r => r.roomId)
+    if (rows.length === 0) { splitError.value = '請至少分配一間房'; return }
+    const roomIds = rows.map(r => r.roomId)
+    if (new Set(roomIds).size !== roomIds.length) { splitError.value = '同一份表單裡不能選到同一間房兩次'; return }
+
+    splitSaving.value = true
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/split-to-group`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: assignTarget.value.id,
+          groupName: splitGroupName.value.trim(),
+          rooms: rows.map(r => ({ roomId: r.roomId, guests: r.guests || 1, name: r.name.trim(), notes: r.notes.trim() }))
+        })
+      })).json()
+      if (res && res.error) { splitError.value = res.error; return }
+      const finishedGroupName = splitGroupName.value.trim()
+      assignTarget.value = null
+      await fetchAll()
+      if (res && res.groupId) openGroupTarget(res.groupId, finishedGroupName)
+    } catch (e) { console.error(e); splitError.value = '分配失敗，請稍後再試' } finally { splitSaving.value = false }
+  }
+
+  /* ---------------- 新增訂單 ---------------- */
+
+  const createOrderTarget = ref(false)
+  const newOrderError = ref('')
+  const newOrder = ref({ name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' })
+
+  function openCreateOrder() {
+    newOrder.value = { name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' }
+    newOrderError.value = ''
+    createOrderTarget.value = true
+  }
+
+  /* ---------------- 編輯訂單：修改既有訂單的房客資料/日期/人數/備註，也可以直接在這裡換房間
+       （取代原本獨立的「更換房間」按鈕），換房間本身仍是呼叫既有的 /assign，只是入口收斂到
+       編輯 Modal，避免兩個地方都能改房間、使用者要記兩套操作） ---------------- */
+
+  const editOrderTarget = ref(null) // 目前正在編輯的訂單 id，null 代表沒開啟
+  const editOrderError = ref('')
+  const editOrderOriginalRoomId = ref('')
+  const editOrder = ref({ name: '', phone: '', checkIn: '', checkOut: '', guests: 1, buildingPref: 'all', notes: '', roomId: '' })
+
+  function openEditOrder(b) {
+    editOrderTarget.value = b.id
+    editOrderOriginalRoomId.value = b.roomId || ''
+    editOrder.value = {
+      name: b.name || '',
+      phone: b.phone || '',
+      checkIn: b.checkIn || '',
+      checkOut: b.checkOut || '',
+      guests: b.guests || 1,
+      buildingPref: b.buildingPref || 'all',
+      notes: b.notes || '',
+      roomId: b.roomId || ''
+    }
+    editOrderError.value = ''
+  }
+
+  // 換房間下拉的候選名單：跟新增訂單那份邏輯一樣（上架／夠住／該日期沒被其他訂單占用），
+  // 但要排除自己這筆訂單（isRoomAvailable 的 excludeId），也保留「目前已指派的房間」，
+  // 即使因為棟別/人數篩選條件改變而不符合，也還是顯示在選單裡，避免使用者看不到目前選的房間
+  const eligibleRoomsForEdit = computed(() => {
+    const o = editOrder.value
+    if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
+    return rooms.value
+      .filter(r => (r.active && r.capacity >= o.guests && (o.buildingPref === 'all' || r.buildingId === o.buildingPref)) || r.id === o.roomId)
+      .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut, editOrderTarget.value))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  })
+
+  async function submitEditOrder() {
+    editOrderError.value = ''
+    const o = editOrder.value
+    if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
+      editOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
+      return
+    }
+    if (nights(o.checkIn, o.checkOut) <= 0) {
+      editOrderError.value = '退房日期需晚於入住日期'
+      return
+    }
+    const id = editOrderTarget.value
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/update`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          name: o.name.trim(),
+          phone: o.phone.trim(),
+          guests: o.guests,
+          checkIn: o.checkIn,
+          checkOut: o.checkOut,
+          buildingPref: o.buildingPref,
+          notes: o.notes.trim()
+        })
+      })).json()
+      if (res && res.error) { editOrderError.value = res.error; return }
+
+      // 房間有變更（含從沒房到有房、或換成別間）才呼叫既有的 /assign，跟新增訂單同一套 API
+      if (o.roomId && o.roomId !== editOrderOriginalRoomId.value) {
+        const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, roomId: o.roomId })
+        })).json()
+        if (assignRes && assignRes.error) { editOrderError.value = `其他資料已更新，但房間變更失敗：${assignRes.error}`; await fetchAll(); return }
+      }
+
+      editOrderTarget.value = null
+      await fetchAll()
+    } catch (e) { console.error(e); editOrderError.value = '儲存失敗，請稍後再試' }
+  }
+
+  const eligibleRoomsForCreate = computed(() => {
+    const o = newOrder.value
+    if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => r.capacity >= o.guests)
+      .filter(r => o.buildingPref === 'all' || r.buildingId === o.buildingPref)
+      .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  })
+
+  async function createOrder() {
+    newOrderError.value = ''
+    const o = newOrder.value
+    if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
+      newOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
+      return
+    }
+    if (nights(o.checkIn, o.checkOut) <= 0) {
+      newOrderError.value = '退房日期需晚於入住日期'
+      return
+    }
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          checkIn: o.checkIn,
+          checkOut: o.checkOut,
+          guests: o.guests,
+          name: o.name.trim(),
+          phone: o.phone.trim(),
+          email: '',
+          buildingPref: o.buildingPref,
+          notes: o.notes.trim()
+        })
+      })).json()
+      if (res && res.error) {
+        newOrderError.value = res.error;
+        return
+      }
+
+      // /request 一律建立為待指派訂單；若當下有選房間，緊接著呼叫既有的指派 API
+      if (o.roomId && res && res.id) {
+        const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({id: res.id, roomId: o.roomId})
+        })).json()
+        if (assignRes && assignRes.error) {
+          newOrderError.value = `訂單已建立（${res.id}），但指派房間失敗：${assignRes.error}`;
+          await fetchAll();
+          return
+        }
+
+        // 後台手動建立、且當下就指派了房間的訂單，視同已經確認過，直接跳過「待確認」
+        await (await fetch(`${BOOKINGS_BASE()}/status`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({id: res.id, status: 'confirmed'})
+        })).json()
+      }
+
+      createOrderTarget.value = false
+      await fetchAll()
+    } catch (e) {
+      console.error(e);
+      newOrderError.value = '新增失敗，請稍後再試'
+    }
+  }
+
+  /* ---------------- 登記團體 ----------------
+       設計上團體不是新的資料結構：每一間房還是走跟個人訂房完全一樣的 /request + /assign，
+       只是每一筆都多蓋上同一個 groupId/groupName，所以既有的日期重疊檢查、狀態轉換、
+       平面圖/日曆顯示邏輯完全不用改，只是多顯示一個團體標籤而已。 */
+
+  const createGroupTarget = ref(false)
+  const newGroupError = ref('')
+  const groupSaving = ref(false)
+
+  function blankGroupRow() {
+    return {roomId: '', buildingPref: 'all', name: '', guests: 1, notes: ''}
+  }
+
+  const newGroup = ref({groupName: '', phone: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()]})
+  const wholeBuildingPick = ref('')
+  const wholeBuildingNote = ref('')
+
+  function openCreateGroup() {
+    newGroup.value = {groupName: '', phone: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()]}
+    newGroupError.value = ''
+    wholeBuildingPick.value = ''
+    wholeBuildingNote.value = ''
+    createGroupTarget.value = true
+  }
+
+  // 包棟：把選定棟別裡目前空著的房間一次全部加進團體房間清單，每一列後續還是可以個別改人數/刪除，
+  // 跟手動一列一列加房間是同一份資料、同一套邏輯，只是省了逐間挑選的功夫
+  function applyWholeBuilding() {
+    newGroupError.value = ''
+    wholeBuildingNote.value = ''
+    const g = newGroup.value
+    if (!wholeBuildingPick.value) {
+      newGroupError.value = '請先選擇要包棟的棟別';
+      return
+    }
+    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) {
+      newGroupError.value = '請先確認入住/退房日期';
+      return
+    }
+    const already = new Set(g.rooms.filter(r => r.roomId).map(r => r.roomId))
+    const buildingRooms = rooms.value.filter(r => r.active && r.buildingId === wholeBuildingPick.value)
+    const toAdd = buildingRooms.filter(r => !already.has(r.id) && isRoomAvailable(r.id, g.checkIn, g.checkOut))
+    const alreadyInBuilding = buildingRooms.filter(r => already.has(r.id)).length
+    const skipped = buildingRooms.length - toAdd.length - alreadyInBuilding
+    if (toAdd.length === 0) {
+      newGroupError.value = alreadyInBuilding > 0 && skipped === 0
+        ? '這個棟別的房間已經都在清單裡了'
+        : '這個棟別目前沒有空房可以加入（可能都已被佔用）'
+      return
+    }
+    // 表單裡如果都還是空白列（尚未選房間），先清掉，避免整棟加進來後多出一列空白
+    if (g.rooms.every(r => !r.roomId)) g.rooms = []
+    for (const r of toAdd) g.rooms.push({
+      roomId: r.id,
+      buildingPref: wholeBuildingPick.value,
+      name: '',
+      guests: r.capacity,
+      notes: ''
+    })
+    wholeBuildingNote.value = skipped > 0
+      ? `已加入 ${toAdd.length} 間房；另有 ${skipped} 間房該日期已被占用，沒有一起加入`
+      : `已加入整棟 ${toAdd.length} 間房`
+    wholeBuildingPick.value = ''
+  }
+
+  function addGroupRoomRow() {
+    newGroup.value.rooms.push(blankGroupRow())
+  }
+
+  function removeGroupRoomRow(idx) {
+    if (newGroup.value.rooms.length <= 1) return
+    newGroup.value.rooms.splice(idx, 1)
+  }
+
+  // 同一份團體表單裡，已經被別列選走的房間要從下拉選單裡排除，避免同一份表單自己選重複；
+  // 每一列也有自己的「偏好棟別」，選了就只列出該棟的房間
+  function eligibleRoomsForGroupRow(idx) {
+    const g = newGroup.value
+    const row = g.rooms[idx]
+    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) return []
+    const pickedElsewhere = g.rooms.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => !pickedElsewhere.includes(r.id))
+      .filter(r => row.buildingPref === 'all' || r.buildingId === row.buildingPref)
+      .filter(r => isRoomAvailable(r.id, g.checkIn, g.checkOut))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  }
+
+  // 換了偏好棟別、但原本選的房間不屬於新棟別時，把房間選擇清掉，避免表單顯示跟實際不一致
+  function onGroupRowBuildingChange(idx) {
+    const row = newGroup.value.rooms[idx]
+    if (!row || !row.roomId) return
+    const r = roomById(row.roomId)
+    if (r && row.buildingPref !== 'all' && r.buildingId !== row.buildingPref) row.roomId = ''
+  }
+
+  async function createGroup() {
+    newGroupError.value = ''
+    const g = newGroup.value
+    if (!g.groupName.trim()) {
+      newGroupError.value = '請填寫團體名稱';
+      return
+    }
+    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) {
+      newGroupError.value = '請確認入住/退房日期';
+      return
+    }
+    const rows = g.rooms.filter(r => r.roomId)
+    if (rows.length === 0) {
+      newGroupError.value = '請至少選一間房間';
+      return
+    }
+    const roomIds = rows.map(r => r.roomId)
+    if (new Set(roomIds).size !== roomIds.length) {
+      newGroupError.value = '同一份團體登記裡不能選到同一間房兩次';
+      return
+    }
+
+    groupSaving.value = true
+    const groupId = 'grp_' + Date.now()
+    const failed = []
+    try {
+      for (const row of rows) {
+        try {
+          const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              checkIn: g.checkIn,
+              checkOut: g.checkOut,
+              guests: row.guests || 1,
+              name: (row.name.trim() || g.groupName.trim()),
+              phone: g.phone.trim(),
+              email: '',
+              buildingPref: 'all',
+              notes: row.notes.trim(),
+              groupId,
+              groupName: g.groupName.trim()
+            })
+          })).json()
+          if (res && res.error) {
+            failed.push(`${row.roomId}：${res.error}`);
+            continue
+          }
+
+          const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({id: res.id, roomId: row.roomId})
+          })).json()
+          if (assignRes && assignRes.error) failed.push(`${row.roomId}：${assignRes.error}`)
+        } catch (e) {
+          console.error(e)
+          failed.push(`${row.roomId}：建立失敗`)
+        }
+      }
+      // 後台手動登記的團體，已成功建立的房間直接整團設為已確認，不停在待確認
+      if (rows.length > failed.length) {
+        await (await fetch(`${BOOKINGS_BASE()}/group/status`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({groupId, status: 'confirmed'})
+        })).json()
+      }
+      await fetchAll()
+      if (failed.length) {
+        // 部分房間可能剛好被搶先訂走；已成功的那幾間房不受影響，留在畫面上讓使用者看清楚哪幾間要重選
+        newGroupError.value = `部分房間登記失敗，請重新選擇：${failed.join('；')}`
+      } else {
+        createGroupTarget.value = false
+      }
+    } finally {
+      groupSaving.value = false
+    }
+  }
+
+  /* ---------------- 平面圖選房間：新增訂單／登記團體／編輯訂單共用的浮動選房器 ----------------
+       target 用字串區分要把選到的房間填回哪裡：'order' 填新增訂單那顆 select，'edit' 填編輯
+       訂單那顆 select，'group:<idx>' 填登記團體第 idx 列的 select，跟原本的下拉選單共用同一個
+       v-model，所以在平面圖上點跟在下拉選單選是同一件事，畫面會同步。
+       excludeBookingId：編輯既有訂單時，該訂單目前占用的房間不該被自己擋住，所以要排除自己。 */
+
+  const roomPicker = ref(null) // { target, checkIn, checkOut, guests, excludeIds, excludeBookingId }
+  function openRoomPicker(target, checkIn, checkOut, guests, excludeIds, excludeBookingId) {
+    if (!checkIn || !checkOut || nights(checkIn, checkOut) <= 0) {
+      const msg = '請先填入住日期與退房日期，才能用平面圖選房間'
+      if (target === 'order') newOrderError.value = msg
+      else if (target === 'edit') editOrderError.value = msg
+      else if (target === 'groupAdd') groupAddError.value = msg
+      else newGroupError.value = msg
+      return
+    }
+    roomPicker.value = {
+      target,
+      checkIn,
+      checkOut,
+      guests: guests || 1,
+      excludeIds: excludeIds || [],
+      excludeBookingId: excludeBookingId || null
+    }
+  }
+
+  // 平面圖上要標成「不可選」（灰色）的房間 id：不夠大、該日期已被佔用、已下架、
+  // 或已經被同一份表單裡其他列選走
+  const roomPickerUnavailableIds = computed(() => {
+    if (!roomPicker.value) return []
+    const rp = roomPicker.value
+    return rooms.value
+      .filter(r => !(
+        r.active
+        && r.capacity >= rp.guests
+        && !rp.excludeIds.includes(r.id)
+        && isRoomAvailable(r.id, rp.checkIn, rp.checkOut, rp.excludeBookingId)
+      ))
+      .map(r => r.id)
+  })
+
+  function pickRoomFromFloorplan(room) {
+    if (!roomPicker.value) return
+    if (roomPickerUnavailableIds.value.includes(room.id)) return // 防呆：不可選的房間點了也不處理
+    const target = roomPicker.value.target
+    if (target === 'order') {
+      newOrder.value.roomId = room.id
+      newOrder.value.guests = room.capacity // 預設人數＝該房可住上限，多數訂房都是住滿，省得再手動改
+    } else if (target === 'edit') {
+      editOrder.value.roomId = room.id
+      editOrder.value.guests = room.capacity
+    } else if (target === 'groupAdd') {
+      groupAddRoom.value.roomId = room.id
+      groupAddRoom.value.guests = room.capacity
+    } else if (target.startsWith('group:')) {
+      const idx = Number(target.split(':')[1])
+      if (newGroup.value.rooms[idx]) {
+        newGroup.value.rooms[idx].roomId = room.id
+        newGroup.value.rooms[idx].guests = room.capacity
+      }
+    }
+    roomPicker.value = null
+  }
+
+  /* ---------------- 團體管理：查看/整團操作同一個 groupId 底下所有訂單 ---------------- */
+
+  const groupTarget = ref(null) // { groupId, groupName }
+  function openGroupTarget(groupId, groupName) {
+    groupTarget.value = {groupId, groupName}
+    groupEditing.value = false
+    groupAdding.value = false
+  }
+
+  const groupBookings = computed(() => {
+    if (!groupTarget.value) return []
+    return bookings.value
+      .filter(b => b.groupId === groupTarget.value.groupId)
+      .sort((a, b) => (a.roomId < b.roomId ? -1 : 1))
+  })
+  // 團體目前的共用入住/退房日期，取團體底下第一筆訂單的日期（同一個團體登記時是共用同一組日期）
+  const groupCheckIn = computed(() => (groupBookings.value[0] && groupBookings.value[0].checkIn) || '')
+  const groupCheckOut = computed(() => (groupBookings.value[0] && groupBookings.value[0].checkOut) || '')
+
+  /* ---------------- 團體管理：在既有團體底下新增一間房 ---------------- */
+  const groupAdding = ref(false)
+  const groupAddRoom = ref({roomId: '', guests: 1, name: '', notes: ''})
+  const groupAddError = ref('')
+  const groupAddSaving = ref(false)
+
+  function startGroupAdd() {
+    groupEditing.value = false
+    groupAddRoom.value = {roomId: '', guests: 1, name: '', notes: ''}
+    groupAddError.value = ''
+    groupAdding.value = true
+  }
+
+  // 可選房間：要在團體共用的入住/退房日期空著，且還沒被這個團體其他房間占用
+  const eligibleRoomsForGroupAdd = computed(() => {
+    if (!groupTarget.value || !groupCheckIn.value || !groupCheckOut.value) return []
+    const usedByGroup = groupBookings.value.map(b => b.roomId).filter(Boolean)
+    return rooms.value
+      .filter(r => r.active)
+      .filter(r => !usedByGroup.includes(r.id))
+      .filter(r => isRoomAvailable(r.id, groupCheckIn.value, groupCheckOut.value))
+      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
+  })
+
+  async function submitAddRoomToGroup() {
+    groupAddError.value = ''
+    if (!groupTarget.value) return
+    if (!groupCheckIn.value || !groupCheckOut.value) {
+      groupAddError.value = '找不到這個團體的入住/退房日期';
+      return
+    }
+    if (!groupAddRoom.value.roomId) {
+      groupAddError.value = '請選擇房間';
+      return
+    }
+    groupAddSaving.value = true
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          checkIn: groupCheckIn.value,
+          checkOut: groupCheckOut.value,
+          guests: groupAddRoom.value.guests || 1,
+          name: (groupAddRoom.value.name.trim() || groupTarget.value.groupName),
+          phone: (groupBookings.value[0] && groupBookings.value[0].phone) || '',
+          email: '',
+          buildingPref: 'all',
+          notes: groupAddRoom.value.notes.trim(),
+          groupId: groupTarget.value.groupId,
+          groupName: groupTarget.value.groupName
+        })
+      })).json()
+      if (res && res.error) {
+        groupAddError.value = res.error;
+        return
+      }
+
+      const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: res.id, roomId: groupAddRoom.value.roomId})
+      })).json()
+      if (assignRes && assignRes.error) {
+        groupAddError.value = assignRes.error;
+        return
+      }
+
+      // 跟其他後台手動建立的訂單一樣，直接設為已確認，不停在待確認
+      await fetch(`${BOOKINGS_BASE()}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: res.id, status: 'confirmed'})
+      })
+
+      await fetchAll()
+      groupAdding.value = false
+    } catch (e) {
+      console.error(e)
+      groupAddError.value = '新增失敗，請稍後再試'
+    } finally {
+      groupAddSaving.value = false
+    }
+  }
+
+  // 從團體裡移除單一房間：直接刪除該筆訂單（跟一般刪除訂單共用同一支 API），團體其餘房間不受影響
+  async function removeRoomFromGroup(bk) {
+    if (!confirm(`確定要將 ${bk.roomId ? roomLabel(bk.roomId) : '這間房'} 從此團體移除嗎？該筆訂單會被刪除，此動作無法復原。`)) return
+    try {
+      await fetch(`${BOOKINGS_BASE()}/${bk.id}`, {method: 'DELETE'})
+      await fetchAll()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  async function setGroupStatusAll(status) {
+    if (!groupTarget.value) return
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/group/status`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({groupId: groupTarget.value.groupId, status})
+      })).json()
+      if (res && res.error) {
+        alert(res.error);
+        return
+      }
+      await fetchAll()
+    } catch (e) {
+      console.error(e);
+      alert('操作失敗，請稍後再試')
+    }
+  }
+
+  /* 團體資訊編輯：團體名稱／統一聯絡電話是存在每一筆訂單自己的欄位裡，改的時候要整團一次改，
+       所以走 /group/update，不是走單筆訂單的 /update */
+  const groupEditing = ref(false)
+  const groupEditError = ref('')
+  const groupEditForm = ref({groupName: '', phone: '', checkIn: '', checkOut: ''})
+
+  function startGroupEdit() {
+    groupEditError.value = ''
+    groupEditForm.value = {
+      groupName: groupTarget.value.groupName || '',
+      phone: (groupBookings.value[0] && groupBookings.value[0].phone) || '',
+      checkIn: groupCheckIn.value || '',
+      checkOut: groupCheckOut.value || ''
+    }
+    groupEditing.value = true
+  }
+
+  async function submitGroupEdit() {
+    groupEditError.value = ''
+    const f = groupEditForm.value
+    if (!f.groupName.trim()) {
+      groupEditError.value = '請填寫團體名稱';
+      return
+    }
+    if (!f.checkIn || !f.checkOut) {
+      groupEditError.value = '請填寫入住/退房日期';
+      return
+    }
+    if (f.checkIn >= f.checkOut) {
+      groupEditError.value = '退房日期必須晚於入住日期';
+      return
+    }
+    try {
+      const res = await (await fetch(`${BOOKINGS_BASE()}/group/update`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          groupId: groupTarget.value.groupId,
+          groupName: f.groupName.trim(),
+          phone: f.phone.trim(),
+          checkIn: f.checkIn,
+          checkOut: f.checkOut
+        })
+      })).json()
+      if (res && res.error) {
+        groupEditError.value = res.error;
+        return
+      }
+      groupTarget.value = {groupId: groupTarget.value.groupId, groupName: f.groupName.trim()}
+      groupEditing.value = false
+      await fetchAll()
+    } catch (e) {
+      console.error(e);
+      groupEditError.value = '儲存失敗，請稍後再試'
+    }
+  }
+
+  /* ---------------- 訂房紀錄 ---------------- */
+
+  const historyStatus = ref('all')
+  const historyKeyword = ref('')
+  const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
+  const filteredHistory = computed(() => {
+    const kw = historyKeyword.value.trim().toLowerCase()
+    return historyBookings.value
+      .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
+      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
+      .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
+  })
+  const historyStats = computed(() => {
+    const completed = historyBookings.value.filter(b => b.status === 'completed')
+    const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
+    return {
+      completedCount: completed.length,
+      cancelledCount: cancelled.length,
+      totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
+      totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0)
+    }
+  })
+
+
+  /* ==================== 房間管理（原 rooms-setting.vue） ==================== */
+
+
+  const saving = ref(false)
+  const modalError = ref('')
+
+
+  const buildingFilter = ref('all')
+  const viewMode = ref('list')
+
+  const totalRooms = computed(() => buildings.value.reduce((s, b) => s + b.rooms.length, 0))
+  const activeRooms = computed(() => buildings.value.reduce((s, b) => s + b.rooms.filter(r => r.active).length, 0))
+
+  const visibleBuildings = computed(() =>
+    buildingFilter.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === buildingFilter.value)
+  )
+
+
+  /* ---------------- 房間詳情 ---------------- */
+
+  const detailTarget = ref(null)
+
+  function openRoomDetail(grp, room) {
+    detailTarget.value = {room, buildingId: grp.id, buildingName: grp.name}
+  }
+
+  const detailBookings = computed(() => {
+    if (!detailTarget.value) return []
+    return bookings.value
+      .filter(b => b.roomId === detailTarget.value.room.id && b.status !== 'cancelled')
+      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+  })
+
+  /* ---------------- 矩形對應設置 ----------------
+     「指定房間」：把平面圖矩形手動指定給某間實際房間，存成房間的 shapeId 欄位；
+                  RoomFloorplan 元件之後就會直接用這個矩形畫出房間實際輪廓。
+     「調整位置」：直接在畫面上拖拽矩形/線條調整座標，即時存到後端資料庫。 */
+  const {shapesOf, canvasOf, saveShape: saveShapeGeometry, deleteShape: deleteShapeGeometry} = useFloorplanShapes()
+
+  function assignedRoomFor(grp, shapeId) {
+    return grp.rooms.find(r => r.shapeId === shapeId) || null
+  }
+
+  const shapeAssign = reactive({open: false, buildingId: null, shapeId: '', roomId: ''})
+
+  function openShapeAssign(grp, shape) {
+    const current = assignedRoomFor(grp, shape.id)
+    shapeAssign.open = true
+    shapeAssign.buildingId = grp.id
+    shapeAssign.shapeId = shape.id
+    shapeAssign.roomId = current ? current.id : ''
+  }
+
+  const shapeAssignRooms = computed(() => {
+    const grp = buildings.value.find(b => b.id === shapeAssign.buildingId)
+    return grp ? grp.rooms : []
+  })
+
+  async function saveShapeAssign() {
+    saving.value = true
+    try {
+      const grp = buildings.value.find(b => b.id === shapeAssign.buildingId)
+      const prevOwner = grp && assignedRoomFor(grp, shapeAssign.shapeId)
+      // 這個矩形原本對應到別的房間，先解除舊的對應，避免一個矩形同時被兩間房間占用
+      if (prevOwner && prevOwner.id !== shapeAssign.roomId) {
+        await fetch(`${ROOMS_BASE()}/shape`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({buildingId: shapeAssign.buildingId, id: prevOwner.id, shapeId: ''}),
+        })
+      }
+      if (shapeAssign.roomId) {
+        await fetch(`${ROOMS_BASE()}/shape`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            buildingId: shapeAssign.buildingId,
+            id: shapeAssign.roomId,
+            shapeId: shapeAssign.shapeId
+          }),
+        })
+      }
+      shapeAssign.open = false
+      await fetchAll()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      saving.value = false
+    }
+  }
+
+  /* ---------------- 矩形對應：調整位置模式（拖拽 / 新增 / 刪除） ---------------- */
+  const shapeEditMode = ref('assign') // 'assign' 指定房間 ・ 'edit' 調整位置
+  const selectedShapeId = ref(null)
+  const shapeTypeLabel = {rect: '矩形', vline: '垂直線', hline: '水平線'}
+
+  function selectedShapeInGroup(buildingId) {
+    if (!selectedShapeId.value) return null
+    return shapesOf(buildingId).find(s => s.id === selectedShapeId.value) || null
+  }
+
+  // 選取的矩形/線條屬於哪個棟別 —— 下方浮動控制面板要用，這樣不管在哪棟平面圖選的，
+  // 面板都能找到正確棟別繼續操作，且面板本身固定在畫面上不用跟著捲動
+  const selectedShapeBuilding = computed(() => {
+    if (!selectedShapeId.value) return null
+    return buildings.value.find(b => shapesOf(b.id).some(s => s.id === selectedShapeId.value)) || null
+  })
+
+  // 把滑鼠螢幕座標換算成 SVG viewBox 座標（因為 svg 是用 width:100% 縮放顯示，不是 1:1 像素）
+  function svgPointFromClient(svgEl, clientX, clientY) {
+    if (!svgEl) return {x: 0, y: 0}
+    const rect = svgEl.getBoundingClientRect()
+    const vb = svgEl.viewBox.baseVal
+    if (!rect.width || !rect.height) return {x: 0, y: 0}
+    return {
+      x: (clientX - rect.left) * (vb.width / rect.width),
+      y: (clientY - rect.top) * (vb.height / rect.height),
+    }
+  }
+
+  function round1(n) {
+    return Math.round(n)
+  }
+
+  const dragState = reactive({
+    active: false,
+    buildingId: null,
+    shapeId: null,
+    mode: null,
+    svgEl: null,
+    startPointer: {x: 0, y: 0},
+    startGeom: {},
+    moved: false
+  })
+
+  function onShapePointerDown(e, buildingId, shape, mode) {
+    if (shapeEditMode.value !== 'edit') return
+    e.stopPropagation()
+    e.preventDefault()
+    const svgEl = e.target.closest('svg')
+    dragState.active = true
+    dragState.buildingId = buildingId
+    dragState.shapeId = shape.id
+    dragState.mode = mode
+    dragState.svgEl = svgEl
+    dragState.startPointer = svgPointFromClient(svgEl, e.clientX, e.clientY)
+    dragState.startGeom = {
+      x: shape.x,
+      y: shape.y,
+      w: shape.w,
+      h: shape.h,
+      x1: shape.x1,
+      x2: shape.x2,
+      y1: shape.y1,
+      y2: shape.y2
+    }
+    dragState.moved = false
+    selectedShapeId.value = shape.id
+    window.addEventListener('pointermove', onShapeWindowPointerMove)
+    window.addEventListener('pointerup', onShapeWindowPointerUp)
+  }
+
+  function onShapeWindowPointerMove(e) {
+    if (!dragState.active) return
+    const p = svgPointFromClient(dragState.svgEl, e.clientX, e.clientY)
+    const dx = p.x - dragState.startPointer.x
+    const dy = p.y - dragState.startPointer.y
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) dragState.moved = true
+    const shape = shapesOf(dragState.buildingId).find(s => s.id === dragState.shapeId)
+    if (!shape) return
+    const g = dragState.startGeom
+    if (dragState.mode === 'move-rect') {
+      shape.x = round1(g.x + dx);
+      shape.y = round1(g.y + dy)
+    } else if (dragState.mode === 'resize-rect') {
+      shape.w = Math.max(10, round1(g.w + dx));
+      shape.h = Math.max(10, round1(g.h + dy))
+    } else if (dragState.mode === 'resize-rect-right') {
+      shape.w = Math.max(10, round1(g.w + dx))
+    } else if (dragState.mode === 'resize-rect-left') {
+      const newW = Math.max(10, round1(g.w - dx))
+      shape.x = round1(g.x + (g.w - newW));
+      shape.w = newW
+    } else if (dragState.mode === 'resize-rect-bottom') {
+      shape.h = Math.max(10, round1(g.h + dy))
+    } else if (dragState.mode === 'resize-rect-top') {
+      const newH = Math.max(10, round1(g.h - dy))
+      shape.y = round1(g.y + (g.h - newH));
+      shape.h = newH
+    } else if (dragState.mode === 'move-vline') {
+      shape.x = round1(g.x + dx);
+      shape.y1 = round1(g.y1 + dy);
+      shape.y2 = round1(g.y2 + dy)
+    } else if (dragState.mode === 'resize-vline-1') {
+      shape.y1 = round1(g.y1 + dy)
+    } else if (dragState.mode === 'resize-vline-2') {
+      shape.y2 = round1(g.y2 + dy)
+    } else if (dragState.mode === 'move-hline') {
+      shape.y = round1(g.y + dy);
+      shape.x1 = round1(g.x1 + dx);
+      shape.x2 = round1(g.x2 + dx)
+    } else if (dragState.mode === 'resize-hline-1') {
+      shape.x1 = round1(g.x1 + dx)
+    } else if (dragState.mode === 'resize-hline-2') {
+      shape.x2 = round1(g.x2 + dx)
+    }
+  }
+
+  async function onShapeWindowPointerUp() {
+    if (!dragState.active) return
+    window.removeEventListener('pointermove', onShapeWindowPointerMove)
+    window.removeEventListener('pointerup', onShapeWindowPointerUp)
+    const buildingId = dragState.buildingId
+    const moved = dragState.moved
+    const shape = shapesOf(buildingId).find(s => s.id === dragState.shapeId)
+    dragState.active = false
+    if (shape && moved) {
+      try {
+        await saveShapeGeometry(buildingId, shape)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+  }
+
+  // 精確數字輸入框失焦/送出時呼叫，把目前的座標存到後端
+  async function commitSelectedShape(buildingId) {
+    const shape = selectedShapeInGroup(buildingId)
+    if (!shape) return
+    try {
+      await saveShapeGeometry(buildingId, shape)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  async function addShape(buildingId, type) {
+    const canvas = canvasOf(buildingId)
+    let shape
+    if (type === 'rect') shape = {
+      type: 'rect',
+      x: Math.round(canvas.w / 2 - 40),
+      y: Math.round(canvas.h / 2 - 30),
+      w: 80,
+      h: 60
+    }
+    else if (type === 'vline') shape = {
+      type: 'vline',
+      x: Math.round(canvas.w / 2),
+      y1: Math.round(canvas.h / 2 - 40),
+      y2: Math.round(canvas.h / 2 + 40)
+    }
+    else shape = {
+        type: 'hline',
+        y: Math.round(canvas.h / 2),
+        x1: Math.round(canvas.w / 2 - 40),
+        x2: Math.round(canvas.w / 2 + 40)
+      }
+    try {
+      const saved = await saveShapeGeometry(buildingId, shape)
+      selectedShapeId.value = saved.id
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  async function deleteSelectedShape(buildingId) {
+    if (!selectedShapeId.value) return
+    if (!confirm('確定要刪除這個矩形/線條嗎？如果有房間對應到它，那間房的對應也會一併清除。')) return
+    try {
+      await deleteShapeGeometry(buildingId, selectedShapeId.value)
+      selectedShapeId.value = null
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  /* ---------------- 矩形對應：四邊個別增減控制面板（點按鈕，不用拖拉） ----------------
+     dir = 1 表示這一邊往外擴（矩形變大）、dir = -1 表示往內縮（矩形變小），另外三邊固定不動。
+     跟拖拉四邊中點控制點是同一種調整邏輯，只是用按鈕以固定步進值觸發，方便微調到精確位置。 */
+  const EDGES = [
+    {key: 'top', label: '上邊'},
+    {key: 'bottom', label: '下邊'},
+    {key: 'left', label: '左邊'},
+    {key: 'right', label: '右邊'},
+  ]
+  const EDGE_BTN_STEP = 2
+
+  function adjustShapeEdge(buildingId, edge, dir) {
+    const shape = selectedShapeInGroup(buildingId)
+    if (!shape || shape.type !== 'rect') return
+    const delta = dir * EDGE_BTN_STEP
+    if (edge === 'top') {
+      const newH = Math.max(10, round1(shape.h + delta))
+      shape.y = round1(shape.y - (newH - shape.h))
+      shape.h = newH
+    } else if (edge === 'bottom') {
+      shape.h = Math.max(10, round1(shape.h + delta))
+    } else if (edge === 'left') {
+      const newW = Math.max(10, round1(shape.w + delta))
+      shape.x = round1(shape.x - (newW - shape.w))
+      shape.w = newW
+    } else if (edge === 'right') {
+      shape.w = Math.max(10, round1(shape.w + delta))
+    }
+    commitSelectedShape(buildingId)
+  }
+
+  /* ---------------- 矩形對應：方向鍵調整（跟拖拽共用同一組 shape 物件與存檔邏輯） ----------------
+     只有在「調整位置」模式下、有選取矩形/線條時才生效；輸入框內打字時（例如上面的精確數字欄位）不搶方向鍵。
+     移動/調整大小時先在畫面上即時反應，停止按鍵一小段時間後才真的送出存檔，避免連續按時瘋狂打 API。 */
+  const SHAPE_MOVE_STEP = 1  // 方向鍵：每按一下移動幾 px
+  const SHAPE_SIZE_STEP = 2  // Shift + 方向鍵：每按一下調整幾 px 的大小/長度
+  let shapeKeySaveTimer = null
+
+  function scheduleShapeKeySave(buildingId) {
+    clearTimeout(shapeKeySaveTimer)
+    shapeKeySaveTimer = setTimeout(() => commitSelectedShape(buildingId), 400)
+  }
+
+  function handleShapeKeydown(e) {
+    if (tab.value !== 'rooms' || viewMode.value !== 'shape' || shapeEditMode.value !== 'edit' || !selectedShapeId.value) return
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
+    if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return // 精確數字欄位打字時不搶鍵
+    const grp = buildings.value.find(b => shapesOf(b.id).some(s => s.id === selectedShapeId.value))
+    if (!grp) return
+    const shape = shapesOf(grp.id).find(s => s.id === selectedShapeId.value)
+    if (!shape) return
+    e.preventDefault()
+    const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0
+    const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0
+
+    if (e.shiftKey) {
+      // Shift + 方向鍵：調整大小／長度
+      if (shape.type === 'rect') {
+        shape.w = Math.max(10, round1(shape.w + dx * SHAPE_SIZE_STEP))
+        shape.h = Math.max(10, round1(shape.h + dy * SHAPE_SIZE_STEP))
+      } else if (shape.type === 'vline') {
+        shape.y2 = round1(shape.y2 + dy * SHAPE_SIZE_STEP)
+      } else if (shape.type === 'hline') {
+        shape.x2 = round1(shape.x2 + dx * SHAPE_SIZE_STEP)
+      }
+    } else {
+      // 方向鍵：移動位置（整個矩形/線條一起平移）
+      if (shape.type === 'rect') {
+        shape.x = round1(shape.x + dx * SHAPE_MOVE_STEP)
+        shape.y = round1(shape.y + dy * SHAPE_MOVE_STEP)
+      } else if (shape.type === 'vline') {
+        shape.x = round1(shape.x + dx * SHAPE_MOVE_STEP)
+        shape.y1 = round1(shape.y1 + dy * SHAPE_MOVE_STEP)
+        shape.y2 = round1(shape.y2 + dy * SHAPE_MOVE_STEP)
+      } else if (shape.type === 'hline') {
+        shape.y = round1(shape.y + dy * SHAPE_MOVE_STEP)
+        shape.x1 = round1(shape.x1 + dx * SHAPE_MOVE_STEP)
+        shape.x2 = round1(shape.x2 + dx * SHAPE_MOVE_STEP)
+      }
+    }
+    scheduleShapeKeySave(grp.id)
+  }
+
+  onMounted(() => window.addEventListener('keydown', handleShapeKeydown))
+  onUnmounted(() => {
+    window.removeEventListener('keydown', handleShapeKeydown)
+    clearTimeout(shapeKeySaveTimer)
+  })
+
+  /* ---------------- 棟別 CRUD ---------------- */
+
+  const buildingModal = reactive({open: false, id: null, name: ''})
+
+  function openAddBuilding() {
+    buildingModal.open = true;
+    buildingModal.id = null;
+    buildingModal.name = '';
+    modalError.value = ''
+  }
+
+  function openEditBuilding(b) {
+    buildingModal.open = true;
+    buildingModal.id = b.id;
+    buildingModal.name = b.name;
+    modalError.value = ''
+  }
+
+  async function saveBuildingModal() {
+    if (!buildingModal.name.trim()) {
+      modalError.value = '請輸入棟別名稱';
+      return
+    }
+    saving.value = true
+    try {
+      const body = {name: buildingModal.name.trim()}
+      if (buildingModal.id) body.id = buildingModal.id
+      await fetch(`${ROOMS_BASE()}/building/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+      })
+      buildingModal.open = false
+      await fetchAll()
+    } catch (e) {
+      console.error(e);
+      modalError.value = '儲存失敗，請稍後再試'
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function deleteBuildingConfirm(b) {
+    if (!confirm(`確定要刪除棟別「${b.name}」嗎？底下所有房間也會一併刪除。`)) return
+    try {
+      await fetch(`${ROOMS_BASE()}/building/${b.id}`, {method: 'DELETE'})
+      await fetchAll()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  /* ---------------- 房間 CRUD ---------------- */
+
+  const roomModal = reactive({
+    open: false, buildingId: null, buildingName: '', originalId: null,
+    id: '', type: '', capacity: 2, bed: '', price: 0, active: true,
+  })
+
+  function openAddRoom(grp) {
+    roomModal.open = true
+    roomModal.buildingId = grp.id;
+    roomModal.buildingName = grp.name
+    roomModal.originalId = null
+    roomModal.id = '';
+    roomModal.type = '';
+    roomModal.capacity = 2;
+    roomModal.bed = '';
+    roomModal.price = 0;
+    roomModal.active = true
+    modalError.value = ''
+  }
+
+  function openEditRoom(grp, r) {
+    roomModal.open = true
+    roomModal.buildingId = grp.id;
+    roomModal.buildingName = grp.name
+    roomModal.originalId = r.id
+    roomModal.id = r.id;
+    roomModal.type = r.type;
+    roomModal.capacity = r.capacity
+    roomModal.bed = r.bed;
+    roomModal.price = r.price;
+    roomModal.active = r.active
+    modalError.value = ''
+  }
+
+  async function saveRoomModal() {
+    if (!roomModal.id.trim()) {
+      modalError.value = '請輸入房號';
+      return
+    }
+    if (!roomModal.type.trim()) {
+      modalError.value = '請輸入房型';
+      return
+    }
+    saving.value = true
+    try {
+      const body = {
+        buildingId: roomModal.buildingId,
+        id: roomModal.id.trim(),
+        type: roomModal.type.trim(),
+        capacity: roomModal.capacity,
+        bed: roomModal.bed.trim(),
+        price: roomModal.price,
+        active: roomModal.active,
+      }
+      await fetch(`${ROOMS_BASE()}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+      })
+      roomModal.open = false
+      await fetchAll()
+    } catch (e) {
+      console.error(e);
+      modalError.value = '儲存失敗，請稍後再試'
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function deleteRoomConfirm(grp, r) {
+    if (!confirm(`確定要刪除房間「${r.id}」嗎？`)) return
+    try {
+      await fetch(`${ROOMS_BASE()}/remove/${grp.id}/${r.id}`, {method: 'DELETE'})
+      await fetchAll()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  async function quickToggleActive(buildingId, r) {
+    const nextActive = !r.active
+    r.active = nextActive // 先在畫面上即時反應
+    try {
+      await fetch(`${ROOMS_BASE()}/save`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          buildingId,
+          id: r.id,
+          type: r.type,
+          capacity: r.capacity,
+          bed: r.bed,
+          price: r.price,
+          active: nextActive
+        }),
+      })
+    } catch (e) {
+      console.error(e);
+      r.active = !nextActive
+    }
+  }
+
+  onMounted(fetchAll)
+</script>
+
 <template>
   <div class="min-h-full bg-surface2 transition-colors">
     <!-- Header -->
@@ -3643,1840 +5477,6 @@
     <!-- 日曆當日明細已改成 tab === 'calendar' 內的右側常駐面板，不再用彈窗 -->
   </div>
 </template>
-
-<script setup>
-  import { useFloorplanShapes } from '~/composables/useFloorplanShapes'
-
-  definePageMeta({ layout: 'staff', requiredPermission: 'booking.orders' })
-
-  const commonStore = useCommonStore()
-  const ROOMS_BASE = () => commonStore.data.main_url + '/holy/rooms/settings'
-  const BOOKINGS_BASE = () => commonStore.data.main_url + '/holy/rooms/bookings'
-  const GROUP_BASE = () => commonStore.data.main_url + '/holy/group-itinerary'
-
-  // Modal 背景點擊關閉：只有「mousedown 跟 click 都落在背景本身」才關閉。
-  // 若只用 @click.self，在 Modal 內容裡按住滑鼠（例如選取文字、拖曳 input）
-  // 再放開到背景外面，瀏覽器合成的 click 事件 target 會被判成背景本身，
-  // 導致誤關閉；改成先在 mousedown 記錄是否真的點在背景上，click 時再一併確認。
-  const backdropMouseDownOnSelf = ref(false)
-  function onBackdropMousedown(e) {
-    backdropMouseDownOnSelf.value = e.target === e.currentTarget
-  }
-  function onBackdropClick(e, close) {
-    if (backdropMouseDownOnSelf.value && e.target === e.currentTarget) close()
-    backdropMouseDownOnSelf.value = false
-  }
-
-  const today = new Date().toISOString().slice(0, 10)
-
-  // 「查看日期」：訂單管理頁的房况總覽／平面圖，預設顯示今天的狀況，
-  // 但可以切換到別的日期，回推或預覽當天／未來某天各房間的訂房狀況
-  const viewDate = ref(today)
-  // 房况總覽可收合，避免佔掉太多版面（尤其是手機或訂單很多棟別展開時）；
-  // 收合狀態存 localStorage，重新整理或下次再開這頁時會記得上次的選擇
-  const OVERVIEW_COLLAPSED_KEY = 'holymotherfarm_rooms_overview_collapsed'
-  const overviewCollapsed = ref(false)
-  onMounted(() => {
-    if (typeof window === 'undefined') return
-    overviewCollapsed.value = localStorage.getItem(OVERVIEW_COLLAPSED_KEY) === '1'
-  })
-  watch(overviewCollapsed, (v) => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(OVERVIEW_COLLAPSED_KEY, v ? '1' : '0')
-  })
-  const isViewingToday = computed(() => viewDate.value === today)
-  function shiftViewDate(days) {
-    const d = new Date(viewDate.value)
-    d.setDate(d.getDate() + days)
-    viewDate.value = d.toISOString().slice(0, 10)
-  }
-  function resetViewDate() { viewDate.value = today }
-
-  /* 「查看日期」自訂選擇器：原生 <input type="date"> 沒辦法在有訂房的日子加標記，
-       所以自己刻一個小月曆彈出選單，跟房况總覽／平面圖共用同一份 viewDate。 */
-  const viewDatePickerOpen = ref(false)
-  const viewDatePickerMonth = ref(today.slice(0, 7)) // 'YYYY-MM'
-  function toggleViewDatePicker() {
-    if (!viewDatePickerOpen.value) viewDatePickerMonth.value = viewDate.value.slice(0, 7)
-    viewDatePickerOpen.value = !viewDatePickerOpen.value
-  }
-  function shiftViewDatePickerMonth(diff) {
-    const [y, m] = viewDatePickerMonth.value.split('-').map(Number)
-    const d = new Date(y, m - 1 + diff, 1)
-    viewDatePickerMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  }
-  // 目前顯示的月份裡，哪些日子有進行中的訂單（依目前的棟別篩選），有的話小月曆會點一個標記
-  const viewDatePickerBookedDates = computed(() => {
-    const [y, m] = viewDatePickerMonth.value.split('-').map(Number)
-    const monthStart = `${viewDatePickerMonth.value}-01`
-    const monthEnd = `${viewDatePickerMonth.value}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
-    const set = new Set()
-    for (const b of activeBookings.value.filter(bookingInSelectedBuilding)) {
-      let d = b.checkIn > monthStart ? b.checkIn : monthStart
-      const last = b.checkOut < monthEnd ? b.checkOut : monthEnd
-      while (d <= last) {
-        set.add(d)
-        const nd = new Date(d)
-        nd.setDate(nd.getDate() + 1)
-        d = nd.toISOString().slice(0, 10)
-      }
-    }
-    return set
-  })
-  const viewDatePickerCells = computed(() => {
-    const [y, m] = viewDatePickerMonth.value.split('-').map(Number)
-    const daysInMonth = new Date(y, m, 0).getDate()
-    const leadingBlanks = new Date(y, m - 1, 1).getDay()
-    const cells = []
-    for (let i = 0; i < leadingBlanks; i++) cells.push(null)
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-      cells.push({ day: d, date, hasBooking: viewDatePickerBookedDates.value.has(date) })
-    }
-    while (cells.length % 7 !== 0) cells.push(null)
-    return cells
-  })
-  function pickViewDate(date) {
-    viewDate.value = date
-    viewDatePickerOpen.value = false
-  }
-
-  const loading = ref(false)
-  const tab = ref('dashboard') // dashboard | orders | floorplan | calendar | overview | history
-  // 日曆／甘特圖需要比較寬的版面才擺得下，這兩個 tab 不套用 max-w-5xl 置中限制，直接吃滿版面寬度
-  const wideTab = computed(() => tab.value === 'calendar' || tab.value === 'gantt' || tab.value === 'sheet')
-  // 行內樣式備援：避免外部/全域 CSS 蓋掉 .seg-active 的優先權，導致選中狀態沒有亮起
-  const segActiveStyle = { background: '#15803d', color: '#fff' }
-
-  const buildings = ref([]) // [{id, name, rooms:[...]}]
-  const bookings = ref([]) // 全部訂單（raw）
-  // 團體行程名稱查表：訂房只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
-  const groupNamesById = ref({})
-  async function fetchGroupNames() {
-    try {
-      const list = await (await fetch(`${GROUP_BASE()}/list`)).json()
-      groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
-    } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
-  }
-
-  const rooms = computed(() =>
-    buildings.value.flatMap(b => b.rooms.map(r => ({ ...r, buildingId: b.id, buildingName: b.name })))
-  )
-
-  async function fetchAll() {
-    loading.value = true
-    try {
-      const [b, o] = await Promise.all([
-        (await fetch(`${ROOMS_BASE()}/list`)).json(),
-        (await fetch(`${BOOKINGS_BASE()}/list`)).json()
-      ])
-      buildings.value = b
-      bookings.value = o
-      fetchGroupNames()
-    } catch (e) { console.error(e) } finally { loading.value = false }
-  }
-
-  /* ---------------- 共用小工具 ---------------- */
-
-  function nights(checkIn, checkOut) {
-    if (!checkIn || !checkOut) return 0
-    const d = Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
-    return d > 0 ? d : 0
-  }
-  function statusLabel(s) {
-    return { unassigned: '待指派', pending: '待確認', confirmed: '已確認', completed: '已退房', cancelled: '已取消' }[s] || s
-  }
-  function statusClass(s) {
-    return {
-      unassigned: 'bg-sky-100 text-sky-700',
-      pending: 'bg-amber-100 text-amber-700',
-      confirmed: 'bg-emerald-100 text-emerald-700',
-      completed: 'bg-stone-200 text-stone-600',
-      cancelled: 'bg-rose-100 text-rose-700'
-    }[s] || 'bg-stone-100 text-stone-600'
-  }
-  function roomById(id) { return rooms.value.find(r => r.id === id) }
-  // 下拉選單選房間（非平面圖）時，也比照平面圖選房：人數直接預設為該房可住上限
-  function applyRoomCapacityAsGuests(target) {
-    if (target === 'order') {
-      const r = roomById(newOrder.value.roomId)
-      if (r) newOrder.value.guests = r.capacity
-    } else if (target === 'edit') {
-      const r = roomById(editOrder.value.roomId)
-      if (r) editOrder.value.guests = r.capacity
-    }
-  }
-  function applyGroupRoomCapacityAsGuests(idx) {
-    const row = newGroup.value.rooms[idx]
-    if (!row) return
-    const r = roomById(row.roomId)
-    if (r) row.guests = r.capacity
-  }
-  function roomLabel(roomId) {
-    const r = roomById(roomId)
-    return r ? `${r.id} ${r.type}` : '尚未指派'
-  }
-  function roomIdOf(roomId) {
-    const r = roomById(roomId)
-    return r ? r.id : '尚未指派'
-  }
-  function roomTypeOf(roomId) {
-    const r = roomById(roomId)
-    return r ? r.type : ''
-  }
-  /* 人數欄顯示「入住人數／房間可住人數」，例如 6 人房入住 1 位就顯示 1/6；尚未指派房間時只顯示人數 */
-  function occupancyLabel(b) {
-    const r = roomById(b.roomId)
-    return r ? `${b.guests}/${r.capacity}` : `${b.guests} 人`
-  }
-  function buildingNameOf(id) {
-    const b = buildings.value.find(x => x.id === id)
-    return b ? b.name : id
-  }
-  function bookingTotal(b) {
-    const r = roomById(b.roomId)
-    if (!r) return 0
-    return r.price * nights(b.checkIn, b.checkOut)
-  }
-  function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-    return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart)
-  }
-  function isRoomAvailable(roomId, checkIn, checkOut, excludeId) {
-    return !bookings.value.some(b =>
-      b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed'
-      && b.id !== excludeId && rangesOverlap(checkIn, checkOut, b.checkIn, b.checkOut)
-    )
-  }
-  function countByStatus(s) { return bookings.value.filter(b => b.status === s).length }
-
-  /* 還在流程中的訂單：新訂單＋住房中，不含已退房、已取消 */
-  const activeBookings = computed(() => bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed'))
-  const estRevenue = computed(() => activeBookings.value.reduce((s, b) => s + bookingTotal(b), 0))
-  const upcomingBookings = computed(() =>
-    [...activeBookings.value].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1)).slice(0, 8)
-  )
-
-  /* ---------------- 訂單管理 ---------------- */
-
-  const ordersBuilding = ref('all')
-  const ordersStatus = ref('all')
-  const ordersKeyword = ref('')
-  const ordersDateFrom = ref('')
-  const ordersDateTo = ref('')
-  const ordersMonthPick = ref(today.slice(0, 7)) // 'YYYY-MM'，快速選月用
-  // 把「時段」篩選一次設成整個月的第一天到最後一天，比自己手動點兩次日期快
-  function applyOrdersMonth(ym) {
-    if (!ym) return
-    const [y, m] = ym.split('-').map(Number)
-    ordersDateFrom.value = `${ym}-01`
-    ordersDateTo.value = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
-  }
-  function shiftOrdersMonth(diff) {
-    const [y, m] = ordersMonthPick.value.split('-').map(Number)
-    const d = new Date(y, m - 1 + diff, 1)
-    ordersMonthPick.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    applyOrdersMonth(ordersMonthPick.value)
-  }
-  function resetOrdersMonth() {
-    ordersMonthPick.value = today.slice(0, 7)
-    applyOrdersMonth(ordersMonthPick.value)
-  }
-
-  function bookingInSelectedBuilding(b) {
-    if (ordersBuilding.value === 'all') return true
-    if (b.roomId) { const r = roomById(b.roomId); return r && r.buildingId === ordersBuilding.value }
-    return b.buildingPref === ordersBuilding.value
-  }
-
-  const filteredOrders = computed(() => {
-    const kw = ordersKeyword.value.trim().toLowerCase()
-    return activeBookings.value
-      .filter(b => ordersStatus.value === 'all' || b.status === ordersStatus.value)
-      .filter(bookingInSelectedBuilding)
-      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
-      .filter(b => (!ordersDateFrom.value && !ordersDateTo.value) || rangesOverlap(
-        ordersDateFrom.value || b.checkIn, ordersDateTo.value || b.checkOut, b.checkIn, b.checkOut
-      ))
-      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  })
-
-  /* 列表檢視：屬於同一個團體的訂單一律排到最上方，用一個常駐的「團體表頭列」統一控制展開/收合
-       （點表頭本身就能收合，不需要每一列都放一顆收合按鈕）；沒有 groupId 的訂單照舊依入住日期排序，
-       接在所有團體後面 */
-  const expandedGroups = ref(new Set())
-  function toggleGroup(groupId) {
-    const s = new Set(expandedGroups.value)
-    if (s.has(groupId)) s.delete(groupId); else s.add(groupId)
-    expandedGroups.value = s
-  }
-  function groupDateRangeLabel(members) {
-    const ins = members.map(m => m.checkIn).sort()
-    const outs = members.map(m => m.checkOut).sort()
-    const minIn = ins[0], maxOut = outs[outs.length - 1]
-    const sameRange = ins.every(d => d === minIn) && outs.every(d => d === maxOut)
-    return sameRange ? `${minIn} → ${maxOut}` : `${minIn} ～ ${maxOut}（各房日期不同）`
-  }
-  function groupStatusSummary(members) {
-    const counts = {}
-    for (const m of members) counts[m.status] = (counts[m.status] || 0) + 1
-    return Object.entries(counts).map(([s, c]) => `${statusLabel(s)} ${c}`).join('・')
-  }
-  const orderRows = computed(() => {
-    const groups = new Map()
-    const singles = []
-    for (const b of filteredOrders.value) {
-      if (b.groupId) {
-        if (!groups.has(b.groupId)) groups.set(b.groupId, { groupId: b.groupId, groupName: b.groupName, members: [] })
-        groups.get(b.groupId).members.push(b)
-      } else {
-        singles.push(b)
-      }
-    }
-    const rows = []
-    for (const g of [...groups.values()].sort((a, b) => (a.members[0].checkIn < b.members[0].checkIn ? -1 : 1))) {
-      const expanded = expandedGroups.value.has(g.groupId)
-      rows.push({ kind: 'groupHeader', groupId: g.groupId, groupName: g.groupName, members: g.members, expanded })
-      if (expanded) {
-        // 團體展開後依棟別排序（穩定排序，同棟房間維持原本相對順序），
-        // 這樣後來用「+ 新增房間」補進去的房間會插回自己棟別那一段，不會整個跑到清單最後面
-        const buildingIndex = (b) => {
-          const room = roomById(b.roomId)
-          if (!room) return buildings.value.length // 尚未指派房間的排最後
-          const idx = buildings.value.findIndex(bd => bd.id === room.buildingId)
-          return idx === -1 ? buildings.value.length : idx
-        }
-        const sortedMembers = [...g.members].sort((a, b) => buildingIndex(a) - buildingIndex(b))
-        // 同步更新 row 上的 members，讓表頭列統計/摘要顯示也用同一份排序
-        rows[rows.length - 1].members = sortedMembers
-        let lastBuildingId
-        for (const b of sortedMembers) {
-          const room = roomById(b.roomId)
-          const buildingId = room ? room.buildingId : ''
-          const showBuildingHeader = !!b.roomId && buildingId !== lastBuildingId
-          lastBuildingId = b.roomId ? buildingId : lastBuildingId
-          rows.push({ kind: 'booking', booking: b, inGroup: true, showBuildingHeader, buildingName: room ? room.buildingName : '' })
-        }
-      }
-    }
-    for (const b of singles) rows.push({ kind: 'booking', booking: b, inGroup: false, showBuildingHeader: false, buildingName: roomById(b.roomId)?.buildingName || '' })
-    return rows
-  })
-
-  /* ---------------- 訂房總表：依棟別分欄，比照人工試算表格式（一列＝一個團體或一筆單獨訂單，一欄＝一個棟別） ---------------- */
-  const sheetKeyword = ref('')
-  const sheetMonthPick = ref(today.slice(0, 7))
-  const sheetDateFrom = ref('')
-  const sheetDateTo = ref('')
-  function applySheetMonth(ym) {
-    if (!ym) return
-    const [y, m] = ym.split('-').map(Number)
-    sheetDateFrom.value = `${ym}-01`
-    sheetDateTo.value = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
-  }
-  function shiftSheetMonth(diff) {
-    const [y, m] = sheetMonthPick.value.split('-').map(Number)
-    const d = new Date(y, m - 1 + diff, 1)
-    sheetMonthPick.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    applySheetMonth(sheetMonthPick.value)
-  }
-  function resetSheetMonth() {
-    sheetMonthPick.value = today.slice(0, 7)
-    applySheetMonth(sheetMonthPick.value)
-  }
-  function clearSheetMonth() { sheetDateFrom.value = ''; sheetDateTo.value = '' }
-  // 入退日期顯示成試算表慣用的「8/4-6」（同月）或「8/28-9/8」（跨月）格式
-  function sheetDateRangeLabel(checkIn, checkOut) {
-    if (!checkIn || !checkOut) return ''
-    const [, m1, d1] = checkIn.split('-')
-    const [, m2, d2] = checkOut.split('-')
-    return Number(m1) === Number(m2) ? `${Number(m1)}/${d1}-${d2}` : `${Number(m1)}/${d1}-${Number(m2)}/${d2}`
-  }
-  const sheetRows = computed(() => {
-    const kw = sheetKeyword.value.trim().toLowerCase()
-    // 團體底下所有房間合成一列；沒有 groupId 的單獨訂單各自成一列
-    const groups = new Map()
-    for (const b of activeBookings.value) {
-      const key = b.groupId || `single_${b.id}`
-      if (!groups.has(key)) groups.set(key, { key, groupId: b.groupId || null, groupName: b.groupName, members: [] })
-      groups.get(key).members.push(b)
-    }
-    const rows = [...groups.values()].map((g) => {
-      const ins = g.members.map(m => m.checkIn).sort()
-      const outs = g.members.map(m => m.checkOut).sort()
-      const checkIn = ins[0]
-      const checkOut = outs[outs.length - 1]
-      const byBuilding = {}
-      for (const bd of buildings.value) byBuilding[bd.id] = []
-      for (const m of g.members) {
-        const room = roomById(m.roomId)
-        if (room) byBuilding[room.buildingId].push(room.id)
-        else if (m.buildingPref && byBuilding[m.buildingPref]) byBuilding[m.buildingPref].push('待指派')
-      }
-      // 該棟上架房間全部都被這一列包走時，直接顯示「全包」（比照人工表格慣例）
-      for (const bd of buildings.value) {
-        const activeIds = rooms.value.filter(r => r.active && r.buildingId === bd.id).map(r => r.id)
-        const got = byBuilding[bd.id].filter(x => x !== '待指派')
-        if (activeIds.length > 0 && activeIds.every(id => got.includes(id))) byBuilding[bd.id] = ['全包']
-      }
-      return {
-        key: g.key, groupId: g.groupId, groupName: g.groupName,
-        name: g.groupId ? (g.groupName || '未命名團體') : g.members[0].name,
-        checkIn, checkOut, byBuilding, members: g.members
-      }
-    })
-    return rows
-      .filter(r => (!sheetDateFrom.value && !sheetDateTo.value) || rangesOverlap(sheetDateFrom.value || r.checkIn, sheetDateTo.value || r.checkOut, r.checkIn, r.checkOut))
-      .filter(r => !kw || r.name.toLowerCase().includes(kw) || r.members.some(m => m.roomId && m.roomId.toLowerCase().includes(kw)))
-      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  })
-
-  /* 房况總覽：依棟別篩選為範圍，並依 viewDate（可切換的查看日期）判斷住房狀況 */
-  function isOccupiedNow(roomId) {
-    return bookings.value.some(b => b.roomId === roomId && b.status === 'confirmed' && b.checkIn <= viewDate.value && viewDate.value < b.checkOut)
-  }
-  const roomsInSelectedBuilding = computed(() =>
-    ordersBuilding.value === 'all' ? rooms.value : rooms.value.filter(r => r.buildingId === ordersBuilding.value)
-  )
-  /* 依可住人數（X人房）分類統計：總間數／上架間數／目前住房中／空房可訂 */
-  const roomTypeSummary = computed(() => {
-    const map = new Map()
-    for (const r of roomsInSelectedBuilding.value) {
-      if (!map.has(r.capacity)) map.set(r.capacity, { capacity: r.capacity, types: new Set(), total: 0, active: 0, occupiedNow: 0 })
-      const g = map.get(r.capacity)
-      g.types.add(r.type)
-      g.total++
-      if (r.active) {
-        g.active++
-        if (isOccupiedNow(r.id)) g.occupiedNow++
-      }
-    }
-    return [...map.values()]
-      .sort((a, b) => a.capacity - b.capacity)
-      .map(g => ({ ...g, typesLabel: [...g.types].join('／'), vacant: g.active - g.occupiedNow }))
-  })
-  const orderStats = computed(() =>
-    roomTypeSummary.value.reduce((acc, g) => {
-      acc.total += g.total; acc.active += g.active; acc.occupiedNow += g.occupiedNow; acc.vacant += g.vacant
-      return acc
-    }, { total: 0, active: 0, occupiedNow: 0, vacant: 0 })
-  )
-  /* 應入住／應退房：依 viewDate 計算（預設今天），切換日期即可預覽/回顧當天的異動量 */
-  const checkinTodayCount = computed(() =>
-    bookings.value.filter(b => b.status !== 'cancelled' && b.status !== 'completed' && b.checkIn === viewDate.value && bookingInSelectedBuilding(b)).length
-  )
-  const checkoutTodayCount = computed(() =>
-    bookings.value.filter(b => b.status === 'confirmed' && b.checkOut === viewDate.value && bookingInSelectedBuilding(b)).length
-  )
-  const ordersUnassignedCount = computed(() => bookings.value.filter(b => b.status === 'unassigned' && bookingInSelectedBuilding(b)).length)
-  const ordersPendingCount = computed(() => bookings.value.filter(b => b.status === 'pending' && bookingInSelectedBuilding(b)).length)
-
-  const visibleOrderBuildings = computed(() =>
-    ordersBuilding.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === ordersBuilding.value)
-  )
-  const unassignedForFloor = computed(() =>
-    [...bookings.value.filter(b => b.status === 'unassigned')].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  )
-
-  // 同一間房可以有多筆「日期不重疊」的進行中訂單（例如 201 房 7/31~8/2 一筆、8/21~8/26 另一筆），
-  // 所以這裡回傳的是「全部」進行中訂單（依入住日期排序），不是只有一筆
-  function roomBookingsForRoom(roomId) {
-    return bookings.value
-      .filter(b => b.roomId === roomId && (b.status === 'pending' || b.status === 'confirmed'))
-      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  }
-  // 平面圖顏色／標籤要回答的是「viewDate 這一天，這間房是什麼狀態」，
-  // 所以要挑的是「checkIn <= viewDate < checkOut」的那一筆，不是不分日期抓最早的一筆
-  function bookingOnDate(roomId, date) {
-    return roomBookingsForRoom(roomId).find(b => b.checkIn <= date && date < b.checkOut) || null
-  }
-  function orderTileClass(r) {
-    if (!r.active) return 'tile-inactive'
-    const b = bookingOnDate(r.id, viewDate.value)
-    if (!b) return 'tile-vacant'
-    return b.status === 'pending' ? 'tile-pending' : 'tile-occupied'
-  }
-  function orderTileLabel(r) {
-    if (!r.active) return '已下架'
-    const list = roomBookingsForRoom(r.id)
-    const b = bookingOnDate(r.id, viewDate.value)
-    const more = list.length > (b ? 1 : 0) ? `（+${list.length - (b ? 1 : 0)} 筆其他時段）` : ''
-    if (!b) return '空房' + more
-    return (b.status === 'pending' ? '待確認・' : '已確認・') + (b.groupName || b.name) + more
-  }
-  // 給 RoomFloorplan 的 statusResolver prop：訂單管理要分「待確認」跟「已確認」兩種顏色，
-  // 跟房間管理預設的「今日住房中／空房」邏輯不同，所以這裡自訂
-  function orderStatusResolver(r) {
-    return { cls: orderTileClass(r), label: orderTileLabel(r) }
-  }
-
-  const tileTarget = ref(null)
-  function openBookingTile(room, buildingId) {
-    tileTarget.value = { room, buildingId, bookings: roomBookingsForRoom(room.id) }
-  }
-  async function quickSetTile(bookingId, status) {
-    if (!tileTarget.value) return
-    await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
-    if (tileTarget.value) {
-      tileTarget.value = { ...tileTarget.value, bookings: roomBookingsForRoom(tileTarget.value.room.id) }
-    }
-  }
-
-  /* ---------------- 日曆檢視 ---------------- */
-
-  const calendarMonth = ref(today.slice(0, 7)) // 'YYYY-MM'
-  const calendarMonthLabel = computed(() => {
-    const [y, m] = calendarMonth.value.split('-')
-    return `${y} 年 ${Number(m)} 月`
-  })
-  function shiftCalendarMonth(diff) {
-    const [y, m] = calendarMonth.value.split('-').map(Number)
-    const d = new Date(y, m - 1 + diff, 1)
-    calendarMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  }
-  function resetCalendarMonth() { calendarMonth.value = today.slice(0, 7) }
-
-  function calendarPillClass(status) {
-    return { unassigned: 'bg-sky-600', pending: 'bg-amber-600', confirmed: 'bg-emerald-600' }[status] || 'bg-stone-500'
-  }
-  // 某一天有哪些訂單「有關」：入住日／退房日／中間在住都算，並標記是入住還是退房，
-  // 方便日曆一眼看出當天要接待誰、要送誰走。同一個團體當天不管佔了幾間房，都合併成一筆
-  // 摘要（而不是一間房一筆、洗版整個日曆），沒有 groupId 的個人訂房則照舊逐筆列出。
-  function bookingsOnCalendarDate(date) {
-    const raw = activeBookings.value
-      .filter(bookingInSelectedBuilding)
-      .filter(b => b.checkIn <= date && date <= b.checkOut)
-      .map(b => ({ ...b, calTag: b.checkIn === date ? '入住' : (b.checkOut === date ? '退房' : '') }))
-
-    const groupMap = new Map()
-    const singles = []
-    for (const b of raw) {
-      if (b.groupId) {
-        if (!groupMap.has(b.groupId)) groupMap.set(b.groupId, [])
-        groupMap.get(b.groupId).push(b)
-      } else {
-        singles.push(b)
-      }
-    }
-    const groupEntries = [...groupMap.entries()].map(([groupId, members]) => {
-      const tags = new Set(members.map(m => m.calTag).filter(Boolean))
-      return {
-        id: 'grp_' + groupId,
-        isGroup: true,
-        groupId,
-        groupName: members[0].groupName,
-        calTag: tags.size === 1 ? [...tags][0] : '',
-        checkIn: members.reduce((min, m) => (m.checkIn < min ? m.checkIn : min), members[0].checkIn),
-        members
-      }
-    })
-    return [...groupEntries, ...singles].sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  }
-  // 產生月曆格子：前後補空白湊滿整週（星期日開頭），每格帶當天日期字串與當天訂單清單
-  const calendarCells = computed(() => {
-    const [y, m] = calendarMonth.value.split('-').map(Number)
-    const daysInMonth = new Date(y, m, 0).getDate()
-    const leadingBlanks = new Date(y, m - 1, 1).getDay()
-    const cells = []
-    for (let i = 0; i < leadingBlanks; i++) cells.push(null)
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-      cells.push({ day: d, date, bookings: bookingsOnCalendarDate(date) })
-    }
-    while (cells.length % 7 !== 0) cells.push(null)
-    return cells
-  })
-
-  /* ---------------- 甘特圖 ---------------- */
-
-  // 本月每一天：day 數字、星期幾（0=日...6=六）、是否為今天，用來畫甘特圖橫軸表頭
-  const ganttDays = computed(() => {
-    const [y, m] = calendarMonth.value.split('-').map(Number)
-    const daysInMonth = new Date(y, m, 0).getDate()
-    const list = []
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-      list.push({ day: d, date, dow: new Date(y, m - 1, d).getDay(), isToday: date === today })
-    }
-    return list
-  })
-  // 某個房間在本月要畫的橫條：把訂單的入住～退房區間裁切到本月範圍內，換算成甘特圖的欄位起訖
-  function ganttBarsForRoom(roomId) {
-    const [y, m] = calendarMonth.value.split('-').map(Number)
-    const daysInMonth = new Date(y, m, 0).getDate()
-    const monthStart = new Date(y, m - 1, 1)
-    const monthEnd = new Date(y, m - 1, daysInMonth)
-    return bookings.value
-      .filter(b => b.roomId === roomId && b.status !== 'cancelled' && b.status !== 'completed')
-      .filter(b => new Date(b.checkIn) <= monthEnd && new Date(b.checkOut) > monthStart)
-      .map((b) => {
-        let occStart = new Date(b.checkIn)
-        let occEnd = new Date(b.checkOut)
-        occEnd.setDate(occEnd.getDate() - 1) // 退房日當天不算住宿夜，橫條畫到退房前一天
-        if (occStart < monthStart) occStart = monthStart
-        if (occEnd > monthEnd) occEnd = monthEnd
-        const startDay = occStart.getDate()
-        const endDay = Math.max(startDay, occEnd.getDate())
-        return {
-          booking: b,
-          colStart: startDay,
-          colEnd: endDay + 1,
-          label: b.groupName || b.name,
-          title: `${b.groupName || b.name}｜${b.checkIn} → ${b.checkOut}｜${statusLabel(b.status)}`,
-          cls: b.groupId ? 'bg-violet-600' : calendarPillClass(b.status)
-        }
-      })
-  }
-
-  const dayTarget = ref(null)
-  async function quickSetDay(bookingId, status) {
-    if (!dayTarget.value) return
-    await setStatus(bookingId, status) // setStatus 內部已經會重新 fetchAll()
-    if (dayTarget.value) {
-      dayTarget.value = { ...dayTarget.value, bookings: bookingsOnCalendarDate(dayTarget.value.date) }
-    }
-  }
-
-  /* ---------------- 狀態轉換 / 刪除 ---------------- */
-
-  async function setStatus(id, status) {
-    try {
-      await fetch(`${BOOKINGS_BASE()}/status`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status })
-      })
-      await fetchAll()
-    } catch (e) { console.error(e) }
-  }
-  async function removeBooking(id) {
-    if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原。')) return
-    try {
-      await fetch(`${BOOKINGS_BASE()}/${id}`, { method: 'DELETE' })
-      await fetchAll()
-    } catch (e) { console.error(e) }
-  }
-  async function restoreBooking(b) {
-    await setStatus(b.id, b.roomId ? 'pending' : 'unassigned')
-  }
-
-  /* ---------------- 指派房間 ---------------- */
-
-  const assignTarget = ref(null)
-  const assignBuildingFilter = ref('all')
-  const assignError = ref('')
-  const assignMode = ref('single') // 'single' 指定單一房間 ・ 'group' 拆成好幾間房分配給團體
-  const splitGroupName = ref('')
-  const splitRows = ref([{ roomId: '', guests: 1, name: '', notes: '' }])
-  const splitError = ref('')
-  const splitSaving = ref(false)
-
-  function openAssign(booking) {
-    assignTarget.value = booking
-    assignBuildingFilter.value = booking.buildingPref && booking.buildingPref !== 'all' ? booking.buildingPref : 'all'
-    assignError.value = ''
-    assignMode.value = 'single'
-    splitGroupName.value = booking.name
-    splitRows.value = [{ roomId: '', guests: booking.guests, name: '', notes: '' }]
-    splitError.value = ''
-  }
-  const eligibleRooms = computed(() => {
-    if (!assignTarget.value) return []
-    const b = assignTarget.value
-    return rooms.value
-      .filter(r => r.active)
-      .filter(r => r.capacity >= b.guests)
-      .filter(r => assignBuildingFilter.value === 'all' || r.buildingId === assignBuildingFilter.value)
-      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
-      .sort((r1, r2) => {
-        const pref = b.buildingPref
-        if (pref && pref !== 'all') {
-          if (r1.buildingId === pref && r2.buildingId !== pref) return -1
-          if (r2.buildingId === pref && r1.buildingId !== pref) return 1
-        }
-        return r1.capacity - r2.capacity || r1.price - r2.price
-      })
-  })
-  async function assignRoom(room) {
-    assignError.value = ''
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: assignTarget.value.id, roomId: room.id })
-      })).json()
-      if (res && res.error) { assignError.value = res.error; await fetchAll(); return }
-      assignTarget.value = null
-      await fetchAll()
-    } catch (e) { console.error(e); assignError.value = '指派失敗，請稍後再試' }
-  }
-
-  // 「分配到多間房（團體）」：人數太多、單一房間住不下時，把這筆訂單拆成好幾間房。
-  // 同一份表單裡已經被別列選走的房間要排除，避免自己選重複。
-  function addSplitRow() { splitRows.value.push({ roomId: '', guests: 1, name: '', notes: '' }) }
-  function removeSplitRow(idx) {
-    if (splitRows.value.length <= 1) return
-    splitRows.value.splice(idx, 1)
-  }
-  function eligibleRoomsForSplitRow(idx) {
-    if (!assignTarget.value) return []
-    const b = assignTarget.value
-    const pickedElsewhere = splitRows.value.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
-    return rooms.value
-      .filter(r => r.active)
-      .filter(r => !pickedElsewhere.includes(r.id))
-      .filter(r => isRoomAvailable(r.id, b.checkIn, b.checkOut, b.id))
-      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-  }
-  const splitTotalGuests = computed(() => splitRows.value.reduce((s, r) => s + (Number(r.guests) || 0), 0))
-
-  async function submitSplit() {
-    splitError.value = ''
-    if (!assignTarget.value) return
-    if (!splitGroupName.value.trim()) { splitError.value = '請填寫團體名稱'; return }
-    const rows = splitRows.value.filter(r => r.roomId)
-    if (rows.length === 0) { splitError.value = '請至少分配一間房'; return }
-    const roomIds = rows.map(r => r.roomId)
-    if (new Set(roomIds).size !== roomIds.length) { splitError.value = '同一份表單裡不能選到同一間房兩次'; return }
-
-    splitSaving.value = true
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/split-to-group`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: assignTarget.value.id,
-          groupName: splitGroupName.value.trim(),
-          rooms: rows.map(r => ({ roomId: r.roomId, guests: r.guests || 1, name: r.name.trim(), notes: r.notes.trim() }))
-        })
-      })).json()
-      if (res && res.error) { splitError.value = res.error; return }
-      const finishedGroupName = splitGroupName.value.trim()
-      assignTarget.value = null
-      await fetchAll()
-      if (res && res.groupId) openGroupTarget(res.groupId, finishedGroupName)
-    } catch (e) { console.error(e); splitError.value = '分配失敗，請稍後再試' } finally { splitSaving.value = false }
-  }
-
-  /* ---------------- 新增訂單 ---------------- */
-
-  const createOrderTarget = ref(false)
-  const newOrderError = ref('')
-  const newOrder = ref({ name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' })
-
-  function openCreateOrder() {
-    newOrder.value = { name: '', phone: '', checkIn: today, checkOut: '', guests: 1, buildingPref: 'all', roomId: '', notes: '' }
-    newOrderError.value = ''
-    createOrderTarget.value = true
-  }
-
-  /* ---------------- 編輯訂單：修改既有訂單的房客資料/日期/人數/備註，也可以直接在這裡換房間
-       （取代原本獨立的「更換房間」按鈕），換房間本身仍是呼叫既有的 /assign，只是入口收斂到
-       編輯 Modal，避免兩個地方都能改房間、使用者要記兩套操作） ---------------- */
-
-  const editOrderTarget = ref(null) // 目前正在編輯的訂單 id，null 代表沒開啟
-  const editOrderError = ref('')
-  const editOrderOriginalRoomId = ref('')
-  const editOrder = ref({ name: '', phone: '', checkIn: '', checkOut: '', guests: 1, buildingPref: 'all', notes: '', roomId: '' })
-
-  function openEditOrder(b) {
-    editOrderTarget.value = b.id
-    editOrderOriginalRoomId.value = b.roomId || ''
-    editOrder.value = {
-      name: b.name || '',
-      phone: b.phone || '',
-      checkIn: b.checkIn || '',
-      checkOut: b.checkOut || '',
-      guests: b.guests || 1,
-      buildingPref: b.buildingPref || 'all',
-      notes: b.notes || '',
-      roomId: b.roomId || ''
-    }
-    editOrderError.value = ''
-  }
-
-  // 換房間下拉的候選名單：跟新增訂單那份邏輯一樣（上架／夠住／該日期沒被其他訂單占用），
-  // 但要排除自己這筆訂單（isRoomAvailable 的 excludeId），也保留「目前已指派的房間」，
-  // 即使因為棟別/人數篩選條件改變而不符合，也還是顯示在選單裡，避免使用者看不到目前選的房間
-  const eligibleRoomsForEdit = computed(() => {
-    const o = editOrder.value
-    if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
-    return rooms.value
-      .filter(r => (r.active && r.capacity >= o.guests && (o.buildingPref === 'all' || r.buildingId === o.buildingPref)) || r.id === o.roomId)
-      .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut, editOrderTarget.value))
-      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-  })
-
-  async function submitEditOrder() {
-    editOrderError.value = ''
-    const o = editOrder.value
-    if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
-      editOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
-      return
-    }
-    if (nights(o.checkIn, o.checkOut) <= 0) {
-      editOrderError.value = '退房日期需晚於入住日期'
-      return
-    }
-    const id = editOrderTarget.value
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/update`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          name: o.name.trim(),
-          phone: o.phone.trim(),
-          guests: o.guests,
-          checkIn: o.checkIn,
-          checkOut: o.checkOut,
-          buildingPref: o.buildingPref,
-          notes: o.notes.trim()
-        })
-      })).json()
-      if (res && res.error) { editOrderError.value = res.error; return }
-
-      // 房間有變更（含從沒房到有房、或換成別間）才呼叫既有的 /assign，跟新增訂單同一套 API
-      if (o.roomId && o.roomId !== editOrderOriginalRoomId.value) {
-        const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, roomId: o.roomId })
-        })).json()
-        if (assignRes && assignRes.error) { editOrderError.value = `其他資料已更新，但房間變更失敗：${assignRes.error}`; await fetchAll(); return }
-      }
-
-      editOrderTarget.value = null
-      await fetchAll()
-    } catch (e) { console.error(e); editOrderError.value = '儲存失敗，請稍後再試' }
-  }
-
-  const eligibleRoomsForCreate = computed(() => {
-    const o = newOrder.value
-    if (!o.checkIn || !o.checkOut || !o.guests || nights(o.checkIn, o.checkOut) <= 0) return []
-    return rooms.value
-      .filter(r => r.active)
-      .filter(r => r.capacity >= o.guests)
-      .filter(r => o.buildingPref === 'all' || r.buildingId === o.buildingPref)
-      .filter(r => isRoomAvailable(r.id, o.checkIn, o.checkOut))
-      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-  })
-
-  async function createOrder() {
-    newOrderError.value = ''
-    const o = newOrder.value
-    if (!o.name.trim() || !o.checkIn || !o.checkOut || !o.guests) {
-      newOrderError.value = '請填寫房客姓名、入住/退房日期與人數'
-      return
-    }
-    if (nights(o.checkIn, o.checkOut) <= 0) {
-      newOrderError.value = '退房日期需晚於入住日期'
-      return
-    }
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          checkIn: o.checkIn,
-          checkOut: o.checkOut,
-          guests: o.guests,
-          name: o.name.trim(),
-          phone: o.phone.trim(),
-          email: '',
-          buildingPref: o.buildingPref,
-          notes: o.notes.trim()
-        })
-      })).json()
-      if (res && res.error) {
-        newOrderError.value = res.error;
-        return
-      }
-
-      // /request 一律建立為待指派訂單；若當下有選房間，緊接著呼叫既有的指派 API
-      if (o.roomId && res && res.id) {
-        const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({id: res.id, roomId: o.roomId})
-        })).json()
-        if (assignRes && assignRes.error) {
-          newOrderError.value = `訂單已建立（${res.id}），但指派房間失敗：${assignRes.error}`;
-          await fetchAll();
-          return
-        }
-
-        // 後台手動建立、且當下就指派了房間的訂單，視同已經確認過，直接跳過「待確認」
-        await (await fetch(`${BOOKINGS_BASE()}/status`, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({id: res.id, status: 'confirmed'})
-        })).json()
-      }
-
-      createOrderTarget.value = false
-      await fetchAll()
-    } catch (e) {
-      console.error(e);
-      newOrderError.value = '新增失敗，請稍後再試'
-    }
-  }
-
-  /* ---------------- 登記團體 ----------------
-       設計上團體不是新的資料結構：每一間房還是走跟個人訂房完全一樣的 /request + /assign，
-       只是每一筆都多蓋上同一個 groupId/groupName，所以既有的日期重疊檢查、狀態轉換、
-       平面圖/日曆顯示邏輯完全不用改，只是多顯示一個團體標籤而已。 */
-
-  const createGroupTarget = ref(false)
-  const newGroupError = ref('')
-  const groupSaving = ref(false)
-
-  function blankGroupRow() {
-    return {roomId: '', buildingPref: 'all', name: '', guests: 1, notes: ''}
-  }
-
-  const newGroup = ref({groupName: '', phone: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()]})
-  const wholeBuildingPick = ref('')
-  const wholeBuildingNote = ref('')
-
-  function openCreateGroup() {
-    newGroup.value = {groupName: '', phone: '', checkIn: today, checkOut: '', rooms: [blankGroupRow()]}
-    newGroupError.value = ''
-    wholeBuildingPick.value = ''
-    wholeBuildingNote.value = ''
-    createGroupTarget.value = true
-  }
-
-  // 包棟：把選定棟別裡目前空著的房間一次全部加進團體房間清單，每一列後續還是可以個別改人數/刪除，
-  // 跟手動一列一列加房間是同一份資料、同一套邏輯，只是省了逐間挑選的功夫
-  function applyWholeBuilding() {
-    newGroupError.value = ''
-    wholeBuildingNote.value = ''
-    const g = newGroup.value
-    if (!wholeBuildingPick.value) {
-      newGroupError.value = '請先選擇要包棟的棟別';
-      return
-    }
-    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) {
-      newGroupError.value = '請先確認入住/退房日期';
-      return
-    }
-    const already = new Set(g.rooms.filter(r => r.roomId).map(r => r.roomId))
-    const buildingRooms = rooms.value.filter(r => r.active && r.buildingId === wholeBuildingPick.value)
-    const toAdd = buildingRooms.filter(r => !already.has(r.id) && isRoomAvailable(r.id, g.checkIn, g.checkOut))
-    const alreadyInBuilding = buildingRooms.filter(r => already.has(r.id)).length
-    const skipped = buildingRooms.length - toAdd.length - alreadyInBuilding
-    if (toAdd.length === 0) {
-      newGroupError.value = alreadyInBuilding > 0 && skipped === 0
-        ? '這個棟別的房間已經都在清單裡了'
-        : '這個棟別目前沒有空房可以加入（可能都已被佔用）'
-      return
-    }
-    // 表單裡如果都還是空白列（尚未選房間），先清掉，避免整棟加進來後多出一列空白
-    if (g.rooms.every(r => !r.roomId)) g.rooms = []
-    for (const r of toAdd) g.rooms.push({
-      roomId: r.id,
-      buildingPref: wholeBuildingPick.value,
-      name: '',
-      guests: r.capacity,
-      notes: ''
-    })
-    wholeBuildingNote.value = skipped > 0
-      ? `已加入 ${toAdd.length} 間房；另有 ${skipped} 間房該日期已被占用，沒有一起加入`
-      : `已加入整棟 ${toAdd.length} 間房`
-    wholeBuildingPick.value = ''
-  }
-
-  function addGroupRoomRow() {
-    newGroup.value.rooms.push(blankGroupRow())
-  }
-
-  function removeGroupRoomRow(idx) {
-    if (newGroup.value.rooms.length <= 1) return
-    newGroup.value.rooms.splice(idx, 1)
-  }
-
-  // 同一份團體表單裡，已經被別列選走的房間要從下拉選單裡排除，避免同一份表單自己選重複；
-  // 每一列也有自己的「偏好棟別」，選了就只列出該棟的房間
-  function eligibleRoomsForGroupRow(idx) {
-    const g = newGroup.value
-    const row = g.rooms[idx]
-    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) return []
-    const pickedElsewhere = g.rooms.filter((r, i) => i !== idx && r.roomId).map(r => r.roomId)
-    return rooms.value
-      .filter(r => r.active)
-      .filter(r => !pickedElsewhere.includes(r.id))
-      .filter(r => row.buildingPref === 'all' || r.buildingId === row.buildingPref)
-      .filter(r => isRoomAvailable(r.id, g.checkIn, g.checkOut))
-      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-  }
-
-  // 換了偏好棟別、但原本選的房間不屬於新棟別時，把房間選擇清掉，避免表單顯示跟實際不一致
-  function onGroupRowBuildingChange(idx) {
-    const row = newGroup.value.rooms[idx]
-    if (!row || !row.roomId) return
-    const r = roomById(row.roomId)
-    if (r && row.buildingPref !== 'all' && r.buildingId !== row.buildingPref) row.roomId = ''
-  }
-
-  async function createGroup() {
-    newGroupError.value = ''
-    const g = newGroup.value
-    if (!g.groupName.trim()) {
-      newGroupError.value = '請填寫團體名稱';
-      return
-    }
-    if (!g.checkIn || !g.checkOut || nights(g.checkIn, g.checkOut) <= 0) {
-      newGroupError.value = '請確認入住/退房日期';
-      return
-    }
-    const rows = g.rooms.filter(r => r.roomId)
-    if (rows.length === 0) {
-      newGroupError.value = '請至少選一間房間';
-      return
-    }
-    const roomIds = rows.map(r => r.roomId)
-    if (new Set(roomIds).size !== roomIds.length) {
-      newGroupError.value = '同一份團體登記裡不能選到同一間房兩次';
-      return
-    }
-
-    groupSaving.value = true
-    const groupId = 'grp_' + Date.now()
-    const failed = []
-    try {
-      for (const row of rows) {
-        try {
-          const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-              checkIn: g.checkIn,
-              checkOut: g.checkOut,
-              guests: row.guests || 1,
-              name: (row.name.trim() || g.groupName.trim()),
-              phone: g.phone.trim(),
-              email: '',
-              buildingPref: 'all',
-              notes: row.notes.trim(),
-              groupId,
-              groupName: g.groupName.trim()
-            })
-          })).json()
-          if (res && res.error) {
-            failed.push(`${row.roomId}：${res.error}`);
-            continue
-          }
-
-          const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({id: res.id, roomId: row.roomId})
-          })).json()
-          if (assignRes && assignRes.error) failed.push(`${row.roomId}：${assignRes.error}`)
-        } catch (e) {
-          console.error(e)
-          failed.push(`${row.roomId}：建立失敗`)
-        }
-      }
-      // 後台手動登記的團體，已成功建立的房間直接整團設為已確認，不停在待確認
-      if (rows.length > failed.length) {
-        await (await fetch(`${BOOKINGS_BASE()}/group/status`, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({groupId, status: 'confirmed'})
-        })).json()
-      }
-      await fetchAll()
-      if (failed.length) {
-        // 部分房間可能剛好被搶先訂走；已成功的那幾間房不受影響，留在畫面上讓使用者看清楚哪幾間要重選
-        newGroupError.value = `部分房間登記失敗，請重新選擇：${failed.join('；')}`
-      } else {
-        createGroupTarget.value = false
-      }
-    } finally {
-      groupSaving.value = false
-    }
-  }
-
-  /* ---------------- 平面圖選房間：新增訂單／登記團體／編輯訂單共用的浮動選房器 ----------------
-       target 用字串區分要把選到的房間填回哪裡：'order' 填新增訂單那顆 select，'edit' 填編輯
-       訂單那顆 select，'group:<idx>' 填登記團體第 idx 列的 select，跟原本的下拉選單共用同一個
-       v-model，所以在平面圖上點跟在下拉選單選是同一件事，畫面會同步。
-       excludeBookingId：編輯既有訂單時，該訂單目前占用的房間不該被自己擋住，所以要排除自己。 */
-
-  const roomPicker = ref(null) // { target, checkIn, checkOut, guests, excludeIds, excludeBookingId }
-  function openRoomPicker(target, checkIn, checkOut, guests, excludeIds, excludeBookingId) {
-    if (!checkIn || !checkOut || nights(checkIn, checkOut) <= 0) {
-      const msg = '請先填入住日期與退房日期，才能用平面圖選房間'
-      if (target === 'order') newOrderError.value = msg
-      else if (target === 'edit') editOrderError.value = msg
-      else if (target === 'groupAdd') groupAddError.value = msg
-      else newGroupError.value = msg
-      return
-    }
-    roomPicker.value = {
-      target,
-      checkIn,
-      checkOut,
-      guests: guests || 1,
-      excludeIds: excludeIds || [],
-      excludeBookingId: excludeBookingId || null
-    }
-  }
-
-  // 平面圖上要標成「不可選」（灰色）的房間 id：不夠大、該日期已被佔用、已下架、
-  // 或已經被同一份表單裡其他列選走
-  const roomPickerUnavailableIds = computed(() => {
-    if (!roomPicker.value) return []
-    const rp = roomPicker.value
-    return rooms.value
-      .filter(r => !(
-        r.active
-        && r.capacity >= rp.guests
-        && !rp.excludeIds.includes(r.id)
-        && isRoomAvailable(r.id, rp.checkIn, rp.checkOut, rp.excludeBookingId)
-      ))
-      .map(r => r.id)
-  })
-
-  function pickRoomFromFloorplan(room) {
-    if (!roomPicker.value) return
-    if (roomPickerUnavailableIds.value.includes(room.id)) return // 防呆：不可選的房間點了也不處理
-    const target = roomPicker.value.target
-    if (target === 'order') {
-      newOrder.value.roomId = room.id
-      newOrder.value.guests = room.capacity // 預設人數＝該房可住上限，多數訂房都是住滿，省得再手動改
-    } else if (target === 'edit') {
-      editOrder.value.roomId = room.id
-      editOrder.value.guests = room.capacity
-    } else if (target === 'groupAdd') {
-      groupAddRoom.value.roomId = room.id
-      groupAddRoom.value.guests = room.capacity
-    } else if (target.startsWith('group:')) {
-      const idx = Number(target.split(':')[1])
-      if (newGroup.value.rooms[idx]) {
-        newGroup.value.rooms[idx].roomId = room.id
-        newGroup.value.rooms[idx].guests = room.capacity
-      }
-    }
-    roomPicker.value = null
-  }
-
-  /* ---------------- 團體管理：查看/整團操作同一個 groupId 底下所有訂單 ---------------- */
-
-  const groupTarget = ref(null) // { groupId, groupName }
-  function openGroupTarget(groupId, groupName) {
-    groupTarget.value = {groupId, groupName}
-    groupEditing.value = false
-    groupAdding.value = false
-  }
-
-  const groupBookings = computed(() => {
-    if (!groupTarget.value) return []
-    return bookings.value
-      .filter(b => b.groupId === groupTarget.value.groupId)
-      .sort((a, b) => (a.roomId < b.roomId ? -1 : 1))
-  })
-  // 團體目前的共用入住/退房日期，取團體底下第一筆訂單的日期（同一個團體登記時是共用同一組日期）
-  const groupCheckIn = computed(() => (groupBookings.value[0] && groupBookings.value[0].checkIn) || '')
-  const groupCheckOut = computed(() => (groupBookings.value[0] && groupBookings.value[0].checkOut) || '')
-
-  /* ---------------- 團體管理：在既有團體底下新增一間房 ---------------- */
-  const groupAdding = ref(false)
-  const groupAddRoom = ref({roomId: '', guests: 1, name: '', notes: ''})
-  const groupAddError = ref('')
-  const groupAddSaving = ref(false)
-
-  function startGroupAdd() {
-    groupEditing.value = false
-    groupAddRoom.value = {roomId: '', guests: 1, name: '', notes: ''}
-    groupAddError.value = ''
-    groupAdding.value = true
-  }
-
-  // 可選房間：要在團體共用的入住/退房日期空著，且還沒被這個團體其他房間占用
-  const eligibleRoomsForGroupAdd = computed(() => {
-    if (!groupTarget.value || !groupCheckIn.value || !groupCheckOut.value) return []
-    const usedByGroup = groupBookings.value.map(b => b.roomId).filter(Boolean)
-    return rooms.value
-      .filter(r => r.active)
-      .filter(r => !usedByGroup.includes(r.id))
-      .filter(r => isRoomAvailable(r.id, groupCheckIn.value, groupCheckOut.value))
-      .sort((r1, r2) => r1.capacity - r2.capacity || r1.price - r2.price)
-  })
-
-  async function submitAddRoomToGroup() {
-    groupAddError.value = ''
-    if (!groupTarget.value) return
-    if (!groupCheckIn.value || !groupCheckOut.value) {
-      groupAddError.value = '找不到這個團體的入住/退房日期';
-      return
-    }
-    if (!groupAddRoom.value.roomId) {
-      groupAddError.value = '請選擇房間';
-      return
-    }
-    groupAddSaving.value = true
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/request`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          checkIn: groupCheckIn.value,
-          checkOut: groupCheckOut.value,
-          guests: groupAddRoom.value.guests || 1,
-          name: (groupAddRoom.value.name.trim() || groupTarget.value.groupName),
-          phone: (groupBookings.value[0] && groupBookings.value[0].phone) || '',
-          email: '',
-          buildingPref: 'all',
-          notes: groupAddRoom.value.notes.trim(),
-          groupId: groupTarget.value.groupId,
-          groupName: groupTarget.value.groupName
-        })
-      })).json()
-      if (res && res.error) {
-        groupAddError.value = res.error;
-        return
-      }
-
-      const assignRes = await (await fetch(`${BOOKINGS_BASE()}/assign`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id: res.id, roomId: groupAddRoom.value.roomId})
-      })).json()
-      if (assignRes && assignRes.error) {
-        groupAddError.value = assignRes.error;
-        return
-      }
-
-      // 跟其他後台手動建立的訂單一樣，直接設為已確認，不停在待確認
-      await fetch(`${BOOKINGS_BASE()}/status`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id: res.id, status: 'confirmed'})
-      })
-
-      await fetchAll()
-      groupAdding.value = false
-    } catch (e) {
-      console.error(e)
-      groupAddError.value = '新增失敗，請稍後再試'
-    } finally {
-      groupAddSaving.value = false
-    }
-  }
-
-  // 從團體裡移除單一房間：直接刪除該筆訂單（跟一般刪除訂單共用同一支 API），團體其餘房間不受影響
-  async function removeRoomFromGroup(bk) {
-    if (!confirm(`確定要將 ${bk.roomId ? roomLabel(bk.roomId) : '這間房'} 從此團體移除嗎？該筆訂單會被刪除，此動作無法復原。`)) return
-    try {
-      await fetch(`${BOOKINGS_BASE()}/${bk.id}`, {method: 'DELETE'})
-      await fetchAll()
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  async function setGroupStatusAll(status) {
-    if (!groupTarget.value) return
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/group/status`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({groupId: groupTarget.value.groupId, status})
-      })).json()
-      if (res && res.error) {
-        alert(res.error);
-        return
-      }
-      await fetchAll()
-    } catch (e) {
-      console.error(e);
-      alert('操作失敗，請稍後再試')
-    }
-  }
-
-  /* 團體資訊編輯：團體名稱／統一聯絡電話是存在每一筆訂單自己的欄位裡，改的時候要整團一次改，
-       所以走 /group/update，不是走單筆訂單的 /update */
-  const groupEditing = ref(false)
-  const groupEditError = ref('')
-  const groupEditForm = ref({groupName: '', phone: '', checkIn: '', checkOut: ''})
-
-  function startGroupEdit() {
-    groupEditError.value = ''
-    groupEditForm.value = {
-      groupName: groupTarget.value.groupName || '',
-      phone: (groupBookings.value[0] && groupBookings.value[0].phone) || '',
-      checkIn: groupCheckIn.value || '',
-      checkOut: groupCheckOut.value || ''
-    }
-    groupEditing.value = true
-  }
-
-  async function submitGroupEdit() {
-    groupEditError.value = ''
-    const f = groupEditForm.value
-    if (!f.groupName.trim()) {
-      groupEditError.value = '請填寫團體名稱';
-      return
-    }
-    if (!f.checkIn || !f.checkOut) {
-      groupEditError.value = '請填寫入住/退房日期';
-      return
-    }
-    if (f.checkIn >= f.checkOut) {
-      groupEditError.value = '退房日期必須晚於入住日期';
-      return
-    }
-    try {
-      const res = await (await fetch(`${BOOKINGS_BASE()}/group/update`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          groupId: groupTarget.value.groupId,
-          groupName: f.groupName.trim(),
-          phone: f.phone.trim(),
-          checkIn: f.checkIn,
-          checkOut: f.checkOut
-        })
-      })).json()
-      if (res && res.error) {
-        groupEditError.value = res.error;
-        return
-      }
-      groupTarget.value = {groupId: groupTarget.value.groupId, groupName: f.groupName.trim()}
-      groupEditing.value = false
-      await fetchAll()
-    } catch (e) {
-      console.error(e);
-      groupEditError.value = '儲存失敗，請稍後再試'
-    }
-  }
-
-  /* ---------------- 訂房紀錄 ---------------- */
-
-  const historyStatus = ref('all')
-  const historyKeyword = ref('')
-  const historyBookings = computed(() => bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled'))
-  const filteredHistory = computed(() => {
-    const kw = historyKeyword.value.trim().toLowerCase()
-    return historyBookings.value
-      .filter(b => historyStatus.value === 'all' || b.status === historyStatus.value)
-      .filter(b => !kw || b.name.toLowerCase().includes(kw) || b.id.toLowerCase().includes(kw) || (b.roomId && b.roomId.toLowerCase().includes(kw)))
-      .sort((a, b) => (a.checkIn < b.checkIn ? 1 : -1))
-  })
-  const historyStats = computed(() => {
-    const completed = historyBookings.value.filter(b => b.status === 'completed')
-    const cancelled = historyBookings.value.filter(b => b.status === 'cancelled')
-    return {
-      completedCount: completed.length,
-      cancelledCount: cancelled.length,
-      totalNights: completed.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0),
-      totalRevenue: completed.reduce((s, b) => s + bookingTotal(b), 0)
-    }
-  })
-
-
-  /* ==================== 房間管理（原 rooms-setting.vue） ==================== */
-
-
-  const saving = ref(false)
-  const modalError = ref('')
-
-
-  const buildingFilter = ref('all')
-  const viewMode = ref('list')
-
-  const totalRooms = computed(() => buildings.value.reduce((s, b) => s + b.rooms.length, 0))
-  const activeRooms = computed(() => buildings.value.reduce((s, b) => s + b.rooms.filter(r => r.active).length, 0))
-
-  const visibleBuildings = computed(() =>
-    buildingFilter.value === 'all' ? buildings.value : buildings.value.filter(b => b.id === buildingFilter.value)
-  )
-
-
-  /* ---------------- 房間詳情 ---------------- */
-
-  const detailTarget = ref(null)
-
-  function openRoomDetail(grp, room) {
-    detailTarget.value = {room, buildingId: grp.id, buildingName: grp.name}
-  }
-
-  const detailBookings = computed(() => {
-    if (!detailTarget.value) return []
-    return bookings.value
-      .filter(b => b.roomId === detailTarget.value.room.id && b.status !== 'cancelled')
-      .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
-  })
-
-  /* ---------------- 矩形對應設置 ----------------
-     「指定房間」：把平面圖矩形手動指定給某間實際房間，存成房間的 shapeId 欄位；
-                  RoomFloorplan 元件之後就會直接用這個矩形畫出房間實際輪廓。
-     「調整位置」：直接在畫面上拖拽矩形/線條調整座標，即時存到後端資料庫。 */
-  const {shapesOf, canvasOf, saveShape: saveShapeGeometry, deleteShape: deleteShapeGeometry} = useFloorplanShapes()
-
-  function assignedRoomFor(grp, shapeId) {
-    return grp.rooms.find(r => r.shapeId === shapeId) || null
-  }
-
-  const shapeAssign = reactive({open: false, buildingId: null, shapeId: '', roomId: ''})
-
-  function openShapeAssign(grp, shape) {
-    const current = assignedRoomFor(grp, shape.id)
-    shapeAssign.open = true
-    shapeAssign.buildingId = grp.id
-    shapeAssign.shapeId = shape.id
-    shapeAssign.roomId = current ? current.id : ''
-  }
-
-  const shapeAssignRooms = computed(() => {
-    const grp = buildings.value.find(b => b.id === shapeAssign.buildingId)
-    return grp ? grp.rooms : []
-  })
-
-  async function saveShapeAssign() {
-    saving.value = true
-    try {
-      const grp = buildings.value.find(b => b.id === shapeAssign.buildingId)
-      const prevOwner = grp && assignedRoomFor(grp, shapeAssign.shapeId)
-      // 這個矩形原本對應到別的房間，先解除舊的對應，避免一個矩形同時被兩間房間占用
-      if (prevOwner && prevOwner.id !== shapeAssign.roomId) {
-        await fetch(`${ROOMS_BASE()}/shape`, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({buildingId: shapeAssign.buildingId, id: prevOwner.id, shapeId: ''}),
-        })
-      }
-      if (shapeAssign.roomId) {
-        await fetch(`${ROOMS_BASE()}/shape`, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            buildingId: shapeAssign.buildingId,
-            id: shapeAssign.roomId,
-            shapeId: shapeAssign.shapeId
-          }),
-        })
-      }
-      shapeAssign.open = false
-      await fetchAll()
-    } catch (e) {
-      console.error(e)
-    } finally {
-      saving.value = false
-    }
-  }
-
-  /* ---------------- 矩形對應：調整位置模式（拖拽 / 新增 / 刪除） ---------------- */
-  const shapeEditMode = ref('assign') // 'assign' 指定房間 ・ 'edit' 調整位置
-  const selectedShapeId = ref(null)
-  const shapeTypeLabel = {rect: '矩形', vline: '垂直線', hline: '水平線'}
-
-  function selectedShapeInGroup(buildingId) {
-    if (!selectedShapeId.value) return null
-    return shapesOf(buildingId).find(s => s.id === selectedShapeId.value) || null
-  }
-
-  // 選取的矩形/線條屬於哪個棟別 —— 下方浮動控制面板要用，這樣不管在哪棟平面圖選的，
-  // 面板都能找到正確棟別繼續操作，且面板本身固定在畫面上不用跟著捲動
-  const selectedShapeBuilding = computed(() => {
-    if (!selectedShapeId.value) return null
-    return buildings.value.find(b => shapesOf(b.id).some(s => s.id === selectedShapeId.value)) || null
-  })
-
-  // 把滑鼠螢幕座標換算成 SVG viewBox 座標（因為 svg 是用 width:100% 縮放顯示，不是 1:1 像素）
-  function svgPointFromClient(svgEl, clientX, clientY) {
-    if (!svgEl) return {x: 0, y: 0}
-    const rect = svgEl.getBoundingClientRect()
-    const vb = svgEl.viewBox.baseVal
-    if (!rect.width || !rect.height) return {x: 0, y: 0}
-    return {
-      x: (clientX - rect.left) * (vb.width / rect.width),
-      y: (clientY - rect.top) * (vb.height / rect.height),
-    }
-  }
-
-  function round1(n) {
-    return Math.round(n)
-  }
-
-  const dragState = reactive({
-    active: false,
-    buildingId: null,
-    shapeId: null,
-    mode: null,
-    svgEl: null,
-    startPointer: {x: 0, y: 0},
-    startGeom: {},
-    moved: false
-  })
-
-  function onShapePointerDown(e, buildingId, shape, mode) {
-    if (shapeEditMode.value !== 'edit') return
-    e.stopPropagation()
-    e.preventDefault()
-    const svgEl = e.target.closest('svg')
-    dragState.active = true
-    dragState.buildingId = buildingId
-    dragState.shapeId = shape.id
-    dragState.mode = mode
-    dragState.svgEl = svgEl
-    dragState.startPointer = svgPointFromClient(svgEl, e.clientX, e.clientY)
-    dragState.startGeom = {
-      x: shape.x,
-      y: shape.y,
-      w: shape.w,
-      h: shape.h,
-      x1: shape.x1,
-      x2: shape.x2,
-      y1: shape.y1,
-      y2: shape.y2
-    }
-    dragState.moved = false
-    selectedShapeId.value = shape.id
-    window.addEventListener('pointermove', onShapeWindowPointerMove)
-    window.addEventListener('pointerup', onShapeWindowPointerUp)
-  }
-
-  function onShapeWindowPointerMove(e) {
-    if (!dragState.active) return
-    const p = svgPointFromClient(dragState.svgEl, e.clientX, e.clientY)
-    const dx = p.x - dragState.startPointer.x
-    const dy = p.y - dragState.startPointer.y
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) dragState.moved = true
-    const shape = shapesOf(dragState.buildingId).find(s => s.id === dragState.shapeId)
-    if (!shape) return
-    const g = dragState.startGeom
-    if (dragState.mode === 'move-rect') {
-      shape.x = round1(g.x + dx);
-      shape.y = round1(g.y + dy)
-    } else if (dragState.mode === 'resize-rect') {
-      shape.w = Math.max(10, round1(g.w + dx));
-      shape.h = Math.max(10, round1(g.h + dy))
-    } else if (dragState.mode === 'resize-rect-right') {
-      shape.w = Math.max(10, round1(g.w + dx))
-    } else if (dragState.mode === 'resize-rect-left') {
-      const newW = Math.max(10, round1(g.w - dx))
-      shape.x = round1(g.x + (g.w - newW));
-      shape.w = newW
-    } else if (dragState.mode === 'resize-rect-bottom') {
-      shape.h = Math.max(10, round1(g.h + dy))
-    } else if (dragState.mode === 'resize-rect-top') {
-      const newH = Math.max(10, round1(g.h - dy))
-      shape.y = round1(g.y + (g.h - newH));
-      shape.h = newH
-    } else if (dragState.mode === 'move-vline') {
-      shape.x = round1(g.x + dx);
-      shape.y1 = round1(g.y1 + dy);
-      shape.y2 = round1(g.y2 + dy)
-    } else if (dragState.mode === 'resize-vline-1') {
-      shape.y1 = round1(g.y1 + dy)
-    } else if (dragState.mode === 'resize-vline-2') {
-      shape.y2 = round1(g.y2 + dy)
-    } else if (dragState.mode === 'move-hline') {
-      shape.y = round1(g.y + dy);
-      shape.x1 = round1(g.x1 + dx);
-      shape.x2 = round1(g.x2 + dx)
-    } else if (dragState.mode === 'resize-hline-1') {
-      shape.x1 = round1(g.x1 + dx)
-    } else if (dragState.mode === 'resize-hline-2') {
-      shape.x2 = round1(g.x2 + dx)
-    }
-  }
-
-  async function onShapeWindowPointerUp() {
-    if (!dragState.active) return
-    window.removeEventListener('pointermove', onShapeWindowPointerMove)
-    window.removeEventListener('pointerup', onShapeWindowPointerUp)
-    const buildingId = dragState.buildingId
-    const moved = dragState.moved
-    const shape = shapesOf(buildingId).find(s => s.id === dragState.shapeId)
-    dragState.active = false
-    if (shape && moved) {
-      try {
-        await saveShapeGeometry(buildingId, shape)
-      } catch (e) {
-        console.error(e)
-      }
-    }
-  }
-
-  // 精確數字輸入框失焦/送出時呼叫，把目前的座標存到後端
-  async function commitSelectedShape(buildingId) {
-    const shape = selectedShapeInGroup(buildingId)
-    if (!shape) return
-    try {
-      await saveShapeGeometry(buildingId, shape)
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  async function addShape(buildingId, type) {
-    const canvas = canvasOf(buildingId)
-    let shape
-    if (type === 'rect') shape = {
-      type: 'rect',
-      x: Math.round(canvas.w / 2 - 40),
-      y: Math.round(canvas.h / 2 - 30),
-      w: 80,
-      h: 60
-    }
-    else if (type === 'vline') shape = {
-      type: 'vline',
-      x: Math.round(canvas.w / 2),
-      y1: Math.round(canvas.h / 2 - 40),
-      y2: Math.round(canvas.h / 2 + 40)
-    }
-    else shape = {
-        type: 'hline',
-        y: Math.round(canvas.h / 2),
-        x1: Math.round(canvas.w / 2 - 40),
-        x2: Math.round(canvas.w / 2 + 40)
-      }
-    try {
-      const saved = await saveShapeGeometry(buildingId, shape)
-      selectedShapeId.value = saved.id
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  async function deleteSelectedShape(buildingId) {
-    if (!selectedShapeId.value) return
-    if (!confirm('確定要刪除這個矩形/線條嗎？如果有房間對應到它，那間房的對應也會一併清除。')) return
-    try {
-      await deleteShapeGeometry(buildingId, selectedShapeId.value)
-      selectedShapeId.value = null
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  /* ---------------- 矩形對應：四邊個別增減控制面板（點按鈕，不用拖拉） ----------------
-     dir = 1 表示這一邊往外擴（矩形變大）、dir = -1 表示往內縮（矩形變小），另外三邊固定不動。
-     跟拖拉四邊中點控制點是同一種調整邏輯，只是用按鈕以固定步進值觸發，方便微調到精確位置。 */
-  const EDGES = [
-    {key: 'top', label: '上邊'},
-    {key: 'bottom', label: '下邊'},
-    {key: 'left', label: '左邊'},
-    {key: 'right', label: '右邊'},
-  ]
-  const EDGE_BTN_STEP = 2
-
-  function adjustShapeEdge(buildingId, edge, dir) {
-    const shape = selectedShapeInGroup(buildingId)
-    if (!shape || shape.type !== 'rect') return
-    const delta = dir * EDGE_BTN_STEP
-    if (edge === 'top') {
-      const newH = Math.max(10, round1(shape.h + delta))
-      shape.y = round1(shape.y - (newH - shape.h))
-      shape.h = newH
-    } else if (edge === 'bottom') {
-      shape.h = Math.max(10, round1(shape.h + delta))
-    } else if (edge === 'left') {
-      const newW = Math.max(10, round1(shape.w + delta))
-      shape.x = round1(shape.x - (newW - shape.w))
-      shape.w = newW
-    } else if (edge === 'right') {
-      shape.w = Math.max(10, round1(shape.w + delta))
-    }
-    commitSelectedShape(buildingId)
-  }
-
-  /* ---------------- 矩形對應：方向鍵調整（跟拖拽共用同一組 shape 物件與存檔邏輯） ----------------
-     只有在「調整位置」模式下、有選取矩形/線條時才生效；輸入框內打字時（例如上面的精確數字欄位）不搶方向鍵。
-     移動/調整大小時先在畫面上即時反應，停止按鍵一小段時間後才真的送出存檔，避免連續按時瘋狂打 API。 */
-  const SHAPE_MOVE_STEP = 1  // 方向鍵：每按一下移動幾 px
-  const SHAPE_SIZE_STEP = 2  // Shift + 方向鍵：每按一下調整幾 px 的大小/長度
-  let shapeKeySaveTimer = null
-
-  function scheduleShapeKeySave(buildingId) {
-    clearTimeout(shapeKeySaveTimer)
-    shapeKeySaveTimer = setTimeout(() => commitSelectedShape(buildingId), 400)
-  }
-
-  function handleShapeKeydown(e) {
-    if (tab.value !== 'rooms' || viewMode.value !== 'shape' || shapeEditMode.value !== 'edit' || !selectedShapeId.value) return
-    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
-    if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return // 精確數字欄位打字時不搶鍵
-    const grp = buildings.value.find(b => shapesOf(b.id).some(s => s.id === selectedShapeId.value))
-    if (!grp) return
-    const shape = shapesOf(grp.id).find(s => s.id === selectedShapeId.value)
-    if (!shape) return
-    e.preventDefault()
-    const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0
-    const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0
-
-    if (e.shiftKey) {
-      // Shift + 方向鍵：調整大小／長度
-      if (shape.type === 'rect') {
-        shape.w = Math.max(10, round1(shape.w + dx * SHAPE_SIZE_STEP))
-        shape.h = Math.max(10, round1(shape.h + dy * SHAPE_SIZE_STEP))
-      } else if (shape.type === 'vline') {
-        shape.y2 = round1(shape.y2 + dy * SHAPE_SIZE_STEP)
-      } else if (shape.type === 'hline') {
-        shape.x2 = round1(shape.x2 + dx * SHAPE_SIZE_STEP)
-      }
-    } else {
-      // 方向鍵：移動位置（整個矩形/線條一起平移）
-      if (shape.type === 'rect') {
-        shape.x = round1(shape.x + dx * SHAPE_MOVE_STEP)
-        shape.y = round1(shape.y + dy * SHAPE_MOVE_STEP)
-      } else if (shape.type === 'vline') {
-        shape.x = round1(shape.x + dx * SHAPE_MOVE_STEP)
-        shape.y1 = round1(shape.y1 + dy * SHAPE_MOVE_STEP)
-        shape.y2 = round1(shape.y2 + dy * SHAPE_MOVE_STEP)
-      } else if (shape.type === 'hline') {
-        shape.y = round1(shape.y + dy * SHAPE_MOVE_STEP)
-        shape.x1 = round1(shape.x1 + dx * SHAPE_MOVE_STEP)
-        shape.x2 = round1(shape.x2 + dx * SHAPE_MOVE_STEP)
-      }
-    }
-    scheduleShapeKeySave(grp.id)
-  }
-
-  onMounted(() => window.addEventListener('keydown', handleShapeKeydown))
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleShapeKeydown)
-    clearTimeout(shapeKeySaveTimer)
-  })
-
-  /* ---------------- 棟別 CRUD ---------------- */
-
-  const buildingModal = reactive({open: false, id: null, name: ''})
-
-  function openAddBuilding() {
-    buildingModal.open = true;
-    buildingModal.id = null;
-    buildingModal.name = '';
-    modalError.value = ''
-  }
-
-  function openEditBuilding(b) {
-    buildingModal.open = true;
-    buildingModal.id = b.id;
-    buildingModal.name = b.name;
-    modalError.value = ''
-  }
-
-  async function saveBuildingModal() {
-    if (!buildingModal.name.trim()) {
-      modalError.value = '請輸入棟別名稱';
-      return
-    }
-    saving.value = true
-    try {
-      const body = {name: buildingModal.name.trim()}
-      if (buildingModal.id) body.id = buildingModal.id
-      await fetch(`${ROOMS_BASE()}/building/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
-      })
-      buildingModal.open = false
-      await fetchAll()
-    } catch (e) {
-      console.error(e);
-      modalError.value = '儲存失敗，請稍後再試'
-    } finally {
-      saving.value = false
-    }
-  }
-
-  async function deleteBuildingConfirm(b) {
-    if (!confirm(`確定要刪除棟別「${b.name}」嗎？底下所有房間也會一併刪除。`)) return
-    try {
-      await fetch(`${ROOMS_BASE()}/building/${b.id}`, {method: 'DELETE'})
-      await fetchAll()
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  /* ---------------- 房間 CRUD ---------------- */
-
-  const roomModal = reactive({
-    open: false, buildingId: null, buildingName: '', originalId: null,
-    id: '', type: '', capacity: 2, bed: '', price: 0, active: true,
-  })
-
-  function openAddRoom(grp) {
-    roomModal.open = true
-    roomModal.buildingId = grp.id;
-    roomModal.buildingName = grp.name
-    roomModal.originalId = null
-    roomModal.id = '';
-    roomModal.type = '';
-    roomModal.capacity = 2;
-    roomModal.bed = '';
-    roomModal.price = 0;
-    roomModal.active = true
-    modalError.value = ''
-  }
-
-  function openEditRoom(grp, r) {
-    roomModal.open = true
-    roomModal.buildingId = grp.id;
-    roomModal.buildingName = grp.name
-    roomModal.originalId = r.id
-    roomModal.id = r.id;
-    roomModal.type = r.type;
-    roomModal.capacity = r.capacity
-    roomModal.bed = r.bed;
-    roomModal.price = r.price;
-    roomModal.active = r.active
-    modalError.value = ''
-  }
-
-  async function saveRoomModal() {
-    if (!roomModal.id.trim()) {
-      modalError.value = '請輸入房號';
-      return
-    }
-    if (!roomModal.type.trim()) {
-      modalError.value = '請輸入房型';
-      return
-    }
-    saving.value = true
-    try {
-      const body = {
-        buildingId: roomModal.buildingId,
-        id: roomModal.id.trim(),
-        type: roomModal.type.trim(),
-        capacity: roomModal.capacity,
-        bed: roomModal.bed.trim(),
-        price: roomModal.price,
-        active: roomModal.active,
-      }
-      await fetch(`${ROOMS_BASE()}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
-      })
-      roomModal.open = false
-      await fetchAll()
-    } catch (e) {
-      console.error(e);
-      modalError.value = '儲存失敗，請稍後再試'
-    } finally {
-      saving.value = false
-    }
-  }
-
-  async function deleteRoomConfirm(grp, r) {
-    if (!confirm(`確定要刪除房間「${r.id}」嗎？`)) return
-    try {
-      await fetch(`${ROOMS_BASE()}/remove/${grp.id}/${r.id}`, {method: 'DELETE'})
-      await fetchAll()
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  async function quickToggleActive(buildingId, r) {
-    const nextActive = !r.active
-    r.active = nextActive // 先在畫面上即時反應
-    try {
-      await fetch(`${ROOMS_BASE()}/save`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          buildingId,
-          id: r.id,
-          type: r.type,
-          capacity: r.capacity,
-          bed: r.bed,
-          price: r.price,
-          active: nextActive
-        }),
-      })
-    } catch (e) {
-      console.error(e);
-      r.active = !nextActive
-    }
-  }
-
-  onMounted(fetchAll)
-</script>
 
 <style scoped>
   .segmented {

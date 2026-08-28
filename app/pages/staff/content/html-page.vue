@@ -1,3 +1,357 @@
+<script setup>
+  definePageMeta({layout: 'staff', requiredPermission: 'content.html-page'})
+
+  const commonStore = useCommonStore()
+  const BASE = () => commonStore.data.main_url + '/holy/html-page'
+
+  const loading = ref(false)
+  const saving = ref(false)
+  const pageList = ref([])
+  const toast = reactive({show: false, message: '', error: false})
+  const modal = reactive({show: false, mode: 'add'})
+  const showDeleteConfirm = ref(false)
+  const deleteTarget = reactive({slug: '', title: ''})
+
+  const form = reactive({slug: '', title: '', category: '', file: null, ogImage: null})
+  const fileName = ref('')
+  const ogImageName = ref('')
+
+  // ── 分類篩選 / 分類清單（後端儲存，可以在還沒有任何頁面使用前先建立） ──
+  const categoryFilter = ref('')
+  const allCategories = ref([]) // 來自 GET /categories：已使用過的 + 事先建立但尚未使用的
+
+  const fetchCategories = async () => {
+    try {
+      allCategories.value = await (await fetch(`${BASE()}/categories`)).json()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const categoryCounts = computed(() =>
+    allCategories.value.map(name => ({
+      name,
+      count: pageList.value.filter(p => p.category === name).length
+    }))
+  )
+
+  const filteredList = computed(() => {
+    if (!categoryFilter.value) return pageList.value
+    return pageList.value.filter(p => p.category === categoryFilter.value)
+  })
+
+  // 依分類將 filteredList 分組（未分類固定排在最後），供列表分組顯示使用
+  const groupedList = computed(() => {
+    const map = new Map()
+    for (const p of filteredList.value) {
+      const key = p.category || ''
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(p)
+    }
+    const order = [...allCategories.value, '']
+    return [...map.entries()]
+      .map(([name, items]) => ({name, items}))
+      .sort((a, b) => {
+        const ia = order.indexOf(a.name)
+        const ib = order.indexOf(b.name)
+        return (ia === -1 ? order.length : ia) - (ib === -1 ? order.length : ib)
+      })
+  })
+
+  // ── 新增分類 Modal ──────────────────────────────────────────
+  const categoryModal = reactive({show: false, name: ''})
+  const savingCategory = ref(false)
+
+  const openAddCategory = () => {
+    categoryModal.name = ''
+    categoryModal.show = true
+  }
+
+  const submitAddCategory = async () => {
+    const name = categoryModal.name.trim()
+    if (!name) {
+      showToast('請輸入分類名稱', true)
+      return
+    }
+    savingCategory.value = true
+    try {
+      const fd = new FormData()
+      fd.append('name', name)
+      allCategories.value = await (await fetch(`${BASE()}/categories`, {method: 'POST', body: fd})).json()
+      showToast('已新增分類')
+      categoryModal.show = false
+    } catch {
+      showToast('新增分類失敗', true)
+    } finally {
+      savingCategory.value = false
+    }
+  }
+
+  const removeCategory = async (name) => {
+    try {
+      allCategories.value = await (await fetch(`${BASE()}/categories/${encodeURIComponent(name)}`, {method: 'DELETE'})).json()
+      if (categoryFilter.value === name) categoryFilter.value = ''
+      showToast('已移除分類')
+    } catch {
+      showToast('移除失敗', true)
+    }
+  }
+
+  // ── 每個項目快速切換分類（不用打開編輯 Modal） ─────────────────
+  const quickSetCategory = async (page, category) => {
+    const prev = page.category
+    page.category = category
+    try {
+      const fd = new FormData()
+      fd.append('title', page.title)
+      fd.append('category', category)
+      await fetch(`${BASE()}/update/${page.slug}`, {method: 'POST', body: fd})
+      showToast('分類已更新')
+      if (category && !allCategories.value.includes(category)) allCategories.value.push(category)
+    } catch {
+      page.category = prev
+      showToast('更新分類失敗', true)
+    }
+  }
+
+  // OG 圖片預覽相關狀態
+  const ogPreviewBroken = ref(false)
+  const ogPreviewVersion = ref(0)
+  const resettingOg = ref(false)
+  const ogPreviewUrl = computed(() =>
+    `${BASE()}/og-image/${form.slug}?v=${ogPreviewVersion.value}`
+  )
+
+  const showToast = (msg, error = false) => {
+    toast.message = msg
+    toast.error = error
+    toast.show = true
+    setTimeout(() => toast.show = false, 2500)
+  }
+
+  const fetchList = async () => {
+    loading.value = true
+    try {
+      pageList.value = await (await fetch(`${BASE()}/list`)).json()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const openAdd = () => {
+    modal.mode = 'add'
+    form.slug = '';
+    form.title = '';
+    form.category = '';
+    form.file = null;
+    fileName.value = ''
+    form.ogImage = null;
+    ogImageName.value = ''
+    ogPreviewBroken.value = false
+    modal.show = true
+  }
+
+  const openEdit = (page) => {
+    modal.mode = 'edit'
+    form.slug = page.slug
+    form.title = page.title
+    form.category = page.category || ''
+    form.file = null;
+    fileName.value = ''
+    form.ogImage = null;
+    ogImageName.value = ''
+    ogPreviewBroken.value = false
+    ogPreviewVersion.value++
+    modal.show = true
+  }
+
+  const onFileChange = (e) => {
+    const f = e.target.files[0]
+    if (!f) return
+    form.file = f
+    fileName.value = f.name
+    if (modal.mode === 'add' && !form.slug) {
+      form.slug = f.name.replace(/\.html?$/i, '').replace(/\s+/g, '-').toLowerCase()
+    }
+  }
+
+  const onOgImageChange = (e) => {
+    const f = e.target.files[0]
+    if (!f) return
+    form.ogImage = f
+    ogImageName.value = f.name
+  }
+
+  const resetOgImage = async () => {
+    resettingOg.value = true
+    try {
+      await fetch(`${BASE()}/og-image/${form.slug}/reset`, {method: 'POST'})
+      ogPreviewBroken.value = false
+      ogPreviewVersion.value++
+      showToast('已重設為自動產生')
+    } catch {
+      showToast('重設失敗', true)
+    } finally {
+      resettingOg.value = false
+    }
+  }
+
+  const save = async () => {
+    if (!form.title.trim()) {
+      showToast('請填寫標題', true);
+      return
+    }
+    if (modal.mode === 'add') {
+      if (!form.slug.trim()) {
+        showToast('請填寫 slug', true);
+        return
+      }
+      if (!form.file) {
+        showToast('請選擇 HTML 檔案', true);
+        return
+      }
+      if (!/^[a-z0-9\-_]+$/i.test(form.slug)) {
+        showToast('slug 只能使用英文、數字、橫線', true);
+        return
+      }
+    }
+    saving.value = true
+    try {
+      const fd = new FormData()
+      fd.append('title', form.title.trim())
+      fd.append('category', form.category.trim())
+      if (form.ogImage) fd.append('ogImage', form.ogImage)
+      if (modal.mode === 'add') {
+        fd.append('slug', form.slug.trim())
+        fd.append('file', form.file)
+        await fetch(`${BASE()}/upload`, {method: 'POST', body: fd})
+      } else {
+        if (form.file) fd.append('file', form.file)
+        await fetch(`${BASE()}/update/${form.slug}`, {method: 'POST', body: fd})
+      }
+      showToast(modal.mode === 'edit' ? '儲存成功' : '上傳成功')
+      modal.show = false
+      await fetchList()
+      await fetchCategories()
+    } catch {
+      showToast('操作失敗', true)
+    } finally {
+      saving.value = false
+    }
+  }
+
+  const confirmDelete = (page) => {
+    deleteTarget.slug = page.slug
+    deleteTarget.title = page.title
+    showDeleteConfirm.value = true
+  }
+
+  const doDelete = async () => {
+    await fetch(`${BASE()}/remove/${deleteTarget.slug}`, {method: 'DELETE'})
+    showDeleteConfirm.value = false
+    showToast('已刪除')
+    await fetchList()
+  }
+
+  const copyUrl = (slug) => {
+    navigator.clipboard.writeText(`${window.location.origin}/html/${slug}`)
+    showToast('網址已複製')
+  }
+
+  const openInTab = (slug) => window.open(`/html/${slug}`, '_blank')
+
+  // ── 下載 HTML 檔案 ──────────────────────────────────────────
+  const triggerDownload = (content, filename) => {
+    const blob = new Blob([content], {type: 'text/html'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadPage = async (page) => {
+    try {
+      const content = await (await fetch(`${BASE()}/content/${page.slug}`)).text()
+      triggerDownload(content, `${page.slug}.html`)
+    } catch {
+      showToast('下載失敗', true)
+    }
+  }
+
+  const downloadContentModal = () => {
+    syncFromPreview()
+    triggerDownload(contentModal.content, `${contentModal.slug}.html`)
+  }
+
+  // ── 內容編輯（直接在網頁上改 HTML，右側即時預覽） ──────────────
+  const contentModal = reactive({show: false, slug: '', title: '', category: '', content: '', loading: false})
+  const savingContent = ref(false)
+  const previewFrame = ref(null)
+
+  const openContentEditor = async (page) => {
+    contentModal.slug = page.slug
+    contentModal.title = page.title
+    contentModal.category = page.category || ''
+    contentModal.content = ''
+    contentModal.loading = true
+    contentModal.show = true
+    try {
+      contentModal.content = await (await fetch(`${BASE()}/content/${page.slug}`)).text()
+    } catch {
+      showToast('讀取內容失敗', true)
+      contentModal.show = false
+    } finally {
+      contentModal.loading = false
+    }
+  }
+
+  // ── 點擊編輯（iframe 內文直接可編輯） ──────────────────────────
+  const onPreviewLoad = () => {
+    const doc = previewFrame.value?.contentDocument
+    if (doc?.body) doc.body.contentEditable = 'true'
+  }
+
+  // 把 iframe 裡目前的 DOM 內容讀回 contentModal.content（保留原本的 DOCTYPE）
+  const syncFromPreview = () => {
+    const doc = previewFrame.value?.contentDocument
+    if (!doc?.documentElement) return
+    const hasDoctype = /^\s*<!DOCTYPE/i.test(contentModal.content)
+    contentModal.content = (hasDoctype ? '<!DOCTYPE html>\n' : '') + doc.documentElement.outerHTML
+  }
+
+  const saveContent = async () => {
+    syncFromPreview()
+    savingContent.value = true
+    try {
+      const blob = new Blob([contentModal.content], {type: 'text/html'})
+      const file = new File([blob], contentModal.slug + '.html', {type: 'text/html'})
+      const fd = new FormData()
+      fd.append('title', contentModal.title)
+      fd.append('category', contentModal.category ?? '')
+      fd.append('file', file)
+      await fetch(`${BASE()}/update/${contentModal.slug}`, {method: 'POST', body: fd})
+      showToast('內容已儲存')
+      contentModal.show = false
+      await fetchList()
+    } catch {
+      showToast('儲存失敗', true)
+    } finally {
+      savingContent.value = false
+    }
+  }
+
+  onMounted(() => {
+    fetchList()
+    fetchCategories()
+  })
+</script>
+
 <template>
   <div class="min-h-full bg-surface2 transition-colors">
 
@@ -402,360 +756,6 @@
 
   </div>
 </template>
-
-<script setup>
-  definePageMeta({layout: 'staff', requiredPermission: 'content.html-page'})
-
-  const commonStore = useCommonStore()
-  const BASE = () => commonStore.data.main_url + '/holy/html-page'
-
-  const loading = ref(false)
-  const saving = ref(false)
-  const pageList = ref([])
-  const toast = reactive({show: false, message: '', error: false})
-  const modal = reactive({show: false, mode: 'add'})
-  const showDeleteConfirm = ref(false)
-  const deleteTarget = reactive({slug: '', title: ''})
-
-  const form = reactive({slug: '', title: '', category: '', file: null, ogImage: null})
-  const fileName = ref('')
-  const ogImageName = ref('')
-
-  // ── 分類篩選 / 分類清單（後端儲存，可以在還沒有任何頁面使用前先建立） ──
-  const categoryFilter = ref('')
-  const allCategories = ref([]) // 來自 GET /categories：已使用過的 + 事先建立但尚未使用的
-
-  const fetchCategories = async () => {
-    try {
-      allCategories.value = await (await fetch(`${BASE()}/categories`)).json()
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const categoryCounts = computed(() =>
-    allCategories.value.map(name => ({
-      name,
-      count: pageList.value.filter(p => p.category === name).length
-    }))
-  )
-
-  const filteredList = computed(() => {
-    if (!categoryFilter.value) return pageList.value
-    return pageList.value.filter(p => p.category === categoryFilter.value)
-  })
-
-  // 依分類將 filteredList 分組（未分類固定排在最後），供列表分組顯示使用
-  const groupedList = computed(() => {
-    const map = new Map()
-    for (const p of filteredList.value) {
-      const key = p.category || ''
-      if (!map.has(key)) map.set(key, [])
-      map.get(key).push(p)
-    }
-    const order = [...allCategories.value, '']
-    return [...map.entries()]
-      .map(([name, items]) => ({name, items}))
-      .sort((a, b) => {
-        const ia = order.indexOf(a.name)
-        const ib = order.indexOf(b.name)
-        return (ia === -1 ? order.length : ia) - (ib === -1 ? order.length : ib)
-      })
-  })
-
-  // ── 新增分類 Modal ──────────────────────────────────────────
-  const categoryModal = reactive({show: false, name: ''})
-  const savingCategory = ref(false)
-
-  const openAddCategory = () => {
-    categoryModal.name = ''
-    categoryModal.show = true
-  }
-
-  const submitAddCategory = async () => {
-    const name = categoryModal.name.trim()
-    if (!name) {
-      showToast('請輸入分類名稱', true)
-      return
-    }
-    savingCategory.value = true
-    try {
-      const fd = new FormData()
-      fd.append('name', name)
-      allCategories.value = await (await fetch(`${BASE()}/categories`, {method: 'POST', body: fd})).json()
-      showToast('已新增分類')
-      categoryModal.show = false
-    } catch {
-      showToast('新增分類失敗', true)
-    } finally {
-      savingCategory.value = false
-    }
-  }
-
-  const removeCategory = async (name) => {
-    try {
-      allCategories.value = await (await fetch(`${BASE()}/categories/${encodeURIComponent(name)}`, {method: 'DELETE'})).json()
-      if (categoryFilter.value === name) categoryFilter.value = ''
-      showToast('已移除分類')
-    } catch {
-      showToast('移除失敗', true)
-    }
-  }
-
-  // ── 每個項目快速切換分類（不用打開編輯 Modal） ─────────────────
-  const quickSetCategory = async (page, category) => {
-    const prev = page.category
-    page.category = category
-    try {
-      const fd = new FormData()
-      fd.append('title', page.title)
-      fd.append('category', category)
-      await fetch(`${BASE()}/update/${page.slug}`, {method: 'POST', body: fd})
-      showToast('分類已更新')
-      if (category && !allCategories.value.includes(category)) allCategories.value.push(category)
-    } catch {
-      page.category = prev
-      showToast('更新分類失敗', true)
-    }
-  }
-
-  // OG 圖片預覽相關狀態
-  const ogPreviewBroken = ref(false)
-  const ogPreviewVersion = ref(0)
-  const resettingOg = ref(false)
-  const ogPreviewUrl = computed(() =>
-    `${BASE()}/og-image/${form.slug}?v=${ogPreviewVersion.value}`
-  )
-
-  const showToast = (msg, error = false) => {
-    toast.message = msg
-    toast.error = error
-    toast.show = true
-    setTimeout(() => toast.show = false, 2500)
-  }
-
-  const fetchList = async () => {
-    loading.value = true
-    try {
-      pageList.value = await (await fetch(`${BASE()}/list`)).json()
-    } catch (e) {
-      console.error(e)
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const openAdd = () => {
-    modal.mode = 'add'
-    form.slug = '';
-    form.title = '';
-    form.category = '';
-    form.file = null;
-    fileName.value = ''
-    form.ogImage = null;
-    ogImageName.value = ''
-    ogPreviewBroken.value = false
-    modal.show = true
-  }
-
-  const openEdit = (page) => {
-    modal.mode = 'edit'
-    form.slug = page.slug
-    form.title = page.title
-    form.category = page.category || ''
-    form.file = null;
-    fileName.value = ''
-    form.ogImage = null;
-    ogImageName.value = ''
-    ogPreviewBroken.value = false
-    ogPreviewVersion.value++
-    modal.show = true
-  }
-
-  const onFileChange = (e) => {
-    const f = e.target.files[0]
-    if (!f) return
-    form.file = f
-    fileName.value = f.name
-    if (modal.mode === 'add' && !form.slug) {
-      form.slug = f.name.replace(/\.html?$/i, '').replace(/\s+/g, '-').toLowerCase()
-    }
-  }
-
-  const onOgImageChange = (e) => {
-    const f = e.target.files[0]
-    if (!f) return
-    form.ogImage = f
-    ogImageName.value = f.name
-  }
-
-  const resetOgImage = async () => {
-    resettingOg.value = true
-    try {
-      await fetch(`${BASE()}/og-image/${form.slug}/reset`, {method: 'POST'})
-      ogPreviewBroken.value = false
-      ogPreviewVersion.value++
-      showToast('已重設為自動產生')
-    } catch {
-      showToast('重設失敗', true)
-    } finally {
-      resettingOg.value = false
-    }
-  }
-
-  const save = async () => {
-    if (!form.title.trim()) {
-      showToast('請填寫標題', true);
-      return
-    }
-    if (modal.mode === 'add') {
-      if (!form.slug.trim()) {
-        showToast('請填寫 slug', true);
-        return
-      }
-      if (!form.file) {
-        showToast('請選擇 HTML 檔案', true);
-        return
-      }
-      if (!/^[a-z0-9\-_]+$/i.test(form.slug)) {
-        showToast('slug 只能使用英文、數字、橫線', true);
-        return
-      }
-    }
-    saving.value = true
-    try {
-      const fd = new FormData()
-      fd.append('title', form.title.trim())
-      fd.append('category', form.category.trim())
-      if (form.ogImage) fd.append('ogImage', form.ogImage)
-      if (modal.mode === 'add') {
-        fd.append('slug', form.slug.trim())
-        fd.append('file', form.file)
-        await fetch(`${BASE()}/upload`, {method: 'POST', body: fd})
-      } else {
-        if (form.file) fd.append('file', form.file)
-        await fetch(`${BASE()}/update/${form.slug}`, {method: 'POST', body: fd})
-      }
-      showToast(modal.mode === 'edit' ? '儲存成功' : '上傳成功')
-      modal.show = false
-      await fetchList()
-      await fetchCategories()
-    } catch {
-      showToast('操作失敗', true)
-    } finally {
-      saving.value = false
-    }
-  }
-
-  const confirmDelete = (page) => {
-    deleteTarget.slug = page.slug
-    deleteTarget.title = page.title
-    showDeleteConfirm.value = true
-  }
-
-  const doDelete = async () => {
-    await fetch(`${BASE()}/remove/${deleteTarget.slug}`, {method: 'DELETE'})
-    showDeleteConfirm.value = false
-    showToast('已刪除')
-    await fetchList()
-  }
-
-  const copyUrl = (slug) => {
-    navigator.clipboard.writeText(`${window.location.origin}/html/${slug}`)
-    showToast('網址已複製')
-  }
-
-  const openInTab = (slug) => window.open(`/html/${slug}`, '_blank')
-
-  // ── 下載 HTML 檔案 ──────────────────────────────────────────
-  const triggerDownload = (content, filename) => {
-    const blob = new Blob([content], {type: 'text/html'})
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const downloadPage = async (page) => {
-    try {
-      const content = await (await fetch(`${BASE()}/content/${page.slug}`)).text()
-      triggerDownload(content, `${page.slug}.html`)
-    } catch {
-      showToast('下載失敗', true)
-    }
-  }
-
-  const downloadContentModal = () => {
-    syncFromPreview()
-    triggerDownload(contentModal.content, `${contentModal.slug}.html`)
-  }
-
-  // ── 內容編輯（直接在網頁上改 HTML，右側即時預覽） ──────────────
-  const contentModal = reactive({show: false, slug: '', title: '', category: '', content: '', loading: false})
-  const savingContent = ref(false)
-  const previewFrame = ref(null)
-
-  const openContentEditor = async (page) => {
-    contentModal.slug = page.slug
-    contentModal.title = page.title
-    contentModal.category = page.category || ''
-    contentModal.content = ''
-    contentModal.loading = true
-    contentModal.show = true
-    try {
-      contentModal.content = await (await fetch(`${BASE()}/content/${page.slug}`)).text()
-    } catch {
-      showToast('讀取內容失敗', true)
-      contentModal.show = false
-    } finally {
-      contentModal.loading = false
-    }
-  }
-
-  // ── 點擊編輯（iframe 內文直接可編輯） ──────────────────────────
-  const onPreviewLoad = () => {
-    const doc = previewFrame.value?.contentDocument
-    if (doc?.body) doc.body.contentEditable = 'true'
-  }
-
-  // 把 iframe 裡目前的 DOM 內容讀回 contentModal.content（保留原本的 DOCTYPE）
-  const syncFromPreview = () => {
-    const doc = previewFrame.value?.contentDocument
-    if (!doc?.documentElement) return
-    const hasDoctype = /^\s*<!DOCTYPE/i.test(contentModal.content)
-    contentModal.content = (hasDoctype ? '<!DOCTYPE html>\n' : '') + doc.documentElement.outerHTML
-  }
-
-  const saveContent = async () => {
-    syncFromPreview()
-    savingContent.value = true
-    try {
-      const blob = new Blob([contentModal.content], {type: 'text/html'})
-      const file = new File([blob], contentModal.slug + '.html', {type: 'text/html'})
-      const fd = new FormData()
-      fd.append('title', contentModal.title)
-      fd.append('category', contentModal.category ?? '')
-      fd.append('file', file)
-      await fetch(`${BASE()}/update/${contentModal.slug}`, {method: 'POST', body: fd})
-      showToast('內容已儲存')
-      contentModal.show = false
-      await fetchList()
-    } catch {
-      showToast('儲存失敗', true)
-    } finally {
-      savingContent.value = false
-    }
-  }
-
-  onMounted(() => {
-    fetchList()
-    fetchCategories()
-  })
-</script>
 
 <style scoped>
   .fade-enter-active, .fade-leave-active {

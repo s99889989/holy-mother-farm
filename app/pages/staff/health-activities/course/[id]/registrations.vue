@@ -2,7 +2,7 @@
 // 專案holy-mother-farm 位置staff/management/course/[id]/registrations.vue
 import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff' })
+definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.course' })
 
 const route = useRoute()
 const courseId = route.params.id

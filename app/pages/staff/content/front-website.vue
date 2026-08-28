@@ -1,3 +1,20 @@
+<script setup>
+  definePageMeta({ layout: 'staff', requiredPermission: 'content.front-website' })
+
+  import NewsPanel from '~/components/front-website/NewsPanel.vue'
+  import ProductPanel from '~/components/front-website/ProductPanel.vue'
+  import ProductionPanel from '~/components/front-website/ProductionPanel.vue'
+
+  const tabs = [
+    { key: 'news',       label: '活動消息',   component: NewsPanel,       dotClass: 'bg-sky-600',    barClass: 'bg-sky-600' },
+    { key: 'product',    label: '推薦農產品', component: ProductPanel,    dotClass: 'bg-emerald-600', barClass: 'bg-emerald-600' },
+    { key: 'production', label: '產品訂購',   component: ProductionPanel, dotClass: 'bg-teal-600',   barClass: 'bg-teal-600' },
+  ]
+
+  const activeTab = ref('news')
+  const activeComponent = computed(() => tabs.find(t => t.key === activeTab.value)?.component)
+</script>
+
 <template>
   <div class="min-h-full bg-surface2 transition-colors duration-300 flex">
 
@@ -28,20 +45,3 @@
 
   </div>
 </template>
-
-<script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'content.front-website' })
-
-  import NewsPanel from '~/components/front-website/NewsPanel.vue'
-  import ProductPanel from '~/components/front-website/ProductPanel.vue'
-  import ProductionPanel from '~/components/front-website/ProductionPanel.vue'
-
-  const tabs = [
-    { key: 'news',       label: '活動消息',   component: NewsPanel,       dotClass: 'bg-sky-600',    barClass: 'bg-sky-600' },
-    { key: 'product',    label: '推薦農產品', component: ProductPanel,    dotClass: 'bg-emerald-600', barClass: 'bg-emerald-600' },
-    { key: 'production', label: '產品訂購',   component: ProductionPanel, dotClass: 'bg-teal-600',   barClass: 'bg-teal-600' },
-  ]
-
-  const activeTab = ref('news')
-  const activeComponent = computed(() => tabs.find(t => t.key === activeTab.value)?.component)
-</script>

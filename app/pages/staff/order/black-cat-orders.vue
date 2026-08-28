@@ -1,3 +1,349 @@
+<script setup lang="ts">
+  definePageMeta({ layout: 'staff', requiredPermission: 'order.black-cat-orders' })
+
+  const commonStore = useCommonStore()
+  const BASE = () => commonStore.data.main_url + '/holy/t-cat'
+
+  // ── 下拉資料 ───────────────────────────────────────────────────
+  const accounts = ref<any[]>([])
+  const senders = ref<any[]>([])
+  const papers = ref<any[]>([])
+  const productnames = ref<any[]>([])
+
+  async function loadMeta() {
+    const b = BASE()
+    const [acc, sen, pap, prd] = await Promise.all([
+      $fetch<any[]>(`${b}/meta`, { params: { type: 'accounts' } }),
+      $fetch<any[]>(`${b}/meta`, { params: { type: 'senders' } }),
+      $fetch<any[]>(`${b}/meta`, { params: { type: 'papers' } }),
+      $fetch<any[]>(`${b}/meta`, { params: { type: 'productnames' } })
+    ])
+    accounts.value = acc ?? []
+    senders.value = sen ?? []
+    papers.value = pap ?? []
+    productnames.value = prd ?? []
+  }
+
+  // ── 靜態選項 ──────────────────────────────────────────
+  const deliverTimes = [
+    { value: '1', label: '13時前' },
+    { value: '2', label: '14-18時' },
+    { value: '4', label: '不指定' }
+  ]
+  const temperatures = [
+    { value: '0001', label: '常溫' },
+    { value: '0002', label: '冷藏' },
+    { value: '0003', label: '冷凍' }
+  ]
+  const packageSizes = [
+    { value: '0001', label: '60cm' },
+    { value: '0002', label: '90cm' },
+    { value: '0003', label: '120cm' },
+    { value: '0004', label: '150cm' }
+  ]
+  const waybillTypes = [
+    { value: 'A', label: '一般單' },
+    { value: 'B', label: '代收單' },
+    { value: 'N', label: '到付單' }
+  ]
+
+  // ── 輔助函式 ──────────────────────────────────────────
+  const deliverTimeMap: Record<string, string> = {
+    1: '13時前', 2: '14-18時', 4: '不指定', 5: '20-21時'
+  }
+  const deliverTimeLabel = (v: any) => deliverTimeMap[String(v)] ?? v ?? ''
+  const paperName = (id: any) =>
+    (papers.value as any[])?.find((p: any) => p.id === id)?.name ?? ''
+
+  // ── 預設值輔助 ────────────────────────────────────────
+  const todayStr = () => {
+    const d = new Date()
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+  const tomorrowStr = () => {
+    const d = new Date(); d.setDate(d.getDate() + 1)
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  // ── 表單 state ────────────────────────────────────────
+  const editingId = ref<number | null>(null) // null = 新增模式，有值 = 編輯模式
+
+  function makeForm() {
+    const acct = (accounts.value as any[])?.[0]
+    const sender = (senders.value as any[])?.find((s: any) => s.default_sender)
+    ?? (senders.value as any[])?.[0]
+    const paper = (papers.value as any[])?.find((p: any) => p.id === 2) ?? (papers.value as any[])?.[0]
+    const pname = (productnames.value as any[])?.[0]
+
+    return {
+      sender_code: acct?.login ?? '',
+      sender_id: sender?.id ?? null,
+      paper_id: paper?.id ?? null,
+      tracking_no: '',
+      customer_code: '',
+      customer_name: '',
+      customer_phone: '',
+      customer_mobile: '',
+      customer_address: '',
+      customer_postcode: '',
+      default_sender: false,
+      sender_no: '',
+      sender_name: sender?.name ?? '',
+      sender_phone: sender?.phone ?? '',
+      sender_mobile: sender?.mobile ?? '',
+      sender_address: sender?.address ?? '',
+      sender_postcode: sender?.postcode ?? '',
+      production_kind: pname?.product_name ?? '',
+      production_name: '',
+      order_no: '',
+      comment: '',
+      send_date: todayStr(),
+      deliver_date: tomorrowStr(),
+      deliver_time: '1',
+      temperature: '0001',
+      package_size: '0002',
+      breakable: 'no',
+      precision_instrument: 'no',
+      waybilltype: 'A',
+      price: 0,
+      hasinsurance: 'no',
+      insurance: 0
+    }
+  }
+
+  const form = reactive(makeForm())
+
+  // 切換寄件人時自動填入
+  function onSenderChange() {
+    const s = (senders.value as any[])?.find((x: any) => x.id === form.sender_id)
+    if (s && form.default_sender) {
+      form.sender_name = s.name ?? ''
+      form.sender_phone = s.phone ?? ''
+      form.sender_mobile = s.mobile ?? ''
+      form.sender_address = s.address ?? ''
+      form.sender_postcode = s.postcode ?? ''
+    }
+  }
+
+  function resetForm() {
+    editingId.value = null
+    Object.assign(form, makeForm())
+    formError.value = ''
+    formSuccess.value = ''
+    selectedIds.value = []
+  }
+
+  // ── 表單訊息 ──────────────────────────────────────────
+  const submitting = ref(false)
+  const formError = ref('')
+  const formSuccess = ref('')
+
+  // 新增
+  async function submitForm() {
+    formError.value = ''
+    formSuccess.value = ''
+    if (!form.customer_name) return (formError.value = '請填寫收件人姓名')
+    if (!form.customer_address) return (formError.value = '請填寫收件人地址')
+    if (!form.production_name) return (formError.value = '請填寫品名')
+
+    submitting.value = true
+    try {
+      const res = await $fetch<any>(`${BASE()}/waybills`, { method: 'POST', body: { ...form } })
+      formSuccess.value = `✅ 建立成功！託運單號：${res.tracking_no}`
+      resetForm()
+      await refreshList()
+    } catch (e: any) {
+      formError.value = e?.data?.message ?? e?.statusMessage ?? '建立失敗，請確認是否有可用託運單號'
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  // 更新
+  async function updateForm() {
+    if (!editingId.value) return
+    formError.value = ''
+    formSuccess.value = ''
+    if (!form.customer_name) return (formError.value = '請填寫收件人姓名')
+    if (!form.customer_address) return (formError.value = '請填寫收件人地址')
+    if (!form.production_name) return (formError.value = '請填寫品名')
+
+    submitting.value = true
+    try {
+      await $fetch(`${BASE()}/waybills/${editingId.value}`, { method: 'PATCH', body: { ...form } })
+      formSuccess.value = `✅ 更新成功！託運單號：${form.tracking_no}`
+      resetForm()
+      await refreshList()
+    } catch (e: any) {
+      formError.value = e?.data?.message ?? e?.statusMessage ?? '更新失敗'
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  // 點列表列 → 帶入表單（編輯模式）
+  function loadRowToForm(row: any) {
+    editingId.value = row.id
+    form.tracking_no = row.tracking_no ?? ''
+    form.sender_code = row.sender_code ?? form.sender_code
+    form.paper_id = row.paper_id ?? form.paper_id
+    form.customer_code = row.customer_code ?? ''
+    form.customer_name = row.customer_name ?? ''
+    form.customer_phone = row.customer_phone ?? ''
+    form.customer_mobile = row.customer_mobile ?? ''
+    form.customer_address = row.customer_address ?? ''
+    form.customer_postcode = row.customer_postcode ?? ''
+    form.production_kind = row.production_kind ?? ''
+    form.production_name = row.production_name ?? ''
+    form.order_no = row.order_no ?? ''
+    form.comment = row.comment ?? ''
+    form.send_date = row.send_date ?? todayStr()
+    form.deliver_date = row.deliver_date ?? tomorrowStr()
+    form.deliver_time = String(row.deliver_time ?? '1')
+    form.temperature = row.temperature ?? '0001'
+    form.package_size = row.package_size ?? '0002'
+    form.breakable = row.breakable ?? 'no'
+    form.precision_instrument = row.precision_instrument ?? 'no'
+    form.waybilltype = row.waybilltype ?? 'A'
+    form.price = row.price ?? 0
+    form.insurance = row.insurance ?? 0
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // ── 列表 ──────────────────────────────────────────────
+  const keyword = ref('')
+  const startDate = ref('')
+  const endDate = ref('')
+  const page = ref(1)
+  const limit = ref(10)
+  const selectedIds = ref<number[]>([])
+
+  const listData = ref<any>(null)
+
+  async function refreshList() {
+    try {
+      listData.value = await $fetch<any>(`${BASE()}/waybills`, {
+        params: {
+          keyword: keyword.value,
+          start_date: startDate.value,
+          end_date: endDate.value,
+          page: page.value,
+          limit: limit.value
+        }
+      })
+    } catch { listData.value = null }
+  }
+
+  const totalPages = computed(() => Math.ceil((listData.value?.total || 0) / limit.value))
+
+  const allChecked = computed(() =>
+    !!listData.value?.rows?.length
+    && listData.value.rows.every((r: any) => selectedIds.value.includes(r.id))
+  )
+
+  function toggleAll(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked
+    selectedIds.value = checked
+      ? (listData.value?.rows?.map((r: any) => r.id) ?? [])
+      : []
+  }
+
+  function search() { page.value = 1; refreshList() }
+
+  function resetSearch() {
+    keyword.value = ''
+    startDate.value = ''
+    endDate.value = ''
+    page.value = 1
+    refreshList()
+  }
+
+  // 刪除選取
+  async function deleteSelected() {
+    if (!selectedIds.value.length) return alert('請先勾選要刪除的託運單')
+    if (!confirm(`確定刪除選取的 ${selectedIds.value.length} 筆託運單？`)) return
+    try {
+      await $fetch(`${BASE()}/waybills/bulk-delete`, {
+        method: 'POST',
+        body: { ids: selectedIds.value }
+      })
+      selectedIds.value = []
+      if (editingId.value && !listData.value?.rows?.find((r: any) => r.id === editingId.value)) {
+        resetForm()
+      }
+      await refreshList()
+    } catch {
+      alert('刪除失敗')
+    }
+  }
+
+  // 列印 → 直接產生 PDF 下載
+  async function doPrint(ids: number[]) {
+    if (!ids.length) return alert('沒有可列印的託運單')
+    try {
+      const res = await $fetch<Blob>('/api/waybills/generate-pdf', {
+        method: 'POST',
+        body: { ids, paper_id: form.paper_id },
+        responseType: 'blob'
+      })
+      const url = URL.createObjectURL(res)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `waybills_${Date.now()}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      await refreshList()
+    } catch (e: any) {
+      alert(e?.data?.message ?? '產生 PDF 失敗')
+    }
+  }
+
+  // 列印選取
+  function printSelected() {
+    if (!selectedIds.value.length) return alert('請先勾選要列印的託運單')
+    doPrint(selectedIds.value)
+  }
+
+  // 列印全部（本頁）
+  function printAll() {
+    const ids = listData.value?.rows?.map((r: any) => r.id) ?? []
+    doPrint(ids)
+  }
+  // 上傳 development.sqlite3
+  const dbFileInput = ref<HTMLInputElement | null>(null)
+  const dbUploading = ref(false)
+
+  async function onDbFileChange(e: Event) {
+    const input = e.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+    if (!file.name.endsWith('.sqlite3')) return alert('只接受 .sqlite3 檔案')
+    if (!confirm(`確定要用「${file.name}」覆蓋伺服器上的 development.sqlite3？\n⚠️ 此操作無法還原！`)) {
+      input.value = ''
+      return
+    }
+    dbUploading.value = true
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      await $fetch(`${BASE()}/upload-db`, { method: 'POST', body: fd })
+      alert('✅ development.sqlite3 已成功更新！')
+      await loadMeta()
+      await refreshList()
+    } catch (err: any) {
+      alert('❌ 上傳失敗：' + (err?.data?.error ?? err?.statusMessage ?? '未知錯誤'))
+    } finally {
+      dbUploading.value = false
+      input.value = ''
+    }
+  }
+
+  onMounted(async () => {
+    await loadMeta()
+    await refreshList()
+  })
+</script>
+
 <template>
   <div class="p-4 max-w-screen-xl mx-auto text-sm text-base-c">
     <!-- 標題 -->
@@ -671,349 +1017,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'order.black-cat-orders' })
-
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/t-cat'
-
-// ── 下拉資料 ───────────────────────────────────────────────────
-const accounts = ref<any[]>([])
-const senders = ref<any[]>([])
-const papers = ref<any[]>([])
-const productnames = ref<any[]>([])
-
-async function loadMeta() {
-  const b = BASE()
-  const [acc, sen, pap, prd] = await Promise.all([
-    $fetch<any[]>(`${b}/meta`, { params: { type: 'accounts' } }),
-    $fetch<any[]>(`${b}/meta`, { params: { type: 'senders' } }),
-    $fetch<any[]>(`${b}/meta`, { params: { type: 'papers' } }),
-    $fetch<any[]>(`${b}/meta`, { params: { type: 'productnames' } })
-  ])
-  accounts.value = acc ?? []
-  senders.value = sen ?? []
-  papers.value = pap ?? []
-  productnames.value = prd ?? []
-}
-
-// ── 靜態選項 ──────────────────────────────────────────
-const deliverTimes = [
-  { value: '1', label: '13時前' },
-  { value: '2', label: '14-18時' },
-  { value: '4', label: '不指定' }
-]
-const temperatures = [
-  { value: '0001', label: '常溫' },
-  { value: '0002', label: '冷藏' },
-  { value: '0003', label: '冷凍' }
-]
-const packageSizes = [
-  { value: '0001', label: '60cm' },
-  { value: '0002', label: '90cm' },
-  { value: '0003', label: '120cm' },
-  { value: '0004', label: '150cm' }
-]
-const waybillTypes = [
-  { value: 'A', label: '一般單' },
-  { value: 'B', label: '代收單' },
-  { value: 'N', label: '到付單' }
-]
-
-// ── 輔助函式 ──────────────────────────────────────────
-const deliverTimeMap: Record<string, string> = {
-  1: '13時前', 2: '14-18時', 4: '不指定', 5: '20-21時'
-}
-const deliverTimeLabel = (v: any) => deliverTimeMap[String(v)] ?? v ?? ''
-const paperName = (id: any) =>
-  (papers.value as any[])?.find((p: any) => p.id === id)?.name ?? ''
-
-// ── 預設值輔助 ────────────────────────────────────────
-const todayStr = () => {
-  const d = new Date()
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-}
-const tomorrowStr = () => {
-  const d = new Date(); d.setDate(d.getDate() + 1)
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-}
-
-// ── 表單 state ────────────────────────────────────────
-const editingId = ref<number | null>(null) // null = 新增模式，有值 = 編輯模式
-
-function makeForm() {
-  const acct = (accounts.value as any[])?.[0]
-  const sender = (senders.value as any[])?.find((s: any) => s.default_sender)
-    ?? (senders.value as any[])?.[0]
-  const paper = (papers.value as any[])?.find((p: any) => p.id === 2) ?? (papers.value as any[])?.[0]
-  const pname = (productnames.value as any[])?.[0]
-
-  return {
-    sender_code: acct?.login ?? '',
-    sender_id: sender?.id ?? null,
-    paper_id: paper?.id ?? null,
-    tracking_no: '',
-    customer_code: '',
-    customer_name: '',
-    customer_phone: '',
-    customer_mobile: '',
-    customer_address: '',
-    customer_postcode: '',
-    default_sender: false,
-    sender_no: '',
-    sender_name: sender?.name ?? '',
-    sender_phone: sender?.phone ?? '',
-    sender_mobile: sender?.mobile ?? '',
-    sender_address: sender?.address ?? '',
-    sender_postcode: sender?.postcode ?? '',
-    production_kind: pname?.product_name ?? '',
-    production_name: '',
-    order_no: '',
-    comment: '',
-    send_date: todayStr(),
-    deliver_date: tomorrowStr(),
-    deliver_time: '1',
-    temperature: '0001',
-    package_size: '0002',
-    breakable: 'no',
-    precision_instrument: 'no',
-    waybilltype: 'A',
-    price: 0,
-    hasinsurance: 'no',
-    insurance: 0
-  }
-}
-
-const form = reactive(makeForm())
-
-// 切換寄件人時自動填入
-function onSenderChange() {
-  const s = (senders.value as any[])?.find((x: any) => x.id === form.sender_id)
-  if (s && form.default_sender) {
-    form.sender_name = s.name ?? ''
-    form.sender_phone = s.phone ?? ''
-    form.sender_mobile = s.mobile ?? ''
-    form.sender_address = s.address ?? ''
-    form.sender_postcode = s.postcode ?? ''
-  }
-}
-
-function resetForm() {
-  editingId.value = null
-  Object.assign(form, makeForm())
-  formError.value = ''
-  formSuccess.value = ''
-  selectedIds.value = []
-}
-
-// ── 表單訊息 ──────────────────────────────────────────
-const submitting = ref(false)
-const formError = ref('')
-const formSuccess = ref('')
-
-// 新增
-async function submitForm() {
-  formError.value = ''
-  formSuccess.value = ''
-  if (!form.customer_name) return (formError.value = '請填寫收件人姓名')
-  if (!form.customer_address) return (formError.value = '請填寫收件人地址')
-  if (!form.production_name) return (formError.value = '請填寫品名')
-
-  submitting.value = true
-  try {
-    const res = await $fetch<any>(`${BASE()}/waybills`, { method: 'POST', body: { ...form } })
-    formSuccess.value = `✅ 建立成功！託運單號：${res.tracking_no}`
-    resetForm()
-    await refreshList()
-  } catch (e: any) {
-    formError.value = e?.data?.message ?? e?.statusMessage ?? '建立失敗，請確認是否有可用託運單號'
-  } finally {
-    submitting.value = false
-  }
-}
-
-// 更新
-async function updateForm() {
-  if (!editingId.value) return
-  formError.value = ''
-  formSuccess.value = ''
-  if (!form.customer_name) return (formError.value = '請填寫收件人姓名')
-  if (!form.customer_address) return (formError.value = '請填寫收件人地址')
-  if (!form.production_name) return (formError.value = '請填寫品名')
-
-  submitting.value = true
-  try {
-    await $fetch(`${BASE()}/waybills/${editingId.value}`, { method: 'PATCH', body: { ...form } })
-    formSuccess.value = `✅ 更新成功！託運單號：${form.tracking_no}`
-    resetForm()
-    await refreshList()
-  } catch (e: any) {
-    formError.value = e?.data?.message ?? e?.statusMessage ?? '更新失敗'
-  } finally {
-    submitting.value = false
-  }
-}
-
-// 點列表列 → 帶入表單（編輯模式）
-function loadRowToForm(row: any) {
-  editingId.value = row.id
-  form.tracking_no = row.tracking_no ?? ''
-  form.sender_code = row.sender_code ?? form.sender_code
-  form.paper_id = row.paper_id ?? form.paper_id
-  form.customer_code = row.customer_code ?? ''
-  form.customer_name = row.customer_name ?? ''
-  form.customer_phone = row.customer_phone ?? ''
-  form.customer_mobile = row.customer_mobile ?? ''
-  form.customer_address = row.customer_address ?? ''
-  form.customer_postcode = row.customer_postcode ?? ''
-  form.production_kind = row.production_kind ?? ''
-  form.production_name = row.production_name ?? ''
-  form.order_no = row.order_no ?? ''
-  form.comment = row.comment ?? ''
-  form.send_date = row.send_date ?? todayStr()
-  form.deliver_date = row.deliver_date ?? tomorrowStr()
-  form.deliver_time = String(row.deliver_time ?? '1')
-  form.temperature = row.temperature ?? '0001'
-  form.package_size = row.package_size ?? '0002'
-  form.breakable = row.breakable ?? 'no'
-  form.precision_instrument = row.precision_instrument ?? 'no'
-  form.waybilltype = row.waybilltype ?? 'A'
-  form.price = row.price ?? 0
-  form.insurance = row.insurance ?? 0
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-// ── 列表 ──────────────────────────────────────────────
-const keyword = ref('')
-const startDate = ref('')
-const endDate = ref('')
-const page = ref(1)
-const limit = ref(10)
-const selectedIds = ref<number[]>([])
-
-const listData = ref<any>(null)
-
-async function refreshList() {
-  try {
-    listData.value = await $fetch<any>(`${BASE()}/waybills`, {
-      params: {
-        keyword: keyword.value,
-        start_date: startDate.value,
-        end_date: endDate.value,
-        page: page.value,
-        limit: limit.value
-      }
-    })
-  } catch { listData.value = null }
-}
-
-const totalPages = computed(() => Math.ceil((listData.value?.total || 0) / limit.value))
-
-const allChecked = computed(() =>
-  !!listData.value?.rows?.length
-  && listData.value.rows.every((r: any) => selectedIds.value.includes(r.id))
-)
-
-function toggleAll(e: Event) {
-  const checked = (e.target as HTMLInputElement).checked
-  selectedIds.value = checked
-    ? (listData.value?.rows?.map((r: any) => r.id) ?? [])
-    : []
-}
-
-function search() { page.value = 1; refreshList() }
-
-function resetSearch() {
-  keyword.value = ''
-  startDate.value = ''
-  endDate.value = ''
-  page.value = 1
-  refreshList()
-}
-
-// 刪除選取
-async function deleteSelected() {
-  if (!selectedIds.value.length) return alert('請先勾選要刪除的託運單')
-  if (!confirm(`確定刪除選取的 ${selectedIds.value.length} 筆託運單？`)) return
-  try {
-    await $fetch(`${BASE()}/waybills/bulk-delete`, {
-      method: 'POST',
-      body: { ids: selectedIds.value }
-    })
-    selectedIds.value = []
-    if (editingId.value && !listData.value?.rows?.find((r: any) => r.id === editingId.value)) {
-      resetForm()
-    }
-    await refreshList()
-  } catch {
-    alert('刪除失敗')
-  }
-}
-
-// 列印 → 直接產生 PDF 下載
-async function doPrint(ids: number[]) {
-  if (!ids.length) return alert('沒有可列印的託運單')
-  try {
-    const res = await $fetch<Blob>('/api/waybills/generate-pdf', {
-      method: 'POST',
-      body: { ids, paper_id: form.paper_id },
-      responseType: 'blob'
-    })
-    const url = URL.createObjectURL(res)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `waybills_${Date.now()}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
-    await refreshList()
-  } catch (e: any) {
-    alert(e?.data?.message ?? '產生 PDF 失敗')
-  }
-}
-
-// 列印選取
-function printSelected() {
-  if (!selectedIds.value.length) return alert('請先勾選要列印的託運單')
-  doPrint(selectedIds.value)
-}
-
-// 列印全部（本頁）
-function printAll() {
-  const ids = listData.value?.rows?.map((r: any) => r.id) ?? []
-  doPrint(ids)
-}
-// 上傳 development.sqlite3
-const dbFileInput = ref<HTMLInputElement | null>(null)
-const dbUploading = ref(false)
-
-async function onDbFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  if (!file.name.endsWith('.sqlite3')) return alert('只接受 .sqlite3 檔案')
-  if (!confirm(`確定要用「${file.name}」覆蓋伺服器上的 development.sqlite3？\n⚠️ 此操作無法還原！`)) {
-    input.value = ''
-    return
-  }
-  dbUploading.value = true
-  try {
-    const fd = new FormData()
-    fd.append('file', file)
-    await $fetch(`${BASE()}/upload-db`, { method: 'POST', body: fd })
-    alert('✅ development.sqlite3 已成功更新！')
-    await loadMeta()
-    await refreshList()
-  } catch (err: any) {
-    alert('❌ 上傳失敗：' + (err?.data?.error ?? err?.statusMessage ?? '未知錯誤'))
-  } finally {
-    dbUploading.value = false
-    input.value = ''
-  }
-}
-
-onMounted(async () => {
-  await loadMeta()
-  await refreshList()
-})
-</script>

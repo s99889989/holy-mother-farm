@@ -1,5 +1,5 @@
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'management.fire-extinguisher' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'facility-safety.fire-extinguisher' })
 
   import { ref, reactive, computed, onMounted } from 'vue'
 
