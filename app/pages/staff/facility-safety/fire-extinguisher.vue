@@ -1,3 +1,274 @@
+<script setup>
+  definePageMeta({ layout: 'staff', requiredPermission: 'management.fire-extinguisher' })
+
+  import { ref, reactive, computed, onMounted } from 'vue'
+
+  // ── Dark Mode ─────────────────────────────────────────────────────
+  const darkStore = useDarkModeStore()
+  const isDark = computed(() => darkStore.data.dark)
+  const toggleDark = () => { darkStore.change_dark_mode() }
+
+  // ── 頁籤 ─────────────────────────────────────────────────────────
+  const activeTab = ref('registry') // 'registry' | 'records'
+  const registryView = ref('list')  // 'list' | 'plan'
+
+  // ── API ──────────────────────────────────────────────────────────
+  const commonStore = useCommonStore()
+  const API_BASE = computed(() => commonStore.data.main_url + '/holy/fire-extinguisher')
+  const INSPECTION_API_BASE = computed(() => API_BASE.value + '/inspection')
+
+  const toast = reactive({ show: false, message: '' })
+  const showToast = (msg) => {
+    toast.message = msg
+    toast.show = true
+    setTimeout(() => { toast.show = false }, 2500)
+  }
+
+  // ════════════════════ 滅火器清冊 ════════════════════
+
+  // 種子資料(D 區實際清冊,API 尚未回傳前先顯示)
+  const seedItems = [
+    { code: 'D區1F-A01', location: '服務中心', batchNo: 'FE-130104' },
+    { code: 'D區1F-A02', location: '小舖內', batchNo: 'FE-130104' },
+    { code: 'D區1F-A03', location: '香藥草教室', batchNo: 'FE-130104' },
+    { code: 'D區1F-A04', location: '香藥草廁所', batchNo: 'FE-130104' },
+    { code: 'D區1F-A05', location: '輔具正門', batchNo: 'FE-130104' },
+    { code: 'D區1F-A06', location: '輔具側門', batchNo: 'FE-130104' },
+    { code: 'D區1F-A07', location: '物管2號庫房', batchNo: 'FE-130104' },
+    { code: 'D區1F-A08', location: '物管5號庫房', batchNo: 'FE-130104' },
+    { code: 'D區1F-A09', location: '物管辦公室', batchNo: 'FE-130104' },
+    { code: 'D區1F-A010', location: '電氣機房1', batchNo: 'FE-130104' },
+    { code: 'D區1F-A011', location: '電氣機房2', batchNo: 'FE-130104' },
+    { code: 'D區2F-A12', location: '電梯1', batchNo: 'FE-130104' },
+    { code: 'D區2F-A13', location: '電梯2', batchNo: 'FE-130104' },
+    { code: 'D區2F-A14', location: '多功能教室前', batchNo: 'FE-130104' },
+    { code: 'D區2F-A15', location: '多功能教室後', batchNo: 'FE-130104' },
+    { code: 'D區2F-A16', location: '庫房1', batchNo: 'FE-130104' },
+    { code: 'D區2F-A17', location: '庫房2', batchNo: 'FE-130104' },
+    { code: 'D區2F-A18', location: '評鑑教室1', batchNo: 'FE-130104' },
+    { code: 'D區2F-A19', location: '評鑑教室2', batchNo: 'FE-130104' },
+    { code: 'D區3F-A20', location: '長照辦公室1', batchNo: 'FE-130104' },
+    { code: 'D區3F-A21', location: '長照辦公室2', batchNo: 'FE-130104' },
+    { code: 'D區3F-A22', location: '中央製水機房1', batchNo: 'FE-130104' },
+    { code: 'D區3F-A23', location: '中央製水機房2', batchNo: 'FE-130104' },
+    { code: 'D區3F-A24', location: '庫房1', batchNo: 'FE-130104' },
+    { code: 'D區3F-A25', location: '庫房2', batchNo: 'FE-130104' },
+    { code: 'D區3F-A26', location: '電梯1', batchNo: 'FE-130104' },
+    { code: 'D區BF-A27', location: '電梯2', batchNo: 'FE-130104' },
+    { code: 'D區BF-A28', location: '庫房1', batchNo: 'FE-130104' },
+    { code: 'D區BF-A29', location: '庫房2', batchNo: 'FE-130104' },
+    { code: 'D區1F-A30', location: '輔具室內', batchNo: 'FE-130104' }
+  ]
+
+  const items = ref([])
+  const loading = ref(true)
+  const usingSeed = ref(false)
+  const importing = ref(false)
+  const showInactive = ref(false)
+
+  const fetchItems = async () => {
+    loading.value = true
+    try {
+      const list = await $fetch(`${API_BASE.value}/list`, {
+        credentials: 'include',
+        query: showInactive.value ? { includeInactive: true } : {}
+      })
+      if (Array.isArray(list) && list.length) {
+        items.value = list
+        usingSeed.value = false
+      } else {
+        items.value = seedItems
+        usingSeed.value = true
+      }
+    } catch (e) {
+      console.error(e)
+      items.value = seedItems
+      usingSeed.value = true
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const importSeed = async () => {
+    importing.value = true
+    try {
+      const result = await $fetch(`${API_BASE.value}/import`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: seedItems
+      })
+      showToast(`匯入完成:新增 ${result?.added ?? 0} 筆,略過 ${result?.skipped ?? 0} 筆`)
+      await fetchItems()
+    } catch (e) {
+      console.error(e)
+      showToast('匯入失敗')
+    } finally {
+      importing.value = false
+    }
+  }
+
+  const parseFloor = (code) => {
+    const m = code?.match(/(\d+F|BF\d*|B\d+F?)/i)
+    return m ? m[1].toUpperCase() : '未分類'
+  }
+
+  const floors = computed(() => {
+    const set = new Set(items.value.map(i => parseFloor(i.code)))
+    return [...set].sort()
+  })
+
+  const floorCounts = computed(() =>
+    floors.value.map(floor => ({
+      floor,
+      count: items.value.filter(i => parseFloor(i.code) === floor).length
+    }))
+  )
+
+  const activeFloor = ref(null)
+  const searchText = ref('')
+
+  const filtered = computed(() => {
+    let list = items.value
+    if (activeFloor.value) list = list.filter(i => parseFloor(i.code) === activeFloor.value)
+    const q = searchText.value.trim().toLowerCase()
+    if (q) {
+      list = list.filter(i =>
+        i.code?.toLowerCase().includes(q) ||
+        i.location?.toLowerCase().includes(q) ||
+        i.batchNo?.toLowerCase().includes(q)
+      )
+    }
+    return list
+  })
+
+  const emptyItem = () => ({ code: '', location: '', batchNo: '' })
+  const modal = reactive({ show: false, isNew: true, data: emptyItem() })
+
+  const openModal = (item) => {
+    modal.isNew = !item
+    modal.data = item ? { ...item } : emptyItem()
+    modal.show = true
+  }
+
+  const saveItem = async () => {
+    if (!modal.data.code?.trim()) { showToast('請填寫編號'); return }
+    try {
+      if (modal.isNew) {
+        const saved = await $fetch(`${API_BASE.value}/save`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: modal.data
+        })
+        if (saved?.error) { showToast(saved.error); return }
+        items.value.push(saved)
+      } else {
+        const updated = await $fetch(`${API_BASE.value}/update/${modal.data.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: modal.data
+        })
+        if (updated?.error) { showToast(updated.error); return }
+        const idx = items.value.findIndex(i => i.id === modal.data.id)
+        if (idx !== -1) items.value[idx] = updated
+      }
+      modal.show = false
+      showToast(modal.isNew ? '新增成功' : '儲存成功')
+    } catch (e) {
+      console.error(e)
+      showToast('儲存失敗')
+    }
+  }
+
+  // 停用(軟刪除):資料還在,只是預設清冊不顯示,巡檢紀錄不會斷
+  const removeItem = async (item) => {
+    if (!confirm(`確定要停用 ${item.code} 嗎?停用後預設清冊不會顯示,但巡檢歷史紀錄還查得到,之後也可以還原。`)) return
+    try {
+      await $fetch(`${API_BASE.value}/remove/${item.id}`, { method: 'DELETE' })
+      if (showInactive.value) {
+        item.active = false
+      } else {
+        items.value = items.value.filter(i => i.id !== item.id)
+      }
+      showToast('已停用')
+    } catch (e) {
+      console.error(e)
+      showToast('停用失敗')
+    }
+  }
+
+  const restoreItem = async (item) => {
+    try {
+      const updated = await $fetch(`${API_BASE.value}/restore/${item.id}`, { method: 'PUT' })
+      const idx = items.value.findIndex(i => i.id === item.id)
+      if (idx !== -1) items.value[idx] = updated
+      showToast('已還原')
+    } catch (e) {
+      console.error(e)
+      showToast('還原失敗')
+    }
+  }
+
+  // ════════════════════ 巡檢紀錄 ════════════════════
+
+  const logs = ref([])
+  const logsLoading = ref(true)
+
+  const fetchLogs = async () => {
+    logsLoading.value = true
+    try {
+      const data = await $fetch(`${INSPECTION_API_BASE.value}/list`, { credentials: 'include' })
+      logs.value = Array.isArray(data) ? data : []
+    } catch (e) {
+      console.error(e)
+      logs.value = []
+    } finally {
+      logsLoading.value = false
+    }
+  }
+
+  const countByStatus = (status) => logs.value.filter(l => l.status === status).length
+  const pendingCount = computed(() => countByStatus('待處理'))
+
+  const kanbanCols = computed(() => [
+    { key: 'todo',     label: '待處理', items: logs.value.filter(l => l.status === '待處理') },
+    { key: 'doing',    label: '送修中', items: logs.value.filter(l => l.status === '送修中') },
+    { key: 'replaced', label: '已更換', items: logs.value.filter(l => l.status === '已更換') },
+    { key: 'scrapped', label: '已報廢', items: logs.value.filter(l => l.status === '已報廢') }
+  ])
+
+  const nextStatuses = (colKey) => ({
+    todo: ['送修中', '已更換', '已報廢'],
+    doing: ['已更換', '已報廢'],
+    replaced: [],
+    scrapped: []
+  }[colKey] || [])
+
+  const changeStatus = async (log, next) => {
+    try {
+      await $fetch(`${INSPECTION_API_BASE.value}/status/${log.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: { status: next }
+      })
+      log.status = next
+      showToast(`${log.code} 已更新為「${next}」`)
+    } catch (e) {
+      console.error(e)
+      showToast('更新失敗')
+    }
+  }
+
+  const recordsSearch = ref('')
+  const statusFilter = ref('')
+  const filteredLogs = computed(() => {
+    let list = logs.value
+    if (recordsSearch.value.trim()) {
+      const q = recordsSearch.value.trim().toLowerCase()
+      list = list.filter(l => l.code?.toLowerCase().includes(q))
+    }
+    if (statusFilter.value) list = list.filter(l => l.status === statusFilter.value)
+    return list
+  })
+
+  const badgeClass = (status) => ({
+    '正常': 'ok', '已更換': 'ok', '待處理': 'bad', '已報廢': 'muted', '送修中': 'warn'
+  }[status] || 'muted')
+
+  onMounted(() => { fetchItems(); fetchLogs() })
+</script>
+
 <template>
   <div class="min-h-full bg-surface2 transition-colors duration-300">
 
@@ -331,277 +602,6 @@
 
   </div>
 </template>
-
-<script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'management.fire-extinguisher' })
-
-import { ref, reactive, computed, onMounted } from 'vue'
-
-// ── Dark Mode ─────────────────────────────────────────────────────
-const darkStore = useDarkModeStore()
-const isDark = computed(() => darkStore.data.dark)
-const toggleDark = () => { darkStore.change_dark_mode() }
-
-// ── 頁籤 ─────────────────────────────────────────────────────────
-const activeTab = ref('registry') // 'registry' | 'records'
-const registryView = ref('list')  // 'list' | 'plan'
-
-// ── API ──────────────────────────────────────────────────────────
-const commonStore = useCommonStore()
-const API_BASE = computed(() => commonStore.data.main_url + '/holy/fire-extinguisher')
-const INSPECTION_API_BASE = computed(() => API_BASE.value + '/inspection')
-
-const toast = reactive({ show: false, message: '' })
-const showToast = (msg) => {
-  toast.message = msg
-  toast.show = true
-  setTimeout(() => { toast.show = false }, 2500)
-}
-
-// ════════════════════ 滅火器清冊 ════════════════════
-
-// 種子資料(D 區實際清冊,API 尚未回傳前先顯示)
-const seedItems = [
-  { code: 'D區1F-A01', location: '服務中心', batchNo: 'FE-130104' },
-  { code: 'D區1F-A02', location: '小舖內', batchNo: 'FE-130104' },
-  { code: 'D區1F-A03', location: '香藥草教室', batchNo: 'FE-130104' },
-  { code: 'D區1F-A04', location: '香藥草廁所', batchNo: 'FE-130104' },
-  { code: 'D區1F-A05', location: '輔具正門', batchNo: 'FE-130104' },
-  { code: 'D區1F-A06', location: '輔具側門', batchNo: 'FE-130104' },
-  { code: 'D區1F-A07', location: '物管2號庫房', batchNo: 'FE-130104' },
-  { code: 'D區1F-A08', location: '物管5號庫房', batchNo: 'FE-130104' },
-  { code: 'D區1F-A09', location: '物管辦公室', batchNo: 'FE-130104' },
-  { code: 'D區1F-A010', location: '電氣機房1', batchNo: 'FE-130104' },
-  { code: 'D區1F-A011', location: '電氣機房2', batchNo: 'FE-130104' },
-  { code: 'D區2F-A12', location: '電梯1', batchNo: 'FE-130104' },
-  { code: 'D區2F-A13', location: '電梯2', batchNo: 'FE-130104' },
-  { code: 'D區2F-A14', location: '多功能教室前', batchNo: 'FE-130104' },
-  { code: 'D區2F-A15', location: '多功能教室後', batchNo: 'FE-130104' },
-  { code: 'D區2F-A16', location: '庫房1', batchNo: 'FE-130104' },
-  { code: 'D區2F-A17', location: '庫房2', batchNo: 'FE-130104' },
-  { code: 'D區2F-A18', location: '評鑑教室1', batchNo: 'FE-130104' },
-  { code: 'D區2F-A19', location: '評鑑教室2', batchNo: 'FE-130104' },
-  { code: 'D區3F-A20', location: '長照辦公室1', batchNo: 'FE-130104' },
-  { code: 'D區3F-A21', location: '長照辦公室2', batchNo: 'FE-130104' },
-  { code: 'D區3F-A22', location: '中央製水機房1', batchNo: 'FE-130104' },
-  { code: 'D區3F-A23', location: '中央製水機房2', batchNo: 'FE-130104' },
-  { code: 'D區3F-A24', location: '庫房1', batchNo: 'FE-130104' },
-  { code: 'D區3F-A25', location: '庫房2', batchNo: 'FE-130104' },
-  { code: 'D區3F-A26', location: '電梯1', batchNo: 'FE-130104' },
-  { code: 'D區BF-A27', location: '電梯2', batchNo: 'FE-130104' },
-  { code: 'D區BF-A28', location: '庫房1', batchNo: 'FE-130104' },
-  { code: 'D區BF-A29', location: '庫房2', batchNo: 'FE-130104' },
-  { code: 'D區1F-A30', location: '輔具室內', batchNo: 'FE-130104' }
-]
-
-const items = ref([])
-const loading = ref(true)
-const usingSeed = ref(false)
-const importing = ref(false)
-const showInactive = ref(false)
-
-const fetchItems = async () => {
-  loading.value = true
-  try {
-    const list = await $fetch(`${API_BASE.value}/list`, {
-      credentials: 'include',
-      query: showInactive.value ? { includeInactive: true } : {}
-    })
-    if (Array.isArray(list) && list.length) {
-      items.value = list
-      usingSeed.value = false
-    } else {
-      items.value = seedItems
-      usingSeed.value = true
-    }
-  } catch (e) {
-    console.error(e)
-    items.value = seedItems
-    usingSeed.value = true
-  } finally {
-    loading.value = false
-  }
-}
-
-const importSeed = async () => {
-  importing.value = true
-  try {
-    const result = await $fetch(`${API_BASE.value}/import`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: seedItems
-    })
-    showToast(`匯入完成:新增 ${result?.added ?? 0} 筆,略過 ${result?.skipped ?? 0} 筆`)
-    await fetchItems()
-  } catch (e) {
-    console.error(e)
-    showToast('匯入失敗')
-  } finally {
-    importing.value = false
-  }
-}
-
-const parseFloor = (code) => {
-  const m = code?.match(/(\d+F|BF\d*|B\d+F?)/i)
-  return m ? m[1].toUpperCase() : '未分類'
-}
-
-const floors = computed(() => {
-  const set = new Set(items.value.map(i => parseFloor(i.code)))
-  return [...set].sort()
-})
-
-const floorCounts = computed(() =>
-  floors.value.map(floor => ({
-    floor,
-    count: items.value.filter(i => parseFloor(i.code) === floor).length
-  }))
-)
-
-const activeFloor = ref(null)
-const searchText = ref('')
-
-const filtered = computed(() => {
-  let list = items.value
-  if (activeFloor.value) list = list.filter(i => parseFloor(i.code) === activeFloor.value)
-  const q = searchText.value.trim().toLowerCase()
-  if (q) {
-    list = list.filter(i =>
-      i.code?.toLowerCase().includes(q) ||
-      i.location?.toLowerCase().includes(q) ||
-      i.batchNo?.toLowerCase().includes(q)
-    )
-  }
-  return list
-})
-
-const emptyItem = () => ({ code: '', location: '', batchNo: '' })
-const modal = reactive({ show: false, isNew: true, data: emptyItem() })
-
-const openModal = (item) => {
-  modal.isNew = !item
-  modal.data = item ? { ...item } : emptyItem()
-  modal.show = true
-}
-
-const saveItem = async () => {
-  if (!modal.data.code?.trim()) { showToast('請填寫編號'); return }
-  try {
-    if (modal.isNew) {
-      const saved = await $fetch(`${API_BASE.value}/save`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: modal.data
-      })
-      if (saved?.error) { showToast(saved.error); return }
-      items.value.push(saved)
-    } else {
-      const updated = await $fetch(`${API_BASE.value}/update/${modal.data.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: modal.data
-      })
-      if (updated?.error) { showToast(updated.error); return }
-      const idx = items.value.findIndex(i => i.id === modal.data.id)
-      if (idx !== -1) items.value[idx] = updated
-    }
-    modal.show = false
-    showToast(modal.isNew ? '新增成功' : '儲存成功')
-  } catch (e) {
-    console.error(e)
-    showToast('儲存失敗')
-  }
-}
-
-// 停用(軟刪除):資料還在,只是預設清冊不顯示,巡檢紀錄不會斷
-const removeItem = async (item) => {
-  if (!confirm(`確定要停用 ${item.code} 嗎?停用後預設清冊不會顯示,但巡檢歷史紀錄還查得到,之後也可以還原。`)) return
-  try {
-    await $fetch(`${API_BASE.value}/remove/${item.id}`, { method: 'DELETE' })
-    if (showInactive.value) {
-      item.active = false
-    } else {
-      items.value = items.value.filter(i => i.id !== item.id)
-    }
-    showToast('已停用')
-  } catch (e) {
-    console.error(e)
-    showToast('停用失敗')
-  }
-}
-
-const restoreItem = async (item) => {
-  try {
-    const updated = await $fetch(`${API_BASE.value}/restore/${item.id}`, { method: 'PUT' })
-    const idx = items.value.findIndex(i => i.id === item.id)
-    if (idx !== -1) items.value[idx] = updated
-    showToast('已還原')
-  } catch (e) {
-    console.error(e)
-    showToast('還原失敗')
-  }
-}
-
-// ════════════════════ 巡檢紀錄 ════════════════════
-
-const logs = ref([])
-const logsLoading = ref(true)
-
-const fetchLogs = async () => {
-  logsLoading.value = true
-  try {
-    const data = await $fetch(`${INSPECTION_API_BASE.value}/list`, { credentials: 'include' })
-    logs.value = Array.isArray(data) ? data : []
-  } catch (e) {
-    console.error(e)
-    logs.value = []
-  } finally {
-    logsLoading.value = false
-  }
-}
-
-const countByStatus = (status) => logs.value.filter(l => l.status === status).length
-const pendingCount = computed(() => countByStatus('待處理'))
-
-const kanbanCols = computed(() => [
-  { key: 'todo',     label: '待處理', items: logs.value.filter(l => l.status === '待處理') },
-  { key: 'doing',    label: '送修中', items: logs.value.filter(l => l.status === '送修中') },
-  { key: 'replaced', label: '已更換', items: logs.value.filter(l => l.status === '已更換') },
-  { key: 'scrapped', label: '已報廢', items: logs.value.filter(l => l.status === '已報廢') }
-])
-
-const nextStatuses = (colKey) => ({
-  todo: ['送修中', '已更換', '已報廢'],
-  doing: ['已更換', '已報廢'],
-  replaced: [],
-  scrapped: []
-}[colKey] || [])
-
-const changeStatus = async (log, next) => {
-  try {
-    await $fetch(`${INSPECTION_API_BASE.value}/status/${log.id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: { status: next }
-    })
-    log.status = next
-    showToast(`${log.code} 已更新為「${next}」`)
-  } catch (e) {
-    console.error(e)
-    showToast('更新失敗')
-  }
-}
-
-const recordsSearch = ref('')
-const statusFilter = ref('')
-const filteredLogs = computed(() => {
-  let list = logs.value
-  if (recordsSearch.value.trim()) {
-    const q = recordsSearch.value.trim().toLowerCase()
-    list = list.filter(l => l.code?.toLowerCase().includes(q))
-  }
-  if (statusFilter.value) list = list.filter(l => l.status === statusFilter.value)
-  return list
-})
-
-const badgeClass = (status) => ({
-  '正常': 'ok', '已更換': 'ok', '待處理': 'bad', '已報廢': 'muted', '送修中': 'warn'
-}[status] || 'muted')
-
-onMounted(() => { fetchItems(); fetchLogs() })
-</script>
 
 <style scoped>
 .badge-stat {

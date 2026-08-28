@@ -1,3 +1,182 @@
+<script setup>
+  import { ref, reactive, computed } from 'vue'
+
+  definePageMeta({ layout: 'staff', requiredPermission: 'catering-kitchen.lemon-sauce-inventory' })
+
+  /* ══════════════════════════════════
+     TODO（接後端時使用）：
+     const commonStore = useCommonStore()
+     const BASE = () => commonStore.data.main_url + '/holy/lemon-sauce-inventory'
+     目前先以本地模擬資料運作，之後可將
+     loadRecords / saveRecord / deleteRecord
+     換成 apiFetch(`${BASE()}/...`) 呼叫，並比照既有 YAML 慣例
+     （FileConfiguration / YmlFileUtil）在後端做持久化。
+  ══════════════════════════════════ */
+
+  /* ── 模擬資料（依實際 xlsx 內容還原，含起始筆數） ── */
+  let nextId = 1
+  function rec(date, purchase, haijinfu, farm, sample, stock) {
+    return { id: nextId++, date, purchase: purchase || 0, haijinfu: haijinfu || 0, farm: farm || 0, sample: sample || 0, stock }
+  }
+  const records = reactive([
+    rec('2024-11-27', 883, 746, 29, 0, 108),
+    rec('2024-12-05', 0, 0, 24, 0, 84),
+    rec('2024-12-11', 0, 0, 24, 0, 60),
+    rec('2024-12-23', 0, 60, 0, 0, 0),
+    rec('2024-12-25', 115, 0, 24, 0, 91),
+    rec('2025-01-13', 0, 0, 24, 0, 67),
+    rec('2025-01-13', 0, 67, 0, 0, 0),
+    rec('2025-01-15', 148, 0, 0, 0, 148),
+    rec('2025-01-16', 0, 72, 36, 0, 40),
+    rec('2025-02-06', 0, 0, 40, 0, 0),
+    rec('2025-02-11', 156, 0, 0, 0, 156),
+    rec('2025-02-20', 0, 0, 36, 0, 120),
+    rec('2025-02-21', 0, 0, 24, 0, 96),
+    rec('2025-02-28', 0, 0, 24, 0, 72),
+    rec('2025-03-28', 0, 0, 72, 0, 0),
+    rec('2025-04-07', 658, 0, 0, 0, 658),
+    rec('2025-04-08', 0, 612, 0, 0, 46),
+    rec('2025-04-10', 0, 24, 0, 0, 22),
+    rec('2025-07-22', 1478, 0, 0, 0, 1500),
+    rec('2025-07-22', 0, 0, 120, 0, 1380),
+    rec('2025-07-24', 0, 96, 0, 0, 1284),
+    rec('2025-07-29', 0, 0, 60, 0, 1224),
+    rec('2025-08-01', 0, 1224, 0, 0, 0),
+    rec('2025-08-27', 116, 0, 0, 0, 116),
+    rec('2025-08-29', 0, 84, 32, 0, 0),
+    rec('2025-09-10', 112, 0, 0, 0, 112),
+    rec('2025-09-12', 0, 96, 0, 0, 16),
+    rec('2025-10-28', 119, 120, 0, 0, 15),
+    rec('2025-11-10', 78, 0, 0, 0, 93),
+    rec('2025-11-10', 0, 60, 0, 0, 33),
+    rec('2025-11-20', 0, 0, 33, 0, 0),
+    rec('2025-11-26', 152, 0, 0, 0, 152),
+    rec('2025-11-27', 0, 108, 0, 0, 44),
+    rec('2025-12-19', 154, 0, 0, 0, 198),
+    rec('2025-12-29', 0, 120, 0, 0, 78),
+    rec('2025-12-30', 190, 0, 0, 0, 268),
+    rec('2025-12-31', 251, 0, 0, 0, 519),
+    rec('2026-01-02', 160, 450, 0, 0, 229),
+    rec('2026-01-05', 0, 0, 50, 0, 179),
+    rec('2026-01-13', 0, 60, 0, 1, 118),
+    rec('2026-01-16', 0, 0, 50, 0, 68),
+    rec('2026-01-28', 158, 0, 0, 1, 225),
+    rec('2026-01-29', 0, 192, 0, 0, 33),
+    rec('2026-03-13', 187, 0, 51, 1, 168),
+    rec('2026-03-16', 0, 156, 0, 0, 12),
+    rec('2026-04-22', 117, 0, 0, 0, 129),
+    rec('2026-04-23', 0, 96, 0, 1, 32),
+    rec('2026-05-15', 156, 0, 50, 1, 137),
+    rec('2026-05-26', 111, 156, 0, 1, 91),
+    rec('2026-06-04', 156, 0, 0, 0, 247),
+    rec('2026-06-05', 157, 0, 0, 0, 404),
+    rec('2026-06-08', 157, 0, 0, 0, 561),
+    rec('2026-06-09', 153, 0, 0, 0, 714),
+    rec('2026-06-10', 157, 0, 0, 1, 870),
+    rec('2026-06-16', 0, 121, 0, 0, 749),
+    rec('2026-06-22', 0, 732, 0, 0, 17)
+  ])
+
+  const sortedRecords = computed(() => [...records].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id))
+  const currentStock = computed(() => (sortedRecords.value.length ? sortedRecords.value[sortedRecords.value.length - 1].stock : 0))
+
+  const totals = computed(() => records.reduce((acc, r) => {
+    acc.purchase += r.purchase
+    acc.haijinfu += r.haijinfu
+    acc.farm += r.farm
+    acc.sample += r.sample
+    return acc
+  }, { purchase: 0, haijinfu: 0, farm: 0, sample: 0 }))
+
+  /* ── 庫存趨勢圖（簡易 SVG 折線圖） ── */
+  const chartW = 900
+  const chartH = 160
+  const chartPoints = computed(() => {
+    const list = sortedRecords.value
+    if (!list.length) return ''
+    const max = Math.max(...list.map(r => r.stock), 1)
+    const stepX = list.length > 1 ? chartW / (list.length - 1) : 0
+    return list.map((r, i) => {
+      const x = list.length > 1 ? i * stepX : chartW / 2
+      const y = chartH - 10 - (r.stock / max) * (chartH - 20)
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    }).join(' ')
+  })
+  const chartCirclePoints = computed(() => {
+    if (!chartPoints.value) return []
+    return chartPoints.value.split(' ').map(pair => {
+      const [x, y] = pair.split(',').map(Number)
+      return { x, y }
+    })
+  })
+  const chartAreaPoints = computed(() => {
+    if (!chartPoints.value) return ''
+    return `0,${chartH} ${chartPoints.value} ${chartW},${chartH}`
+  })
+
+  /* ── 新增／編輯表單 ── */
+  const formOpen = ref(false)
+  const editingId = ref(null)
+  const draft = reactive({ date: '', purchase: 0, haijinfu: 0, farm: 0, sample: 0, stockOverride: null })
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10)
+  }
+
+  /* 依日期排序後，取「上一筆」的庫存量作為計算基礎 */
+  const previewStock = computed(() => {
+    const base = [...records]
+      .filter(r => r.id !== editingId.value)
+      .filter(r => r.date <= (draft.date || '9999'))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+    const prevStock = base.length ? base[base.length - 1].stock : 0
+    return prevStock + (draft.purchase || 0) - (draft.haijinfu || 0) - (draft.farm || 0) - (draft.sample || 0)
+  })
+
+  function openAddForm() {
+    editingId.value = null
+    draft.date = todayStr()
+    draft.purchase = 0
+    draft.haijinfu = 0
+    draft.farm = 0
+    draft.sample = 0
+    draft.stockOverride = null
+    formOpen.value = true
+  }
+  function startEdit(rec) {
+    editingId.value = rec.id
+    draft.date = rec.date
+    draft.purchase = rec.purchase
+    draft.haijinfu = rec.haijinfu
+    draft.farm = rec.farm
+    draft.sample = rec.sample
+    draft.stockOverride = rec.stock
+    formOpen.value = true
+  }
+  function closeForm() {
+    formOpen.value = false
+    editingId.value = null
+  }
+  function confirmSave() {
+    if (!draft.date) return
+    const stock = draft.stockOverride === null || draft.stockOverride === '' ? previewStock.value : draft.stockOverride
+    if (editingId.value === null) {
+      records.push(rec(draft.date, draft.purchase, draft.haijinfu, draft.farm, draft.sample, stock))
+    } else {
+      const target = records.find(r => r.id === editingId.value)
+      if (target) Object.assign(target, { date: draft.date, purchase: draft.purchase, haijinfu: draft.haijinfu, farm: draft.farm, sample: draft.sample, stock })
+    }
+    closeForm()
+  }
+
+  const confirmDeleteId = ref(null)
+  function deleteRecord(id) {
+    const idx = records.findIndex(r => r.id === id)
+    if (idx !== -1) records.splice(idx, 1)
+    confirmDeleteId.value = null
+  }
+</script>
+
 <template>
   <div class="min-h-full bg-surface2 transition-colors page-wrap">
     <!-- ── 頁首 ── -->
@@ -144,185 +323,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, reactive, computed } from 'vue'
-
-definePageMeta({ layout: 'staff', requiredPermission: 'management.lemon-sauce-inventory' })
-
-/* ══════════════════════════════════
-   TODO（接後端時使用）：
-   const commonStore = useCommonStore()
-   const BASE = () => commonStore.data.main_url + '/holy/lemon-sauce-inventory'
-   目前先以本地模擬資料運作，之後可將
-   loadRecords / saveRecord / deleteRecord
-   換成 apiFetch(`${BASE()}/...`) 呼叫，並比照既有 YAML 慣例
-   （FileConfiguration / YmlFileUtil）在後端做持久化。
-══════════════════════════════════ */
-
-/* ── 模擬資料（依實際 xlsx 內容還原，含起始筆數） ── */
-let nextId = 1
-function rec(date, purchase, haijinfu, farm, sample, stock) {
-  return { id: nextId++, date, purchase: purchase || 0, haijinfu: haijinfu || 0, farm: farm || 0, sample: sample || 0, stock }
-}
-const records = reactive([
-  rec('2024-11-27', 883, 746, 29, 0, 108),
-  rec('2024-12-05', 0, 0, 24, 0, 84),
-  rec('2024-12-11', 0, 0, 24, 0, 60),
-  rec('2024-12-23', 0, 60, 0, 0, 0),
-  rec('2024-12-25', 115, 0, 24, 0, 91),
-  rec('2025-01-13', 0, 0, 24, 0, 67),
-  rec('2025-01-13', 0, 67, 0, 0, 0),
-  rec('2025-01-15', 148, 0, 0, 0, 148),
-  rec('2025-01-16', 0, 72, 36, 0, 40),
-  rec('2025-02-06', 0, 0, 40, 0, 0),
-  rec('2025-02-11', 156, 0, 0, 0, 156),
-  rec('2025-02-20', 0, 0, 36, 0, 120),
-  rec('2025-02-21', 0, 0, 24, 0, 96),
-  rec('2025-02-28', 0, 0, 24, 0, 72),
-  rec('2025-03-28', 0, 0, 72, 0, 0),
-  rec('2025-04-07', 658, 0, 0, 0, 658),
-  rec('2025-04-08', 0, 612, 0, 0, 46),
-  rec('2025-04-10', 0, 24, 0, 0, 22),
-  rec('2025-07-22', 1478, 0, 0, 0, 1500),
-  rec('2025-07-22', 0, 0, 120, 0, 1380),
-  rec('2025-07-24', 0, 96, 0, 0, 1284),
-  rec('2025-07-29', 0, 0, 60, 0, 1224),
-  rec('2025-08-01', 0, 1224, 0, 0, 0),
-  rec('2025-08-27', 116, 0, 0, 0, 116),
-  rec('2025-08-29', 0, 84, 32, 0, 0),
-  rec('2025-09-10', 112, 0, 0, 0, 112),
-  rec('2025-09-12', 0, 96, 0, 0, 16),
-  rec('2025-10-28', 119, 120, 0, 0, 15),
-  rec('2025-11-10', 78, 0, 0, 0, 93),
-  rec('2025-11-10', 0, 60, 0, 0, 33),
-  rec('2025-11-20', 0, 0, 33, 0, 0),
-  rec('2025-11-26', 152, 0, 0, 0, 152),
-  rec('2025-11-27', 0, 108, 0, 0, 44),
-  rec('2025-12-19', 154, 0, 0, 0, 198),
-  rec('2025-12-29', 0, 120, 0, 0, 78),
-  rec('2025-12-30', 190, 0, 0, 0, 268),
-  rec('2025-12-31', 251, 0, 0, 0, 519),
-  rec('2026-01-02', 160, 450, 0, 0, 229),
-  rec('2026-01-05', 0, 0, 50, 0, 179),
-  rec('2026-01-13', 0, 60, 0, 1, 118),
-  rec('2026-01-16', 0, 0, 50, 0, 68),
-  rec('2026-01-28', 158, 0, 0, 1, 225),
-  rec('2026-01-29', 0, 192, 0, 0, 33),
-  rec('2026-03-13', 187, 0, 51, 1, 168),
-  rec('2026-03-16', 0, 156, 0, 0, 12),
-  rec('2026-04-22', 117, 0, 0, 0, 129),
-  rec('2026-04-23', 0, 96, 0, 1, 32),
-  rec('2026-05-15', 156, 0, 50, 1, 137),
-  rec('2026-05-26', 111, 156, 0, 1, 91),
-  rec('2026-06-04', 156, 0, 0, 0, 247),
-  rec('2026-06-05', 157, 0, 0, 0, 404),
-  rec('2026-06-08', 157, 0, 0, 0, 561),
-  rec('2026-06-09', 153, 0, 0, 0, 714),
-  rec('2026-06-10', 157, 0, 0, 1, 870),
-  rec('2026-06-16', 0, 121, 0, 0, 749),
-  rec('2026-06-22', 0, 732, 0, 0, 17)
-])
-
-const sortedRecords = computed(() => [...records].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id))
-const currentStock = computed(() => (sortedRecords.value.length ? sortedRecords.value[sortedRecords.value.length - 1].stock : 0))
-
-const totals = computed(() => records.reduce((acc, r) => {
-  acc.purchase += r.purchase
-  acc.haijinfu += r.haijinfu
-  acc.farm += r.farm
-  acc.sample += r.sample
-  return acc
-}, { purchase: 0, haijinfu: 0, farm: 0, sample: 0 }))
-
-/* ── 庫存趨勢圖（簡易 SVG 折線圖） ── */
-const chartW = 900
-const chartH = 160
-const chartPoints = computed(() => {
-  const list = sortedRecords.value
-  if (!list.length) return ''
-  const max = Math.max(...list.map(r => r.stock), 1)
-  const stepX = list.length > 1 ? chartW / (list.length - 1) : 0
-  return list.map((r, i) => {
-    const x = list.length > 1 ? i * stepX : chartW / 2
-    const y = chartH - 10 - (r.stock / max) * (chartH - 20)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-})
-const chartCirclePoints = computed(() => {
-  if (!chartPoints.value) return []
-  return chartPoints.value.split(' ').map(pair => {
-    const [x, y] = pair.split(',').map(Number)
-    return { x, y }
-  })
-})
-const chartAreaPoints = computed(() => {
-  if (!chartPoints.value) return ''
-  return `0,${chartH} ${chartPoints.value} ${chartW},${chartH}`
-})
-
-/* ── 新增／編輯表單 ── */
-const formOpen = ref(false)
-const editingId = ref(null)
-const draft = reactive({ date: '', purchase: 0, haijinfu: 0, farm: 0, sample: 0, stockOverride: null })
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-/* 依日期排序後，取「上一筆」的庫存量作為計算基礎 */
-const previewStock = computed(() => {
-  const base = [...records]
-    .filter(r => r.id !== editingId.value)
-    .filter(r => r.date <= (draft.date || '9999'))
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
-  const prevStock = base.length ? base[base.length - 1].stock : 0
-  return prevStock + (draft.purchase || 0) - (draft.haijinfu || 0) - (draft.farm || 0) - (draft.sample || 0)
-})
-
-function openAddForm() {
-  editingId.value = null
-  draft.date = todayStr()
-  draft.purchase = 0
-  draft.haijinfu = 0
-  draft.farm = 0
-  draft.sample = 0
-  draft.stockOverride = null
-  formOpen.value = true
-}
-function startEdit(rec) {
-  editingId.value = rec.id
-  draft.date = rec.date
-  draft.purchase = rec.purchase
-  draft.haijinfu = rec.haijinfu
-  draft.farm = rec.farm
-  draft.sample = rec.sample
-  draft.stockOverride = rec.stock
-  formOpen.value = true
-}
-function closeForm() {
-  formOpen.value = false
-  editingId.value = null
-}
-function confirmSave() {
-  if (!draft.date) return
-  const stock = draft.stockOverride === null || draft.stockOverride === '' ? previewStock.value : draft.stockOverride
-  if (editingId.value === null) {
-    records.push(rec(draft.date, draft.purchase, draft.haijinfu, draft.farm, draft.sample, stock))
-  } else {
-    const target = records.find(r => r.id === editingId.value)
-    if (target) Object.assign(target, { date: draft.date, purchase: draft.purchase, haijinfu: draft.haijinfu, farm: draft.farm, sample: draft.sample, stock })
-  }
-  closeForm()
-}
-
-const confirmDeleteId = ref(null)
-function deleteRecord(id) {
-  const idx = records.findIndex(r => r.id === id)
-  if (idx !== -1) records.splice(idx, 1)
-  confirmDeleteId.value = null
-}
-</script>
 
 <style scoped>
 .page-wrap {

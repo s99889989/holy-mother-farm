@@ -1,5 +1,5 @@
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'management.meal-schedule' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'catering-kitchen.meal-schedule' })
   const commonStore = useCommonStore()
   const BASE = computed(() => commonStore.data.main_url + '/holy/meal-schedule')
 

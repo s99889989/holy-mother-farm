@@ -324,7 +324,7 @@
 </template>
 
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'management.group-itinerary' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'timeline.group-itinerary' })
 
   const commonStore = useCommonStore()
   const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')

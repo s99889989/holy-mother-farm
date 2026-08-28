@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'staff', requiredPermission: 'staff.home' })
+definePageMeta({ layout: 'staff', requiredPermission: 'catering-kitchen.broadcast' })
 
 const commonStore = useCommonStore()
 

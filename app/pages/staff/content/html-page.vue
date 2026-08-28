@@ -404,7 +404,7 @@
 </template>
 
 <script setup>
-  definePageMeta({layout: 'staff', requiredPermission: 'management.html-page'})
+  definePageMeta({layout: 'staff', requiredPermission: 'content.html-page'})
 
   const commonStore = useCommonStore()
   const BASE = () => commonStore.data.main_url + '/holy/html-page'

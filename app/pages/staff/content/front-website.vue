@@ -30,7 +30,7 @@
 </template>
 
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'content.news' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'content.front-website' })
 
   import NewsPanel from '~/components/front-website/NewsPanel.vue'
   import ProductPanel from '~/components/front-website/ProductPanel.vue'
