@@ -38,6 +38,9 @@ importers:
       '@pinia/nuxt':
         specifier: ^0.11.3
         version: 0.11.3(magicast@0.5.2)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3)))
+      '@playcanvas/supersplat-viewer':
+        specifier: ^1.30.2
+        version: 1.30.2
       '@tiptap/extension-strike':
         specifier: ^3.22.4
         version: 3.22.4(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))
@@ -1305,6 +1308,10 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
+
+  '@playcanvas/supersplat-viewer@1.30.2':
+    resolution: {integrity: sha512-iYK0LuJXOesCEAx8Cs10Q21gzivXwfRJlqcf+tpFbQHzlTSL988LhHMfSBgCXpub0KG+q8oi3QoIUk5/m/d9Ng==}
+    engines: {node: '>=20.0.0'}
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -7328,6 +7335,8 @@ snapshots:
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
+
+  '@playcanvas/supersplat-viewer@1.30.2': {}
 
   '@polka/url@1.0.0-next.29': {}
 

@@ -21,6 +21,7 @@
     "@photo-sphere-viewer/markers-plugin": "^5.15.1",
     "@pinia-plugin-persistedstate/nuxt": "^1.2.1",
     "@pinia/nuxt": "^0.11.3",
+    "@playcanvas/supersplat-viewer": "^1.30.2",
     "@tiptap/extension-strike": "^3.22.4",
     "@tiptap/extension-text-align": "^3.22.4",
     "@tiptap/extension-underline": "^3.22.4",

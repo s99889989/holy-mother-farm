@@ -72,7 +72,8 @@ const navGroups = [
       { to: '/staff/content/html-page', icon: '🖥️', label: '網頁頁面', key: 'content.html-page' },
       { to: '/staff/content/front-website', icon: '📢️', label: '前台管理', key: 'content.front-website' },
       { to: '/staff/content/tour', icon: '🌐️', label: '環景導覽管理', key: 'content.tour' },
-      { to: '/staff/content/files', icon: '📁', label: '檔案管理', key: 'content.files' }
+      { to: '/staff/content/files', icon: '📁', label: '檔案管理', key: 'content.files' },
+      { to: '/staff/content/gaussian-models', icon: '📁', label: '高斯潑灑模型', key: 'content.files' }
     ]
   },
   {
