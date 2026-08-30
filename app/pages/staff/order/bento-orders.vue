@@ -4,6 +4,7 @@ const commonStore = useCommonStore()
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
 const HOURS_BASE = computed(() => commonStore.data.main_url + '/holy/restaurant/hours')
+const TIMESLOT_BASE = computed(() => commonStore.data.main_url + '/holy/lunch/timeslot')
 
 // ── 客戶訂餐連結 ──────────────────────────────────────────────────
 const CUSTOMER_LUNCH_URL = 'https://holyfarm.netlify.app/front/order/bento'
@@ -131,6 +132,126 @@ const timePart = (obj, key, part) => computed({
   }
 })
 
+// ── 取餐時間設定（便當獨立一份，不跟訂位共用）─────────────────────────
+// 例如 11:30–13:00、interval=10，客人可選 11:30、11:40…12:50 取餐，後端也會依此驗證。
+// 跟「時段標籤」（純顯示用，在營業設定頁面管理）是兩回事：這裡才是真正決定客人能選哪些
+// 取餐時間的設定。
+const pickupSlots = ref([])
+const pickupSlotModal = reactive({show: false})
+const pickupSlotEditingId = ref('')
+const pickupSlotForm = reactive({id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange', interval: 5, temporary: false, dates: {}})
+const pickupSlotStartHour = timePart(pickupSlotForm, 'startTime', 'h')
+const pickupSlotStartMinute = timePart(pickupSlotForm, 'startTime', 'm')
+const pickupSlotEndHour = timePart(pickupSlotForm, 'endTime', 'h')
+const pickupSlotEndMinute = timePart(pickupSlotForm, 'endTime', 'm')
+const INTERVAL_OPTIONS = [5, 10, 15, 20, 30, 60]
+
+// 臨時時段（temporary=true）才會用到：指定它在哪幾天開放，那幾天會取代預設時段
+// （同一天若有多筆臨時時段，那天就會同時看到那幾筆）。用法跟營業設定的「臨時開放日」類似。
+const pickupSlotDateForm = reactive({date: '', note: ''})
+const sortedPickupSlotDates = computed(() =>
+  Object.entries(pickupSlotForm.dates || {}).sort((a, b) => a[0].localeCompare(b[0])))
+const addPickupSlotDate = () => {
+  if (!pickupSlotDateForm.date) return
+  pickupSlotForm.dates[pickupSlotDateForm.date] = pickupSlotDateForm.note
+  Object.assign(pickupSlotDateForm, {date: '', note: ''})
+}
+const removePickupSlotDate = (date) => {
+  delete pickupSlotForm.dates[date]
+}
+
+const SLOT_COLORS = [
+  {key: 'amber', label: '琥珀', class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'},
+  {key: 'orange', label: '橘', class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'},
+  {key: 'indigo', label: '靛', class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'},
+  {key: 'purple', label: '紫', class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'},
+  {key: 'teal', label: '青', class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'},
+]
+const slotColorClass = (colorKey) => (SLOT_COLORS.find(c => c.key === colorKey) || SLOT_COLORS[0]).class
+
+const sortedPickupSlots = computed(() => [...pickupSlots.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+
+const fetchPickupSlots = async () => {
+  try {
+    pickupSlots.value = await (await fetch(`${TIMESLOT_BASE.value}/list`)).json()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const openPickupSlotSettings = () => {
+  openPickupSlotForm(null)
+  pickupSlotModal.show = true
+}
+
+const openPickupSlotForm = (slot) => {
+  if (slot) Object.assign(pickupSlotForm, {interval: 5, temporary: false, dates: {}, ...slot, dates: {...(slot.dates || {})}})
+  else Object.assign(pickupSlotForm, {id: '', name: '', startTime: '11:00', endTime: '14:00', color: 'orange', interval: 5, temporary: false, dates: {}})
+  Object.assign(pickupSlotDateForm, {date: '', note: ''})
+  pickupSlotEditingId.value = slot ? slot.id : ''
+}
+
+const pickupSlotCanSave = computed(() =>
+  !!pickupSlotForm.name && !!pickupSlotForm.startTime && !!pickupSlotForm.endTime
+  && (!pickupSlotForm.temporary || Object.keys(pickupSlotForm.dates || {}).length > 0))
+
+const savePickupSlot = async () => {
+  if (!pickupSlotCanSave.value) return
+  try {
+    const saved = await (await fetch(`${TIMESLOT_BASE.value}/save`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...pickupSlotForm})
+    })).json()
+    const idx = pickupSlots.value.findIndex(p => p.id === saved.id)
+    if (idx >= 0) pickupSlots.value[idx] = saved
+    else pickupSlots.value.push(saved)
+    openPickupSlotForm(null)
+    showToast('取餐時間已儲存')
+  } catch {
+    showToast('儲存失敗')
+  }
+}
+
+const deletePickupSlot = async (id) => {
+  if (!confirm('確定刪除此取餐時間？')) return
+  try {
+    await fetch(`${TIMESLOT_BASE.value}/remove/${id}`, {method: 'DELETE'})
+    pickupSlots.value = pickupSlots.value.filter(p => p.id !== id)
+    if (pickupSlotEditingId.value === id) openPickupSlotForm(null)
+    showToast('已刪除')
+  } catch {
+    showToast('刪除失敗')
+  }
+}
+
+// ── 準備時間（便當專屬）────────────────────────────────────────────
+// 例如設定 15 分鐘：客人「今天」下單時只能選現在時間＋15分鐘之後的取餐時段，
+// 選明天以後的日期不受影響。客訂頁面會顯示說明文字告訴客人為什麼有些時間不能選。
+const prepMinutes = ref(0)
+const prepMinutesDraft = ref(0)
+
+const fetchPrepMinutes = async () => {
+  try {
+    const r = await (await fetch(`${TIMESLOT_BASE.value}/prep-time`)).json()
+    prepMinutes.value = r.prepMinutes || 0
+    prepMinutesDraft.value = prepMinutes.value
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const savePrepMinutes = async () => {
+  try {
+    const minutes = Math.max(0, Number(prepMinutesDraft.value) || 0)
+    const r = await (await fetch(`${TIMESLOT_BASE.value}/prep-time/save?minutes=${minutes}`, {method: 'POST'})).json()
+    prepMinutes.value = r.prepMinutes || 0
+    prepMinutesDraft.value = prepMinutes.value
+    showToast('準備時間已儲存')
+  } catch {
+    showToast('儲存失敗')
+  }
+}
+
 // ── 便當資料 ──────────────────────────────────────────────────────
 const lunchOrders = ref([])
 const lunchMarkedDates = ref([])
@@ -225,7 +346,7 @@ const showToast = (msg) => {
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchHoursSettings()])
+  await Promise.all([fetchMarkedDates(), fetchHoursSettings(), fetchPickupSlots(), fetchPrepMinutes()])
   selectedDate.value = todayStr
   await fetchLunchOrders()
   fetchGroupNames()
@@ -293,12 +414,19 @@ onMounted(async () => {
             </svg>
             <span class="hidden sm:inline">客戶訂購連結</span>
           </button>
-          <NuxtLink
-            to="/staff/management/restaurant-hours"
+          <button
             class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
-            title="時段設定 / 營業設定（跟訂位共用）"
+            title="便當取餐時間設定（幾點到幾點可以取餐、間隔幾分鐘）"
+            @click="openPickupSlotSettings"
           >
-            ⚙️ <span class="hidden sm:inline">餐廳設定</span>
+            🕐 <span class="hidden sm:inline">取餐時間設定</span>
+          </button>
+          <NuxtLink
+            to="/staff/management/business-hours"
+            class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
+            title="營業日 / 餐廳資訊（跟訂位共用）"
+          >
+            ⚙️ <span class="hidden sm:inline">營業設定</span>
           </NuxtLink>
           <span
             :class="apiOnline ? 'text-green-600' : 'text-red-500'"
@@ -773,6 +901,245 @@ onMounted(async () => {
           >
             {{ lunchModal.isNew ? '新增' : '儲存' }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ 便當取餐時間設定 Modal ════════ -->
+    <div
+      v-if="pickupSlotModal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+    >
+      <div
+        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto"
+      >
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-base-c">
+              🕐 便當取餐時間設定
+            </h3>
+            <p class="text-xs text-hint-c mt-0.5">
+              幾點到幾點可以取餐、間隔幾分鐘。只影響便當，跟訂位到場時間各自獨立。
+            </p>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1 flex-shrink-0"
+            @click="pickupSlotModal.show = false"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="bg-surface2 rounded-xl px-3 py-3 mb-4">
+          <div class="text-sm font-medium text-base-c mb-1">
+            ⏱️ 準備時間
+          </div>
+          <p class="text-xs text-hint-c mb-2">
+            客人「今天」下單時，只能選現在時間加上這個準備時間之後的取餐時段（例如設定 15
+            分鐘，現在是 14:00，最早只能選 14:15 之後的時段）。選明天以後的日期不受影響。
+          </p>
+          <div class="flex items-center gap-2">
+            <input
+              v-model.number="prepMinutesDraft"
+              type="number"
+              min="0"
+              step="5"
+              class="w-24 px-3 py-1.5 rounded-lg border border-light-c bg-surface text-base-c text-sm"
+            >
+            <span class="text-sm text-hint-c">分鐘</span>
+            <button
+              class="ml-auto px-3 py-1.5 rounded-lg bg-orange-600 text-white text-sm font-medium"
+              @click="savePrepMinutes"
+            >
+              儲存
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-2 mb-4">
+          <div
+            v-if="sortedPickupSlots.length === 0"
+            class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
+          >
+            尚未設定任何取餐時間（沒有設定時，便當暫時不限制下單時間）
+          </div>
+          <div
+            v-for="p in sortedPickupSlots"
+            :key="p.id"
+            class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2 flex-wrap"
+          >
+            <span
+              class="px-2 py-0.5 rounded-full text-xs font-medium border flex-shrink-0"
+              :class="slotColorClass(p.color)"
+            >{{ p.name }}</span>
+            <span class="text-sm text-muted-c flex-1 min-w-0">
+              {{ p.startTime }} – {{ p.endTime }}
+              <span class="text-xs text-hint-c">（每 {{ p.interval || 5 }} 分）</span>
+            </span>
+            <span
+              v-if="!p.temporary"
+              class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface text-hint-c border border-light-c flex-shrink-0"
+            >🔁 預設</span>
+            <span
+              v-else
+              class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 flex-shrink-0"
+              :title="Object.keys(p.dates || {}).join('、')"
+            >📅 臨時（{{ Object.keys(p.dates || {}).length }} 天）</span>
+            <button class="text-xs text-blue-500 hover:text-blue-700 px-1.5 flex-shrink-0" @click="openPickupSlotForm(p)">
+              編輯
+            </button>
+            <button class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0" @click="deletePickupSlot(p.id)">
+              刪除
+            </button>
+          </div>
+        </div>
+
+        <div class="border-t border-light-c pt-4 space-y-3">
+          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest">
+            {{ pickupSlotEditingId ? '編輯取餐時間' : '新增取餐時間' }}
+          </p>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">名稱 *</label>
+            <input
+              v-model="pickupSlotForm.name"
+              placeholder="早餐 / 午餐 / 晚餐…"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"
+            >
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">開始時間 *</label>
+              <div class="flex items-center gap-1">
+                <select v-model="pickupSlotStartHour" class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400">
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                </select>
+                <span class="text-muted-c font-medium">:</span>
+                <select v-model="pickupSlotStartMinute" class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400">
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">結束時間 *</label>
+              <div class="flex items-center gap-1">
+                <select v-model="pickupSlotEndHour" class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400">
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                </select>
+                <span class="text-muted-c font-medium">:</span>
+                <select v-model="pickupSlotEndMinute" class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400">
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">時間間隔（分鐘）</label>
+            <select
+              v-model.number="pickupSlotForm.interval"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"
+            >
+              <option v-for="m in INTERVAL_OPTIONS" :key="m" :value="m">每 {{ m }} 分鐘</option>
+            </select>
+            <p class="text-xs text-hint-c mt-1">
+              客人可選的取餐時間間隔，例如設 10 分鐘，11:30–13:00 會展開成 11:30、11:40…12:50。
+            </p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">類型</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class="py-2 rounded-xl text-sm font-medium border transition-colors"
+                :class="!pickupSlotForm.temporary ? 'bg-orange-600 text-white border-orange-600' : 'bg-surface text-hint-c border-light-c'"
+                @click="pickupSlotForm.temporary = false"
+              >
+                🔁 預設（每個營業日）
+              </button>
+              <button
+                type="button"
+                class="py-2 rounded-xl text-sm font-medium border transition-colors"
+                :class="pickupSlotForm.temporary ? 'bg-purple-600 text-white border-purple-600' : 'bg-surface text-hint-c border-light-c'"
+                @click="pickupSlotForm.temporary = true"
+              >
+                📅 臨時（指定日期）
+              </button>
+            </div>
+            <p class="text-xs text-hint-c mt-1">
+              臨時時段只在下面指定的日期開放，那天會取代預設時段（同一天可以有多筆臨時時段同時開放）。
+            </p>
+          </div>
+          <div v-if="pickupSlotForm.temporary" class="border-t border-light-c pt-3 space-y-2">
+            <label class="text-sm font-medium text-muted-c block mb-1">開放日期 *</label>
+            <div
+              v-if="sortedPickupSlotDates.length === 0"
+              class="bg-surface2 rounded-xl px-3 py-2 text-center text-hint-c text-xs"
+            >
+              尚未指定日期，至少要加一個
+            </div>
+            <div
+              v-for="[date, note] in sortedPickupSlotDates"
+              :key="date"
+              class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-1.5"
+            >
+              <span class="text-sm text-muted-c font-medium flex-shrink-0">{{ date }}</span>
+              <span class="text-xs text-hint-c flex-1 min-w-0 truncate">{{ note }}</span>
+              <button class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0" @click="removePickupSlotDate(date)">
+                移除
+              </button>
+            </div>
+            <div class="flex gap-2">
+              <input
+                v-model="pickupSlotDateForm.date"
+                type="date"
+                class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"
+              >
+              <input
+                v-model="pickupSlotDateForm.note"
+                placeholder="備註（選填）"
+                class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"
+              >
+              <button
+                :disabled="!pickupSlotDateForm.date"
+                class="px-3 py-2 text-sm bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors flex-shrink-0"
+                @click="addPickupSlotDate"
+              >
+                新增
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">標籤顏色</label>
+            <div class="flex gap-2 flex-wrap">
+              <button
+                v-for="c in SLOT_COLORS"
+                :key="c.key"
+                type="button"
+                class="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                :class="[slotColorClass(c.key), pickupSlotForm.color === c.key ? 'ring-2 ring-offset-1 ring-orange-400' : 'opacity-50']"
+                @click="pickupSlotForm.color = c.key"
+              >
+                {{ c.label }}
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button
+              v-if="pickupSlotEditingId"
+              class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+              @click="openPickupSlotForm(null)"
+            >
+              取消編輯
+            </button>
+            <button
+              :disabled="!pickupSlotCanSave"
+              class="flex-1 px-4 py-2.5 text-sm bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors"
+              @click="savePickupSlot"
+            >
+              {{ pickupSlotEditingId ? '儲存變更' : '新增取餐時間' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ const commonStore = useCommonStore()
 const BASE = computed(() => commonStore.data.main_url + '/holy/booking')
 const LUNCH_BASE = computed(() => commonStore.data.main_url + '/holy/lunch')
 const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
+const TIMESLOT_BASE = computed(() => commonStore.data.main_url + '/holy/booking/timeslot')
 const GROUP_BASE = computed(() => commonStore.data.main_url + '/holy/group-itinerary')
 const HOURS_BASE = computed(() => commonStore.data.main_url + '/holy/restaurant/hours')
 
@@ -27,7 +28,8 @@ const fetchGroupNames = async () => {
   try {
     const list = await (await fetch(`${GROUP_BASE.value}/list`)).json()
     groupNamesById.value = Object.fromEntries((list || []).map(g => [g.id, g.name]))
-  } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */ }
+  } catch { /* 團體行程功能非必要依賴，撈不到就不顯示徽章即可 */
+  }
 }
 
 // ── 24 小時制時間選擇（避免原生 time input 出現上午/下午） ──────────
@@ -117,17 +119,38 @@ const bookingStatusClass = (status) => {
   }
 }
 
-// ── 時段設定（唯讀，供訂位列表標示時段用；要新增/編輯/刪除請到「餐廳設定」頁面）───
-// 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段。
-// 跟便當共用同一份時段設定（/holy/booking/period），不是訂位獨立一份。
+// ── 時段標籤（唯讀，純顯示用，供訂位列表標示時段；要新增/編輯/刪除請到「營業設定」頁面）───
+// 例如 11:00–14:00 設定為「午餐」，訂位/包月的用餐時間會自動歸入對應時段上色顯示，
+// 不影響客人幾點可以訂位——那是下面「到場時間設定」的事。跟便當共用同一份標籤清單
+// （/holy/booking/period），不是訂位獨立一份。
 const periods = ref([]) // [{ id, name, startTime, endTime, color }]
 
 const PERIOD_COLORS = [
-  { key: 'amber', class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40' },
-  { key: 'orange', class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40' },
-  { key: 'indigo', class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40' },
-  { key: 'purple', class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40' },
-  { key: 'teal', class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40' },
+  {
+    key: 'amber',
+    label: '琥珀',
+    class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
+  },
+  {
+    key: 'orange',
+    label: '橘',
+    class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40'
+  },
+  {
+    key: 'indigo',
+    label: '靛',
+    class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40'
+  },
+  {
+    key: 'purple',
+    label: '紫',
+    class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40'
+  },
+  {
+    key: 'teal',
+    label: '青',
+    class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40'
+  },
 ]
 const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
 
@@ -147,7 +170,111 @@ const fetchPeriods = async () => {
   }
 }
 
-// ── 營業設定（唯讀，供日曆標示公休/臨時開放；要編輯請到「餐廳設定」頁面）──────
+// ── 到場時間設定（訂位獨立一份，不跟便當共用）───────────────────────
+// 例如 11:30–13:00、interval=10，客人可選 11:30、11:40…12:50 到場，後端也會依此驗證。
+// 跟「時段標籤」（純顯示用，在營業設定頁面管理）是兩回事：這裡才是真正決定客人能選哪些
+// 到場時間的設定。
+const arrivalSlots = ref([])
+const arrivalSlotModal = reactive({show: false})
+const arrivalSlotEditingId = ref('')
+const arrivalSlotForm = reactive({
+  id: '',
+  name: '',
+  startTime: '11:00',
+  endTime: '14:00',
+  color: 'teal',
+  interval: 5,
+  temporary: false,
+  dates: {}
+})
+const arrivalSlotStartHour = timePart(arrivalSlotForm, 'startTime', 'h')
+const arrivalSlotStartMinute = timePart(arrivalSlotForm, 'startTime', 'm')
+const arrivalSlotEndHour = timePart(arrivalSlotForm, 'endTime', 'h')
+const arrivalSlotEndMinute = timePart(arrivalSlotForm, 'endTime', 'm')
+const INTERVAL_OPTIONS = [5, 10, 15, 20, 30, 60]
+
+const SLOT_COLORS = PERIOD_COLORS
+const slotColorClass = periodColorClass
+
+// 臨時時段（temporary=true）才會用到：指定它在哪幾天開放，那幾天會取代預設時段
+// （同一天若有多筆臨時時段，那天就會同時看到那幾筆）。用法跟營業設定的「臨時開放日」類似。
+const arrivalSlotDateForm = reactive({date: '', note: ''})
+const sortedArrivalSlotDates = computed(() =>
+  Object.entries(arrivalSlotForm.dates || {}).sort((a, b) => a[0].localeCompare(b[0])))
+const addArrivalSlotDate = () => {
+  if (!arrivalSlotDateForm.date) return
+  arrivalSlotForm.dates[arrivalSlotDateForm.date] = arrivalSlotDateForm.note
+  Object.assign(arrivalSlotDateForm, {date: '', note: ''})
+}
+const removeArrivalSlotDate = (date) => {
+  delete arrivalSlotForm.dates[date]
+}
+
+const sortedArrivalSlots = computed(() => [...arrivalSlots.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+
+const fetchArrivalSlots = async () => {
+  try {
+    arrivalSlots.value = await (await fetch(`${TIMESLOT_BASE.value}/list`)).json()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const openArrivalSlotSettings = () => {
+  openArrivalSlotForm(null)
+  arrivalSlotModal.show = true
+}
+
+const openArrivalSlotForm = (slot) => {
+  if (slot) Object.assign(arrivalSlotForm, {interval: 5, temporary: false, dates: {}, ...slot, dates: {...(slot.dates || {})}})
+  else Object.assign(arrivalSlotForm, {
+    id: '',
+    name: '',
+    startTime: '11:00',
+    endTime: '14:00',
+    color: 'teal',
+    interval: 5,
+    temporary: false,
+    dates: {}
+  })
+  Object.assign(arrivalSlotDateForm, {date: '', note: ''})
+  arrivalSlotEditingId.value = slot ? slot.id : ''
+}
+
+const arrivalSlotCanSave = computed(() =>
+  !!arrivalSlotForm.name && !!arrivalSlotForm.startTime && !!arrivalSlotForm.endTime
+  && (!arrivalSlotForm.temporary || Object.keys(arrivalSlotForm.dates || {}).length > 0))
+
+const saveArrivalSlot = async () => {
+  if (!arrivalSlotCanSave.value) return
+  try {
+    const saved = await (await fetch(`${TIMESLOT_BASE.value}/save`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...arrivalSlotForm})
+    })).json()
+    const idx = arrivalSlots.value.findIndex(p => p.id === saved.id)
+    if (idx >= 0) arrivalSlots.value[idx] = saved
+    else arrivalSlots.value.push(saved)
+    openArrivalSlotForm(null)
+    showToast('到場時間已儲存')
+  } catch {
+    showToast('儲存失敗')
+  }
+}
+
+const deleteArrivalSlot = async (id) => {
+  if (!confirm('確定刪除此到場時間？')) return
+  try {
+    await fetch(`${TIMESLOT_BASE.value}/remove/${id}`, {method: 'DELETE'})
+    arrivalSlots.value = arrivalSlots.value.filter(p => p.id !== id)
+    if (arrivalSlotEditingId.value === id) openArrivalSlotForm(null)
+    showToast('已刪除')
+  } catch {
+    showToast('刪除失敗')
+  }
+}
+
+// ── 營業設定（唯讀，供日曆標示公休/臨時開放；要編輯請到「營業設定」頁面）──────
 // 跟便當共用同一份餐廳營業規則（RestaurantHoursController），不是訂位獨立一份
 const hoursSettings = reactive({openWeekdays: [1, 2, 3, 4, 5], closedDates: {}, openDates: {}})
 
@@ -495,7 +622,7 @@ const showToast = (msg) => {
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods(), fetchHoursSettings()])
+  await Promise.all([fetchMarkedDates(), fetchSchedule(), fetchRecurring(), fetchPeriods(), fetchArrivalSlots(), fetchHoursSettings()])
   selectedDate.value = todayStr
   await fetchBookings()
   fetchGroupNames()
@@ -552,12 +679,19 @@ onMounted(async () => {
             </svg>
             <span class="hidden sm:inline">客戶訂位連結</span>
           </button>
-          <NuxtLink
-            to="/staff/management/restaurant-hours"
+          <button
             class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
-            title="時段設定 / 營業設定（跟便當共用）"
+            title="訂位到場時間設定（幾點到幾點可以訂位、間隔幾分鐘）"
+            @click="openArrivalSlotSettings"
           >
-            ⚙️ <span class="hidden sm:inline">餐廳設定</span>
+            🕐 <span class="hidden sm:inline">到場時間設定</span>
+          </button>
+          <NuxtLink
+            to="/staff/management/business-hours"
+            class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
+            title="營業日 / 餐廳資訊（跟便當共用）"
+          >
+            ⚙️ <span class="hidden sm:inline">營業設定</span>
           </NuxtLink>
           <span
             :class="apiOnline ? 'text-green-600' : 'text-red-500'"
@@ -578,7 +712,8 @@ onMounted(async () => {
         <!-- ── 左欄：日曆（常駐）── -->
         <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
           <!-- 手機版：僅顯示日期選擇器，不顯示完整日曆 -->
-          <div class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 flex items-center gap-2 mb-3">
+          <div
+            class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 flex items-center gap-2 mb-3">
             <input
               :value="selectedDate"
               type="date"
@@ -817,7 +952,8 @@ onMounted(async () => {
                             v-if="booking.groupItineraryId"
                             :to="`/staff/management/group-itinerary?open=${booking.groupItineraryId}`"
                             class="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 hover:opacity-80 transition-colors"
-                          >🧳 {{ groupNamesById[booking.groupItineraryId] || '團體行程' }}</NuxtLink>
+                          >🧳 {{ groupNamesById[booking.groupItineraryId] || '團體行程' }}
+                          </NuxtLink>
                         </div>
                         <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-hint-c">
                           <span
@@ -1316,6 +1452,222 @@ onMounted(async () => {
           >
             儲存
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ 訂位到場時間設定 Modal ════════ -->
+    <div
+      v-if="arrivalSlotModal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+    >
+      <div
+        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-base-c">
+              🕐 訂位到場時間設定
+            </h3>
+            <p class="text-xs text-hint-c mt-0.5">
+              幾點到幾點可以訂位、間隔幾分鐘。只影響訂位，跟便當取餐時間各自獨立。
+            </p>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1 flex-shrink-0"
+            @click="arrivalSlotModal.show = false"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-2 mb-4">
+          <div
+            v-if="sortedArrivalSlots.length === 0"
+            class="bg-surface2 rounded-xl px-4 py-3 text-center text-hint-c text-sm"
+          >
+            尚未設定任何到場時間（沒有設定時，訂位暫時不限制下單時間）
+          </div>
+          <div
+            v-for="p in sortedArrivalSlots"
+            :key="p.id"
+            class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-2 flex-wrap"
+          >
+            <span
+              class="px-2 py-0.5 rounded-full text-xs font-medium border flex-shrink-0"
+              :class="slotColorClass(p.color)"
+            >{{ p.name }}</span>
+            <span class="text-sm text-muted-c flex-1 min-w-0">
+              {{ p.startTime }} – {{ p.endTime }}
+              <span class="text-xs text-hint-c">（每 {{ p.interval || 5 }} 分）</span>
+            </span>
+            <span
+              v-if="!p.temporary"
+              class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface text-hint-c border border-light-c flex-shrink-0"
+            >🔁 預設</span>
+            <span
+              v-else
+              class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 flex-shrink-0"
+              :title="Object.keys(p.dates || {}).join('、')"
+            >📅 臨時（{{ Object.keys(p.dates || {}).length }} 天）</span>
+            <button class="text-xs text-blue-500 hover:text-blue-700 px-1.5 flex-shrink-0" @click="openArrivalSlotForm(p)">
+              編輯
+            </button>
+            <button class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0" @click="deleteArrivalSlot(p.id)">
+              刪除
+            </button>
+          </div>
+        </div>
+
+        <div class="border-t border-light-c pt-4 space-y-3">
+          <p class="text-xs font-semibold text-hint-c uppercase tracking-widest">
+            {{ arrivalSlotEditingId ? '編輯到場時間' : '新增到場時間' }}
+          </p>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">名稱 *</label>
+            <input
+              v-model="arrivalSlotForm.name"
+              placeholder="早餐 / 午餐 / 晚餐…"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">開始時間 *</label>
+              <div class="flex items-center gap-1">
+                <select v-model="arrivalSlotStartHour"
+                        class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                </select>
+                <span class="text-muted-c font-medium">:</span>
+                <select v-model="arrivalSlotStartMinute"
+                        class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-muted-c block mb-1">結束時間 *</label>
+              <div class="flex items-center gap-1">
+                <select v-model="arrivalSlotEndHour"
+                        class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                </select>
+                <span class="text-muted-c font-medium">:</span>
+                <select v-model="arrivalSlotEndMinute"
+                        class="flex-1 min-w-0 px-1.5 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">時間間隔（分鐘）</label>
+            <select
+              v-model.number="arrivalSlotForm.interval"
+              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+            >
+              <option v-for="m in INTERVAL_OPTIONS" :key="m" :value="m">每 {{ m }} 分鐘</option>
+            </select>
+            <p class="text-xs text-hint-c mt-1">
+              客人可選的用餐時間間隔，例如設 10 分鐘，11:30–13:00 會展開成 11:30、11:40…12:50。
+            </p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">類型</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class="py-2 rounded-xl text-sm font-medium border transition-colors"
+                :class="!arrivalSlotForm.temporary ? 'bg-green-800 text-white border-green-800' : 'bg-surface text-hint-c border-light-c'"
+                @click="arrivalSlotForm.temporary = false"
+              >
+                🔁 預設（每個營業日）
+              </button>
+              <button
+                type="button"
+                class="py-2 rounded-xl text-sm font-medium border transition-colors"
+                :class="arrivalSlotForm.temporary ? 'bg-purple-600 text-white border-purple-600' : 'bg-surface text-hint-c border-light-c'"
+                @click="arrivalSlotForm.temporary = true"
+              >
+                📅 臨時（指定日期）
+              </button>
+            </div>
+            <p class="text-xs text-hint-c mt-1">
+              臨時時段只在下面指定的日期開放，那天會取代預設時段（同一天可以有多筆臨時時段同時開放）。
+            </p>
+          </div>
+          <div v-if="arrivalSlotForm.temporary" class="border-t border-light-c pt-3 space-y-2">
+            <label class="text-sm font-medium text-muted-c block mb-1">開放日期 *</label>
+            <div
+              v-if="sortedArrivalSlotDates.length === 0"
+              class="bg-surface2 rounded-xl px-3 py-2 text-center text-hint-c text-xs"
+            >
+              尚未指定日期，至少要加一個
+            </div>
+            <div
+              v-for="[date, note] in sortedArrivalSlotDates"
+              :key="date"
+              class="flex items-center gap-2 bg-surface2 rounded-xl px-3 py-1.5"
+            >
+              <span class="text-sm text-muted-c font-medium flex-shrink-0">{{ date }}</span>
+              <span class="text-xs text-hint-c flex-1 min-w-0 truncate">{{ note }}</span>
+              <button class="text-xs text-red-400 hover:text-red-600 px-1.5 flex-shrink-0" @click="removeArrivalSlotDate(date)">
+                移除
+              </button>
+            </div>
+            <div class="flex gap-2">
+              <input
+                v-model="arrivalSlotDateForm.date"
+                type="date"
+                class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+              <input
+                v-model="arrivalSlotDateForm.note"
+                placeholder="備註（選填）"
+                class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"
+              >
+              <button
+                :disabled="!arrivalSlotDateForm.date"
+                class="px-3 py-2 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors flex-shrink-0"
+                @click="addArrivalSlotDate"
+              >
+                新增
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted-c block mb-1">標籤顏色</label>
+            <div class="flex gap-2 flex-wrap">
+              <button
+                v-for="c in SLOT_COLORS"
+                :key="c.key"
+                type="button"
+                class="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                :class="[slotColorClass(c.key), arrivalSlotForm.color === c.key ? 'ring-2 ring-offset-1 ring-green-400' : 'opacity-50']"
+                @click="arrivalSlotForm.color = c.key"
+              >
+                {{ c.label }}
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button
+              v-if="arrivalSlotEditingId"
+              class="flex-1 px-4 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+              @click="openArrivalSlotForm(null)"
+            >
+              取消編輯
+            </button>
+            <button
+              :disabled="!arrivalSlotCanSave"
+              class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
+              @click="saveArrivalSlot"
+            >
+              {{ arrivalSlotEditingId ? '儲存變更' : '新增到場時間' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
