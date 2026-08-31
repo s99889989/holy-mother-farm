@@ -401,8 +401,13 @@
           <p v-if="loading" class="p-6 text-base text-hint-c">載入中…</p>
           <p v-else-if="errorMessage" class="p-6 text-base text-red-600">{{ errorMessage }}</p>
 
-          <!-- 卡片檢視 -->
-          <div v-else-if="viewMode === 'card'" class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+          <!-- 卡片檢視：viewMode=card 時各尺寸都顯示；viewMode=table 時強制手機（<sm）顯示卡片，
+               桌機（sm 以上）改顯示下方的列表檢視 -->
+          <div
+            v-else
+            class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3"
+            :class="{ 'sm:hidden': viewMode !== 'card' }"
+          >
             <div
               v-for="row in items"
               :key="row.guid"
@@ -442,8 +447,8 @@
             <p v-if="!items.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
           </div>
 
-          <!-- 列表檢視 -->
-          <div v-else class="overflow-x-auto">
+          <!-- 列表檢視：只在 viewMode=table 時渲染，且只在桌機（sm 以上）顯示；手機一律走上面的卡片 -->
+          <div v-if="viewMode === 'table'" class="hidden overflow-x-auto sm:block">
             <table class="w-full text-base">
               <thead>
               <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">

@@ -1,105 +1,105 @@
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+  import { reactive, ref, onMounted } from 'vue'
 
-// 「品項資料管理」列表頁（原網站 /COAERP/Prod/index），跟訂貨單/銷貨單
-// 列表同一套做法。目前只做查詢（依欄位/關鍵字/是否停用）+ 分頁 + 連結到
-// 檢視頁，沒有「依所屬類別」篩選、批次刪除、批次列印——這幾個原網站有
-// 的功能目前先跳過，原因見 products.get.ts 開頭註解。
-//
-// 關鍵字欄位跟訂貨單/銷貨單列表一樣換成共用元件 DcErpKeywordSearchInput（純
-// 前端 localStorage 記住最近搜尋過的關鍵字）。這頁查詢表單本來就只有一排
-// （沒有像訂貨單/銷貨單那樣還有第二三排進階條件），所以沒有加「收縮／
-// 更多條件」的展開按鈕；也沒有日期欄位，DcErpRocDateInput 用不到。
-definePageMeta({
-  layout: 'staff',
-  requiredPermission: 'order.dc-erp'
-})
+  // 「品項資料管理」列表頁（原網站 /COAERP/Prod/index），跟訂貨單/銷貨單
+  // 列表同一套做法。目前只做查詢（依欄位/關鍵字/是否停用）+ 分頁 + 連結到
+  // 檢視頁，沒有「依所屬類別」篩選、批次刪除、批次列印——這幾個原網站有
+  // 的功能目前先跳過，原因見 products.get.ts 開頭註解。
+  //
+  // 關鍵字欄位跟訂貨單/銷貨單列表一樣換成共用元件 DcErpKeywordSearchInput（純
+  // 前端 localStorage 記住最近搜尋過的關鍵字）。這頁查詢表單本來就只有一排
+  // （沒有像訂貨單/銷貨單那樣還有第二三排進階條件），所以沒有加「收縮／
+  // 更多條件」的展開按鈕；也沒有日期欄位，DcErpRocDateInput 用不到。
+  definePageMeta({
+    layout: 'staff',
+    requiredPermission: 'order.dc-erp'
+  })
 
-const filters = reactive({
-  whSearch: 'whatever',
-  keyword: '',
-  selectDisable: 'whatever'
-})
+  const filters = reactive({
+    whSearch: 'whatever',
+    keyword: '',
+    selectDisable: 'whatever'
+  })
 
-const filterOptions = reactive({
-  whSearchField: [],
-  selectDisable: []
-})
+  const filterOptions = reactive({
+    whSearchField: [],
+    selectDisable: []
+  })
 
-const viewMode = ref('table') // 'table' | 'card'
+  const viewMode = ref('table') // 'table' | 'card'
 
-const items = ref([])
-const totalCount = ref(0)
-const totalPages = ref(1)
-const page = ref(1)
-const pagesize = ref(20)
-const breadcrumb = ref([])
-const loading = ref(true)
-const errorMessage = ref('')
+  const items = ref([])
+  const totalCount = ref(0)
+  const totalPages = ref(1)
+  const page = ref(1)
+  const pagesize = ref(20)
+  const breadcrumb = ref([])
+  const loading = ref(true)
+  const errorMessage = ref('')
 
-async function load(targetPage = 1) {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const data = await $fetch('/api/dc-erp/products', {
-      query: {
-        page: targetPage,
-        pagesize: pagesize.value,
-        ...filters
+  async function load(targetPage = 1) {
+    loading.value = true
+    errorMessage.value = ''
+    try {
+      const data = await $fetch('/api/dc-erp/products', {
+        query: {
+          page: targetPage,
+          pagesize: pagesize.value,
+          ...filters
+        }
+      })
+      Object.assign(filterOptions, data.filters)
+      items.value = data.items
+      totalCount.value = data.totalCount
+      totalPages.value = data.totalPages
+      page.value = data.page
+      pagesize.value = data.pagesize
+      breadcrumb.value = data.breadcrumb
+    } catch (err) {
+      if (err?.statusCode === 401 || err?.response?.status === 401) {
+        await navigateTo('/staff/order/dc-erp/login')
+        return
       }
-    })
-    Object.assign(filterOptions, data.filters)
-    items.value = data.items
-    totalCount.value = data.totalCount
-    totalPages.value = data.totalPages
-    page.value = data.page
-    pagesize.value = data.pagesize
-    breadcrumb.value = data.breadcrumb
-  } catch (err) {
-    if (err?.statusCode === 401 || err?.response?.status === 401) {
-      await navigateTo('/staff/order/dc-erp/login')
-      return
+      errorMessage.value = err?.data?.statusMessage || '無法載入品項資料，請稍後再試'
+    } finally {
+      loading.value = false
     }
-    errorMessage.value = err?.data?.statusMessage || '無法載入品項資料，請稍後再試'
-  } finally {
-    loading.value = false
   }
-}
 
-function handleSearch() {
-  load(1)
-}
-
-function handleAllList() {
-  Object.assign(filters, { whSearch: 'whatever', keyword: '', selectDisable: 'whatever' })
-  load(1)
-}
-
-function goPage(p) {
-  if (p < 1 || p > totalPages.value) return
-  load(p)
-}
-
-// 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
-// settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
-const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
-function loadListSettings(key, defaults) {
-  try {
-    const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
-    if (!raw) return defaults
-    const all = JSON.parse(raw)
-    return { ...defaults, ...(all[key] || {}) }
-  } catch {
-    return defaults
+  function handleSearch() {
+    load(1)
   }
-}
 
-onMounted(() => {
-  const listSettings = loadListSettings('products', { pagesize: pagesize.value, viewMode: viewMode.value })
-  pagesize.value = listSettings.pagesize
-  viewMode.value = listSettings.viewMode
-  load(1)
-})
+  function handleAllList() {
+    Object.assign(filters, { whSearch: 'whatever', keyword: '', selectDisable: 'whatever' })
+    load(1)
+  }
+
+  function goPage(p) {
+    if (p < 1 || p > totalPages.value) return
+    load(p)
+  }
+
+  // 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
+  // settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
+  const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
+  function loadListSettings(key, defaults) {
+    try {
+      const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+      if (!raw) return defaults
+      const all = JSON.parse(raw)
+      return { ...defaults, ...(all[key] || {}) }
+    } catch {
+      return defaults
+    }
+  }
+
+  onMounted(() => {
+    const listSettings = loadListSettings('products', { pagesize: pagesize.value, viewMode: viewMode.value })
+    pagesize.value = listSettings.pagesize
+    viewMode.value = listSettings.viewMode
+    load(1)
+  })
 </script>
 
 <template>
@@ -139,8 +139,12 @@ onMounted(() => {
           <p v-if="loading" class="p-6 text-base text-hint-c">載入中…</p>
           <p v-else-if="errorMessage" class="p-6 text-base text-red-600">{{ errorMessage }}</p>
 
-          <!-- 卡片檢視 -->
-          <div v-else-if="viewMode === 'card'" class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <!-- 卡片檢視：card 模式各尺寸都顯示；table 模式強制手機（<sm）顯示卡片，桌機改顯示下方列表 -->
+          <div
+            v-else
+            class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4"
+            :class="{ 'sm:hidden': viewMode !== 'card' }"
+          >
             <div
               v-for="row in items"
               :key="row.id"
@@ -167,38 +171,38 @@ onMounted(() => {
             <p v-if="!items.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
           </div>
 
-          <!-- 列表檢視 -->
-          <div v-else class="overflow-x-auto">
+          <!-- 列表檢視：只在 table 模式渲染，且只在桌機（sm 以上）顯示；手機一律走上面的卡片 -->
+          <div v-if="viewMode === 'table'" class="hidden overflow-x-auto sm:block">
             <table class="w-full text-base">
               <thead>
-                <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
-                  <th class="px-2 py-2 text-center">項次</th>
-                  <th class="px-2 py-2">品項代號</th>
-                  <th class="px-2 py-2">品項名稱</th>
-                  <th class="px-2 py-2">基本單位</th>
-                  <th class="px-2 py-2 text-center">保存天數</th>
-                  <th class="px-2 py-2">備註</th>
-                  <th class="px-2 py-2">所屬類別</th>
-                  <th class="px-2 py-2 text-center">停用</th>
-                </tr>
+              <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                <th class="px-2 py-2 text-center">項次</th>
+                <th class="px-2 py-2">品項代號</th>
+                <th class="px-2 py-2">品項名稱</th>
+                <th class="px-2 py-2">基本單位</th>
+                <th class="px-2 py-2 text-center">保存天數</th>
+                <th class="px-2 py-2">備註</th>
+                <th class="px-2 py-2">所屬類別</th>
+                <th class="px-2 py-2 text-center">停用</th>
+              </tr>
               </thead>
               <tbody>
-                <tr v-for="row in items" :key="row.id" class="border-b border-light-c hover:bg-surface2">
-                  <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
-                  <td class="px-2 py-1.5">
-                    <NuxtLink v-if="row.editUrl" :to="row.editUrl" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
-                    <span v-else>{{ row.code }}</span>
-                  </td>
-                  <td class="px-2 py-1.5">{{ row.name }}</td>
-                  <td class="px-2 py-1.5">{{ row.unitName }}</td>
-                  <td class="px-2 py-1.5 text-center">{{ row.saveDays }}</td>
-                  <td class="px-2 py-1.5 max-w-xs truncate" :title="row.remark">{{ row.remark }}</td>
-                  <td class="px-2 py-1.5">{{ row.productClass }}</td>
-                  <td class="px-2 py-1.5 text-center">{{ row.isDisable }}</td>
-                </tr>
-                <tr v-if="!items.length">
-                  <td colspan="8" class="px-2 py-6 text-center text-hint-c">查無資料</td>
-                </tr>
+              <tr v-for="row in items" :key="row.id" class="border-b border-light-c hover:bg-surface2">
+                <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
+                <td class="px-2 py-1.5">
+                  <NuxtLink v-if="row.editUrl" :to="row.editUrl" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                  <span v-else>{{ row.code }}</span>
+                </td>
+                <td class="px-2 py-1.5">{{ row.name }}</td>
+                <td class="px-2 py-1.5">{{ row.unitName }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.saveDays }}</td>
+                <td class="px-2 py-1.5 max-w-xs truncate" :title="row.remark">{{ row.remark }}</td>
+                <td class="px-2 py-1.5">{{ row.productClass }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.isDisable }}</td>
+              </tr>
+              <tr v-if="!items.length">
+                <td colspan="8" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+              </tr>
               </tbody>
             </table>
           </div>

@@ -1043,8 +1043,11 @@
               </div>
             </div>
 
-            <!-- 卡片檢視 -->
-            <div v-if="detailViewMode === 'card'" class="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <!-- 卡片檢視：card 模式各尺寸都顯示；table 模式強制手機（<sm）顯示卡片，桌機改顯示下方列表 -->
+            <div
+              class="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+              :class="{ 'sm:hidden': detailViewMode !== 'card' }"
+            >
               <div
                 v-for="(row, index) in details"
                 :key="row.tempId"
@@ -1096,8 +1099,8 @@
               </div>
             </div>
 
-            <!-- 列表檢視 -->
-            <div v-else class="overflow-x-auto">
+            <!-- 列表檢視：只在 table 模式渲染，且只在桌機（sm 以上）顯示；手機一律走上面的卡片 -->
+            <div v-if="detailViewMode === 'table'" class="hidden overflow-x-auto sm:block">
               <table class="w-full text-sm">
                 <thead>
                 <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
@@ -1375,78 +1378,83 @@
           <p v-if="productClassSearching" class="p-4 text-sm text-hint-c">{{ productClassSearchProgress }}</p>
           <p v-else-if="productSearching" class="p-4 text-sm text-hint-c">搜尋中…</p>
 
-          <!-- 卡片檢視 -->
-          <div v-else-if="productViewMode === 'card'" class="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div v-else>
+            <!-- 卡片檢視：card 模式各尺寸都顯示；table 模式強制手機（<sm）顯示卡片，桌機改顯示下方列表 -->
             <div
-              v-for="p in filteredProductResults"
-              :key="p.id"
-              class="cursor-pointer overflow-hidden rounded-lg border hover:bg-surface2"
-              :class="selectedProductIds.has(p.id) ? 'border-green-600 ring-1 ring-green-600' : 'border-light-c'"
-              @click="toggleProductSelect(p.id)"
+              class="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+              :class="{ 'sm:hidden': productViewMode !== 'card' }"
             >
-              <div class="relative aspect-[4/3] bg-surface2">
-                <img
-                  v-if="productThumbUrl(p.code)"
-                  :src="productThumbUrl(p.code)"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                >
-                <span v-else class="flex h-full w-full items-center justify-center text-xs text-hint-c">無圖</span>
-                <input
-                  type="checkbox"
-                  class="absolute left-1.5 top-1.5 h-4 w-4"
-                  :checked="selectedProductIds.has(p.id)"
-                  @click.stop="toggleProductSelect(p.id)"
-                >
+              <div
+                v-for="p in filteredProductResults"
+                :key="p.id"
+                class="cursor-pointer overflow-hidden rounded-lg border hover:bg-surface2"
+                :class="selectedProductIds.has(p.id) ? 'border-green-600 ring-1 ring-green-600' : 'border-light-c'"
+                @click="toggleProductSelect(p.id)"
+              >
+                <div class="relative aspect-[4/3] bg-surface2">
+                  <img
+                    v-if="productThumbUrl(p.code)"
+                    :src="productThumbUrl(p.code)"
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                  >
+                  <span v-else class="flex h-full w-full items-center justify-center text-xs text-hint-c">無圖</span>
+                  <input
+                    type="checkbox"
+                    class="absolute left-1.5 top-1.5 h-4 w-4"
+                    :checked="selectedProductIds.has(p.id)"
+                    @click.stop="toggleProductSelect(p.id)"
+                  >
+                </div>
+                <div class="p-2 text-sm">
+                  <div class="truncate font-medium text-base-c" :title="p.name">{{ p.name }}</div>
+                  <div class="text-xs text-muted-c">{{ p.unit }}｜{{ p.price }}</div>
+                  <div v-if="productClassOf(p.code)" class="truncate text-xs text-hint-c" :title="productClassOf(p.code)">{{ productClassOf(p.code) }}</div>
+                </div>
               </div>
-              <div class="p-2 text-sm">
-                <div class="truncate font-medium text-base-c" :title="p.name">{{ p.name }}</div>
-                <div class="text-xs text-muted-c">{{ p.unit }}｜{{ p.price }}</div>
-                <div v-if="productClassOf(p.code)" class="truncate text-xs text-hint-c" :title="productClassOf(p.code)">{{ productClassOf(p.code) }}</div>
-              </div>
+              <p v-if="!filteredProductResults.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
             </div>
-            <p v-if="!filteredProductResults.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
-          </div>
 
-          <!-- 列表檢視 -->
-          <table v-else class="w-full text-sm">
-            <thead>
-            <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
-              <th class="px-2 py-1.5"></th>
-              <th class="px-2 py-1.5 text-center">圖</th>
-              <th class="px-2 py-1.5">品項名稱</th>
-              <th class="px-2 py-1.5">規格單位</th>
-              <th class="px-2 py-1.5 text-right">商品價格</th>
-              <th class="px-2 py-1.5">所屬類別</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr
-              v-for="p in filteredProductResults"
-              :key="p.id"
-              class="cursor-pointer border-b border-light-c hover:bg-surface2"
-              @click="toggleProductSelect(p.id)"
-            >
-              <td class="px-2 py-1.5"><input type="checkbox" :checked="selectedProductIds.has(p.id)" @click.stop="toggleProductSelect(p.id)"></td>
-              <td class="px-2 py-1.5 text-center">
-                <img
-                  v-if="productThumbUrl(p.code)"
-                  :src="productThumbUrl(p.code)"
-                  class="mx-auto h-8 w-8 rounded object-cover"
-                  loading="lazy"
-                >
-                <span v-else class="text-xs text-hint-c">-</span>
-              </td>
-              <td class="px-2 py-1.5">{{ p.name }}</td>
-              <td class="px-2 py-1.5">{{ p.unit }}</td>
-              <td class="px-2 py-1.5 text-right">{{ p.price }}</td>
-              <td class="px-2 py-1.5 text-xs text-muted-c">{{ productClassOf(p.code) }}</td>
-            </tr>
-            <tr v-if="!filteredProductResults.length">
-              <td colspan="6" class="px-2 py-6 text-center text-hint-c">查無資料</td>
-            </tr>
-            </tbody>
-          </table>
+            <!-- 列表檢視：只在 table 模式渲染，且只在桌機（sm 以上）顯示；手機一律走上面的卡片 -->
+            <table v-if="productViewMode === 'table'" class="hidden w-full text-sm sm:table">
+              <thead>
+              <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                <th class="px-2 py-1.5"></th>
+                <th class="px-2 py-1.5 text-center">圖</th>
+                <th class="px-2 py-1.5">品項名稱</th>
+                <th class="px-2 py-1.5">規格單位</th>
+                <th class="px-2 py-1.5 text-right">商品價格</th>
+                <th class="px-2 py-1.5">所屬類別</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr
+                v-for="p in filteredProductResults"
+                :key="p.id"
+                class="cursor-pointer border-b border-light-c hover:bg-surface2"
+                @click="toggleProductSelect(p.id)"
+              >
+                <td class="px-2 py-1.5"><input type="checkbox" :checked="selectedProductIds.has(p.id)" @click.stop="toggleProductSelect(p.id)"></td>
+                <td class="px-2 py-1.5 text-center">
+                  <img
+                    v-if="productThumbUrl(p.code)"
+                    :src="productThumbUrl(p.code)"
+                    class="mx-auto h-8 w-8 rounded object-cover"
+                    loading="lazy"
+                  >
+                  <span v-else class="text-xs text-hint-c">-</span>
+                </td>
+                <td class="px-2 py-1.5">{{ p.name }}</td>
+                <td class="px-2 py-1.5">{{ p.unit }}</td>
+                <td class="px-2 py-1.5 text-right">{{ p.price }}</td>
+                <td class="px-2 py-1.5 text-xs text-muted-c">{{ productClassOf(p.code) }}</td>
+              </tr>
+              <tr v-if="!filteredProductResults.length">
+                <td colspan="6" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
         <div class="mt-2 flex items-center justify-between">
           <div v-if="productTotalPages > 1" class="flex items-center gap-2 text-xs text-muted-c">
