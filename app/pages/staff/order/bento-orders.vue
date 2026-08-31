@@ -20,6 +20,46 @@ const openCustomerLunchLink = () => {
   window.open(CUSTOMER_LUNCH_URL, '_blank')
 }
 
+// ── 便當預訂須知（可自訂，客戶端訂購頁「📋 便當預訂須知」區塊顯示用）────
+const NOTICE_BASE = computed(() => `${LUNCH_BASE.value}/notice`)
+const noticeModal = reactive({show: false})
+const noticeLines = ref([])
+// textarea 一行一條，Save 時濾掉空白行；跟後端一樣，順序就是顯示順序
+const noticeText = computed({
+  get: () => noticeLines.value.join('\n'),
+  set: (v) => { noticeLines.value = v.split('\n') }
+})
+const noticeSaving = ref(false)
+const fetchNotice = async () => {
+  try {
+    const data = await (await fetch(NOTICE_BASE.value)).json()
+    noticeLines.value = data.lines || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+const openNoticeSettings = () => {
+  noticeModal.show = true
+}
+const saveNotice = async () => {
+  noticeSaving.value = true
+  try {
+    const lines = noticeText.value.split('\n').map(l => l.trim()).filter(l => l !== '')
+    const res = await fetch(NOTICE_BASE.value, {
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({lines})
+    })
+    const data = await res.json()
+    noticeLines.value = data.lines || lines
+    showToast('便當預訂須知已儲存')
+    noticeModal.show = false
+  } catch {
+    showToast('儲存失敗')
+  } finally {
+    noticeSaving.value = false
+  }
+}
+
 // 團體行程名稱查表：便當訂單只存 groupItineraryId，要顯示名稱得另外查一次團體行程清單
 const groupNamesById = ref({})
 const fetchGroupNames = async () => {
@@ -346,7 +386,7 @@ const showToast = (msg) => {
 
 // ── 初始化 ────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([fetchMarkedDates(), fetchHoursSettings(), fetchPickupSlots(), fetchPrepMinutes()])
+  await Promise.all([fetchMarkedDates(), fetchHoursSettings(), fetchPickupSlots(), fetchPrepMinutes(), fetchNotice()])
   selectedDate.value = todayStr
   await fetchLunchOrders()
   fetchGroupNames()
@@ -420,6 +460,13 @@ onMounted(async () => {
             @click="openPickupSlotSettings"
           >
             🕐 <span class="hidden sm:inline">取餐時間設定</span>
+          </button>
+          <button
+            class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover-surface2 text-hint-c font-medium transition-colors"
+            title="客戶訂購頁下方顯示的「便當預訂須知」文字"
+            @click="openNoticeSettings"
+          >
+            📋 <span class="hidden sm:inline">便當預訂須知</span>
           </button>
           <NuxtLink
             to="/staff/management/business-hours"
@@ -900,6 +947,52 @@ onMounted(async () => {
             @click="saveLunch"
           >
             {{ lunchModal.isNew ? '新增' : '儲存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ 便當預訂須知設定 Modal ════════ -->
+    <div
+      v-if="noticeModal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+    >
+      <div
+        class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto"
+      >
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-base-c">
+              📋 便當預訂須知
+            </h3>
+            <p class="text-xs text-hint-c mt-0.5">
+              顯示在客戶訂購頁最下方，一行一條，儲存時會自動濾掉空白行。
+            </p>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1 flex-shrink-0"
+            @click="noticeModal.show = false"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <textarea
+          v-model="noticeText"
+          rows="8"
+          placeholder="請於前一日下午三點前完成預訂。"
+          class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400 resize-y"
+        />
+
+        <div class="flex gap-2 pt-3">
+          <button
+            :disabled="noticeSaving"
+            class="flex-1 px-4 py-2.5 text-sm bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors"
+            @click="saveNotice"
+          >
+            {{ noticeSaving ? '儲存中…' : '儲存' }}
           </button>
         </div>
       </div>
