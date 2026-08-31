@@ -1,2725 +1,511 @@
 <script setup>
-  import {ref, computed, onMounted, onUnmounted, nextTick} from 'vue'
-  import {useCommonStore} from '~/stores/common.js'
+  import { reactive, ref, computed, onMounted } from 'vue'
 
-  definePageMeta({layout: 'staff', requiredPermission: 'order.soybean-orders'})
-
-  const commonStore = useCommonStore()
-  const BASE = computed(() => commonStore.data.main_url + '/holy/soybean')
-
-  // ── 營業日設定（取代寫死的週二/週五）─────────────────────────────
-  // ISO 星期數字：1=一 2=二 3=三 4=四 5=五 6=六 7=日
-  const DOW_CODE = {1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun'}
-  const DOW_LABEL = {1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六', 7: '週日'}
-  const DOW_COLORS = [
-    {
-      bg: 'bg-green-100 text-green-700',
-      active: 'bg-green-700 text-white border-green-700',
-      filterActiveBorder: 'border-green-700'
-    },
-    {
-      bg: 'bg-blue-100 text-blue-700',
-      active: 'bg-blue-600 text-white border-blue-600',
-      filterActiveBorder: 'border-blue-600'
-    },
-    {
-      bg: 'bg-amber-100 text-amber-700',
-      active: 'bg-amber-600 text-white border-amber-600',
-      filterActiveBorder: 'border-amber-600'
-    },
-    {
-      bg: 'bg-purple-100 text-purple-700',
-      active: 'bg-purple-600 text-white border-purple-600',
-      filterActiveBorder: 'border-purple-600'
-    }
-  ]
-
-  const businessDays = ref([2, 5]) // 目前（今天）實際生效中的營業日，實際以後端設定為準
-  const businessDaysDraft = ref([2, 5]) // 排程面板中正在編輯的星期選擇（尚未儲存）
-  const businessDaysEffectiveFrom = ref('') // 排程面板的生效日；空字串＝立即生效（今天）
-  const businessDaysSaving = ref(false)
-  const businessDaysSaved = ref(false)
-  const businessDaysSchedule = ref([]) // 所有已排定的營業日設定 [{ effectiveFrom, businessDays }]
-
-  const businessDayOptions = computed(() =>
-    businessDays.value.map((dow, idx) => ({
-      dow,
-      code: DOW_CODE[dow] || 'tue',
-      label: DOW_LABEL[dow] || '',
-      color: DOW_COLORS[idx % DOW_COLORS.length]
-    }))
-  )
-
-  function dowToCode(dow) {
-    return DOW_CODE[dow] || 'tue'
-  }
-
-  function codeToDow(code) {
-    const found = Object.entries(DOW_CODE).find(([, c]) => c === code)
-    return found ? Number(found[0]) : 2
-  }
-
-  function colorForCode(code) {
-    const idx = businessDays.value.indexOf(codeToDow(code))
-    return DOW_COLORS[idx >= 0 ? idx % DOW_COLORS.length : 0]
-  }
-
-  function todayDateStr() {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
-
-  function toggleDraftDow(dow) {
-    businessDaysDraft.value = businessDaysDraft.value.includes(dow)
-      ? businessDaysDraft.value.filter(d => d !== dow)
-      : [...businessDaysDraft.value, dow].sort((a, b) => a - b)
-  }
-
-  // 抓「目前生效中的營業日」＋ 完整排程清單（含未來已排定但還沒生效的設定）
-  const fetchBusinessDaysSchedule = async () => {
-    try {
-      const res = await fetch(`${BASE.value}/settings/business-days-schedule`, {credentials: 'include'})
-      const data = await res.json()
-      businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
-      if (Array.isArray(data.currentBusinessDays) && data.currentBusinessDays.length > 0) {
-        businessDays.value = data.currentBusinessDays
-        businessDaysDraft.value = [...data.currentBusinessDays]
-      }
-    } catch {
-    }
-  }
-
-  // days: 要設定的星期陣列；effectiveFrom: 選填，YYYY-MM-DD，空字串＝立即生效
-  const saveBusinessDays = async (days, effectiveFrom = '') => {
-    if (!days.length) {
-      alert('請至少選擇一個營業日');
-      return
-    }
-    businessDaysSaving.value = true
-    businessDaysSaved.value = false
-    try {
-      const payload = {businessDays: days}
-      if (effectiveFrom) payload.effectiveFrom = effectiveFrom
-      const res = await fetch(`${BASE.value}/admin/settings/business-days`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        credentials: 'include',
-        body: JSON.stringify(payload)
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('儲存失敗：' + data.error);
-        return
-      }
-      if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
-      businessDaysSaved.value = true
-      setTimeout(() => businessDaysSaved.value = false, 2000)
-      fetchBusinessDaysSchedule()
-    } catch {
-      alert('儲存失敗')
-    } finally {
-      businessDaysSaving.value = false
-    }
-  }
-
-  const removeBusinessDaysScheduleEntry = async (effectiveFrom) => {
-    if (!confirm(`確定要刪除 ${effectiveFrom} 起生效的營業日排程？`)) return
-    try {
-      const res = await fetch(`${BASE.value}/admin/settings/business-days-schedule?effectiveFrom=${encodeURIComponent(effectiveFrom)}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('刪除失敗：' + data.error);
-        return
-      }
-      businessDaysSchedule.value = Array.isArray(data.schedule) ? data.schedule : []
-      if (Array.isArray(data.currentBusinessDays)) businessDays.value = data.currentBusinessDays
-    } catch {
-      alert('刪除失敗')
-    }
-  }
-
-  // ── 月份選擇 ──────────────────────────────────────────────────────
-  function thisMonth() {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  }
-
-  const selectedMonth = ref(thisMonth())
-
-  const monthOptions = computed(() => {
-    const opts = []
-    const now = new Date()
-    // i 為負代表未來月份，正代表過去月份；範圍：未來 3 個月 ～ 過去 6 個月
-    for (let i = -3; i <= 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
-      opts.push({val, label})
-    }
-    return opts
+  // 「訂貨單維護」自己重畫的第一個畫面：查詢表單 + 列表都是我們自己的
+  // Tailwind 樣式，資料來自 /api/dc-erp/sales-orders（伺服器解析原網站 HTML
+  // 轉成 JSON），不是整頁代理原網站的排版。
+  // 外層還是包 DcErpShell，保留 dc-erp 模組共用的頂部選單／側邊欄可以切換到
+  // 其他還沒重畫的畫面（那些畫面繼續走 page.get.ts 整頁代理）。
+  //
+  // 「新增」按鈕跟每列訂貨單號連結，已經改連到自己重畫的 sales-order-form.vue
+  // （見該頁開頭註解），不再走 page.get.ts 整頁代理。
+  //
+  // 查詢表單預設收起來只顯示第一排（filterExpanded），日期欄位用共用元件
+  // DcErpRocDateInput（文字手打民國年格式 + 日曆圖示選日期），關鍵字欄位用
+  // 共用元件 DcErpKeywordSearchInput（純前端 localStorage 記住最近搜尋過的
+  // 關鍵字）。元件檔名要用 DcErp 開頭——Nuxt 的元件自動註冊在檔名已經是
+  // 資料夾名稱（dc-erp → DcErp）開頭時才會省略前綴，不然要用
+  // <DcErpXxx> 這種帶前綴的標籤才 resolve 得到，用短名字會直接不渲染。
+  definePageMeta({
+    layout: 'staff',
+    requiredPermission: 'order.dc-erp'
   })
 
-  // ── 資料 ──────────────────────────────────────────────────────────
-  const loading = ref(false)
-  const totalSoymilk = ref(0)
-  const totalTofu = ref(0)
-  const orders = ref([])
-  const lastUpdated = ref('')
+  const filters = reactive({
+    workPlace: '0',
+    whSearch: 'whatever',
+    keyword: '',
+    sdate: '',
+    edate: '',
+    signState: '-1',
+    orderType: '-1',
+    receivingState: '-1',
+    sdate2: '',
+    edate2: '',
+    scode: '',
+    ecode: '',
+    firmCode: ''
+  })
 
-  const fetchData = async (isInitialLoad = false) => {
+  const filterOptions = reactive({
+    workPlace: [],
+    whSearchField: [],
+    signState: [],
+    orderType: [],
+    receivingState: []
+  })
+
+  const filterExpanded = ref(false)
+  const viewMode = ref('table') // 'table' | 'card'
+
+  const items = ref([])
+  const totalCount = ref(0)
+  const totalPages = ref(1)
+  const page = ref(1)
+  const pagesize = ref(20)
+  const breadcrumb = ref([])
+  const createUrl = ref('')
+  const loading = ref(true)
+  const errorMessage = ref('')
+  const selectedGuids = ref(new Set())
+  const signing = ref(false)
+
+  async function load(targetPage = 1) {
     loading.value = true
+    errorMessage.value = ''
     try {
-      const res = await fetch(`${BASE.value}/admin/list?month=${selectedMonth.value}`, {
-        credentials: 'include'
+      const data = await $fetch('/api/dc-erp/sales-orders', {
+        query: {
+          page: targetPage,
+          pagesize: pagesize.value,
+          workPlace: filters.workPlace,
+          whSearch: filters.whSearch,
+          keyword: filters.keyword,
+          sdate: filters.sdate,
+          edate: filters.edate,
+          signState: filters.signState,
+          orderType: filters.orderType,
+          receivingState: filters.receivingState,
+          sdate2: filters.sdate2,
+          edate2: filters.edate2,
+          scode: filters.scode,
+          ecode: filters.ecode,
+          firmCode: filters.firmCode
+        }
       })
-      const data = await res.json()
-      totalSoymilk.value = data.totalSoymilk ?? 0
-      totalTofu.value = data.totalTofu ?? 0
-      orders.value = data.orders ?? []
-      const now = new Date()
-      lastUpdated.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-      if (isInitialLoad) scrollToToday()
-    } catch {
-      orders.value = []
+      filterOptions.workPlace = data.filters.workPlace
+      filterOptions.whSearchField = data.filters.whSearchField
+      filterOptions.signState = data.filters.signState
+      filterOptions.orderType = data.filters.orderType
+      filterOptions.receivingState = data.filters.receivingState
+      items.value = data.items
+      totalCount.value = data.totalCount
+      totalPages.value = data.totalPages
+      page.value = data.page
+      pagesize.value = data.pagesize
+      breadcrumb.value = data.breadcrumb
+      createUrl.value = data.createUrl
+    } catch (err) {
+      if (err?.statusCode === 401 || err?.response?.status === 401) {
+        await navigateTo('/staff/order/dc-erp/login')
+        return
+      }
+      errorMessage.value = err?.data?.statusMessage || '無法載入訂貨單，請稍後再試'
     } finally {
       loading.value = false
     }
   }
 
-  // 開啟頁面時自動捲動到「今天」的取貨日分組，讓當天的訂單一打開就看得到
-  function scrollToToday() {
-    nextTick(() => {
-      const el = document.getElementById(`pickup-group-${todayDateStr()}`)
-      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'})
+  function handleSearch() {
+    load(1)
+  }
+
+  function handleAllList() {
+    Object.assign(filters, {
+      workPlace: '0',
+      whSearch: 'whatever',
+      keyword: '',
+      sdate: '',
+      edate: '',
+      signState: '-1',
+      orderType: '-1',
+      receivingState: '-1',
+      sdate2: '',
+      edate2: '',
+      scode: '',
+      ecode: '',
+      firmCode: ''
     })
+    load(1)
   }
 
-  let autoRefreshTimer = null
-  onMounted(() => {
-    fetchData(true)
-    fetchHints()
-    fetchClosedDates()
-    fetchBusinessDaysSchedule()
-    fetchNotifySettings()
-    autoRefreshTimer = setInterval(() => fetchData(false), 30000)
-  })
-  onUnmounted(() => clearInterval(autoRefreshTimer))
+  function goPage(p) {
+    if (p < 1 || p > totalPages.value) return
+    selectedGuids.value.clear()
+    load(p)
+  }
 
-  // ── 篩選 ──────────────────────────────────────────────────────────
-  const filterDay = ref('')
-  const filterStatus = ref('')
+  function toggleSelect(guid) {
+    if (selectedGuids.value.has(guid)) selectedGuids.value.delete(guid)
+    else selectedGuids.value.add(guid)
+  }
 
-  // ── 訂單列表顯示模式（僅桌機生效，手機一律卡片） ─────────────────
-  const viewMode = ref('table') // 'table' | 'card'
+  function toggleSelectAll(checked) {
+    if (checked) items.value.forEach((row) => selectedGuids.value.add(row.guid))
+    else selectedGuids.value.clear()
+  }
 
-  const filteredOrders = computed(() => {
-    return orders.value.filter((o) => {
-      if (filterDay.value && o.pickupDay !== filterDay.value) return false
-      if (filterStatus.value && o.status !== filterStatus.value) return false
-      return true
+  // 目前畫面上勾選的列之中，哪些是「可轉銷」的（canTransfer 由後端依原網站
+  // 該欄實際有沒有內容判斷，見 sales-orders.get.ts）。批次轉銷只處理這些，
+  // 勾了但不能轉銷的列會被忽略，不會噴錯，但下方會提示忽略了幾筆。
+  const selectedTransferableRows = computed(() =>
+    items.value.filter((row) => selectedGuids.value.has(row.guid) && row.canTransfer)
+  )
+  const selectedNonTransferableCount = computed(() => {
+    const transferableGuids = new Set(selectedTransferableRows.value.map((row) => row.guid))
+    let count = 0
+    items.value.forEach((row) => {
+      if (selectedGuids.value.has(row.guid) && !transferableGuids.has(row.guid)) count += 1
     })
+    return count
   })
 
-  const filteredSoymilk = computed(() =>
-    filteredOrders.value.reduce((s, o) => {
-      if (Array.isArray(o.soymilkItems) && o.soymilkItems.length > 0)
-        return s + o.soymilkItems.reduce((a, i) => a + (i.qty || 0), 0)
-      return s + (o.soymilkQty || 0)
-    }, 0))
-  const filteredTofu = computed(() =>
-    filteredOrders.value.reduce((s, o) => s + (o.tofuQty || 0), 0))
-
-  // ── 從現在起算下一個取貨日 ───────────────────────────────────────
-  function nextPickupDateFromNow(pickupDay) {
-    const targetDow = codeToDow(pickupDay)
-    const now = new Date()
-    // 用本地時間避免 UTC 時差問題
-    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const diff = (targetDow - base.getDay() + 7) % 7
-    const result = new Date(base)
-    result.setDate(base.getDate() + diff)
-    return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
-  }
-
-  // 格式化取貨日顯示：2026-06-19 → 週五 6/19
-  function pickupDateLabel(pickupDay) {
-    const date = nextPickupDateFromNow(pickupDay)
-    const d = new Date(date + 'T00:00:00')
-    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-    return `週${weekDay} ${d.getMonth() + 1}/${d.getDate()}`
-  }
-
-  const PRESET_VOLS = [600, 800, 1000, 1700]
-
-  // 把訂單的 soymilkItems 正規化（相容舊資料）
-  function normalizeSoymilkItems(order) {
-    if (Array.isArray(order.soymilkItems) && order.soymilkItems.length > 0) {
-      return order.soymilkItems
-    }
-    // 相容舊版單一容量格式
-    if (order.soymilkQty > 0) {
-      return [{volume: order.soymilkVolume || 800, qty: order.soymilkQty}]
-    }
-    return []
-  }
-
-  // 計算總豆漿袋數
-  function totalSoymilkQty(items) {
-    return items.reduce((s, i) => s + (i.qty || 0), 0)
-  }
-
-  // 顯示用文字，例如「800ml×2, 1000ml×1」
-  function soymilkItemsLabel(order) {
-    const items = normalizeSoymilkItems(order)
-    if (!items.length) return null
-    return items.map(i => `${i.volume}ml×${i.qty}`).join('、')
-  }
-
-  // 計算金額（豆漿：每滿 800cc 算一份 $50，不滿 800cc 至少算一份）
-  function soymilkItemPrice(volume, qty) {
-    const units = Math.max(1, Math.floor((volume || 0) / 800))
-    return units * 50 * (qty || 0)
-  }
-
-  function calcTotal(order) {
-    const items = normalizeSoymilkItems(order)
-    const soymilkTotal = items.reduce((s, i) => s + soymilkItemPrice(i.volume, i.qty), 0)
-    return soymilkTotal + (order.tofuQty || 0) * 50
-  }
-
-  // 新建一個空豆漿項目
-  function newSoymilkItem() {
-    return {volume: 800, customVolume: 0, qty: 1}
-  }
-
-  // 依容量彙總整組的豆漿明細，例如「800ml×1、2600ml×2、1700ml×3、1000ml×2」
-  function buildVolumeBreakdown(orders) {
-    const map = new Map()
-    for (const o of orders) {
-      for (const i of normalizeSoymilkItems(o)) {
-        if (!i.qty) continue
-        map.set(i.volume, (map.get(i.volume) || 0) + i.qty)
-      }
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([volume, qty]) => `${volume}ml×${qty}`)
-      .join('、')
-  }
-
-  function isToday(dateStr) {
-    return dateStr === todayDateStr()
-  }
-
-  const groupedOrders = computed(() => {
-    const withPickup = filteredOrders.value.map(o => ({
-      ...o,
-      _pickupDate: resolvePickupDate(o.pickupDay, o.createdAt, o.pickupDate)
-    }))
-
-    const map = new Map()
-    for (const o of withPickup) {
-      if (!map.has(o._pickupDate)) map.set(o._pickupDate, [])
-      map.get(o._pickupDate).push(o)
-    }
-
-    return Array.from(map.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, orders]) => {
-        const weekDay = ['日', '一', '二', '三', '四', '五', '六'][new Date(date + 'T00:00:00').getDay()]
-        const [, m, d] = date.split('-')
-        const active = orders.filter(o => o.status !== '已取消')
-        const soymilkQty = active.reduce((s, o) => {
-          const items = normalizeSoymilkItems(o)
-          return s + items.reduce((a, i) => a + (i.qty || 0), 0)
-        }, 0)
-        const soymilkMl = active.reduce((s, o) => {
-          const items = normalizeSoymilkItems(o)
-          return s + items.reduce((a, i) => a + (i.volume || 0) * (i.qty || 0), 0)
-        }, 0)
-        const tofu = active.reduce((s, o) => s + (o.tofuQty || 0), 0)
-        const soymilkBreakdown = buildVolumeBreakdown(active)
-        return {date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk: soymilkQty, soymilkMl, soymilkBreakdown, tofu}
-      })
-  })
-
-  // 從訂單建立時間往後找最近的營業日；有 pickupDate 欄位則直接用
-  function resolvePickupDate(pickupDay, createdAt, pickupDate) {
-    if (pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) return pickupDate
-    if (!createdAt) return '9999-99-99'
-    const targetDow = codeToDow(pickupDay)
-    const base = new Date(createdAt.replace(' ', 'T'))
-    const diff = (targetDow - base.getDay() + 7) % 7
-    const result = new Date(base)
-    result.setDate(base.getDate() + diff)
-    return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`
-  }
-
-  // ── 格式化訂購時間 ────────────────────────────────────────────────
-  function formatCreatedAt(createdAt) {
-    if (!createdAt) return ''
-    const d = new Date(createdAt.replace(' ', 'T'))
-    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    const hh = String(d.getHours()).padStart(2, '0')
-    const min = String(d.getMinutes()).padStart(2, '0')
-    return `${mm}/${dd}（週${weekDay}）${hh}:${min}`
-  }
-
-  const updatingId = ref('')
-
-  const updateStatus = async (order, newStatus) => {
-    updatingId.value = order.id
+  // 「簽核」／「簽退」對應原網站列表頁勾選後按右上角圖示的動作，見
+  // sales-order-sign.post.ts 開頭註解。多選時 Guid 用逗號分隔送出——原網站
+  // 多選的真實格式沒有實測樣本，如果多選簽核/簽退失敗，麻煩測一次多選後
+  // 告訴我，我再核對調整。
+  async function handleSignBatch(action) {
+    const guids = Array.from(selectedGuids.value)
+    if (!guids.length) return
+    const label = action === 'return' ? '簽退' : '簽核'
+    if (!confirm(`確定要${label}選取的 ${guids.length} 張訂貨單嗎？`)) return
+    signing.value = true
+    errorMessage.value = ''
     try {
-      await fetch(`${BASE.value}/admin/status/${order.month}/${order.id}?status=${encodeURIComponent(newStatus)}`, {
-        method: 'PATCH',
-        credentials: 'include'
-      })
-      order.status = newStatus
-    } catch {
-      alert('更新失敗')
-    } finally {
-      updatingId.value = ''
-    }
-  }
-
-  // ── 狀態樣式 ──────────────────────────────────────────────────────
-  const statusClass = s => ({
-    待確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700',
-    已確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700',
-    已付款: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700',
-    已取貨: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700',
-    已取消: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500'
-  }[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c')
-
-  // 根據訂單的取貨日資訊產生顯示文字：有 pickupDate 就直接用，否則用 createdAt 推算當週的營業日
-  // （若訂單建立當天已超過取貨日，則取下一週）
-  const pickupLabel = (order) => {
-    const dow = codeToDow(order?.pickupDay)
-    const label = DOW_LABEL[dow]
-    if (!label) return order?.pickupDay ?? ''
-
-    // 優先使用明確指定的 pickupDate，避免與 createdAt 推算結果不一致
-    if (order?.pickupDate && /^\d{4}-\d{2}-\d{2}$/.test(order.pickupDate)) {
-      const d = new Date(order.pickupDate + 'T00:00:00')
-      return `${label} ${d.getMonth() + 1}/${d.getDate()}`
-    }
-
-    const base = order?.createdAt ? new Date(order.createdAt) : new Date()
-    const baseDow = base.getDay() // 0=日
-    let diff = dow - baseDow
-    if (diff < 0) diff += 7 // 已過，取下週
-    const target = new Date(base)
-    target.setDate(base.getDate() + diff)
-    const m = target.getMonth() + 1
-    const d = target.getDate()
-    return `${label} ${m}/${d}`
-  }
-
-  const STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
-
-  // ── 刪除 ──────────────────────────────────────────────────────────
-  const deleteModal = ref({show: false, order: null, submitting: false})
-
-  const openDeleteModal = (order) => {
-    deleteModal.value = {show: true, order, submitting: false}
-  }
-  const closeDeleteModal = () => {
-    deleteModal.value = {show: false, order: null, submitting: false}
-  }
-
-  const confirmDelete = async () => {
-    const {order} = deleteModal.value
-    if (!order) return
-    deleteModal.value.submitting = true
-    try {
-      const res = await fetch(`${BASE.value}/admin/order/${order.month}/${order.id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('刪除失敗：' + data.error);
-        return
-      }
-      orders.value = orders.value.filter(o => o.id !== order.id)
-      closeDeleteModal()
-    } catch {
-      alert('刪除失敗')
-    } finally {
-      deleteModal.value.submitting = false
-    }
-  }
-
-  // ── 新增訂單 ──────────────────────────────────────────────────────
-  const createModal = ref({show: false, submitting: false})
-  const createForm = ref({
-    name: '', contact: '', pickupDay: 'tue', pickupDate: '',
-    soymilkItems: [newSoymilkItem()], tofuQty: 0, remark: '', status: '已確認'
-  })
-
-  const openCreateModal = () => {
-    createForm.value = {
-      name: '',
-      contact: '',
-      pickupDay: 'tue',
-      pickupDate: '',
-      soymilkItems: [newSoymilkItem()],
-      tofuQty: 0,
-      remark: '',
-      status: '已確認'
-    }
-    createModal.value = {show: true, submitting: false}
-  }
-  const closeCreateModal = () => {
-    createModal.value = {show: false, submitting: false}
-  }
-
-  const addSoymilkItem = (form) => {
-    form.soymilkItems.push(newSoymilkItem())
-  }
-  const removeSoymilkItem = (form, idx) => {
-    form.soymilkItems.splice(idx, 1)
-  }
-  const adjItemQty = (item, delta) => {
-    item.qty = Math.max(1, (item.qty || 1) + delta)
-  }
-  const adjTofuQty = (form, delta) => {
-    form.tofuQty = Math.max(0, (form.tofuQty || 0) + delta)
-  }
-
-  // 計算 form 的小計
-  function formTotal(form) {
-    const sm = form.soymilkItems.reduce((s, i) => s + soymilkItemPrice(resolveVol(i), i.qty), 0)
-    return sm + (form.tofuQty || 0) * 50
-  }
-
-  // 解析容量（-1 表示自訂）
-  function resolveVol(item) {
-    return item.volume === -1 ? (item.customVolume || 0) : (item.volume || 800)
-  }
-
-  const submitCreate = async () => {
-    const f = createForm.value
-    if (!f.name.trim()) {
-      alert('請輸入姓名');
-      return
-    }
-    if (!f.contact.trim()) {
-      alert('請輸入聯絡方式');
-      return
-    }
-    const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
-    if (!hasSoymilk && f.tofuQty === 0) {
-      alert('請選擇豆漿或豆腐數量');
-      return
-    }
-
-    // ── 休息日檢查：有自訂日期用自訂日期，否則用當週推算 ──────────
-    const resolvedPickupDate = f.pickupDate || nextPickupDateFromNow(f.pickupDay)
-    if (closedDates.value.includes(resolvedPickupDate)) {
-      const d = new Date(resolvedPickupDate + 'T00:00:00')
-      const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-      alert(`${d.getMonth() + 1}/${d.getDate()}（週${weekDay}）為休息日，無法新增訂單`)
-      return
-    }
-    createModal.value.submitting = true
-    try {
-      const soymilkItems = f.soymilkItems
-        .filter(i => i.qty > 0)
-        .map(i => ({volume: resolveVol(i), qty: i.qty}))
-      const payload = {
-        name: f.name.trim(), contact: f.contact.trim(),
-        pickupDay: f.pickupDay,
-        soymilkItems,
-        soymilkQty: soymilkItems.reduce((s, i) => s + i.qty, 0),
-        soymilkVolume: soymilkItems.length === 1 ? soymilkItems[0].volume : 0,
-        tofuQty: f.tofuQty,
-        remark: f.remark.trim(),
-        status: f.status,
-        pickupDate: resolvedPickupDate
-      }
-      const res = await fetch(`${BASE.value}/order`, {
+      await $fetch('/api/dc-erp/sales-order-sign', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        credentials: 'include',
-        body: JSON.stringify(payload)
+        body: { guids, action }
       })
-      const data = await res.json()
-      if (data.error) {
-        alert('新增失敗：' + data.error);
-        return
-      }
-      closeCreateModal()
-      await fetchData()
-    } catch {
-      alert('新增失敗')
+      selectedGuids.value.clear()
+      await load(page.value)
+    } catch (err) {
+      errorMessage.value = err?.data?.statusMessage || `${label}失敗，請稍後再試`
     } finally {
-      createModal.value.submitting = false
+      signing.value = false
     }
   }
 
-  // ── 提示訊息設定 ──────────────────────────────────────────────────
-  const activeTab = ref('orders') // 'orders' | 'settings'：訂單列表／設定 頁籤
-  const hintSaving = ref(false)
-  const hintSaved = ref(false)
+  const transferringGuid = ref('')
+  const transferringBatch = ref(false)
 
-  // ── LINE / Discord 連線設定（獨立設定，不沿用其他功能的設定）───
-  const notifyLineAccessToken = ref('')
-  const notifyLineGroupId = ref('')
-  const notifyDiscordWebhook = ref('')
-  const notifySaving = ref(false)
-  const notifySaved = ref(false)
-
-  // 取貨提醒：前一天彙整當天所有訂單，合併成一則訊息發送（LINE、Discord 各自獨立開關）
-  const reminderLineEnabled = ref(false)
-  const reminderDiscordEnabled = ref(false)
-  const reminderHour = ref(18)
-  const reminderTesting = ref(false)
-  const HOUR_OPTIONS = Array.from({length: 24}, (_, i) => i)
-
-  const fetchNotifySettings = async () => {
+  // 「轉銷」（轉入銷貨單），對應 SalesOrderModify.js 的 TransSlipClick()。
+  async function handleTransfer(row) {
+    if (!confirm(`確定要把訂貨單「${row.code}」轉入銷貨單嗎？`)) return
+    transferringGuid.value = row.guid
+    errorMessage.value = ''
     try {
-      const res = await fetch(`${BASE.value}/admin/settings/notify`, {credentials: 'include'})
-      const data = await res.json()
-      if (!data.error) {
-        notifyLineAccessToken.value = data.lineAccessToken || ''
-        notifyLineGroupId.value = data.lineGroupId || ''
-        notifyDiscordWebhook.value = data.discordWebhook || ''
-        reminderLineEnabled.value = !!data.reminderLineEnabled
-        reminderDiscordEnabled.value = !!data.reminderDiscordEnabled
-        reminderHour.value = data.reminderHour ?? 18
-      }
-    } catch {
+      await $fetch('/api/dc-erp/sales-order-trans', {
+        method: 'POST',
+        body: { guid: row.guid }
+      })
+      await load(page.value)
+    } catch (err) {
+      errorMessage.value = err?.data?.statusMessage || '轉入銷貨單失敗'
+    } finally {
+      transferringGuid.value = ''
     }
   }
 
-  const saveNotifySettings = async () => {
-    notifySaving.value = true
-    notifySaved.value = false
-    try {
-      const res = await fetch(`${BASE.value}/admin/settings/notify`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        credentials: 'include',
-        body: JSON.stringify({
-          lineAccessToken: notifyLineAccessToken.value.trim(),
-          lineGroupId: notifyLineGroupId.value.trim(),
-          discordWebhook: notifyDiscordWebhook.value.trim(),
-          reminderLineEnabled: reminderLineEnabled.value,
-          reminderDiscordEnabled: reminderDiscordEnabled.value,
-          reminderHour: reminderHour.value
+  // 批次轉銷：原網站 TransSalesSlip 本身就是單筆呼叫（/SalesOrder/TransSalesSlip/{guid}），
+  // 沒有一次多筆的用法，這裡改成前端依序（非同步並發，避免同時打爆同一個
+  // session／觸發原網站的鎖）逐一呼叫既有的單筆轉銷 API。單筆失敗會記下來
+  // 繼續處理下一筆，不會整批中斷；跑完統一重新整理列表 + 顯示失敗清單。
+  async function handleTransferBatch() {
+    const rows = selectedTransferableRows.value
+    if (!rows.length) return
+    const skippedNote = selectedNonTransferableCount.value
+      ? `（另有 ${selectedNonTransferableCount.value} 張勾選但不可轉銷，會略過）`
+      : ''
+    if (!confirm(`確定要把選取的 ${rows.length} 張訂貨單依序轉入銷貨單嗎？${skippedNote}`)) return
+
+    transferringBatch.value = true
+    errorMessage.value = ''
+    const failedCodes = []
+
+    for (const row of rows) {
+      transferringGuid.value = row.guid
+      try {
+        await $fetch('/api/dc-erp/sales-order-trans', {
+          method: 'POST',
+          body: { guid: row.guid }
         })
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('儲存失敗：' + data.error);
-        return
+        selectedGuids.value.delete(row.guid)
+      } catch (err) {
+        failedCodes.push(row.code)
       }
-      notifySaved.value = true
-      setTimeout(() => notifySaved.value = false, 2000)
-    } catch {
-      alert('儲存失敗')
-    } finally {
-      notifySaving.value = false
+    }
+
+    transferringGuid.value = ''
+    transferringBatch.value = false
+    await load(page.value)
+
+    if (failedCodes.length) {
+      errorMessage.value = `以下訂貨單轉銷失敗，其餘已成功：${failedCodes.join('、')}`
     }
   }
 
-  // 手動測試取貨提醒：立即檢查指定日期是否有訂單並發送，不受設定的提醒時間限制
-  // offsetDays：1＝明天（正常提醒對象），0＝今天（取貨當天，方便臨時確認名單）
-  const testReminder = async (offsetDays = 1) => {
-    reminderTesting.value = true
+  // 客戶名稱查詢紀錄用的 key 跟 DcErpKeywordSearchInput 內部存的格式一樣
+  // （純字串陣列，最新一筆在最前面），這裡直接讀同一把 key，讓頁面一開啟
+  // 就自動帶入上次查詢過的客戶名稱，不用使用者自己再打一次。
+  const CUSTOMER_NAME_HISTORY_KEY = 'dc-erp-sales-orders-customer-name-history'
+  function loadLastCustomerName() {
+    if (typeof window === 'undefined') return ''
     try {
-      const res = await fetch(`${BASE.value}/admin/reminder/test?offsetDays=${offsetDays}`, {
-        method: 'POST',
-        credentials: 'include'
-      })
-      const data = await res.json()
-      alert(data.error ? '測試失敗：' + data.error : data.message)
+      const raw = window.localStorage.getItem(CUSTOMER_NAME_HISTORY_KEY)
+      const list = raw ? JSON.parse(raw) : []
+      return list[0] || ''
     } catch {
-      alert('測試失敗')
-    } finally {
-      reminderTesting.value = false
+      return ''
     }
   }
 
-  const HINT_STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
-  const hintBadgeClass = s => ({
-    待確認: 'bg-amber-100 text-amber-700',
-    已確認: 'bg-emerald-100 text-emerald-700',
-    已付款: 'bg-blue-100 text-blue-700',
-    已取貨: 'bg-teal-100 text-teal-700',
-    已取消: 'bg-red-100 text-red-500'
-  }[s] || 'bg-surface2 text-hint-c')
+  // 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
+  // settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
+  const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
+  function loadListSettings(key, defaults) {
+    try {
+      const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+      if (!raw) return defaults
+      const all = JSON.parse(raw)
+      return { ...defaults, ...(all[key] || {}) }
+    } catch {
+      return defaults
+    }
+  }
 
-  const hints = ref({
-    待確認: '我們已收到您的預約，將盡快來電確認。',
-    已確認: '訂單已確認，請於取貨日前來取貨！',
-    已付款: '已收到您的付款，感謝您的訂購！',
-    已取貨: '感謝您的訂購，歡迎再次訂購！',
-    已取消: '此筆訂單已取消，歡迎再次訂購。'
+  onMounted(() => {
+    const listSettings = loadListSettings('salesOrders', { pagesize: pagesize.value, viewMode: viewMode.value })
+    pagesize.value = listSettings.pagesize
+    viewMode.value = listSettings.viewMode
+    filters.firmCode = loadLastCustomerName()
+    load(1)
   })
-
-  const fetchHints = async () => {
-    try {
-      const res = await fetch(`${BASE.value}/settings/hints`, {credentials: 'include'})
-      const data = await res.json()
-      if (!data.error) Object.assign(hints.value, data)
-    } catch {
-    }
-  }
-
-  const saveHints = async () => {
-    hintSaving.value = true
-    hintSaved.value = false
-    try {
-      const res = await fetch(`${BASE.value}/settings/hints`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        credentials: 'include',
-        body: JSON.stringify(hints.value)
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('儲存失敗：' + data.error);
-        return
-      }
-      hintSaved.value = true
-      setTimeout(() => hintSaved.value = false, 2500)
-    } catch {
-      alert('儲存失敗')
-    } finally {
-      hintSaving.value = false
-    }
-  }
-
-  // ── 休息日設定 ────────────────────────────────────────────────────
-  const closedDates = ref([]) // ['2026-06-17', '2026-06-24']
-  const closedDateInput = ref('') // 新增輸入框
-  const closedSaving = ref(false)
-  const closedSaved = ref(false)
-
-  const fetchClosedDates = async () => {
-    try {
-      const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {credentials: 'include'})
-      const data = await res.json()
-      closedDates.value = Array.isArray(data.closedDates) ? data.closedDates : []
-    } catch {
-    }
-  }
-
-  const addClosedDate = async () => {
-    const d = closedDateInput.value.trim()
-    if (!d.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      alert('請輸入正確日期格式 YYYY-MM-DD');
-      return
-    }
-    if (closedDates.value.includes(d)) {
-      alert('此日期已在休息日清單中');
-      return
-    }
-    closedSaving.value = true
-    try {
-      const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        credentials: 'include',
-        body: JSON.stringify({date: d})
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('新增失敗：' + data.error);
-        return
-      }
-      closedDates.value = data.closedDates
-      closedDateInput.value = ''
-      closedSaved.value = true
-      setTimeout(() => closedSaved.value = false, 2000)
-    } catch {
-      alert('新增失敗')
-    } finally {
-      closedSaving.value = false
-    }
-  }
-
-  const removeClosedDate = async (date) => {
-    closedSaving.value = true
-    try {
-      const res = await fetch(`${BASE.value}/admin/settings/closed-dates`, {
-        method: 'DELETE',
-        headers: {'Content-Type': 'application/json'},
-        credentials: 'include',
-        body: JSON.stringify({date})
-      })
-      const data = await res.json()
-      if (data.error) {
-        alert('刪除失敗：' + data.error);
-        return
-      }
-      closedDates.value = data.closedDates
-    } catch {
-      alert('刪除失敗')
-    } finally {
-      closedSaving.value = false
-    }
-  }
-
-  // 格式化休息日顯示：2026-06-17 → 06/17（週三）
-  function formatClosedDate(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00')
-    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（週${weekDay}）`
-  }
-
-  // 是否為休息日（用於訂單列表標記）
-  function isClosedDate(dateStr) {
-    return closedDates.value.includes(dateStr)
-  }
-
-  // ── 新增訂單姓名自動完成 ──────────────────────────────────────────
-  const createNameSuggest = ref([])
-  const showCreateSuggest = ref(false)
-
-  // 從現有訂單建立姓名→聯絡對照表（去重，最新訂單優先）
-  const knownCustomers = computed(() => {
-    const map = new Map()
-    const sorted = [...orders.value].sort((a, b) =>
-      (b.createdAt || '').localeCompare(a.createdAt || ''))
-    for (const o of sorted) {
-      if (o.name && !map.has(o.name)) {
-        map.set(o.name, o.contact || '')
-      }
-    }
-    return map
-  })
-
-  function onCreateNameInput() {
-    const val = createForm.value.name.trim()
-    if (!val) {
-      showCreateSuggest.value = false;
-      return
-    }
-    const matches = [...knownCustomers.value.keys()]
-      .filter(n => n.includes(val) && n !== val)
-      .slice(0, 6)
-    createNameSuggest.value = matches
-    showCreateSuggest.value = matches.length > 0
-  }
-
-  function onPickupDateChange() {
-    const d = createForm.value.pickupDate
-    if (!d) return
-    const dow = new Date(d + 'T00:00:00').getDay() === 0 ? 7 : new Date(d + 'T00:00:00').getDay() // 0=日→7
-    createForm.value.pickupDay = dowToCode(dow)
-  }
-
-  function pickCreateCustomer(name) {
-    createForm.value.name = name
-    createForm.value.contact = knownCustomers.value.get(name) || createForm.value.contact
-    showCreateSuggest.value = false
-  }
-
-  function onEditPickupDateChange() {
-    const d = editForm.value.pickupDate
-    if (!d) return
-    const dow0 = new Date(d + 'T00:00:00').getDay()
-    const dow = dow0 === 0 ? 7 : dow0
-    editForm.value.pickupDay = dowToCode(dow)
-  }
-
-  // 編輯表單取貨日按鈕顯示用：以目前已知的取貨日期為基準，算出按鈕對應的星期幾日期
-  function editPickupDateLabel(code) {
-    const targetDow = codeToDow(code)
-    const baseDateStr = editForm.value.pickupDate || nextPickupDateFromNow(editForm.value.pickupDay)
-    const base = new Date(baseDateStr + 'T00:00:00')
-    const baseDow0 = base.getDay()
-    const baseDow = baseDow0 === 0 ? 7 : baseDow0
-    const diff = targetDow - baseDow
-    const result = new Date(base)
-    result.setDate(base.getDate() + diff)
-    return `${result.getMonth() + 1}/${result.getDate()}`
-  }
-
-  // ── 編輯訂單 ──────────────────────────────────────────────────────
-  const editModal = ref({show: false, submitting: false, orderId: '', orderMonth: ''})
-  const editForm = ref({
-    name: '', contact: '', pickupDay: 'tue', pickupDate: '',
-    soymilkItems: [newSoymilkItem()], tofuQty: 0,
-    remark: '', status: '待確認'
-  })
-
-  const openEditModal = (order) => {
-    const raw = normalizeSoymilkItems(order)
-    const soymilkItems = raw.length > 0
-      ? raw.map(i => ({
-        volume: PRESET_VOLS.includes(i.volume) ? i.volume : -1,
-        customVolume: PRESET_VOLS.includes(i.volume) ? 0 : i.volume,
-        qty: i.qty || 1
-      }))
-      : [newSoymilkItem()]
-    editForm.value = {
-      name: order.name || '',
-      contact: order.contact || '',
-      pickupDay: order.pickupDay || 'tue',
-      pickupDate: order.pickupDate || '',
-      soymilkItems,
-      tofuQty: order.tofuQty || 0,
-      remark: order.remark || '',
-      status: order.status || '待確認'
-    }
-    editModal.value = {show: true, submitting: false, orderId: order.id, orderMonth: order.month}
-  }
-
-  const closeEditModal = () => {
-    editModal.value = {show: false, submitting: false, orderId: '', orderMonth: ''}
-  }
-
-  const submitEdit = async () => {
-    const f = editForm.value
-    if (!f.name.trim()) {
-      alert('請輸入姓名');
-      return
-    }
-    if (!f.contact.trim()) {
-      alert('請輸入聯絡方式');
-      return
-    }
-    const hasSoymilk = f.soymilkItems.some(i => i.qty > 0)
-    if (!hasSoymilk && f.tofuQty === 0) {
-      alert('請選擇豆漿或豆腐數量');
-      return
-    }
-
-    editModal.value.submitting = true
-    try {
-      const soymilkItems = f.soymilkItems
-        .filter(i => i.qty > 0)
-        .map(i => ({volume: resolveVol(i), qty: i.qty}))
-      const payload = {
-        name: f.name.trim(),
-        contact: f.contact.trim(),
-        pickupDay: f.pickupDay,
-        soymilkItems,
-        soymilkQty: soymilkItems.reduce((s, i) => s + i.qty, 0),
-        soymilkVolume: soymilkItems.length === 1 ? soymilkItems[0].volume : 0,
-        tofuQty: f.tofuQty,
-        remark: f.remark.trim(),
-        status: f.status,
-        pickupDate: f.pickupDate || ''
-      }
-      const res = await fetch(
-        `${BASE.value}/admin/order/${editModal.value.orderMonth}/${editModal.value.orderId}`,
-        {
-          method: 'PATCH',
-          headers: {'Content-Type': 'application/json'},
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        }
-      )
-      const data = await res.json()
-      if (data.error) {
-        alert('編輯失敗：' + data.error);
-        return
-      }
-      const target = orders.value.find(o => o.id === editModal.value.orderId)
-      if (target) Object.assign(target, payload)
-      closeEditModal()
-    } catch {
-      alert('編輯失敗')
-    } finally {
-      editModal.value.submitting = false
-    }
-  }
 </script>
 
 <template>
-  <div class="min-h-full bg-surface2 transition-colors">
-    <!-- Header -->
-    <header class="bg-surface border-b border-light-c px-4 py-3">
-      <div class="max-w-7xl mx-auto flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white flex-shrink-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            class="w-4 h-4"
-          >
-            <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
-            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
-            <line
-              x1="6"
-              y1="1"
-              x2="6"
-              y2="4"
+  <div class="p-4">
+    <DcErpShell>
+      <div class="space-y-3 p-4">
+        <!-- 查詢表單：預設只顯示第一排，其餘篩選條件收起來 -->
+        <div class="space-y-2 rounded-xl border border-light-c bg-surface p-3 text-base">
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">客戶名稱：</label>
+            <DcErpKeywordSearchInput
+              v-model="filters.firmCode"
+              storage-key="dc-erp-sales-orders-customer-name-history"
+              placeholder="客戶名稱"
+              @enter="handleSearch"
             />
-            <line
-              x1="10"
-              y1="1"
-              x2="10"
-              y2="4"
+
+            <DcErpKeywordSearchInput
+              v-model="filters.keyword"
+              storage-key="dc-erp-sales-orders-keyword-history"
+              placeholder="關鍵字"
+              @enter="handleSearch"
             />
-            <line
-              x1="14"
-              y1="1"
-              x2="14"
-              y2="4"
-            />
-          </svg>
-        </div>
-        <h1 class="font-bold text-base-c leading-none text-sm sm:text-base">
-          豆製品訂購管理
-        </h1>
-      </div>
-    </header>
 
-    <!-- 內容區 -->
-    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 lg:flex lg:items-start lg:gap-4">
-      <!-- 控制區塊：電腦版靠右，手機版在上方 -->
-      <div class="lg:order-2 lg:w-80 lg:flex-shrink-0">
-        <!-- 頂部操作列 -->
-        <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-4">
-          <!-- 月份選擇 -->
-          <select
-            v-model="selectedMonth"
-            class="px-2 py-1.5 rounded-lg border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500 text-xs sm:text-sm"
-            @change="fetchData"
-          >
-            <option
-              v-for="o in monthOptions"
-              :key="o.val"
-              :value="o.val"
-            >
-              {{ o.label }}
-            </option>
-          </select>
-          <!-- 客戶訂單連結 -->
-          <a
-            href="https://holyfarm.netlify.app/front/order/soybeans?og=20"
-            target="_blank"
-            class="flex items-center gap-1 px-2 py-1.5 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors text-xs"
-          >
-            <svg
-              class="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-              />
-            </svg>
-            <span class="hidden sm:inline">訂購連結</span>
-          </a>
-          <!-- 新增訂單按鈕 -->
-          <button
-            class="flex items-center gap-1 px-2.5 py-1.5 border border-emerald-600 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors text-xs font-semibold"
-            @click="openCreateModal"
-          >
-            <svg
-              class="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2.5"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            新增訂單
-          </button>
-          <!-- 重新整理 -->
-          <button
-            :disabled="loading"
-            class="flex items-center gap-1 px-2 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors text-xs"
-            @click="fetchData"
-          >
-            <svg
-              :class="['w-3.5 h-3.5', loading && 'animate-spin']"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span class="hidden sm:inline">{{ loading ? '載入中…' : '重新整理' }}</span>
-          </button>
-        </div>
-
-        <!-- 統計列 -->
-        <div
-          class="flex items-center gap-2 mb-3 bg-surface border border-light-c rounded-xl px-3 py-2 shadow-sm flex-wrap">
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs text-hint-c">本月訂單</span>
-            <span class="text-base font-extrabold text-base-c">{{ orders.length }}</span>
-            <span class="text-xs text-hint-c">筆</span>
-          </div>
-          <div class="w-px h-4 bg-surface2 mx-1"/>
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs text-green-600">豆漿</span>
-            <span class="text-base font-extrabold text-green-700">{{ totalSoymilk }}</span>
-            <span class="text-xs text-green-500">袋</span>
-          </div>
-          <div class="w-px h-4 bg-surface2 mx-1"/>
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs text-amber-600">豆腐</span>
-            <span class="text-base font-extrabold text-amber-600">{{ totalTofu }}</span>
-            <span class="text-xs text-amber-500">塊</span>
-          </div>
-          <div
-            v-if="lastUpdated"
-            class="text-xs text-hint-c whitespace-nowrap"
-          >
-            更新 {{ lastUpdated }}
-          </div>
-        </div>
-
-        <!-- 篩選列 -->
-        <div
-          class="bg-surface border border-light-c rounded-2xl px-4 py-3 mb-4 flex flex-wrap gap-x-4 gap-y-2 items-center">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-xs text-hint-c whitespace-nowrap">取貨日</span>
+            <button class="rounded bg-green-700 px-3 py-1 text-white hover:bg-green-800" @click="handleSearch">送出查詢</button>
+            <button class="rounded border border-light-c px-3 py-1 text-muted-c hover:bg-surface2" @click="handleAllList">列出全部</button>
             <button
-              :class="['filter-chip', { active: filterDay === '' }]"
-              @click="filterDay = ''"
+              class="ml-auto rounded border border-light-c px-3 py-1 text-sm text-muted-c hover:bg-surface2"
+              @click="filterExpanded = !filterExpanded"
             >
-              全部
-            </button>
-            <button
-              v-for="opt in businessDayOptions"
-              :key="opt.code"
-              :class="['filter-chip', { active: filterDay === opt.code }]"
-              @click="filterDay = opt.code"
-            >
-              {{ opt.label }}
+              {{ filterExpanded ? '收起條件 ▲' : '更多條件 ▼' }}
             </button>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-xs text-hint-c whitespace-nowrap">狀態</span>
-            <button
-              :class="['filter-chip', { active: filterStatus === '' }]"
-              @click="filterStatus = ''"
-            >
-              全部
-            </button>
-            <button
-              v-for="s in STATUSES"
-              :key="s"
-              :class="['filter-chip', { active: filterStatus === s }]"
-              @click="filterStatus = s"
-            >
-              {{ s }}
-            </button>
-          </div>
-          <div
-            v-if="filterDay || filterStatus"
-            class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1 whitespace-nowrap"
-          >
-            篩選：豆漿 <strong>{{ filteredSoymilk }}</strong> 袋 ／ 豆腐 <strong>{{ filteredTofu }}</strong>
-            塊（{{ filteredOrders.length }} 筆）
-          </div>
-        </div>
 
-      </div>
+          <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">依場別：</label>
+            <select v-model="filters.workPlace" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.workPlace" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
 
-      <!-- 訂單區塊：電腦版靠左，手機版在下方 -->
-      <div class="lg:order-1 lg:flex-1 lg:min-w-0">
-        <!-- 頁籤：訂單列表 / 設定 -->
-        <div class="flex items-center gap-1 mb-4 border-b border-light-c">
-          <button
-            :class="activeTab === 'orders' ? 'text-green-700 border-green-700' : 'text-hint-c border-transparent hover:text-base-c'"
-            class="px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors"
-            @click="activeTab = 'orders'"
-          >
-            訂單列表
-          </button>
-          <button
-            :class="activeTab === 'settings' ? 'text-green-700 border-green-700' : 'text-hint-c border-transparent hover:text-base-c'"
-            class="px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors"
-            @click="activeTab = 'settings'"
-          >
-            設定
-          </button>
-        </div>
+            <label class="ml-2 text-muted-c">依欄位：</label>
+            <select v-model="filters.whSearch" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.whSearchField" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
 
-        <template v-if="activeTab === 'orders'">
-          <!-- 訂單列表（按日期分組） -->
-          <!-- 檢視切換（僅桌機顯示，手機一律卡片） -->
-          <div class="hidden sm:flex items-center justify-end gap-1.5 mb-3">
-            <button
-              :class="viewMode === 'table' ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c border-light-c'"
-              class="flex items-center gap-1 px-2.5 py-1.5 border rounded-lg text-xs transition-colors"
-              @click="viewMode = 'table'"
-            >
-              <svg
-                class="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M3 10h18M3 14h18M3 6h18M3 18h18"
-                />
-              </svg>
-              表格
-            </button>
-            <button
-              :class="viewMode === 'card' ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c border-light-c'"
-              class="flex items-center gap-1 px-2.5 py-1.5 border rounded-lg text-xs transition-colors"
-              @click="viewMode = 'card'"
-            >
-              <svg
-                class="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <rect
-                  x="3"
-                  y="3"
-                  width="7"
-                  height="7"
-                  rx="1"
-                  stroke-width="2"
-                />
-                <rect
-                  x="14"
-                  y="3"
-                  width="7"
-                  height="7"
-                  rx="1"
-                  stroke-width="2"
-                />
-                <rect
-                  x="3"
-                  y="14"
-                  width="7"
-                  height="7"
-                  rx="1"
-                  stroke-width="2"
-                />
-                <rect
-                  x="14"
-                  y="14"
-                  width="7"
-                  height="7"
-                  rx="1"
-                  stroke-width="2"
-                />
-              </svg>
-              卡片
-            </button>
+          <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">依訂貨日：</label>
+            <DcErpRocDateInput v-model="filters.sdate" placeholder="起始日期" />
+            <span class="text-hint-c">-</span>
+            <DcErpRocDateInput v-model="filters.edate" placeholder="迄止日期" />
+
+            <label class="ml-2 text-muted-c">簽核狀態：</label>
+            <select v-model="filters.signState" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.signState" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+
+            <label class="ml-2 text-muted-c">單據種類：</label>
+            <select v-model="filters.orderType" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.orderType" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+
+            <label class="ml-2 text-muted-c">訂單狀態：</label>
+            <select v-model="filters.receivingState" class="rounded border border-light-c bg-surface px-2 py-1">
+              <option v-for="opt in filterOptions.receivingState" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
           </div>
-          <div
-            v-if="loading && orders.length === 0"
-            class="text-center py-16 text-hint-c text-sm"
-          >
-            載入中…
+
+          <div v-show="filterExpanded" class="flex flex-wrap items-center gap-2">
+            <label class="text-muted-c">依交貨日：</label>
+            <DcErpRocDateInput v-model="filters.sdate2" placeholder="起始日期" />
+            <span class="text-hint-c">-</span>
+            <DcErpRocDateInput v-model="filters.edate2" placeholder="迄止日期" />
+
+            <label class="ml-2 text-muted-c">依單號：</label>
+            <input v-model="filters.scode" type="text" placeholder="起始單號" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
+            <span class="text-hint-c">-</span>
+            <input v-model="filters.ecode" type="text" placeholder="迄止單號" class="w-24 rounded border border-light-c bg-surface px-2 py-1">
           </div>
-          <div
-            v-else-if="filteredOrders.length === 0"
-            class="text-center py-16 text-hint-c text-sm border-2 border-dashed border-light-c rounded-2xl"
-          >
-            本月尚無訂購紀錄
-          </div>
-          <template v-else>
-            <div
-              v-for="group in groupedOrders"
-              :id="`pickup-group-${group.date}`"
-              :key="group.date"
-              class="mb-4 scroll-mt-4"
-              :class="{ 'ring-2 ring-green-500 rounded-2xl bg-green-50/60 dark:bg-green-900/10 p-2 -m-2 mb-4': isToday(group.date) }"
-            >
-              <!-- 日期分隔標題 -->
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-            <span
-              class="text-xs font-bold whitespace-nowrap"
-              :class="isToday(group.date) ? 'text-green-700 dark:text-green-400' : 'text-hint-c'"
-            >{{ group.dateLabel }}</span>
-                <span
-                  v-if="isToday(group.date)"
-                  class="px-1.5 py-0.5 bg-green-600 text-white rounded text-xs font-bold whitespace-nowrap"
-                >今天</span>
-                <span
-                  v-if="isClosedDate(group.date)"
-                  class="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs font-medium"
-                >
-              <svg
-                class="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                />
-              </svg>
-              休息日
+
+          <div class="flex flex-wrap items-center justify-end gap-2 border-t border-light-c pt-2">
+            <span v-if="selectedTransferableRows.length" class="mr-auto text-sm text-hint-c">
+              已選取可轉銷 {{ selectedTransferableRows.length }} 張
+              <template v-if="selectedNonTransferableCount">（另有 {{ selectedNonTransferableCount }} 張不可轉銷已略過）</template>
             </span>
-                <div class="flex-1 h-px bg-surface2 dark:bg-surface2"/>
-                <div class="flex items-center gap-2 text-xs whitespace-nowrap">
-              <span
-                v-if="group.soymilk"
-                class="text-green-700 font-semibold"
-              >豆漿 {{ group.soymilkMl }}ml<span
-                v-if="group.soymilkBreakdown"
-                class="text-hint-c font-normal text-xs"
-              >（{{ group.soymilkBreakdown }}）</span><span class="text-hint-c font-normal text-xs">・{{ group.soymilk }} 袋</span></span>
-                  <span
-                    v-if="group.soymilk && group.tofu"
-                    class="text-hint-c"
-                  >／</span>
-                  <span
-                    v-if="group.tofu"
-                    class="text-amber-600 font-semibold"
-                  >豆腐 {{ group.tofu }} 塊</span>
-                  <span class="text-hint-c">{{ group.orders.length }} 筆</span>
-                </div>
-              </div>
-
-              <!-- 卡片列表：手機一律顯示，桌機在 viewMode === 'card' 時顯示 -->
-              <div :class="['flex flex-col gap-2', viewMode === 'table' ? 'sm:hidden' : 'sm:grid sm:grid-cols-2 xl:grid-cols-3 sm:gap-3']">
-                <div
-                  v-for="o in group.orders"
-                  :key="o.id"
-                  class="bg-surface border border-light-c rounded-2xl px-4 py-3 shadow-sm"
-                  :class="{ 'opacity-40': o.status === '已取消' }"
-                >
-                  <!-- 頂行：姓名 + 狀態 + 操作 -->
-                  <div class="flex items-center gap-2 mb-2">
-                    <span class="font-bold text-base-c text-sm flex-1">{{ o.name }}</span>
-                    <span :class="statusClass(o.status)">{{ o.status }}</span>
-                    <button
-                      :disabled="updatingId === o.id"
-                      class="p-1.5 rounded-lg border border-blue-200 dark:border-blue-900 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 transition-colors"
-                      @click="openEditModal(o)"
-                    >
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      :disabled="updatingId === o.id"
-                      class="p-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 transition-colors"
-                      @click="openDeleteModal(o)"
-                    >
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                  <!-- 中間：品項資訊 -->
-                  <div class="flex items-center gap-3 mb-2 flex-wrap">
-                <span
-                  class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                  :class="colorForCode(o.pickupDay).bg"
-                >
-                  {{ pickupLabel(o) }}
-                </span>
-                    <span
-                      v-if="normalizeSoymilkItems(o).length"
-                      class="text-sm font-semibold text-green-700"
-                    >
-                  豆漿 {{ totalSoymilkQty(normalizeSoymilkItems(o)) }} 袋
-                  <span class="text-xs text-hint-c font-normal">（{{ soymilkItemsLabel(o) }}）</span>
-                </span>
-                    <span
-                      v-if="o.tofuQty"
-                      class="text-sm font-semibold text-amber-600"
-                    >
-                  豆腐 {{ o.tofuQty }} 塊
-                </span>
-                    <span class="text-sm font-bold text-base-c ml-auto">
-                  ${{ calcTotal(o) }}
-                </span>
-                  </div>
-                  <!-- 底行：聯絡 + 備註 + 時間 -->
-                  <div class="flex items-center gap-2 text-xs text-hint-c flex-wrap">
-                    <span>{{ o.contact }}</span>
-                    <span
-                      v-if="o.remark"
-                      class="text-hint-c"
-                    >｜</span>
-                    <span
-                      v-if="o.remark"
-                      class="text-hint-c truncate max-w-[120px]"
-                    >{{ o.remark }}</span>
-                    <span class="ml-auto text-hint-c">{{ formatCreatedAt(o.createdAt) }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 桌機：表格（viewMode === 'table' 時顯示） -->
-              <div
-                v-if="viewMode === 'table'"
-                class="hidden sm:block bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
-              >
-                <div class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead class="bg-surface2 /50 border-b border-light-c">
-                    <tr>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        訂購時間
-                      </th>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        姓名
-                      </th>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        聯絡
-                      </th>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        取貨日
-                      </th>
-                      <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
-                        豆漿
-                      </th>
-                      <th class="px-3 py-2.5 text-center font-semibold text-muted-c whitespace-nowrap text-xs">
-                        豆腐
-                      </th>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        金額
-                      </th>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        備註
-                      </th>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        狀態
-                      </th>
-                      <th class="px-3 py-2.5 text-left font-semibold text-muted-c whitespace-nowrap text-xs">
-                        操作
-                      </th>
-                    </tr>
-                    </thead>
-                    <tbody class="divide-y divide-base">
-                    <tr
-                      v-for="o in group.orders"
-                      :key="o.id"
-                      class="hover-surface2/30 transition-colors"
-                      :class="{ 'opacity-40': o.status === '已取消' }"
-                    >
-                      <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">
-                        {{ formatCreatedAt(o.createdAt) }}
-                      </td>
-                      <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">
-                        {{ o.name }}
-                      </td>
-                      <td class="px-3 py-2.5 text-xs text-hint-c">
-                        {{ o.contact }}
-                      </td>
-                      <td class="px-3 py-2.5">
-                      <span
-                        class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                        :class="colorForCode(o.pickupDay).bg"
-                      >
-                        {{ pickupLabel(o) }}
-                      </span>
-                      </td>
-                      <td class="px-3 py-2.5">
-                        <div
-                          v-if="normalizeSoymilkItems(o).length"
-                          class="text-xs text-green-700 font-semibold space-y-0.5"
-                        >
-                          <div
-                            v-for="(item, idx) in normalizeSoymilkItems(o)"
-                            :key="idx"
-                            class="whitespace-nowrap"
-                          >
-                            {{ item.volume }}ml × {{ item.qty }}
-                          </div>
-                        </div>
-                        <span
-                          v-else
-                          class="text-hint-c text-xs"
-                        >—</span>
-                      </td>
-                      <td class="px-3 py-2.5 text-center">
-                      <span
-                        v-if="o.tofuQty"
-                        class="font-semibold text-amber-600 text-xs"
-                      >{{ o.tofuQty }} 塊</span>
-                        <span
-                          v-else
-                          class="text-hint-c text-xs"
-                        >—</span>
-                      </td>
-                      <td class="px-3 py-2.5 font-semibold text-base-c text-xs whitespace-nowrap">
-                        ${{ calcTotal(o) }}
-                      </td>
-                      <td class="px-3 py-2.5 text-xs text-hint-c max-w-[100px] truncate">
-                        {{ o.remark || '—' }}
-                      </td>
-                      <td class="px-3 py-2.5">
-                        <span :class="statusClass(o.status)">{{ o.status }}</span>
-                      </td>
-                      <td class="px-3 py-2.5">
-                        <div class="flex gap-1 flex-wrap">
-                          <button
-                            :disabled="updatingId === o.id"
-                            class="px-2 py-0.5 text-xs border border-blue-200 dark:border-blue-900 rounded-lg bg-surface text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                            @click="openEditModal(o)"
-                          >
-                            編輯
-                          </button>
-                          <button
-                            :disabled="updatingId === o.id"
-                            class="px-2 py-0.5 text-xs border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                            @click="openDeleteModal(o)"
-                          >
-                            刪除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </template>
-        </template>
-        <template v-if="activeTab === 'settings'">
-          <!-- ── 休息日設定面板 ── -->
-          <Transition name="hint-panel">
-            <div
-              v-if="activeTab === 'settings'"
-              class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedTransferableRows.length || transferringBatch || signing"
+              @click="handleTransferBatch"
             >
-              <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-                <svg
-                  class="w-4 h-4 text-red-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                  />
-                </svg>
-                <span class="text-sm font-semibold text-base-c">休息日設定</span>
-                <span class="text-xs text-hint-c">（設定後客戶無法訂購該取貨日）</span>
-              </div>
-              <div class="p-4">
-                <!-- 新增輸入 -->
-                <div class="flex gap-2 mb-3">
-                  <input
-                    v-model="closedDateInput"
-                    type="date"
-                    class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-red-400"
-                  >
-                  <button
-                    :disabled="closedSaving || !closedDateInput"
-                    class="flex items-center gap-1 px-3 py-2 bg-red-500 text-white text-sm rounded-xl hover:bg-red-600 disabled:opacity-40 transition-colors font-medium whitespace-nowrap"
-                    @click="addClosedDate"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.5"
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    新增
-                  </button>
-                </div>
-
-                <!-- 休息日清單 -->
-                <div
-                  v-if="closedDates.length === 0"
-                  class="text-xs text-hint-c py-2 text-center"
-                >
-                  尚未設定任何休息日
-                </div>
-                <div
-                  v-else
-                  class="flex flex-wrap gap-2"
-                >
-                  <div
-                    v-for="d in closedDates.slice().sort()"
-                    :key="d"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-xs"
-                  >
-                    <svg
-                      class="w-3 h-3 text-red-400 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span class="text-red-700 dark:text-red-300 font-medium">{{ formatClosedDate(d) }}</span>
-                    <button
-                      :disabled="closedSaving"
-                      class="ml-0.5 text-red-400 hover:text-red-600 disabled:opacity-40 transition-colors"
-                      @click="removeClosedDate(d)"
-                    >
-                      <svg
-                        class="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2.5"
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <Transition name="fade">
-                  <p
-                    v-if="closedSaved"
-                    class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <polyline
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.5"
-                        points="20 6 9 17 4 12"
-                      />
-                    </svg>
-                    已更新
-                  </p>
-                </Transition>
-              </div>
-            </div>
-          </Transition>
-          <!-- ── 營業日設定面板 ── -->
-          <Transition name="hint-panel">
-            <div
-              v-if="activeTab === 'settings'"
-              class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+              {{ transferringBatch ? '轉銷中…' : `轉銷（${selectedTransferableRows.length}）` }}
+            </button>
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing || transferringBatch"
+              @click="handleSignBatch('return')"
             >
-              <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-                <svg
-                  class="w-4 h-4 text-hint-c"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <span class="text-sm font-semibold text-base-c">營業日設定</span>
-                <span class="text-xs text-hint-c">（目前生效中：{{ businessDayOptions.map(o => o.label).join('、') }}）</span>
-              </div>
-              <div class="p-4 space-y-5">
-
-                <!-- 立即調整：今天起馬上生效 -->
-                <div>
-                  <p class="text-xs font-medium text-hint-c mb-2">立即調整（今天起生效）</p>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <button
-                      v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
-                      :key="dow"
-                      :disabled="businessDaysSaving"
-                      :class="businessDays.includes(dow)
-                      ? 'bg-accent-solid text-white'
-                      : 'bg-surface text-hint-c border-light-c'"
-                      class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
-                      @click="businessDays.includes(dow)
-                      ? saveBusinessDays(businessDays.filter(d => d !== dow))
-                      : saveBusinessDays([...businessDays, dow].sort())"
-                    >
-                      {{ DOW_LABEL[dow] }}
-                    </button>
-                  </div>
-                  <Transition name="fade">
-                    <p
-                      v-if="businessDaysSaved"
-                      class="mt-2 text-xs text-emerald-600 flex items-center gap-1"
-                    >
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <polyline
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2.5"
-                          points="20 6 9 17 4 12"
-                        />
-                      </svg>
-                      已更新
-                    </p>
-                  </Transition>
-                </div>
-
-                <!-- 排定未來生效：例如「下週一起改成二、四」 -->
-                <div class="pt-4 border-t border-light-c">
-                  <p class="text-xs font-medium text-hint-c mb-2">排定未來生效（例如下週開始改成不同的星期）</p>
-                  <div class="flex items-center gap-2 flex-wrap mb-2">
-                    <button
-                      v-for="dow in [1, 2, 3, 4, 5, 6, 7]"
-                      :key="dow"
-                      :disabled="businessDaysSaving"
-                      :class="businessDaysDraft.includes(dow)
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-surface text-hint-c border-light-c'"
-                      class="px-3 py-1.5 text-sm border rounded-xl transition-colors font-medium disabled:opacity-50"
-                      @click="toggleDraftDow(dow)"
-                    >
-                      {{ DOW_LABEL[dow] }}
-                    </button>
-                  </div>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <label class="text-xs text-hint-c">生效日</label>
-                    <input
-                      v-model="businessDaysEffectiveFrom"
-                      type="date"
-                      :min="todayDateStr()"
-                      class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                    <button
-                      :disabled="businessDaysSaving || !businessDaysEffectiveFrom"
-                      class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
-                      @click="saveBusinessDays(businessDaysDraft, businessDaysEffectiveFrom)"
-                    >
-                      儲存排程
-                    </button>
-                    <span class="text-xs text-hint-c">未選生效日則無法儲存（避免誤觸立即生效）</span>
-                  </div>
-                </div>
-
-                <!-- 已排定的營業日清單 -->
-                <div v-if="businessDaysSchedule.length" class="pt-4 border-t border-light-c">
-                  <p class="text-xs font-medium text-hint-c mb-2">已排定的營業日設定</p>
-                  <div class="space-y-1.5">
-                    <div
-                      v-for="entry in businessDaysSchedule"
-                      :key="entry.effectiveFrom"
-                      class="flex items-center justify-between gap-2 px-3 py-2 bg-surface2 rounded-xl text-sm"
-                    >
-                    <span class="text-base-c">
-                      <span class="font-semibold">{{ entry.effectiveFrom }}</span> 起 →
-                      {{ entry.businessDays.map(d => DOW_LABEL[d]).join('、') }}
-                      <span v-if="entry.effectiveFrom <= todayDateStr()"
-                            class="ml-1 text-xs text-emerald-600">（生效中）</span>
-                      <span v-else class="ml-1 text-xs text-amber-600">（尚未生效）</span>
-                    </span>
-                      <button
-                        class="text-red-400 hover:text-red-500 text-xs font-medium transition-colors"
-                        @click="removeBusinessDaysScheduleEntry(entry.effectiveFrom)"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </Transition>
-          <!-- ── 提示訊息設定面板 ── -->
-          <Transition name="hint-panel">
-            <div
-              v-if="activeTab === 'settings'"
-              class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
+              {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
+            </button>
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing || transferringBatch"
+              @click="handleSignBatch('sign')"
             >
-              <div class="flex items-center justify-between px-4 py-3 border-b border-light-c">
-                <div class="flex items-center gap-2">
-                  <svg
-                    class="w-4 h-4 text-hint-c"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
+            </button>
+            <NuxtLink
+              v-if="createUrl"
+              :to="createUrl"
+              class="rounded-lg bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800"
+            >
+              + 新增
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- 列表 -->
+        <div class="overflow-hidden rounded-xl border border-light-c bg-surface">
+          <p v-if="loading" class="p-6 text-base text-hint-c">載入中…</p>
+          <p v-else-if="errorMessage" class="p-6 text-base text-red-600">{{ errorMessage }}</p>
+
+          <!-- 卡片檢視 -->
+          <div v-else-if="viewMode === 'card'" class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              v-for="row in items"
+              :key="row.guid"
+              class="rounded-lg border border-light-c p-3 text-base hover:bg-surface2"
+            >
+              <div class="mb-1 flex items-start justify-between gap-2">
+                <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
+                <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-order-detail">
+                  <NuxtLink
+                    :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`"
+                    class="flex-1 font-medium text-green-700 hover:underline"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                    />
-                  </svg>
-                  <span class="text-sm font-semibold text-base-c">前台提示訊息設定</span>
-                  <span class="text-xs text-hint-c">（客戶在「我的紀錄」看到的說明文字）</span>
-                </div>
+                    {{ row.code }}
+                  </NuxtLink>
+                </DcErpItemsTooltip>
+                <span class="shrink-0 text-sm text-hint-c">#{{ row.seq }}</span>
+              </div>
+              <div class="text-sm text-muted-c">{{ row.workPlace }}｜{{ row.firmName }}</div>
+              <div class="mt-1 flex items-center justify-between text-sm text-muted-c">
+                <span>訂貨 {{ row.orderDate }} → 交貨 {{ row.deliveryDate }}</span>
+                <span class="font-medium text-base-c">{{ row.total }}</span>
+              </div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-1 text-sm">
+                <span class="rounded bg-surface2 px-1.5 py-0.5 text-muted-c">{{ row.receivingState }}</span>
+                <span class="rounded bg-surface2 px-1.5 py-0.5 text-muted-c">{{ row.signState }}</span>
                 <button
-                  class="text-hint-c hover:text-hint-c transition-colors"
-                  @click="activeTab = 'orders'"
+                  v-if="row.canTransfer"
+                  class="rounded border border-light-c px-1.5 py-0.5 text-muted-c hover:bg-surface2 disabled:opacity-50"
+                  :disabled="transferringGuid === row.guid"
+                  @click="handleTransfer(row)"
                 >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  {{ transferringGuid === row.guid ? '轉入中…' : '轉銷' }}
                 </button>
               </div>
-              <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div
-                  v-for="s in HINT_STATUSES"
-                  :key="s"
-                >
-                  <label class="flex items-center gap-2 mb-1.5">
-                  <span :class="['inline-block px-2 py-0.5 rounded-full text-xs font-semibold', hintBadgeClass(s)]">{{
-                      s
-                    }}</span>
-                    <span class="text-xs text-hint-c">顯示訊息</span>
-                  </label>
-                  <textarea
-                    v-model="hints[s]"
-                    rows="2"
-                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500 resize-none font-sans leading-relaxed"
-                    :placeholder="'「' + s + '」狀態的提示訊息'"
-                  />
-                </div>
-              </div>
-              <div class="px-4 pb-4 flex items-center gap-3">
-                <button
-                  :disabled="hintSaving"
-                  class="flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors"
-                  @click="saveHints"
-                >
-                  <svg
-                    v-if="hintSaving"
-                    class="w-3.5 h-3.5 animate-spin"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                  >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                    />
-                  </svg>
-                  {{ hintSaving ? '儲存中…' : '儲存設定' }}
-                </button>
-                <Transition name="fade">
-                <span
-                  v-if="hintSaved"
-                  class="text-sm text-emerald-600 flex items-center gap-1"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><polyline
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2.5"
-                    points="20 6 9 17 4 12"
-                  /></svg>
-                  已儲存
-                </span>
-                </Transition>
-              </div>
+              <div v-if="row.remark" class="mt-1.5 truncate text-sm text-hint-c" :title="row.remark">{{ row.remark }}</div>
             </div>
-          </Transition>
+            <p v-if="!items.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
+          </div>
 
-          <!-- ── 取貨提醒設定面板 ── -->
-          <Transition name="hint-panel">
-            <div
-              v-if="activeTab === 'settings'"
-              class="mb-4 bg-surface border border-light-c rounded-2xl shadow-sm overflow-hidden"
-            >
-              <div class="flex items-center gap-2 px-4 py-3 border-b border-light-c">
-                <svg
-                  class="w-4 h-4 text-hint-c"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-                <span class="text-sm font-semibold text-base-c">LINE / Discord 取貨提醒</span>
-                <span class="text-xs text-hint-c">（每天固定時間，把隔天所有客戶的訂單合併發送到 LINE 群組／Discord 頻道）</span>
-              </div>
-              <div class="p-4 space-y-4">
-
-                <!-- 獨立設定：不沿用其他功能的 LINE↔Discord 設定 -->
-                <div class="grid gap-3 sm:grid-cols-2">
-                  <div class="sm:col-span-2">
-                    <label class="block text-xs font-medium text-hint-c mb-1">LINE Channel Access Token</label>
-                    <input
-                      v-model="notifyLineAccessToken"
-                      type="text"
-                      placeholder="用來發送 LINE 訊息的 Channel Access Token"
-                      class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-hint-c mb-1">LINE 群組 ID</label>
-                    <input
-                      v-model="notifyLineGroupId"
-                      type="text"
-                      placeholder="例如：Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                      class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-hint-c mb-1">Discord Webhook URL</label>
-                    <input
-                      v-model="notifyDiscordWebhook"
-                      type="text"
-                      placeholder="https://discord.com/api/webhooks/..."
-                      class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                  </div>
-                </div>
-                <p class="text-xs text-hint-c">LINE 跟 Discord 可以只設定一邊（例如只想發 Discord，LINE 的兩個欄位留空即可），留空的那邊不會發送。這裡是豆製品訂單專用的獨立設定，跟其他功能無關。</p>
-
-                <!-- 取貨提醒 -->
-                <div class="pt-4 border-t border-light-c">
-                  <p class="text-sm font-medium text-base-c mb-1">啟用取貨提醒</p>
-                  <p class="text-xs text-hint-c mb-3">每天固定時間，把隔天所有客戶的訂單合併成一則訊息發送；LINE、Discord 可以分開開關。</p>
-                  <div class="flex items-center gap-5 mb-3">
-                    <label class="flex items-center gap-2 cursor-pointer w-fit">
-                      <input
-                        v-model="reminderLineEnabled"
-                        type="checkbox"
-                        class="w-4 h-4 rounded accent-green-700"
-                      >
-                      <span class="text-sm font-medium text-base-c">LINE 提醒</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer w-fit">
-                      <input
-                        v-model="reminderDiscordEnabled"
-                        type="checkbox"
-                        class="w-4 h-4 rounded accent-green-700"
-                      >
-                      <span class="text-sm font-medium text-base-c">Discord 提醒</span>
-                    </label>
-                  </div>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <label class="text-xs text-hint-c">每天</label>
-                    <select
-                      v-model.number="reminderHour"
-                      class="px-2.5 py-1.5 text-sm border border-light-c rounded-lg bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ String(h).padStart(2, '0') }}:00</option>
-                    </select>
-                    <span class="text-xs text-hint-c">檢查隔天訂單並發送提醒</span>
-                    <div class="ml-auto flex items-center gap-2">
-                      <button
-                        :disabled="reminderTesting"
-                        class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
-                        @click="testReminder(0)"
-                      >
-                        {{ reminderTesting ? '測試中…' : '立即測試發送（今天）' }}
-                      </button>
-                      <button
-                        :disabled="reminderTesting"
-                        class="px-3 py-1.5 text-sm border border-light-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors font-medium text-hint-c"
-                        @click="testReminder(1)"
-                      >
-                        {{ reminderTesting ? '測試中…' : '立即測試發送（明天）' }}
-                      </button>
-                    </div>
-                  </div>
-                  <p class="text-xs text-hint-c mt-1.5">
-                    測試按鈕會忽略上面設定的時間，直接檢查該日期有沒有訂單並馬上發送；沒有訂單就不會發送任何訊息。「今天」是給取貨當天想臨時再次確認名單用的，正常的提醒排程只會檢查「明天」。
-                  </p>
-                </div>
-
-                <div class="flex items-center gap-3">
+          <!-- 列表檢視 -->
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-base">
+              <thead>
+              <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                <th class="px-2 py-2 text-center">
+                  <input type="checkbox" @change="toggleSelectAll($event.target.checked)">
+                </th>
+                <th class="px-2 py-2 text-center">項次</th>
+                <th class="px-2 py-2">訂貨單號</th>
+                <th class="px-2 py-2 text-center">訂貨日期</th>
+                <th class="px-2 py-2 text-center">交貨日期</th>
+                <th class="px-2 py-2">場別</th>
+                <th class="px-2 py-2">客戶名稱</th>
+                <th class="px-2 py-2 text-center">訂單狀態</th>
+                <th class="px-2 py-2 text-center">簽核狀態</th>
+                <th class="px-2 py-2 text-center">轉銷</th>
+                <th class="px-2 py-2 text-right">總計金額</th>
+                <th class="px-2 py-2">備註</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
+                <td class="px-2 py-1.5 text-center">
+                  <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
+                </td>
+                <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
+                <td class="px-2 py-1.5">
+                  <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-order-detail">
+                    <NuxtLink :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                  </DcErpItemsTooltip>
+                </td>
+                <td class="px-2 py-1.5 text-center">{{ row.orderDate }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>
+                <td class="px-2 py-1.5">{{ row.workPlace }}</td>
+                <td class="px-2 py-1.5">{{ row.firmName }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.receivingState }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.signState }}</td>
+                <td class="px-2 py-1.5 text-center">
                   <button
-                    :disabled="notifySaving"
-                    class="px-4 py-2 text-sm bg-green-700 text-white rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors font-medium"
-                    @click="saveNotifySettings"
+                    v-if="row.canTransfer"
+                    class="rounded border border-light-c px-2 py-0.5 text-sm text-muted-c hover:bg-surface2 disabled:opacity-50"
+                    :disabled="transferringGuid === row.guid"
+                    @click="handleTransfer(row)"
                   >
-                    {{ notifySaving ? '儲存中…' : '儲存通知設定' }}
+                    {{ transferringGuid === row.guid ? '轉入中…' : '轉銷' }}
                   </button>
-                  <Transition name="fade">
-                    <p v-if="notifySaved" class="text-xs text-emerald-600 flex items-center gap-1">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <polyline stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" points="20 6 9 17 4 12" />
-                      </svg>
-                      已更新
-                    </p>
-                  </Transition>
-                </div>
+                </td>
+                <td class="px-2 py-1.5 text-right">{{ row.total }}</td>
+                <td class="px-2 py-1.5">{{ row.remark }}</td>
+              </tr>
+              <tr v-if="!items.length">
+                <td colspan="12" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
 
-              </div>
-            </div>
-          </Transition>
-        </template>
+          <div class="flex items-center justify-between border-t border-light-c px-3 py-2 text-sm text-muted-c">
+            <span>總計 {{ totalCount.toLocaleString() }} 筆 / 總計 {{ totalPages.toLocaleString() }} 頁</span>
+            <DcErpPagination :page="page" :total-pages="totalPages" @go="goPage" />
+          </div>
+        </div>
       </div>
-    </div>
-
-    <!-- 新增訂單 Modal -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div
-          v-if="createModal.show"
-          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
-          @click.self="closeCreateModal"
-        >
-          <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6">
-            <div class="flex items-center justify-between mb-5">
-              <h3 class="font-bold text-base-c text-base">
-                新增訂單
-              </h3>
-              <button
-                class="text-hint-c hover:text-hint-c transition-colors"
-                @click="closeCreateModal"
-              >
-                <svg
-                  class="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div class="space-y-4">
-              <!-- 姓名 & 聯絡 -->
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span
-                    class="text-red-400">*</span></label>
-                  <div class="relative">
-                    <input
-                      v-model="createForm.name"
-                      type="text"
-                      placeholder="訂購人姓名"
-                      autocomplete="off"
-                      class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
-                      @input="onCreateNameInput"
-                      @blur="setTimeout(() => showCreateSuggest = false, 150)"
-                      @focus="onCreateNameInput"
-                    >
-                    <!-- 建議下拉 -->
-                    <div
-                      v-if="showCreateSuggest"
-                      class="absolute top-full left-0 right-0 mt-1 bg-surface border border-light-c rounded-xl shadow-lg z-50 overflow-hidden"
-                    >
-                      <button
-                        v-for="n in createNameSuggest"
-                        :key="n"
-                        class="w-full text-left px-3 py-2 text-sm text-base-c hover:bg-green-50 flex items-center justify-between gap-2 border-b border-light-c last:border-0"
-                        @mousedown.prevent="pickCreateCustomer(n)"
-                      >
-                        <span class="font-medium">{{ n }}</span>
-                        <span class="text-xs text-hint-c truncate max-w-[80px]">{{ knownCustomers.get(n) }}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-hint-c mb-1">聯絡方式 <span class="text-red-400">*</span></label>
-                  <input
-                    v-model="createForm.contact"
-                    type="text"
-                    placeholder="電話或 Line"
-                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
-                  >
-                </div>
-              </div>
-
-              <!-- 取貨日 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1.5">
-                  取貨日
-                  <span
-                    v-if="createForm.pickupDate"
-                    class="text-hint-c font-normal"
-                  >（由自訂日期決定）</span>
-                </label>
-                <div class="flex gap-2">
-                  <button
-                    v-for="opt in businessDayOptions"
-                    :key="opt.code"
-                    :disabled="!!createForm.pickupDate || isClosedDate(nextPickupDateFromNow(opt.code))"
-                    :class="[
-                      createForm.pickupDate
-                        ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
-                        : isClosedDate(nextPickupDateFromNow(opt.code))
-                          ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
-                          : createForm.pickupDay === opt.code
-                            ? opt.color.active
-                            : 'bg-surface text-muted-c border-light-c'
-                    ]"
-                    class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium relative"
-                    @click="!createForm.pickupDate && (createForm.pickupDay = opt.code)"
-                  >
-                    <div>{{ pickupDateLabel(opt.code) }}</div>
-                    <span
-                      v-if="isClosedDate(nextPickupDateFromNow(opt.code))"
-                      class="text-xs font-normal text-red-400"
-                    >休息日</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- 自訂取貨日期（後台專用） -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">
-                  自訂取貨日期
-                  <span class="text-hint-c font-normal">（不填則自動取當週設定的營業日）</span>
-                </label>
-                <input
-                  v-model="createForm.pickupDate"
-                  type="date"
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
-                  @change="onPickupDateChange"
-                >
-              </div>
-
-              <!-- 豆漿容量（多組） -->
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <label class="text-xs font-medium text-hint-c">豆漿（可多種容量）</label>
-                  <button
-                    class="flex items-center gap-1 text-xs text-green-700 hover:text-green-800 font-medium"
-                    @click="addSoymilkItem(createForm)"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.5"
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    新增容量
-                  </button>
-                </div>
-                <div class="space-y-2">
-                  <div
-                    v-for="(item, idx) in createForm.soymilkItems"
-                    :key="idx"
-                    class="bg-surface2 rounded-xl p-3"
-                  >
-                    <!-- 容量選擇 -->
-                    <div class="flex items-center gap-1.5 flex-wrap mb-2">
-                      <button
-                        v-for="v in PRESET_VOLS"
-                        :key="v"
-                        :class="item.volume === v ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
-                        @click="item.volume = v"
-                      >
-                        {{ v }}ml
-                      </button>
-                      <button
-                        :class="item.volume === -1 ? 'bg-green-700 text-white border-green-700' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
-                        @click="item.volume = -1"
-                      >
-                        自訂
-                      </button>
-                    </div>
-                    <input
-                      v-if="item.volume === -1"
-                      v-model.number="item.customVolume"
-                      type="number"
-                      min="0"
-                      placeholder="輸入 ml"
-                      class="w-full mb-2 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                    <!-- 數量 & 刪除 -->
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs text-hint-c mr-auto">數量</span>
-                      <button
-                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
-                        @click="adjItemQty(item, -1)"
-                      >
-                        −
-                      </button>
-                      <span class="w-8 text-center font-semibold text-base-c text-sm">{{ item.qty }}</span>
-                      <button
-                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
-                        @click="adjItemQty(item, 1)"
-                      >
-                        ＋
-                      </button>
-                      <button
-                        v-if="createForm.soymilkItems.length > 1"
-                        class="ml-2 w-7 h-7 border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center"
-                        @click="removeSoymilkItem(createForm, idx)"
-                      >
-                        <svg
-                          class="w-3.5 h-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 豆腐 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1.5">豆腐（塊）</label>
-                <div class="flex items-center gap-2">
-                  <button
-                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
-                    @click="adjTofuQty(createForm, -1)"
-                  >
-                    −
-                  </button>
-                  <span class="w-10 text-center font-semibold text-base-c text-sm">{{ createForm.tofuQty }}</span>
-                  <button
-                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
-                    @click="adjTofuQty(createForm, 1)"
-                  >
-                    ＋
-                  </button>
-                </div>
-              </div>
-
-              <!-- 金額小計 -->
-              <div
-                v-if="formTotal(createForm) > 0"
-                class="bg-surface2 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm"
-              >
-                <span class="text-hint-c">小計</span>
-                <span class="font-bold text-base-c">${{ formTotal(createForm) }}</span>
-              </div>
-
-              <!-- 備註 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">備註</label>
-                <input
-                  v-model="createForm.remark"
-                  type="text"
-                  placeholder="選填"
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-green-500"
-                >
-              </div>
-
-              <!-- 訂單狀態 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1.5">訂單狀態</label>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="s in STATUSES"
-                    :key="s"
-                    :class="createForm.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
-                    class="transition-all cursor-pointer"
-                    @click="createForm.status = s"
-                  >
-                    {{ s }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex gap-2 mt-6">
-              <button
-                :disabled="createModal.submitting"
-                class="flex-1 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover-surface2 disabled:opacity-50 transition-colors"
-                @click="closeCreateModal"
-              >
-                取消
-              </button>
-              <button
-                :disabled="createModal.submitting"
-                class="flex-1 py-2.5 text-sm bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold"
-                @click="submitCreate"
-              >
-                <span
-                  v-if="createModal.submitting"
-                  class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"
-                />
-                {{ createModal.submitting ? '新增中…' : '確認新增' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- 編輯訂單 Modal -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div
-          v-if="editModal.show"
-          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
-          @click.self="closeEditModal"
-        >
-          <div class="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6 my-auto">
-            <div class="flex items-center justify-between mb-5">
-              <h3 class="font-bold text-base-c text-base">
-                編輯訂單
-              </h3>
-              <button
-                class="text-hint-c hover:text-hint-c transition-colors"
-                @click="closeEditModal"
-              >
-                <svg
-                  class="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div class="space-y-4">
-              <!-- 姓名 & 聯絡 -->
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-hint-c mb-1">姓名 <span
-                    class="text-red-400">*</span></label>
-                  <input
-                    v-model="editForm.name"
-                    type="text"
-                    placeholder="訂購人姓名"
-                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-hint-c mb-1">聯絡方式 <span class="text-red-400">*</span></label>
-                  <input
-                    v-model="editForm.contact"
-                    type="text"
-                    placeholder="電話或 Line"
-                    class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                </div>
-              </div>
-
-              <!-- 取貨日 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1.5">
-                  取貨日
-                  <span
-                    v-if="editForm.pickupDate"
-                    class="text-hint-c font-normal"
-                  >（由自訂日期決定）</span>
-                </label>
-                <div class="flex gap-2">
-                  <button
-                    v-for="opt in businessDayOptions"
-                    :key="opt.code"
-                    :disabled="!!editForm.pickupDate"
-                    :class="[
-                      editForm.pickupDate
-                        ? 'opacity-40 cursor-not-allowed bg-surface text-hint-c border-light-c'
-                        : editForm.pickupDay === opt.code
-                          ? opt.color.active
-                          : 'bg-surface text-muted-c border-light-c'
-                    ]"
-                    class="flex-1 py-2 text-sm border rounded-xl transition-colors font-medium"
-                    @click="!editForm.pickupDate && (editForm.pickupDay = opt.code)"
-                  >
-                    <div>{{ opt.label }} {{ editPickupDateLabel(opt.code) }}</div>
-                  </button>
-                </div>
-              </div>
-
-              <!-- 自訂取貨日期 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">
-                  自訂取貨日期
-                  <span class="text-hint-c font-normal">（不填則沿用上方週次標籤）</span>
-                </label>
-                <div class="flex gap-2">
-                  <input
-                    v-model="editForm.pickupDate"
-                    type="date"
-                    class="flex-1 px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                    @change="onEditPickupDateChange"
-                  >
-                  <button
-                    v-if="editForm.pickupDate"
-                    class="px-3 py-2 text-xs text-hint-c hover:text-muted-c border border-light-c rounded-xl transition-colors"
-                    @click="editForm.pickupDate = ''"
-                  >
-                    清除
-                  </button>
-                </div>
-              </div>
-
-              <!-- 豆漿容量（多組） -->
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <label class="text-xs font-medium text-hint-c">豆漿（可多種容量）</label>
-                  <button
-                    class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                    @click="addSoymilkItem(editForm)"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.5"
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    新增容量
-                  </button>
-                </div>
-                <div class="space-y-2">
-                  <div
-                    v-for="(item, idx) in editForm.soymilkItems"
-                    :key="idx"
-                    class="bg-surface2 rounded-xl p-3"
-                  >
-                    <!-- 容量選擇 -->
-                    <div class="flex items-center gap-1.5 flex-wrap mb-2">
-                      <button
-                        v-for="v in PRESET_VOLS"
-                        :key="v"
-                        :class="item.volume === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
-                        @click="item.volume = v"
-                      >
-                        {{ v }}ml
-                      </button>
-                      <button
-                        :class="item.volume === -1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-surface text-hint-c dark:text-hint-c border-light-c'"
-                        class="px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium"
-                        @click="item.volume = -1"
-                      >
-                        自訂
-                      </button>
-                    </div>
-                    <input
-                      v-if="item.volume === -1"
-                      v-model.number="item.customVolume"
-                      type="number"
-                      min="0"
-                      placeholder="輸入 ml"
-                      class="w-full mb-2 px-3 py-1.5 text-sm border border-light-c rounded-xl bg-surface text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                    <!-- 數量 & 刪除 -->
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs text-hint-c mr-auto">數量</span>
-                      <button
-                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
-                        @click="adjItemQty(item, -1)"
-                      >
-                        −
-                      </button>
-                      <span class="w-8 text-center font-semibold text-base-c text-sm">{{ item.qty }}</span>
-                      <button
-                        class="w-7 h-7 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center"
-                        @click="adjItemQty(item, 1)"
-                      >
-                        ＋
-                      </button>
-                      <button
-                        v-if="editForm.soymilkItems.length > 1"
-                        class="ml-2 w-7 h-7 border border-red-200 dark:border-red-900 rounded-lg bg-surface text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center"
-                        @click="removeSoymilkItem(editForm, idx)"
-                      >
-                        <svg
-                          class="w-3.5 h-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 豆腐 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1.5">豆腐（塊）</label>
-                <div class="flex items-center gap-2">
-                  <button
-                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
-                    @click="adjTofuQty(editForm, -1)"
-                  >
-                    −
-                  </button>
-                  <span class="w-10 text-center font-semibold text-base-c text-sm">{{ editForm.tofuQty }}</span>
-                  <button
-                    class="w-8 h-8 border border-light-c rounded-lg bg-surface text-hint-c hover:bg-surface2 transition-colors flex items-center justify-center text-lg"
-                    @click="adjTofuQty(editForm, 1)"
-                  >
-                    ＋
-                  </button>
-                </div>
-              </div>
-
-              <!-- 金額小計 -->
-              <div
-                v-if="formTotal(editForm) > 0"
-                class="bg-surface2 rounded-xl px-4 py-2.5 flex justify-between items-center text-sm"
-              >
-                <span class="text-hint-c">小計</span>
-                <span class="font-bold text-base-c">${{ formTotal(editForm) }}</span>
-              </div>
-
-              <!-- 備註 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1">備註</label>
-                <input
-                  v-model="editForm.remark"
-                  type="text"
-                  placeholder="選填"
-                  class="w-full px-3 py-2 text-sm border border-light-c rounded-xl bg-surface2 text-base-c outline-none focus:ring-2 focus:ring-blue-500"
-                >
-              </div>
-
-              <!-- 訂單狀態 -->
-              <div>
-                <label class="block text-xs font-medium text-hint-c mb-1.5">訂單狀態</label>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="s in STATUSES"
-                    :key="s"
-                    :class="editForm.status === s ? statusClass(s) + ' ring-2 ring-offset-1 ring-current' : 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c dark:text-hint-c'"
-                    class="transition-all cursor-pointer"
-                    @click="editForm.status = s"
-                  >
-                    {{ s }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex gap-2 mt-6">
-              <button
-                :disabled="editModal.submitting"
-                class="flex-1 py-2.5 text-sm border border-light-c text-muted-c rounded-xl hover-surface2 disabled:opacity-50 transition-colors"
-                @click="closeEditModal"
-              >
-                取消
-              </button>
-              <button
-                :disabled="editModal.submitting"
-                class="flex-1 py-2.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 font-semibold"
-                @click="submitEdit"
-              >
-                <span
-                  v-if="editModal.submitting"
-                  class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"
-                />
-                {{ editModal.submitting ? '儲存中…' : '確認儲存' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- 刪除確認 Modal -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div
-          v-if="deleteModal.show"
-          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
-          @click.self="closeDeleteModal"
-        >
-          <div class="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
-            <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-              <svg
-                class="w-6 h-6 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </div>
-            <h3 class="font-bold text-base-c mb-2">
-              確認刪除訂單？
-            </h3>
-            <p
-              v-if="deleteModal.order"
-              class="text-sm text-hint-c leading-relaxed mb-5"
-            >
-              <strong class="text-muted-c">{{ deleteModal.order.name }}</strong>　{{ pickupLabel(deleteModal.order) }} 取貨<br>
-              <span v-if="deleteModal.order.soymilkQty">豆漿 × {{ deleteModal.order.soymilkQty }} 袋　</span>
-              <span v-if="deleteModal.order.tofuQty">豆腐 × {{ deleteModal.order.tofuQty }} 塊</span>
-              <br><span class="text-red-400 text-xs">刪除後無法復原</span>
-            </p>
-            <div class="flex gap-2">
-              <button
-                :disabled="deleteModal.submitting"
-                class="flex-1 py-2 text-sm border border-light-c text-muted-c rounded-xl hover:bg-surface2 disabled:opacity-50 transition-colors"
-                @click="closeDeleteModal"
-              >
-                取消
-              </button>
-              <button
-                :disabled="deleteModal.submitting"
-                class="flex-1 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                @click="confirmDelete"
-              >
-                <span
-                  v-if="deleteModal.submitting"
-                  class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"
-                />
-                {{ deleteModal.submitting ? '刪除中…' : '確認刪除' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    </DcErpShell>
   </div>
 </template>
-
-<style scoped>
-  .filter-chip {
-    padding: 3px 12px;
-    border: 1.5px solid #e7e5e4;
-    border-radius: 20px;
-    background: white;
-    color: #78716c;
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.12s;
-    white-space: nowrap;
-  }
-
-  .dark .filter-chip {
-    border-color: #52525b;
-    background: #3f3f46;
-    color: #d6d3d1;
-  }
-
-  .filter-chip.active {
-    background: #15803d;
-    color: white;
-    border-color: #15803d;
-  }
-
-  .fade-enter-active, .fade-leave-active {
-    transition: opacity 0.2s;
-  }
-
-  .fade-enter-from, .fade-leave-to {
-    opacity: 0;
-  }
-
-  .hint-panel-enter-active, .hint-panel-leave-active {
-    transition: opacity 0.2s, transform 0.2s;
-  }
-
-  .hint-panel-enter-from, .hint-panel-leave-to {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-</style>

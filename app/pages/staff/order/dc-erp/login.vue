@@ -1,112 +1,112 @@
 <script setup>
-import {reactive, ref, computed, onMounted} from 'vue'
+  import {reactive, ref, computed, onMounted} from 'vue'
 
-// 這頁對應原網站 https://dc.st-mary.org.tw/COAERP 的登入。
-// 跟購物車後台不同，這個原網站是 ASP.NET MVC，登入除了帳密還需要：
-//   1. __RequestVerificationToken（防偽 token，隨登入頁一起產生，登入時要原封不動帶回去）
-//   2. 圖形驗證碼（Code），圖片本身也是經由本站伺服器代理拿回來的，
-//      瀏覽器全程不會直接接觸原網站，避開 CORS，也不會落地存帳密。
-//
-// ssr: false —— 這頁完全靠 onMounted 之後才 $fetch 驗證碼/送出登入，沒有 SSR
-// 需要顯示的內容，也不需要 SEO，關掉 SSR 避免重新整理時走到不同的渲染路徑。
-//
-// 「記住帳號密碼」比照購物車後台 login.vue 的做法：只存在使用者自己瀏覽器的
-// localStorage，勾選才存、取消勾選會清掉，不會送到本站伺服器或另外落地保存。
-// 驗證碼每次都要重新輸入，不在記住範圍內。
-definePageMeta({
-  layout: 'staff',
-  ssr: false
-})
+  // 這頁對應原網站 https://dc.st-mary.org.tw/COAERP 的登入。
+  // 跟購物車後台不同，這個原網站是 ASP.NET MVC，登入除了帳密還需要：
+  //   1. __RequestVerificationToken（防偽 token，隨登入頁一起產生，登入時要原封不動帶回去）
+  //   2. 圖形驗證碼（Code），圖片本身也是經由本站伺服器代理拿回來的，
+  //      瀏覽器全程不會直接接觸原網站，避開 CORS，也不會落地存帳密。
+  //
+  // ssr: false —— 這頁完全靠 onMounted 之後才 $fetch 驗證碼/送出登入，沒有 SSR
+  // 需要顯示的內容，也不需要 SEO，關掉 SSR 避免重新整理時走到不同的渲染路徑。
+  //
+  // 「記住帳號密碼」比照購物車後台 login.vue 的做法：只存在使用者自己瀏覽器的
+  // localStorage，勾選才存、取消勾選會清掉，不會送到本站伺服器或另外落地保存。
+  // 驗證碼每次都要重新輸入，不在記住範圍內。
+  definePageMeta({
+    layout: 'staff',
+    ssr: false
+  })
 
-const REMEMBER_KEY = 'dc_erp_remember_login'
+  const REMEMBER_KEY = 'dc_erp_remember_login'
 
-const form = reactive({
-  account: '',
-  password: '',
-  code: ''
-})
+  const form = reactive({
+    account: '',
+    password: '',
+    code: ''
+  })
 
-const rememberMe = ref(false)
-const showPassword = ref(false)
-const token = ref('')
-const imageKey = ref('')
-const captchaSrc = ref('')
-const loading = ref(false)
-const captchaLoading = ref(false)
-const errorMessage = ref('')
-const currentYear = computed(() => new Date().getFullYear())
+  const rememberMe = ref(false)
+  const showPassword = ref(false)
+  const token = ref('')
+  const imageKey = ref('')
+  const captchaSrc = ref('')
+  const loading = ref(false)
+  const captchaLoading = ref(false)
+  const errorMessage = ref('')
+  const currentYear = computed(() => new Date().getFullYear())
 
-onMounted(() => {
-  try {
-    const saved = localStorage.getItem(REMEMBER_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      form.account = parsed.account || ''
-      form.password = parsed.password || ''
-      rememberMe.value = true
-    }
-  } catch (err) {
-    // localStorage 讀取失敗（例如無痕模式）就當作沒記住，不影響登入
-  }
-})
-
-async function loadCaptcha() {
-  captchaLoading.value = true
-  try {
-    const data = await $fetch('/api/dc-erp/captcha')
-    token.value = data.token
-    imageKey.value = data.imageKey
-    captchaSrc.value = `/api/dc-erp/captcha-image?key=${encodeURIComponent(data.imageKey)}&t=${Date.now()}`
-  } catch (err) {
-    errorMessage.value = '驗證碼載入失敗，請重新整理頁面'
-  } finally {
-    captchaLoading.value = false
-  }
-}
-
-async function handleSubmit() {
-  errorMessage.value = ''
-
-  if (!form.account || !form.password || !form.code) {
-    errorMessage.value = '請輸入帳號、密碼與驗證碼'
-    return
-  }
-
-  loading.value = true
-  try {
-    await $fetch('/api/dc-erp/login', {
-      method: 'POST',
-      body: {
-        account: form.account,
-        password: form.password,
-        code: form.code,
-        token: token.value,
-        imageKey: imageKey.value
-      }
-    })
-
+  onMounted(() => {
     try {
-      if (rememberMe.value) {
-        localStorage.setItem(REMEMBER_KEY, JSON.stringify({account: form.account, password: form.password}))
-      } else {
-        localStorage.removeItem(REMEMBER_KEY)
+      const saved = localStorage.getItem(REMEMBER_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        form.account = parsed.account || ''
+        form.password = parsed.password || ''
+        rememberMe.value = true
       }
     } catch (err) {
-      // 存不進去就算了，不影響登入流程
+      // localStorage 讀取失敗（例如無痕模式）就當作沒記住，不影響登入
+    }
+  })
+
+  async function loadCaptcha() {
+    captchaLoading.value = true
+    try {
+      const data = await $fetch('/api/dc-erp/captcha')
+      token.value = data.token
+      imageKey.value = data.imageKey
+      captchaSrc.value = `/api/dc-erp/captcha-image?key=${encodeURIComponent(data.imageKey)}&t=${Date.now()}`
+    } catch (err) {
+      errorMessage.value = '驗證碼載入失敗，請重新整理頁面'
+    } finally {
+      captchaLoading.value = false
+    }
+  }
+
+  async function handleSubmit() {
+    errorMessage.value = ''
+
+    if (!form.account || !form.password || !form.code) {
+      errorMessage.value = '請輸入帳號、密碼與驗證碼'
+      return
     }
 
-    await navigateTo('/staff/order/dc-erp')
-  } catch (err) {
-    errorMessage.value =
-      err?.data?.statusMessage || err?.data?.message || '帳號、密碼或驗證碼錯誤，請重新輸入'
-    form.code = ''
-    await loadCaptcha()
-  } finally {
-    loading.value = false
-  }
-}
+    loading.value = true
+    try {
+      await $fetch('/api/dc-erp/login', {
+        method: 'POST',
+        body: {
+          account: form.account,
+          password: form.password,
+          code: form.code,
+          token: token.value,
+          imageKey: imageKey.value
+        }
+      })
 
-onMounted(loadCaptcha)
+      try {
+        if (rememberMe.value) {
+          localStorage.setItem(REMEMBER_KEY, JSON.stringify({account: form.account, password: form.password}))
+        } else {
+          localStorage.removeItem(REMEMBER_KEY)
+        }
+      } catch (err) {
+        // 存不進去就算了，不影響登入流程
+      }
+
+      await navigateTo('/staff/order/dc-erp/sales-orders')
+    } catch (err) {
+      errorMessage.value =
+        err?.data?.statusMessage || err?.data?.message || '帳號、密碼或驗證碼錯誤，請重新輸入'
+      form.code = ''
+      await loadCaptcha()
+    } finally {
+      loading.value = false
+    }
+  }
+
+  onMounted(loadCaptcha)
 </script>
 
 <template>
