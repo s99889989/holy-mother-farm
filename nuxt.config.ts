@@ -67,6 +67,12 @@ export default defineNuxtConfig({
           loadPaths: ['app/assets/scss']
         }
       }
+    },
+    // playcanvas 打包成單一巨大檔案，Vite 一般的逐檔案轉譯（regex-based transform）
+    // 處理這種檔案大小會直接爆呼叫堆疊（Maximum call stack size exceeded）。
+    // 強制用 esbuild 預先打包，繞過那條會爆掉的轉譯路徑。
+    optimizeDeps: {
+      include: ['playcanvas']
     }
   },
   eslint: {
