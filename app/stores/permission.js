@@ -7,6 +7,16 @@ export const usePermissionStore = defineStore('permission', () => {
   const loaded = ref(false)
   const loadedId = ref(null)
 
+  // ── 除錯用（不 persist）──────────────────────────────────────────
+  // 手機沒辦法開 DevTools 看 network/console，這幾個欄位讓我們可以
+  // 直接在畫面上印出來看，判斷「這次到底發生了什麼事」：
+  //   - lastAttempt:   最近一次 load() 何時被呼叫、用什麼參數呼叫的
+  //   - lastError:     最近一次失敗的狀態碼/訊息（成功時會被清空）
+  //   - lastSuccessAt: 最近一次成功拿到權限資料的時間
+  const lastAttempt = ref(null)   // { time, customerId, silent }
+  const lastError = ref(null)     // { time, status, message, silent } | null
+  const lastSuccessAt = ref(null)
+
   const fetchPerms = async (customerId, baseUrl) => {
     const query = customerId ? `?customerId=${customerId}` : ''
     const res = await fetch(`${baseUrl}/holy/permission/my-perms${query}`)
@@ -45,6 +55,8 @@ export const usePermissionStore = defineStore('permission', () => {
     const id = customerId != null ? String(customerId) : null
     if (loaded.value && loadedId.value === id && !silent) return
 
+    lastAttempt.value = { time: Date.now(), customerId: id, silent }
+
     let lastErr = null
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -56,6 +68,8 @@ export const usePermissionStore = defineStore('permission', () => {
         perms.value = data
         loadedId.value = id
         loaded.value = true
+        lastError.value = null
+        lastSuccessAt.value = Date.now()
         return
       } catch (err) {
         lastErr = err
@@ -65,6 +79,13 @@ export const usePermissionStore = defineStore('permission', () => {
     // 兩次都失敗
     const status = lastErr?.status
     const hasExistingPerms = Object.keys(perms.value).length > 0
+
+    lastError.value = {
+      time: Date.now(),
+      status: status ?? null,
+      message: lastErr?.message || String(lastErr),
+      silent
+    }
 
     if (status === 401 || status === 403 || status === 404) {
       if (silent && hasExistingPerms) {
@@ -93,9 +114,14 @@ export const usePermissionStore = defineStore('permission', () => {
   const canAny = (...keys) => keys.some(k => can(k))
   const canAll = (...keys) => keys.every(k => can(k))
 
-  return { perms, loaded, loadedId, load, clear, can, canAny, canAll }
+  return {
+    perms, loaded, loadedId, load, clear, can, canAny, canAll,
+    lastAttempt, lastError, lastSuccessAt
+  }
 }, {
   persist: {
+    // loaded/lastAttempt/lastError/lastSuccessAt 不 persist：
+    // 每次重開頁面都是全新的除錯資訊，跟這次的執行過程綁在一起
     pick: ['perms', 'loadedId']
   }
 })
