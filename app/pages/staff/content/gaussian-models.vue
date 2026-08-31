@@ -1,146 +1,161 @@
 <script setup>
-// 需先安裝：npm install @playcanvas/supersplat-viewer
-import { renderViewerHtml } from '@playcanvas/supersplat-viewer'
+  // 需先安裝：npm install @playcanvas/supersplat-viewer
+  import { renderViewerHtml } from '@playcanvas/supersplat-viewer'
+  import { defaultSettings } from '@playcanvas/supersplat-viewer/settings'
 
-definePageMeta({ layout: 'staff', requiredPermission: 'content.gaussian-models' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'holymotherfarm.gaussian-models' })
 
-const commonStore = useCommonStore()
-const BASE = commonStore.data.main_url + '/holy/gaussian'
-const API_ORIGIN = commonStore.data.main_url
+  const commonStore = useCommonStore()
+  const BASE = commonStore.data.main_url + '/holy/gaussian'
+  const API_ORIGIN = commonStore.data.main_url
 
-const fileUrl = (path) => {
-  if (!path) return ''
-  return path.startsWith('http') ? path : API_ORIGIN + path
-}
-
-// ── fetch with timeout ────────────────────────────────────────────
-const fetchWithTimeout = (url, options = {}, ms = 15000) => {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), ms)
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
-}
-
-// ── 狀態 ──────────────────────────────────────────────────────────
-const models = ref([])
-const isLoading = ref(false)
-const toast = reactive({ show: false, message: '' })
-
-const showToast = (message) => {
-  toast.message = message
-  toast.show = true
-  setTimeout(() => { toast.show = false }, 2500)
-}
-
-const fetchModels = async () => {
-  isLoading.value = true
-  try {
-    models.value = await (await fetchWithTimeout(`${BASE}/list`)).json()
-  } catch {
-    showToast('讀取模型列表失敗')
-  } finally {
-    isLoading.value = false
+  const fileUrl = (path) => {
+    if (!path) return ''
+    return path.startsWith('http') ? path : API_ORIGIN + path
   }
-}
-onMounted(fetchModels)
 
-// ── 上傳 ──────────────────────────────────────────────────────────
-const uploadModal = reactive({ show: false })
-const uploadForm = reactive({ name: '', description: '', zipFile: null, thumbnail: null })
-const uploading = ref(false)
-const uploadProgress = ref('')
-const dragOver = ref(false)
-const zipInputRef = ref(null)
-const thumbInputRef = ref(null)
+  // srcdoc iframe 內部 document.baseURI 是字面上的 "about:srcdoc"，
+  // viewer 內部用它當 new URL() 的 base 來推算分塊檔案路徑會直接丟 Invalid URL，
+  // 所以傳給 viewer 的 contentUrl 一定要是完整絕對網址（含 http://主機:port），不能是站內相對路徑
+  const absoluteFileUrl = (path) => {
+    const rel = fileUrl(path) // 可能已經是絕對網址，也可能只是 "/api/..." 這種站內相對路徑
+    if (rel.startsWith('http')) return rel
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    return origin + rel
+  }
 
-const openUploadModal = () => {
-  uploadForm.name = ''
-  uploadForm.description = ''
-  uploadForm.zipFile = null
-  uploadForm.thumbnail = null
-  uploadModal.show = true
-}
+  // ── fetch with timeout ────────────────────────────────────────────
+  const fetchWithTimeout = (url, options = {}, ms = 15000) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), ms)
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
+  }
 
-const handleZipDrop = (e) => {
-  dragOver.value = false
-  const file = e.dataTransfer.files?.[0]
-  if (file) uploadForm.zipFile = file
-}
-const handleZipSelect = (e) => {
-  const file = e.target.files?.[0]
-  if (file) uploadForm.zipFile = file
-}
-const handleThumbSelect = (e) => {
-  uploadForm.thumbnail = e.target.files?.[0] || null
-}
+  // ── 狀態 ──────────────────────────────────────────────────────────
+  const models = ref([])
+  const isLoading = ref(false)
+  const toast = reactive({ show: false, message: '' })
 
-const submitUpload = async () => {
-  if (!uploadForm.zipFile) { showToast('請選擇 SOG Tiles 的 zip 檔'); return }
-  if (!uploadForm.name.trim()) { showToast('請輸入名稱'); return }
+  const showToast = (message) => {
+    toast.message = message
+    toast.show = true
+    setTimeout(() => { toast.show = false }, 2500)
+  }
 
-  uploading.value = true
-  uploadProgress.value = '上傳中…（檔案較大請耐心等候）'
-
-  const fd = new FormData()
-  fd.append('zipFile', uploadForm.zipFile)
-  fd.append('name', uploadForm.name.trim())
-  fd.append('description', uploadForm.description || '')
-  if (uploadForm.thumbnail) fd.append('thumbnail', uploadForm.thumbnail)
-
-  try {
-    const res = await fetch(`${BASE}/upload`, { method: 'POST', body: fd })
-    const text = await res.text()
-    if (text.startsWith('錯誤')) {
-      showToast(text)
-    } else {
-      showToast('上傳成功')
-      uploadModal.show = false
-      await fetchModels()
+  const fetchModels = async () => {
+    isLoading.value = true
+    try {
+      models.value = await (await fetchWithTimeout(`${BASE}/list`)).json()
+    } catch {
+      showToast('讀取模型列表失敗')
+    } finally {
+      isLoading.value = false
     }
-  } catch {
-    showToast('上傳失敗，請檢查網路或檔案大小')
-  } finally {
-    uploading.value = false
-    uploadProgress.value = ''
   }
-}
+  onMounted(fetchModels)
 
-// ── 刪除 ──────────────────────────────────────────────────────────
-const deleteModel = async (model) => {
-  if (!confirm(`確定要刪除「${model.name}」嗎？此動作無法復原。`)) return
-  try {
-    await fetchWithTimeout(`${BASE}/remove/${model.id}`, { method: 'DELETE' })
-    showToast('已刪除')
-    await fetchModels()
-  } catch {
-    showToast('刪除失敗')
+  // ── 上傳 ──────────────────────────────────────────────────────────
+  const uploadModal = reactive({ show: false })
+  const uploadForm = reactive({ name: '', description: '', zipFile: null, thumbnail: null })
+  const uploading = ref(false)
+  const uploadProgress = ref('')
+  const dragOver = ref(false)
+  const zipInputRef = ref(null)
+  const thumbInputRef = ref(null)
+
+  const openUploadModal = () => {
+    uploadForm.name = ''
+    uploadForm.description = ''
+    uploadForm.zipFile = null
+    uploadForm.thumbnail = null
+    uploadModal.show = true
   }
-}
 
-// ── 檢視器 ────────────────────────────────────────────────────────
-const viewerModal = reactive({ show: false, html: '', name: '' })
+  const handleZipDrop = (e) => {
+    dragOver.value = false
+    const file = e.dataTransfer.files?.[0]
+    if (file) uploadForm.zipFile = file
+  }
+  const handleZipSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (file) uploadForm.zipFile = file
+  }
+  const handleThumbSelect = (e) => {
+    uploadForm.thumbnail = e.target.files?.[0] || null
+  }
 
-const openViewer = (model) => {
-  const contentUrl = fileUrl(`/holy/gaussian/file/${model.id}/${model.entryFile}`)
-  const doc = renderViewerHtml({
-    bootstrap: { contentUrl },
-    inlineCss: true,
-    backgroundColor: [0.05, 0.05, 0.05]
-  })
-  viewerModal.html = doc
-  viewerModal.name = model.name
-  viewerModal.show = true
-}
+  const submitUpload = async () => {
+    if (!uploadForm.zipFile) { showToast('請選擇 SOG Tiles 的 zip 檔'); return }
+    if (!uploadForm.name.trim()) { showToast('請輸入名稱'); return }
 
-const closeViewer = () => {
-  viewerModal.show = false
-  viewerModal.html = ''
-}
+    uploading.value = true
+    uploadProgress.value = '上傳中…（檔案較大請耐心等候）'
 
-const formatSize = (bytes) => {
-  if (!bytes) return ''
-  const mb = bytes / (1024 * 1024)
-  return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(1)} MB`
-}
+    const fd = new FormData()
+    fd.append('zipFile', uploadForm.zipFile)
+    fd.append('name', uploadForm.name.trim())
+    fd.append('description', uploadForm.description || '')
+    if (uploadForm.thumbnail) fd.append('thumbnail', uploadForm.thumbnail)
+
+    try {
+      const res = await fetch(`${BASE}/upload`, { method: 'POST', body: fd })
+      const text = await res.text()
+      if (text.startsWith('錯誤')) {
+        showToast(text)
+      } else {
+        showToast('上傳成功')
+        uploadModal.show = false
+        await fetchModels()
+      }
+    } catch {
+      showToast('上傳失敗，請檢查網路或檔案大小')
+    } finally {
+      uploading.value = false
+      uploadProgress.value = ''
+    }
+  }
+
+  // ── 刪除 ──────────────────────────────────────────────────────────
+  const deleteModel = async (model) => {
+    if (!confirm(`確定要刪除「${model.name}」嗎？此動作無法復原。`)) return
+    try {
+      await fetchWithTimeout(`${BASE}/remove/${model.id}`, { method: 'DELETE' })
+      showToast('已刪除')
+      await fetchModels()
+    } catch {
+      showToast('刪除失敗')
+    }
+  }
+
+  // ── 檢視器 ────────────────────────────────────────────────────────
+  const viewerModal = reactive({ show: false, html: '', name: '' })
+
+  const openViewer = (model) => {
+    const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${model.id}/${model.entryFile}`)
+    const doc = renderViewerHtml({
+      bootstrap: {
+        contentUrl,
+        settings: defaultSettings() // 內嵌預設設定，避免 viewer 再去 fetch 不存在的 ./settings.json
+      },
+      inlineCss: true,
+      inlineJs: true, // 必須內嵌 JS，否則 iframe srcdoc 會去抓不存在的 ./index.js（同源相對路徑）
+      backgroundColor: [0.05, 0.05, 0.05]
+    })
+    viewerModal.html = doc
+    viewerModal.name = model.name
+    viewerModal.show = true
+  }
+
+  const closeViewer = () => {
+    viewerModal.show = false
+    viewerModal.html = ''
+  }
+
+  const formatSize = (bytes) => {
+    if (!bytes) return ''
+    const mb = bytes / (1024 * 1024)
+    return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(1)} MB`
+  }
 </script>
 
 <template>
@@ -379,12 +394,12 @@ const formatSize = (bytes) => {
 </template>
 
 <style scoped>
-@use '~/assets/scs/main' as *;
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
+  @use '~/assets/scs/main' as *;
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 </style>
