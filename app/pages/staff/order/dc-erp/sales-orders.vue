@@ -1,117 +1,27 @@
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+  import { reactive, ref, computed, onMounted } from 'vue'
 
-// 「訂貨單維護」自己重畫的第一個畫面：查詢表單 + 列表都是我們自己的
-// Tailwind 樣式，資料來自 /api/dc-erp/sales-orders（伺服器解析原網站 HTML
-// 轉成 JSON），不是整頁代理原網站的排版。
-// 外層還是包 DcErpShell，保留 dc-erp 模組共用的頂部選單／側邊欄可以切換到
-// 其他還沒重畫的畫面（那些畫面繼續走 page.get.ts 整頁代理）。
-//
-// 「新增」按鈕跟每列訂貨單號連結，已經改連到自己重畫的 sales-order-form.vue
-// （見該頁開頭註解），不再走 page.get.ts 整頁代理。
-//
-// 查詢表單預設收起來只顯示第一排（filterExpanded），日期欄位用共用元件
-// DcErpRocDateInput（文字手打民國年格式 + 日曆圖示選日期），關鍵字欄位用
-// 共用元件 DcErpKeywordSearchInput（純前端 localStorage 記住最近搜尋過的
-// 關鍵字）。元件檔名要用 DcErp 開頭——Nuxt 的元件自動註冊在檔名已經是
-// 資料夾名稱（dc-erp → DcErp）開頭時才會省略前綴，不然要用
-// <DcErpXxx> 這種帶前綴的標籤才 resolve 得到，用短名字會直接不渲染。
-definePageMeta({
-  layout: 'staff',
-  requiredPermission: 'order.dc-erp'
-})
+  // 「訂貨單維護」自己重畫的第一個畫面：查詢表單 + 列表都是我們自己的
+  // Tailwind 樣式，資料來自 /api/dc-erp/sales-orders（伺服器解析原網站 HTML
+  // 轉成 JSON），不是整頁代理原網站的排版。
+  // 外層還是包 DcErpShell，保留 dc-erp 模組共用的頂部選單／側邊欄可以切換到
+  // 其他還沒重畫的畫面（那些畫面繼續走 page.get.ts 整頁代理）。
+  //
+  // 「新增」按鈕跟每列訂貨單號連結，已經改連到自己重畫的 sales-order-form.vue
+  // （見該頁開頭註解），不再走 page.get.ts 整頁代理。
+  //
+  // 查詢表單預設收起來只顯示第一排（filterExpanded），日期欄位用共用元件
+  // DcErpRocDateInput（文字手打民國年格式 + 日曆圖示選日期），關鍵字欄位用
+  // 共用元件 DcErpKeywordSearchInput（純前端 localStorage 記住最近搜尋過的
+  // 關鍵字）。元件檔名要用 DcErp 開頭——Nuxt 的元件自動註冊在檔名已經是
+  // 資料夾名稱（dc-erp → DcErp）開頭時才會省略前綴，不然要用
+  // <DcErpXxx> 這種帶前綴的標籤才 resolve 得到，用短名字會直接不渲染。
+  definePageMeta({
+    layout: 'staff',
+    requiredPermission: 'order.dc-erp'
+  })
 
-const filters = reactive({
-  workPlace: '0',
-  whSearch: 'whatever',
-  keyword: '',
-  sdate: '',
-  edate: '',
-  signState: '-1',
-  orderType: '-1',
-  receivingState: '-1',
-  sdate2: '',
-  edate2: '',
-  scode: '',
-  ecode: '',
-  firmCode: ''
-})
-
-const filterOptions = reactive({
-  workPlace: [],
-  whSearchField: [],
-  signState: [],
-  orderType: [],
-  receivingState: []
-})
-
-const filterExpanded = ref(false)
-const viewMode = ref('table') // 'table' | 'card'
-
-const items = ref([])
-const totalCount = ref(0)
-const totalPages = ref(1)
-const page = ref(1)
-const pagesize = ref(20)
-const breadcrumb = ref([])
-const createUrl = ref('')
-const loading = ref(true)
-const errorMessage = ref('')
-const selectedGuids = ref(new Set())
-const signing = ref(false)
-
-async function load(targetPage = 1) {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const data = await $fetch('/api/dc-erp/sales-orders', {
-      query: {
-        page: targetPage,
-        pagesize: pagesize.value,
-        workPlace: filters.workPlace,
-        whSearch: filters.whSearch,
-        keyword: filters.keyword,
-        sdate: filters.sdate,
-        edate: filters.edate,
-        signState: filters.signState,
-        orderType: filters.orderType,
-        receivingState: filters.receivingState,
-        sdate2: filters.sdate2,
-        edate2: filters.edate2,
-        scode: filters.scode,
-        ecode: filters.ecode,
-        firmCode: filters.firmCode
-      }
-    })
-    filterOptions.workPlace = data.filters.workPlace
-    filterOptions.whSearchField = data.filters.whSearchField
-    filterOptions.signState = data.filters.signState
-    filterOptions.orderType = data.filters.orderType
-    filterOptions.receivingState = data.filters.receivingState
-    items.value = data.items
-    totalCount.value = data.totalCount
-    totalPages.value = data.totalPages
-    page.value = data.page
-    pagesize.value = data.pagesize
-    breadcrumb.value = data.breadcrumb
-    createUrl.value = data.createUrl
-  } catch (err) {
-    if (err?.statusCode === 401 || err?.response?.status === 401) {
-      await navigateTo('/staff/order/dc-erp/login')
-      return
-    }
-    errorMessage.value = err?.data?.statusMessage || '無法載入訂貨單，請稍後再試'
-  } finally {
-    loading.value = false
-  }
-}
-
-function handleSearch() {
-  load(1)
-}
-
-function handleAllList() {
-  Object.assign(filters, {
+  const filters = reactive({
     workPlace: '0',
     whSearch: 'whatever',
     keyword: '',
@@ -126,106 +36,250 @@ function handleAllList() {
     ecode: '',
     firmCode: ''
   })
-  load(1)
-}
 
-function goPage(p) {
-  if (p < 1 || p > totalPages.value) return
-  selectedGuids.value.clear()
-  load(p)
-}
+  const filterOptions = reactive({
+    workPlace: [],
+    whSearchField: [],
+    signState: [],
+    orderType: [],
+    receivingState: []
+  })
 
-function toggleSelect(guid) {
-  if (selectedGuids.value.has(guid)) selectedGuids.value.delete(guid)
-  else selectedGuids.value.add(guid)
-}
+  const filterExpanded = ref(false)
+  const viewMode = ref('table') // 'table' | 'card'
 
-function toggleSelectAll(checked) {
-  if (checked) items.value.forEach((row) => selectedGuids.value.add(row.guid))
-  else selectedGuids.value.clear()
-}
+  const items = ref([])
+  const totalCount = ref(0)
+  const totalPages = ref(1)
+  const page = ref(1)
+  const pagesize = ref(20)
+  const breadcrumb = ref([])
+  const createUrl = ref('')
+  const loading = ref(true)
+  const errorMessage = ref('')
+  const selectedGuids = ref(new Set())
+  const signing = ref(false)
 
-// 「簽核」／「簽退」對應原網站列表頁勾選後按右上角圖示的動作，見
-// sales-order-sign.post.ts 開頭註解。多選時 Guid 用逗號分隔送出——原網站
-// 多選的真實格式沒有實測樣本，如果多選簽核/簽退失敗，麻煩測一次多選後
-// 告訴我，我再核對調整。
-async function handleSignBatch(action) {
-  const guids = Array.from(selectedGuids.value)
-  if (!guids.length) return
-  const label = action === 'return' ? '簽退' : '簽核'
-  if (!confirm(`確定要${label}選取的 ${guids.length} 張訂貨單嗎？`)) return
-  signing.value = true
-  errorMessage.value = ''
-  try {
-    await $fetch('/api/dc-erp/sales-order-sign', {
-      method: 'POST',
-      body: { guids, action }
+  async function load(targetPage = 1) {
+    loading.value = true
+    errorMessage.value = ''
+    try {
+      const data = await $fetch('/api/dc-erp/sales-orders', {
+        query: {
+          page: targetPage,
+          pagesize: pagesize.value,
+          workPlace: filters.workPlace,
+          whSearch: filters.whSearch,
+          keyword: filters.keyword,
+          sdate: filters.sdate,
+          edate: filters.edate,
+          signState: filters.signState,
+          orderType: filters.orderType,
+          receivingState: filters.receivingState,
+          sdate2: filters.sdate2,
+          edate2: filters.edate2,
+          scode: filters.scode,
+          ecode: filters.ecode,
+          firmCode: filters.firmCode
+        }
+      })
+      filterOptions.workPlace = data.filters.workPlace
+      filterOptions.whSearchField = data.filters.whSearchField
+      filterOptions.signState = data.filters.signState
+      filterOptions.orderType = data.filters.orderType
+      filterOptions.receivingState = data.filters.receivingState
+      items.value = data.items
+      totalCount.value = data.totalCount
+      totalPages.value = data.totalPages
+      page.value = data.page
+      pagesize.value = data.pagesize
+      breadcrumb.value = data.breadcrumb
+      createUrl.value = data.createUrl
+    } catch (err) {
+      if (err?.statusCode === 401 || err?.response?.status === 401) {
+        await navigateTo('/staff/order/dc-erp/login')
+        return
+      }
+      errorMessage.value = err?.data?.statusMessage || '無法載入訂貨單，請稍後再試'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function handleSearch() {
+    load(1)
+  }
+
+  function handleAllList() {
+    Object.assign(filters, {
+      workPlace: '0',
+      whSearch: 'whatever',
+      keyword: '',
+      sdate: '',
+      edate: '',
+      signState: '-1',
+      orderType: '-1',
+      receivingState: '-1',
+      sdate2: '',
+      edate2: '',
+      scode: '',
+      ecode: '',
+      firmCode: ''
     })
+    load(1)
+  }
+
+  function goPage(p) {
+    if (p < 1 || p > totalPages.value) return
     selectedGuids.value.clear()
-    await load(page.value)
-  } catch (err) {
-    errorMessage.value = err?.data?.statusMessage || `${label}失敗，請稍後再試`
-  } finally {
-    signing.value = false
+    load(p)
   }
-}
 
-const transferringGuid = ref('')
+  function toggleSelect(guid) {
+    if (selectedGuids.value.has(guid)) selectedGuids.value.delete(guid)
+    else selectedGuids.value.add(guid)
+  }
 
-// 「轉銷」（轉入銷貨單），對應 SalesOrderModify.js 的 TransSlipClick()。
-async function handleTransfer(row) {
-  if (!confirm(`確定要把訂貨單「${row.code}」轉入銷貨單嗎？`)) return
-  transferringGuid.value = row.guid
-  errorMessage.value = ''
-  try {
-    await $fetch('/api/dc-erp/sales-order-trans', {
-      method: 'POST',
-      body: { guid: row.guid }
+  function toggleSelectAll(checked) {
+    if (checked) items.value.forEach((row) => selectedGuids.value.add(row.guid))
+    else selectedGuids.value.clear()
+  }
+
+  // 目前畫面上勾選的列之中，哪些是「可轉銷」的（canTransfer 由後端依原網站
+  // 該欄實際有沒有內容判斷，見 sales-orders.get.ts）。批次轉銷只處理這些，
+  // 勾了但不能轉銷的列會被忽略，不會噴錯，但下方會提示忽略了幾筆。
+  const selectedTransferableRows = computed(() =>
+    items.value.filter((row) => selectedGuids.value.has(row.guid) && row.canTransfer)
+  )
+  const selectedNonTransferableCount = computed(() => {
+    const transferableGuids = new Set(selectedTransferableRows.value.map((row) => row.guid))
+    let count = 0
+    items.value.forEach((row) => {
+      if (selectedGuids.value.has(row.guid) && !transferableGuids.has(row.guid)) count += 1
     })
-    await load(page.value)
-  } catch (err) {
-    errorMessage.value = err?.data?.statusMessage || '轉入銷貨單失敗'
-  } finally {
+    return count
+  })
+
+  // 「簽核」／「簽退」對應原網站列表頁勾選後按右上角圖示的動作，見
+  // sales-order-sign.post.ts 開頭註解。多選時 Guid 用逗號分隔送出——原網站
+  // 多選的真實格式沒有實測樣本，如果多選簽核/簽退失敗，麻煩測一次多選後
+  // 告訴我，我再核對調整。
+  async function handleSignBatch(action) {
+    const guids = Array.from(selectedGuids.value)
+    if (!guids.length) return
+    const label = action === 'return' ? '簽退' : '簽核'
+    if (!confirm(`確定要${label}選取的 ${guids.length} 張訂貨單嗎？`)) return
+    signing.value = true
+    errorMessage.value = ''
+    try {
+      await $fetch('/api/dc-erp/sales-order-sign', {
+        method: 'POST',
+        body: { guids, action }
+      })
+      selectedGuids.value.clear()
+      await load(page.value)
+    } catch (err) {
+      errorMessage.value = err?.data?.statusMessage || `${label}失敗，請稍後再試`
+    } finally {
+      signing.value = false
+    }
+  }
+
+  const transferringGuid = ref('')
+  const transferringBatch = ref(false)
+
+  // 「轉銷」（轉入銷貨單），對應 SalesOrderModify.js 的 TransSlipClick()。
+  async function handleTransfer(row) {
+    if (!confirm(`確定要把訂貨單「${row.code}」轉入銷貨單嗎？`)) return
+    transferringGuid.value = row.guid
+    errorMessage.value = ''
+    try {
+      await $fetch('/api/dc-erp/sales-order-trans', {
+        method: 'POST',
+        body: { guid: row.guid }
+      })
+      await load(page.value)
+    } catch (err) {
+      errorMessage.value = err?.data?.statusMessage || '轉入銷貨單失敗'
+    } finally {
+      transferringGuid.value = ''
+    }
+  }
+
+  // 批次轉銷：原網站 TransSalesSlip 本身就是單筆呼叫（/SalesOrder/TransSalesSlip/{guid}），
+  // 沒有一次多筆的用法，這裡改成前端依序（非同步並發，避免同時打爆同一個
+  // session／觸發原網站的鎖）逐一呼叫既有的單筆轉銷 API。單筆失敗會記下來
+  // 繼續處理下一筆，不會整批中斷；跑完統一重新整理列表 + 顯示失敗清單。
+  async function handleTransferBatch() {
+    const rows = selectedTransferableRows.value
+    if (!rows.length) return
+    const skippedNote = selectedNonTransferableCount.value
+      ? `（另有 ${selectedNonTransferableCount.value} 張勾選但不可轉銷，會略過）`
+      : ''
+    if (!confirm(`確定要把選取的 ${rows.length} 張訂貨單依序轉入銷貨單嗎？${skippedNote}`)) return
+
+    transferringBatch.value = true
+    errorMessage.value = ''
+    const failedCodes = []
+
+    for (const row of rows) {
+      transferringGuid.value = row.guid
+      try {
+        await $fetch('/api/dc-erp/sales-order-trans', {
+          method: 'POST',
+          body: { guid: row.guid }
+        })
+        selectedGuids.value.delete(row.guid)
+      } catch (err) {
+        failedCodes.push(row.code)
+      }
+    }
+
     transferringGuid.value = ''
-  }
-}
+    transferringBatch.value = false
+    await load(page.value)
 
-// 客戶名稱查詢紀錄用的 key 跟 DcErpKeywordSearchInput 內部存的格式一樣
-// （純字串陣列，最新一筆在最前面），這裡直接讀同一把 key，讓頁面一開啟
-// 就自動帶入上次查詢過的客戶名稱，不用使用者自己再打一次。
-const CUSTOMER_NAME_HISTORY_KEY = 'dc-erp-sales-orders-customer-name-history'
-function loadLastCustomerName() {
-  if (typeof window === 'undefined') return ''
-  try {
-    const raw = window.localStorage.getItem(CUSTOMER_NAME_HISTORY_KEY)
-    const list = raw ? JSON.parse(raw) : []
-    return list[0] || ''
-  } catch {
-    return ''
+    if (failedCodes.length) {
+      errorMessage.value = `以下訂貨單轉銷失敗，其餘已成功：${failedCodes.join('、')}`
+    }
   }
-}
 
-// 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
-// settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
-const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
-function loadListSettings(key, defaults) {
-  try {
-    const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
-    if (!raw) return defaults
-    const all = JSON.parse(raw)
-    return { ...defaults, ...(all[key] || {}) }
-  } catch {
-    return defaults
+  // 客戶名稱查詢紀錄用的 key 跟 DcErpKeywordSearchInput 內部存的格式一樣
+  // （純字串陣列，最新一筆在最前面），這裡直接讀同一把 key，讓頁面一開啟
+  // 就自動帶入上次查詢過的客戶名稱，不用使用者自己再打一次。
+  const CUSTOMER_NAME_HISTORY_KEY = 'dc-erp-sales-orders-customer-name-history'
+  function loadLastCustomerName() {
+    if (typeof window === 'undefined') return ''
+    try {
+      const raw = window.localStorage.getItem(CUSTOMER_NAME_HISTORY_KEY)
+      const list = raw ? JSON.parse(raw) : []
+      return list[0] || ''
+    } catch {
+      return ''
+    }
   }
-}
 
-onMounted(() => {
-  const listSettings = loadListSettings('salesOrders', { pagesize: pagesize.value, viewMode: viewMode.value })
-  pagesize.value = listSettings.pagesize
-  viewMode.value = listSettings.viewMode
-  filters.firmCode = loadLastCustomerName()
-  load(1)
-})
+  // 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
+  // settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
+  const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
+  function loadListSettings(key, defaults) {
+    try {
+      const raw = window.localStorage.getItem(LIST_SETTINGS_KEY)
+      if (!raw) return defaults
+      const all = JSON.parse(raw)
+      return { ...defaults, ...(all[key] || {}) }
+    } catch {
+      return defaults
+    }
+  }
+
+  onMounted(() => {
+    const listSettings = loadListSettings('salesOrders', { pagesize: pagesize.value, viewMode: viewMode.value })
+    pagesize.value = listSettings.pagesize
+    viewMode.value = listSettings.viewMode
+    filters.firmCode = loadLastCustomerName()
+    load(1)
+  })
 </script>
 
 <template>
@@ -307,16 +361,27 @@ onMounted(() => {
           </div>
 
           <div class="flex flex-wrap items-center justify-end gap-2 border-t border-light-c pt-2">
+            <span v-if="selectedTransferableRows.length" class="mr-auto text-sm text-hint-c">
+              已選取可轉銷 {{ selectedTransferableRows.length }} 張
+              <template v-if="selectedNonTransferableCount">（另有 {{ selectedNonTransferableCount }} 張不可轉銷已略過）</template>
+            </span>
             <button
               class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="!selectedGuids.size || signing"
+              :disabled="!selectedTransferableRows.length || transferringBatch || signing"
+              @click="handleTransferBatch"
+            >
+              {{ transferringBatch ? '轉銷中…' : `轉銷（${selectedTransferableRows.length}）` }}
+            </button>
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing || transferringBatch"
               @click="handleSignBatch('return')"
             >
               {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
             </button>
             <button
               class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="!selectedGuids.size || signing"
+              :disabled="!selectedGuids.size || signing || transferringBatch"
               @click="handleSignBatch('sign')"
             >
               {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
@@ -381,56 +446,56 @@ onMounted(() => {
           <div v-else class="overflow-x-auto">
             <table class="w-full text-base">
               <thead>
-                <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
-                  <th class="px-2 py-2 text-center">
-                    <input type="checkbox" @change="toggleSelectAll($event.target.checked)">
-                  </th>
-                  <th class="px-2 py-2 text-center">項次</th>
-                  <th class="px-2 py-2">訂貨單號</th>
-                  <th class="px-2 py-2 text-center">訂貨日期</th>
-                  <th class="px-2 py-2 text-center">交貨日期</th>
-                  <th class="px-2 py-2">場別</th>
-                  <th class="px-2 py-2">客戶名稱</th>
-                  <th class="px-2 py-2 text-center">訂單狀態</th>
-                  <th class="px-2 py-2 text-center">簽核狀態</th>
-                  <th class="px-2 py-2 text-center">轉銷</th>
-                  <th class="px-2 py-2 text-right">總計金額</th>
-                  <th class="px-2 py-2">備註</th>
-                </tr>
+              <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
+                <th class="px-2 py-2 text-center">
+                  <input type="checkbox" @change="toggleSelectAll($event.target.checked)">
+                </th>
+                <th class="px-2 py-2 text-center">項次</th>
+                <th class="px-2 py-2">訂貨單號</th>
+                <th class="px-2 py-2 text-center">訂貨日期</th>
+                <th class="px-2 py-2 text-center">交貨日期</th>
+                <th class="px-2 py-2">場別</th>
+                <th class="px-2 py-2">客戶名稱</th>
+                <th class="px-2 py-2 text-center">訂單狀態</th>
+                <th class="px-2 py-2 text-center">簽核狀態</th>
+                <th class="px-2 py-2 text-center">轉銷</th>
+                <th class="px-2 py-2 text-right">總計金額</th>
+                <th class="px-2 py-2">備註</th>
+              </tr>
               </thead>
               <tbody>
-                <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
-                  <td class="px-2 py-1.5 text-center">
-                    <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
-                  </td>
-                  <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
-                  <td class="px-2 py-1.5">
-                    <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-order-detail">
-                      <NuxtLink :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
-                    </DcErpItemsTooltip>
-                  </td>
-                  <td class="px-2 py-1.5 text-center">{{ row.orderDate }}</td>
-                  <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>
-                  <td class="px-2 py-1.5">{{ row.workPlace }}</td>
-                  <td class="px-2 py-1.5">{{ row.firmName }}</td>
-                  <td class="px-2 py-1.5 text-center">{{ row.receivingState }}</td>
-                  <td class="px-2 py-1.5 text-center">{{ row.signState }}</td>
-                  <td class="px-2 py-1.5 text-center">
-                    <button
-                      v-if="row.canTransfer"
-                      class="rounded border border-light-c px-2 py-0.5 text-sm text-muted-c hover:bg-surface2 disabled:opacity-50"
-                      :disabled="transferringGuid === row.guid"
-                      @click="handleTransfer(row)"
-                    >
-                      {{ transferringGuid === row.guid ? '轉入中…' : '轉銷' }}
-                    </button>
-                  </td>
-                  <td class="px-2 py-1.5 text-right">{{ row.total }}</td>
-                  <td class="px-2 py-1.5">{{ row.remark }}</td>
-                </tr>
-                <tr v-if="!items.length">
-                  <td colspan="12" class="px-2 py-6 text-center text-hint-c">查無資料</td>
-                </tr>
+              <tr v-for="row in items" :key="row.guid" class="border-b border-light-c hover:bg-surface2">
+                <td class="px-2 py-1.5 text-center">
+                  <input type="checkbox" :checked="selectedGuids.has(row.guid)" @change="toggleSelect(row.guid)">
+                </td>
+                <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
+                <td class="px-2 py-1.5">
+                  <DcErpItemsTooltip :guid="row.guid" api-path="/api/dc-erp/sales-order-detail">
+                    <NuxtLink :to="`/staff/order/dc-erp/sales-order-form?guid=${row.guid}`" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                  </DcErpItemsTooltip>
+                </td>
+                <td class="px-2 py-1.5 text-center">{{ row.orderDate }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.deliveryDate }}</td>
+                <td class="px-2 py-1.5">{{ row.workPlace }}</td>
+                <td class="px-2 py-1.5">{{ row.firmName }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.receivingState }}</td>
+                <td class="px-2 py-1.5 text-center">{{ row.signState }}</td>
+                <td class="px-2 py-1.5 text-center">
+                  <button
+                    v-if="row.canTransfer"
+                    class="rounded border border-light-c px-2 py-0.5 text-sm text-muted-c hover:bg-surface2 disabled:opacity-50"
+                    :disabled="transferringGuid === row.guid"
+                    @click="handleTransfer(row)"
+                  >
+                    {{ transferringGuid === row.guid ? '轉入中…' : '轉銷' }}
+                  </button>
+                </td>
+                <td class="px-2 py-1.5 text-right">{{ row.total }}</td>
+                <td class="px-2 py-1.5">{{ row.remark }}</td>
+              </tr>
+              <tr v-if="!items.length">
+                <td colspan="12" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+              </tr>
               </tbody>
             </table>
           </div>
