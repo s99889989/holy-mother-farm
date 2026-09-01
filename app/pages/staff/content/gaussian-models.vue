@@ -207,19 +207,19 @@
 
   const updateCameraFromOrbit = () => {
     if (!cameraEntity || !orbitState) return
-    const { target, yaw, pitch, distance } = orbitState
+    const { position, yaw, pitch } = orbitState
     const cp = Math.cos(pitch)
-    const pos = new pc.Vec3(
-      target.x + distance * cp * Math.sin(yaw),
-      target.y + distance * Math.sin(pitch),
-      target.z + distance * cp * Math.cos(yaw)
+    const forward = new pc.Vec3(
+      cp * Math.sin(yaw),
+      Math.sin(pitch),
+      cp * Math.cos(yaw)
     )
-    cameraEntity.setPosition(pos)
-    cameraEntity.lookAt(target)
+    cameraEntity.setPosition(position)
+    cameraEntity.lookAt(position.clone().add(forward))
   }
 
   const attachOrbitControls = (canvas) => {
-    let mode = null // 'orbit' | 'pan' | 'pinch' | null
+    let mode = null // 'look' | 'pan' | 'pinch' | null
     let lastX = 0
     let lastY = 0
     let activePointerId = null // 只處理這個 canvas 自己追蹤的手指/滑鼠，避免跟螢幕搖桿的手指互相干擾
@@ -227,7 +227,6 @@
     // 觸控用：追蹤目前所有正在碰觸畫面的手指（pointerId -> {x,y}）
     const touches = new Map()
     let pinchStartDist = 0
-    let pinchStartDistanceState = 0
     let pinchMidX = 0
     let pinchMidY = 0
 
@@ -237,7 +236,6 @@
     const startPinch = () => {
       const pts = [...touches.values()]
       pinchStartDist = dist(pts[0], pts[1])
-      pinchStartDistanceState = orbitState ? orbitState.distance : 1
       const m = mid(pts[0], pts[1])
       pinchMidX = m.x; pinchMidY = m.y
       mode = 'pinch'
@@ -250,15 +248,15 @@
           startPinch()
           return
         }
-        // 單指＝旋轉
-        mode = 'orbit'
+        // 單指＝轉頭看（第一人稱視角，不是繞著什麼東西公轉）
+        mode = 'look'
         activePointerId = e.pointerId
         lastX = e.clientX
         lastY = e.clientY
         return
       }
-      // 左鍵拖曳＝旋轉，右鍵拖曳＝平移（pan），慣例跟大部分 3D 軟體一致
-      mode = e.button === 2 ? 'pan' : 'orbit'
+      // 左鍵拖曳＝轉頭看，右鍵拖曳＝平移（pan），慣例跟大部分 3D 軟體一致
+      mode = e.button === 2 ? 'pan' : 'look'
       activePointerId = e.pointerId
       lastX = e.clientX
       lastY = e.clientY
@@ -275,23 +273,25 @@
           const newDist = dist(pts[0], pts[1])
           const newMid = mid(pts[0], pts[1])
 
-          // 雙指開合＝縮放
+          // 雙指開合＝往前/往後移動（縮放的手機版）
           if (pinchStartDist > 1) {
-            orbitState.distance = Math.max(0.5, pinchStartDistanceState * (pinchStartDist / newDist))
+            const dollySpeed = orbitState.moveScale * 0.6
+            orbitState.position.add(cameraEntity.forward.clone().mulScalar((newDist - pinchStartDist) / pinchStartDist * dollySpeed))
+            pinchStartDist = newDist
           }
           // 雙指一起拖＝平移
-          const panSpeed = orbitState.distance * 0.0015
+          const panSpeed = orbitState.moveScale * 0.0025
           const right = cameraEntity.right
           const up = cameraEntity.up
-          orbitState.target.sub(right.clone().mulScalar(-(newMid.x - pinchMidX) * panSpeed))
-          orbitState.target.sub(up.clone().mulScalar((newMid.y - pinchMidY) * panSpeed))
+          orbitState.position.sub(right.clone().mulScalar(-(newMid.x - pinchMidX) * panSpeed))
+          orbitState.position.sub(up.clone().mulScalar((newMid.y - pinchMidY) * panSpeed))
           pinchMidX = newMid.x; pinchMidY = newMid.y
 
           updateCameraFromOrbit()
           return
         }
 
-        if (mode !== 'orbit' || e.pointerId !== activePointerId) return
+        if (mode !== 'look' || e.pointerId !== activePointerId) return
       } else if (!mode || e.pointerId !== activePointerId) {
         // 不是我們自己在追蹤的那根手指/滑鼠（例如螢幕搖桿的手指），完全不理會，避免互相干擾
         return
@@ -302,16 +302,16 @@
       lastX = e.clientX
       lastY = e.clientY
 
-      if (mode === 'orbit') {
+      if (mode === 'look') {
+        // 只改朝向（yaw/pitch），相機位置完全不動——原地轉頭，不是繞著哪個點公轉
         orbitState.yaw -= dx * 0.005
         orbitState.pitch = Math.max(-1.5, Math.min(1.5, orbitState.pitch - dy * 0.005))
       } else if (mode === 'pan') {
-        // 平移幅度跟目前拉開的距離成正比，不然拉遠之後拖起來會感覺完全不動、拉近又太快
-        const panSpeed = orbitState.distance * 0.0015
+        const panSpeed = orbitState.moveScale * 0.0025
         const right = cameraEntity.right
         const up = cameraEntity.up
-        orbitState.target.sub(right.clone().mulScalar(-dx * panSpeed))
-        orbitState.target.sub(up.clone().mulScalar(dy * panSpeed))
+        orbitState.position.sub(right.clone().mulScalar(-dx * panSpeed))
+        orbitState.position.sub(up.clone().mulScalar(dy * panSpeed))
       }
       updateCameraFromOrbit()
     }
@@ -320,9 +320,9 @@
       if (e.pointerType === 'touch') {
         touches.delete(e.pointerId)
         if (touches.size === 1) {
-          // 從雙指放開一根變單指，換回旋轉模式，用剩下那根手指目前位置當起點避免畫面跳動
+          // 從雙指放開一根變單指，換回轉頭模式，用剩下那根手指目前位置當起點避免畫面跳動
           const [[pid, pt]] = [...touches.entries()]
-          mode = 'orbit'
+          mode = 'look'
           activePointerId = pid
           lastX = pt.x; lastY = pt.y
         } else if (touches.size === 0 && e.pointerId === activePointerId) {
@@ -339,9 +339,11 @@
 
     const onContextMenu = (e) => e.preventDefault() // 右鍵拿來平移，不要跳出瀏覽器右鍵選單
     const onWheel = (e) => {
-      if (!orbitState) return
+      if (!orbitState || !cameraEntity) return
       e.preventDefault()
-      orbitState.distance = Math.max(0.5, orbitState.distance * (1 + e.deltaY * 0.001))
+      // 滾輪＝沿著目前面向的方向前後移動（第一人稱相機沒有「距離目標」這種東西可以縮放）
+      const dollySpeed = orbitState.moveScale * 0.15
+      orbitState.position.add(cameraEntity.forward.clone().mulScalar(-e.deltaY * 0.001 * dollySpeed))
       updateCameraFromOrbit()
     }
 
@@ -369,13 +371,16 @@
     const { minx, miny, minz, maxx, maxy, maxz } = bound
     const centerLocal = [(minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2]
     const size = [maxx - minx, maxy - miny, maxz - minz]
-    const radius = Math.sqrt(size[0] ** 2 + size[1] ** 2 + size[2] ** 2) / 2
+    const radius = Math.sqrt(size[0] ** 2 + size[1] ** 2 + size[2] ** 2) / 2 || 5
     const [wx, wy, wz] = applyZupToYup(...centerLocal) // 轉正後的世界座標中心點
+    // 起始位置站在中心點斜前上方一段距離，看向中心點——之後純粹是「原地轉頭」，不會再繞著這個點公轉
+    const yaw = Math.PI * 0.75
+    const pitch = -0.4
     return {
-      target: new pc.Vec3(wx, wy, wz),
-      yaw: Math.PI * 0.75,
-      pitch: 0.5,
-      distance: radius * 1.6 || 5
+      position: new pc.Vec3(wx + radius * 0.9, wy + radius * 0.6, wz - radius * 0.9),
+      yaw,
+      pitch,
+      moveScale: radius // 走位/平移/滾輪速度的基準值，固定不變（不像公轉模式那樣跟著縮放距離變速度）
     }
   }
 
@@ -407,7 +412,7 @@
       tmpRight.copy(cameraEntity.right); tmpRight.y = 0
       if (tmpRight.lengthSq() > 1e-6) tmpRight.normalize()
 
-      let speed = orbitState.distance * 1.2 // 走位速度跟模型大小成正比，模型越大走越快，不用每次都手動調
+      let speed = orbitState.moveScale * 1.2 // 走位速度跟模型大小成正比，模型越大走越快，不用每次都手動調
       if (pressedKeys.has('ControlLeft') || pressedKeys.has('ControlRight')) speed *= 2.5
 
       tmpMove.set(0, 0, 0)
@@ -427,7 +432,7 @@
       if (len > 1e-6) {
         if (len > 1) tmpMove.mulScalar(1 / len) // 只封頂，不強制正規化，搖桿半推才會是半速
         tmpMove.mulScalar(speed * dt)
-        orbitState.target.add(tmpMove) // 移動目標點，相機會跟著一起走（保持原本的旋轉/距離）
+        orbitState.position.add(tmpMove) // 直接移動相機位置（第一人稱走位，不是移動一個公轉目標點）
         updateCameraFromOrbit()
       }
     }
@@ -437,7 +442,7 @@
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       app.off('update', onUpdate)
-      pressed.clear()
+      pressedKeys.clear()
     }
   }
 
@@ -500,17 +505,27 @@
     if (model.cameraPosition && model.cameraTarget) {
       const [px, py, pz] = model.cameraPosition.split(',').map(Number)
       const [tx, ty, tz] = model.cameraTarget.split(',').map(Number)
+      const position = new pc.Vec3(px, py, pz)
       const target = new pc.Vec3(tx, ty, tz)
-      const distance = new pc.Vec3(px, py, pz).distance(target) || 5
-      orbitState = { target, yaw: Math.PI * 0.75, pitch: 0.5, distance }
-      cameraEntity.setPosition(px, py, pz)
-      cameraEntity.lookAt(target)
+      const dir = target.clone().sub(position)
+      const yaw = Math.atan2(dir.x, dir.z)
+      const pitch = Math.atan2(dir.y, Math.hypot(dir.x, dir.z))
+
+      let moveScale = position.distance(target) || 5
+      if (model.bound) {
+        const [minx, miny, minz, maxx, maxy, maxz] = model.bound.split(',').map(Number)
+        const size = [maxx - minx, maxy - miny, maxz - minz]
+        moveScale = Math.sqrt(size[0] ** 2 + size[1] ** 2 + size[2] ** 2) / 2 || moveScale
+      }
+
+      orbitState = { position, yaw, pitch, moveScale }
+      updateCameraFromOrbit()
     } else if (model.bound) {
       const [minx, miny, minz, maxx, maxy, maxz] = model.bound.split(',').map(Number)
       orbitState = computeOrbitFromBound({ minx, miny, minz, maxx, maxy, maxz })
       updateCameraFromOrbit()
     } else {
-      orbitState = { target: new pc.Vec3(0, 0, 0), yaw: 0, pitch: 0.3, distance: 5 }
+      orbitState = { position: new pc.Vec3(0, 1, -3), yaw: 0, pitch: -0.15, moveScale: 5 }
       updateCameraFromOrbit()
     }
 
@@ -557,7 +572,9 @@
     savingCamera.value = true
     try {
       const p = cameraEntity.getPosition()
-      const t = orbitState.target
+      // 現在沒有「公轉目標點」這個概念了，存檔格式沿用 position/target 兩個欄位，
+      // target 就合成一個「往目前面向方向前面一點的點」，下次載入時用來反推 yaw/pitch
+      const t = p.clone().add(cameraEntity.forward.clone().mulScalar(orbitState.moveScale || 5))
       const position = `${p.x},${p.y},${p.z}`
       const target = `${t.x},${t.y},${t.z}`
       const url = `${BASE}/camera/${viewerModal.id}?position=${encodeURIComponent(position)}&target=${encodeURIComponent(target)}`
@@ -867,7 +884,7 @@
             v-if="!isTouchDevice"
             class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none"
           >
-            WASD 走位．空白鍵上升．Shift 下降．Ctrl 加速．左鍵旋轉．右鍵平移．滾輪縮放
+            WASD 走位．空白鍵上升．Shift 下降．Ctrl 加速．左鍵轉頭．右鍵平移．滾輪前後
           </p>
 
           <!-- 手機虛擬搖桿（走位）＋上下按鈕：沒有實體鍵盤，走位只能靠這個 -->
@@ -905,7 +922,7 @@
             </div>
 
             <p class="absolute top-3 left-1/2 -translate-x-1/2 text-white/50 text-[10px] pointer-events-none">
-              單指拖曳旋轉．雙指縮放/平移
+              單指拖曳轉頭．雙指縮放/平移
             </p>
           </template>
 
