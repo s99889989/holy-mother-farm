@@ -4,42 +4,6 @@
     <div id="staff-scroll-wrap" class="flex-1 overflow-y-auto">
       <slot />
     </div>
-
-    <!-- ── 除錯面板（暫時性，觀察一段時間確認沒問題後記得移除）───────── -->
-    <!-- 手機沒辦法開 DevTools，這裡直接把關鍵狀態印在畫面上，點一下
-         右下角的 🐛 展開，再點「複製」把文字整段複製貼給我看即可 -->
-    <button
-      type="button"
-      class="fixed bottom-3 right-3 z-[200] w-10 h-10 rounded-full bg-black/70 text-white text-lg flex items-center justify-center"
-      @click="debugOpen = !debugOpen"
-    >
-      🐛
-    </button>
-    <div
-      v-if="debugOpen"
-      class="fixed inset-x-3 bottom-16 z-[200] max-h-[70vh] overflow-y-auto rounded-lg bg-black/90 text-white text-xs p-3 font-mono whitespace-pre-wrap"
-    >
-      <div class="flex justify-between items-center mb-2">
-        <span class="font-bold">除錯資訊</span>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="px-2 py-1 rounded bg-white/20"
-            @click="copyDebugText"
-          >
-            {{ copied ? '已複製 ✓' : '複製' }}
-          </button>
-          <button
-            type="button"
-            class="px-2 py-1 rounded bg-white/20"
-            @click="debugOpen = false"
-          >
-            關閉
-          </button>
-        </div>
-      </div>
-      {{ debugText }}
-    </div>
   </div>
 </template>
 
@@ -137,72 +101,6 @@
     document.removeEventListener('visibilitychange', checkSessionOnVisible)
     window.removeEventListener('pageshow', handlePageShow)
   })
-
-  // ── 除錯面板 ──────────────────────────────────────────────────────
-  const debugOpen = ref(false)
-  const copied = ref(false)
-  const debugTick = ref(0)
-
-  // 每秒更新一次畫面上顯示的時間差，方便看「幾秒前」發生的事
-  let debugTimer = null
-  onMounted(() => { debugTimer = setInterval(() => { debugTick.value++ }, 1000) })
-  onUnmounted(() => { if (debugTimer) clearInterval(debugTimer) })
-
-  function fmtAgo(ts) {
-    if (!ts) return '—'
-    const diff = Math.round((Date.now() - ts) / 1000)
-    return `${new Date(ts).toLocaleTimeString()}（${diff} 秒前）`
-  }
-
-  const debugText = computed(() => {
-    debugTick.value // 讓這個 computed 每秒重新算一次
-
-    const c = customerStore.customer
-    const err = permissionStore.lastError
-    const attempt = permissionStore.lastAttempt
-
-    const lines = [
-      `時間：${new Date().toLocaleString()}`,
-      `頁面：${route.fullPath}`,
-      `document.visibilityState：${typeof document !== 'undefined' ? document.visibilityState : '—'}`,
-      `navigator.onLine：${typeof navigator !== 'undefined' ? navigator.onLine : '—'}`,
-      '',
-      '── customerStore ──',
-      `isLoggedIn：${customerStore.isLoggedIn}`,
-      `customer.id：${c?.id ?? '—'}`,
-      `customer.email：${c?.email ?? '—'}`,
-      '',
-      '── permissionStore ──',
-      `loaded：${permissionStore.loaded}`,
-      `loadedId：${permissionStore.loadedId ?? '—'}`,
-      `perms 數量：${Object.keys(permissionStore.perms || {}).length}`,
-      `perms keys：${Object.keys(permissionStore.perms || {}).join('、') || '（空）'}`,
-      '',
-      '── 最近一次 load() 呼叫 ──',
-      attempt
-        ? `時間：${fmtAgo(attempt.time)}\ncustomerId：${attempt.customerId}\nsilent：${attempt.silent}`
-        : '（這次頁面存活期間還沒呼叫過）',
-      '',
-      '── 最近一次失敗 ──',
-      err
-        ? `時間：${fmtAgo(err.time)}\nstatus：${err.status ?? '（無狀態碼，可能是網路/逾時錯誤）'}\nmessage：${err.message}\nsilent：${err.silent}`
-        : '（目前沒有記錄到失敗，或最近一次是成功的）',
-      '',
-      `最近一次成功時間：${fmtAgo(permissionStore.lastSuccessAt)}`
-    ]
-
-    return lines.join('\n')
-  })
-
-  async function copyDebugText() {
-    try {
-      await navigator.clipboard.writeText(debugText.value)
-      copied.value = true
-      setTimeout(() => { copied.value = false }, 1500)
-    } catch {
-      // 部分瀏覽器/情境下 clipboard API 可能被擋，退而求其次讓使用者自己長按選取複製
-    }
-  }
 </script>
 
 <style src="~/assets/css/main.css"/>

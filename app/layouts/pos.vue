@@ -139,7 +139,6 @@
             d="M4 6h16M4 12h16M4 18h16"
           />
         </svg>
-        POS 選單
       </button>
 
       <main class="pos-main">
@@ -278,6 +277,19 @@
     font-weight: 600;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     border: none;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+  }
+
+  .pos-mobile-toggle:active,
+  .pos-mobile-toggle:focus-visible {
+    opacity: 1;
+  }
+
+  @media (hover: hover) {
+    .pos-mobile-toggle:hover {
+      opacity: 1;
+    }
   }
 
   .pos-main {
@@ -308,6 +320,17 @@
 
     .pos-main {
       width: 100%;
+    }
+  }
+
+  /* 桌面版（lg 以上）：明確隱藏手機版按鈕與遮罩。
+     這裡不能只靠 lg:hidden，因為它跟上面 .pos-mobile-toggle 的
+     display: flex 選擇器優先權相同，若 scoped style 編譯順序排在
+     Tailwind utilities 之後就會覆蓋掉 lg:hidden，導致電腦版也顯示按鈕。 */
+  @media (min-width: 1024px) {
+    .pos-mobile-toggle,
+    .pos-sidebar-backdrop {
+      display: none;
     }
   }
 </style>
