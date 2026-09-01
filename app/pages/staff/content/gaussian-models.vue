@@ -137,6 +137,22 @@ const deleteModel = async (model) => {
   }
 }
 
+// ── 分享 ──────────────────────────────────────────────────────────
+const shareUrl = (model) => `${window.location.origin}/front/gaussian/${model.id}`
+
+const openSharePage = (model) => {
+  window.open(shareUrl(model), '_blank')
+}
+
+const copyShareLink = async (model) => {
+  try {
+    await navigator.clipboard.writeText(shareUrl(model))
+    showToast('已複製分享連結')
+  } catch {
+    showToast('複製失敗，瀏覽器可能不支援')
+  }
+}
+
 // ── 檢視器（直接用 playcanvas 引擎本體，不透過 supersplat-viewer）──────
 const viewerModal = reactive({ show: false, name: '', id: '' })
 const canvasRef = ref(null)
@@ -145,6 +161,19 @@ let gsplatEntity = null
 let cameraEntity = null
 let orbitState = null // { target: Vec3, yaw, pitch, distance }
 let resizeObserverRef = null
+
+// 手機判斷：用 pointer 精度判斷比 UA 字串抓型號可靠，平板/手機都會是 coarse
+const isTouchDevice = ref(false)
+if (typeof window !== 'undefined') {
+  isTouchDevice.value = window.matchMedia('(pointer: coarse)').matches
+}
+
+// 鍵盤走位跟螢幕虛擬按鈕共用同一組「目前按著的按鍵」集合——
+// 虛擬按鈕按下/放開時，直接把同樣的字串塞進/移出這個 Set，走位邏輯完全不用另外寫一份
+let pressedKeys = new Set()
+// 虛擬搖桿的類比輸入（-1~1），跟鍵盤那種「按下就是滿速」不一樣，搖桿要能半推半速
+const touchMove = reactive({ x: 0, z: 0 })
+let joystickPointerId = null
 
 const savingCamera = ref(false)
 
@@ -194,60 +223,150 @@ const saveTiltAsDefault = async () => {
 
 const updateCameraFromOrbit = () => {
   if (!cameraEntity || !orbitState) return
-  const { target, yaw, pitch, distance } = orbitState
+  const { position, yaw, pitch } = orbitState
   const cp = Math.cos(pitch)
-  const pos = new pc.Vec3(
-    target.x + distance * cp * Math.sin(yaw),
-    target.y + distance * Math.sin(pitch),
-    target.z + distance * cp * Math.cos(yaw)
+  const forward = new pc.Vec3(
+    cp * Math.sin(yaw),
+    Math.sin(pitch),
+    cp * Math.cos(yaw)
   )
-  cameraEntity.setPosition(pos)
-  cameraEntity.lookAt(target)
+  cameraEntity.setPosition(position)
+  cameraEntity.lookAt(position.clone().add(forward))
 }
 
 const attachOrbitControls = (canvas) => {
-  let mode = null // 'orbit' | 'pan' | null
+  let mode = null // 'look' | 'pan' | 'pinch' | null
   let lastX = 0
   let lastY = 0
+  let activePointerId = null // 只處理這個 canvas 自己追蹤的手指/滑鼠，避免跟螢幕搖桿的手指互相干擾
+
+  // 觸控用：追蹤目前所有正在碰觸畫面的手指（pointerId -> {x,y}）
+  const touches = new Map()
+  let pinchStartDist = 0
+  let pinchMidX = 0
+  let pinchMidY = 0
+
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+
+  const startPinch = () => {
+    const pts = [...touches.values()]
+    pinchStartDist = dist(pts[0], pts[1])
+    const m = mid(pts[0], pts[1])
+    pinchMidX = m.x; pinchMidY = m.y
+    mode = 'pinch'
+  }
 
   const onPointerDown = (e) => {
-    // 左鍵拖曳＝旋轉，右鍵拖曳＝平移（pan），慣例跟大部分 3D 軟體一致
-    mode = e.button === 2 ? 'pan' : 'orbit'
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (touches.size === 2) {
+        startPinch()
+        return
+      }
+      // 單指＝轉頭看（第一人稱視角，不是繞著什麼東西公轉）
+      mode = 'look'
+      activePointerId = e.pointerId
+      lastX = e.clientX
+      lastY = e.clientY
+      return
+    }
+    // 左鍵拖曳＝轉頭看，右鍵拖曳＝平移（pan），慣例跟大部分 3D 軟體一致
+    mode = e.button === 2 ? 'pan' : 'look'
+    activePointerId = e.pointerId
     lastX = e.clientX
     lastY = e.clientY
   }
+
   const onPointerMove = (e) => {
-    if (!mode || !orbitState || !cameraEntity) return
+    if (!orbitState || !cameraEntity) return
+
+    if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+      if (mode === 'pinch' && touches.size === 2) {
+        const pts = [...touches.values()]
+        const newDist = dist(pts[0], pts[1])
+        const newMid = mid(pts[0], pts[1])
+
+        // 雙指開合＝往前/往後移動（縮放的手機版）
+        if (pinchStartDist > 1) {
+          const dollySpeed = orbitState.moveScale * 0.6
+          orbitState.position.add(cameraEntity.forward.clone().mulScalar((newDist - pinchStartDist) / pinchStartDist * dollySpeed))
+          pinchStartDist = newDist
+        }
+        // 雙指一起拖＝平移
+        const panSpeed = orbitState.moveScale * 0.0025
+        const right = cameraEntity.right
+        const up = cameraEntity.up
+        orbitState.position.sub(right.clone().mulScalar(-(newMid.x - pinchMidX) * panSpeed))
+        orbitState.position.sub(up.clone().mulScalar((newMid.y - pinchMidY) * panSpeed))
+        pinchMidX = newMid.x; pinchMidY = newMid.y
+
+        updateCameraFromOrbit()
+        return
+      }
+
+      if (mode !== 'look' || e.pointerId !== activePointerId) return
+    } else if (!mode || e.pointerId !== activePointerId) {
+      // 不是我們自己在追蹤的那根手指/滑鼠（例如螢幕搖桿的手指），完全不理會，避免互相干擾
+      return
+    }
+
     const dx = e.clientX - lastX
     const dy = e.clientY - lastY
     lastX = e.clientX
     lastY = e.clientY
 
-    if (mode === 'orbit') {
+    if (mode === 'look') {
+      // 只改朝向（yaw/pitch），相機位置完全不動——原地轉頭，不是繞著哪個點公轉
       orbitState.yaw -= dx * 0.005
       orbitState.pitch = Math.max(-1.5, Math.min(1.5, orbitState.pitch - dy * 0.005))
-    } else {
-      // 平移幅度跟目前拉開的距離成正比，不然拉遠之後拖起來會感覺完全不動、拉近又太快
-      const panSpeed = orbitState.distance * 0.0015
+    } else if (mode === 'pan') {
+      const panSpeed = orbitState.moveScale * 0.0025
       const right = cameraEntity.right
       const up = cameraEntity.up
-      orbitState.target.sub(right.clone().mulScalar(-dx * panSpeed))
-      orbitState.target.sub(up.clone().mulScalar(dy * panSpeed))
+      orbitState.position.sub(right.clone().mulScalar(-dx * panSpeed))
+      orbitState.position.sub(up.clone().mulScalar(dy * panSpeed))
     }
     updateCameraFromOrbit()
   }
-  const onPointerUp = () => { mode = null }
+
+  const onPointerUp = (e) => {
+    if (e.pointerType === 'touch') {
+      touches.delete(e.pointerId)
+      if (touches.size === 1) {
+        // 從雙指放開一根變單指，換回轉頭模式，用剩下那根手指目前位置當起點避免畫面跳動
+        const [[pid, pt]] = [...touches.entries()]
+        mode = 'look'
+        activePointerId = pid
+        lastX = pt.x; lastY = pt.y
+      } else if (touches.size === 0 && e.pointerId === activePointerId) {
+        mode = null
+        activePointerId = null
+      }
+      return
+    }
+    if (e.pointerId === activePointerId) {
+      mode = null
+      activePointerId = null
+    }
+  }
+
   const onContextMenu = (e) => e.preventDefault() // 右鍵拿來平移，不要跳出瀏覽器右鍵選單
   const onWheel = (e) => {
-    if (!orbitState) return
+    if (!orbitState || !cameraEntity) return
     e.preventDefault()
-    orbitState.distance = Math.max(0.5, orbitState.distance * (1 + e.deltaY * 0.001))
+    // 滾輪＝沿著目前面向的方向前後移動（第一人稱相機沒有「距離目標」這種東西可以縮放）
+    const dollySpeed = orbitState.moveScale * 0.15
+    orbitState.position.add(cameraEntity.forward.clone().mulScalar(-e.deltaY * 0.001 * dollySpeed))
     updateCameraFromOrbit()
   }
 
   canvas.addEventListener('pointerdown', onPointerDown)
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerUp)
   canvas.addEventListener('contextmenu', onContextMenu)
   canvas.addEventListener('wheel', onWheel, { passive: false })
 
@@ -255,6 +374,7 @@ const attachOrbitControls = (canvas) => {
     canvas.removeEventListener('pointerdown', onPointerDown)
     window.removeEventListener('pointermove', onPointerMove)
     window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onPointerUp)
     canvas.removeEventListener('contextmenu', onContextMenu)
     canvas.removeEventListener('wheel', onWheel)
   }
@@ -267,25 +387,28 @@ const computeOrbitFromBound = (bound) => {
   const { minx, miny, minz, maxx, maxy, maxz } = bound
   const centerLocal = [(minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2]
   const size = [maxx - minx, maxy - miny, maxz - minz]
-  const radius = Math.sqrt(size[0] ** 2 + size[1] ** 2 + size[2] ** 2) / 2
+  const radius = Math.sqrt(size[0] ** 2 + size[1] ** 2 + size[2] ** 2) / 2 || 5
   const [wx, wy, wz] = applyZupToYup(...centerLocal) // 轉正後的世界座標中心點
+  // 起始位置站在中心點斜前上方一段距離，看向中心點——之後純粹是「原地轉頭」，不會再繞著這個點公轉
+  const yaw = Math.PI * 0.75
+  const pitch = -0.4
   return {
-    target: new pc.Vec3(wx, wy, wz),
-    yaw: Math.PI * 0.75,
-    pitch: 0.5,
-    distance: radius * 1.6 || 5
+    position: new pc.Vec3(wx + radius * 0.9, wy + radius * 0.6, wz - radius * 0.9),
+    yaw,
+    pitch,
+    moveScale: radius // 走位/平移/滾輪速度的基準值，固定不變（不像公轉模式那樣跟著縮放距離變速度）
   }
 }
 
 // 鍵盤走位（照 MipMap 同一套按鍵）：WASD 前後左右、QE 上下、Ctrl 減速、Shift 加速。
 // 用 app.on('update', dt) 每一幀持續移動，才會有「按著不放持續走」的效果，不是按一下動一下
 const attachKeyboardControls = (app) => {
-  const pressed = new Set()
+  pressedKeys = new Set() // 換成共用集合，螢幕虛擬按鈕（手機用）也會操作同一個
   const onKeyDown = (e) => {
     if (e.code === 'Space') e.preventDefault() // 不然空白鍵會讓瀏覽器頁面往下捲
-    pressed.add(e.code)
+    pressedKeys.add(e.code)
   }
-  const onKeyUp = (e) => pressed.delete(e.code)
+  const onKeyUp = (e) => pressedKeys.delete(e.code)
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
 
@@ -295,7 +418,9 @@ const attachKeyboardControls = (app) => {
   const worldUp = new pc.Vec3(0, 1, 0)
 
   const onUpdate = (dt) => {
-    if (!orbitState || !cameraEntity || pressed.size === 0) return
+    if (!orbitState || !cameraEntity) return
+    const hasTouchInput = touchMove.x !== 0 || touchMove.z !== 0
+    if (pressedKeys.size === 0 && !hasTouchInput) return
 
     // 前後左右用相機目前面向的水平分量（忽略上下俯仰），不然抬頭看時 W 會往天花板飛
     tmpForward.copy(cameraEntity.forward); tmpForward.y = 0
@@ -303,20 +428,27 @@ const attachKeyboardControls = (app) => {
     tmpRight.copy(cameraEntity.right); tmpRight.y = 0
     if (tmpRight.lengthSq() > 1e-6) tmpRight.normalize()
 
-    let speed = orbitState.distance * 1.2 // 走位速度跟模型大小成正比，模型越大走越快，不用每次都手動調
-    if (pressed.has('ControlLeft') || pressed.has('ControlRight')) speed *= 2.5
+    let speed = orbitState.moveScale * 1.2 // 走位速度跟模型大小成正比，模型越大走越快，不用每次都手動調
+    if (pressedKeys.has('ControlLeft') || pressedKeys.has('ControlRight')) speed *= 2.5
 
     tmpMove.set(0, 0, 0)
-    if (pressed.has('KeyW')) tmpMove.add(tmpForward)
-    if (pressed.has('KeyS')) tmpMove.sub(tmpForward)
-    if (pressed.has('KeyD')) tmpMove.add(tmpRight)
-    if (pressed.has('KeyA')) tmpMove.sub(tmpRight)
-    if (pressed.has('Space')) tmpMove.add(worldUp)
-    if (pressed.has('ShiftLeft') || pressed.has('ShiftRight')) tmpMove.sub(worldUp)
+    if (pressedKeys.has('KeyW')) tmpMove.add(tmpForward)
+    if (pressedKeys.has('KeyS')) tmpMove.sub(tmpForward)
+    if (pressedKeys.has('KeyD')) tmpMove.add(tmpRight)
+    if (pressedKeys.has('KeyA')) tmpMove.sub(tmpRight)
+    if (pressedKeys.has('Space')) tmpMove.add(worldUp)
+    if (pressedKeys.has('ShiftLeft') || pressedKeys.has('ShiftRight')) tmpMove.sub(worldUp)
+    // 虛擬搖桿是類比輸入（半推＝半速），跟鍵盤的滿速按鍵疊加在一起
+    if (hasTouchInput) {
+      tmpMove.add(tmpForward.clone().mulScalar(touchMove.z))
+      tmpMove.add(tmpRight.clone().mulScalar(touchMove.x))
+    }
 
-    if (tmpMove.lengthSq() > 1e-6) {
-      tmpMove.normalize().mulScalar(speed * dt)
-      orbitState.target.add(tmpMove) // 移動目標點，相機會跟著一起走（保持原本的旋轉/距離）
+    const len = tmpMove.length()
+    if (len > 1e-6) {
+      if (len > 1) tmpMove.mulScalar(1 / len) // 只封頂，不強制正規化，搖桿半推才會是半速
+      tmpMove.mulScalar(speed * dt)
+      orbitState.position.add(tmpMove) // 直接移動相機位置（第一人稱走位，不是移動一個公轉目標點）
       updateCameraFromOrbit()
     }
   }
@@ -326,7 +458,7 @@ const attachKeyboardControls = (app) => {
     window.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('keyup', onKeyUp)
     app.off('update', onUpdate)
-    pressed.clear()
+    pressedKeys.clear()
   }
 }
 
@@ -344,6 +476,9 @@ const disposeViewer = () => {
   gsplatEntity = null
   cameraEntity = null
   orbitState = null
+  pressedKeys = new Set()
+  touchMove.x = 0; touchMove.z = 0
+  joystickPointerId = null
 }
 
 const initViewer = async (model) => {
@@ -367,7 +502,8 @@ const initViewer = async (model) => {
   app.setCanvasResolution(pc.RESOLUTION_AUTO)
   // 沒設這個的話，高解析度螢幕（Retina/2x 以上）會用 CSS 像素尺寸渲染再放大貼上去，
   // 畫面就會糊——之前用官方 viewer 包時這個是內建處理好的，自己接引擎要手動補上
-  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, 2)
+  // 手機 GPU 弱很多，解析度上限降低一點換效能，不然容易頓/發燙
+  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, isTouchDevice.value ? 1.5 : 2)
 
   const resize = () => {
     const rect = canvas.parentElement.getBoundingClientRect()
@@ -385,17 +521,27 @@ const initViewer = async (model) => {
   if (model.cameraPosition && model.cameraTarget) {
     const [px, py, pz] = model.cameraPosition.split(',').map(Number)
     const [tx, ty, tz] = model.cameraTarget.split(',').map(Number)
+    const position = new pc.Vec3(px, py, pz)
     const target = new pc.Vec3(tx, ty, tz)
-    const distance = new pc.Vec3(px, py, pz).distance(target) || 5
-    orbitState = { target, yaw: Math.PI * 0.75, pitch: 0.5, distance }
-    cameraEntity.setPosition(px, py, pz)
-    cameraEntity.lookAt(target)
+    const dir = target.clone().sub(position)
+    const yaw = Math.atan2(dir.x, dir.z)
+    const pitch = Math.atan2(dir.y, Math.hypot(dir.x, dir.z))
+
+    let moveScale = position.distance(target) || 5
+    if (model.bound) {
+      const [minx, miny, minz, maxx, maxy, maxz] = model.bound.split(',').map(Number)
+      const size = [maxx - minx, maxy - miny, maxz - minz]
+      moveScale = Math.sqrt(size[0] ** 2 + size[1] ** 2 + size[2] ** 2) / 2 || moveScale
+    }
+
+    orbitState = { position, yaw, pitch, moveScale }
+    updateCameraFromOrbit()
   } else if (model.bound) {
     const [minx, miny, minz, maxx, maxy, maxz] = model.bound.split(',').map(Number)
     orbitState = computeOrbitFromBound({ minx, miny, minz, maxx, maxy, maxz })
     updateCameraFromOrbit()
   } else {
-    orbitState = { target: new pc.Vec3(0, 0, 0), yaw: 0, pitch: 0.3, distance: 5 }
+    orbitState = { position: new pc.Vec3(0, 1, -3), yaw: 0, pitch: -0.15, moveScale: 5 }
     updateCameraFromOrbit()
   }
 
@@ -408,6 +554,10 @@ const initViewer = async (model) => {
   asset.once('load', () => {
     gsplatEntity = new pc.Entity('gsplat')
     gsplatEntity.addComponent('gsplat', { asset })
+    if (isTouchDevice.value && gsplatEntity.gsplat) {
+      // 手機跳過最細緻那一階 LOD，犧牲一點細節換效能，不然大場景在手機上容易卡
+      gsplatEntity.gsplat.lodRangeMin = 1
+    }
     app.root.addChild(gsplatEntity)
     applyEntityTilt() // 用目前 tiltForm（已經在下面載入這顆模型存的值）套用旋轉
   })
@@ -438,7 +588,9 @@ const saveCameraAsDefault = async () => {
   savingCamera.value = true
   try {
     const p = cameraEntity.getPosition()
-    const t = orbitState.target
+    // 現在沒有「公轉目標點」這個概念了，存檔格式沿用 position/target 兩個欄位，
+    // target 就合成一個「往目前面向方向前面一點的點」，下次載入時用來反推 yaw/pitch
+    const t = p.clone().add(cameraEntity.forward.clone().mulScalar(orbitState.moveScale || 5))
     const position = `${p.x},${p.y},${p.z}`
     const target = `${t.x},${t.y},${t.z}`
     const url = `${BASE}/camera/${viewerModal.id}?position=${encodeURIComponent(position)}&target=${encodeURIComponent(target)}`
@@ -452,6 +604,40 @@ const saveCameraAsDefault = async () => {
     savingCamera.value = false
   }
 }
+
+// ── 手機虛擬搖桿＋上下按鈕（沒有實體鍵盤，走位只能靠這個）──────────
+const joystickKnobStyle = reactive({ x: 0, y: 0 })
+const JOYSTICK_RADIUS = 40 // px，要跟下面 template 裡搖桿底座的半徑對上
+
+const onJoystickPointerDown = (e) => {
+  joystickPointerId = e.pointerId
+  e.target.setPointerCapture(e.pointerId)
+}
+const onJoystickPointerMove = (e) => {
+  if (e.pointerId !== joystickPointerId) return
+  const rect = e.currentTarget.getBoundingClientRect()
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  let dx = e.clientX - cx
+  let dy = e.clientY - cy
+  const len = Math.hypot(dx, dy)
+  if (len > JOYSTICK_RADIUS) { dx = (dx / len) * JOYSTICK_RADIUS; dy = (dy / len) * JOYSTICK_RADIUS }
+  joystickKnobStyle.x = dx
+  joystickKnobStyle.y = dy
+  touchMove.x = dx / JOYSTICK_RADIUS       // 右推為正，對應 tmpRight
+  touchMove.z = -dy / JOYSTICK_RADIUS      // 上推（螢幕座標 dy 是負的）為正，對應前進
+}
+const onJoystickPointerUp = (e) => {
+  if (e.pointerId !== joystickPointerId) return
+  joystickPointerId = null
+  joystickKnobStyle.x = 0
+  joystickKnobStyle.y = 0
+  touchMove.x = 0
+  touchMove.z = 0
+}
+
+const onVertButtonDown = (code) => pressedKeys.add(code)
+const onVertButtonUp = (code) => pressedKeys.delete(code)
 
 const closeViewer = () => {
   viewerModal.show = false
@@ -550,6 +736,20 @@ const formatSize = (bytes) => {
                 @click="deleteModel(model)"
               >
                 刪除
+              </button>
+            </div>
+            <div class="flex items-center gap-2 mt-2 pt-2 border-t border-light-c">
+              <button
+                class="flex-1 text-xs text-hint-c hover:text-base-c border border-light-c rounded-lg py-1"
+                @click="openSharePage(model)"
+              >
+                打開
+              </button>
+              <button
+                class="flex-1 text-xs text-hint-c hover:text-base-c border border-light-c rounded-lg py-1"
+                @click="copyShareLink(model)"
+              >
+                複製分享連結
               </button>
             </div>
           </div>
@@ -664,24 +864,24 @@ const formatSize = (bytes) => {
         v-if="viewerModal.show"
         class="fixed inset-0 bg-black z-[60] flex flex-col"
       >
-        <div class="flex items-center justify-between px-4 py-2 bg-black/80 text-white">
-          <span class="text-sm font-medium">{{ viewerModal.name }}</span>
-          <div class="flex items-center gap-3">
+        <div class="flex items-center justify-between px-2 sm:px-4 py-2 bg-black/80 text-white flex-wrap gap-y-1">
+          <span class="text-sm font-medium truncate max-w-[40vw] sm:max-w-none">{{ viewerModal.name }}</span>
+          <div class="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
             <button
-              class="text-white/80 hover:text-white text-xs border border-white/30 rounded-lg px-2.5 py-1"
+              class="text-white/80 hover:text-white text-[11px] sm:text-xs border border-white/30 rounded-lg px-2 sm:px-2.5 py-1"
               @click="resetCameraToDefault"
             >
               重設視角
             </button>
             <button
-              class="text-white/80 hover:text-white text-xs border border-white/30 rounded-lg px-2.5 py-1 disabled:opacity-50"
+              class="text-white/80 hover:text-white text-[11px] sm:text-xs border border-white/30 rounded-lg px-2 sm:px-2.5 py-1 disabled:opacity-50"
               :disabled="savingCamera"
               @click="saveCameraAsDefault"
             >
               {{ savingCamera ? '儲存中…' : '存成預設視角' }}
             </button>
             <button
-              class="text-white/80 hover:text-white text-xs border border-white/30 rounded-lg px-2.5 py-1"
+              class="text-white/80 hover:text-white text-[11px] sm:text-xs border border-white/30 rounded-lg px-2 sm:px-2.5 py-1"
               @click="tiltPanelOpen = !tiltPanelOpen"
             >
               {{ tiltPanelOpen ? '收起水平校正' : '校正水平' }}
@@ -710,13 +910,55 @@ const formatSize = (bytes) => {
             ref="canvasRef"
             class="absolute inset-0 w-full h-full touch-none"
           />
-          <p class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none">
-            WASD 走位．空白鍵上升．Shift 下降．Ctrl 加速．左鍵旋轉．右鍵平移．滾輪縮放
+          <p
+            v-if="!isTouchDevice"
+            class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none"
+          >
+            WASD 走位．空白鍵上升．Shift 下降．Ctrl 加速．左鍵轉頭．右鍵平移．滾輪前後
           </p>
+
+          <!-- 手機虛擬搖桿（走位）＋上下按鈕：沒有實體鍵盤，走位只能靠這個 -->
+          <template v-if="isTouchDevice">
+            <div
+              class="absolute bottom-6 left-6 w-24 h-24 rounded-full bg-white/10 border border-white/25 touch-none"
+              @pointerdown="onJoystickPointerDown"
+              @pointermove="onJoystickPointerMove"
+              @pointerup="onJoystickPointerUp"
+              @pointercancel="onJoystickPointerUp"
+            >
+              <div
+                class="absolute top-1/2 left-1/2 w-10 h-10 -mt-5 -ml-5 rounded-full bg-white/40 pointer-events-none"
+                :style="{ transform: `translate(${joystickKnobStyle.x}px, ${joystickKnobStyle.y}px)` }"
+              />
+            </div>
+
+            <div class="absolute bottom-6 right-6 flex flex-col gap-3">
+              <button
+                class="w-12 h-12 rounded-full bg-white/15 border border-white/25 text-white text-lg active:bg-white/30 touch-none"
+                @pointerdown.prevent="onVertButtonDown('Space')"
+                @pointerup.prevent="onVertButtonUp('Space')"
+                @pointercancel.prevent="onVertButtonUp('Space')"
+              >
+                ▲
+              </button>
+              <button
+                class="w-12 h-12 rounded-full bg-white/15 border border-white/25 text-white text-lg active:bg-white/30 touch-none"
+                @pointerdown.prevent="onVertButtonDown('ShiftLeft')"
+                @pointerup.prevent="onVertButtonUp('ShiftLeft')"
+                @pointercancel.prevent="onVertButtonUp('ShiftLeft')"
+              >
+                ▼
+              </button>
+            </div>
+
+            <p class="absolute top-3 left-1/2 -translate-x-1/2 text-white/50 text-[10px] pointer-events-none">
+              單指拖曳轉頭．雙指縮放/平移
+            </p>
+          </template>
 
           <div
             v-if="tiltPanelOpen"
-            class="absolute top-3 right-3 bg-black/85 text-white text-xs rounded-xl p-3 w-60 space-y-2 backdrop-blur"
+            class="absolute top-3 right-3 bg-black/85 text-white text-xs rounded-xl p-3 w-60 max-w-[calc(100vw-1.5rem)] space-y-2 backdrop-blur"
           >
             <p class="font-semibold text-sm mb-1">
               水平校正微調（度）
