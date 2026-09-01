@@ -221,6 +221,29 @@ const saveTiltAsDefault = async () => {
   }
 }
 
+// ── 移動速度倍率 ─────────────────────────────────────────────
+// 不同模型的場景實際尺寸落差很大，雖然走位速度已經跟 bound 算出來的 moveScale 成正比，
+// 但重建誤差、切 tile 與否等因素還是會讓「感覺」的速度不一致，所以另外開一個倍率讓使用者自己調，
+// 套用方式是乘在 moveScale 算出來的速度上面（不是取代），1 代表不調整、維持原本自動估算的速度
+const moveSpeed = ref(1)
+const speedPanelOpen = ref(false)
+const savingSpeed = ref(false)
+
+const saveSpeedAsDefault = async () => {
+  savingSpeed.value = true
+  try {
+    const url = `${BASE}/speed/${viewerModal.id}?multiplier=${encodeURIComponent(moveSpeed.value)}`
+    await fetchWithTimeout(url, { method: 'POST' })
+    const model = models.value.find(m => m.id === viewerModal.id)
+    if (model) model.moveSpeed = String(moveSpeed.value)
+    showToast('已存成這顆模型的預設移動速度')
+  } catch {
+    showToast('儲存失敗')
+  } finally {
+    savingSpeed.value = false
+  }
+}
+
 const updateCameraFromOrbit = () => {
   if (!cameraEntity || !orbitState) return
   const { position, yaw, pitch } = orbitState
@@ -291,12 +314,12 @@ const attachOrbitControls = (canvas) => {
 
         // 雙指開合＝往前/往後移動（縮放的手機版）
         if (pinchStartDist > 1) {
-          const dollySpeed = orbitState.moveScale * 0.6
+          const dollySpeed = orbitState.moveScale * 0.6 * moveSpeed.value
           orbitState.position.add(cameraEntity.forward.clone().mulScalar((newDist - pinchStartDist) / pinchStartDist * dollySpeed))
           pinchStartDist = newDist
         }
         // 雙指一起拖＝平移
-        const panSpeed = orbitState.moveScale * 0.0025
+        const panSpeed = orbitState.moveScale * 0.0025 * moveSpeed.value
         const right = cameraEntity.right
         const up = cameraEntity.up
         orbitState.position.sub(right.clone().mulScalar(-(newMid.x - pinchMidX) * panSpeed))
@@ -323,7 +346,7 @@ const attachOrbitControls = (canvas) => {
       orbitState.yaw -= dx * 0.005
       orbitState.pitch = Math.max(-1.5, Math.min(1.5, orbitState.pitch - dy * 0.005))
     } else if (mode === 'pan') {
-      const panSpeed = orbitState.moveScale * 0.0025
+      const panSpeed = orbitState.moveScale * 0.0025 * moveSpeed.value
       const right = cameraEntity.right
       const up = cameraEntity.up
       orbitState.position.sub(right.clone().mulScalar(-dx * panSpeed))
@@ -358,7 +381,7 @@ const attachOrbitControls = (canvas) => {
     if (!orbitState || !cameraEntity) return
     e.preventDefault()
     // 滾輪＝沿著目前面向的方向前後移動（第一人稱相機沒有「距離目標」這種東西可以縮放）
-    const dollySpeed = orbitState.moveScale * 0.15
+    const dollySpeed = orbitState.moveScale * 0.15 * moveSpeed.value
     orbitState.position.add(cameraEntity.forward.clone().mulScalar(-e.deltaY * 0.001 * dollySpeed))
     updateCameraFromOrbit()
   }
@@ -428,7 +451,7 @@ const attachKeyboardControls = (app) => {
     tmpRight.copy(cameraEntity.right); tmpRight.y = 0
     if (tmpRight.lengthSq() > 1e-6) tmpRight.normalize()
 
-    let speed = orbitState.moveScale * 1.2 // 走位速度跟模型大小成正比，模型越大走越快，不用每次都手動調
+    let speed = orbitState.moveScale * 1.2 * moveSpeed.value // 走位速度跟模型大小成正比，模型越大走越快；moveSpeed 是使用者另外可調的倍率
     if (pressedKeys.has('ControlLeft') || pressedKeys.has('ControlRight')) speed *= 2.5
 
     tmpMove.set(0, 0, 0)
@@ -492,6 +515,10 @@ const initViewer = async (model) => {
   const [tx0, ty0, tz0] = (model.tiltOffset ? model.tiltOffset.split(',').map(Number) : [0, 0, 0])
   tiltForm.x = tx0; tiltForm.y = ty0; tiltForm.z = tz0
 
+  // 讀取這顆模型之前存的移動速度倍率（沒存過、或存壞了就退回 1 倍，不調整）
+  const savedSpeed = Number(model.moveSpeed)
+  moveSpeed.value = (model.moveSpeed && Number.isFinite(savedSpeed) && savedSpeed > 0) ? savedSpeed : 1
+
   const app = new pc.Application(canvas, {
     mouse: new pc.Mouse(canvas),
     touch: new pc.TouchDevice(canvas),
@@ -548,21 +575,42 @@ const initViewer = async (model) => {
   detachOrbitControls = attachOrbitControls(canvas)
   detachKeyboardControls = attachKeyboardControls(app)
 
-  const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${model.id}/${model.entryFile}`)
-  const asset = new pc.Asset(model.name || 'gsplat', 'gsplat', { url: contentUrl })
-  app.assets.add(asset)
-  asset.once('load', () => {
-    gsplatEntity = new pc.Entity('gsplat')
-    gsplatEntity.addComponent('gsplat', { asset })
-    if (isTouchDevice.value && gsplatEntity.gsplat) {
-      // 手機跳過最細緻那一階 LOD，犧牲一點細節換效能，不然大場景在手機上容易卡
-      gsplatEntity.gsplat.lodRangeMin = 1
-    }
-    app.root.addChild(gsplatEntity)
-    applyEntityTilt() // 用目前 tiltForm（已經在下面載入這顆模型存的值）套用旋轉
+  // 場景可能被重建工具切成多個 MipTile（每個各自是一棵完整獨立的 LOD tree，
+  // 只描述場景的一部分），entryFiles 是清單，每一份都要各自建一個 gsplat Entity，
+  // 全部疊在同一個「根」Entity 底下，才會拼成完整場景。
+  // 水平校正（applyEntityTilt）套用在這個根 Entity 上，這樣不管有幾塊 tile，
+  // 只要轉一次就全部一起轉，不用每塊各自轉一次。
+  gsplatEntity = new pc.Entity('gsplat-root')
+  app.root.addChild(gsplatEntity)
+  applyEntityTilt() // 用目前 tiltForm（已經在下面載入這顆模型存的值）套用旋轉，套在根節點上
+
+  // 向下相容：舊資料如果 API 還沒更新、只給了單一 entryFile 字串，包成單筆清單繼續用
+  const entryFiles = (model.entryFiles && model.entryFiles.length)
+    ? model.entryFiles
+    : (model.entryFile ? [model.entryFile] : [])
+
+  if (entryFiles.length === 0) {
+    showToast('這顆模型沒有可用的進入點檔案')
+    app.start()
+    return
+  }
+
+  entryFiles.forEach((entryPath, idx) => {
+    const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${model.id}/${entryPath}`)
+    const asset = new pc.Asset(`${model.name || 'gsplat'}-tile-${idx}`, 'gsplat', { url: contentUrl })
+    app.assets.add(asset)
+    asset.once('load', () => {
+      const tileEntity = new pc.Entity(`gsplat-tile-${idx}`)
+      tileEntity.addComponent('gsplat', { asset })
+      if (isTouchDevice.value && tileEntity.gsplat) {
+        // 手機跳過最細緻那一階 LOD，犧牲一點細節換效能，不然大場景在手機上容易卡
+        tileEntity.gsplat.lodRangeMin = 1
+      }
+      gsplatEntity.addChild(tileEntity)
+    })
+    asset.once('error', (err) => showToast(`第 ${idx + 1}/${entryFiles.length} 塊模型載入失敗：${err}`))
+    app.assets.load(asset)
   })
-  asset.once('error', (err) => showToast(`模型載入失敗：${err}`))
-  app.assets.load(asset)
 
   app.start()
 }
@@ -709,14 +757,18 @@ const formatSize = (bytes) => {
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-            ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-              d="M4 7l8-4 8 4M4 7v10l8 4m-8-14l8 4m0 10l8-4V7m-8 14V11m8-4l-8 4"
-            /></svg>
-            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-              <span class="opacity-0 group-hover:opacity-100 text-white text-xs font-medium transition-opacity">點擊瀏覽</span>
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M4 7l8-4 8 4M4 7v10l8 4m-8-14l8 4m0 10l8-4V7m-8 14V11m8-4l-8 4"
+              />
+            </svg>
+            <div
+              class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+              <span
+                class="opacity-0 group-hover:opacity-100 text-white text-xs font-medium transition-opacity">點擊瀏覽</span>
             </div>
           </div>
           <div class="p-3">
@@ -761,7 +813,8 @@ const formatSize = (bytes) => {
         v-if="uploadModal.show"
         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
       >
-        <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <div
+          class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-bold text-base-c">
               上傳高斯模型
@@ -775,12 +828,14 @@ const formatSize = (bytes) => {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
-              ><path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              /></svg>
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           </div>
 
@@ -845,7 +900,7 @@ const formatSize = (bytes) => {
             v-if="uploading"
             class="mt-3 flex items-center gap-2 text-sm text-hint-c"
           >
-            <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
+            <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"/>
             {{ uploadProgress }}
           </div>
 
@@ -882,9 +937,15 @@ const formatSize = (bytes) => {
             </button>
             <button
               class="text-white/80 hover:text-white text-[11px] sm:text-xs border border-white/30 rounded-lg px-2 sm:px-2.5 py-1"
-              @click="tiltPanelOpen = !tiltPanelOpen"
+              @click="tiltPanelOpen = !tiltPanelOpen; if (tiltPanelOpen) speedPanelOpen = false"
             >
               {{ tiltPanelOpen ? '收起水平校正' : '校正水平' }}
+            </button>
+            <button
+              class="text-white/80 hover:text-white text-[11px] sm:text-xs border border-white/30 rounded-lg px-2 sm:px-2.5 py-1"
+              @click="speedPanelOpen = !speedPanelOpen; if (speedPanelOpen) tiltPanelOpen = false"
+            >
+              {{ speedPanelOpen ? '收起移動速度' : '移動速度' }}
             </button>
             <button
               class="text-white/80 hover:text-white p-1"
@@ -895,12 +956,14 @@ const formatSize = (bytes) => {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
-              ><path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              /></svg>
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           </div>
         </div>
@@ -999,6 +1062,44 @@ const formatSize = (bytes) => {
               {{ savingTilt ? '儲存中…' : '存成預設校正' }}
             </button>
           </div>
+
+          <div
+            v-if="speedPanelOpen"
+            class="absolute top-3 right-3 bg-black/85 text-white text-xs rounded-xl p-3 w-60 max-w-[calc(100vw-1.5rem)] space-y-2 backdrop-blur"
+          >
+            <p class="font-semibold text-sm mb-1">
+              移動速度倍率
+            </p>
+            <p class="opacity-60 leading-relaxed">
+              走位／平移／滾輪縮放共用，拖曳後即時套用；1 代表維持模型大小自動估算的預設速度
+            </p>
+
+            <div class="flex items-center gap-2">
+              <input
+                v-model.number="moveSpeed"
+                type="range"
+                min="0.1"
+                max="5"
+                step="0.1"
+                class="flex-1"
+              >
+              <input
+                v-model.number="moveSpeed"
+                type="number"
+                min="0.1"
+                step="0.1"
+                class="w-14 px-1 py-0.5 rounded bg-white/10 border border-white/20 text-white"
+              >
+            </div>
+
+            <button
+              class="w-full mt-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 rounded-lg font-medium disabled:opacity-50"
+              :disabled="savingSpeed"
+              @click="saveSpeedAsDefault"
+            >
+              {{ savingSpeed ? '儲存中…' : '存成預設速度' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1021,6 +1122,7 @@ const formatSize = (bytes) => {
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s, transform 0.3s;
 }
+
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
   transform: translateY(8px);

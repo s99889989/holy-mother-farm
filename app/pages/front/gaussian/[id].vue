@@ -49,6 +49,10 @@ let pressedKeys = new Set()
 const touchMove = reactive({ x: 0, z: 0 })
 let joystickPointerId = null
 
+// 移動速度倍率：用這顆模型存的值（後台管理頁調好存的），公開頁不給訪客再調整，
+// 維持體驗一致，避免被調到過快/過慢反而變差
+const moveSpeed = ref(1)
+
 const ZUP_TO_YUP_EULER = [-90, 0, 0]
 const applyZupToYup = (x, y, z) => [x, z, -y]
 
@@ -107,11 +111,11 @@ const attachOrbitControls = (canvas) => {
         const newDist = dist(pts[0], pts[1])
         const newMid = mid(pts[0], pts[1])
         if (pinchStartDist > 1) {
-          const dollySpeed = orbitState.moveScale * 0.6
+          const dollySpeed = orbitState.moveScale * 0.6 * moveSpeed.value
           orbitState.position.add(cameraEntity.forward.clone().mulScalar((newDist - pinchStartDist) / pinchStartDist * dollySpeed))
           pinchStartDist = newDist
         }
-        const panSpeed = orbitState.moveScale * 0.0025
+        const panSpeed = orbitState.moveScale * 0.0025 * moveSpeed.value
         const right = cameraEntity.right
         const up = cameraEntity.up
         orbitState.position.sub(right.clone().mulScalar(-(newMid.x - pinchMidX) * panSpeed))
@@ -133,7 +137,7 @@ const attachOrbitControls = (canvas) => {
       orbitState.yaw -= dx * 0.005
       orbitState.pitch = Math.max(-1.5, Math.min(1.5, orbitState.pitch - dy * 0.005))
     } else if (mode === 'pan') {
-      const panSpeed = orbitState.moveScale * 0.0025
+      const panSpeed = orbitState.moveScale * 0.0025 * moveSpeed.value
       const right = cameraEntity.right
       const up = cameraEntity.up
       orbitState.position.sub(right.clone().mulScalar(-dx * panSpeed))
@@ -161,7 +165,7 @@ const attachOrbitControls = (canvas) => {
   const onWheel = (e) => {
     if (!orbitState || !cameraEntity) return
     e.preventDefault()
-    const dollySpeed = orbitState.moveScale * 0.15
+    const dollySpeed = orbitState.moveScale * 0.15 * moveSpeed.value
     orbitState.position.add(cameraEntity.forward.clone().mulScalar(-e.deltaY * 0.001 * dollySpeed))
     updateCameraFromOrbit()
   }
@@ -225,7 +229,7 @@ const attachKeyboardControls = (app) => {
     tmpRight.copy(cameraEntity.right); tmpRight.y = 0
     if (tmpRight.lengthSq() > 1e-6) tmpRight.normalize()
 
-    let speed = orbitState.moveScale * 1.2
+    let speed = orbitState.moveScale * 1.2 * moveSpeed.value
     if (pressedKeys.has('ControlLeft') || pressedKeys.has('ControlRight')) speed *= 2.5
 
     tmpMove.set(0, 0, 0)
@@ -306,6 +310,11 @@ const initViewer = async () => {
   app.root.addChild(cameraEntity)
 
   const m = model.value
+
+  // 讀取這顆模型存的移動速度倍率（沒存過、或存壞了就退回 1 倍，不調整）
+  const savedSpeed = Number(m.moveSpeed)
+  moveSpeed.value = (m.moveSpeed && Number.isFinite(savedSpeed) && savedSpeed > 0) ? savedSpeed : 1
+
   if (m.cameraPosition && m.cameraTarget) {
     const [px, py, pz] = m.cameraPosition.split(',').map(Number)
     const [tx, ty, tz] = m.cameraTarget.split(',').map(Number)
@@ -334,26 +343,58 @@ const initViewer = async () => {
   detachOrbitControls = attachOrbitControls(canvas)
   detachKeyboardControls = attachKeyboardControls(app)
 
-  const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${m.id}/${m.entryFile}`)
-  const asset = new pc.Asset(m.name || 'gsplat', 'gsplat', { url: contentUrl })
-  app.assets.add(asset)
-  asset.once('load', () => {
-    gsplatEntity = new pc.Entity('gsplat')
-    gsplatEntity.addComponent('gsplat', { asset })
-    const [tx, ty, tz] = (m.tiltOffset ? m.tiltOffset.split(',').map(Number) : [0, 0, 0])
-    gsplatEntity.setLocalEulerAngles(
-      ZUP_TO_YUP_EULER[0] + (Number.isFinite(tx) ? tx : 0),
-      ZUP_TO_YUP_EULER[1] + (Number.isFinite(ty) ? ty : 0),
-      ZUP_TO_YUP_EULER[2] + (Number.isFinite(tz) ? tz : 0)
-    )
-    app.root.addChild(gsplatEntity)
+  // 場景可能被重建工具切成多個 MipTile（每個各自是一棵完整獨立的 LOD tree，
+  // 只描述場景的一部分），entryFiles 是清單，每一份都要各自建一個 gsplat Entity，
+  // 全部疊在同一個「根」Entity 底下，才會拼成完整場景。
+  // 水平校正套用在這個根 Entity 上，不管有幾塊 tile 都只轉一次。
+  gsplatEntity = new pc.Entity('gsplat-root')
+  const [tx, ty, tz] = (m.tiltOffset ? m.tiltOffset.split(',').map(Number) : [0, 0, 0])
+  gsplatEntity.setLocalEulerAngles(
+    ZUP_TO_YUP_EULER[0] + (Number.isFinite(tx) ? tx : 0),
+    ZUP_TO_YUP_EULER[1] + (Number.isFinite(ty) ? ty : 0),
+    ZUP_TO_YUP_EULER[2] + (Number.isFinite(tz) ? tz : 0)
+  )
+  app.root.addChild(gsplatEntity)
+
+  // 向下相容：舊資料如果 API 還沒更新、只給了單一 entryFile 字串，包成單筆清單繼續用
+  const entryFiles = (m.entryFiles && m.entryFiles.length)
+    ? m.entryFiles
+    : (m.entryFile ? [m.entryFile] : [])
+
+  if (entryFiles.length === 0) {
+    loadError.value = '這顆模型沒有可用的進入點檔案'
     isLoading.value = false
+    app.start()
+    return
+  }
+
+  let loadedTiles = 0
+  let erroredTiles = 0
+  entryFiles.forEach((entryPath, idx) => {
+    const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${m.id}/${entryPath}`)
+    const asset = new pc.Asset(`${m.name || 'gsplat'}-tile-${idx}`, 'gsplat', { url: contentUrl })
+    app.assets.add(asset)
+    asset.once('load', () => {
+      const tileEntity = new pc.Entity(`gsplat-tile-${idx}`)
+      tileEntity.addComponent('gsplat', { asset })
+      if (isTouchDevice.value && tileEntity.gsplat) {
+        // 手機跳過最細緻那一階 LOD，犧牲一點細節換效能，不然大場景在手機上容易卡
+        tileEntity.gsplat.lodRangeMin = 1
+      }
+      gsplatEntity.addChild(tileEntity)
+      loadedTiles++
+      if (loadedTiles + erroredTiles === entryFiles.length) isLoading.value = false
+    })
+    asset.once('error', (err) => {
+      erroredTiles++
+      console.error(`第 ${idx + 1}/${entryFiles.length} 塊模型載入失敗：`, err)
+      if (loadedTiles === 0 && erroredTiles === entryFiles.length) {
+        loadError.value = `模型載入失敗：${err}`
+      }
+      if (loadedTiles + erroredTiles === entryFiles.length) isLoading.value = false
+    })
+    app.assets.load(asset)
   })
-  asset.once('error', (err) => {
-    loadError.value = `模型載入失敗：${err}`
-    isLoading.value = false
-  })
-  app.assets.load(asset)
 
   app.start()
 }
