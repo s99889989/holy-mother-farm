@@ -659,7 +659,7 @@ const formatSize = (bytes) => {
     <div class="p-4 sm:p-6 max-w-6xl mx-auto">
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-base-c">
-          高斯潑灑模型（3D 導覽）
+          高斯潑濺模型（3D 導覽）
         </h1>
         <button
           class="px-4 py-2 text-sm bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors font-medium"
