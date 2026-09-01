@@ -1015,6 +1015,7 @@ const formatSize = (bytes) => {
   </ClientOnly>
 </template>
 
+
 <style scoped>
 @use '~/assets/scs/main' as *;
 .fade-enter-active, .fade-leave-active {
