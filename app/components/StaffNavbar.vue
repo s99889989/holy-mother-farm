@@ -140,6 +140,14 @@
   const PERM_RETRY_INTERVAL_MS = 6000
   let permRetryTimer = null
 
+  // my-perms 就算 customerId 是 null 也能靠 cookie 成功打到（前幾輪除錯資訊
+  // 已經證實過這件事），所以重試機制不需要「一定要有 customer.value」這個
+  // 前提——這個前提原本是想避免對「真的沒登入」的訪客白費力氣重試，但它
+  // 剛好會卡住我們一直在追的那個情境：customer 是 null、但 session/perms
+  // 其實還有機會透過重試恢復。拿掉這個限制，讓「立即重新載入」按鈕跟背景
+  // 重試迴圈不管 customer 是不是 null 都會確實動作。
+  const currentCustomerId = () => (customer.value ? customer.value.id : null)
+
   const stopPermRetryLoop = () => {
     if (permRetryTimer) {
       clearInterval(permRetryTimer)
@@ -150,18 +158,17 @@
   const startPermRetryLoop = () => {
     if (permRetryTimer) return // 已經在跑了，不重複啟動
     permRetryTimer = setInterval(() => {
-      if (!customer.value || hasPerms.value) {
+      if (hasPerms.value) {
         stopPermRetryLoop()
         return
       }
-      permStore.load(customer.value.id, commonStore.data.main_url, true)
+      permStore.load(currentCustomerId(), commonStore.data.main_url, true)
     }, PERM_RETRY_INTERVAL_MS)
   }
 
   const ensurePermsLoaded = async () => {
-    if (!customer.value) return
     if (hasPerms.value) return
-    await permStore.load(customer.value.id, commonStore.data.main_url, true)
+    await permStore.load(currentCustomerId(), commonStore.data.main_url, true)
     if (!hasPerms.value) {
       // 這次補拉還是空的：啟動背景重試迴圈，持續打到成功為止
       startPermRetryLoop()
@@ -170,8 +177,7 @@
 
   // 讓使用者在畫面上能主動戳一下重試，不用乾等背景迴圈的下一次間隔
   const manualRetryPerms = () => {
-    if (!customer.value) return
-    permStore.load(customer.value.id, commonStore.data.main_url, true)
+    permStore.load(currentCustomerId(), commonStore.data.main_url, true)
     startPermRetryLoop()
   }
 
@@ -185,16 +191,15 @@
       stopPermRetryLoop()
       return
     }
-    if (!customer.value) return
     // 立刻補拉一次，不用等下一次 6 秒的重試間隔才有動作
-    permStore.load(customer.value.id, commonStore.data.main_url, true)
+    permStore.load(currentCustomerId(), commonStore.data.main_url, true)
     startPermRetryLoop()
   })
 
   watch(customer, (val) => {
     // 換人登入/登出時，先停掉舊的重試迴圈，重新檢查一次
     stopPermRetryLoop()
-    if (val) ensurePermsLoaded()
+    ensurePermsLoaded()
   })
 
   // key 可以是單一字串（沿用原本邏輯），也可以是字串陣列（例如 POS 系統入口）——
