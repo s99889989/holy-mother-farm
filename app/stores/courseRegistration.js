@@ -7,16 +7,16 @@ import { defineStore } from 'pinia'
 
 export const useCourseRegistrationStore = defineStore('courseRegistration', {
   state: () => ({
-    courses: [],        // 後台：課程列表（含完整 registrations）
+    courses: [], // 後台：課程列表（含完整 registrations）
     currentCourse: null, // 後台：單一課程管理頁使用
-    publicCourse: null,  // 前台：公開報名頁使用
+    publicCourse: null, // 前台：公開報名頁使用
     myRegistrations: [],
-    seriesStats: []      // 後台：KPI 儀表板，某課程名稱底下所有梯次的統計，依報名截止日排序
+    seriesStats: [] // 後台：KPI 儀表板，某課程名稱底下所有梯次的統計，依報名截止日排序
   }),
 
   getters: {
-    totalRegistered: (state) => state.currentCourse?.registrations?.length ?? 0,
-    pickedCount: (state) =>
+    totalRegistered: state => state.currentCourse?.registrations?.length ?? 0,
+    pickedCount: state =>
       state.currentCourse?.registrations?.filter(r => r.picked).length ?? 0
   },
 
@@ -35,12 +35,12 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
       const res = await fetch(`${this._base()}/get/${id}`, { credentials: 'include' })
       this.currentCourse = await res.json()
     },
-    async addCourse(name, description = '') {
+    async addCourse(name, description = '', catalogId = '') {
       const res = await fetch(`${this._base()}/add`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({ name, description, catalogId })
       })
       const id = await res.text()
       await this.fetchCourses()
@@ -81,6 +81,23 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requireLogin })
+      })
+    },
+    // 連結／取消連結課程管理（catalogId 傳空字串代表取消連結）
+    async updateCatalogLink(id, catalogId) {
+      await fetch(`${this._base()}/${id}/catalog`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ catalogId })
+      })
+    },
+    async updateCoach(id, coach) {
+      await fetch(`${this._base()}/${id}/coach`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coach })
       })
     },
     async updatePaymentSettings(id, paymentEnabled, paymentInfo) {
@@ -267,9 +284,14 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
     },
 
     // ── 客源與續約 KPI 儀表板 ────────────────────────────────
-    // name: 課程名稱（同一系列課程假設每梯次用完全一樣的名稱）
+    // name: 課程名稱（同一系列課程假設每梯次用完全一樣的名稱；沒有 catalogId 的舊資料用這支）
     async fetchSeriesStats(name) {
       const res = await fetch(`${this._base()}/stats-by-name/${encodeURIComponent(name)}`, { credentials: 'include' })
+      this.seriesStats = await res.json()
+    },
+    // catalogId：從課程管理選課建立的報名表都會有，分組比用名稱可靠，優先用這支
+    async fetchSeriesStatsByCatalog(catalogId) {
+      const res = await fetch(`${this._base()}/stats-by-catalog/${catalogId}`, { credentials: 'include' })
       this.seriesStats = await res.json()
     }
   }

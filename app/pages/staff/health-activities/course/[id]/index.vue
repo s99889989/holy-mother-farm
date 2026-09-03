@@ -1,6 +1,7 @@
 <script setup>
-// 專案holy-mother-farm 位置staff/management/course/[id]/index.vue
+// 專案holy-mother-farm 位置staff/health-activities/course/[id]/index.vue
 import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import { useCourseCatalogStore } from '~/stores/courseCatalog.js'
 
 definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.course' })
 
@@ -14,6 +15,7 @@ const imgUrl = (path) => {
 const route = useRoute()
 const courseId = route.params.id
 const store = useCourseRegistrationStore()
+const catalogStore = useCourseCatalogStore()
 
 const loading = ref(true)
 const saving = ref(false)
@@ -34,6 +36,20 @@ const requireLoginInput = ref(true)
 const fieldsDraft = ref([])
 const coverUploading = ref(false)
 
+// ── 課程管理連結 ─────────────────────────────────────────────
+const catalogIdInput = ref('')
+const coachInput = ref('')
+// 選了課程管理項目之後按這個才會把名稱/內容/教師覆蓋到左邊的草稿，
+// 不會選了就自動蓋掉已經填好的內容，要按了才生效、還要再按「儲存基本資訊」才真的存檔
+const applyCatalogContent = () => {
+  const c = catalogStore.catalogs.find(x => x.id === catalogIdInput.value)
+  if (!c) return
+  nameInput.value = c.name
+  descriptionInput.value = c.content
+  coachInput.value = c.coach
+  showToast('已套用課程管理內容，記得按「儲存基本資訊」')
+}
+
 // ── 繳費設定（人工核對版）────────────────────────────────────
 const paymentEnabledInput = ref(false)
 const paymentInfoInput = ref('')
@@ -53,13 +69,15 @@ const autoGrow = (el) => {
 
 onMounted(async () => {
   loading.value = true
-  await store.fetchCourse(courseId)
+  await Promise.all([store.fetchCourse(courseId), catalogStore.fetchCatalogs()])
   const c = store.currentCourse
   nameInput.value = c?.name ?? ''
   descriptionInput.value = c?.description ?? ''
   deadlineInput.value = (c?.registrationDeadline ?? '').replace(' ', 'T')
   capacityInput.value = c?.maxCapacity ?? 0
   requireLoginInput.value = c?.requireLogin ?? true
+  catalogIdInput.value = c?.catalogId ?? ''
+  coachInput.value = c?.coach ?? ''
   paymentEnabledInput.value = c?.paymentEnabled ?? false
   paymentInfoInput.value = c?.paymentInfo ?? ''
   priceOptionsDraft.value = JSON.parse(JSON.stringify(c?.priceOptions ?? []))
@@ -79,6 +97,8 @@ const saveInfo = async () => {
     await store.updateDeadline(courseId, deadline)
     await store.updateCapacity(courseId, capacityInput.value)
     await store.updateRequireLogin(courseId, requireLoginInput.value)
+    await store.updateCatalogLink(courseId, catalogIdInput.value)
+    await store.updateCoach(courseId, coachInput.value)
     await store.fetchCourse(courseId)
     showToast('已儲存')
   } catch {
@@ -361,9 +381,44 @@ const saveFields = async () => {
               <label
                 class="block text-xs mb-1"
                 style="color: var(--text-hint)"
+              >課程管理連結（選填）</label>
+              <div class="flex gap-2 mb-3">
+                <select
+                  v-model="catalogIdInput"
+                  class="flex-1 border rounded-lg px-3 py-2"
+                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                >
+                  <option value="">不連結</option>
+                  <option v-for="c in catalogStore.catalogs" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+                <button
+                  v-if="catalogIdInput"
+                  type="button"
+                  class="text-xs px-3 rounded-lg border whitespace-nowrap"
+                  style="border-color: var(--border-light); color: var(--accent)"
+                  @click="applyCatalogContent"
+                >
+                  套用內容
+                </button>
+              </div>
+
+              <label
+                class="block text-xs mb-1"
+                style="color: var(--text-hint)"
               >課程名稱</label>
               <input
                 v-model="nameInput"
+                type="text"
+                class="w-full border rounded-lg px-3 py-2 mb-3"
+                style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+              >
+
+              <label
+                class="block text-xs mb-1"
+                style="color: var(--text-hint)"
+              >教師</label>
+              <input
+                v-model="coachInput"
                 type="text"
                 class="w-full border rounded-lg px-3 py-2 mb-3"
                 style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"

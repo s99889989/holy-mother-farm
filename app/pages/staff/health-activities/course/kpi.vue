@@ -9,43 +9,52 @@
 // ⚠️ 「同一系列課程」的判斷方式是「名稱完全一樣」，假設你們同一堂課每個月
 // 重開新的 CourseRegistration 時名稱不變（只有報名截止日不同）。如果實際
 // 命名方式不同（例如梯次名稱會帶月份），這裡的分組跟續約率會不準。
-import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import {useCourseRegistrationStore} from '~/stores/courseRegistration.js'
 
-definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.course' })
+definePageMeta({layout: 'staff', requiredPermission: 'health-activities.course'})
 
 const store = useCourseRegistrationStore()
 const loading = ref(true)
 const statsLoading = ref(false)
-const selectedName = ref('')
+const selectedKey = ref('') // "cat:<catalogId>" 或 "name:<name>"（沒有 catalogId 的舊課程）
 
 onMounted(async () => {
   loading.value = true
   await store.fetchCourses()
   loading.value = false
-  if (courseNames.value.length) {
-    selectedName.value = courseNames.value[0]
+  if (seriesOptions.value.length) {
+    selectedKey.value = seriesOptions.value[0].key
   }
 })
 
-const courseNames = computed(() => {
+// 優先用 catalogId 分組（從課程管理選課建立的都會有，最準）；沒有 catalogId 的
+// 舊課程才退回用名稱分組（跟後端 seriesMatching 的邏輯一致）
+const seriesOptions = computed(() => {
   const seen = new Set()
-  const names = []
+  const options = []
   for (const c of store.courses) {
-    if (!seen.has(c.name)) { seen.add(c.name); names.push(c.name) }
+    const key = c.catalogId ? `cat:${c.catalogId}` : `name:${c.name}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    options.push({key, label: c.name + (c.catalogId ? '' : '（未連結課程管理）')})
   }
-  return names
+  return options
 })
 
 const loadStats = async () => {
-  if (!selectedName.value) return
+  if (!selectedKey.value) return
   statsLoading.value = true
   try {
-    await store.fetchSeriesStats(selectedName.value)
+    if (selectedKey.value.startsWith('cat:')) {
+      await store.fetchSeriesStatsByCatalog(selectedKey.value.slice(4))
+    } else {
+      await store.fetchSeriesStats(selectedKey.value.slice(5))
+    }
   } finally {
     statsLoading.value = false
   }
 }
-watch(selectedName, loadStats)
+watch(selectedKey, loadStats)
 
 const series = computed(() => store.seriesStats || [])
 const latest = computed(() => series.value.length ? series.value[series.value.length - 1] : null)
@@ -91,11 +100,11 @@ const sourceColor = (source, index) => {
           <p class="text-sm mt-1" style="color: var(--text-hint)">依課程名稱彙整每梯次的報名/續約/客源數據</p>
         </div>
         <select
-          v-model="selectedName"
+          v-model="selectedKey"
           class="border rounded-lg px-3 py-2 text-sm min-w-[180px]"
           style="border-color: var(--border-light); background: var(--surface); color: var(--text-base)"
         >
-          <option v-for="n in courseNames" :key="n" :value="n">{{ n }}</option>
+          <option v-for="o in seriesOptions" :key="o.key" :value="o.key">{{ o.label }}</option>
         </select>
       </div>
 
@@ -120,7 +129,8 @@ const sourceColor = (source, index) => {
           <div class="rounded-2xl border p-4" style="border-color: var(--border-light); background: var(--surface)">
             <div class="text-xs mb-1" style="color: var(--text-hint)">續約率</div>
             <div class="text-2xl font-bold" style="color: var(--text-base)">
-              {{ renewalRate(latest) ?? '—' }}<span v-if="renewalRate(latest) !== null" class="text-sm font-normal">%</span>
+              {{ renewalRate(latest) ?? '—' }}<span v-if="renewalRate(latest) !== null"
+                                                    class="text-sm font-normal">%</span>
             </div>
             <div class="text-xs mt-0.5" style="color: var(--text-hint)">
               續約 {{ latest.renewedCount }}／未續約 {{ latest.notRenewedCount }}／單次 {{ latest.singleCount }}
@@ -129,7 +139,8 @@ const sourceColor = (source, index) => {
           <div class="rounded-2xl border p-4" style="border-color: var(--border-light); background: var(--surface)">
             <div class="text-xs mb-1" style="color: var(--text-hint)">院內占比</div>
             <div class="text-2xl font-bold" style="color: var(--text-base)">
-              {{ insiderRate(latest) ?? '—' }}<span v-if="insiderRate(latest) !== null" class="text-sm font-normal">%</span>
+              {{ insiderRate(latest) ?? '—' }}<span v-if="insiderRate(latest) !== null"
+                                                    class="text-sm font-normal">%</span>
             </div>
             <div class="text-xs mt-0.5" style="color: var(--text-hint)">
               院內 {{ latest.insiderCount }}／院外 {{ latest.outsiderCount }}
@@ -150,41 +161,46 @@ const sourceColor = (source, index) => {
         <div class="rounded-2xl border p-4 mb-6" style="border-color: var(--border-light); background: var(--surface)">
           <div class="text-sm font-medium mb-3" style="color: var(--text-muted)">各梯次報名人數</div>
           <div class="flex items-end gap-3 h-32">
-            <div v-for="row in series" :key="row.courseId" class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div v-for="row in series" :key="row.courseId"
+                 class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
               <div class="text-[11px]" style="color: var(--text-hint)">{{ row.registeredCount }}</div>
-              <div class="w-full rounded-t-md" :style="{ height: barHeight(row.registeredCount), background: 'var(--accent)', minHeight: '6px' }" />
+              <div class="w-full rounded-t-md"
+                   :style="{ height: barHeight(row.registeredCount), background: 'var(--accent)', minHeight: '6px' }"/>
               <div class="text-[10px]" style="color: var(--text-hint)">{{ shortDate(row.registrationDeadline) }}</div>
             </div>
           </div>
         </div>
 
         <!-- 詳細表格 -->
-        <div class="rounded-2xl border overflow-x-auto" style="border-color: var(--border-light); background: var(--surface)">
+        <div class="rounded-2xl border overflow-x-auto"
+             style="border-color: var(--border-light); background: var(--surface)">
           <table class="w-full text-sm">
             <thead>
-              <tr style="border-bottom: 1px solid var(--border-light)">
-                <th class="text-left px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">截止日</th>
-                <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">報名/名額</th>
-                <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">續約率</th>
-                <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">院內占比</th>
-                <th class="text-left px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">客源分布</th>
-                <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">已收金額</th>
-              </tr>
+            <tr style="border-bottom: 1px solid var(--border-light)">
+              <th class="text-left px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">截止日</th>
+              <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">報名/名額</th>
+              <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">續約率</th>
+              <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">院內占比</th>
+              <th class="text-left px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">客源分布</th>
+              <th class="text-right px-3 py-2 whitespace-nowrap" style="color: var(--text-hint)">已收金額</th>
+            </tr>
             </thead>
             <tbody>
-              <tr v-for="row in series" :key="row.courseId" style="border-bottom: 1px solid var(--border-light)">
-                <td class="px-3 py-2 whitespace-nowrap" style="color: var(--text-base)">{{ shortDate(row.registrationDeadline) }}</td>
-                <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
-                  {{ row.registeredCount }}<span style="color: var(--text-hint)">/{{ row.maxCapacity || '∞' }}</span>
-                </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
-                  {{ renewalRate(row) ?? '—' }}<span v-if="renewalRate(row) !== null">%</span>
-                </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
-                  {{ insiderRate(row) ?? '—' }}<span v-if="insiderRate(row) !== null">%</span>
-                </td>
-                <td class="px-3 py-2">
-                  <div class="flex flex-wrap gap-1">
+            <tr v-for="row in series" :key="row.courseId" style="border-bottom: 1px solid var(--border-light)">
+              <td class="px-3 py-2 whitespace-nowrap" style="color: var(--text-base)">
+                {{ shortDate(row.registrationDeadline) }}
+              </td>
+              <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
+                {{ row.registeredCount }}<span style="color: var(--text-hint)">/{{ row.maxCapacity || '∞' }}</span>
+              </td>
+              <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
+                {{ renewalRate(row) ?? '—' }}<span v-if="renewalRate(row) !== null">%</span>
+              </td>
+              <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
+                {{ insiderRate(row) ?? '—' }}<span v-if="insiderRate(row) !== null">%</span>
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex flex-wrap gap-1">
                     <span
                       v-for="([source, count], i) in Object.entries(row.sourceBreakdown || {})"
                       :key="source"
@@ -193,13 +209,14 @@ const sourceColor = (source, index) => {
                     >
                       {{ source }} {{ count }}
                     </span>
-                    <span v-if="!Object.keys(row.sourceBreakdown || {}).length" class="text-[11px]" style="color: var(--text-hint)">—</span>
-                  </div>
-                </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
-                  {{ row.paidAmountSum ? `$${row.paidAmountSum}` : '—' }}
-                </td>
-              </tr>
+                  <span v-if="!Object.keys(row.sourceBreakdown || {}).length" class="text-[11px]"
+                        style="color: var(--text-hint)">—</span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-right whitespace-nowrap" style="color: var(--text-base)">
+                {{ row.paidAmountSum ? `$${row.paidAmountSum}` : '—' }}
+              </td>
+            </tr>
             </tbody>
           </table>
         </div>

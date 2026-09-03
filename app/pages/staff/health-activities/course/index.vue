@@ -1,6 +1,7 @@
 <script setup>
 // 專案holy-mother-farm 位置staff/health-activities/course/index.vue
 import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
+import { useCourseCatalogStore } from '~/stores/courseCatalog.js'
 
 definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.course' })
 
@@ -22,11 +23,12 @@ const copyShareLink = async (course) => {
 }
 
 const store = useCourseRegistrationStore()
+const catalogStore = useCourseCatalogStore()
 const loading = ref(false)
 const saving = ref(false)
 const toast = reactive({ show: false, message: '', error: false })
 const modal = reactive({ show: false })
-const form = reactive({ name: '' })
+const form = reactive({ name: '', catalogId: '' })
 const showDeleteConfirm = ref(false)
 const deleteTarget = reactive({ id: '', name: '' })
 
@@ -37,13 +39,19 @@ const showToast = (msg, error = false) => {
 
 onMounted(async () => {
   loading.value = true
-  await store.fetchCourses()
+  await Promise.all([store.fetchCourses(), catalogStore.fetchCatalogs()])
   loading.value = false
 })
 
 const openAdd = () => {
   form.name = ''
+  form.catalogId = ''
   modal.show = true
+}
+// 選了課程管理的項目就自動帶入名稱（可以再手動改），沒選就是臨時單次課程
+const onPickCatalog = () => {
+  const c = catalogStore.catalogs.find(c => c.id === form.catalogId)
+  if (c) form.name = c.name
 }
 const save = async () => {
   if (!form.name.trim()) {
@@ -52,7 +60,7 @@ const save = async () => {
   }
   saving.value = true
   try {
-    const id = await store.addCourse(form.name, '')
+    const id = await store.addCourse(form.name, '', form.catalogId)
     showToast('新增成功')
     modal.show = false
     await navigateTo(`/staff/health-activities/course/${id}`)
@@ -111,6 +119,13 @@ const capacityLabel = (course) => {
           </p>
         </div>
         <div class="flex gap-2">
+          <NuxtLink
+            to="/staff/health-activities/course/catalog"
+            class="px-4 py-2 rounded-lg text-sm font-medium border"
+            style="border-color: var(--border-light); color: var(--text-muted)"
+          >
+            📚 課程管理
+          </NuxtLink>
           <NuxtLink
             to="/staff/health-activities/course/schedule"
             class="px-4 py-2 rounded-lg text-sm font-medium border"
@@ -252,6 +267,18 @@ const capacityLabel = (course) => {
         >
           新增課程
         </h2>
+
+        <label class="block text-xs mb-1" style="color: var(--text-hint)">從課程管理選用（選填）</label>
+        <select
+          v-model="form.catalogId"
+          class="w-full border rounded-lg px-3 py-2 mb-3"
+          style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+          @change="onPickCatalog"
+        >
+          <option value="">不選用，手動輸入名稱</option>
+          <option v-for="c in catalogStore.catalogs" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+
         <input
           v-model="form.name"
           type="text"
