@@ -1,163 +1,163 @@
 <script setup>
-import ScHeader from '~/components/shopping-cart/ScHeader.vue'
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+  import ScHeader from '~/components/shopping-cart/ScHeader.vue'
+  import { ref, reactive, computed, watch, onMounted } from 'vue'
 
-// 這頁呼叫本專案自己的 server API route（server/api/shopping-cart/orders.get.ts），
-// 由該 route 帶著登入時取得的原網站 session，抓 admin_order.php 的 HTML 解析成 JSON。
-//
-// 原網站行為：依「狀態」篩選後，整批資料一次全部渲染出來，
-// 分頁/搜尋/排序都是原本 DataTables 在瀏覽器端處理的 —
-// 這裡照同樣邏輯：只有「狀態」改變時才重新呼叫 server route，
-// 搜尋/排序/分頁都在前端對拿到的完整清單做。
-definePageMeta({
-  layout: 'staff'
-})
-
-const statusOptions = [
-  {value: '0', label: '新訂單'},
-  {value: '1', label: '訂單成立'},
-  {value: '2', label: '備貨'},
-  {value: '3', label: '出貨'}
-]
-
-const filters = reactive({
-  status: '',
-  keyword: ''
-})
-
-const rawOrders = ref([])
-const loading = ref(false)
-const loadError = ref('')
-
-const page = ref(1)
-const pageSize = ref(10)
-
-const sortBy = ref('orderDate')
-const sortDir = ref('desc')
-
-async function fetchOrders() {
-  loading.value = true
-  loadError.value = ''
-  try {
-    const res = await $fetch('/api/shopping-cart/orders', {
-      query: {status: filters.status || undefined}
-    })
-    rawOrders.value = res.items ?? []
-  } catch (err) {
-    rawOrders.value = []
-    if (err?.statusCode === 401 || err?.response?.status === 401) {
-      await navigateTo('/staff/order/shopping-cart/login')
-      return
-    } else {
-      loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-const filteredOrders = computed(() => {
-  const keyword = filters.keyword.trim().toLowerCase()
-  let list = rawOrders.value
-  if (keyword) {
-    list = list.filter((o) =>
-      [o.orderNo, o.receiverName, o.buyerName, o.receiverAddress]
-        .join(' ')
-        .toLowerCase()
-        .includes(keyword)
-    )
-  }
-
-  const sorted = [...list].sort((a, b) => {
-    const va = a[sortBy.value] || ''
-    const vb = b[sortBy.value] || ''
-    if (va < vb) return sortDir.value === 'asc' ? -1 : 1
-    if (va > vb) return sortDir.value === 'asc' ? 1 : -1
-    return 0
+  // 這頁呼叫本專案自己的 server API route（server/api/shopping-cart/orders.get.ts），
+  // 由該 route 帶著登入時取得的原網站 session，抓 admin_order.php 的 HTML 解析成 JSON。
+  //
+  // 原網站行為：依「狀態」篩選後，整批資料一次全部渲染出來，
+  // 分頁/搜尋/排序都是原本 DataTables 在瀏覽器端處理的 —
+  // 這裡照同樣邏輯：只有「狀態」改變時才重新呼叫 server route，
+  // 搜尋/排序/分頁都在前端對拿到的完整清單做。
+  definePageMeta({
+    layout: 'staff'
   })
 
-  return sorted
-})
+  const statusOptions = [
+    {value: '0', label: '新訂單'},
+    {value: '1', label: '訂單成立'},
+    {value: '2', label: '備貨'},
+    {value: '3', label: '出貨'}
+  ]
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredOrders.value.length / pageSize.value))
-)
+  const filters = reactive({
+    status: '',
+    keyword: ''
+  })
 
-const pagedOrders = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  return filteredOrders.value.slice(start, start + pageSize.value)
-})
+  const rawOrders = ref([])
+  const loading = ref(false)
+  const loadError = ref('')
 
-const rangeStart = computed(() =>
-  filteredOrders.value.length === 0 ? 0 : (page.value - 1) * pageSize.value + 1
-)
-const rangeEnd = computed(() => Math.min(page.value * pageSize.value, filteredOrders.value.length))
+  const page = ref(1)
+  const pageSize = ref(10)
 
-const visiblePages = computed(() => {
-  const pages = []
-  const maxButtons = 5
-  let start = Math.max(1, page.value - Math.floor(maxButtons / 2))
-  const end = Math.min(totalPages.value, start + maxButtons - 1)
-  start = Math.max(1, end - maxButtons + 1)
-  for (let p = start; p <= end; p++) pages.push(p)
-  return pages
-})
+  const sortBy = ref('orderDate')
+  const sortDir = ref('desc')
 
-function statusBadgeClass(code) {
-  switch (code) {
-    case 0:
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
-    case 1:
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/30'
-    case 2:
-      return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200 dark:border-teal-800/30'
-    case 3:
-      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
-    default:
-      return 'bg-surface2 text-hint-c border border-light-c'
+  async function fetchOrders() {
+    loading.value = true
+    loadError.value = ''
+    try {
+      const res = await $fetch('/api/shopping-cart/orders', {
+        query: {status: filters.status || undefined}
+      })
+      rawOrders.value = res.items ?? []
+    } catch (err) {
+      rawOrders.value = []
+      if (err?.statusCode === 401 || err?.response?.status === 401) {
+        await navigateTo('/staff/order/shopping-cart/login')
+        return
+      } else {
+        loadError.value = err?.data?.statusMessage || '抓取原網站資料失敗，請稍後再試'
+      }
+    } finally {
+      loading.value = false
+    }
   }
-}
 
-function rowClass(order) {
-  return order.statusCode === 3 ? 'opacity-60' : ''
-}
+  const filteredOrders = computed(() => {
+    const keyword = filters.keyword.trim().toLowerCase()
+    let list = rawOrders.value
+    if (keyword) {
+      list = list.filter((o) =>
+        [o.orderNo, o.receiverName, o.buyerName, o.receiverAddress]
+          .join(' ')
+          .toLowerCase()
+          .includes(keyword)
+      )
+    }
 
-function sortIcon(column) {
-  if (sortBy.value !== column) return ''
-  return sortDir.value === 'asc' ? '▲' : '▼'
-}
+    const sorted = [...list].sort((a, b) => {
+      const va = a[sortBy.value] || ''
+      const vb = b[sortBy.value] || ''
+      if (va < vb) return sortDir.value === 'asc' ? -1 : 1
+      if (va > vb) return sortDir.value === 'asc' ? 1 : -1
+      return 0
+    })
 
-function toggleSort(column) {
-  if (sortBy.value === column) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortBy.value = column
-    sortDir.value = 'desc'
+    return sorted
+  })
+
+  const totalPages = computed(() =>
+    Math.max(1, Math.ceil(filteredOrders.value.length / pageSize.value))
+  )
+
+  const pagedOrders = computed(() => {
+    const start = (page.value - 1) * pageSize.value
+    return filteredOrders.value.slice(start, start + pageSize.value)
+  })
+
+  const rangeStart = computed(() =>
+    filteredOrders.value.length === 0 ? 0 : (page.value - 1) * pageSize.value + 1
+  )
+  const rangeEnd = computed(() => Math.min(page.value * pageSize.value, filteredOrders.value.length))
+
+  const visiblePages = computed(() => {
+    const pages = []
+    const maxButtons = 5
+    let start = Math.max(1, page.value - Math.floor(maxButtons / 2))
+    const end = Math.min(totalPages.value, start + maxButtons - 1)
+    start = Math.max(1, end - maxButtons + 1)
+    for (let p = start; p <= end; p++) pages.push(p)
+    return pages
+  })
+
+  function statusBadgeClass(code) {
+    switch (code) {
+      case 0:
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
+      case 1:
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/30'
+      case 2:
+        return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200 dark:border-teal-800/30'
+      case 3:
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
+      default:
+        return 'bg-surface2 text-hint-c border border-light-c'
+    }
   }
-}
 
-function onFilterChange() {
-  page.value = 1
-  fetchOrders()
-}
+  function rowClass(order) {
+    return order.statusCode === 3 ? 'opacity-60' : ''
+  }
 
-function onPageSizeChange() {
-  page.value = 1
-}
+  function sortIcon(column) {
+    if (sortBy.value !== column) return ''
+    return sortDir.value === 'asc' ? '▲' : '▼'
+  }
 
-function goToPage(p) {
-  if (p < 1 || p > totalPages.value || p === page.value) return
-  page.value = p
-}
+  function toggleSort(column) {
+    if (sortBy.value === column) {
+      sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+    } else {
+      sortBy.value = column
+      sortDir.value = 'desc'
+    }
+  }
 
-watch(
-  () => filters.keyword,
-  () => {
+  function onFilterChange() {
+    page.value = 1
+    fetchOrders()
+  }
+
+  function onPageSizeChange() {
     page.value = 1
   }
-)
 
-onMounted(fetchOrders)
+  function goToPage(p) {
+    if (p < 1 || p > totalPages.value || p === page.value) return
+    page.value = p
+  }
+
+  watch(
+    () => filters.keyword,
+    () => {
+      page.value = 1
+    }
+  )
+
+  onMounted(fetchOrders)
 </script>
 
 <template>
@@ -174,7 +174,7 @@ onMounted(fetchOrders)
       </template>
     </ScHeader>
 
-    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
+    <div class="w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
       <p v-if="loadError" class="text-red-600 dark:text-red-400 text-sm">
         {{ loadError }}
       </p>
