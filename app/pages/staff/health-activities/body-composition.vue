@@ -391,7 +391,8 @@ async function onDbFileChange(e: Event) {
 }
 
 // ── 進步排行 ──────────────────────────────────────────
-const PROGRESS_METRICS = [
+// 實際可計算差值的指標（用來算綜合評分，也是「單一指標」可選的項目）
+const REAL_METRICS = [
   { key: 'weight', label: '體重kg', better: 'down' },
   { key: 'bmi', label: 'BMI', better: 'down' },
   { key: 'fatp', label: '體脂率%', better: 'down' },
@@ -404,6 +405,12 @@ const PROGRESS_METRICS = [
   { key: 'metaage', label: '體內年齡', better: 'down' }
 ] as const
 
+// 「排行指標」下拉選單：綜合評分 + 各單項指標
+const PROGRESS_METRICS = [
+  { key: 'composite', label: '綜合評分（多指標平均）', better: 'up' },
+  ...REAL_METRICS
+] as const
+
 function toDateInputStr(d: Date) {
   return d.toISOString().slice(0, 10)
 }
@@ -414,7 +421,8 @@ threeMonthsAgoD.setMonth(threeMonthsAgoD.getMonth() - 3)
 const progressGroup = ref('') // 空字串＝全部班別
 const progressStart = ref(toDateInputStr(threeMonthsAgoD))
 const progressEnd = ref(toDateInputStr(todayD))
-const progressMetric = ref<string>('fatp')
+const progressMetric = ref<string>('composite')
+const progressView = ref<'chart' | 'table'>('chart') // 圖表／表格 二選一顯示
 const progressData = ref<any>(null)
 const progressLoading = ref(false)
 
@@ -435,11 +443,69 @@ async function loadProgress() {
 const currentMetricInfo = computed(() =>
   PROGRESS_METRICS.find(m => m.key === progressMetric.value) ?? PROGRESS_METRICS[0]
 )
+const isCompositeMetric = computed(() => progressMetric.value === 'composite')
+// 表格是否顯示「班別」欄：只有在沒篩選特定班別（顯示多個班別混在一起）時才需要
+const showGroupColumn = computed(() => !progressGroup.value)
 
-// 依所選指標排序：better === 'down' 時差值越負代表進步越多，反之越正代表進步越多
+// ── 綜合評分（多指標平均）──────────────────────────────
+// 做法：對每一項指標，先依「進步方向」把差值轉成「越大越好」的方向調整值，
+// 再用 min-max 正規化成 0~100 分（該指標在目前這批學生裡的相對名次高低），
+// 最後把每位學生「有資料的各指標分數」平均起來，得到一個 0~100 的綜合分數，
+// 分數越高代表在這段期間、這幾項指標綜合起來進步幅度越大（相對於同一批學生而言）。
+const compositeScores = computed(() => {
+  const rows: any[] = progressData.value?.rows ?? []
+  const scores = new Map<number, number>()
+  if (!rows.length) return scores
+
+  const perMetricNorm: Record<string, Map<number, number>> = {}
+  for (const m of REAL_METRICS) {
+    const adjusted: { patnr: number, v: number }[] = []
+    for (const r of rows) {
+      const d = r.delta?.[m.key]
+      if (d === null || d === undefined) continue
+      adjusted.push({ patnr: r.patnr, v: m.better === 'down' ? -d : d })
+    }
+    if (!adjusted.length) continue
+    const vals = adjusted.map(a => a.v)
+    const min = Math.min(...vals)
+    const max = Math.max(...vals)
+    const range = max - min
+    const norm = new Map<number, number>()
+    adjusted.forEach(a => norm.set(a.patnr, range === 0 ? 50 : ((a.v - min) / range) * 100))
+    perMetricNorm[m.key] = norm
+  }
+
+  for (const r of rows) {
+    let sum = 0, count = 0
+    for (const m of REAL_METRICS) {
+      const v = perMetricNorm[m.key]?.get(r.patnr)
+      if (v !== undefined) { sum += v; count++ }
+    }
+    if (count > 0) scores.set(r.patnr, Math.round((sum / count) * 10) / 10)
+  }
+  return scores
+})
+
+// 依所選指標排序：
+// - 選「綜合評分」：分數越高（0~100）代表綜合進步幅度越大
+// - 選單一指標：better === 'down' 時差值越負代表進步越多，反之越正代表進步越多
 const rankedProgress = computed(() => {
-  const metric = currentMetricInfo.value
   const rows = [...(progressData.value?.rows ?? [])]
+
+  if (isCompositeMetric.value) {
+    const scores = compositeScores.value
+    rows.sort((a: any, b: any) => {
+      const sa = scores.get(a.patnr)
+      const sb = scores.get(b.patnr)
+      if (sa === undefined && sb === undefined) return 0
+      if (sa === undefined) return 1
+      if (sb === undefined) return -1
+      return sb - sa
+    })
+    return rows
+  }
+
+  const metric = currentMetricInfo.value
   rows.sort((a: any, b: any) => {
     const da = a.delta?.[metric.key]
     const db = b.delta?.[metric.key]
@@ -465,6 +531,56 @@ function fmtDelta(v: number | null | undefined, digits = 1) {
   if (v === null || v === undefined) return '–'
   const sign = v > 0 ? '+' : ''
   return sign + v.toFixed(digits)
+}
+function fmtScore(v: number | undefined) {
+  return v === undefined ? '–' : v.toFixed(1)
+}
+function scoreClass(v: number | undefined) {
+  if (v === undefined) return 'text-hint-c'
+  if (v >= 60) return 'text-emerald-600 dark:text-emerald-400'
+  if (v <= 40) return 'text-rose-600 dark:text-rose-400'
+  return 'text-base-c'
+}
+
+// ── 進步排行圖表（水平長條圖，只取排序後前 20 名，避免圖表過長）──
+const PROGRESS_CHART_LIMIT = 20
+const progressChartRows = computed(() => rankedProgress.value.slice(0, PROGRESS_CHART_LIMIT))
+
+function chartValue(row: any): number {
+  if (isCompositeMetric.value) return compositeScores.value.get(row.patnr) ?? 0
+  const d = row.delta?.[progressMetric.value]
+  return d ?? 0
+}
+
+// 單一指標模式下，用目前這批圖表資料裡差值絕對值的最大值當作長條圖滿版基準
+const chartMax = computed(() => {
+  if (isCompositeMetric.value) return 100
+  const vals = progressChartRows.value
+    .map((r: any) => r.delta?.[progressMetric.value])
+    .filter((v: any) => v !== null && v !== undefined)
+    .map((v: number) => Math.abs(v))
+  return vals.length ? Math.max(...vals) : 1
+})
+
+function chartWidthPct(row: any): number {
+  if (isCompositeMetric.value) {
+    return Math.min(100, Math.max(0, chartValue(row)))
+  }
+  const max = chartMax.value || 1
+  return Math.min(100, Math.max(0, (Math.abs(chartValue(row)) / max) * 100))
+}
+
+function chartBarColor(row: any): string {
+  if (isCompositeMetric.value) {
+    const v = chartValue(row)
+    if (v >= 60) return 'bg-emerald-500'
+    if (v <= 40) return 'bg-rose-500'
+    return 'bg-amber-400'
+  }
+  const d = row.delta?.[progressMetric.value]
+  if (d === null || d === undefined) return 'bg-gray-300 dark:bg-gray-600'
+  const improved = currentMetricInfo.value.better === 'down' ? d < 0 : d > 0
+  return improved ? 'bg-emerald-500' : 'bg-rose-500'
 }
 
 // 第一次切到「進步排行」頁籤時自動查一次（用預設的近 3 個月、全部班別）
@@ -1152,7 +1268,7 @@ onMounted(async () => {
           <label class="block text-[11px] text-hint-c dark:text-hint-c mb-1">排行指標</label>
           <select v-model="progressMetric" class="border border-base rounded px-3 py-1.5 bg-surface text-base-c">
             <option v-for="m in PROGRESS_METRICS" :key="m.key" :value="m.key">
-              {{ m.label }}（{{ m.better === 'down' ? '降低為進步' : '提升為進步' }}）
+              {{ m.label }}{{ m.key === 'composite' ? '' : (m.better === 'down' ? '（降低為進步）' : '（提升為進步）') }}
             </option>
           </select>
         </div>
@@ -1167,9 +1283,63 @@ onMounted(async () => {
 
       <div class="text-[11px] text-hint-c dark:text-hint-c mb-2">
         僅列出所選期間內至少有 2 筆檢測紀錄的學生，取期間內「最早一筆」與「最晚一筆」計算差值。
+        <template v-if="isCompositeMetric">
+          綜合評分是把體重／BMI／體脂率／體脂重／肌肉量／內臟脂肪／骨量／體水分／基礎代謝／體內年齡等指標，
+          依各自的進步方向換算成 0~100 分（在目前這批學生中的相對名次），再取平均，分數越高代表整體進步幅度越大。
+        </template>
       </div>
 
-      <div class="overflow-x-auto rounded border border-base">
+      <!-- 圖表／表格 切換 -->
+      <div class="flex gap-1 border border-base rounded overflow-hidden w-fit mb-3">
+        <button
+          type="button"
+          class="px-3 py-1.5 text-sm"
+          :class="progressView === 'chart' ? 'bg-teal-600 text-white' : 'bg-surface text-base-c hover:bg-surface2'"
+          @click="progressView = 'chart'"
+        >
+          📊 圖表
+        </button>
+        <button
+          type="button"
+          class="px-3 py-1.5 text-sm"
+          :class="progressView === 'table' ? 'bg-teal-600 text-white' : 'bg-surface text-base-c hover:bg-surface2'"
+          @click="progressView = 'table'"
+        >
+          📋 表格
+        </button>
+      </div>
+
+      <!-- 進步排行圖表 -->
+      <div v-if="progressView === 'chart' && progressChartRows.length" class="mb-5 border border-base rounded-md p-4 bg-surface">
+        <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-3">
+          {{ isCompositeMetric ? '綜合評分排行圖' : `${currentMetricInfo.label} 差值排行圖` }}
+          <span v-if="rankedProgress.length > PROGRESS_CHART_LIMIT" class="font-normal text-hint-c dark:text-hint-c">
+            （僅顯示前 {{ PROGRESS_CHART_LIMIT }} 名，共 {{ rankedProgress.length }} 名）
+          </span>
+        </div>
+        <div class="space-y-1.5">
+          <div v-for="row in progressChartRows" :key="row.patnr" class="flex items-center gap-2 text-xs">
+            <span class="w-20 text-right text-hint-c dark:text-hint-c truncate">{{ row.lastname }}{{ row.firstname }}</span>
+            <div class="flex-1 bg-surface2 rounded h-3 overflow-hidden cursor-pointer" @click="openCustomer(row.patnr)">
+              <div class="h-full rounded" :class="chartBarColor(row)" :style="{ width: chartWidthPct(row) + '%' }" />
+            </div>
+            <span
+              class="w-14 text-right font-mono"
+              :class="isCompositeMetric ? scoreClass(chartValue(row)) : deltaClass(row.delta?.[progressMetric], currentMetricInfo.better)"
+            >
+              {{ isCompositeMetric ? fmtScore(chartValue(row)) : fmtDelta(chartValue(row)) }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div
+        v-else-if="progressView === 'chart' && !progressLoading"
+        class="mb-5 border border-base rounded-md p-6 bg-surface text-center text-xs text-hint-c dark:text-hint-c"
+      >
+        尚無資料，請選擇班別與時間段後查詢
+      </div>
+
+      <div v-if="progressView === 'table'" class="overflow-x-auto rounded border border-base">
         <table class="w-full border-collapse text-xs">
           <thead class="bg-teal-600 dark:bg-teal-800 text-white">
           <tr>
@@ -1179,24 +1349,25 @@ onMounted(async () => {
             <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
               姓名
             </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
+            <th v-if="showGroupColumn" class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
               班別
             </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-              起始日期
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-              結束日期
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-              起始值
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-              結束值
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-              差值
-            </th>
+            <template v-if="isCompositeMetric">
+              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                綜合分數
+              </th>
+            </template>
+            <template v-else>
+              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                起始值
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                結束值
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                差值
+              </th>
+            </template>
             <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
               紀錄筆數
             </th>
@@ -1204,7 +1375,10 @@ onMounted(async () => {
           </thead>
           <tbody class="divide-y divide-base">
           <tr v-if="!progressLoading && !rankedProgress.length">
-            <td colspan="9" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
+            <td
+              :colspan="2 + (showGroupColumn ? 1 : 0) + (isCompositeMetric ? 1 : 3) + 1"
+              class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
+            >
               尚無資料，請選擇班別與時間段後查詢
             </td>
           </tr>
@@ -1220,27 +1394,31 @@ onMounted(async () => {
             <td class="border border-light-c px-2 py-1 whitespace-nowrap">
               {{ row.lastname }}{{ row.firstname }}
             </td>
-            <td class="border border-light-c px-2 py-1 whitespace-nowrap">
+            <td v-if="showGroupColumn" class="border border-light-c px-2 py-1 whitespace-nowrap">
               {{ row.group1 || '其他' }}
             </td>
-            <td class="border border-light-c px-2 py-1 text-right font-mono whitespace-nowrap">
-              {{ fmtDate(row.start_date) }}
-            </td>
-            <td class="border border-light-c px-2 py-1 text-right font-mono whitespace-nowrap">
-              {{ fmtDate(row.end_date) }}
-            </td>
-            <td class="border border-light-c px-2 py-1 text-right">
-              {{ fmtNum(row.start?.[progressMetric]) }}
-            </td>
-            <td class="border border-light-c px-2 py-1 text-right">
-              {{ fmtNum(row.end?.[progressMetric]) }}
-            </td>
-            <td
-              class="border border-light-c px-2 py-1 text-right font-semibold"
-              :class="deltaClass(row.delta?.[progressMetric], currentMetricInfo.better)"
-            >
-              {{ fmtDelta(row.delta?.[progressMetric]) }}
-            </td>
+            <template v-if="isCompositeMetric">
+              <td
+                class="border border-light-c px-2 py-1 text-right font-semibold"
+                :class="scoreClass(compositeScores.get(row.patnr))"
+              >
+                {{ fmtScore(compositeScores.get(row.patnr)) }}
+              </td>
+            </template>
+            <template v-else>
+              <td class="border border-light-c px-2 py-1 text-right">
+                {{ fmtNum(row.start?.[progressMetric]) }}
+              </td>
+              <td class="border border-light-c px-2 py-1 text-right">
+                {{ fmtNum(row.end?.[progressMetric]) }}
+              </td>
+              <td
+                class="border border-light-c px-2 py-1 text-right font-semibold"
+                :class="deltaClass(row.delta?.[progressMetric], currentMetricInfo.better)"
+              >
+                {{ fmtDelta(row.delta?.[progressMetric]) }}
+              </td>
+            </template>
             <td class="border border-light-c px-2 py-1 text-right">
               {{ row.record_count }}
             </td>
