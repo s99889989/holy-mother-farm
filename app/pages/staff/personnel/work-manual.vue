@@ -1,7 +1,13 @@
 <script setup>
   definePageMeta({ layout: 'staff', requiredPermission: 'personnel.work-manual' })
 
-  import { ref, reactive, computed, h, nextTick, onMounted } from 'vue'
+  import { ref, reactive, computed, h, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+  import { useEditor, EditorContent } from '@tiptap/vue-3'
+  import StarterKit from '@tiptap/starter-kit'
+  import Underline from '@tiptap/extension-underline'
+  import { TextStyle } from '@tiptap/extension-text-style'
+  import { Color } from '@tiptap/extension-color'
+  import TextAlign from '@tiptap/extension-text-align'
 
 
 
@@ -22,9 +28,26 @@
     mounted(el) {
       resizeTextarea(el)
     },
-    updated(el) {
-      resizeTextarea(el)
+    updated(el, binding) {
+      if (binding.value !== binding.oldValue) {
+        resizeTextarea(el)
+      }
     },
+  }
+
+  // ─────────────────────────────────────────
+  // 備註內容相容處理（舊版備註是純文字，換行用 \n；
+  // 新版備註改用 Tiptap 存 HTML。這裡判斷內容是否已經是
+  // HTML，不是的話就轉換一次，讓舊資料在新編輯器裡也能正常顯示）
+  // ─────────────────────────────────────────
+  function noteContentAsHtml(content) {
+    if (!content) return ''
+    if (/<[a-z][\s\S]*>/i.test(content)) return content
+    const escaped = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    return '<p>' + escaped.replace(/\n/g, '<br>') + '</p>'
   }
 
   // ─────────────────────────────────────────
@@ -66,6 +89,142 @@
           })]),
         ]),
         open.value ? h('div', {class: 'px-4 py-3'}, slots.default?.()) : null,
+      ])
+    },
+  }
+
+  // ─────────────────────────────────────────
+  // NoteEditor — 備註區塊用的 Tiptap 富文字編輯器（含上方工具列 + 文字顏色）
+  // ─────────────────────────────────────────
+  const NOTE_COLORS = ['#000000', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#0ea5e9', '#3b82f6', '#8b5cf6', '#ec4899', '#57534e']
+
+  function tbBtn({active, onClick, title, content, extraClass = ''}) {
+    return h('button', {
+      type: 'button',
+      onClick,
+      title,
+      class: `px-2 py-1 rounded text-xs font-bold transition-colors ${extraClass} ${
+        active ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' : 'text-hint-c hover:bg-surface2'}`
+    }, content)
+  }
+
+  function tbIcon({active, onClick, title, path}) {
+    return h('button', {
+      type: 'button',
+      onClick,
+      title,
+      class: `p-1.5 rounded transition-colors ${
+        active ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' : 'text-hint-c hover:bg-surface2'}`
+    }, [
+      h('svg', {class: 'w-3.5 h-3.5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24'}, [
+        h('path', {'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': 2, d: path})
+      ])
+    ])
+  }
+
+  function tbDivider() {
+    return h('div', {class: 'w-px h-4 bg-surface2 mx-1'})
+  }
+
+  const NoteEditor = {
+    props: {modelValue: {type: String, default: ''}},
+    emits: ['update:modelValue'],
+    setup(props, {emit}) {
+      const colorOpen = ref(false)
+
+      const editor = useEditor({
+        extensions: [
+          StarterKit,
+          Underline,
+          TextStyle,
+          Color,
+          TextAlign.configure({types: ['heading', 'paragraph']}),
+        ],
+        content: noteContentAsHtml(props.modelValue),
+        onUpdate: ({editor}) => emit('update:modelValue', editor.getHTML()),
+        editorProps: {attributes: {class: 'outline-none'}},
+      })
+
+      // 切換頁面時，外部傳入的內容跟編輯器目前內容不同步的話才重設
+      // （避免自己打字觸發 onUpdate 又反過來把游標打斷）
+      watch(() => props.modelValue, (val) => {
+        const html = noteContentAsHtml(val)
+        if (editor.value && html !== editor.value.getHTML()) {
+          editor.value.commands.setContent(html, false)
+        }
+      })
+
+      onBeforeUnmount(() => editor.value?.destroy())
+
+      function setColor(hex) {
+        editor.value?.chain().focus().setColor(hex).run()
+        colorOpen.value = false
+      }
+
+      function unsetColor() {
+        editor.value?.chain().focus().unsetColor().run()
+        colorOpen.value = false
+      }
+
+      return () => h('div', {class: 'note-rich-editor'}, [
+        // ── 工具列 ──
+        h('div', {class: 'relative flex flex-wrap items-center gap-0.5 px-2 py-1.5 border border-light-c border-b-0 rounded-t-xl bg-surface2'}, [
+          tbBtn({active: editor.value?.isActive('heading', {level: 2}), onClick: () => editor.value?.chain().focus().toggleHeading({level: 2}).run(), title: '標題 2', content: 'H2'}),
+          tbBtn({active: editor.value?.isActive('heading', {level: 3}), onClick: () => editor.value?.chain().focus().toggleHeading({level: 3}).run(), title: '標題 3', content: 'H3'}),
+          tbDivider(),
+          tbBtn({active: editor.value?.isActive('bold'), onClick: () => editor.value?.chain().focus().toggleBold().run(), title: '粗體', content: 'B'}),
+          tbBtn({active: editor.value?.isActive('italic'), onClick: () => editor.value?.chain().focus().toggleItalic().run(), title: '斜體', content: 'I', extraClass: 'italic'}),
+          tbBtn({active: editor.value?.isActive('underline'), onClick: () => editor.value?.chain().focus().toggleUnderline().run(), title: '底線', content: 'U', extraClass: 'underline'}),
+          tbBtn({active: editor.value?.isActive('strike'), onClick: () => editor.value?.chain().focus().toggleStrike().run(), title: '刪除線', content: 'S', extraClass: 'line-through'}),
+          tbDivider(),
+          // ── 文字顏色 ──
+          h('div', {class: 'relative'}, [
+            h('button', {
+              type: 'button',
+              title: '文字顏色',
+              onClick: () => {
+                colorOpen.value = !colorOpen.value
+              },
+              class: 'p-1.5 rounded transition-colors text-hint-c hover:bg-surface2 flex items-center gap-1'
+            }, [
+              h('span', {class: 'text-xs font-bold', style: {color: editor.value?.getAttributes('textStyle').color || '#000000'}}, 'A'),
+              h('span', {
+                class: 'w-2.5 h-2.5 rounded-full border border-light-c',
+                style: {backgroundColor: editor.value?.getAttributes('textStyle').color || '#000000'}
+              }),
+            ]),
+            colorOpen.value ? h('div', {class: 'fixed inset-0 z-10', onClick: () => {colorOpen.value = false}}) : null,
+            colorOpen.value ? h('div', {class: 'absolute top-full left-0 mt-1 z-20 bg-surface border border-light-c rounded-xl shadow-lg p-2 w-40'}, [
+              h('div', {class: 'grid grid-cols-5 gap-1.5 mb-2'},
+                NOTE_COLORS.map(c => h('button', {
+                  type: 'button',
+                  onClick: () => setColor(c),
+                  class: 'w-6 h-6 rounded-full border border-light-c',
+                  style: {backgroundColor: c}
+                }))),
+              h('button', {
+                type: 'button',
+                onClick: unsetColor,
+                class: 'w-full text-sm md:text-base text-hint-c hover:text-muted-c border-t border-light-c pt-1.5 text-center'
+              }, '清除顏色'),
+            ]) : null,
+          ]),
+          tbDivider(),
+          tbIcon({active: editor.value?.isActive({textAlign: 'left'}), onClick: () => editor.value?.chain().focus().setTextAlign('left').run(), title: '靠左', path: 'M4 6h16M4 12h10M4 18h12'}),
+          tbIcon({active: editor.value?.isActive({textAlign: 'center'}), onClick: () => editor.value?.chain().focus().setTextAlign('center').run(), title: '置中', path: 'M4 6h16M7 12h10M5 18h14'}),
+          tbIcon({active: editor.value?.isActive({textAlign: 'right'}), onClick: () => editor.value?.chain().focus().setTextAlign('right').run(), title: '靠右', path: 'M4 6h16M10 12h10M8 18h12'}),
+          tbDivider(),
+          tbIcon({active: editor.value?.isActive('bulletList'), onClick: () => editor.value?.chain().focus().toggleBulletList().run(), title: '項目清單', path: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'}),
+          tbIcon({active: editor.value?.isActive('orderedList'), onClick: () => editor.value?.chain().focus().toggleOrderedList().run(), title: '編號清單', path: 'M9 5h11M9 12h11M9 19h11M5 5v.01M5 12v.01M5 19v.01'}),
+          tbDivider(),
+          tbIcon({onClick: () => editor.value?.chain().focus().undo().run(), title: '復原', path: 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6'}),
+          tbIcon({onClick: () => editor.value?.chain().focus().redo().run(), title: '取消復原', path: 'M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6'}),
+        ]),
+        // ── 編輯區 ──
+        h(EditorContent, {
+          editor: editor.value,
+          class: 'note-tiptap-editor block w-full px-2 py-1.5 text-sm md:text-base border border-gray-300 border-t-0 rounded-b-xl bg-white'
+        }),
       ])
     },
   }
@@ -202,7 +361,7 @@
     const id = 'b' + uid()
     if (type === 'checklist') page.blocks.push({type, id, title: '新 Checklist', badge: '', badgeType: 'gray', items: []})
     else if (type === 'steps') page.blocks.push({type, id, title: '新步驟說明', badge: '', badgeType: 'gray', items: []})
-    else if (type === 'note') page.blocks.push({type, id, title: '新備註', content: '', variant: 'info'})
+    else if (type === 'note') page.blocks.push({type, id, title: '新備註', content: ''})
     else if (type === 'flowchart') page.blocks.push({type, id, title: '新流程圖', nodes: [], edges: []})
     else if (type === 'image') page.blocks.push({type, id, title: '圖片', images: []})
     blockPickerOpen.value = false
@@ -663,11 +822,11 @@
 </script>
 
 <template>
-  <div class="min-h-full bg-surface2 transition-colors duration-300">
+  <div class="min-h-full md:h-full bg-surface2 transition-colors duration-300 md:flex md:flex-col md:overflow-hidden">
 
     <!-- Header -->
     <header
-      class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
+      class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30 md:flex-shrink-0">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <div
@@ -721,10 +880,10 @@
       <span class="text-base md:text-lg">載入中…</span>
     </div>
 
-    <div v-else class="w-full px-3 sm:px-4 py-4 sm:py-6 flex flex-col md:flex-row gap-4 items-start">
+    <div v-else class="w-full px-3 sm:px-4 py-4 sm:py-6 flex flex-col md:flex-row gap-4 items-start md:items-stretch md:flex-1 md:overflow-hidden">
 
       <!-- ── Sidebar ── -->
-      <nav class="w-48 flex-shrink-0 hidden md:block sticky top-20">
+      <nav class="w-48 flex-shrink-0 hidden md:block md:h-full md:overflow-y-auto md:pr-1 md:[overflow-anchor:none]">
         <div
           class="bg-surface rounded-2xl border border-light-c shadow-sm overflow-hidden">
           <div v-for="(group, gIdx) in sopData.groups" :key="group.id">
@@ -835,7 +994,7 @@
       </div>
 
       <!-- ── Main ── -->
-      <div class="flex-1 min-w-0">
+      <div class="flex-1 min-w-0 md:h-full md:overflow-y-auto md:pr-1 md:[overflow-anchor:none]">
         <template v-if="activePage">
 
           <!-- Page header -->
@@ -961,7 +1120,7 @@
                       <template v-if="editMode">
                         <input v-model="item.title" placeholder="步驟標題"
                                class="w-full px-2 py-1 text-base md:text-lg border border-light-c rounded-lg bg-surface2 text-base-c outline-none mb-1"/>
-                        <textarea v-model="item.desc" v-auto-resize @input="resizeTextarea($event.target)"
+                        <textarea v-model="item.desc" v-auto-resize="item.desc" @input="resizeTextarea($event.target)"
                                   placeholder="步驟說明（選填）" rows="2"
                                   class="w-full px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface2 text-muted-c outline-none resize-none overflow-hidden"/>
                       </template>
@@ -995,36 +1154,21 @@
 
             <!-- ── Note block ── -->
             <template v-else-if="block.type === 'note'">
-              <div :class="['rounded-2xl px-4 py-3 mb-3 border',
- block.variant==='warn' ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' :
- block.variant==='info' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' :
- 'bg-surface2 border-light-c']">
+              <div class="rounded-2xl px-4 py-3 mb-3 border bg-surface2 border-light-c">
                 <template v-if="editMode">
                   <div class="flex gap-2 mb-2 flex-wrap">
                     <input v-model="block.title" placeholder="標題"
                            class="flex-1 min-w-0 px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface text-base-c outline-none font-semibold"/>
-                    <select v-model="block.variant"
-                            class="px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface text-base-c outline-none">
-                      <option value="info">藍色</option>
-                      <option value="warn">橙色</option>
-                      <option value="default">灰色</option>
-                    </select>
                   </div>
-                  <textarea v-model="block.content" v-auto-resize @input="resizeTextarea($event.target)"
-                            placeholder="內容（換行用 Enter）" rows="3"
-                            class="w-full px-2 py-1 text-sm md:text-base border border-light-c rounded-lg bg-surface text-muted-c outline-none resize-none overflow-hidden"/>
+                  <NoteEditor v-model="block.content"/>
                 </template>
                 <template v-else>
-                  <p :class="['text-base md:text-lg font-semibold mb-1',
- block.variant==='warn' ? 'text-orange-700 dark:text-orange-300' :
- block.variant==='info' ? 'text-blue-700 dark:text-blue-300' : 'text-base-c']">
+                  <p class="text-base md:text-lg font-semibold mb-1 text-base-c">
                     {{ block.title }}
                   </p>
-                  <p :class="['text-sm md:text-base leading-relaxed whitespace-pre-line',
- block.variant==='warn' ? 'text-orange-600 dark:text-orange-400' :
- block.variant==='info' ? 'text-blue-600 dark:text-blue-400' : 'text-hint-c']">
-                    {{ block.content }}
-                  </p>
+                  <div class="text-sm md:text-base leading-relaxed note-view-content text-hint-c"
+                       v-html="noteContentAsHtml(block.content)">
+                  </div>
                 </template>
               </div>
             </template>
@@ -1525,5 +1669,34 @@
 
   .modal-enter-from .bg-white, .modal-leave-to .bg-white {
     transform: scale(0.96);
+  }
+</style>
+
+<style>
+  /* 備註區塊的 Tiptap 編輯區（工具列下方的內容輸入區） */
+  .note-tiptap-editor .ProseMirror {
+    min-height: 72px;
+    outline: none;
+    color: #000000;
+    background: #ffffff;
+  }
+  /* 備註區塊「檢視模式」直接用 v-html 顯示格式化內容，跟編輯區共用同一套標題/清單樣式 */
+  .note-tiptap-editor .ProseMirror h2,
+  .note-view-content h2 { font-size: 1.15rem; font-weight: 700; margin: 0.5rem 0 0.25rem; }
+  .note-tiptap-editor .ProseMirror h3,
+  .note-view-content h3 { font-size: 1.02rem; font-weight: 600; margin: 0.4rem 0 0.2rem; }
+  .note-tiptap-editor .ProseMirror p,
+  .note-view-content p { margin: 0.2rem 0; }
+  .note-tiptap-editor .ProseMirror ul,
+  .note-view-content ul { list-style: disc; padding-left: 1.4rem; margin: 0.25rem 0; }
+  .note-tiptap-editor .ProseMirror ol,
+  .note-view-content ol { list-style: decimal; padding-left: 1.4rem; margin: 0.25rem 0; }
+  .note-tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+    content: '內容…';
+    color: var(--hint-c, #9ca3af);
+    opacity: 0.7;
+    pointer-events: none;
+    float: left;
+    height: 0;
   }
 </style>
