@@ -20,8 +20,7 @@ async function loadStats() {
   try { stats.value = await $fetch<any>(`${BASE()}/stats`) } catch { stats.value = null }
 }
 async function loadLatest() {
-  try { latestRecords.value = await $fetch<any[]>(`${BASE()}/records/latest`, { params: { limit: 15 } }) ?? [] }
-  catch { latestRecords.value = [] }
+  try { latestRecords.value = await $fetch<any[]>(`${BASE()}/records/latest`, { params: { limit: 15 } }) ?? [] } catch { latestRecords.value = [] }
 }
 
 const bmiCategoryList = computed(() => {
@@ -62,8 +61,7 @@ const limit = ref(20)
 const listData = ref<any>(null)
 
 async function loadGroups() {
-  try { groups.value = await $fetch<any[]>(`${BASE()}/groups`) ?? [] }
-  catch { groups.value = [] }
+  try { groups.value = await $fetch<any[]>(`${BASE()}/groups`) ?? [] } catch { groups.value = [] }
 }
 
 // 頁籤清單：「全部」+ 各班別（含人數）
@@ -151,7 +149,7 @@ function closeCustomer() {
 }
 
 // ── Google 帳號綁定 ────────────────────────────────────
-const boundAccount = ref<any>(null)      // { bound, customerId, name, email, picture }
+const boundAccount = ref<any>(null) // { bound, customerId, name, email, picture }
 const boundLoading = ref(false)
 
 async function loadBoundAccount(patnr: number) {
@@ -279,7 +277,7 @@ function buildRangeBar(title: string, value: any, zones: { to: number, label: st
   if (Number.isNaN(n)) return null
   const max = zones[zones.length - 1].to
   let from = 0
-  const segments = zones.map(z => {
+  const segments = zones.map((z) => {
     const seg = { left: (from / max) * 100, width: ((z.to - from) / max) * 100, color: z.color, label: z.label }
     from = z.to
     return seg
@@ -636,7 +634,6 @@ onMounted(async () => {
 
     <!-- ════════════════════════ 總覽 ════════════════════════ -->
     <div v-show="currentTab === 'overview'">
-
       <!-- ════════════════════════ KPI 卡片 ════════════════════════ -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <div class="border border-base rounded-md p-3 bg-surface">
@@ -702,14 +699,20 @@ onMounted(async () => {
           <div class="flex items-center gap-2 mb-1.5 text-xs">
             <span class="w-10 text-hint-c dark:text-hint-c">女</span>
             <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
-              <div class="h-full rounded bg-pink-400" :style="{ width: genderPct.F + '%' }" />
+              <div
+                class="h-full rounded bg-pink-400"
+                :style="{ width: genderPct.F + '%' }"
+              />
             </div>
             <span class="w-10 text-right text-muted-c">{{ stats?.gender?.F ?? 0 }}</span>
           </div>
           <div class="flex items-center gap-2 text-xs">
             <span class="w-10 text-hint-c dark:text-hint-c">男</span>
             <div class="flex-1 bg-surface2 rounded h-2 overflow-hidden">
-              <div class="h-full rounded bg-blue-400" :style="{ width: genderPct.M + '%' }" />
+              <div
+                class="h-full rounded bg-blue-400"
+                :style="{ width: genderPct.M + '%' }"
+              />
             </div>
             <span class="w-10 text-right text-muted-c">{{ stats?.gender?.M ?? 0 }}</span>
           </div>
@@ -724,75 +727,75 @@ onMounted(async () => {
         <div class="overflow-x-auto rounded-md border border-base">
           <table class="w-full border-collapse text-xs">
             <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-            <tr>
-              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                姓名
-              </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                日期
-              </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                BMI
-              </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                體脂率%
-              </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                肌肉量kg
-              </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                內臟脂肪
-              </th>
-            </tr>
+              <tr>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  姓名
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  日期
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                  BMI
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                  體脂率%
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                  肌肉量kg
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                  內臟脂肪
+                </th>
+              </tr>
             </thead>
             <tbody class="divide-y divide-base">
-            <tr v-if="!latestRecords.length">
-              <td colspan="6" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
-                無資料
-              </td>
-            </tr>
-            <tr
-              v-for="rec in latestRecords"
-              :key="rec.patnr + '-' + rec.datetime"
-              class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-              @click="openCustomer(rec.patnr)"
-            >
-              <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-                {{ rec.lastname }}{{ rec.firstname }}
-              </td>
-              <td class="border border-light-c px-3 py-1 whitespace-nowrap font-mono">
-                {{ fmtDate(rec.datetime) }}
-              </td>
-              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
-              </td>
-              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                {{ fmtNum(rec.fatp) }}
-              </td>
-              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                {{ fmtNum(rec.pmm) }}
-              </td>
-              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                {{ fmtNum(rec.vfatl, 0) }}
-              </td>
-            </tr>
+              <tr v-if="!latestRecords.length">
+                <td
+                  colspan="6"
+                  class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
+                >
+                  無資料
+                </td>
+              </tr>
+              <tr
+                v-for="rec in latestRecords"
+                :key="rec.patnr + '-' + rec.datetime"
+                class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+                @click="openCustomer(rec.patnr)"
+              >
+                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                  {{ rec.lastname }}{{ rec.firstname }}
+                </td>
+                <td class="border border-light-c px-3 py-1 whitespace-nowrap font-mono">
+                  {{ fmtDate(rec.datetime) }}
+                </td>
+                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                  <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
+                </td>
+                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                  {{ fmtNum(rec.fatp) }}
+                </td>
+                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                  {{ fmtNum(rec.pmm) }}
+                </td>
+                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                  {{ fmtNum(rec.vfatl, 0) }}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
-
     </div>
     <!-- ════════════════════════ /總覽 ════════════════════════ -->
 
     <!-- ════════════════════════ 客戶查詢 ════════════════════════ -->
     <div v-show="currentTab === 'customers'">
-
       <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-2">
         客戶查詢
       </div>
 
       <div class="lg:grid lg:grid-cols-[1.15fr_1fr] lg:gap-5 lg:items-start">
-
         <!-- ── 左：搜尋 + 客戶列表 ── -->
         <div class="min-w-0">
           <div class="flex gap-3 mb-3 flex-wrap items-center">
@@ -808,7 +811,11 @@ onMounted(async () => {
               class="border border-base rounded px-3 py-1.5 bg-surface text-base-c"
               @change="selectGroup(($event.target as HTMLSelectElement).value)"
             >
-              <option v-for="g in groupTabs" :key="g.name" :value="g.name">
+              <option
+                v-for="g in groupTabs"
+                :key="g.name"
+                :value="g.name"
+              >
                 {{ g.label }}（{{ g.count }}）
               </option>
             </select>
@@ -877,56 +884,59 @@ onMounted(async () => {
           <div class="overflow-x-auto rounded-md border border-base mb-6 lg:mb-0">
             <table class="w-full border-collapse text-sm">
               <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-              <tr>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                  客戶編號
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                  姓名
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-center whitespace-nowrap">
-                  性別
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">
-                  所屬班別
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                  建檔日期
-                </th>
-              </tr>
+                <tr>
+                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                    客戶編號
+                  </th>
+                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                    姓名
+                  </th>
+                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-center whitespace-nowrap">
+                    性別
+                  </th>
+                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">
+                    所屬班別
+                  </th>
+                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                    建檔日期
+                  </th>
+                </tr>
               </thead>
               <tbody class="divide-y divide-base">
-              <tr v-if="!listData?.rows?.length">
-                <td colspan="5" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
-                  無資料
-                </td>
-              </tr>
-              <tr
-                v-for="row in listData?.rows"
-                :key="row.patnr"
-                class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-                :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
-                @click="openCustomer(row.patnr)"
-              >
-                <td class="border border-light-c px-3 py-1 font-mono whitespace-nowrap">
-                  {{ row.customerid }}
-                </td>
-                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-                  {{ row.lastname }}{{ row.firstname }}
-                </td>
-                <td class="border border-light-c px-3 py-1 text-center whitespace-nowrap">
-                  {{ sexLabel(row.sex) }}
-                </td>
-                <td
-                  class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis"
-                  :title="row.group1"
+                <tr v-if="!listData?.rows?.length">
+                  <td
+                    colspan="5"
+                    class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
+                  >
+                    無資料
+                  </td>
+                </tr>
+                <tr
+                  v-for="row in listData?.rows"
+                  :key="row.patnr"
+                  class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+                  :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
+                  @click="openCustomer(row.patnr)"
                 >
-                  {{ row.group1 }}
-                </td>
-                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-                  {{ fmtDate(row.creationdate) }}
-                </td>
-              </tr>
+                  <td class="border border-light-c px-3 py-1 font-mono whitespace-nowrap">
+                    {{ row.customerid }}
+                  </td>
+                  <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                    {{ row.lastname }}{{ row.firstname }}
+                  </td>
+                  <td class="border border-light-c px-3 py-1 text-center whitespace-nowrap">
+                    {{ sexLabel(row.sex) }}
+                  </td>
+                  <td
+                    class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis"
+                    :title="row.group1"
+                  >
+                    {{ row.group1 }}
+                  </td>
+                  <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                    {{ fmtDate(row.creationdate) }}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -934,21 +944,33 @@ onMounted(async () => {
 
         <!-- ── 右：客戶詳情 / 歷史紀錄（sticky，跟著捲動）── -->
         <div class="lg:sticky lg:top-4 min-w-0">
-          <div v-if="!selectedPatnr" class="border border-base rounded-md p-10 text-center text-hint-c dark:text-hint-c bg-surface">
+          <div
+            v-if="!selectedPatnr"
+            class="border border-base rounded-md p-10 text-center text-hint-c dark:text-hint-c bg-surface"
+          >
             ← 從左側列表點選一位客戶查看詳情
           </div>
-          <div v-else class="border border-base rounded-md overflow-hidden mb-4">
+          <div
+            v-else
+            class="border border-base rounded-md overflow-hidden mb-4"
+          >
             <div class="bg-teal-500 dark:bg-teal-700 text-white px-4 py-2 font-bold flex items-center justify-between">
-        <span>
-          {{ selectedCustomer?.lastname }}{{ selectedCustomer?.firstname }}
-          的身體組成歷史紀錄
-        </span>
-              <button class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded" @click="closeCustomer">
+              <span>
+                {{ selectedCustomer?.lastname }}{{ selectedCustomer?.firstname }}
+                的身體組成歷史紀錄
+              </span>
+              <button
+                class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
+                @click="closeCustomer"
+              >
                 ✕ 關閉
               </button>
             </div>
             <div class="p-4 bg-surface">
-              <div v-if="customerLoading" class="text-hint-c dark:text-hint-c py-4 text-center">
+              <div
+                v-if="customerLoading"
+                class="text-hint-c dark:text-hint-c py-4 text-center"
+              >
                 載入中…
               </div>
               <template v-else>
@@ -966,25 +988,38 @@ onMounted(async () => {
                     前台 Google 帳號綁定
                   </div>
 
-                  <div v-if="boundLoading" class="text-xs text-hint-c dark:text-hint-c">
+                  <div
+                    v-if="boundLoading"
+                    class="text-xs text-hint-c dark:text-hint-c"
+                  >
                     載入中…
                   </div>
 
                   <template v-else>
                     <!-- 已綁定 -->
-                    <div v-if="boundAccount?.bound" class="flex items-center gap-3">
+                    <div
+                      v-if="boundAccount?.bound"
+                      class="flex items-center gap-3"
+                    >
                       <img
                         v-if="boundAccount.picture"
                         :src="boundAccount.picture"
                         :alt="boundAccount.name"
                         class="w-9 h-9 rounded-full object-cover flex-shrink-0"
                       >
-                      <div class="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0" v-else>
+                      <div
+                        v-else
+                        class="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0"
+                      >
                         {{ (boundAccount.name || boundAccount.email || '?').charAt(0).toUpperCase() }}
                       </div>
                       <div class="min-w-0 flex-1">
-                        <div class="text-sm font-semibold text-base-c truncate">{{ boundAccount.name || '（未提供姓名）' }}</div>
-                        <div class="text-xs text-hint-c dark:text-hint-c truncate">{{ boundAccount.email }}</div>
+                        <div class="text-sm font-semibold text-base-c truncate">
+                          {{ boundAccount.name || '（未提供姓名）' }}
+                        </div>
+                        <div class="text-xs text-hint-c dark:text-hint-c truncate">
+                          {{ boundAccount.email }}
+                        </div>
                       </div>
                       <button
                         class="text-xs bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 px-3 py-1.5 rounded hover:bg-rose-200 dark:hover:bg-rose-900/60 flex-shrink-0"
@@ -995,7 +1030,10 @@ onMounted(async () => {
                     </div>
 
                     <!-- 未綁定 -->
-                    <div v-else-if="!bindPanelOpen" class="flex items-center justify-between gap-2">
+                    <div
+                      v-else-if="!bindPanelOpen"
+                      class="flex items-center justify-between gap-2"
+                    >
                       <span class="text-xs text-hint-c dark:text-hint-c">尚未綁定 Google 帳號，客戶無法從前台查詢此筆資料</span>
                       <button
                         class="text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded flex-shrink-0"
@@ -1024,14 +1062,23 @@ onMounted(async () => {
                         </button>
                       </div>
 
-                      <div v-if="bindSearching" class="text-xs text-hint-c dark:text-hint-c py-2">
+                      <div
+                        v-if="bindSearching"
+                        class="text-xs text-hint-c dark:text-hint-c py-2"
+                      >
                         搜尋中…
                       </div>
-                      <div v-else-if="bindKeyword.trim() && !bindResults.length" class="text-xs text-hint-c dark:text-hint-c py-2">
+                      <div
+                        v-else-if="bindKeyword.trim() && !bindResults.length"
+                        class="text-xs text-hint-c dark:text-hint-c py-2"
+                      >
                         查無符合的前台帳號
                       </div>
 
-                      <div v-if="bindResults.length" class="max-h-56 overflow-y-auto rounded border border-base divide-y divide-base bg-surface">
+                      <div
+                        v-if="bindResults.length"
+                        class="max-h-56 overflow-y-auto rounded border border-base divide-y divide-base bg-surface"
+                      >
                         <button
                           v-for="acc in bindResults"
                           :key="acc.customerId"
@@ -1045,14 +1092,24 @@ onMounted(async () => {
                             :alt="acc.name"
                             class="w-8 h-8 rounded-full object-cover flex-shrink-0"
                           >
-                          <div class="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0" v-else>
+                          <div
+                            v-else
+                            class="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0"
+                          >
                             {{ (acc.name || acc.email || '?').charAt(0).toUpperCase() }}
                           </div>
                           <div class="min-w-0 flex-1">
-                            <div class="text-sm text-base-c truncate">{{ acc.name || '（未提供姓名）' }}</div>
-                            <div class="text-xs text-hint-c dark:text-hint-c truncate">{{ acc.email }}</div>
+                            <div class="text-sm text-base-c truncate">
+                              {{ acc.name || '（未提供姓名）' }}
+                            </div>
+                            <div class="text-xs text-hint-c dark:text-hint-c truncate">
+                              {{ acc.email }}
+                            </div>
                           </div>
-                          <span v-if="acc.tabcPatnr" class="text-[10px] text-amber-700 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap">
+                          <span
+                            v-if="acc.tabcPatnr"
+                            class="text-[10px] text-amber-700 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap"
+                          >
                             已綁定 PATNR {{ acc.tabcPatnr }}
                           </span>
                         </button>
@@ -1062,11 +1119,20 @@ onMounted(async () => {
                 </div>
 
                 <!-- 最新測量狀態：標準範圍色帶（InBody 報告常見呈現方式） -->
-                <div v-if="latestRecord" class="grid md:grid-cols-3 gap-4 mb-5 p-3 rounded border border-base bg-surface2/40">
-                  <div v-for="bar in rangeBars" :key="bar.title">
+                <div
+                  v-if="latestRecord"
+                  class="grid md:grid-cols-3 gap-4 mb-5 p-3 rounded border border-base bg-surface2/40"
+                >
+                  <div
+                    v-for="bar in rangeBars"
+                    :key="bar.title"
+                  >
                     <div class="flex justify-between items-baseline text-xs mb-1">
                       <span class="text-muted-c dark:text-hint-c">{{ bar.title }}</span>
-                      <span class="font-mono font-bold" :style="{ color: bar.markerColor }">{{ bar.valueLabel }}</span>
+                      <span
+                        class="font-mono font-bold"
+                        :style="{ color: bar.markerColor }"
+                      >{{ bar.valueLabel }}</span>
                     </div>
                     <div class="relative h-2.5 rounded-full overflow-hidden flex">
                       <div
@@ -1080,32 +1146,71 @@ onMounted(async () => {
                       />
                     </div>
                     <div class="flex justify-between text-[10px] text-hint-c dark:text-hint-c mt-1">
-                <span v-for="(seg, i) in bar.segments" :key="i" :style="{ width: seg.width + '%' }" class="text-center truncate">
-                  {{ seg.label }}
-                </span>
+                      <span
+                        v-for="(seg, i) in bar.segments"
+                        :key="i"
+                        :style="{ width: seg.width + '%' }"
+                        class="text-center truncate"
+                      >
+                        {{ seg.label }}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <!-- 歷史趨勢圖 -->
-                <div v-if="trendCharts.length" class="grid md:grid-cols-2 gap-4 mb-5">
-                  <div v-for="t in trendCharts" :key="t.key" class="border border-base rounded p-3 bg-surface2/30">
+                <div
+                  v-if="trendCharts.length"
+                  class="grid md:grid-cols-2 gap-4 mb-5"
+                >
+                  <div
+                    v-for="t in trendCharts"
+                    :key="t.key"
+                    class="border border-base rounded p-3 bg-surface2/30"
+                  >
                     <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-1">
                       {{ t.title }}趨勢
                     </div>
-                    <svg :viewBox="`0 0 ${t.w} ${t.h}`" class="w-full h-24">
-                      <path :d="t.area" :fill="t.color" fill-opacity="0.12" stroke="none" />
-                      <path :d="t.path" fill="none" :stroke="t.color" stroke-width="2" />
+                    <svg
+                      :viewBox="`0 0 ${t.w} ${t.h}`"
+                      class="w-full h-24"
+                    >
+                      <path
+                        :d="t.area"
+                        :fill="t.color"
+                        fill-opacity="0.12"
+                        stroke="none"
+                      />
+                      <path
+                        :d="t.path"
+                        fill="none"
+                        :stroke="t.color"
+                        stroke-width="2"
+                      />
                       <circle
                         v-for="(p, i) in t.pts"
                         :key="i"
-                        :cx="p.x" :cy="p.y" r="2.2"
+                        :cx="p.x"
+                        :cy="p.y"
+                        r="2.2"
                         :fill="i === t.pts.length - 1 ? '#C79A44' : t.color"
                       >
                         <title>{{ p.vLabel }}</title>
                       </circle>
-                      <text :x="4" :y="t.maxY + (t.maxY > 10 ? -3 : 9)" font-size="8" fill="currentColor" class="text-hint-c dark:text-hint-c">{{ t.maxLabel }}</text>
-                      <text :x="4" :y="t.minY + (t.minY < t.h - 10 ? 9 : -3)" font-size="8" fill="currentColor" class="text-hint-c dark:text-hint-c">{{ t.minLabel }}</text>
+                      <text
+                        :x="4"
+                        :y="t.maxY + (t.maxY > 10 ? -3 : 9)"
+                        font-size="8"
+                        fill="currentColor"
+                        class="text-hint-c dark:text-hint-c"
+                      >{{ t.maxLabel }}</text>
+                      <text
+                        :x="4"
+                        :y="t.minY + (t.minY < t.h - 10 ? 9 : -3)"
+                        font-size="8"
+                        fill="currentColor"
+                        class="text-hint-c dark:text-hint-c"
+                      >{{ t.minLabel }}</text>
                     </svg>
                     <div class="flex justify-between text-[10px] text-hint-c dark:text-hint-c mt-1 font-mono">
                       <span>{{ t.firstLabel }}</span>
@@ -1117,103 +1222,109 @@ onMounted(async () => {
                 <div class="overflow-x-auto rounded border border-base">
                   <table class="w-full border-collapse text-xs">
                     <thead class="bg-surface2">
-                    <tr class="text-muted-c dark:text-hint-c">
-                      <th class="border border-light-c px-2 py-1.5 text-left whitespace-nowrap">
-                        日期
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        年齡
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        身高cm
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        體重kg
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        BMI
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        體脂率%
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        體脂重kg
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        肌肉量kg
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        內臟脂肪
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        骨量kg
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        基礎代謝
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        體內年齡
-                      </th>
-                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                        綜合風險
-                      </th>
-                    </tr>
+                      <tr class="text-muted-c dark:text-hint-c">
+                        <th class="border border-light-c px-2 py-1.5 text-left whitespace-nowrap">
+                          日期
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          年齡
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          身高cm
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          體重kg
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          BMI
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          體脂率%
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          體脂重kg
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          肌肉量kg
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          內臟脂肪
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          骨量kg
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          基礎代謝
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          體內年齡
+                        </th>
+                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                          綜合風險
+                        </th>
+                      </tr>
                     </thead>
                     <tbody class="divide-y divide-base">
-                    <tr v-if="!customerRecords.length">
-                      <td colspan="13" class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c">
-                        尚無檢測紀錄
-                      </td>
-                    </tr>
-                    <tr
-                      v-for="(rec, idx) in customerRecords"
-                      :key="rec.datetime"
-                      class="bg-surface"
-                      :class="{ 'font-semibold': idx === 0 }"
-                    >
-                      <td class="border border-light-c px-2 py-1 font-mono whitespace-nowrap">
-                        {{ fmtDate(rec.datetime) }}
-                        <span v-if="idx === 0" class="ml-1 text-[10px] bg-teal-500 text-white rounded px-1">
-                      最新
-                    </span>
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.age, 0) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.height) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.weight) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.fatp) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.fatm) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.pmm) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.vfatl, 0) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.bonem) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.bmr, 0) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ fmtNum(rec.metaage, 0) }}
-                      </td>
-                      <td class="border border-light-c px-2 py-1 text-right">
-                        {{ rec.allrisk != null ? fmtNum(rec.allrisk * 100, 0) + '%' : '–' }}
-                      </td>
-                    </tr>
+                      <tr v-if="!customerRecords.length">
+                        <td
+                          colspan="13"
+                          class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
+                        >
+                          尚無檢測紀錄
+                        </td>
+                      </tr>
+                      <tr
+                        v-for="(rec, idx) in customerRecords"
+                        :key="rec.datetime"
+                        class="bg-surface"
+                        :class="{ 'font-semibold': idx === 0 }"
+                      >
+                        <td class="border border-light-c px-2 py-1 font-mono whitespace-nowrap">
+                          {{ fmtDate(rec.datetime) }}
+                          <span
+                            v-if="idx === 0"
+                            class="ml-1 text-[10px] bg-teal-500 text-white rounded px-1"
+                          >
+                            最新
+                          </span>
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.age, 0) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.height) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.weight) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.fatp) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.fatm) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.pmm) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.vfatl, 0) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.bonem) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.bmr, 0) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ fmtNum(rec.metaage, 0) }}
+                        </td>
+                        <td class="border border-light-c px-2 py-1 text-right">
+                          {{ rec.allrisk != null ? fmtNum(rec.allrisk * 100, 0) + '%' : '–' }}
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -1222,16 +1333,13 @@ onMounted(async () => {
           </div>
         </div>
         <!-- /右：客戶詳情 -->
-
       </div>
       <!-- /左右兩欄 -->
-
     </div>
     <!-- ════════════════════════ /客戶查詢 ════════════════════════ -->
 
     <!-- ════════════════════════ 進步排行 ════════════════════════ -->
     <div v-show="currentTab === 'progress'">
-
       <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-2">
         學生進步排行
       </div>
@@ -1243,7 +1351,11 @@ onMounted(async () => {
             v-model="progressGroup"
             class="border border-base rounded px-3 py-1.5 bg-surface text-base-c"
           >
-            <option v-for="g in groupTabs" :key="g.name" :value="g.name">
+            <option
+              v-for="g in groupTabs"
+              :key="g.name"
+              :value="g.name"
+            >
               {{ g.label }}（{{ g.count }}）
             </option>
           </select>
@@ -1266,8 +1378,15 @@ onMounted(async () => {
         </div>
         <div>
           <label class="block text-[11px] text-hint-c dark:text-hint-c mb-1">排行指標</label>
-          <select v-model="progressMetric" class="border border-base rounded px-3 py-1.5 bg-surface text-base-c">
-            <option v-for="m in PROGRESS_METRICS" :key="m.key" :value="m.key">
+          <select
+            v-model="progressMetric"
+            class="border border-base rounded px-3 py-1.5 bg-surface text-base-c"
+          >
+            <option
+              v-for="m in PROGRESS_METRICS"
+              :key="m.key"
+              :value="m.key"
+            >
               {{ m.label }}{{ m.key === 'composite' ? '' : (m.better === 'down' ? '（降低為進步）' : '（提升為進步）') }}
             </option>
           </select>
@@ -1310,18 +1429,35 @@ onMounted(async () => {
       </div>
 
       <!-- 進步排行圖表 -->
-      <div v-if="progressView === 'chart' && progressChartRows.length" class="mb-5 border border-base rounded-md p-4 bg-surface">
+      <div
+        v-if="progressView === 'chart' && progressChartRows.length"
+        class="mb-5 border border-base rounded-md p-4 bg-surface"
+      >
         <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-3">
           {{ isCompositeMetric ? '綜合評分排行圖' : `${currentMetricInfo.label} 差值排行圖` }}
-          <span v-if="rankedProgress.length > PROGRESS_CHART_LIMIT" class="font-normal text-hint-c dark:text-hint-c">
+          <span
+            v-if="rankedProgress.length > PROGRESS_CHART_LIMIT"
+            class="font-normal text-hint-c dark:text-hint-c"
+          >
             （僅顯示前 {{ PROGRESS_CHART_LIMIT }} 名，共 {{ rankedProgress.length }} 名）
           </span>
         </div>
         <div class="space-y-1.5">
-          <div v-for="row in progressChartRows" :key="row.patnr" class="flex items-center gap-2 text-xs">
+          <div
+            v-for="row in progressChartRows"
+            :key="row.patnr"
+            class="flex items-center gap-2 text-xs"
+          >
             <span class="w-20 text-right text-hint-c dark:text-hint-c truncate">{{ row.lastname }}{{ row.firstname }}</span>
-            <div class="flex-1 bg-surface2 rounded h-3 overflow-hidden cursor-pointer" @click="openCustomer(row.patnr)">
-              <div class="h-full rounded" :class="chartBarColor(row)" :style="{ width: chartWidthPct(row) + '%' }" />
+            <div
+              class="flex-1 bg-surface2 rounded h-3 overflow-hidden cursor-pointer"
+              @click="openCustomer(row.patnr)"
+            >
+              <div
+                class="h-full rounded"
+                :class="chartBarColor(row)"
+                :style="{ width: chartWidthPct(row) + '%' }"
+              />
             </div>
             <span
               class="w-14 text-right font-mono"
@@ -1339,94 +1475,102 @@ onMounted(async () => {
         尚無資料，請選擇班別與時間段後查詢
       </div>
 
-      <div v-if="progressView === 'table'" class="overflow-x-auto rounded border border-base">
+      <div
+        v-if="progressView === 'table'"
+        class="overflow-x-auto rounded border border-base"
+      >
         <table class="w-full border-collapse text-xs">
           <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-          <tr>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-              名次
-            </th>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
-              姓名
-            </th>
-            <th v-if="showGroupColumn" class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
-              班別
-            </th>
-            <template v-if="isCompositeMetric">
+            <tr>
               <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                綜合分數
+                名次
               </th>
-            </template>
-            <template v-else>
+              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
+                姓名
+              </th>
+              <th
+                v-if="showGroupColumn"
+                class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap"
+              >
+                班別
+              </th>
+              <template v-if="isCompositeMetric">
+                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                  綜合分數
+                </th>
+              </template>
+              <template v-else>
+                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                  起始值
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                  結束值
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                  差值
+                </th>
+              </template>
               <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                起始值
+                紀錄筆數
               </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                結束值
-              </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                差值
-              </th>
-            </template>
-            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-              紀錄筆數
-            </th>
-          </tr>
+            </tr>
           </thead>
           <tbody class="divide-y divide-base">
-          <tr v-if="!progressLoading && !rankedProgress.length">
-            <td
-              :colspan="2 + (showGroupColumn ? 1 : 0) + (isCompositeMetric ? 1 : 3) + 1"
-              class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
+            <tr v-if="!progressLoading && !rankedProgress.length">
+              <td
+                :colspan="2 + (showGroupColumn ? 1 : 0) + (isCompositeMetric ? 1 : 3) + 1"
+                class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
+              >
+                尚無資料，請選擇班別與時間段後查詢
+              </td>
+            </tr>
+            <tr
+              v-for="(row, idx) in rankedProgress"
+              :key="row.patnr"
+              class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+              @click="openCustomer(row.patnr)"
             >
-              尚無資料，請選擇班別與時間段後查詢
-            </td>
-          </tr>
-          <tr
-            v-for="(row, idx) in rankedProgress"
-            :key="row.patnr"
-            class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-            @click="openCustomer(row.patnr)"
-          >
-            <td class="border border-light-c px-2 py-1 text-right font-mono">
-              {{ idx + 1 }}
-            </td>
-            <td class="border border-light-c px-2 py-1 whitespace-nowrap">
-              {{ row.lastname }}{{ row.firstname }}
-            </td>
-            <td v-if="showGroupColumn" class="border border-light-c px-2 py-1 whitespace-nowrap">
-              {{ row.group1 || '其他' }}
-            </td>
-            <template v-if="isCompositeMetric">
-              <td
-                class="border border-light-c px-2 py-1 text-right font-semibold"
-                :class="scoreClass(compositeScores.get(row.patnr))"
-              >
-                {{ fmtScore(compositeScores.get(row.patnr)) }}
+              <td class="border border-light-c px-2 py-1 text-right font-mono">
+                {{ idx + 1 }}
               </td>
-            </template>
-            <template v-else>
-              <td class="border border-light-c px-2 py-1 text-right">
-                {{ fmtNum(row.start?.[progressMetric]) }}
-              </td>
-              <td class="border border-light-c px-2 py-1 text-right">
-                {{ fmtNum(row.end?.[progressMetric]) }}
+              <td class="border border-light-c px-2 py-1 whitespace-nowrap">
+                {{ row.lastname }}{{ row.firstname }}
               </td>
               <td
-                class="border border-light-c px-2 py-1 text-right font-semibold"
-                :class="deltaClass(row.delta?.[progressMetric], currentMetricInfo.better)"
+                v-if="showGroupColumn"
+                class="border border-light-c px-2 py-1 whitespace-nowrap"
               >
-                {{ fmtDelta(row.delta?.[progressMetric]) }}
+                {{ row.group1 || '其他' }}
               </td>
-            </template>
-            <td class="border border-light-c px-2 py-1 text-right">
-              {{ row.record_count }}
-            </td>
-          </tr>
+              <template v-if="isCompositeMetric">
+                <td
+                  class="border border-light-c px-2 py-1 text-right font-semibold"
+                  :class="scoreClass(compositeScores.get(row.patnr))"
+                >
+                  {{ fmtScore(compositeScores.get(row.patnr)) }}
+                </td>
+              </template>
+              <template v-else>
+                <td class="border border-light-c px-2 py-1 text-right">
+                  {{ fmtNum(row.start?.[progressMetric]) }}
+                </td>
+                <td class="border border-light-c px-2 py-1 text-right">
+                  {{ fmtNum(row.end?.[progressMetric]) }}
+                </td>
+                <td
+                  class="border border-light-c px-2 py-1 text-right font-semibold"
+                  :class="deltaClass(row.delta?.[progressMetric], currentMetricInfo.better)"
+                >
+                  {{ fmtDelta(row.delta?.[progressMetric]) }}
+                </td>
+              </template>
+              <td class="border border-light-c px-2 py-1 text-right">
+                {{ row.record_count }}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
-
     </div>
     <!-- ════════════════════════ /進步排行 ════════════════════════ -->
   </div>

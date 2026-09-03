@@ -18,7 +18,7 @@ const store = useCourseRegistrationStore()
 const loading = ref(true)
 const saving = ref(false)
 
-const toast = reactive({ show: false, message: '', error: false })
+const toast = reactive({show: false, message: '', error: false})
 const showToast = (msg, error = false) => {
   toast.message = msg
   toast.error = error
@@ -188,14 +188,14 @@ const onCoverChange = async (e) => {
 
 // ── 欄位編輯器 ────────────────────────────────────────────────
 const FIELD_TYPES = [
-  { value: 'text', label: '單行文字' },
-  { value: 'textarea', label: '多行文字' },
-  { value: 'radio', label: '單選' },
-  { value: 'checkbox', label: '多選' },
-  { value: 'select', label: '下拉選單' },
-  { value: 'date', label: '日期' },
-  { value: 'image', label: '圖片上傳（報名者填答）' },
-  { value: 'display_image', label: '純展示圖片（不算答案）' }
+  {value: 'text', label: '單行文字'},
+  {value: 'textarea', label: '多行文字'},
+  {value: 'radio', label: '單選'},
+  {value: 'checkbox', label: '多選'},
+  {value: 'select', label: '下拉選單'},
+  {value: 'date', label: '日期'},
+  {value: 'image', label: '圖片上傳（報名者填答）'},
+  {value: 'display_image', label: '純展示圖片（不算答案）'}
 ]
 const needsOptions = type => ['radio', 'checkbox', 'select'].includes(type)
 
@@ -210,7 +210,7 @@ const addField = () => {
   })
 }
 const removeField = idx => fieldsDraft.value.splice(idx, 1)
-const fieldDeleteConfirm = reactive({ show: false, idx: -1 })
+const fieldDeleteConfirm = reactive({show: false, idx: -1})
 const askRemoveField = (idx) => {
   fieldDeleteConfirm.idx = idx
   fieldDeleteConfirm.show = true
@@ -286,7 +286,7 @@ const saveFields = async () => {
   >
     <div class="max-w-6xl mx-auto px-4 py-6">
       <NuxtLink
-        to="/staff/management/course"
+        to="/staff/health-activities/course"
         class="text-sm mb-4 inline-block"
         style="color: var(--text-hint)"
       >

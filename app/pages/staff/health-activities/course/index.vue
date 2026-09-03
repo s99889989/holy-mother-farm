@@ -1,5 +1,5 @@
 <script setup>
-// 專案holy-mother-farm 位置staff/management/course/index.vue
+// 專案holy-mother-farm 位置staff/health-activities/course/index.vue
 import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
 definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.course' })
@@ -55,7 +55,7 @@ const save = async () => {
     const id = await store.addCourse(form.name, '')
     showToast('新增成功')
     modal.show = false
-    await navigateTo(`/staff/management/course/${id}`)
+    await navigateTo(`/staff/health-activities/course/${id}`)
   } catch {
     showToast('新增失敗', true)
   } finally {
@@ -110,13 +110,29 @@ const capacityLabel = (course) => {
             建立課程、自訂報名表單、管理報名名單
           </p>
         </div>
-        <button
-          class="px-4 py-2 rounded-lg text-sm font-medium text-white"
-          style="background: var(--accent)"
-          @click="openAdd"
-        >
-          ＋ 新增課程
-        </button>
+        <div class="flex gap-2">
+          <NuxtLink
+            to="/staff/health-activities/course/schedule"
+            class="px-4 py-2 rounded-lg text-sm font-medium border"
+            style="border-color: var(--border-light); color: var(--text-muted)"
+          >
+            📅 排課表
+          </NuxtLink>
+          <NuxtLink
+            to="/staff/health-activities/course/kpi"
+            class="px-4 py-2 rounded-lg text-sm font-medium border"
+            style="border-color: var(--border-light); color: var(--text-muted)"
+          >
+            📊 客源/續約
+          </NuxtLink>
+          <button
+            class="px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style="background: var(--accent)"
+            @click="openAdd"
+          >
+            ＋ 新增課程
+          </button>
+        </div>
       </div>
 
       <div
@@ -146,7 +162,7 @@ const capacityLabel = (course) => {
           style="background: var(--surface); border-color: var(--border-light)"
         >
           <NuxtLink
-            :to="`/staff/management/course/${course.id}`"
+            :to="`/staff/health-activities/course/${course.id}`"
             class="block"
           >
             <div
@@ -157,7 +173,7 @@ const capacityLabel = (course) => {
           </NuxtLink>
           <div class="p-4 flex-1 flex flex-col gap-2">
             <NuxtLink
-              :to="`/staff/management/course/${course.id}`"
+              :to="`/staff/health-activities/course/${course.id}`"
               class="font-bold"
               style="color: var(--text-base)"
             >
@@ -177,14 +193,14 @@ const capacityLabel = (course) => {
             </p>
             <div class="flex gap-2 mt-auto pt-2">
               <NuxtLink
-                :to="`/staff/management/course/${course.id}`"
+                :to="`/staff/health-activities/course/${course.id}`"
                 class="flex-1 text-center text-sm py-2 rounded-lg border"
                 style="border-color: var(--border-light); color: var(--text-muted)"
               >
                 編輯課程
               </NuxtLink>
               <NuxtLink
-                :to="`/staff/management/course/${course.id}/registrations`"
+                :to="`/staff/health-activities/course/${course.id}/registrations`"
                 class="flex-1 text-center text-sm py-2 rounded-lg border"
                 style="border-color: var(--border-light); color: var(--text-muted)"
               >

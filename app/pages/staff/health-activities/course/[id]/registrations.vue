@@ -1,5 +1,5 @@
 <script setup>
-// 專案holy-mother-farm 位置staff/management/course/[id]/registrations.vue
+// 專案holy-mother-farm 位置staff/health-activities/course/[id]/registrations.vue
 import { useCourseRegistrationStore } from '~/stores/courseRegistration.js'
 
 definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.course' })
@@ -137,6 +137,52 @@ const resetAll = async () => {
   }
 }
 
+// ── 客源與續約 ────────────────────────────────────────────────
+const CUSTOMER_SOURCE_OPTIONS = ['員工', '續約', '轉介紹', '海報', '活動', '單次']
+const updateCustomerSource = async (reg, value) => {
+  try {
+    await store.updateCustomerSource(courseId, reg.id, value)
+  } catch {
+    showToast('操作失敗', true)
+  }
+}
+const toggleInsider = async (reg) => {
+  try {
+    await store.toggleInsider(courseId, reg.id)
+  } catch {
+    showToast('操作失敗', true)
+  }
+}
+const RENEWAL_OPTIONS = [
+  { value: '', label: '（依自動判斷）' },
+  { value: 'renewed', label: '已續約' },
+  { value: 'not_renewed', label: '未續約' },
+  { value: 'single', label: '單次' },
+]
+const updateRenewalStatus = async (reg, value) => {
+  try {
+    await store.updateRenewalStatus(courseId, reg.id, value)
+  } catch {
+    showToast('操作失敗', true)
+  }
+}
+// 自動判斷是唯讀參考，不會自動存檔；點了才打 API（避免每張卡片一開頁就打一次）
+const autoRenewal = reactive({})
+const checkAutoRenewal = async (reg) => {
+  autoRenewal[reg.id] = { loading: true }
+  try {
+    const result = await store.fetchAutoRenewalStatus(courseId, reg.id)
+    autoRenewal[reg.id] = { ...result, loading: false }
+  } catch {
+    autoRenewal[reg.id] = { status: 'unknown', loading: false }
+  }
+}
+const autoRenewalLabel = (status) => {
+  if (status === 'renewed') return '已續約'
+  if (status === 'not_renewed') return '未續約'
+  return '無法判斷'
+}
+
 const answerDisplay = (reg, field) => {
   const v = reg.answers?.[field.id]
   if (Array.isArray(v)) return v.join('、') || '—'
@@ -163,7 +209,7 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
   >
     <div class="max-w-5xl mx-auto px-4 py-6">
       <NuxtLink
-        to="/staff/management/course"
+        to="/staff/health-activities/course"
         class="text-sm mb-4 inline-block"
         style="color: var(--text-hint)"
       >
@@ -349,6 +395,66 @@ const visibleFormFields = computed(() => answerFields.value.filter(isFieldVisibl
                 >
                 已簽到
               </label>
+            </div>
+
+            <!-- 客源與續約 -->
+            <div
+              class="pt-3 mb-3 flex flex-col gap-2"
+              style="border-top: 1px solid var(--border-light)"
+            >
+              <div class="flex items-center gap-2">
+                <span class="text-xs w-16 shrink-0" style="color: var(--text-hint)">客戶來源</span>
+                <select
+                  :value="reg.customerSource || ''"
+                  class="flex-1 text-xs border rounded-lg px-2 py-1"
+                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  @change="updateCustomerSource(reg, $event.target.value)"
+                >
+                  <option value="">未設定</option>
+                  <option v-for="s in CUSTOMER_SOURCE_OPTIONS" :key="s" :value="s">{{ s }}</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="text-xs w-16 shrink-0" style="color: var(--text-hint)">院內／外</span>
+                <button
+                  class="text-xs px-2 py-1 rounded-lg border"
+                  :style="reg.insider
+                    ? 'background: rgba(96,165,250,0.14); border-color: #60a5fa; color: #93c5fd'
+                    : 'background: var(--surface2); border-color: var(--border-light); color: var(--text-muted)'"
+                  @click="toggleInsider(reg)"
+                >
+                  {{ reg.insider ? '院內員工' : '院外人士' }}
+                </button>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="text-xs w-16 shrink-0" style="color: var(--text-hint)">續約狀態</span>
+                <select
+                  :value="reg.renewalStatus || ''"
+                  class="flex-1 text-xs border rounded-lg px-2 py-1"
+                  style="border-color: var(--border-light); background: var(--surface2); color: var(--text-base)"
+                  @change="updateRenewalStatus(reg, $event.target.value)"
+                >
+                  <option v-for="o in RENEWAL_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                </select>
+                <button
+                  v-if="!reg.renewalStatus"
+                  class="text-xs shrink-0"
+                  style="color: var(--accent)"
+                  @click="checkAutoRenewal(reg)"
+                >
+                  {{ autoRenewal[reg.id]?.loading ? '判斷中…' : '看自動判斷' }}
+                </button>
+              </div>
+              <p
+                v-if="!reg.renewalStatus && autoRenewal[reg.id] && !autoRenewal[reg.id].loading"
+                class="text-xs"
+                style="color: var(--text-hint)"
+              >
+                自動判斷：{{ autoRenewalLabel(autoRenewal[reg.id].status) }}
+                <span v-if="autoRenewal[reg.id].reason">（{{ autoRenewal[reg.id].reason }}）</span>
+              </p>
             </div>
 
             <!-- 下：報名時間 + 操作 -->

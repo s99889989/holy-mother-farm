@@ -24,10 +24,14 @@ async function callMe(mainUrl: string) {
   return fetch(`${mainUrl}/holy/customer/me`, { credentials: 'include' })
 }
 
-async function doLogout(mainUrl: string) {
+// reason 是給除錯面板看的，用來分辨這次登出是從哪個判斷路徑觸發的
+// （data.error 明確登出 / 連續 401/403 / 使用者手動按登出），
+// 之後如果又遇到 customer 莫名變 null，可以直接從這個記錄回推成因，
+// 不用再靠猜的。
+async function doLogout(mainUrl: string, reason: string) {
   lastCheckedAt = 0
   const customerStore = useCustomerStore()
-  customerStore.clearCustomer()
+  customerStore.clearCustomer(reason)
   usePermissionStore().clear()
   try {
     await fetch(`${mainUrl}/holy/customer/logout`, { method: 'POST', credentials: 'include' })
@@ -94,7 +98,7 @@ export async function verifySession(mainUrl: string, options: VerifyOptions = {}
         const data = await res.json()
         if (data.error) {
           // 後端明確表示「沒有這個登入」，不是暫時性的，直接判定登出
-          await doLogout(mainUrl)
+          await doLogout(mainUrl, `verifySession: /me 回傳 data.error（${JSON.stringify(data.error)}）`)
           return { loggedOut: true, skipped: false }
         }
 
@@ -110,7 +114,7 @@ export async function verifySession(mainUrl: string, options: VerifyOptions = {}
     const status = lastErr?.status
     if (status === 401 || status === 403) {
       // 連續兩次都明確是 401/403，才視為真的 session 失效
-      await doLogout(mainUrl)
+      await doLogout(mainUrl, `verifySession: /me 連續回傳 ${status}（retryOnFail=${retryOnFail}）`)
       return { loggedOut: true, skipped: false }
     }
 

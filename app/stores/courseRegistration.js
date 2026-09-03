@@ -10,7 +10,8 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
     courses: [],        // 後台：課程列表（含完整 registrations）
     currentCourse: null, // 後台：單一課程管理頁使用
     publicCourse: null,  // 前台：公開報名頁使用
-    myRegistrations: []
+    myRegistrations: [],
+    seriesStats: []      // 後台：KPI 儀表板，某課程名稱底下所有梯次的統計，依報名截止日排序
   }),
 
   getters: {
@@ -182,6 +183,37 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
       await fetch(`${this._base()}/${id}/registration/${regId}/toggle-paid`, { method: 'PUT', credentials: 'include' })
       await this.fetchCourse(id)
     },
+
+    // ── 客源與續約 ────────────────────────────────────────────
+    async updateCustomerSource(id, regId, customerSource) {
+      await fetch(`${this._base()}/${id}/registration/${regId}/customer-source`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerSource })
+      })
+      await this.fetchCourse(id)
+    },
+    async toggleInsider(id, regId) {
+      await fetch(`${this._base()}/${id}/registration/${regId}/toggle-insider`, { method: 'PUT', credentials: 'include' })
+      await this.fetchCourse(id)
+    },
+    // status: '' | 'renewed' | 'not_renewed' | 'single'，空字串代表清掉人工覆蓋
+    async updateRenewalStatus(id, regId, status) {
+      await fetch(`${this._base()}/${id}/registration/${regId}/renewal-status`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
+      await this.fetchCourse(id)
+    },
+    // 讀自動判斷結果（不會存檔，只是給前端顯示參考用）：{ status: 'renewed'|'not_renewed'|'unknown', reason? }
+    async fetchAutoRenewalStatus(id, regId) {
+      const res = await fetch(`${this._base()}/${id}/registration/${regId}/renewal-auto`, { credentials: 'include' })
+      return await res.json()
+    },
+
     // dates: 完整陣列覆寫 ["6/30", "7/1", ...]
     async updateSessionDates(id, dates) {
       await fetch(`${this._base()}/${id}/session-dates`, {
@@ -232,6 +264,13 @@ export const useCourseRegistrationStore = defineStore('courseRegistration', {
       const res = await fetch(`${this._base()}/my-registrations`, { credentials: 'include' })
       const data = await res.json()
       this.myRegistrations = data.error ? [] : data
+    },
+
+    // ── 客源與續約 KPI 儀表板 ────────────────────────────────
+    // name: 課程名稱（同一系列課程假設每梯次用完全一樣的名稱）
+    async fetchSeriesStats(name) {
+      const res = await fetch(`${this._base()}/stats-by-name/${encodeURIComponent(name)}`, { credentials: 'include' })
+      this.seriesStats = await res.json()
     }
   }
 })
