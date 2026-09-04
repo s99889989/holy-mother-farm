@@ -2009,12 +2009,12 @@
     <Transition name="slide-right">
       <div
         v-if="dayPanel.show"
-        class="fixed inset-0 z-40 flex justify-end"
+        class="fixed inset-0 z-[60] flex justify-end"
         @click.self="dayPanel.show = false"
       >
         <!-- 獨立於側板內部捲動之外的關閉鈕：固定在畫面右上角，避免手機上因內部捲動或 sticky 失效而找不到關閉按鈕 -->
         <button
-          class="fixed top-3 right-3 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-surface dark:bg-[#1c1f26] shadow-lg border border-light-c dark:border-[#2a2e37] text-hint-c hover:text-muted-c"
+          class="fixed top-3 right-3 z-[70] w-9 h-9 flex items-center justify-center rounded-full bg-surface dark:bg-[#1c1f26] shadow-lg border border-light-c dark:border-[#2a2e37] text-hint-c hover:text-muted-c"
           @click="dayPanel.show = false"
         >
           <svg
