@@ -1418,16 +1418,16 @@
     >
       <!-- ── 精簡列：手機一定顯示；電腦收合時整條隱藏，改顯示下面那顆扁按鈕 ── -->
       <div
-        class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3 sticky top-0 z-30 lg:static"
+        class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-4 py-3 sticky top-0 z-30 lg:static"
         :class="{ 'lg:hidden': !panelExpanded }"
       >
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
           <button
-            class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors"
+            class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors flex-shrink-0"
             @click="prevMonth"
           >
             <svg
-              class="w-4.5 h-4.5"
+              class="w-4 h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1438,15 +1438,15 @@
               d="M15 18l-6-6 6-6"
             /></svg>
           </button>
-          <h2 class="text-xl font-bold text-base-c min-w-[130px] text-center">
+          <h2 class="text-base font-bold text-base-c text-center flex-1">
             {{ currentYear }} 年 {{ currentMonth }} 月
           </h2>
           <button
-            class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors"
+            class="w-8 h-8 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors flex-shrink-0"
             @click="nextMonth"
           >
             <svg
-              class="w-4.5 h-4.5"
+              class="w-4 h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1458,16 +1458,10 @@
             /></svg>
           </button>
           <button
-            class="px-4 py-1.5 text-sm border border-light-c dark:border-[#2a2e37] text-hint-c rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors"
-            @click="goToday"
-          >
-            今天
-          </button>
-          <button
-            class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors"
+            class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors"
+            title="收合"
             @click="panelExpanded = !panelExpanded"
           >
-            <span class="hidden sm:inline">{{ panelExpanded ? '收合' : '展開' }}</span>
             <svg
               class="w-4 h-4 transition-transform"
               :class="{ 'rotate-180': !panelExpanded }"
