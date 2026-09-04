@@ -2237,9 +2237,9 @@
     <!-- ══ Modal: 新增 / 編輯 ══ -->
     <div
       v-if="formModal.show"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-base-c">
             {{ formModal.isNew
@@ -2397,10 +2397,10 @@
     <!-- ══ Modal: 清空當月確認 ══ -->
     <div
       v-if="clearMonthModal.show"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
       @click.self="closeClearMonthModal"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between">
           <h3 class="font-bold text-red-500 flex items-center gap-2">
             <svg
@@ -2483,10 +2483,10 @@
     <!-- ══ Modal: Google 活動詳細 ══ -->
     <div
       v-if="googleDetailModal.show && googleDetailModal.ev"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
       @click.self="googleDetailModal.show = false"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
@@ -2629,10 +2629,10 @@
     <!-- ══ Modal: 行程詳細（點行程先看資料，裡面才有編輯／刪除）══ -->
     <div
       v-if="itineraryDetailModal.show && itineraryDetailModal.ev"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
       @click.self="itineraryDetailModal.show = false"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
@@ -2754,10 +2754,10 @@
     <!-- ══ Modal: 院內活動詳細（唯讀，點院內活動只看資料，不提供編輯/刪除）══ -->
     <div
       v-if="localDetailModal.show && localDetailModal.ev"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
       @click.self="localDetailModal.show = false"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
@@ -2869,10 +2869,10 @@
     <!-- ══ Modal: 訂位／便當／豆漿／訂房 詳細（唯讀，編輯/刪除請到各自管理頁）══ -->
     <div
       v-if="orderDetailModal.show && orderDetailModal.ev"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
       @click.self="orderDetailModal.show = false"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
@@ -3034,10 +3034,10 @@
     <!-- ══ Modal: 豆漿當日彙總（點月曆/側板的豆漿總和 chip 開，列出當天每一筆訂單完整資訊）══ -->
     <div
       v-if="soybeanSummaryModal.show"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
       @click.self="soybeanSummaryModal.show = false"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <!-- Header -->
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <div class="flex items-center gap-2">
@@ -3121,9 +3121,9 @@
     <!-- ══ Modal: TXT 匯入 ══ -->
     <div
       v-if="showTxtModal"
-      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
     >
-      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="bg-surface dark:bg-[#15171c] rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-base-c">
             貼上 TXT 行事曆
@@ -3341,6 +3341,24 @@
         >
           📝 {{ stripHtml(tooltipEvent.description).length > 80 ? stripHtml(tooltipEvent.description).slice(0, 80) + '…' : stripHtml(tooltipEvent.description) }}
         </div>
+        <!-- 豆漿彙總：額外顯示容量明細＋逐筆訂單，不用點開才看得到內容 -->
+        <template v-if="tooltipEvent.source === 'soybean' && tooltipEvent.orders && tooltipEvent.orders.length">
+          <div
+            v-if="soybeanVolumeBreakdown(tooltipEvent.orders)"
+            class="tooltip-row"
+          >
+            🥛 {{ soybeanVolumeBreakdown(tooltipEvent.orders) }}
+          </div>
+          <div class="tooltip-row">
+            <div
+              v-for="o in tooltipEvent.orders"
+              :key="o.id"
+              :class="{ 'opacity-50': o.status === '已取消' }"
+            >
+              ・{{ o.title }}{{ o.status ? `（${o.status}）` : '' }}
+            </div>
+          </div>
+        </template>
         <div
           v-if="tooltipEvent.source === 'google'"
           class="tooltip-hint"
