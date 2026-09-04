@@ -385,6 +385,12 @@
     isMobileViewport.value = e.matches
   }
 
+  // ── 導覽列高度量測：側欄的 top/height 要扣掉 StaffNavbar 實際高度 ──────
+  // StaffNavbar 桌機／手機兩種版面高度不同，且會隨視窗寬度切換（.staff-nav 內部用
+  // 2xl: 斷點切換兩排不同內容），所以用 ResizeObserver 動態量測，不寫死 px 數字
+  const navbarHeight = ref(56) // 量測前的合理預設值，避免還沒 mounted 時樣式跑掉
+  let navbarResizeObserver = null
+
   const BANNER_ROW_HEIGHT = computed(() => isMobileViewport.value ? 16 : 20)
 
   const weekBanners = computed(() => {
@@ -1400,10 +1406,25 @@
       isMobileViewport.value = mobileMql.matches
       mobileMql.addEventListener('change', updateMobileViewport)
     }
+
+    if (import.meta.client) {
+      const navEl = document.querySelector('.staff-nav')
+      if (navEl) {
+        navbarHeight.value = navEl.offsetHeight
+        if (window.ResizeObserver) {
+          navbarResizeObserver = new ResizeObserver((entries) => {
+            const entry = entries[0]
+            if (entry) navbarHeight.value = entry.target.offsetHeight
+          })
+          navbarResizeObserver.observe(navEl)
+        }
+      }
+    }
   })
 
   onUnmounted(() => {
     if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
+    if (navbarResizeObserver) navbarResizeObserver.disconnect()
   })
 </script>
 
@@ -1412,13 +1433,14 @@
     <!-- ══ 左側功能欄（月份導覽＋圖例／篩選／院內功能 都在一起；lg 以上收合時整塊變成扁扁的展開按鈕）══ -->
     <div
       :class="[
-        'lg:flex-shrink-0 lg:border-r lg:border-light-c dark:lg:border-[#2a2e37] lg:h-screen lg:sticky lg:top-0 lg:overflow-y-auto lg:transition-all lg:duration-200',
+        'lg:flex-shrink-0 lg:border-r lg:border-light-c dark:lg:border-[#2a2e37] lg:sticky lg:top-0 lg:h-[calc(100vh-var(--navbar-h))] lg:flex lg:flex-col lg:overflow-y-auto lg:overscroll-contain lg:transition-all lg:duration-200',
         panelExpanded ? 'lg:w-72' : 'lg:w-12 lg:overflow-hidden'
       ]"
+      :style="{ '--navbar-h': `${navbarHeight}px` }"
     >
       <!-- ── 精簡列：手機一定顯示；電腦收合時整條隱藏，改顯示下面那顆扁按鈕 ── -->
       <div
-        class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-4 py-3 sticky top-0 z-30 lg:static"
+        class="lg:flex-shrink-0 bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-4 py-3 sticky top-0 z-30 lg:static"
         :class="{ 'lg:hidden': !panelExpanded }"
       >
         <div class="flex items-center gap-2">
@@ -1462,8 +1484,9 @@
             title="收合"
             @click="panelExpanded = !panelExpanded"
           >
+            <!-- 桌機：左右箭頭（往左收合／往右展開） -->
             <svg
-              class="w-4 h-4 transition-transform"
+              class="hidden lg:block w-4 h-4 transition-transform"
               :class="{ 'rotate-180': !panelExpanded }"
               fill="none"
               stroke="currentColor"
@@ -1474,32 +1497,54 @@
               stroke-width="2.5"
               d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
             /></svg>
+            <!-- 手機：上下箭頭（往上收合／往下展開） -->
+            <svg
+              class="lg:hidden w-4 h-4 transition-transform"
+              :class="{ 'rotate-180': !panelExpanded }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M5 19l7-7 7 7M5 11l7-7 7 7"
+            /></svg>
           </button>
         </div>
       </div>
 
-      <!-- ── 扁按鈕：只有電腦版收合時才會出現，取代整條精簡列 ── -->
+      <!-- ── 扁按鈕：只有電腦版收合時才會出現，取代整條精簡列；整條側欄高度都可點擊，上方顯示月份、箭頭置中 ── -->
       <button
         v-if="!panelExpanded"
-        class="hidden lg:flex lg:w-full lg:py-4 lg:items-center lg:justify-center text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        class="hidden lg:flex lg:flex-col lg:w-full lg:flex-1 lg:items-center text-hint-c hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
         title="展開"
         @click="panelExpanded = true"
       >
-        <svg
-          class="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        ><path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2.5"
-          d="M13 5l7 7-7 7M5 5l7 7-7 7"
-        /></svg>
+        <span
+          class="pt-4 pb-2 text-xs font-bold tracking-widest select-none"
+          style="writing-mode: vertical-rl; text-orientation: upright;"
+        >{{ currentMonth }}月</span>
+        <span class="flex-1 flex items-center justify-center w-full">
+          <svg
+            class="w-4 h-4 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2.5"
+            d="M13 5l7 7-7 7M5 5l7 7-7 7"
+          /></svg>
+        </span>
       </button>
 
       <!-- ── 圖例 / 篩選列 / 院內功能：收合時（不分手機電腦）都隱藏 ── -->
-      <div v-show="panelExpanded">
+      <div
+        v-show="panelExpanded"
+        class="lg:flex lg:flex-col lg:flex-1 lg:min-h-0"
+      >
         <!-- ── 類型圖例（可複選，勾選/取消決定要不要顯示該分類）── -->
         <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3">
           <div class="flex items-center justify-between mb-2">
@@ -1700,6 +1745,29 @@
             </div>
           </div>
         </div>
+
+        <!-- ── 新增 Google 活動：獨立放在院內功能下面，不需要展開就能直接點 ── -->
+        <div class="bg-surface dark:bg-[#15171c] px-6 pb-3.5">
+          <button
+            class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            @click="openAddOnDate(null, 'google')"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v16m8-8H4"
+            /></svg>
+            新增 Google 活動
+          </button>
+        </div>
+        <!-- 補滿剩餘高度，避免展開時內容比側欄短、下方露出不同背景色的空白 -->
+        <div class="hidden lg:block lg:flex-1 bg-surface dark:bg-[#15171c]" />
       </div>
     </div>
     <!-- ══ 左側功能欄結束 ══ -->
@@ -1742,8 +1810,10 @@
                   'opacity-0 pointer-events-none': !cell.day,
                   'today': cell.isToday,
                   'weekend': cell.isWeekend,
-                  'has-events': cell.events.length > 0
+                  'has-events': cell.events.length > 0,
+                  'cursor-pointer': cell.day
                 }]"
+                @click="cell.day && openDayPanel(cell)"
               >
                 <template v-if="cell.day">
                   <!-- 日期數字 -->
@@ -1775,12 +1845,13 @@
                       <span class="chip-time hidden sm:inline">{{ ev.time }}</span>
                       <span class="chip-title">{{ ev.title }}</span>
                     </div>
-                    <!-- 更多：每天都可點開右側詳細清單，不必等超過 3 筆才顯示 -->
+                    <!-- 更多：只有真的超過 3 筆才顯示；沒超過就不用顯示，點空白處一樣能開右側清單 -->
                     <div
+                      v-if="cell.chipEvents.length > 3"
                       class="text-xs text-hint-c px-1 cursor-pointer hover:text-indigo-500 transition-colors"
                       @click.stop="openDayPanel(cell)"
                     >
-                      {{ cell.chipEvents.length > 3 ? `+${cell.chipEvents.length - 3} 更多` : '更多' }}
+                      +{{ cell.chipEvents.length - 3 }} 更多
                     </div>
                   </div>
                 </template>

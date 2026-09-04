@@ -2747,7 +2747,7 @@
                   </button>
                 </div>
                 <NuxtLink
-                  to="/staff/management/meal-schedule"
+                  to="/staff/catering-kitchen/meal-schedule"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
@@ -2899,7 +2899,7 @@
                   </button>
                 </div>
                 <NuxtLink
-                  to="/staff/management/calendar"
+                  to="/staff/timeline/calendar"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="text-green-700 dark:text-green-400 font-medium flex-shrink-0"
