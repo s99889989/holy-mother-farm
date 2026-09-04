@@ -68,6 +68,7 @@
   }
 
   function typeColorClass(ev) {
+    if (ev.source === 'holiday') return 'holiday'
     if (ev.source === 'google') return 'google'
     if (ev.source === 'itinerary') return 'itinerary'
     if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return ev.source
@@ -75,6 +76,7 @@
   }
 
   function typeChipClass(ev) {
+    if (ev.source === 'holiday') return 'chip-holiday'
     if (ev.source === 'google') return 'chip-google'
     if (ev.source === 'itinerary') return 'chip-itinerary'
     if (['booking', 'lunch', 'soybean', 'roomorder'].includes(ev.source)) return `chip-${ev.source}`
@@ -169,6 +171,7 @@
   }
 
   function typeBarClass(ev) {
+    if (ev.source === 'holiday') return 'bg-emerald-600'
     if (ev.source === 'google') return 'bg-blue-500'
     if (ev.source === 'itinerary') return 'bg-teal-500'
     if (ev.source === 'booking') return 'bg-pink-500'
@@ -206,8 +209,40 @@
     { key: '訂位', label: '訂位', dot: 'bg-pink-500' },
     { key: '便當', label: '便當', dot: 'bg-orange-500' },
     { key: '豆漿', label: '豆漿', dot: 'bg-lime-600' },
-    { key: '訂房', label: '訂房', dot: 'bg-violet-600' }
+    { key: '訂房', label: '訂房', dot: 'bg-violet-600' },
+    { key: '節慶', label: '節慶', dot: 'bg-emerald-600' }
   ]
+
+  // ── 台灣節慶（比照 Google 日曆內建的「台灣的節慶日」，改由後端代理 Google 公開節慶日曆）──
+  // 跟行程／Google／訂位…等其他來源用同一套規則：併進 allEvents、受圖例 checkbox／地點篩選管控，
+  // 是否顯示成色條則單純看 isBannerEvent（只有跨天才會是色條，節慶都是單日所以會跟一般活動一樣是 chip）
+  const taiwanHolidays = ref([]) // 後端回傳的 { date, title }[]
+
+  async function fetchTaiwanHolidays() {
+    try {
+      const res = await fetch(`${BASE.value}/taiwan-holidays?yearMonth=${currentYearMonth.value}`)
+      if (!res.ok) {
+        console.warn('台灣節慶載入失敗，狀態碼：', res.status)
+        return
+      }
+      taiwanHolidays.value = await res.json()
+    } catch (e) {
+      console.warn('台灣節慶載入失敗', e)
+    }
+  }
+
+  const holidayEvents = computed(() => taiwanHolidays.value.map(h => ({
+    id: `holiday_${h.date}`,
+    date: h.date,
+    endDate: h.date,
+    time: '',
+    endTime: '',
+    title: h.title,
+    owner: '',
+    room: '',
+    source: 'holiday'
+  })))
+
   const LEGEND_ITEMS = [...LOCAL_SUB_ITEMS, ...OTHER_LEGEND_ITEMS] // 給還需要「全部十項」的地方用（全選/全取消/總計）
   const activeCategories = reactive(Object.fromEntries(LEGEND_ITEMS.map(i => [i.key, true])))
   const filterLocation = ref('') // 空字串 = 全部地點
@@ -290,7 +325,8 @@
   // 每個資料來源對應的篩選類型標籤（跟篩選下拉的 option value 一致）
   const SOURCE_TYPE_LABEL = {
     google: 'Google', itinerary: '行程',
-    booking: '訂位', lunch: '便當', soybean: '豆漿', roomorder: '訂房'
+    booking: '訂位', lunch: '便當', soybean: '豆漿', roomorder: '訂房',
+    holiday: '節慶'
   }
 
   // 依目前勾選的分類動態產生可選地點（去重、排序）
@@ -458,7 +494,8 @@
       訂位: overlap(bookingEvents.value),
       便當: overlap(lunchEvents.value),
       豆漿: overlap(soybeanEvents.value),
-      訂房: overlap(roomOrderEvents.value)
+      訂房: overlap(roomOrderEvents.value),
+      節慶: overlap(holidayEvents.value)
     }
   })
 
@@ -542,7 +579,8 @@
   // 系統活動 + 行程 + Google 活動合併（都是「一筆活動一筆資料」，用 date/endDate 表示範圍）
   const allEvents = computed(() => [
     ...events.value, ...itineraryEvents.value, ...googleEvents.value,
-    ...bookingEvents.value, ...lunchEvents.value, ...soybeanEvents.value, ...roomOrderEvents.value
+    ...bookingEvents.value, ...lunchEvents.value, ...soybeanEvents.value, ...roomOrderEvents.value,
+    ...holidayEvents.value
   ])
 
   async function fetchEvents() {
@@ -825,7 +863,7 @@
   const ORDER_SOURCES = ['booking', 'lunch', 'soybean', 'roomorder']
   // 所有來源（院內／Google／行程／訂位系列）點擊都要能開詳細 Modal
   function isDetailClickable(ev) {
-    return true
+    return ev.source !== 'holiday'
   }
   // ── 豆漿當日彙總 Modal（點月曆/側板的豆漿總和 chip 開，列出當天每一筆訂單完整資訊）──
   const soybeanSummaryModal = reactive({ show: false, dateStr: '', breakdown: '', orders: [] })
@@ -1316,6 +1354,7 @@
     fetchBookingEvents()
     fetchLunchEvents()
     fetchSoybeanEvents()
+    fetchTaiwanHolidays()
     noteEditIdx.value = -1
   })
 
@@ -1400,6 +1439,7 @@
     fetchSoybeanEvents()
     fetchRoomOrderEvents() // /list 一次回傳全部訂單，不用像上面三個依月份重抓
     fetchGroupNames()
+    fetchTaiwanHolidays()
 
     if (import.meta.client && window.matchMedia) {
       mobileMql = window.matchMedia('(max-width: 640px)')
@@ -3573,6 +3613,12 @@
     border-left-color: #d97706;
   }
 
+  .chip-holiday {
+    background: #d1fae5;
+    color: #047857;
+    border-left-color: #10b981;
+  }
+
   :root.dark .cal-chip {
     border-left-width: 0;
     padding: 2px 6px;
@@ -3625,6 +3671,11 @@
 
   :root.dark .chip-onsite {
     background: #b45309;
+    color: #fff;
+  }
+
+  :root.dark .chip-holiday {
+    background: #059669;
     color: #fff;
   }
 
@@ -3692,6 +3743,11 @@
     color: #b45309;
   }
 
+  .type-badge.holiday {
+    background: #d1fae5;
+    color: #047857;
+  }
+
   :root.dark .type-badge.hospital {
     background: #4d2323;
     color: #f87171;
@@ -3739,6 +3795,11 @@
 
   :root.dark .type-badge.onsite {
     background: #b45309;
+    color: #fff;
+  }
+
+  :root.dark .type-badge.holiday {
+    background: #059669;
     color: #fff;
   }
 

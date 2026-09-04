@@ -125,3 +125,60 @@ export async function verifySession(mainUrl: string, options: VerifyOptions = {}
     checking = false
   }
 }
+
+// ── 嘗試恢復登入狀態（customer 是 null 時使用）───────────────────
+// 過去的邏輯：只要 customerStore.isLoggedIn 是 false，verifySession()
+// 一開始就直接放棄（見上面 `if (!customerStore.isLoggedIn) return`），
+// 從來沒有機會去問後端「session cookie 其實是不是還有效」。
+//
+// 但實測發現：即使 localStorage 裡的 customer 資料整個消失（例如
+// iOS Safari 的 ITP 機制，在網站一段時間沒被判定為「主要使用」時，
+// 會清掉該網站的 localStorage），session cookie 本身不一定跟著失效
+// ——這兩者是各自獨立的儲存機制。過去的寫法把「localStorage 有沒有
+// customer 資料」直接當成「有沒有登入」的唯一依據，一旦 localStorage
+// 被清掉，即使 cookie 還有效，也永遠沒有自我恢復的機會，只能被迫
+// 重新登入。
+//
+// 這個函式在 customer 是 null 時主動打一次 /me，如果後端說 session
+// 其實還有效，就把 customer 補回來，不用整個踢回登入頁。
+// 回傳 { restored: true } 代表補回來了，可以照常繼續；
+// 回傳 { restored: false } 代表 session 真的失效了，需要重新登入。
+export async function tryRestoreSession(mainUrl: string) {
+  const customerStore = useCustomerStore()
+
+  // 已經有 customer 了，不需要恢復
+  if (customerStore.isLoggedIn) return { restored: true }
+
+  // 已經有另一邊在驗證中 → 這次直接跳過，避免搶著打 /me
+  if (checking) return { restored: false }
+
+  checking = true
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt === 1) {
+        await new Promise(resolve => setTimeout(resolve, 1200))
+      }
+      try {
+        const res = await callMe(mainUrl)
+        if (!res.ok) continue // 5xx/401 等，再試一次或放棄
+
+        const data = await res.json()
+        // 後端明確表示「沒有這個登入」，或回傳的資料不像是有效的
+        // customer 物件（沒有 id），代表 session 真的沒有效，不用再試
+        if (!data || data.error || !data.id) {
+          return { restored: false }
+        }
+
+        // session 其實還有效：把 customer 補回來
+        customerStore.setCustomer(data)
+        lastCheckedAt = Date.now()
+        return { restored: true }
+      } catch {
+        // 網路例外，等下一次 attempt 重試
+      }
+    }
+    return { restored: false }
+  } finally {
+    checking = false
+  }
+}

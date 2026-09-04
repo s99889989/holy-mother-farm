@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-  import { verifySession } from '~/composables/useSessionCheck'
+  import { verifySession, tryRestoreSession } from '~/composables/useSessionCheck'
 
   const route = useRoute()
   const hideNavbar = computed(() => !!route.meta.hideNavbar)
@@ -43,9 +43,18 @@
   async function checkSessionOnVisible() {
     if (document.visibilityState !== 'visible') return
 
-    // isLoggedIn 已是 false → 狀態已清除但頁面還停在 staff，直接踢回首頁
+    // customer 是 null，不代表 session 真的失效——很可能只是 localStorage
+    // 被 iOS Safari 清掉（實測證實過：不是被 clearCustomer() 清空，是
+    // localStorage 裡本來就沒有這筆資料）。先試著跟後端確認一次能不能
+    // 恢復，不用一律直接踢回首頁重新登入。
     if (!customerStore.isLoggedIn) {
-      window.location.href = '/'
+      const { restored } = await tryRestoreSession(commonStore.data.main_url)
+      if (!restored) {
+        window.location.href = '/'
+        return
+      }
+      // 恢復成功，補拉一次權限（這次 customerId 才會是真的、不是 null）
+      await loadPerms(false)
       return
     }
 
@@ -84,6 +93,14 @@
   }
 
   onMounted(async () => {
+    // customer 是 null 時，先試著跟後端確認一次 session 是不是其實還
+    // 有效（同樣的道理：localStorage 被清掉不等於真的登出）。不管有沒有
+    // 恢復成功都繼續往下走——沒恢復成功的話，middleware 那層本來就會
+    // 處理導頁，這裡不用重複判斷。
+    if (!customerStore.isLoggedIn) {
+      await tryRestoreSession(commonStore.data.main_url)
+    }
+
     // 載入權限
     if (!permissionStore.loaded) {
       await loadPerms(false)

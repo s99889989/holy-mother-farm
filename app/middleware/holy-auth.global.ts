@@ -1,5 +1,5 @@
 // middleware/holy-auth.global.ts
-import { verifySession } from '~/composables/useSessionCheck'
+import { verifySession, tryRestoreSession } from '~/composables/useSessionCheck'
 
 const ADMIN_HOME = '/admin/admin-customer-management'
 
@@ -28,9 +28,20 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (hasAdminAuth) return
 
+  const commonStore = useCommonStore()
+
   if (to.path.startsWith('/staff')) {
-    // 未登入 → 一律擋
-    if (!customerStore.isLoggedIn) return navigateTo('/')
+    // customer 是 null，不代表 session 真的失效——很可能只是 iOS Safari
+    // 的 ITP 機制把 localStorage 清掉了（實測證實過：localStorage 裡
+    // 連 customer 這個 key 都不存在，但也沒有任何 clearCustomer() 被
+    // 呼叫過，代表不是被登出，是資料本來就消失了），session cookie
+    // 不一定跟著失效。過去的寫法一律直接踢回首頁，逼使用者重新登入，
+    // 即使 cookie 其實還有效。這裡先試著跟後端確認一次，能恢復就恢復，
+    // 不用整個踢回登入頁。
+    if (!customerStore.isLoggedIn) {
+      const { restored } = await tryRestoreSession(commonStore.data.main_url)
+      if (!restored) return navigateTo('/')
+    }
 
     // 已登入但登入後端不再擋 guest（course 報名等前台功能需要 guest 也能登入），
     // 所以這裡要補上「guest 不能進 /staff」的判斷，不能只靠 nav 選單隱藏，
@@ -53,13 +64,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // 只是還沒完全就緒、幾百毫秒後就會恢復正常。加上 retryOnFail，才會
   // 跟 layouts/staff.vue 的 checkSessionOnVisible 一樣，先等 1.2 秒
   // 讓網路/cookie 有機會恢復，再重試一次，兩次都真的失敗才判定登出。
-  //
-  // （這正是「customer 被清空、但幾乎同時 permission 又抓到正確資料」
-  // 這種矛盾狀態的成因：這裡誤判登出把 customer 清空之後，
-  // layouts/staff.vue 的 onMounted 又獨立打了一次 my-perms，這時
-  // cookie 已經恢復正常，權限就抓到了，但沒有人把 customer 補回來。）
   if (to.path.startsWith('/staff') && customerStore.isLoggedIn) {
-    const commonStore = useCommonStore()
     const { loggedOut } = await verifySession(commonStore.data.main_url, { retryOnFail: true })
     if (loggedOut) return navigateTo('/')
   }
@@ -69,7 +74,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // if (!requiredKey) return
   //
   // const permissionStore = usePermissionStore()
-  // const commonStore = useCommonStore()
   // const customerId = customerStore.isLoggedIn ? String(customerStore.customer.id) : null
   //
   // if (!permissionStore.loaded) {
