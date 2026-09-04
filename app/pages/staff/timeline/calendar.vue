@@ -127,33 +127,46 @@
   // ── 跟隨游標的活動提示框 ─────────────────────────────────────────
   const tooltipEvent = ref(null)
   const tooltipPos = reactive({ x: 0, y: 0 })
+  const tooltipEl = ref(null) // 量測實際渲染高度用，內容長度不固定，不能用猜的
+  const tooltipHeight = ref(120) // 量到之前的合理預設值
   const TOOLTIP_OFFSET = 18
   const TOOLTIP_WIDTH = 280
-  const TOOLTIP_MAX_HEIGHT = 300
 
   const tooltipStyle = computed(() => {
     if (!import.meta.client) return {}
     let left = tooltipPos.x + TOOLTIP_OFFSET
-    let top = tooltipPos.y + TOOLTIP_OFFSET
 
     // 靠右邊界時翻到游標左側
     if (left + TOOLTIP_WIDTH > window.innerWidth - 8) {
       left = tooltipPos.x - TOOLTIP_WIDTH - TOOLTIP_OFFSET
     }
-    // 靠下邊界時翻到游標上方
-    if (top + TOOLTIP_MAX_HEIGHT > window.innerHeight - 8) {
-      top = tooltipPos.y - TOOLTIP_MAX_HEIGHT - TOOLTIP_OFFSET
-    }
     if (left < 8) left = 8
-    if (top < 8) top = 8
 
+    // 預設長在游標右上；量到的實際高度放不下（會頂到螢幕上緣）時，改成長在游標下方
+    const spaceAbove = tooltipPos.y - TOOLTIP_OFFSET
+    if (spaceAbove >= tooltipHeight.value + 8) {
+      let bottom = window.innerHeight - tooltipPos.y + TOOLTIP_OFFSET
+      if (bottom < 8) bottom = 8
+      return { left: `${left}px`, bottom: `${bottom}px` }
+    }
+    let top = tooltipPos.y + TOOLTIP_OFFSET
+    if (top + tooltipHeight.value > window.innerHeight - 8) {
+      top = Math.max(8, window.innerHeight - tooltipHeight.value - 8)
+    }
     return { left: `${left}px`, top: `${top}px` }
   })
+
+  function measureTooltipHeight() {
+    nextTick(() => {
+      if (tooltipEl.value) tooltipHeight.value = tooltipEl.value.offsetHeight
+    })
+  }
 
   function showTooltip(ev, e) {
     tooltipEvent.value = ev
     tooltipPos.x = e.clientX
     tooltipPos.y = e.clientY
+    measureTooltipHeight() // 換了一筆活動，內容長度可能不同，重新量一次
   }
 
   function moveTooltip(e) {
@@ -811,6 +824,7 @@
   const dayPanel = reactive({ show: false, dateStr: '', events: [] })
 
   function openDayPanel(cell) {
+    hideTooltip()
     dayPanel.dateStr = cell.dateStr
     dayPanel.events = aggregateSoybean(cell.events, cell.dateStr)
     dayPanel.show = true
@@ -876,6 +890,7 @@
   }
 
   function openEventDetail(ev) {
+    hideTooltip() // 不關掉的話，tooltip 的 z-index(1000) 會浮在剛打開的 modal(z-50) 上面
     if (ev.isSoybeanSummary) { openSoybeanSummary(ev); return }
     if (ev.source === 'itinerary') openItineraryDetail(ev)
     else if (ORDER_SOURCES.includes(ev.source)) openOrderDetail(ev)
@@ -3294,6 +3309,7 @@
     <Teleport to="body">
       <div
         v-if="tooltipEvent"
+        ref="tooltipEl"
         class="event-tooltip"
         :style="tooltipStyle"
       >
@@ -3975,6 +3991,8 @@
     position: fixed;
     z-index: 1000;
     width: 280px;
+    max-height: 300px; /* 內容過長時的保險上限，避免極端情況下框無限往上長超出螢幕 */
+    overflow: hidden;
     background: #fff;
     color: #1c1917;
     border: 1px solid #e2ddd8;
