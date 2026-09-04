@@ -38,8 +38,8 @@
   })
 
   // ── Google Calendar 設定 ──────────────────────────────────────────
-  const GOOGLE_CALENDAR_ID = 'healthfarmpr@st-mary.org.tw'
-  const GOOGLE_API_KEY = 'AIzaSyDJ3AtXgPyYbHWZsHVLWNm9Hkr1gVa2l_k'
+  // 改由後端（Service Account）代理讀取，前端不再直接呼叫 Google API、不再需要曝露 API Key，
+  // 日曆本身也不需要設成公開
 
   const googleEvents = ref([])
   const googleLoading = ref(false)
@@ -185,6 +185,8 @@
 
   // ── 上方資訊區收合狀態 ────────────────────────────────────────────
   const panelExpanded = ref(true)
+  // 「院內功能」區塊（清空當月/貼上TXT/新增）預設收合，避免一打開頁面就佔掉一大塊側欄空間
+  const localFuncExpanded = ref(false)
 
   // ── 每週第一天設定：0 = 週日在最前面（預設），1 = 週一在最前面 ─────────
   const weekStartOption = ref(0)
@@ -356,7 +358,7 @@
       const isSunday = actualDow === 0
       const isSaturday = actualDow === 6
       const dayEvents = eventsOnDate(dateStr)
-      const chipEvents = dayEvents.filter(e => !isBannerEvent(e))
+      const chipEvents = buildChipEvents(dayEvents, dateStr)
       cells.push({ day: d, dateStr, events: dayEvents, chipEvents, isToday, isWeekend, isSunday, isSaturday, weekdayIdx })
     }
 
@@ -453,6 +455,64 @@
       訂房: overlap(roomOrderEvents.value)
     }
   })
+
+  // ── 豆漿彙總（比照 soybean-orders.vue 的邏輯：容量明細＋排除已取消訂單計算總量）──
+  // 依容量彙總，例如「800ml×2、1000ml×1」；已取消訂單不計入（跟豆漿管理頁的每日總量算法一致）
+  function soybeanVolumeBreakdown(orders) {
+    const map = new Map()
+    orders
+      .filter(o => o.status !== '已取消')
+      .forEach((o) => {
+        const items = Array.isArray(o.soymilkItems) && o.soymilkItems.length > 0
+          ? o.soymilkItems
+          : (o.soymilkQty > 0 ? [{ volume: o.soymilkVolume || 800, qty: o.soymilkQty }] : [])
+        items.forEach((i) => {
+          if (!i.qty) return
+          map.set(i.volume, (map.get(i.volume) || 0) + i.qty)
+        })
+      })
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([volume, qty]) => `${volume}ml×${qty}`)
+      .join('、')
+  }
+
+  // 把某天的所有豆漿訂單彙總成一筆摘要活動（title 用容量明細＋豆腐總量，orders 存原始逐筆訂單供 Modal 顯示完整資訊）
+  function buildSoybeanSummaryEvent(dateStr, orders) {
+    const active = orders.filter(o => o.status !== '已取消')
+    const totalTofu = active.reduce((sum, o) => sum + (o.tofuQty || 0), 0)
+    const breakdown = soybeanVolumeBreakdown(orders)
+    const parts = [`豆漿共 ${orders.length} 筆`]
+    if (breakdown) parts.push(`（${breakdown}）`)
+    if (totalTofu) parts.push(`／豆腐 ${totalTofu}`)
+    return {
+      id: `soybean_summary_${dateStr}`,
+      date: dateStr,
+      endDate: dateStr,
+      time: '',
+      title: parts.join(''),
+      owner: '',
+      room: '',
+      source: 'soybean',
+      isSoybeanSummary: true,
+      orders
+    }
+  }
+
+  // 把一組活動裡的豆漿訂單彙總成一筆摘要（其他來源原樣保留），月曆格子跟側板都共用這個，
+  // 確保兩邊看到的彙總結果一致
+  function aggregateSoybean(dayEvents, dateStr) {
+    const soybeanOrders = dayEvents.filter(e => e.source === 'soybean')
+    const rest = dayEvents.filter(e => e.source !== 'soybean')
+    if (soybeanOrders.length === 0) return rest
+    return [...rest, buildSoybeanSummaryEvent(dateStr, soybeanOrders)]
+  }
+
+  // 月曆格子要顯示的 chip 清單：豆漿訂單彙總成一條總和（避免同一天好幾筆訂單把格子塞爆），
+  // 其他來源維持逐筆顯示
+  function buildChipEvents(dayEvents, dateStr) {
+    return aggregateSoybean(dayEvents.filter(e => !isBannerEvent(e)), dateStr)
+  }
 
   // 某天有哪些活動：直接用 date/endDate 範圍判斷是否涵蓋該日，
   // 不需要逐日展開資料，也不需要用內容比對去猜測是不是同一個跨天活動
@@ -595,6 +655,10 @@
           description: [o.remark].filter(Boolean).join('\n'),
           status: o.status,
           phone: o.contact,
+          soymilkQty: o.soymilkQty || 0,
+          tofuQty: o.tofuQty || 0,
+          soymilkItems: Array.isArray(o.soymilkItems) ? o.soymilkItems : [],
+          soymilkVolume: o.soymilkVolume || 0,
           source: 'soybean'
         }))
     } catch (e) {
@@ -677,72 +741,23 @@
     return events
   }
 
-  // ── Google Calendar API ───────────────────────────────────────────
+  // ── Google Calendar（後端代理）───────────────────────────────────
+  // 後端已用 Service Account 讀取、並依月份做 5 分鐘快取，前端這裡只是單純打自家 API，
+  // 回傳格式跟以前直接打 Google API 時整理出來的形狀一致（date/endDate/time/...），不用動其他地方的邏輯
   async function fetchGoogleEvents() {
-    if (!GOOGLE_CALENDAR_ID || GOOGLE_CALENDAR_ID.includes('your-calendar')) return
     googleLoading.value = true
-    googleEvents.value = []
     try {
-      const year = currentYear.value
-      const month = currentMonth.value
-      const timeMin = encodeURIComponent(new Date(year, month - 1, 1).toISOString())
-      const timeMax = encodeURIComponent(new Date(year, month, 0, 23, 59, 59).toISOString())
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`
-        + `?key=${GOOGLE_API_KEY}`
-        + `&timeMin=${timeMin}&timeMax=${timeMax}`
-        + `&singleEvents=true&orderBy=startTime&maxResults=250`
-      const res = await fetch(url)
-      const data = res.ok ? await res.json() : {}
-      const result = []
-      for (const item of data.items || []) {
-        const isAllDay = !!item.start?.date
-        const startRaw = isAllDay ? item.start.date : item.start?.dateTime
-        const endRaw = isAllDay ? item.end?.date : item.end?.dateTime
-        if (!startRaw) continue
-
-        const base = {
-          id: `google_${item.id}`,
-          googleEventId: item.id,
-          title: item.summary || '（無標題）',
-          owner: item.organizer?.displayName || '',
-          room: item.location || '',
-          type: 'Google',
-          source: 'google',
-          googleLink: item.htmlLink || '',
-          description: item.description || ''
-        }
-
-        const fmt = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-
-        if (!isAllDay) {
-          // 有時間的活動：直接取 Google 給的起訖日期/時間，不逐日展開
-          const s = new Date(startRaw)
-          const e = endRaw ? new Date(endRaw) : null
-          result.push({
-            ...base,
-            date: startRaw.slice(0, 10),
-            endDate: e ? endRaw.slice(0, 10) : startRaw.slice(0, 10),
-            time: fmt(s),
-            endTime: e ? fmt(e) : ''
-          })
-          continue
-        }
-
-        // 全天活動：Google 的 end.date 是「不含」的下一天，換算成實際結束日（含）
-        const endDate = endRaw ? new Date(`${endRaw}T00:00:00`) : new Date(`${startRaw}T00:00:00`)
-        endDate.setDate(endDate.getDate() - 1)
-        const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
-        result.push({
-          ...base,
-          date: startRaw,
-          endDate: endDateStr,
-          time: '',
-          endTime: ''
-        })
+      const yearMonth = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}`
+      const res = await fetch(`${BASE.value}/google-events?yearMonth=${yearMonth}`)
+      if (!res.ok) {
+        console.warn('Google 日曆載入失敗，狀態碼：', res.status)
+        googleEvents.value = []
+        return
       }
-      googleEvents.value = result
+      googleEvents.value = await res.json()
     } catch (e) {
       console.warn('Google 日曆載入失敗', e)
+      googleEvents.value = []
     } finally {
       googleLoading.value = false
     }
@@ -753,13 +768,13 @@
 
   function openDayPanel(cell) {
     dayPanel.dateStr = cell.dateStr
-    dayPanel.events = cell.events
+    dayPanel.events = aggregateSoybean(cell.events, cell.dateStr)
     dayPanel.show = true
   }
 
   // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
-  // source: 'local' = 院內活動, 'itinerary' = 行程（獨立資料，跟院內互不相干）
-  const formModal = reactive({ show: false, isNew: true, id: null, source: 'local' })
+  // source: 'local' = 院內活動, 'itinerary' = 行程（獨立資料，跟院內互不相干）, 'google' = Google 日曆（後端 Service Account 寫回）
+  const formModal = reactive({ show: false, isNew: true, id: null, source: 'local', googleEventId: null })
   const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: '' })
   const formError = ref('')
 
@@ -768,6 +783,7 @@
     formModal.isNew = true
     formModal.id = null
     formModal.source = source
+    formModal.googleEventId = null
     Object.assign(form, {
       date: dateStr || '',
       time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: ''
@@ -784,6 +800,18 @@
     googleDetailModal.show = true
   }
 
+  function editGoogleFromDetail() {
+    const ev = googleDetailModal.ev
+    googleDetailModal.show = false
+    openEdit(ev)
+  }
+
+  async function deleteGoogleFromDetail() {
+    const ev = googleDetailModal.ev
+    const ok = await deleteEvent(ev)
+    if (ok) googleDetailModal.show = false
+  }
+
   // ── 行程詳細 Modal（點行程先看資料，裡面才有編輯／刪除）──────────────────
   const itineraryDetailModal = reactive({ show: false, ev: null })
 
@@ -793,7 +821,18 @@
   function isDetailClickable(ev) {
     return true
   }
+  // ── 豆漿當日彙總 Modal（點月曆/側板的豆漿總和 chip 開，列出當天每一筆訂單完整資訊）──
+  const soybeanSummaryModal = reactive({ show: false, dateStr: '', breakdown: '', orders: [] })
+
+  function openSoybeanSummary(ev) {
+    soybeanSummaryModal.dateStr = ev.date
+    soybeanSummaryModal.breakdown = soybeanVolumeBreakdown(ev.orders)
+    soybeanSummaryModal.orders = ev.orders
+    soybeanSummaryModal.show = true
+  }
+
   function openEventDetail(ev) {
+    if (ev.isSoybeanSummary) { openSoybeanSummary(ev); return }
     if (ev.source === 'itinerary') openItineraryDetail(ev)
     else if (ORDER_SOURCES.includes(ev.source)) openOrderDetail(ev)
     else if (ev.source === 'google') openGoogleDetail(ev)
@@ -840,11 +879,6 @@
   }
 
   function openEdit(ev) {
-    // Google 活動顯示詳細面板，不直接跳轉
-    if (ev.source === 'google') {
-      openGoogleDetail(ev)
-      return
-    }
     // 訂位／便當／豆漿／訂房是唯讀資料，沒有編輯表單可用，一律導去詳細面板
     if (ORDER_SOURCES.includes(ev.source)) {
       openOrderDetail(ev)
@@ -852,12 +886,13 @@
     }
     formModal.isNew = false
     formModal.id = ev.id
-    formModal.source = ev.source === 'itinerary' ? 'itinerary' : 'local'
+    formModal.source = ev.source === 'itinerary' ? 'itinerary' : (ev.source === 'google' ? 'google' : 'local')
+    formModal.googleEventId = ev.source === 'google' ? ev.googleEventId : null
     Object.assign(form, {
       date: ev.date, time: ev.time || '',
       endDate: ev.endDate && ev.endDate !== ev.date ? ev.endDate : '', endTime: ev.endTime || '',
       title: ev.title, owner: ev.owner, room: ev.room, building: eventBuilding(ev) || '醫院',
-      description: ev.description || ''
+      description: stripHtml(ev.description) || ''
     })
     formError.value = ''
     formModal.show = true
@@ -865,7 +900,7 @@
 
   // 一筆活動＝一次 API 呼叫（不論單日或跨天），後端直接存 date/endDate，
   // 前端不用再逐日展開、也不用事後用內容比對去猜是不是同一個跨天活動
-  // source === 'local' 存到院內行事曆；source === 'itinerary' 存到獨立的行程資料，兩邊互不相干
+  // source === 'local' 存到院內行事曆；source === 'itinerary' 存到獨立的行程資料；source === 'google' 直接寫回 Google 日曆（後端 Service Account 代理），三邊互不相干
   async function saveForm() {
     if (!form.date || !form.title.trim()) {
       formError.value = '日期和標題為必填'
@@ -878,7 +913,42 @@
     saving.value = true
     formError.value = ''
     const isItinerary = formModal.source === 'itinerary'
+    const isGoogle = formModal.source === 'google'
     try {
+      if (isGoogle) {
+        const payload = {
+          googleEventId: formModal.isNew ? null : formModal.googleEventId,
+          date: form.date,
+          endDate: form.endDate || form.date,
+          time: form.time,
+          endTime: form.endTime,
+          title: form.title,
+          room: form.room,
+          description: form.description
+        }
+        const res = await fetch(`${BASE.value}/google-events/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) throw new Error('儲存失敗')
+        const saved = await res.json()
+        if (saved.error) throw new Error(saved.error)
+        if (formModal.isNew) {
+          googleEvents.value.push(saved)
+          showToast('Google 活動已新增')
+        } else {
+          const idx = googleEvents.value.findIndex(e => e.googleEventId === formModal.googleEventId)
+          if (idx !== -1) googleEvents.value[idx] = saved
+          if (dayPanel.show && eventCoversDate(saved, dayPanel.dateStr)) {
+            dayPanel.events = aggregateSoybean(eventsOnDate(dayPanel.dateStr), dayPanel.dateStr)
+          }
+          showToast('Google 活動已更新')
+        }
+        formModal.show = false
+        return
+      }
+
       const payload = {
         id: formModal.isNew ? null : formModal.id,
         date: form.date,
@@ -909,7 +979,7 @@
         if (idx !== -1) list.value[idx] = saved
         // 同步更新側板
         if (dayPanel.show && eventCoversDate(saved, dayPanel.dateStr)) {
-          dayPanel.events = eventsOnDate(dayPanel.dateStr)
+          dayPanel.events = aggregateSoybean(eventsOnDate(dayPanel.dateStr), dayPanel.dateStr)
         }
         showToast(isItinerary ? '行程已更新' : '活動已更新')
       }
@@ -932,16 +1002,22 @@
     const hint = isBannerEvent(ev) ? `（跨天${ev.source === 'itinerary' ? '行程' : '活動'} ${ev.date} ~ ${ev.endDate}，將整筆刪除）` : ''
     if (!confirm(`確定要刪除「${ev.title}」？${hint}`)) return false
     const isItinerary = ev.source === 'itinerary'
+    const isGoogle = ev.source === 'google'
     try {
-      const res = await fetch(`${(isItinerary ? BASE_ITINERARY : BASE).value}/${ev.id}?date=${ev.date}`, { method: 'DELETE' })
+      const url = isGoogle
+        ? `${BASE.value}/google-events/${ev.googleEventId}`
+        : `${(isItinerary ? BASE_ITINERARY : BASE).value}/${ev.id}?date=${ev.date}`
+      const res = await fetch(url, { method: 'DELETE' })
       if (!res.ok) throw new Error()
-      if (isItinerary) {
+      if (isGoogle) {
+        googleEvents.value = googleEvents.value.filter(e => e.id !== ev.id)
+      } else if (isItinerary) {
         itineraryEvents.value = itineraryEvents.value.filter(e => e.id !== ev.id)
       } else {
         events.value = events.value.filter(e => e.id !== ev.id)
       }
       // 同步更新側板
-      if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+      if (dayPanel.show) dayPanel.events = aggregateSoybean(eventsOnDate(dayPanel.dateStr), dayPanel.dateStr)
       showToast('已刪除')
       return true
     } catch {
@@ -1001,7 +1077,7 @@
       notes.value = []
 
       // 同步更新側板
-      if (dayPanel.show) dayPanel.events = eventsOnDate(dayPanel.dateStr)
+      if (dayPanel.show) dayPanel.events = aggregateSoybean(eventsOnDate(dayPanel.dateStr), dayPanel.dateStr)
 
       clearMonthModal.show = false
       if (failedCount > 0) {
@@ -1333,10 +1409,18 @@
 
 <template>
   <div class="min-h-full bg-surface2 dark:bg-[#15171c] transition-colors lg:flex lg:items-start">
-    <!-- ══ 左側功能欄（lg 以上固定在左側；手機維持在最上方）══ -->
-    <div class="lg:w-72 lg:flex-shrink-0 lg:border-r lg:border-light-c dark:lg:border-[#2a2e37] lg:h-screen lg:sticky lg:top-0 lg:overflow-y-auto">
-      <!-- ── 精簡列（永遠顯示）── -->
-      <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3 sticky top-0 z-30 lg:static">
+    <!-- ══ 左側功能欄（月份導覽＋圖例／篩選／院內功能 都在一起；lg 以上收合時整塊變成扁扁的展開按鈕）══ -->
+    <div
+      :class="[
+        'lg:flex-shrink-0 lg:border-r lg:border-light-c dark:lg:border-[#2a2e37] lg:h-screen lg:sticky lg:top-0 lg:overflow-y-auto lg:transition-all lg:duration-200',
+        panelExpanded ? 'lg:w-72' : 'lg:w-12 lg:overflow-hidden'
+      ]"
+    >
+      <!-- ── 精簡列：手機一定顯示；電腦收合時整條隱藏，改顯示下面那顆扁按鈕 ── -->
+      <div
+        class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3 sticky top-0 z-30 lg:static"
+        :class="{ 'lg:hidden': !panelExpanded }"
+      >
         <div class="flex items-center gap-4">
           <button
             class="w-9 h-9 flex items-center justify-center rounded-full border border-light-c dark:border-[#2a2e37] text-hint-c hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-indigo-900/20 transition-colors"
@@ -1380,13 +1464,13 @@
             今天
           </button>
           <button
-            class="lg:hidden flex items-center gap-1.5 px-3 py-1.5 text-sm text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-surface2 dark:hover:bg-[#1c1f26] transition-colors"
             @click="panelExpanded = !panelExpanded"
           >
             <span class="hidden sm:inline">{{ panelExpanded ? '收合' : '展開' }}</span>
             <svg
               class="w-4 h-4 transition-transform"
-              :class="{ 'rotate-180': panelExpanded }"
+              :class="{ 'rotate-180': !panelExpanded }"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1394,128 +1478,34 @@
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2.5"
-              d="M19 9l-7 7-7-7"
+              d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
             /></svg>
           </button>
         </div>
       </div>
 
-      <!-- ── 可收合區塊：Header / 圖例 / 篩選列 ── -->
-      <!-- v-show（不是 v-if）＋ .collapsible-panel：收合只在手機生效，lg 以上一定強制顯示（見 <style> 裡的 media query） -->
-      <div
-        v-show="panelExpanded"
-        class="collapsible-panel"
+      <!-- ── 扁按鈕：只有電腦版收合時才會出現，取代整條精簡列 ── -->
+      <button
+        v-if="!panelExpanded"
+        class="hidden lg:flex lg:w-full lg:py-4 lg:items-center lg:justify-center text-hint-c hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        title="展開"
+        @click="panelExpanded = true"
       >
-        <!-- ── Header ── -->
-        <header class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#2a2e37] px-6 py-4">
-          <div class="flex items-center gap-6 flex-wrap lg:flex-col lg:items-stretch lg:gap-4">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">
-                曆
-              </div>
-              <div>
-                <h1 class="font-bold text-base-c leading-none text-lg sm:text-xl">
-                  行事曆管理
-                </h1>
-                <p class="text-sm text-hint-c mt-1 hidden sm:block">
-                  Calendar Events · {{ events.length }} 筆
-                </p>
-              </div>
-            </div>
-            <div
-              v-if="perm.can('management.calendar')"
-              class="lg:w-full rounded-xl border border-light-c dark:border-[#2a2e37] bg-surface2/70 dark:bg-[#1c1f26]/70 px-3 py-2.5"
-            >
-              <p class="text-xs font-semibold text-hint-c/80 mb-2 px-0.5 tracking-wide">
-                院內功能
-              </p>
-              <div class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:gap-2">
-                <button
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors lg:w-full lg:justify-center"
-                  @click="openClearMonthModal"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  /></svg>
-                  <span class="hidden sm:inline">清空當月</span>
-                </button>
-                <button
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors lg:w-full lg:justify-center"
-                  @click="showTxtModal = true"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  /></svg>
-                  <span class="hidden sm:inline">貼上 TXT</span>
-                  <span class="sm:hidden">TXT</span>
-                </button>
-                <button
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors lg:w-full lg:justify-center"
-                  @click="openAddOnDate(null)"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  /></svg>
-                  新增
-                </button>
-              </div>
-            </div>
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        ><path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2.5"
+          d="M13 5l7 7-7 7M5 5l7 7-7 7"
+        /></svg>
+      </button>
 
-            <!-- 行程功能：跟院內系統互不相干的獨立資料，UI 結構相似但獨立成一區 -->
-            <div
-              v-if="perm.can('management.calendar')"
-              class="lg:w-full rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50/60 dark:bg-teal-900/10 px-3 py-2.5"
-            >
-              <p class="text-xs font-semibold text-teal-700/80 dark:text-teal-400/80 mb-2 px-0.5 tracking-wide">
-                行程功能
-              </p>
-              <div class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:gap-2">
-                <button
-                  class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors lg:w-full lg:justify-center"
-                  @click="openAddOnDate(null, 'itinerary')"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  /></svg>
-                  新增行程
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-
+      <!-- ── 圖例 / 篩選列 / 院內功能：收合時（不分手機電腦）都隱藏 ── -->
+      <div v-show="panelExpanded">
         <!-- ── 類型圖例（可複選，勾選/取消決定要不要顯示該分類）── -->
         <div class="bg-surface dark:bg-[#15171c] border-b border-light-c dark:border-[#22252c] px-6 py-3">
           <div class="flex items-center justify-between mb-2">
@@ -1628,6 +1618,91 @@
                   週一
                 </option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 院內功能（清空當月/貼上TXT/新增）：放最下面，預設收合 ── -->
+        <div class="bg-surface dark:bg-[#15171c] px-6 py-3.5">
+          <div
+            class="lg:w-full rounded-xl border border-light-c dark:border-[#2a2e37] bg-surface2/70 dark:bg-[#1c1f26]/70 px-3 py-2.5"
+          >
+            <button
+              class="w-full flex items-center justify-between mb-0.5 px-0.5"
+              @click="localFuncExpanded = !localFuncExpanded"
+            >
+              <p class="text-xs font-semibold text-hint-c/80 tracking-wide">
+                院內功能
+              </p>
+              <svg
+                class="w-3.5 h-3.5 text-hint-c transition-transform"
+                :class="{ 'rotate-180': localFuncExpanded }"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"
+              /></svg>
+            </button>
+            <div
+              v-show="localFuncExpanded"
+              class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:gap-2 mt-2"
+            >
+              <button
+                class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors lg:w-full lg:justify-center"
+                @click="openClearMonthModal"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                /></svg>
+                <span class="hidden sm:inline">清空當月</span>
+              </button>
+              <button
+                class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors lg:w-full lg:justify-center"
+                @click="showTxtModal = true"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                /></svg>
+                <span class="hidden sm:inline">貼上 TXT</span>
+                <span class="sm:hidden">TXT</span>
+              </button>
+              <button
+                class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors lg:w-full lg:justify-center"
+                @click="openAddOnDate(null)"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                /></svg>
+                新增
+              </button>
             </div>
           </div>
         </div>
@@ -1872,6 +1947,23 @@
         class="fixed inset-0 z-40 flex justify-end"
         @click.self="dayPanel.show = false"
       >
+        <!-- 獨立於側板內部捲動之外的關閉鈕：固定在畫面右上角，避免手機上因內部捲動或 sticky 失效而找不到關閉按鈕 -->
+        <button
+          class="fixed top-3 right-3 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-surface dark:bg-[#1c1f26] shadow-lg border border-light-c dark:border-[#2a2e37] text-hint-c hover:text-muted-c"
+          @click="dayPanel.show = false"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          /></svg>
+        </button>
         <div class="w-full sm:w-96 bg-surface dark:bg-[#15171c] h-full shadow-2xl overflow-y-auto flex flex-col">
           <!-- 側板 Header -->
           <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
@@ -1882,41 +1974,6 @@
               <p class="text-xs text-hint-c mt-0.5">
                 {{ dayPanel.events.length }} 個活動
               </p>
-            </div>
-            <div class="flex items-center gap-2">
-              <button
-                class="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                @click="openAddOnDate(dayPanel.dateStr)"
-              >
-                <svg
-                  class="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 4v16m8-8H4"
-                /></svg>
-                新增
-              </button>
-              <button
-                class="text-hint-c hover:text-muted-c p-1"
-                @click="dayPanel.show = false"
-              >
-                <svg
-                  class="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                /></svg>
-              </button>
             </div>
           </div>
 
@@ -1995,7 +2052,7 @@
                   /></svg>
                 </button>
                 <button
-                  v-if="perm.can('management.calendar') && !ORDER_SOURCES.includes(ev.source) && ev.source !== 'local'"
+                  v-if="!ORDER_SOURCES.includes(ev.source) && ev.source !== 'local'"
                   class="p-1.5 text-hint-c hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                   title="刪除"
                   @click="deleteEvent(ev)"
@@ -2014,6 +2071,44 @@
                 </button>
               </div>
             </div>
+
+            <!-- 新增區：三顆各佔一整排，避免文字被擠壓截斷 -->
+            <div class="pt-2 space-y-2">
+              <button
+                class="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                @click="openAddOnDate(dayPanel.dateStr, 'google')"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                /></svg>
+                新增 Google 活動
+              </button>
+              <button
+                class="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+                @click="openAddOnDate(dayPanel.dateStr, 'itinerary')"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                /></svg>
+                新增行程
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2027,7 +2122,9 @@
       <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
           <h3 class="font-bold text-base-c">
-            {{ formModal.isNew ? (formModal.source === 'itinerary' ? '新增行程' : '新增活動') : (formModal.source === 'itinerary' ? '編輯行程' : '編輯活動') }}
+            {{ formModal.isNew
+            ? (formModal.source === 'itinerary' ? '新增行程' : formModal.source === 'google' ? '新增 Google 活動' : '新增活動')
+            : (formModal.source === 'itinerary' ? '編輯行程' : formModal.source === 'google' ? '編輯 Google 活動' : '編輯活動') }}
           </h3>
           <button
             class="text-hint-c hover:text-muted-c p-1"
@@ -2097,7 +2194,10 @@
             >
           </div>
           <div class="grid grid-cols-2 gap-3">
-            <div :class="{ 'col-span-2': formModal.source === 'itinerary' }">
+            <div
+              v-if="formModal.source !== 'google'"
+              :class="{ 'col-span-2': formModal.source === 'itinerary' }"
+            >
               <label class="field-label">負責人</label>
               <input
                 v-model="form.owner"
@@ -2105,7 +2205,7 @@
                 class="field-input"
               >
             </div>
-            <div v-if="formModal.source !== 'itinerary'">
+            <div v-if="formModal.source !== 'itinerary' && formModal.source !== 'google'">
               <label class="field-label">建築分類</label>
               <select
                 v-model="form.building"
@@ -2129,7 +2229,7 @@
               class="field-input"
             >
           </div>
-          <div v-if="formModal.source === 'itinerary'">
+          <div v-if="formModal.source === 'itinerary' || formModal.source === 'google'">
             <label class="field-label">詳細內容</label>
             <textarea
               v-model="form.description"
@@ -2138,6 +2238,12 @@
               class="field-input resize-y"
             />
           </div>
+          <p
+            v-if="formModal.source === 'google'"
+            class="text-xs text-blue-500"
+          >
+            這筆會直接寫回 Google 日曆，儲存後幾分鐘內生效（有快取）。
+          </p>
           <p
             v-if="formError"
             class="text-xs text-red-500"
@@ -2359,6 +2465,18 @@
         <!-- Footer -->
         <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button
+            class="px-4 py-2 text-sm border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            @click="deleteGoogleFromDetail"
+          >
+            刪除
+          </button>
+          <button
+            class="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+            @click="editGoogleFromDetail"
+          >
+            編輯
+          </button>
+          <button
             class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
             @click="googleDetailModal.show = false"
           >
@@ -2498,14 +2616,12 @@
         <!-- Footer -->
         <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
           <button
-            v-if="perm.can('management.calendar')"
             class="px-4 py-2 text-sm border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             @click="deleteItineraryFromDetail"
           >
             刪除
           </button>
           <button
-            v-if="perm.can('management.calendar')"
             class="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
             @click="editItineraryFromDetail"
           >
@@ -2795,6 +2911,93 @@
       </div>
     </div>
 
+    <!-- ══ Modal: 豆漿當日彙總（點月曆/側板的豆漿總和 chip 開，列出當天每一筆訂單完整資訊）══ -->
+    <div
+      v-if="soybeanSummaryModal.show"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
+      @click.self="soybeanSummaryModal.show = false"
+    >
+      <div class="bg-surface dark:bg-[#15171c] rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-light-c dark:border-[#2a2e37] flex items-center justify-between sticky top-0 bg-surface dark:bg-[#15171c] z-10">
+          <div class="flex items-center gap-2">
+            <span class="type-badge soybean">豆漿</span>
+            <h3 class="font-bold text-base-c text-sm">
+              {{ soybeanSummaryModal.dateStr }}（共 {{ soybeanSummaryModal.orders.length }} 筆）
+            </h3>
+          </div>
+          <button
+            class="text-hint-c hover:text-muted-c p-1"
+            @click="soybeanSummaryModal.show = false"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            /></svg>
+          </button>
+        </div>
+        <!-- 內容 -->
+        <div class="px-5 py-4 space-y-3">
+          <!-- 容量明細總和（已取消訂單不計入，跟豆漿管理頁的算法一致） -->
+          <div
+            v-if="soybeanSummaryModal.breakdown"
+            class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c"
+          >
+            豆漿明細：{{ soybeanSummaryModal.breakdown }}
+          </div>
+          <!-- 逐筆訂單 -->
+          <div
+            v-for="o in soybeanSummaryModal.orders"
+            :key="o.id"
+            :class="['p-3 rounded-xl border border-light-c dark:border-[#2a2e37]', { 'opacity-50': o.status === '已取消' }]"
+          >
+            <p class="text-sm font-semibold text-base-c leading-tight">
+              {{ o.title }}
+            </p>
+            <p
+              v-if="o.phone"
+              class="text-xs text-hint-c mt-0.5"
+            >
+              📞 {{ o.phone }}
+            </p>
+            <p
+              v-if="o.description"
+              class="text-xs text-hint-c mt-1 whitespace-pre-line"
+            >
+              📝 {{ o.description }}
+            </p>
+            <span
+              v-if="o.status"
+              class="type-badge soybean mt-1.5"
+            >{{ o.status }}</span>
+          </div>
+        </div>
+        <!-- Footer -->
+        <div class="px-5 py-4 border-t border-light-c dark:border-[#2a2e37] flex gap-2 justify-end sticky bottom-0 bg-surface dark:bg-[#15171c]">
+          <button
+            class="px-4 py-2 text-sm bg-surface2 dark:bg-[#1c1f26] text-muted-c rounded-xl hover:bg-surface2 transition-colors"
+            @click="soybeanSummaryModal.show = false"
+          >
+            關閉
+          </button>
+          <a
+            v-if="ORDER_ADMIN_PATH.soybean"
+            :href="ORDER_ADMIN_PATH.soybean"
+            class="px-4 py-2 text-sm bg-lime-600 text-white rounded-xl hover:bg-lime-700 transition-colors"
+          >
+            前往豆漿管理
+          </a>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Modal: TXT 匯入 ══ -->
     <div
       v-if="showTxtModal"
@@ -3029,732 +3232,727 @@
 </template>
 
 <style scoped>
-/* ── 月曆格線 ── */
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  width: 100%;
-}
-
-:root.dark .calendar-grid {
-  gap: 0 !important;
-}
-
-:root.dark .cal-cell {
-  margin: 0 -1px -1px 0;
-}
-
-/* ── 每週容器：作為跨天活動色條 overlay 的定位基準 ── */
-.week-row {
-  position: relative;
-}
-
-/* ── 跨天活動連續色條（比照 Google 日曆月檢視的橫幅樣式）── */
-.week-banner-layer {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  column-gap: 6px;
-  padding-top: 27px; /* 對齊日期數字列高度 */
-  pointer-events: none;
-  z-index: 5;
-}
-
-:root.dark .week-banner-layer {
-  column-gap: 0;
-}
-
-.week-banner-bar {
-  position: relative;
-  grid-row: 1; /* 強制所有色條共用同一列，避免 CSS Grid 自動排版跟 JS 算的 top 位移疊加兩次 */
-  pointer-events: auto;
-  box-sizing: border-box;
-  height: 18px;
-  line-height: 18px;
-  padding: 0 6px;
-  margin-bottom: 2px;
-  font-size: 12px; /* text-xs */
-  font-weight: 500;
-  border-radius: 3px;
-  border-left: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: clip;
-  transition: opacity 0.1s, filter 0.1s;
-}
-
-.week-banner-bar:hover {
-  opacity: 0.85;
-  filter: brightness(0.97);
-}
-
-.week-banner-bar.round-l {
-  border-top-left-radius: 9px;
-  border-bottom-left-radius: 9px;
-  margin-left: 1px;
-}
-
-.week-banner-bar.round-r {
-  border-top-right-radius: 9px;
-  border-bottom-right-radius: 9px;
-  margin-right: 1px;
-}
-
-/* ── 星期標頭：深色底白字 ── */
-.cal-weekday {
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: .03em;
-  padding: 10px 0;
-  background: #495969;
-  color: #fff;
-  border-radius: 6px;
-}
-
-.cal-weekday.sun {
-  color: #fca5a5;
-}
-
-.cal-weekday.sat {
-  color: #93c5fd;
-}
-
-:root.dark .cal-weekday {
-  background: #38404c;
-  border-radius: 0;
-}
-
-/* ── 日期格子（用 min-height 取代固定 height：平常維持 120px 高，
-   內容太多（活動 chip 或跨天色條疊很多層）時改成撐高，不裁切內容。
-   同一週的 7 個格子仍會透過 CSS Grid 自動等高，週與週之間不會因此對不齊）── */
-.cal-cell {
-  min-height: 120px;
-  background: #fff;
-  border: 1px solid #ece7e2;
-  border-radius: 8px;
-  padding: 8px 7px 7px;
-  cursor: pointer;
-  transition: box-shadow 0.15s, background 0.1s, border-color 0.15s;
-  position: relative;
-}
-
-.cal-cell:hover {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px #6366f1;
-}
-
-:root.dark .cal-cell {
-  background: #15171c;
-  border: 1px solid #2a2e37;
-  border-radius: 0;
-}
-
-.cal-cell.weekend {
-  background: #faf6f2;
-}
-
-:root.dark .cal-cell.weekend {
-  background: #15171c;
-}
-
-.cal-cell.today {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px #6366f1;
-}
-
-:root.dark .cal-cell.today {
-  background: #2d3250;
-  border-color: #5b6bb8;
-  box-shadow: none;
-}
-
-.cal-cell.has-events {
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
-}
-
-:root.dark .cal-cell.has-events {
-  box-shadow: none;
-}
-
-/* ── 日期數字 ── */
-/* 固定高度＝跨天色條圖層 padding-top(27px) 扣掉自己的 margin-bottom(mb-1=4px)，
-   確保這一列的實際佔用高度跟 .week-banner-layer 的 padding-top 完全對齊，
-   不然色條跟下面自己的活動清單會因為兩邊各自算的高度對不起來而稍微疊到 */
-.cal-day-header {
-  min-height: 23px;
-}
-
-.cal-day-num {
-  font-size: 16px; /* text-base */
-  font-weight: 600;
-  line-height: 1;
-}
-
-.today-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 25px;
-  height: 25px;
-  background: #6366f1;
-  color: #fff;
-  border-radius: 50%;
-  font-weight: 700;
-}
-
-:root.dark .today-num {
-  background: transparent;
-  color: #c7d2fe;
-}
-
-/* ── 活動 chip ── */
-.cal-chip {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  border-radius: 4px;
-  border-left: 3px solid transparent;
-  padding: 2px 5px 2px 6px;
-  overflow: hidden;
-  transition: opacity 0.1s, filter 0.1s;
-  font-size: 12px; /* text-xs */
-}
-
-.cal-chip:hover {
-  opacity: 0.85;
-  filter: brightness(0.97);
-}
-
-.chip-time {
-  font-size: 12px; /* text-xs */
-  font-weight: 700;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.7;
-}
-
-.chip-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: clip;
-  flex: 1;
-  min-width: 0;
-  font-weight: 500;
-}
-
-/* chip 顏色：依建築分類（醫院/園區/芳心），院內沒有建築分類的用 onsite，Google 另外一色 */
-.chip-hospital {
-  background: #fee2e2;
-  color: #c0392b;
-  border-left-color: #e0534a;
-}
-
-.chip-park {
-  background: #d1fae5;
-  color: #065f46;
-  border-left-color: #3d6b52;
-}
-
-.chip-fragrant {
-  background: #fce7f3;
-  color: #9d4f78;
-  border-left-color: #a06080;
-}
-
-.chip-google {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-left-color: #2563eb;
-}
-
-.chip-itinerary {
-  background: #ccfbf1;
-  color: #0f766e;
-  border-left-color: #14b8a6;
-}
-
-.chip-booking {
-  background: #fce7f3;
-  color: #be185d;
-  border-left-color: #ec4899;
-}
-
-.chip-lunch {
-  background: #ffedd5;
-  color: #c2410c;
-  border-left-color: #f97316;
-}
-
-.chip-soybean {
-  background: #ecfccb;
-  color: #4d7c0f;
-  border-left-color: #65a30d;
-}
-
-.chip-roomorder {
-  background: #ede9fe;
-  color: #6d28d9;
-  border-left-color: #7c3aed;
-}
-
-.chip-onsite {
-  background: #fef3c7;
-  color: #b45309;
-  border-left-color: #d97706;
-}
-
-:root.dark .cal-chip {
-  border-left-width: 0;
-  padding: 2px 6px;
-}
-
-:root.dark .chip-hospital {
-  background: #c0392b;
-  color: #fff;
-}
-
-:root.dark .chip-park {
-  background: #15803d;
-  color: #fff;
-}
-
-:root.dark .chip-fragrant {
-  background: #a06080;
-  color: #fff;
-}
-
-:root.dark .chip-google {
-  background: #2563eb;
-  color: #fff;
-}
-
-:root.dark .chip-itinerary {
-  background: #0d9488;
-  color: #fff;
-}
-
-:root.dark .chip-booking {
-  background: #db2777;
-  color: #fff;
-}
-
-:root.dark .chip-lunch {
-  background: #ea580c;
-  color: #fff;
-}
-
-:root.dark .chip-soybean {
-  background: #4d7c0f;
-  color: #fff;
-}
-
-:root.dark .chip-roomorder {
-  background: #6d28d9;
-  color: #fff;
-}
-
-:root.dark .chip-onsite {
-  background: #b45309;
-  color: #fff;
-}
-
-:root.dark .chip-time {
-  opacity: 0.85;
-}
-
-/* ── 類型 badge ── */
-.type-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px; /* text-xs */
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.type-badge.hospital {
-  background: #fee2e2;
-  color: #c0392b;
-}
-
-.type-badge.park {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.type-badge.fragrant {
-  background: #fce7f3;
-  color: #9d4f78;
-}
-
-.type-badge.google {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.type-badge.itinerary {
-  background: #ccfbf1;
-  color: #0f766e;
-}
-
-.type-badge.booking {
-  background: #fce7f3;
-  color: #be185d;
-}
-
-.type-badge.lunch {
-  background: #ffedd5;
-  color: #c2410c;
-}
-
-.type-badge.soybean {
-  background: #ecfccb;
-  color: #4d7c0f;
-}
-
-.type-badge.roomorder {
-  background: #ede9fe;
-  color: #6d28d9;
-}
-
-.type-badge.onsite {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-:root.dark .type-badge.hospital {
-  background: #4d2323;
-  color: #f87171;
-}
-
-:root.dark .type-badge.park {
-  background: #1a3a26;
-  color: #4ade80;
-}
-
-:root.dark .type-badge.fragrant {
-  background: #3b1a2e;
-  color: #f0abfc;
-}
-
-:root.dark .type-badge.google {
-  background: #1e3a5f;
-  color: #93c5fd;
-}
-
-:root.dark .type-badge.itinerary {
-  background: #134e4a;
-  color: #5eead4;
-}
-
-:root.dark .type-badge.booking {
-  background: #831843;
-  color: #f9a8d4;
-}
-
-:root.dark .type-badge.lunch {
-  background: #7c2d12;
-  color: #fdba74;
-}
-
-:root.dark .type-badge.soybean {
-  background: #365314;
-  color: #bef264;
-}
-
-:root.dark .type-badge.roomorder {
-  background: #4c1d95;
-  color: #c4b5fd;
-}
-
-:root.dark .type-badge.onsite {
-  background: #b45309;
-  color: #fff;
-}
-
-/* ── 篩選列：下拉選單 ── */
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
-}
-
-.filter-select-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.filter-label {
-  font-size: 14px; /* text-sm */
-  font-weight: 600;
-  color: #a8a29e;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.filter-select {
-  padding: 7px 12px;
-  border: 1.5px solid #e2ddd8;
-  border-radius: 8px;
-  background: #fff;
-  color: #1c1917;
-  font-size: 14px; /* text-sm */
-  max-width: 220px;
-  cursor: pointer;
-  transition: border-color .15s;
-}
-
-.filter-select:hover {
-  border-color: #6366f1;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
-}
-
-:root.dark .filter-select {
-  background: #1c1f26;
-  border-color: #2a2e37;
-  color: #f5f5f4;
-}
-
-.filter-sync-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px; /* text-xs */
-  color: #2563eb;
-}
-
-:root.dark .filter-sync-hint {
-  color: #93c5fd;
-}
-
-.legend-checkbox {
-  width: 15px;
-  height: 15px;
-  border-radius: 4px;
-  border: 1px solid #d6d0ca;
-  accent-color: #6366f1;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-:root.dark .legend-checkbox {
-  border-color: #2a2e37;
-}
-
-/* 收合只在手機生效；lg（電腦版）以上這個側欄本來就固定顯示在左邊，不該被收合狀態影響 */
-@media (min-width: 1024px) {
-  .collapsible-panel {
-    display: block !important;
-  }
-}
-
-.filter-sync-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #2563eb;
-  animation: filter-sync-pulse 1s infinite;
-}
-
-:root.dark .filter-sync-dot {
-  background: #93c5fd;
-}
-
-@keyframes filter-sync-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-/* ── 表單欄位 ── */
-
-.field-label {
-  display: block;
-  font-size: 12px; /* text-xs */
-  font-weight: 600;
-  color: #57534e;
-  margin-bottom: 4px;
-}
-
-:root.dark .field-label {
-  color: #a8a29e;
-}
-
-.field-input {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 14px; /* text-sm */
-  border: 1px solid #e2ddd8;
-  border-radius: 12px;
-  background: #fff;
-  color: #1c1917;
-  outline: none;
-  transition: border 0.15s, box-shadow 0.15s;
-}
-
-:root.dark .field-input {
-  background: #1c1f26;
-  border-color: #2a2e37;
-  color: #f5f5f4;
-}
-
-.field-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
-}
-
-/* ── 側板動畫 ── */
-.slide-right-enter-active, .slide-right-leave-active {
-  transition: opacity 0.2s;
-}
-
-.slide-right-enter-active > div, .slide-right-leave-active > div {
-  transition: transform 0.25s cubic-bezier(.32, .72, 0, 1);
-}
-
-.slide-right-enter-from {
-  opacity: 0;
-}
-
-.slide-right-enter-from > div {
-  transform: translateX(100%);
-}
-
-.slide-right-leave-to {
-  opacity: 0;
-}
-
-.slide-right-leave-to > div {
-  transform: translateX(100%);
-}
-
-/* ── Toast ── */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-/* ── 跟隨游標的活動提示框 ── */
-.event-tooltip {
-  position: fixed;
-  z-index: 1000;
-  width: 280px;
-  background: #fff;
-  color: #1c1917;
-  border: 1px solid #e2ddd8;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
-  padding: 14px 16px;
-  font-size: 14px; /* text-sm */
-  line-height: 1.7;
-  white-space: normal;
-  text-align: left;
-  pointer-events: none;
-}
-
-:root.dark .event-tooltip {
-  background: #1c1f26;
-  color: #f5f5f4;
-  border-color: #2a2e37;
-}
-
-.tooltip-title {
-  font-weight: 700;
-  font-size: 16px; /* text-base */
-  margin-bottom: 6px;
-  word-break: break-word;
-}
-
-.tooltip-row {
-  color: #78716c;
-  word-break: break-word;
-}
-
-:root.dark .tooltip-row {
-  color: #a1a1aa;
-}
-
-.tooltip-hint {
-  margin-top: 8px;
-  color: #6366f1;
-  font-size: 12px; /* text-xs */
-}
-
-:root.dark .tooltip-hint {
-  color: #818cf8;
-}
-
-/* ── Google 活動描述 HTML 渲染 ── */
-.google-desc-html :deep(p) { margin: 0 0 6px; }
-.google-desc-html :deep(ul),
-.google-desc-html :deep(ol) { margin: 4px 0 4px 16px; padding: 0; }
-.google-desc-html :deep(li) { margin-bottom: 2px; }
-.google-desc-html :deep(strong) { font-weight: 600; color: var(--color-base-c, #1c1917); }
-.google-desc-html :deep(a) { color: #6366f1; text-decoration: underline; }
-
-/* ── RWD ── */
-@media (max-width: 640px) {
+  /* ── 月曆格線 ── */
   .calendar-grid {
-    gap: 3px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    width: 100%;
   }
 
-  .weekday-header {
-    margin-bottom: 3px;
+  :root.dark .calendar-grid {
+    gap: 0 !important;
   }
 
-  .weekday-header .cal-weekday {
-    padding: 6px 0;
+  :root.dark .cal-cell {
+    margin: 0 -1px -1px 0;
   }
 
+  /* ── 每週容器：作為跨天活動色條 overlay 的定位基準 ── */
   .week-row {
-    margin-bottom: 3px;
+    position: relative;
   }
 
-  .cal-cell {
-    min-height: 120px;
-    padding: 1px;
-  }
-
-  .cal-day-num {
-    font-size: 12px; /* text-xs，手機版再縮小一級 */
-  }
-
-  .cal-day-header {
-    min-height: 14px; /* 對齊手機版 .week-banner-layer 的 padding-top(18px) - mb-1(4px) */
-  }
-
-  .cal-chip {
-    padding: 0 2px;
-  }
-
-  .chip-time,
-  .cal-chip {
-    font-size: 11px;
-  }
-
+  /* ── 跨天活動連續色條（比照 Google 日曆月檢視的橫幅樣式）── */
   .week-banner-layer {
-    column-gap: 3px;
-    padding-top: 18px;
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    column-gap: 6px;
+    padding-top: 27px; /* 對齊日期數字列高度 */
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  :root.dark .week-banner-layer {
+    column-gap: 0;
   }
 
   .week-banner-bar {
-    font-size: 10px;
-    height: 15px;
-    line-height: 15px;
-    padding: 0 3px;
-    margin-bottom: 1px;
+    position: relative;
+    grid-row: 1; /* 強制所有色條共用同一列，避免 CSS Grid 自動排版跟 JS 算的 top 位移疊加兩次 */
+    pointer-events: auto;
+    box-sizing: border-box;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 6px;
+    margin-bottom: 2px;
+    font-size: 12px; /* text-xs */
+    font-weight: 500;
+    border-radius: 3px;
+    border-left: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    transition: opacity 0.1s, filter 0.1s;
   }
-}
+
+  .week-banner-bar:hover {
+    opacity: 0.85;
+    filter: brightness(0.97);
+  }
+
+  .week-banner-bar.round-l {
+    border-top-left-radius: 9px;
+    border-bottom-left-radius: 9px;
+    margin-left: 1px;
+  }
+
+  .week-banner-bar.round-r {
+    border-top-right-radius: 9px;
+    border-bottom-right-radius: 9px;
+    margin-right: 1px;
+  }
+
+  /* ── 星期標頭：深色底白字 ── */
+  .cal-weekday {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    padding: 10px 0;
+    background: #495969;
+    color: #fff;
+    border-radius: 6px;
+  }
+
+  .cal-weekday.sun {
+    color: #fca5a5;
+  }
+
+  .cal-weekday.sat {
+    color: #93c5fd;
+  }
+
+  :root.dark .cal-weekday {
+    background: #38404c;
+    border-radius: 0;
+  }
+
+  /* ── 日期格子（用 min-height 取代固定 height：平常維持 120px 高，
+     內容太多（活動 chip 或跨天色條疊很多層）時改成撐高，不裁切內容。
+     同一週的 7 個格子仍會透過 CSS Grid 自動等高，週與週之間不會因此對不齊）── */
+  .cal-cell {
+    min-height: 120px;
+    background: #fff;
+    border: 1px solid #ece7e2;
+    border-radius: 8px;
+    padding: 8px 7px 7px;
+    cursor: pointer;
+    transition: box-shadow 0.15s, background 0.1s, border-color 0.15s;
+    position: relative;
+  }
+
+  .cal-cell:hover {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px #6366f1;
+  }
+
+  :root.dark .cal-cell {
+    background: #15171c;
+    border: 1px solid #2a2e37;
+    border-radius: 0;
+  }
+
+  .cal-cell.weekend {
+    background: #faf6f2;
+  }
+
+  :root.dark .cal-cell.weekend {
+    background: #15171c;
+  }
+
+  .cal-cell.today {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px #6366f1;
+  }
+
+  :root.dark .cal-cell.today {
+    background: #2d3250;
+    border-color: #5b6bb8;
+    box-shadow: none;
+  }
+
+  .cal-cell.has-events {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
+  }
+
+  :root.dark .cal-cell.has-events {
+    box-shadow: none;
+  }
+
+  /* ── 日期數字 ── */
+  /* 固定高度＝跨天色條圖層 padding-top(27px) 扣掉自己的 margin-bottom(mb-1=4px)，
+     確保這一列的實際佔用高度跟 .week-banner-layer 的 padding-top 完全對齊，
+     不然色條跟下面自己的活動清單會因為兩邊各自算的高度對不起來而稍微疊到 */
+  .cal-day-header {
+    min-height: 23px;
+  }
+
+  .cal-day-num {
+    font-size: 16px; /* text-base */
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .today-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 25px;
+    height: 25px;
+    background: #6366f1;
+    color: #fff;
+    border-radius: 50%;
+    font-weight: 700;
+  }
+
+  :root.dark .today-num {
+    background: transparent;
+    color: #c7d2fe;
+  }
+
+  /* ── 活動 chip ── */
+  .cal-chip {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+    padding: 2px 5px 2px 6px;
+    overflow: hidden;
+    transition: opacity 0.1s, filter 0.1s;
+    font-size: 12px; /* text-xs */
+  }
+
+  .cal-chip:hover {
+    opacity: 0.85;
+    filter: brightness(0.97);
+  }
+
+  .chip-time {
+    font-size: 12px; /* text-xs */
+    font-weight: 700;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
+
+  .chip-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+  }
+
+  /* chip 顏色：依建築分類（醫院/園區/芳心），院內沒有建築分類的用 onsite，Google 另外一色 */
+  .chip-hospital {
+    background: #fee2e2;
+    color: #c0392b;
+    border-left-color: #e0534a;
+  }
+
+  .chip-park {
+    background: #d1fae5;
+    color: #065f46;
+    border-left-color: #3d6b52;
+  }
+
+  .chip-fragrant {
+    background: #fce7f3;
+    color: #9d4f78;
+    border-left-color: #a06080;
+  }
+
+  .chip-google {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-left-color: #2563eb;
+  }
+
+  .chip-itinerary {
+    background: #ccfbf1;
+    color: #0f766e;
+    border-left-color: #14b8a6;
+  }
+
+  .chip-booking {
+    background: #fce7f3;
+    color: #be185d;
+    border-left-color: #ec4899;
+  }
+
+  .chip-lunch {
+    background: #ffedd5;
+    color: #c2410c;
+    border-left-color: #f97316;
+  }
+
+  .chip-soybean {
+    background: #ecfccb;
+    color: #4d7c0f;
+    border-left-color: #65a30d;
+  }
+
+  .chip-roomorder {
+    background: #ede9fe;
+    color: #6d28d9;
+    border-left-color: #7c3aed;
+  }
+
+  .chip-onsite {
+    background: #fef3c7;
+    color: #b45309;
+    border-left-color: #d97706;
+  }
+
+  :root.dark .cal-chip {
+    border-left-width: 0;
+    padding: 2px 6px;
+  }
+
+  :root.dark .chip-hospital {
+    background: #c0392b;
+    color: #fff;
+  }
+
+  :root.dark .chip-park {
+    background: #15803d;
+    color: #fff;
+  }
+
+  :root.dark .chip-fragrant {
+    background: #a06080;
+    color: #fff;
+  }
+
+  :root.dark .chip-google {
+    background: #2563eb;
+    color: #fff;
+  }
+
+  :root.dark .chip-itinerary {
+    background: #0d9488;
+    color: #fff;
+  }
+
+  :root.dark .chip-booking {
+    background: #db2777;
+    color: #fff;
+  }
+
+  :root.dark .chip-lunch {
+    background: #ea580c;
+    color: #fff;
+  }
+
+  :root.dark .chip-soybean {
+    background: #4d7c0f;
+    color: #fff;
+  }
+
+  :root.dark .chip-roomorder {
+    background: #6d28d9;
+    color: #fff;
+  }
+
+  :root.dark .chip-onsite {
+    background: #b45309;
+    color: #fff;
+  }
+
+  :root.dark .chip-time {
+    opacity: 0.85;
+  }
+
+  /* ── 類型 badge ── */
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px; /* text-xs */
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .type-badge.hospital {
+    background: #fee2e2;
+    color: #c0392b;
+  }
+
+  .type-badge.park {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .type-badge.fragrant {
+    background: #fce7f3;
+    color: #9d4f78;
+  }
+
+  .type-badge.google {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  .type-badge.itinerary {
+    background: #ccfbf1;
+    color: #0f766e;
+  }
+
+  .type-badge.booking {
+    background: #fce7f3;
+    color: #be185d;
+  }
+
+  .type-badge.lunch {
+    background: #ffedd5;
+    color: #c2410c;
+  }
+
+  .type-badge.soybean {
+    background: #ecfccb;
+    color: #4d7c0f;
+  }
+
+  .type-badge.roomorder {
+    background: #ede9fe;
+    color: #6d28d9;
+  }
+
+  .type-badge.onsite {
+    background: #fef3c7;
+    color: #b45309;
+  }
+
+  :root.dark .type-badge.hospital {
+    background: #4d2323;
+    color: #f87171;
+  }
+
+  :root.dark .type-badge.park {
+    background: #1a3a26;
+    color: #4ade80;
+  }
+
+  :root.dark .type-badge.fragrant {
+    background: #3b1a2e;
+    color: #f0abfc;
+  }
+
+  :root.dark .type-badge.google {
+    background: #1e3a5f;
+    color: #93c5fd;
+  }
+
+  :root.dark .type-badge.itinerary {
+    background: #134e4a;
+    color: #5eead4;
+  }
+
+  :root.dark .type-badge.booking {
+    background: #831843;
+    color: #f9a8d4;
+  }
+
+  :root.dark .type-badge.lunch {
+    background: #7c2d12;
+    color: #fdba74;
+  }
+
+  :root.dark .type-badge.soybean {
+    background: #365314;
+    color: #bef264;
+  }
+
+  :root.dark .type-badge.roomorder {
+    background: #4c1d95;
+    color: #c4b5fd;
+  }
+
+  :root.dark .type-badge.onsite {
+    background: #b45309;
+    color: #fff;
+  }
+
+  /* ── 篩選列：下拉選單 ── */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .filter-select-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .filter-label {
+    font-size: 14px; /* text-sm */
+    font-weight: 600;
+    color: #a8a29e;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .filter-select {
+    padding: 7px 12px;
+    border: 1.5px solid #e2ddd8;
+    border-radius: 8px;
+    background: #fff;
+    color: #1c1917;
+    font-size: 14px; /* text-sm */
+    max-width: 220px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+
+  .filter-select:hover {
+    border-color: #6366f1;
+  }
+
+  .filter-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+  }
+
+  :root.dark .filter-select {
+    background: #1c1f26;
+    border-color: #2a2e37;
+    color: #f5f5f4;
+  }
+
+  .filter-sync-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px; /* text-xs */
+    color: #2563eb;
+  }
+
+  :root.dark .filter-sync-hint {
+    color: #93c5fd;
+  }
+
+  .legend-checkbox {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1px solid #d6d0ca;
+    accent-color: #6366f1;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  :root.dark .legend-checkbox {
+    border-color: #2a2e37;
+  }
+
+  /* 收合現在電腦版也生效，不再強制 lg 以上一定展開 */
+
+  .filter-sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2563eb;
+    animation: filter-sync-pulse 1s infinite;
+  }
+
+  :root.dark .filter-sync-dot {
+    background: #93c5fd;
+  }
+
+  @keyframes filter-sync-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── 表單欄位 ── */
+
+  .field-label {
+    display: block;
+    font-size: 12px; /* text-xs */
+    font-weight: 600;
+    color: #57534e;
+    margin-bottom: 4px;
+  }
+
+  :root.dark .field-label {
+    color: #a8a29e;
+  }
+
+  .field-input {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px; /* text-sm */
+    border: 1px solid #e2ddd8;
+    border-radius: 12px;
+    background: #fff;
+    color: #1c1917;
+    outline: none;
+    transition: border 0.15s, box-shadow 0.15s;
+  }
+
+  :root.dark .field-input {
+    background: #1c1f26;
+    border-color: #2a2e37;
+    color: #f5f5f4;
+  }
+
+  .field-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+  }
+
+  /* ── 側板動畫 ── */
+  .slide-right-enter-active, .slide-right-leave-active {
+    transition: opacity 0.2s;
+  }
+
+  .slide-right-enter-active > div, .slide-right-leave-active > div {
+    transition: transform 0.25s cubic-bezier(.32, .72, 0, 1);
+  }
+
+  .slide-right-enter-from {
+    opacity: 0;
+  }
+
+  .slide-right-enter-from > div {
+    transform: translateX(100%);
+  }
+
+  .slide-right-leave-to {
+    opacity: 0;
+  }
+
+  .slide-right-leave-to > div {
+    transform: translateX(100%);
+  }
+
+  /* ── Toast ── */
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.3s, transform 0.3s;
+  }
+
+  .fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  /* ── 跟隨游標的活動提示框 ── */
+  .event-tooltip {
+    position: fixed;
+    z-index: 1000;
+    width: 280px;
+    background: #fff;
+    color: #1c1917;
+    border: 1px solid #e2ddd8;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+    padding: 14px 16px;
+    font-size: 14px; /* text-sm */
+    line-height: 1.7;
+    white-space: normal;
+    text-align: left;
+    pointer-events: none;
+  }
+
+  :root.dark .event-tooltip {
+    background: #1c1f26;
+    color: #f5f5f4;
+    border-color: #2a2e37;
+  }
+
+  .tooltip-title {
+    font-weight: 700;
+    font-size: 16px; /* text-base */
+    margin-bottom: 6px;
+    word-break: break-word;
+  }
+
+  .tooltip-row {
+    color: #78716c;
+    word-break: break-word;
+  }
+
+  :root.dark .tooltip-row {
+    color: #a1a1aa;
+  }
+
+  .tooltip-hint {
+    margin-top: 8px;
+    color: #6366f1;
+    font-size: 12px; /* text-xs */
+  }
+
+  :root.dark .tooltip-hint {
+    color: #818cf8;
+  }
+
+  /* ── Google 活動描述 HTML 渲染 ── */
+  .google-desc-html :deep(p) { margin: 0 0 6px; }
+  .google-desc-html :deep(ul),
+  .google-desc-html :deep(ol) { margin: 4px 0 4px 16px; padding: 0; }
+  .google-desc-html :deep(li) { margin-bottom: 2px; }
+  .google-desc-html :deep(strong) { font-weight: 600; color: var(--color-base-c, #1c1917); }
+  .google-desc-html :deep(a) { color: #6366f1; text-decoration: underline; }
+
+  /* ── RWD ── */
+  @media (max-width: 640px) {
+    .calendar-grid {
+      gap: 3px;
+    }
+
+    .weekday-header {
+      margin-bottom: 3px;
+    }
+
+    .weekday-header .cal-weekday {
+      padding: 6px 0;
+    }
+
+    .week-row {
+      margin-bottom: 3px;
+    }
+
+    .cal-cell {
+      min-height: 120px;
+      padding: 1px;
+    }
+
+    .cal-day-num {
+      font-size: 12px; /* text-xs，手機版再縮小一級 */
+    }
+
+    .cal-day-header {
+      min-height: 14px; /* 對齊手機版 .week-banner-layer 的 padding-top(18px) - mb-1(4px) */
+    }
+
+    .cal-chip {
+      padding: 0 2px;
+    }
+
+    .chip-time,
+    .cal-chip {
+      font-size: 11px;
+    }
+
+    .week-banner-layer {
+      column-gap: 3px;
+      padding-top: 18px;
+    }
+
+    .week-banner-bar {
+      font-size: 10px;
+      height: 15px;
+      line-height: 15px;
+      padding: 0 3px;
+      margin-bottom: 1px;
+    }
+  }
 </style>
