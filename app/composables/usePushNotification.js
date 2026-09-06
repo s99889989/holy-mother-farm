@@ -2,7 +2,7 @@
 // 封裝瀏覽器推播訂閱流程：註冊 Service Worker → 要求通知權限 → 訂閱 Push → 存到後端
 export function usePushNotification() {
   // TODO：換成後端產生的 VAPID public key（見 README 產生方式）
-  const VAPID_PUBLIC_KEY = 'PASTE_YOUR_VAPID_PUBLIC_KEY_HERE'
+  const VAPID_PUBLIC_KEY = 'BIfJDph28-ngu4yT0IdRiVEPVsS8soInccMN6kPouepi6MSPSm2lMzDt033xMc4uIV7mcZmBeLRzXyGgwBN7XXQ'
 
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
