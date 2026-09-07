@@ -1,8 +1,10 @@
 // composables/usePushNotification.js
 // 封裝瀏覽器推播訂閱流程：註冊 Service Worker → 要求通知權限 → 訂閱 Push → 存到後端
-export function usePushNotification() {
+// apiBase：後端網址前綴，跟專案內其他 API 一樣用 commonStore.data.main_url 組出來
+// （例如呼叫端傳 usePushNotification(() => commonStore.data.main_url)）
+export function usePushNotification(apiBase = () => '') {
   // TODO：換成後端產生的 VAPID public key（見 README 產生方式）
-  const VAPID_PUBLIC_KEY = 'BIfJDph28-ngu4yT0IdRiVEPVsS8soInccMN6kPouepi6MSPSm2lMzDt033xMc4uIV7mcZmBeLRzXyGgwBN7XXQ'
+  const VAPID_PUBLIC_KEY = 'PASTE_YOUR_VAPID_PUBLIC_KEY_HERE'
 
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -41,14 +43,16 @@ export function usePushNotification() {
     }
 
     const json = subscription.toJSON()
-    await $fetch('/holy/push/subscription/save', {
+    await fetch(`${apiBase()}/holy/push/subscription/save`, {
       method: 'POST',
-      body: {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         endpoint: json.endpoint,
         p256dh: json.keys.p256dh,
         auth: json.keys.auth,
         staffName,
-      },
+      }),
     })
 
     return subscription
@@ -63,7 +67,12 @@ export function usePushNotification() {
 
     const endpoint = subscription.endpoint
     await subscription.unsubscribe()
-    await $fetch('/holy/push/subscription/remove', { method: 'DELETE', body: endpoint })
+    await fetch(`${apiBase()}/holy/push/subscription/remove`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'text/plain' },
+      body: endpoint,
+    })
   }
 
   // 目前這台裝置是否已經訂閱（用來初始化設定頁的開關狀態）
