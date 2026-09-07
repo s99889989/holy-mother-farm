@@ -119,7 +119,9 @@ async function fetchPeriods() {
   try {
     const res = await fetch(`${PERIOD_BASE()}/list`, {credentials: 'include'})
     if (res.ok) periods.value = await res.json()
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 // 把一天的訂位（items）＋包月規則（rules）依用餐時段分組，
@@ -530,11 +532,6 @@ async function fetchMealSessions() {
   }
 }
 
-const mealTypeOrder = t => {
-  const order = { 早餐: 0, 上午點心: 1, 午餐: 2, 下午茶: 3, 晚餐: 4, 宵夜: 5 }
-  return order[t] ?? 6
-}
-
 // 今天（含）以後、有排定餐次的所有日期，依日期由近到遠排序，去重
 const mealFutureDatesWithSessions = computed(() => {
   const set = new Set(mealSessions.value.filter(s => s.date >= todayStr).map(s => s.date))
@@ -561,7 +558,7 @@ const mealSessionsByDay = computed(() => (
     date,
     sessions: mealSessions.value
       .filter(s => s.date === date)
-      .sort((a, b) => mealTypeOrder(a.mealType) - mealTypeOrder(b.mealType))
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   }))
 ))
 const mealHasAnySessions = computed(() => mealSessionsByDay.value.some(day => day.sessions.length > 0))
@@ -573,16 +570,6 @@ function mealDayHeaderLabel(date) {
     if (date === tomorrowStr) return `明天　${fmtMDWeekday(date)}`
   }
   return fmtMDWeekday(date)
-}
-
-function mealTypeBadgeClass(mealType) {
-  if (mealType === '早餐') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
-  if (mealType === '上午點心') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/30'
-  if (mealType === '午餐') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
-  if (mealType === '下午茶') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border border-pink-200 dark:border-pink-800/30'
-  if (mealType === '晚餐') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30'
-  if (mealType === '宵夜') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/30'
-  return 'bg-surface2 text-hint-c'
 }
 
 // 備菜卡片內文：九宮格便當精簡列出 9 格內容，一般餐次列出菜色（含附註）
@@ -2926,10 +2913,15 @@ onUnmounted(() => {
                   >
                     <div class="flex items-center gap-2 flex-wrap">
                     <span
-                      :class="mealTypeBadgeClass(session.mealType)"
-                      class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold"
-                      style="font-size:clamp(9px, calc(9px + 0.4vw), 13px)"
-                    >{{ session.mealType }}</span>
+                      class="flex-shrink-0 font-black text-muted-c"
+                      style="font-size:clamp(11px, calc(11px + 0.4vw), 14px)"
+                    >{{ session.time }}</span>
+                      <span
+                        v-if="findPeriod(session.time)"
+                        :class="periodColorClass(findPeriod(session.time).color)"
+                        class="flex-shrink-0 rounded-full px-2 py-0.5 font-semibold border"
+                        style="font-size:clamp(9px, calc(9px + 0.4vw), 13px)"
+                      >{{ findPeriod(session.time).name }}</span>
                       <p
                         v-if="session.title"
                         class="font-semibold text-base-c leading-snug"

@@ -1,164 +1,206 @@
 <script setup>
-  definePageMeta({ layout: 'staff', requiredPermission: 'catering-kitchen.meal-schedule' })
-  const commonStore = useCommonStore()
-  const BASE = computed(() => commonStore.data.main_url + '/holy/meal-schedule')
+definePageMeta({ layout: 'staff', requiredPermission: 'catering-kitchen.meal-schedule' })
+const commonStore = useCommonStore()
+const BASE = computed(() => commonStore.data.main_url + '/holy/meal-schedule')
+const PERIOD_BASE = computed(() => commonStore.data.main_url + '/holy/booking/period')
 
-  const apiOnline = ref(false)
-  const kitchenMode = ref(false)
+const apiOnline = ref(false)
+const kitchenMode = ref(false)
 
-  // ── 日曆 ──────────────────────────────────────────────────────────
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const calYear = ref(today.getFullYear())
-  const calMonth = ref(today.getMonth() + 1)
-  const selectedDate = ref('')
+// ── 日曆 ──────────────────────────────────────────────────────────
+const today = new Date()
+const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+const calYear = ref(today.getFullYear())
+const calMonth = ref(today.getMonth() + 1)
+const selectedDate = ref('')
 
-  const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
+const calendarLabel = computed(() => `${calYear.value}年 ${calMonth.value}月`)
 
-  const calendarDays = computed(() => {
-    const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
-    const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
-    const days = []
-    for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
-    for (let d = 1; d <= daysInMonth; d++) {
-      const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-      days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
+const calendarDays = computed(() => {
+  const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
+  const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
+  const days = []
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
+    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
+  }
+  return days
+})
+
+const dayClass = (day) => {
+  if (!day.date) return 'cursor-default'
+  if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
+  if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
+  return 'text-base-c hover-surface2'
+}
+
+const prevMonth = () => { if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--; }
+const nextMonth = () => { if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++; }
+const selectDate = (date) => { selectedDate.value = date }
+
+// ── 24 小時制時間選擇（比照餐廳訂位，避免原生 time input 出現上午/下午） ──
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))
+// 給定 reactive 物件與欄位名稱（值為 "HH:mm" 字串），回傳可分別綁定「時」「分」的 computed
+const timePart = (obj, key, part) => computed({
+  get: () => {
+    const [h, m] = (obj[key] || '00:00').split(':')
+    return part === 'h' ? h : m
+  },
+  set: (v) => {
+    const [h, m] = (obj[key] || '00:00').split(':')
+    obj[key] = part === 'h' ? `${v}:${m}` : `${h}:${v}`
+  }
+})
+
+// ── 時段標籤（唯讀，純顯示用；要新增/編輯/刪除請到「營業設定」頁面）───────
+// 例如 11:00–14:00 設定為「午餐」，跟訂位／包月共用同一份標籤清單（/holy/booking/period），
+// 依餐次時間自動歸類上色顯示，不影響實際排程時間。
+const periods = ref([]) // [{ id, name, startTime, endTime, color }]
+
+const PERIOD_COLORS = [
+  { key: 'amber', label: '琥珀', class: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/40' },
+  { key: 'orange', label: '橘', class: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/40' },
+  { key: 'indigo', label: '靛', class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40' },
+  { key: 'purple', label: '紫', class: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800/40' },
+  { key: 'teal', label: '青', class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800/40' },
+]
+const periodColorClass = (colorKey) => (PERIOD_COLORS.find(c => c.key === colorKey) || PERIOD_COLORS[0]).class
+
+const sortedPeriods = computed(() => [...periods.value].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+
+// 依 HH:mm 時間字串找出所屬時段（開始時間含、結束時間不含），找不到回傳 null
+const findPeriod = (time) => {
+  if (!time) return null
+  return sortedPeriods.value.find(p => time >= p.startTime && time < p.endTime) || null
+}
+
+const fetchPeriods = async () => {
+  try {
+    periods.value = await (await fetch(`${PERIOD_BASE.value}/list`)).json()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// ── 餐次資料 ──────────────────────────────────────────────────────
+const sessions = ref([])
+const markedDates = computed(() => [...new Set(sessions.value.map(s => s.date))])
+
+const sessionsForSelectedDate = computed(() =>
+  sessions.value
+    .filter(s => s.date === selectedDate.value)
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+)
+
+const fetchSessions = async () => {
+  try {
+    sessions.value = await (await fetch(`${BASE.value}/list`)).json()
+    apiOnline.value = true
+  } catch {
+    apiOnline.value = false
+  }
+}
+
+// ── 新增 / 編輯 Modal：簡易模式（日期/餐次/標題/備註）+ 進階模式（份數/菜色/供餐地點/九宮格），預設簡易 ──
+const sessionModal = reactive({ show: false, isNew: true })
+const advancedMode = ref(false)
+const emptyForm = () => ({
+  id: '', date: selectedDate.value || todayStr, time: '12:00', endTime: '', title: '', note: '',
+  totalCount: null, dishes: [], servingPoints: [], boxGrid: []
+})
+const form = reactive(emptyForm())
+const formHour = timePart(form, 'time', 'h')
+const formMinute = timePart(form, 'time', 'm')
+const useEndTime = ref(false) // 結束時間為選填，預設不設定
+const formEndHour = timePart(form, 'endTime', 'h')
+const formEndMinute = timePart(form, 'endTime', 'm')
+const toggleEndTime = () => { form.endTime = useEndTime.value ? (form.endTime || '13:00') : '' }
+const useBoxGrid = ref(false)
+
+const openCreate = () => {
+  sessionModal.isNew = true
+  Object.assign(form, emptyForm())
+  useEndTime.value = false
+  useBoxGrid.value = false
+  advancedMode.value = false
+  sessionModal.show = true
+}
+
+const openEdit = (session) => {
+  sessionModal.isNew = false
+  Object.assign(form, {
+    id: session.id, date: session.date, time: session.time || '12:00', endTime: session.endTime || '',
+    title: session.title || '', note: session.note || '',
+    totalCount: session.totalCount ?? null,
+    dishes: (session.dishes || []).map(d => ({ ...d })),
+    servingPoints: (session.servingPoints || []).map(sp => ({ ...sp })),
+    boxGrid: session.boxGrid && session.boxGrid.length === 9 ? [...session.boxGrid] : []
+  })
+  useEndTime.value = !!form.endTime
+  useBoxGrid.value = form.boxGrid.length === 9
+  advancedMode.value = false
+  sessionModal.show = true
+}
+
+const toggleBoxGrid = () => {
+  form.boxGrid = useBoxGrid.value ? Array.from({ length: 9 }, (_, i) => form.boxGrid[i] || '') : []
+}
+
+const addDish = () => form.dishes.push({ name: '', note: '' })
+const removeDish = (idx) => form.dishes.splice(idx, 1)
+const addServingPoint = () => form.servingPoints.push({ name: '', count: null, lanes: null, note: '' })
+const removeServingPoint = (idx) => form.servingPoints.splice(idx, 1)
+
+const saveSession = async () => {
+  // 簡易模式下不動進階欄位，維持原值一起送出即可（不會因為切回簡易就把已填的進階資料清掉）
+  const payload = { ...form, endTime: useEndTime.value ? form.endTime : '', boxGrid: useBoxGrid.value ? form.boxGrid : [] }
+  try {
+    if (sessionModal.isNew) {
+      const saved = await (await fetch(`${BASE.value}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })).json()
+      sessions.value.push(saved)
+      showToast('餐次已新增')
+    } else {
+      const saved = await (await fetch(`${BASE.value}/${form.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })).json()
+      const idx = sessions.value.findIndex(s => s.id === saved.id)
+      if (idx >= 0) sessions.value[idx] = saved
+      showToast('餐次已更新')
     }
-    return days
-  })
+    sessionModal.show = false
+  } catch { showToast('儲存失敗') }
+}
 
-  const dayClass = (day) => {
-    if (!day.date) return 'cursor-default'
-    if (day.date === selectedDate.value) return 'bg-green-700 text-white font-bold shadow-sm'
-    if (day.date === todayStr) return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold hover:bg-green-200'
-    return 'text-base-c hover-surface2'
-  }
+const confirmDeleteSession = async (session) => {
+  if (!confirm(`確定刪除「${session.date} ${session.time}」這筆排程？`)) return
+  try {
+    await fetch(`${BASE.value}/${session.id}`, { method: 'DELETE' })
+    sessions.value = sessions.value.filter(s => s.id !== session.id)
+    showToast('已刪除')
+  } catch { showToast('刪除失敗') }
+}
 
-  const prevMonth = () => { if (calMonth.value === 1) { calYear.value--; calMonth.value = 12 } else calMonth.value--; }
-  const nextMonth = () => { if (calMonth.value === 12) { calYear.value++; calMonth.value = 1 } else calMonth.value++; }
-  const selectDate = (date) => { selectedDate.value = date }
+// ── Toast ─────────────────────────────────────────────────────────
+const toast = reactive({ show: false, message: '' })
+const showToast = (msg) => {
+  toast.message = msg; toast.show = true
+  setTimeout(() => toast.show = false, 2500)
+}
 
-  // ── 餐次資料 ──────────────────────────────────────────────────────
-  const sessions = ref([])
-  const markedDates = computed(() => [...new Set(sessions.value.map(s => s.date))])
-
-  const sessionsForSelectedDate = computed(() =>
-    sessions.value
-      .filter(s => s.date === selectedDate.value)
-      .sort((a, b) => mealOrder(a.mealType) - mealOrder(b.mealType))
-  )
-
-  const mealOrder = (t) => {
-    const order = { 早餐: 0, 上午點心: 1, 午餐: 2, 下午茶: 3, 晚餐: 4, 宵夜: 5 }
-    return order[t] ?? 6
-  }
-
-  const mealTypeClass = (t) => {
-    if (t === '早餐') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/30'
-    if (t === '上午點心') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/30'
-    if (t === '午餐') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30'
-    if (t === '下午茶') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border border-pink-200 dark:border-pink-800/30'
-    if (t === '晚餐') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30'
-    if (t === '宵夜') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/30'
-    return 'bg-surface2 text-hint-c'
-  }
-
-  const fetchSessions = async () => {
-    try {
-      sessions.value = await (await fetch(`${BASE.value}/list`)).json()
-      apiOnline.value = true
-    } catch {
-      apiOnline.value = false
-    }
-  }
-
-  // ── 新增 / 編輯 Modal：簡易模式（日期/餐次/標題/備註）+ 進階模式（份數/菜色/供餐地點/九宮格），預設簡易 ──
-  const sessionModal = reactive({ show: false, isNew: true })
-  const advancedMode = ref(false)
-  const emptyForm = () => ({
-    id: '', date: selectedDate.value || todayStr, mealType: '午餐', title: '', note: '',
-    totalCount: null, dishes: [], servingPoints: [], boxGrid: []
-  })
-  const form = reactive(emptyForm())
-  const useBoxGrid = ref(false)
-
-  const openCreate = () => {
-    sessionModal.isNew = true
-    Object.assign(form, emptyForm())
-    useBoxGrid.value = false
-    advancedMode.value = false
-    sessionModal.show = true
-  }
-
-  const openEdit = (session) => {
-    sessionModal.isNew = false
-    Object.assign(form, {
-      id: session.id, date: session.date, mealType: session.mealType,
-      title: session.title || '', note: session.note || '',
-      totalCount: session.totalCount ?? null,
-      dishes: (session.dishes || []).map(d => ({ ...d })),
-      servingPoints: (session.servingPoints || []).map(sp => ({ ...sp })),
-      boxGrid: session.boxGrid && session.boxGrid.length === 9 ? [...session.boxGrid] : []
-    })
-    useBoxGrid.value = form.boxGrid.length === 9
-    advancedMode.value = false
-    sessionModal.show = true
-  }
-
-  const toggleBoxGrid = () => {
-    form.boxGrid = useBoxGrid.value ? Array.from({ length: 9 }, (_, i) => form.boxGrid[i] || '') : []
-  }
-
-  const addDish = () => form.dishes.push({ name: '', note: '' })
-  const removeDish = (idx) => form.dishes.splice(idx, 1)
-  const addServingPoint = () => form.servingPoints.push({ name: '', count: null, lanes: null, note: '' })
-  const removeServingPoint = (idx) => form.servingPoints.splice(idx, 1)
-
-  const saveSession = async () => {
-    // 簡易模式下不動進階欄位，維持原值一起送出即可（不會因為切回簡易就把已填的進階資料清掉）
-    const payload = { ...form, boxGrid: useBoxGrid.value ? form.boxGrid : [] }
-    try {
-      if (sessionModal.isNew) {
-        const saved = await (await fetch(`${BASE.value}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })).json()
-        sessions.value.push(saved)
-        showToast('餐次已新增')
-      } else {
-        const saved = await (await fetch(`${BASE.value}/${form.id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })).json()
-        const idx = sessions.value.findIndex(s => s.id === saved.id)
-        if (idx >= 0) sessions.value[idx] = saved
-        showToast('餐次已更新')
-      }
-      sessionModal.show = false
-    } catch { showToast('儲存失敗') }
-  }
-
-  const confirmDeleteSession = async (session) => {
-    if (!confirm(`確定刪除「${session.date} ${session.mealType}」這筆排程？`)) return
-    try {
-      await fetch(`${BASE.value}/${session.id}`, { method: 'DELETE' })
-      sessions.value = sessions.value.filter(s => s.id !== session.id)
-      showToast('已刪除')
-    } catch { showToast('刪除失敗') }
-  }
-
-  // ── Toast ─────────────────────────────────────────────────────────
-  const toast = reactive({ show: false, message: '' })
-  const showToast = (msg) => {
-    toast.message = msg; toast.show = true
-    setTimeout(() => toast.show = false, 2500)
-  }
-
-  // ── 初始化 ────────────────────────────────────────────────────────
-  onMounted(async () => {
-    await fetchSessions()
-    selectedDate.value = markedDates.value.includes(todayStr) ? todayStr : (markedDates.value[0] || todayStr)
-  })
+// ── 初始化 ────────────────────────────────────────────────────────
+onMounted(async () => {
+  await Promise.all([fetchSessions(), fetchPeriods()])
+  // 固定選今天：不管今天有沒有排定餐次都停在今天，之前錯誤地退而求其次跳到
+  // markedDates.value[0]（=資料裡最早出現的日期，不是離今天最近的日期），
+  // 導致沒排定今天時整頁跳到很久以前/以後的某一天，跟日曆顯示的月份對不上。
+  selectedDate.value = todayStr
+})
 </script>
 
 <template>
@@ -266,7 +308,10 @@
                  class="bg-surface rounded-2xl border border-light-c shadow-sm p-4">
               <div class="flex items-start justify-between gap-2 mb-2">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span :class="mealTypeClass(session.mealType)" class="px-2.5 py-0.5 rounded-full text-xs font-medium">{{ session.mealType }}</span>
+                  <span :class="kitchenMode ? 'text-xl' : 'text-sm'" class="font-black text-muted-c">{{ session.time }}<template v-if="session.endTime"> – {{ session.endTime }}</template></span>
+                  <span v-if="findPeriod(session.time)"
+                        class="px-2 py-0.5 rounded-full text-xs font-medium border"
+                        :class="periodColorClass(findPeriod(session.time).color)">{{ findPeriod(session.time).name }}</span>
                   <h3 v-if="session.title" :class="kitchenMode ? 'text-2xl' : 'text-base'" class="font-bold text-base-c">{{ session.title }}</h3>
                 </div>
                 <div class="flex items-center gap-1 flex-shrink-0">
@@ -346,15 +391,35 @@
                        class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400"/>
               </div>
               <div>
-                <label class="text-sm font-medium text-muted-c block mb-1">餐次</label>
-                <select v-model="form.mealType"
-                        class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
-                  <option value="早餐">早餐</option>
-                  <option value="上午點心">上午點心</option>
-                  <option value="午餐">午餐</option>
-                  <option value="下午茶">下午茶</option>
-                  <option value="晚餐">晚餐</option>
-                  <option value="宵夜">宵夜</option>
+                <label class="text-sm font-medium text-muted-c block mb-1">時間</label>
+                <div class="flex items-center gap-2">
+                  <select v-model="formHour"
+                          class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                    <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                  </select>
+                  <span class="text-muted-c font-medium">:</span>
+                  <select v-model="formMinute"
+                          class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                    <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="flex items-center gap-2 text-sm font-medium text-muted-c mb-1">
+                <input type="checkbox" v-model="useEndTime" @change="toggleEndTime" class="accent-green-700"/>
+                設定結束時間（選填）
+              </label>
+              <div v-if="useEndTime" class="flex items-center gap-2">
+                <select v-model="formEndHour"
+                        class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+                </select>
+                <span class="text-muted-c font-medium">:</span>
+                <select v-model="formEndMinute"
+                        class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-green-400">
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
                 </select>
               </div>
             </div>
@@ -461,6 +526,6 @@
 </template>
 
 <style scoped>
-  .fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
-  .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 </style>
