@@ -187,6 +187,7 @@
 
   const transferringGuid = ref('')
   const transferringBatch = ref(false)
+  const signingAndTransferring = ref(false)
 
   // 「轉銷」（轉入銷貨單），對應 SalesOrderModify.js 的 TransSlipClick()。
   async function handleTransfer(row) {
@@ -241,6 +242,63 @@
 
     if (failedCodes.length) {
       errorMessage.value = `以下訂貨單轉銷失敗，其餘已成功：${failedCodes.join('、')}`
+    }
+  }
+
+  // 「簽核並轉銷」：原網站沒有這個合併動作，這裡是前端依序執行既有的
+  // 簽核（handleSignBatch 用的同一支批次簽核 API）→ 重新整理列表拿到最新
+  // canTransfer 狀態 → 再對其中可轉銷的逐一呼叫轉銷。純粹是把使用者原本
+  // 要手動點兩次的動作串成一次，沒有呼叫任何新的原網站 API。
+  async function handleSignAndTransfer() {
+    const guids = Array.from(selectedGuids.value)
+    if (!guids.length) return
+    if (!confirm(`確定要依序簽核並轉銷選取的 ${guids.length} 張訂貨單嗎？`)) return
+
+    signingAndTransferring.value = true
+    errorMessage.value = ''
+
+    try {
+      await $fetch('/api/dc-erp/sales-order-sign', {
+        method: 'POST',
+        body: { guids, action: 'sign' }
+      })
+    } catch (err) {
+      signingAndTransferring.value = false
+      errorMessage.value = err?.data?.statusMessage || '簽核失敗，已中止，未進行轉銷'
+      return
+    }
+
+    await load(page.value)
+
+    // 簽核後才重新抓 canTransfer，只轉銷原本選取、且簽核後確實可轉銷的
+    const rowsToTransfer = items.value.filter((row) => guids.includes(row.guid) && row.canTransfer)
+
+    if (!rowsToTransfer.length) {
+      signingAndTransferring.value = false
+      errorMessage.value = '簽核已完成，但選取的訂貨單目前沒有符合轉銷條件的'
+      return
+    }
+
+    const failedCodes = []
+    for (const row of rowsToTransfer) {
+      transferringGuid.value = row.guid
+      try {
+        await $fetch('/api/dc-erp/sales-order-trans', {
+          method: 'POST',
+          body: { guid: row.guid }
+        })
+        selectedGuids.value.delete(row.guid)
+      } catch (err) {
+        failedCodes.push(row.code)
+      }
+    }
+
+    transferringGuid.value = ''
+    signingAndTransferring.value = false
+    await load(page.value)
+
+    if (failedCodes.length) {
+      errorMessage.value = `簽核已完成，但以下訂貨單轉銷失敗：${failedCodes.join('、')}`
     }
   }
 
@@ -367,24 +425,31 @@
             </span>
             <button
               class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="!selectedTransferableRows.length || transferringBatch || signing"
+              :disabled="!selectedTransferableRows.length || transferringBatch || signing || signingAndTransferring"
               @click="handleTransferBatch"
             >
               {{ transferringBatch ? '轉銷中…' : `轉銷（${selectedTransferableRows.length}）` }}
             </button>
             <button
               class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="!selectedGuids.size || signing || transferringBatch"
+              :disabled="!selectedGuids.size || signing || transferringBatch || signingAndTransferring"
               @click="handleSignBatch('return')"
             >
               {{ signing ? '處理中…' : `簽退（${selectedGuids.size}）` }}
             </button>
             <button
               class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
-              :disabled="!selectedGuids.size || signing || transferringBatch"
+              :disabled="!selectedGuids.size || signing || transferringBatch || signingAndTransferring"
               @click="handleSignBatch('sign')"
             >
               {{ signing ? '處理中…' : `簽核（${selectedGuids.size}）` }}
+            </button>
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="!selectedGuids.size || signing || transferringBatch || signingAndTransferring"
+              @click="handleSignAndTransfer"
+            >
+              {{ signingAndTransferring ? '處理中…' : `簽核並轉銷（${selectedGuids.size}）` }}
             </button>
             <NuxtLink
               v-if="createUrl"
