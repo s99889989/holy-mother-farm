@@ -79,15 +79,23 @@ async function generate() {
 }
 
 // ── 用 iframe 列印，完全不受 scoped style 干擾 ──
+// 編號/位置是後台可自由輸入的文字，組進 HTML 字串前要先跳脫，
+// 避免剛好含有 <、& 等字元時弄壞列印頁排版
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]))
+}
+
 function printViaIframe() {
   const pagesHtml = sheets.value.map((page) => {
     const cellsHtml = page.map((cell) => {
       if (!cell) return `<div class="label-cell empty"></div>`
       return `
         <div class="label-cell">
-          <img class="label-qr" src="${cell.qrDataUrl}" alt="${cell.code}" />
-          <div class="label-code">${cell.code}</div>
-          <div class="label-location">${cell.location}</div>
+          <img class="label-qr" src="${cell.qrDataUrl}" alt="${escHtml(cell.code)}" />
+          <div class="label-code">${escHtml(cell.code)}</div>
+          <div class="label-location">${escHtml(cell.location)}</div>
         </div>`
     }).join('')
     return `<div class="a4-page">${cellsHtml}</div>`
