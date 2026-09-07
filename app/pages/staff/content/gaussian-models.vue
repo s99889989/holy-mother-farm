@@ -16,7 +16,7 @@ const loadPlayCanvas = async () => {
 definePageMeta({ layout: 'staff', requiredPermission: 'holymotherfarm.gaussian-models' })
 
 const commonStore = useCommonStore()
-const BASE = commonStore.data.main_url + '/holy/gaussian'
+const BASE = commonStore.data.just_url + '/holy/gaussian'
 const API_ORIGIN = commonStore.data.main_url
 
 const fileUrl = (path) => {
