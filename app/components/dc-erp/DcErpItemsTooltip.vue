@@ -3,7 +3,22 @@
   // 同一張單第一次 hover 查詢過明細之後，之後再 hover 到同一列直接用快取，
   // 不會每次移過去都重打一次 API。key 用 apiPath+guid 組合，這樣同一頁面
   // 如果同時有訂貨單／銷貨單兩種 tooltip 也不會互相搞混。
+  //
+  // 因為是模組層級的快取，資料一旦查過就不會自己過期——所以在「編輯表單
+  // 儲存成功」的地方要主動呼叫 clearDcErpItemsTooltipCache() 把對應 guid
+  // 的快取清掉，下次 hover 才會重打 API 拿到最新明細。沒有帶 guid 時會把
+  // 該 apiPath 底下全部快取清空（例如批次匯入/刪除後不確定影響哪幾筆）。
   const detailCache = new Map()
+
+  export function clearDcErpItemsTooltipCache(apiPath, guid) {
+    if (guid) {
+      detailCache.delete(`${apiPath}:${guid}`)
+    } else {
+      for (const key of detailCache.keys()) {
+        if (key.startsWith(`${apiPath}:`)) detailCache.delete(key)
+      }
+    }
+  }
 </script>
 
 <script setup>

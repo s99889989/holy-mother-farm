@@ -273,10 +273,14 @@
             </select>
             <DcErpKeywordSearchInput
               v-model="filters.keyword"
-              storage-key="dc-erp-sales-slips-keyword-history"
+              storage-key="dc-erp-sales-orders-customer-name-history"
               placeholder="關鍵字"
               @enter="handleSearch"
             />
+            <!-- 這裡故意跟訂貨單列表「客戶名稱」欄位、新增訂貨單頁「客戶」欄位
+                 共用同一把 storage-key——這三個查詢欄位打的通常都是同一批
+                 客戶代號/名稱，共用一份最近查詢紀錄，其中一處查過的文字在
+                 另外兩處也會出現在下拉建議裡，不用分開各記各的。 -->
 
             <button class="rounded bg-green-700 px-3 py-1 text-white hover:bg-green-800" @click="handleSearch">送出查詢</button>
             <button class="rounded border border-light-c px-3 py-1 text-muted-c hover:bg-surface2" @click="handleAllList">列出全部</button>

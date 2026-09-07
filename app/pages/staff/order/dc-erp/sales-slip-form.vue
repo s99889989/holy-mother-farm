@@ -1,5 +1,8 @@
 <script setup>
   import { reactive, ref, onMounted, computed, watch, nextTick } from 'vue'
+  // 儲存/刪除成功後要清掉列表頁 tooltip 元件的模組層級快取，不然 hover 出來的
+  // 明細還是編輯前的舊資料（快取不會自己過期，見該元件檔頭註解）。
+  import { clearDcErpItemsTooltipCache } from '~/components/DcErpItemsTooltip.vue'
 
   // 「銷貨單維護 - 新增/編輯」：跟訂貨單的 sales-order-form.vue 同一套架構
   // （URL 帶 ?guid=xxx 是編輯，不帶是新增），細節差異、假設、風險都寫在
@@ -681,6 +684,7 @@
           deletedGuids: deletedGuids.value
         }
       })
+      clearDcErpItemsTooltipCache('/api/dc-erp/sales-slip-detail', result.guid || guid.value)
       if (result.guid) {
         await navigateTo(`/staff/order/dc-erp/sales-slip-form?guid=${result.guid}`)
         await init()
@@ -707,6 +711,7 @@
         method: 'POST',
         body: { guid: guid.value }
       })
+      clearDcErpItemsTooltipCache('/api/dc-erp/sales-slip-detail', guid.value)
       await navigateTo('/staff/order/dc-erp/sales-slips')
     } catch (err) {
       errorMessage.value = err?.data?.statusMessage || '刪除失敗，請稍後再試'

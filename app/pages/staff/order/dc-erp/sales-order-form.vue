@@ -267,11 +267,16 @@
     productViewMode.value = loadListSettings('productSearch', { viewMode: 'table' }).viewMode
     try {
       await loadHeader()
-      // 新增訂貨單時，如果還沒選客戶，自動帶入這台瀏覽器上一次選過的客戶
-      // （純前端 localStorage 記錄，見下面「客戶輸入／搜尋」區塊）。
+      // 新增訂貨單時，如果還沒選客戶，自動帶入這台瀏覽器上一次查詢/選過的
+      // 客戶代號並查詢補全（純前端 localStorage 記錄，見下面「客戶輸入／
+      // 搜尋」區塊——這把 key 跟訂貨單/銷貨單列表頁共用，不一定是在這頁
+      // 選出來的）。
       if (isNew.value && (!header.firmID || header.firmID === '0')) {
         const history = loadCustomerHistory()
-        if (history.length) pickFirm(history[0])
+        if (history.length) {
+          firmCodeInput.value = history[0]
+          await handleFirmCodeEnter()
+        }
       }
       await Promise.all([loadDetails(), loadWarehouses(), loadProductImagesMap()])
     } catch (err) {
@@ -298,13 +303,13 @@
   const firmCodeInput = ref('')
   const firmLookupState = ref('') // '', 'loading', 'found', 'notfound', 'error'
 
-  // 客戶選擇紀錄：純前端 localStorage 記住這台瀏覽器最近選過的客戶（代號+
-  // 名稱+ID，最多 10 筆，最近選的排最前面）。輸入框 focus 時顯示下拉可以
-  //直接點選；新增訂貨單時如果還沒選客戶，會自動帶入最近一筆（見 init()）。
-  const CUSTOMER_HISTORY_KEY = 'dc-erp-sales-orders-customer-history'
+  // 客戶輸入紀錄：跟訂貨單列表「客戶名稱」欄位、銷貨單列表「關鍵字」欄位
+  // 共用同一把 storage-key（純字串陣列，最新一筆在最前面，跟
+  // DcErpKeywordSearchInput 內部存的格式一樣）——這三處查過/選過的客戶
+  // 代號互通，其中一處記錄過的文字在另外兩處的下拉建議裡也會出現。
+  // 新增訂貨單時如果還沒選客戶，會自動帶入最近一筆並查詢補全（見 init()）。
+  const CUSTOMER_HISTORY_KEY = 'dc-erp-sales-orders-customer-name-history'
   const MAX_CUSTOMER_HISTORY = 10
-  const customerHistory = ref([])
-  const showCustomerHistory = ref(false)
 
   function loadCustomerHistory() {
     if (typeof window === 'undefined') return []
@@ -316,38 +321,14 @@
     }
   }
 
-  function saveCustomerHistory(list) {
-    if (typeof window === 'undefined') return
+  function addToCustomerHistory(code) {
+    if (!code || typeof window === 'undefined') return
     try {
-      window.localStorage.setItem(CUSTOMER_HISTORY_KEY, JSON.stringify(list))
+      const next = [code, ...loadCustomerHistory().filter((c) => c !== code)].slice(0, MAX_CUSTOMER_HISTORY)
+      window.localStorage.setItem(CUSTOMER_HISTORY_KEY, JSON.stringify(next))
     } catch {
       // 存不進去（例如無痕模式滿了）就算了，不影響選客戶本身
     }
-  }
-
-  function addToCustomerHistory(firm) {
-    if (!firm?.id || !firm?.code) return
-    const next = [
-      { id: firm.id, code: firm.code, name: firm.name },
-      ...customerHistory.value.filter((f) => f.id !== firm.id)
-    ].slice(0, MAX_CUSTOMER_HISTORY)
-    customerHistory.value = next
-    saveCustomerHistory(next)
-  }
-
-  function onFirmCodeFocus() {
-    customerHistory.value = loadCustomerHistory()
-    showCustomerHistory.value = customerHistory.value.length > 0
-  }
-
-  function onFirmCodeBlur() {
-    // 延遲關閉，讓下面選項的 click（mousedown）事件能先觸發
-    setTimeout(() => { showCustomerHistory.value = false }, 150)
-  }
-
-  function pickFromHistory(firm) {
-    pickFirm(firm)
-    showCustomerHistory.value = false
   }
 
   const showFirmSearch = ref(false)
@@ -394,7 +375,7 @@
     firmCodeInput.value = firm.code
     firmLookupState.value = 'found'
     showFirmSearch.value = false
-    addToCustomerHistory(firm)
+    addToCustomerHistory(firm.code)
   }
 
   // 輸入框按 Enter：依客戶代號直接查（WHSearch=Code），比對到唯一一筆直接
@@ -873,36 +854,21 @@
 
               <div class="flex flex-wrap items-center gap-2">
                 <label class="text-muted-c"><span class="text-red-600">*</span>客戶：</label>
-                <div class="relative flex items-center">
-                  <input
+                <div class="flex items-center">
+                  <DcErpKeywordSearchInput
                     v-model="firmCodeInput"
-                    type="text"
+                    storage-key="dc-erp-sales-orders-customer-name-history"
                     placeholder="輸入客戶代號後按 Enter"
-                    class="w-32 rounded-l border border-r-0 border-light-c bg-surface px-2 py-1"
-                    @keyup.enter="handleFirmCodeEnter"
-                    @focus="onFirmCodeFocus"
-                    @blur="onFirmCodeBlur"
-                  >
+                    width-class="w-32"
+                    @enter="handleFirmCodeEnter"
+                  />
                   <button
-                    class="rounded-r border border-light-c bg-surface2 px-2 py-1 text-muted-c hover:bg-surface"
+                    class="rounded border border-l-0 border-light-c bg-surface2 px-2 py-1 text-muted-c hover:bg-surface"
                     title="搜尋客戶"
                     @click="openFirmSearch"
                   >
                     🔍
                   </button>
-                  <ul
-                    v-if="showCustomerHistory && customerHistory.length"
-                    class="absolute top-full z-20 mt-1 max-h-48 w-56 overflow-y-auto rounded border border-light-c bg-surface text-sm shadow-lg"
-                  >
-                    <li
-                      v-for="f in customerHistory"
-                      :key="f.id"
-                      class="cursor-pointer truncate px-2 py-1 hover:bg-surface2"
-                      @mousedown.prevent="pickFromHistory(f)"
-                    >
-                      {{ f.code }} {{ f.name }}
-                    </li>
-                  </ul>
                 </div>
                 <span v-if="firmLookupState === 'loading'" class="text-xs text-hint-c">查詢中…</span>
                 <span v-else-if="firmLookupState === 'found'" class="text-sm text-green-700">{{ header.firmName }}</span>
