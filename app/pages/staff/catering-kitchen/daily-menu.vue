@@ -21,7 +21,7 @@ const thumbUrl = (path) => {
 const fetchWithTimeout = (url, options = {}, ms = 8000) => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), ms)
-  return fetch(url, {...options, signal: controller.signal}).finally(() => clearTimeout(timer))
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
 }
 
 // ── 上傳前在前端壓縮圖片 ──────────────────────────────────────────
@@ -40,7 +40,7 @@ const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
       canvas.height = Math.round(img.height * scale)
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
       canvas.toBlob(
-        blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {type: 'image/jpeg'})),
+        blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
         'image/jpeg',
         quality
       )
@@ -109,7 +109,7 @@ const dragOver = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref('')
 const suggesting = ref(false)
-const suggestModal = reactive({show: false, data: {}})
+const suggestModal = reactive({ show: false, data: {} })
 const isEditMode = ref(false)
 const isClient = ref(false)
 const ingredientDraft = reactive({})
@@ -136,7 +136,39 @@ const colCount = computed(() => {
 // ── 日期搜尋 ─────────────────────────────────────────────────────
 const WEEK_LABELS = ['日', '一', '二', '三', '四', '五', '六']
 const weekItemsMap = ref({})
-const loadedMonthsCache = new Set()
+// key: 'yyyy-mm' → Promise，代表該月份的載入狀態（進行中或已完成）
+// 用 Promise 而不是布林值當快取，是為了讓「同時」對同一個月份發起的多次呼叫
+// 都能等到「同一次」網路請求真正完成、資料已 merge 進 dateStatus 之後才繼續，
+// 而不會有一個呼叫還在等網路回應時，另一個呼叫誤判「已經載入過」就直接跳過、
+// 把還沒到位的資料當成「沒有資料」略過。
+const monthLoadPromises = new Map()
+
+const loadMonth = async (ym) => {
+  try {
+    const status = await (await fetchWithTimeout(`${BASE}/dates/${ym}`)).json()
+    dateStatus.value = { ...dateStatus.value, ...status }
+    apiOnline.value = true
+  } catch {
+    apiOnline.value = false
+    monthLoadPromises.delete(ym) // 失敗允許之後重新嘗試
+  }
+}
+
+// 一般查詢用：同一個月份若已經在載入中或載入完成，直接共用同一個 Promise
+const ensureMonthLoaded = (ym) => {
+  if (monthLoadPromises.has(ym)) return monthLoadPromises.get(ym)
+  const promise = loadMonth(ym)
+  monthLoadPromises.set(ym, promise)
+  return promise
+}
+
+// 強制重新整理用：例如儲存/刪除項目後，即使月份「已載入過」也要重新抓最新狀態，
+// 但仍然把新的 Promise 放回同一份快取，讓其他正在掃描同一個月份的呼叫也能對齊到這次結果
+const forceReloadMonth = (ym) => {
+  const promise = loadMonth(ym)
+  monthLoadPromises.set(ym, promise)
+  return promise
+}
 
 const findDatesWithData = async (startDate, direction, count) => {
   const result = []
@@ -147,17 +179,7 @@ const findDatesWithData = async (startDate, direction, count) => {
     const dd = String(d.getDate()).padStart(2, '0')
     const date = `${yyyy}-${mm}-${dd}`
     const ym = `${yyyy}-${mm}`
-    if (!loadedMonthsCache.has(ym)) {
-      loadedMonthsCache.add(ym)
-      try {
-        const status = await (await fetchWithTimeout(`${BASE}/dates/${ym}`)).json()
-        dateStatus.value = {...dateStatus.value, ...status}
-        apiOnline.value = true
-      } catch {
-        apiOnline.value = false
-        loadedMonthsCache.delete(ym)
-      }
-    }
+    await ensureMonthLoaded(ym)
     if (dateStatus.value[date]) result.push(date)
     d.setDate(d.getDate() + direction)
   }
@@ -190,7 +212,31 @@ const displayDates = computed(() =>
 )
 const visibleDates = ref([])
 
+// refresh() 本身會跑好幾輪 await 的網路請求（掃描日期、抓項目...）。
+// 如果在它還沒跑完的時候又被呼叫一次（例如 ResizeObserver 剛掛上就
+// 回報一次寬度，觸發 watch(colCount) 又跑了一次 refresh()），兩輪
+// 各自獨立的掃描會同時搶用同一份月份快取，就是本來「往前跳過整個月」
+// 那個 bug 的觸發點。這裡讓重疊的呼叫共用同一輪，跑完後如果有新的
+// 呼叫進來過，再補跑最後一輪即可。
+let refreshPromise = null
+let refreshPending = false
+
 const refresh = async () => {
+  if (refreshPromise) {
+    refreshPending = true
+    return refreshPromise
+  }
+  refreshPromise = runRefresh().finally(() => {
+    refreshPromise = null
+  })
+  await refreshPromise
+  if (refreshPending) {
+    refreshPending = false
+    await refresh()
+  }
+}
+
+const runRefresh = async () => {
   isLoading.value = true
   try {
     let dates = await findDatesWithData(anchorDate.value, 1, colCount.value)
@@ -299,6 +345,8 @@ const onMouseDown = (e) => {
   isDragging = true
   dragStartX = e.clientX
   dragMoved = false
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
 }
 const onMouseMove = (e) => {
   if (!isDragging) return
@@ -307,6 +355,8 @@ const onMouseMove = (e) => {
 const onMouseUp = (e) => {
   if (!isDragging) return
   isDragging = false
+  window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('mouseup', onMouseUp)
   if (!dragMoved) return
   const diff = dragStartX - e.clientX
   if (Math.abs(diff) > 60) diff > 0 ? slideNext() : slidePrev()
@@ -325,7 +375,7 @@ const itemsByTypeForDate = (date, type) => {
   const result = []
   for (const slot of Object.keys(slotMap).map(Number).sort()) {
     slotMap[slot].sort((a, b) => a.id.localeCompare(b.id))
-      .forEach((item, idx) => result.push({...item, isFirst: idx === 0}))
+      .forEach((item, idx) => result.push({ ...item, isFirst: idx === 0 }))
   }
   return result
 }
@@ -345,10 +395,10 @@ const calDays = computed(() => {
   const firstDay = new Date(calYear.value, calMonth.value - 1, 1).getDay()
   const daysInMonth = new Date(calYear.value, calMonth.value, 0).getDate()
   const days = []
-  for (let i = 0; i < firstDay; i++) days.push({label: '', date: null})
+  for (let i = 0; i < firstDay; i++) days.push({ label: '', date: null })
   for (let d = 1; d <= daysInMonth; d++) {
     const mm = String(calMonth.value).padStart(2, '0'), dd = String(d).padStart(2, '0')
-    days.push({label: d, date: `${calYear.value}-${mm}-${dd}`})
+    days.push({ label: d, date: `${calYear.value}-${mm}-${dd}` })
   }
   return days
 })
@@ -380,7 +430,7 @@ const nextMonth = () => {
 const selectDate = async (date) => {
   selectedDate.value = date
   weekItemsMap.value = {}
-  await fetchWithTimeout(`${BASE}/init/${date}`, {method: 'POST'}).catch(() => {
+  await fetchWithTimeout(`${BASE}/init/${date}`, { method: 'POST' }).catch(() => {
   })
   await fetchMenuItems()
   await fetchMarkedDates()
@@ -405,13 +455,8 @@ const openSingleImageUpload = (item) => {
     const file = e.target.files[0]
     if (!file) return
     try {
-      // 壓縮後上傳
+      // 壓縮後上傳（先上傳新圖成功後才刪舊圖，避免上傳失敗時新舊圖片都不見）
       const compressed = await compressImage(file)
-      if (item.images && item.images.length > 0) {
-        const oldFile = item.images[0].split('/').pop()
-        await fetchWithTimeout(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${oldFile}`, {method: 'DELETE'}).catch(() => {
-        })
-      }
       const formData = new FormData()
       formData.append('files', compressed)
       const res = await fetchWithTimeout(`${BASE}/image/upload/${item.date}/${item.id}`, {
@@ -419,7 +464,14 @@ const openSingleImageUpload = (item) => {
         body: formData
       })
       if (!res.ok) throw new Error(`上傳失敗（${res.status}）`)
-      item.images = (await res.json()).slice(0, 1)
+      const newImages = (await res.json()).slice(0, 1)
+      if (item.images && item.images.length > 0) {
+        const oldFile = item.images[0].split('/').pop()
+        await fetchWithTimeout(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${oldFile}`, { method: 'DELETE' }).catch(() => {
+        })
+      }
+      item.images = newImages
+      await fetchMarkedDates()
       showToast('圖片已更新')
     } catch (e) {
       showToast(e.message || '上傳失敗')
@@ -432,15 +484,16 @@ const deleteItemImage = async (item) => {
   if (!item.images || item.images.length === 0) return
   const fileName = item.images[0].split('/').pop()
   try {
-    await fetchWithTimeout(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${fileName}`, {method: 'DELETE'})
+    await fetchWithTimeout(`${BASE}/image/remove/${item.date}/${item.id}?fileName=${fileName}`, { method: 'DELETE' })
     item.images = []
+    await fetchMarkedDates()
     showToast('圖片已刪除')
   } catch (e) {
     console.error(e)
   }
 }
 
-const imageModal = reactive({show: false, item: null, images: []})
+const imageModal = reactive({ show: false, item: null, images: [] })
 const openImageUpload = (item) => {
   imageModal.item = item
   imageModal.images = [...(item.images || [])]
@@ -490,6 +543,7 @@ const uploadImages = async (files) => {
       showToast(`上傳失敗：${errors[0]}`)
       console.error('上傳失敗：', errors)
     }
+    if (successCount > 0) await fetchMarkedDates()
   } finally {
     uploading.value = false
     uploadProgress.value = ''
@@ -501,10 +555,11 @@ const deleteMenuImage = async (idx) => {
   if (!confirm('確定刪除？')) return
   const fileName = imageModal.images[idx].split('/').pop()
   try {
-    await fetchWithTimeout(`${BASE}/image/remove/${imageModal.item.date}/${imageModal.item.id}?fileName=${fileName}`, {method: 'DELETE'})
+    await fetchWithTimeout(`${BASE}/image/remove/${imageModal.item.date}/${imageModal.item.id}?fileName=${fileName}`, { method: 'DELETE' })
     imageModal.images.splice(idx, 1)
     const found = menuItems.value.find(i => i.id === imageModal.item.id)
     if (found) found.images = [...imageModal.images]
+    await fetchMarkedDates()
     showToast('圖片已刪除')
   } catch (e) {
     console.error(e)
@@ -512,7 +567,7 @@ const deleteMenuImage = async (idx) => {
 }
 
 // ── Toast ─────────────────────────────────────────────────────────
-const toast = reactive({show: false, message: ''})
+const toast = reactive({ show: false, message: '' })
 const showToast = (msg) => {
   toast.message = msg
   toast.show = true
@@ -535,16 +590,7 @@ const openSuggest = async () => {
 }
 
 // ── API ───────────────────────────────────────────────────────────
-const fetchMarkedDates = async () => {
-  try {
-    const status = await (await fetchWithTimeout(`${BASE}/dates/${yearMonth.value}`)).json()
-    dateStatus.value = {...dateStatus.value, ...status}
-    loadedMonthsCache.add(yearMonth.value)
-    apiOnline.value = true
-  } catch {
-    apiOnline.value = false
-  }
-}
+const fetchMarkedDates = () => forceReloadMonth(yearMonth.value)
 
 const fetchMenuItems = async () => {
   if (!selectedDate.value) return
@@ -576,7 +622,7 @@ const autoSave = async (item) => {
   try {
     await fetchWithTimeout(`${BASE}/update`, {
       method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(item)
     })
     await fetchMarkedDates()
@@ -590,7 +636,7 @@ const addItemToSlot = async (type, slot) => {
     const existing = itemsByTypeAndSlot(type, slot)
     const dietType = existing.length > 0 ? (existing[0].dietType || '') : ''
     const res = await fetchWithTimeout(`${BASE}/save`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         date: selectedDate.value,
         type,
@@ -613,7 +659,7 @@ const addItemToSlot = async (type, slot) => {
 const confirmDeleteDay = async () => {
   if (!confirm(`確定刪除 ${selectedDate.value} 的所有菜色？此操作無法復原。`)) return
   try {
-    await fetchWithTimeout(`${BASE}/remove/${selectedDate.value}`, {method: 'DELETE'})
+    await fetchWithTimeout(`${BASE}/remove/${selectedDate.value}`, { method: 'DELETE' })
     menuItems.value = []
     delete dateStatus.value[selectedDate.value]
     delete weekItemsMap.value[selectedDate.value]
@@ -639,7 +685,7 @@ const confirmDeleteSlot = async (type, slot) => {
   if (!confirm(`確定刪除這個格子？${items.length > 0 ? `（內含 ${items.length} 項）` : ''}此操作無法復原。`)) return
   try {
     await Promise.all(items.map(item =>
-      fetchWithTimeout(`${BASE}/remove/${item.date}/${item.id}`, {method: 'DELETE'})
+      fetchWithTimeout(`${BASE}/remove/${item.date}/${item.id}`, { method: 'DELETE' })
     ))
     const ids = new Set(items.map(i => i.id))
     menuItems.value = menuItems.value.filter(i => !ids.has(i.id))
@@ -661,11 +707,11 @@ const confirmRestoreDefaults = async () => {
   if (!confirm(`確定將 ${selectedDate.value} 還原成預設格子配置？目前所有菜色內容都會被清除，此操作無法復原。`)) return
   restoringDefaults.value = true
   try {
-    await fetchWithTimeout(`${BASE}/remove/${selectedDate.value}`, {method: 'DELETE'})
+    await fetchWithTimeout(`${BASE}/remove/${selectedDate.value}`, { method: 'DELETE' })
     menuItems.value = []
     delete dateStatus.value[selectedDate.value]
     delete weekItemsMap.value[selectedDate.value]
-    await fetchWithTimeout(`${BASE}/init/${selectedDate.value}`, {method: 'POST'})
+    await fetchWithTimeout(`${BASE}/init/${selectedDate.value}`, { method: 'POST' })
     await fetchMenuItems()
     await fetchMarkedDates()
     showToast('已還原成預設格子')
@@ -680,7 +726,7 @@ const confirmRestoreDefaults = async () => {
 const confirmDelete = async (item) => {
   if (!confirm(`確定刪除${item.name ? `「${item.name}」` : '這個項目'}？`)) return
   try {
-    await fetchWithTimeout(`${BASE}/remove/${item.date}/${item.id}`, {method: 'DELETE'})
+    await fetchWithTimeout(`${BASE}/remove/${item.date}/${item.id}`, { method: 'DELETE' })
     menuItems.value = menuItems.value.filter(i => i.id !== item.id)
     showToast('已刪除')
   } catch (e) {
@@ -692,6 +738,7 @@ const confirmDelete = async (item) => {
 let resizeObserver = null
 const initResizeObserver = () => {
   if (!mainCol.value) return
+  if (resizeObserver) resizeObserver.disconnect()
   containerWidth.value = mainCol.value.offsetWidth
   resizeObserver = new ResizeObserver((entries) => {
     containerWidth.value = entries[0].contentRect.width
@@ -700,7 +747,16 @@ const initResizeObserver = () => {
 }
 
 watch(isEditMode, async (editing) => {
-  if (!editing) {
+  if (editing) {
+    // 切進編輯模式時，帶入查看模式目前正在瀏覽的日期，而不是維持上次編輯的日期（通常是今天）
+    const viewingDate = visibleDates.value[0]
+    if (viewingDate && viewingDate !== selectedDate.value) {
+      const [y, m] = viewingDate.split('-')
+      calYear.value = Number(y)
+      calMonth.value = Number(m)
+      await selectDate(viewingDate)
+    }
+  } else {
     await nextTick()
     initResizeObserver()
     await refresh()
@@ -718,7 +774,7 @@ onMounted(async () => {
   selectedDate.value = todayStr
   // 必須等 init 寫完預設格子後再抓資料,否則會因為格子不齊全
   // 觸發 ensureDefaultSlots() 自己再序列補一輪,造成開頁明顯變慢
-  await fetchWithTimeout(`${BASE}/init/${todayStr}`, {method: 'POST'}).catch(() => {
+  await fetchWithTimeout(`${BASE}/init/${todayStr}`, { method: 'POST' }).catch(() => {
   })
   await fetchMenuItems()
   await nextTick()
@@ -729,6 +785,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('mouseup', onMouseUp)
   if (resizeObserver) resizeObserver.disconnect()
 })
 </script>
@@ -740,8 +798,7 @@ onUnmounted(() => {
       <header class="bg-surface border-b border-light-c px-4 py-3 sticky top-0 z-30">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <div
-              class="w-8 h-8 rounded-lg bg-orange-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            <div class="w-8 h-8 rounded-lg bg-orange-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
               菜
             </div>
             <div>
@@ -829,14 +886,12 @@ onUnmounted(() => {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 19l-7-7 7-7"
+                  /></svg>
                 </button>
                 <span class="text-base font-semibold text-muted-c">{{ calLabel }}</span>
                 <button
@@ -848,14 +903,12 @@ onUnmounted(() => {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  /></svg>
                 </button>
               </div>
               <div class="grid grid-cols-7 mb-1">
@@ -932,14 +985,12 @@ onUnmounted(() => {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2.5"
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                    d="M15 19l-7-7 7-7"
+                  /></svg>
                   <span class="text-sm">前</span>
                 </button>
                 <div
@@ -950,9 +1001,7 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2">
                   <span class="text-sm text-hint-c">
                     {{ displayDates[0]?.date.slice(5).replace('-', '/') }}
-                    <span v-if="displayDates.length > 1"> — {{
-                        displayDates[displayDates.length - 1]?.date.slice(5).replace('-', '/')
-                      }}</span>
+                    <span v-if="displayDates.length > 1"> — {{ displayDates[displayDates.length-1]?.date.slice(5).replace('-', '/') }}</span>
                   </span>
                   <button
                     class="text-xs px-2.5 py-1 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 hover:bg-orange-200 transition-colors font-medium"
@@ -973,14 +1022,12 @@ onUnmounted(() => {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2.5"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                    d="M9 5l7 7-7 7"
+                  /></svg>
                 </button>
                 <div
                   v-else
@@ -999,12 +1046,12 @@ onUnmounted(() => {
                   :key="i"
                   class="rounded-2xl bg-surface border border-light-c overflow-hidden animate-pulse"
                 >
-                  <div class="h-8 bg-surface2 rounded-t-2xl"/>
+                  <div class="h-8 bg-surface2 rounded-t-2xl" />
                   <div class="p-3 space-y-2">
-                    <div class="h-28 bg-surface2 rounded-xl"/>
-                    <div class="h-3 bg-surface2 rounded w-3/4"/>
-                    <div class="h-3 bg-surface2 rounded w-1/2"/>
-                    <div class="h-3 bg-surface2 rounded w-2/3"/>
+                    <div class="h-28 bg-surface2 rounded-xl" />
+                    <div class="h-3 bg-surface2 rounded w-3/4" />
+                    <div class="h-3 bg-surface2 rounded w-1/2" />
+                    <div class="h-3 bg-surface2 rounded w-2/3" />
                   </div>
                 </div>
               </div>
@@ -1016,6 +1063,8 @@ onUnmounted(() => {
                 :style="{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }"
                 @touchstart="onTouchStart"
                 @touchend="onTouchEnd"
+                @wheel="onWheel"
+                @mousedown="onMouseDown"
               >
                 <div
                   v-for="day in displayDates"
@@ -1152,14 +1201,12 @@ onUnmounted(() => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
+                      ><path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"
+                      /></svg>
                       新增格子
                     </button>
                   </div>
@@ -1181,14 +1228,12 @@ onUnmounted(() => {
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
+                          ><path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          /></svg>
                         </button>
                       </div>
                       <div
@@ -1232,14 +1277,12 @@ onUnmounted(() => {
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  stroke-width="2.5"
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
+                              ><path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2.5"
+                                d="M6 18L18 6M6 6l12 12"
+                              /></svg>
                             </button>
                             <button
                               v-else
@@ -1251,14 +1294,12 @@ onUnmounted(() => {
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  stroke-width="1.5"
-                                  d="M12 4v16m8-8H4"
-                                />
-                              </svg>
+                              ><path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="1.5"
+                                d="M12 4v16m8-8H4"
+                              /></svg>
                               <span class="text-xs">加圖</span>
                             </button>
                           </div>
@@ -1297,14 +1338,12 @@ onUnmounted(() => {
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
-                                    />
-                                  </svg>
+                                  ><path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                                  /></svg>
                                 </button>
                                 <button
                                   class="p-1 text-base-c hover:text-red-400 transition-colors"
@@ -1315,14 +1354,12 @@ onUnmounted(() => {
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    />
-                                  </svg>
+                                  ><path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  /></svg>
                                 </button>
                               </div>
                             </div>
@@ -1366,14 +1403,12 @@ onUnmounted(() => {
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M12 4v16m8-8H4"
-                            />
-                          </svg>
+                          ><path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 4v16m8-8H4"
+                          /></svg>
                           換下一道
                         </button>
                       </div>
@@ -1398,8 +1433,7 @@ onUnmounted(() => {
         v-if="suggestModal.show"
         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
       >
-        <div
-          class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-4 sm:p-6 max-h-[92vh] overflow-y-auto">
+        <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg p-4 sm:p-6 max-h-[92vh] overflow-y-auto">
           <div class="flex items-center justify-between mb-3">
             <div class="min-w-0 mr-2">
               <h3 class="text-base font-bold text-base-c">
@@ -1439,14 +1473,12 @@ onUnmounted(() => {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                /></svg>
               </button>
             </div>
           </div>
@@ -1571,8 +1603,7 @@ onUnmounted(() => {
         v-if="imageModal.show"
         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
       >
-        <div
-          class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <div class="bg-surface rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between mb-4">
             <div>
               <h3 class="text-base font-bold text-base-c">
@@ -1591,14 +1622,12 @@ onUnmounted(() => {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              /></svg>
             </button>
           </div>
           <div class="mb-4">
@@ -1626,14 +1655,12 @@ onUnmounted(() => {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2.5"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                    d="M6 18L18 6M6 6l12 12"
+                  /></svg>
                 </button>
               </div>
             </div>
@@ -1686,7 +1713,7 @@ onUnmounted(() => {
             v-if="uploading"
             class="mt-3 flex items-center gap-2 text-sm text-hint-c"
           >
-            <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"/>
+            <div class="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
             上傳中…{{ uploadProgress }}
           </div>
           <button
@@ -1722,14 +1749,12 @@ onUnmounted(() => {
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 13l4 4L19 7"
+          /></svg>
           {{ toast.message }}
         </div>
       </transition>
