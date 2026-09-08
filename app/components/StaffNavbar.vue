@@ -281,100 +281,13 @@ const logout = async () => {
     })
   } catch { /* 即使失敗也繼續清除本地狀態 */
   }
-  customerStore.clearCustomer('logout(): 使用者手動點擊登出按鈕')
+  customerStore.clearCustomer()
   usePermissionStore().clear()
   menuOpen.value = false
   mobileOpen.value = false
   navigateTo('/')
 }
 
-// ── 除錯面板（暫時性）─────────────────────────────────────────────
-const debugOpen = ref(false)
-const copied = ref(false)
-const debugTick = ref(0)
-
-// 每秒更新一次畫面上顯示的時間差，方便看「幾秒前」發生的事
-let debugTimer = null
-onMounted(() => { debugTimer = setInterval(() => { debugTick.value++ }, 1000) })
-onUnmounted(() => { if (debugTimer) clearInterval(debugTimer) })
-
-function fmtAgo(ts) {
-  if (!ts) return '—'
-  const diff = Math.round((Date.now() - ts) / 1000)
-  return `${new Date(ts).toLocaleTimeString()}（${diff} 秒前）`
-}
-
-const debugText = computed(() => {
-  debugTick.value // 讓這個 computed 每秒重新算一次
-
-  const err = permStore.lastError
-  const attempt = permStore.lastAttempt
-
-  const lines = [
-    `時間：${new Date().toLocaleString()}`,
-    `頁面：${route.path}`,
-    `document.visibilityState：${typeof document !== 'undefined' ? document.visibilityState : '—'}`,
-    `navigator.onLine：${typeof navigator !== 'undefined' ? navigator.onLine : '—'}`,
-    '',
-    '── customerStore ──',
-    `isLoggedIn：${customerStore.isLoggedIn}`,
-    `customer.id：${customer.value?.id ?? '—'}`,
-    `customer.email：${customer.value?.email ?? '—'}`,
-    `最近一次被清空：${customerStore.clearedAt ? fmtAgo(customerStore.clearedAt) : '（這次頁面存活期間沒有被清空過）'}`,
-    `清空原因：${customerStore.clearedReason ?? '—'}`,
-    '',
-    '── localStorage 原始資料（繞過 Pinia 直接讀）──',
-    (() => {
-      if (typeof localStorage === 'undefined') return '（無法讀取 localStorage）'
-      try {
-        const raw = localStorage.getItem('customer')
-        if (!raw) return 'localStorage.customer：（不存在，key 本身就沒有）'
-        const parsed = JSON.parse(raw)
-        const hasCustomer = parsed && parsed.customer
-        return `localStorage.customer：${hasCustomer ? `存在，id=${parsed.customer.id ?? '—'}` : '存在但 customer 欄位是 null/空'}`
-      } catch (e) {
-        return `讀取失敗：${e.message}`
-      }
-    })(),
-    '',
-    '── permissionStore ──',
-    `loaded：${permStore.loaded}`,
-    `loadedId：${permStore.loadedId ?? '—'}`,
-    `hasPerms：${hasPerms.value}`,
-    `perms 數量：${Object.keys(permStore.perms || {}).length}（其中 true：${Object.values(permStore.perms || {}).filter(v => v === true).length}）`,
-    `perms keys：${Object.keys(permStore.perms || {}).join('、') || '（空）'}`,
-    '',
-    '── visibleGroups ──',
-    `群組數：${visibleGroups.value.length}`,
-    `項目總數：${visibleGroups.value.reduce((sum, g) => sum + g.items.length, 0)}`,
-    '',
-    '── 最近一次 load() 呼叫 ──',
-    attempt
-      ? `時間：${fmtAgo(attempt.time)}\ncustomerId：${attempt.customerId}\nsilent：${attempt.silent}`
-      : '（這次頁面存活期間還沒呼叫過）',
-    '',
-    '── 最近一次失敗 ──',
-    err
-      ? `時間：${fmtAgo(err.time)}\nstatus：${err.status ?? '（無狀態碼，可能是網路/逾時錯誤）'}\nmessage：${err.message}\nsilent：${err.silent}`
-      : '（目前沒有記錄到失敗，或最近一次是成功的）',
-    '',
-    `最近一次成功時間：${fmtAgo(permStore.lastSuccessAt)}`,
-    '',
-    `背景重試迴圈是否啟動中：${!!permRetryTimer}`
-  ]
-
-  return lines.join('\n')
-})
-
-async function copyDebugText() {
-  try {
-    await navigator.clipboard.writeText(debugText.value)
-    copied.value = true
-    setTimeout(() => { copied.value = false }, 1500)
-  } catch {
-    // 部分瀏覽器/情境下 clipboard API 可能被擋，退而求其次讓使用者自己長按選取複製
-  }
-}
 </script>
 
 <template>
@@ -508,15 +421,6 @@ async function copyDebugText() {
               d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
             />
           </svg>
-        </button>
-
-        <!-- 除錯用（暫時性） -->
-        <button
-          class="nav-icon-btn p-1.5 rounded transition-colors"
-          title="除錯資訊"
-          @click="debugOpen = !debugOpen"
-        >
-          🐛
         </button>
 
         <!-- 用戶頭像 dropdown -->
@@ -700,13 +604,6 @@ async function copyDebugText() {
         </button>
         <button
           class="nav-icon-btn p-1 rounded transition-colors"
-          title="除錯資訊"
-          @click="debugOpen = !debugOpen"
-        >
-          🐛
-        </button>
-        <button
-          class="nav-icon-btn p-1 rounded transition-colors"
           @click="mobileOpen = !mobileOpen"
         >
           <svg
@@ -751,34 +648,24 @@ async function copyDebugText() {
           <!-- 頂部標題列 -->
           <div class="nav-fullscreen-header flex items-center justify-between px-4 py-3 flex-shrink-0">
             <span class="font-bold text-base">選單</span>
-            <div class="flex items-center gap-1">
-              <!-- 除錯用（暫時性） -->
-              <button
-                class="nav-icon-btn p-1.5 rounded-full transition-colors"
-                title="除錯資訊"
-                @click="debugOpen = !debugOpen"
+            <button
+              class="nav-icon-btn p-1.5 rounded-full transition-colors"
+              @click="mobileOpen = false"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                🐛
-              </button>
-              <button
-                class="nav-icon-btn p-1.5 rounded-full transition-colors"
-                @click="mobileOpen = false"
-              >
-                <svg
-                  class="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
 
           <!-- 可捲動內容 -->
@@ -984,148 +871,117 @@ async function copyDebugText() {
       </Transition>
     </Teleport>
   </nav>
-
-  <!-- ── 除錯面板（暫時性，觀察一段時間確認沒問題後記得移除）───────── -->
-  <!-- 手機沒辦法開 DevTools，這裡直接把關鍵狀態印在畫面上，點導覽列上
-       的 🐛 展開，再點「複製」把文字整段複製貼給我看即可 -->
-  <Teleport to="body">
-    <div
-      v-if="debugOpen"
-      class="fixed inset-x-3 bottom-3 z-[300] max-h-[70vh] overflow-y-auto rounded-lg bg-black/90 text-white text-xs p-3 font-mono whitespace-pre-wrap"
-    >
-      <div class="flex justify-between items-center mb-2">
-        <span class="font-bold">除錯資訊</span>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="px-2 py-1 rounded bg-white/20"
-            @click="copyDebugText"
-          >
-            {{ copied ? '已複製 ✓' : '複製' }}
-          </button>
-          <button
-            type="button"
-            class="px-2 py-1 rounded bg-white/20"
-            @click="debugOpen = false"
-          >
-            關閉
-          </button>
-        </div>
-      </div>
-      {{ debugText }}
-    </div>
-  </Teleport>
 </template>
 
 <style scoped>
-  .staff-nav {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border-light);
-    padding: 6px 12px;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-  }
+.staff-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-light);
+  padding: 6px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
 
-  .nav-logo {
-    color: var(--accent);
-  }
+.nav-logo {
+  color: var(--accent);
+}
 
-  .nav-item-inactive {
-    color: var(--text-muted);
-  }
+.nav-item-inactive {
+  color: var(--text-muted);
+}
 
-  .nav-item-inactive:hover {
-    background: var(--surface2);
-  }
+.nav-item-inactive:hover {
+  background: var(--surface2);
+}
 
-  .nav-item-active {
-    color: var(--accent);
-  }
+.nav-item-active {
+  color: var(--accent);
+}
 
-  .nav-item-active-bg {
-    background: var(--accent-light);
-  }
+.nav-item-active-bg {
+  background: var(--accent-light);
+}
 
-  .nav-icon-btn {
-    color: var(--text-hint);
-  }
+.nav-icon-btn {
+  color: var(--text-hint);
+}
 
-  .nav-icon-btn:hover {
-    background: var(--surface2);
-  }
+.nav-icon-btn:hover {
+  background: var(--surface2);
+}
 
-  .user-avatar {
-    background: var(--accent);
-  }
+.user-avatar {
+  background: var(--accent);
+}
 
-  .nav-dropdown {
-    background: var(--surface);
-    border: 1px solid var(--border-light);
-    box-shadow: var(--shadow);
-  }
+.nav-dropdown {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow);
+}
 
-  .nav-dropdown-head {
-    border-bottom: 1px solid var(--border-light);
-  }
+.nav-dropdown-head {
+  border-bottom: 1px solid var(--border-light);
+}
 
-  .nav-dropdown-item {
-    color: var(--text-muted);
-  }
+.nav-dropdown-item {
+  color: var(--text-muted);
+}
 
-  .nav-dropdown-item:hover {
-    background: var(--surface2);
-  }
+.nav-dropdown-item:hover {
+  background: var(--surface2);
+}
 
-  .nav-dropdown-divider {
-    border-top: 1px solid var(--border-light);
-  }
+.nav-dropdown-divider {
+  border-top: 1px solid var(--border-light);
+}
 
-  .nav-fullscreen {
-    background: var(--surface);
-  }
+.nav-fullscreen {
+  background: var(--surface);
+}
 
-  .nav-fullscreen-header {
-    border-bottom: 1px solid var(--border-light);
-  }
+.nav-fullscreen-header {
+  border-bottom: 1px solid var(--border-light);
+}
 
-  .nav-fullscreen-footer {
-    border-top: 1px solid var(--border-light);
-    background: var(--surface2);
-  }
+.nav-fullscreen-footer {
+  border-top: 1px solid var(--border-light);
+  background: var(--surface2);
+}
 
-  .nav-user-card {
-    background: var(--surface2);
-  }
+.nav-user-card {
+  background: var(--surface2);
+}
 
-  .nav-user-card:active {
-    opacity: 0.7;
-  }
+.nav-user-card:active {
+  opacity: 0.7;
+}
 
-  .nav-app-tile {
-    background: var(--surface2);
-    color: var(--text-muted);
-  }
+.nav-app-tile {
+  background: var(--surface2);
+  color: var(--text-muted);
+}
 
-  .nav-app-tile:active {
-    opacity: 0.7;
-  }
+.nav-app-tile:active {
+  opacity: 0.7;
+}
 
-  .nav-app-tile-active {
-    background: var(--accent-light);
-    color: var(--accent);
-  }
+.nav-app-tile-active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
 
-  .nav-footer-btn {
-    background: var(--surface);
-    color: var(--text-muted);
-  }
+.nav-footer-btn {
+  background: var(--surface);
+  color: var(--text-muted);
+}
 
-  .nav-footer-btn:active {
-    opacity: 0.7;
-  }
+.nav-footer-btn:active {
+  opacity: 0.7;
+}
 
-  .nav-footer-btn-danger {
-    color: #ef4444;
-  }
+.nav-footer-btn-danger {
+  color: #ef4444;
+}
 </style>
