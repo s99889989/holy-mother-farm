@@ -765,10 +765,9 @@ onUnmounted(() => {
                 查看
               </button>
               <button
-                :disabled="!perm.can('management.daily-menu')"
                 :class="isEditMode ? 'bg-orange-700 text-white' : 'text-hint-c dark:text-hint-c hover-surface2'"
                 class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                @click="perm.can('management.daily-menu') && (isEditMode = true)"
+                @click="(isEditMode = true)"
               >
                 編輯
               </button>
