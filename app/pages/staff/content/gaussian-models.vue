@@ -186,6 +186,53 @@ const ZUP_TO_YUP_EULER = [-90, 0, 0]
 // 一個局部座標點，套用上面那個旋轉後，換算成世界座標（純數學，不用等 entity 真的轉完）
 const applyZupToYup = (x, y, z) => [x, z, -y]
 
+// ── 簡易碰撞（依後端解出的 splat 點位自建的體素佔用格）──────────────────
+// 模型載入完成後，抓後端做好的 collision.bin（float32 小端點位清單，x,y,z 交錯，無 header），
+// 轉成世界座標後量化進一格一格的體素，落點夠多的格子標記「不能走」；走位時逐軸檢查目的地
+// 格子有沒有被標記，卡住的軸就不動，沒卡住的軸繼續走，體感類似貼牆滑動。
+// 還沒有重力/貼地，純粹水平方向擋人。抓不到 collision.bin（模型還沒做/後端做失敗）時
+// 完全不影響原本功能，只是沒有碰撞。
+let collisionVoxels = null // Set<string> "vx,vy,vz"
+let collisionVoxelSize = 1
+let collisionEnabled = false
+
+const worldToVoxelKey = (x, y, z, size) => `${Math.floor(x / size)},${Math.floor(y / size)},${Math.floor(z / size)}`
+
+// 抓後端算好的碰撞點位檔，回傳 Float32Array（x,y,z 交錯）；抓不到就回傳 null，
+// 呼叫端會直接跳過、不套用碰撞，不影響模型本身的載入與顯示
+const fetchCollisionCenters = async (model) => {
+  if (!model.collisionFile) return null
+  try {
+    const res = await fetchWithTimeout(absoluteFileUrl(`/holy/gaussian/file/${model.id}/${model.collisionFile}`))
+    if (!res.ok) return null
+    const buf = await res.arrayBuffer()
+    return new Float32Array(buf)
+  } catch (e) {
+    console.warn('[gaussian-collision] 抓取 collision.bin 失敗', e)
+    return null
+  }
+}
+
+// 把一批本地座標（splat 原始座標，跟後端解出來的座標系一致，都還沒轉正）轉成世界座標並灌進
+// collisionVoxels——用 gsplatEntity 目前的世界變換矩陣轉換，這樣連使用者存的水平校正微調
+// 也會一起算進去，不用自己重算旋轉，跟畫面上看到的永遠是同一套轉換
+const mergeCentersIntoCollision = (centers) => {
+  if (!centers || !gsplatEntity || !collisionVoxels) return
+  const worldTransform = gsplatEntity.getWorldTransform()
+  const tmp = new pc.Vec3()
+  for (let i = 0; i + 2 < centers.length; i += 3) {
+    tmp.set(centers[i], centers[i + 1], centers[i + 2])
+    worldTransform.transformPoint(tmp, tmp)
+    collisionVoxels.add(worldToVoxelKey(tmp.x, tmp.y, tmp.z, collisionVoxelSize))
+  }
+  collisionEnabled = true
+}
+
+const isVoxelBlocked = (x, y, z) => {
+  if (!collisionEnabled || !collisionVoxels) return false
+  return collisionVoxels.has(worldToVoxelKey(x, y, z, collisionVoxelSize))
+}
+
 // 疊加在 -90 度基礎校正上的微調角度（度），拍攝時沒完全水平就會需要這個補一點點回來
 const tiltForm = reactive({ x: 0, y: 0, z: 0 })
 const tiltPanelOpen = ref(false)
@@ -347,9 +394,20 @@ const attachOrbitControls = (canvas) => {
       return
     }
     // 電腦版第一人稱左鍵點一下＝鎖定滑鼠，之後不用按著就能直接移動滑鼠轉頭（跟一般 FPS 遊戲一致）；
-    // 已經鎖定、或不是左鍵、或在第三人稱（環繞是拖曳式操作，不需要鎖定）就不用再請求
+    // 已經鎖定、或不是左鍵、或在第三人稱（環繞是拖曳式操作，不需要鎖定）就不用再請求。
+    // requestPointerLock() 失敗時瀏覽器預設完全靜默不會報錯，最常見原因是「不安全的連線來源」——
+    // Pointer Lock API 規定只能在 HTTPS 或 localhost 底下用，區網 IP／無 TLS 的 http 網址會被直接拒絕，
+    // 所以這裡明確接錯誤，失敗時用 toast 告訴使用者原因，而不是讓它悄悄退回拖曳模式讓人以為沒改到
     if (!isTouchDevice.value && cameraMode.value === 'first' && e.button === 0 && document.pointerLockElement !== canvas) {
-      canvas.requestPointerLock()
+      const lockResult = canvas.requestPointerLock()
+      if (lockResult && typeof lockResult.catch === 'function') {
+        lockResult.catch((err) => {
+          const insecure = location.protocol !== 'https:' && location.hostname !== 'localhost'
+          showToast(insecure
+            ? '滑鼠鎖定失敗：目前不是 HTTPS／localhost 連線，瀏覽器不允許鎖定滑鼠，已改用拖曳方式操作'
+            : `滑鼠鎖定失敗（${err?.name || err}），已改用拖曳方式操作`)
+        })
+      }
     }
     // 左鍵拖曳＝轉頭看，右鍵拖曳＝平移（pan），慣例跟大部分 3D 軟體一致——
     // 這組拖曳邏輯保留當作滑鼠鎖定失敗/不支援時的備用操作方式
@@ -495,6 +553,14 @@ const attachOrbitControls = (canvas) => {
   const onPointerLockChange = () => {
     pointerLockActive.value = (document.pointerLockElement === canvas)
   }
+  // 部分瀏覽器（尤其 Firefox）不是用 Promise reject 回報失敗，而是直接丟這個事件；
+  // requestPointerLock() 的 catch 已經處理 Promise 版本，這裡補上事件版本，兩邊都涵蓋到
+  const onPointerLockError = () => {
+    const insecure = location.protocol !== 'https:' && location.hostname !== 'localhost'
+    showToast(insecure
+      ? '滑鼠鎖定失敗：目前不是 HTTPS／localhost 連線，瀏覽器不允許鎖定滑鼠，已改用拖曳方式操作'
+      : '滑鼠鎖定失敗，已改用拖曳方式操作')
+  }
 
   canvas.addEventListener('pointerdown', onPointerDown)
   window.addEventListener('pointermove', onPointerMove)
@@ -504,6 +570,7 @@ const attachOrbitControls = (canvas) => {
   canvas.addEventListener('wheel', onWheel, { passive: false })
   window.addEventListener('mousemove', onMouseMoveLocked)
   document.addEventListener('pointerlockchange', onPointerLockChange)
+  document.addEventListener('pointerlockerror', onPointerLockError)
 
   return () => {
     canvas.removeEventListener('pointerdown', onPointerDown)
@@ -514,6 +581,7 @@ const attachOrbitControls = (canvas) => {
     canvas.removeEventListener('wheel', onWheel)
     window.removeEventListener('mousemove', onMouseMoveLocked)
     document.removeEventListener('pointerlockchange', onPointerLockChange)
+    document.removeEventListener('pointerlockerror', onPointerLockError)
     if (document.pointerLockElement === canvas) document.exitPointerLock()
     pointerLockActive.value = false
   }
@@ -600,7 +668,20 @@ const attachKeyboardControls = (app) => {
     if (len > 1e-6) {
       if (len > 1) tmpMove.mulScalar(1 / len) // 只封頂，不強制正規化，搖桿半推才會是半速
       tmpMove.mulScalar(speed * dt)
-      orbitState.position.add(tmpMove) // 直接移動相機位置（第一人稱走位，不是移動一個公轉目標點）
+      // 逐軸位移＋簡易碰撞檢查：卡住的軸就不動，沒卡住的軸繼續走，體感類似貼牆滑動。
+      // 沒有碰撞資料（collisionEnabled 為 false）時 isVoxelBlocked 永遠回傳 false，行為跟原本一樣
+      const nextPos = orbitState.position.clone()
+      const axisSteps = [
+        new pc.Vec3(tmpMove.x, 0, 0),
+        new pc.Vec3(0, tmpMove.y, 0),
+        new pc.Vec3(0, 0, tmpMove.z)
+      ]
+      axisSteps.forEach((step) => {
+        if (step.lengthSq() < 1e-9) return
+        const candidate = nextPos.clone().add(step)
+        if (!isVoxelBlocked(candidate.x, candidate.y, candidate.z)) nextPos.copy(candidate)
+      })
+      orbitState.position.copy(nextPos)
       updateCameraFromOrbit()
     }
   }
@@ -703,6 +784,8 @@ const disposeViewer = () => {
   highFpsStreak = 0
   cameraMode.value = 'first'
   thirdPersonPivot = null
+  collisionVoxels = null
+  collisionEnabled = false
 }
 
 const initViewer = async (model) => {
@@ -711,6 +794,12 @@ const initViewer = async (model) => {
   if (!canvas) return
 
   disposeViewer()
+
+  // 觸發開啟的按鈕（例如卡片上的「打開」）點下去之後，瀏覽器焦點可能還留在那顆按鈕上，
+  // 某些瀏覽器下這會讓方向鍵之類的按鍵一開始不會生效，要點一下畫面「奪回」焦點才會動。
+  // 這裡主動把焦點轉到 canvas 本身，方向鍵/WASD 一開場就能立刻用，不用先點一次滑鼠
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+  canvas.focus()
 
   // 讀取這顆模型之前存的水平校正微調值（沒存過就是 0,0,0，只用基礎的 -90 度校正）
   const [tx0, ty0, tz0] = (model.tiltOffset ? model.tiltOffset.split(',').map(Number) : [0, 0, 0])
@@ -785,6 +874,22 @@ const initViewer = async (model) => {
   detachOrbitControls = attachOrbitControls(canvas)
   detachKeyboardControls = attachKeyboardControls(app)
 
+  // 碰撞格子大小依模型尺寸（moveScale）抓一個比例，模型越大格子跟著放大，
+  // 避免小模型格子太粗、大模型格子太細（太細會讓體素數量爆炸，建置變慢）
+  collisionVoxels = new Set()
+  collisionEnabled = false
+  collisionVoxelSize = Math.max((orbitState.moveScale || 5) * 0.02, 0.05)
+  // 碰撞點位是整顆模型共用一份 collision.bin（後端已經跨所有 MipTile 合併過），
+  // 不用等 tile 逐一載入完成，直接單獨抓一次、抓到就整批灌進 collisionVoxels；
+  // 抓不到（模型還沒做/後端做失敗）就跳個 toast 提醒，不影響模型本身顯示
+  fetchCollisionCenters(model).then((centers) => {
+    if (viewerModal.id !== model.id) return // 資料抓回來前使用者已經切去看別顆模型，這份就不要套用了
+    mergeCentersIntoCollision(centers)
+    if (!collisionEnabled) {
+      showToast('這顆模型暫時無法建立碰撞資料，走位不會被擋')
+    }
+  })
+
   // 場景可能被重建工具切成多個 MipTile（每個各自是一棵完整獨立的 LOD tree，
   // 只描述場景的一部分），entryFiles 是清單，每一份都要各自建一個 gsplat Entity，
   // 全部疊在同一個「根」Entity 底下，才會拼成完整場景。
@@ -805,6 +910,8 @@ const initViewer = async (model) => {
     return
   }
 
+  let loadedTiles = 0
+  let erroredTiles = 0
   entryFiles.forEach((entryPath, idx) => {
     const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${model.id}/${entryPath}`)
     const asset = new pc.Asset(`${model.name || 'gsplat'}-tile-${idx}`, 'gsplat', { url: contentUrl })
@@ -818,8 +925,12 @@ const initViewer = async (model) => {
       }
       gsplatEntity.addChild(tileEntity)
       tileEntities.push(tileEntity) // 記下來，之後動態調整畫質時才能一次改全部 tile
+      loadedTiles++
     })
-    asset.once('error', (err) => showToast(`第 ${idx + 1}/${entryFiles.length} 塊模型載入失敗：${err}`))
+    asset.once('error', (err) => {
+      erroredTiles++
+      showToast(`第 ${idx + 1}/${entryFiles.length} 塊模型載入失敗：${err}`)
+    })
     app.assets.load(asset)
   })
 
@@ -1185,7 +1296,8 @@ const formatSize = (bytes) => {
         <div class="flex-1 relative">
           <canvas
             ref="canvasRef"
-            class="absolute inset-0 w-full h-full touch-none"
+            tabindex="-1"
+            class="absolute inset-0 w-full h-full touch-none outline-none"
           />
           <p
             v-if="!isTouchDevice && cameraMode === 'first' && !pointerLockActive"

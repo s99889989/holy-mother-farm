@@ -53,6 +53,14 @@ let joystickPointerId = null
 // 維持體驗一致，避免被調到過快/過慢反而變差
 const moveSpeed = ref(1)
 
+// 公開頁沒有後台那套 toast 系統，這裡簡單做一個，主要拿來顯示滑鼠鎖定失敗之類的提示
+const toast = reactive({ show: false, message: '' })
+const showToast = (message) => {
+  toast.message = message
+  toast.show = true
+  setTimeout(() => { toast.show = false }, 2500)
+}
+
 const ZUP_TO_YUP_EULER = [-90, 0, 0]
 const applyZupToYup = (x, y, z) => [x, z, -y]
 
@@ -63,6 +71,53 @@ const updateCameraFromOrbit = () => {
   const forward = new pc.Vec3(cp * Math.sin(yaw), Math.sin(pitch), cp * Math.cos(yaw))
   cameraEntity.setPosition(position)
   cameraEntity.lookAt(position.clone().add(forward))
+}
+
+// ── 第三人稱環繞視角（電腦版限定）───────────────────────────────
+// 沒有實體「人物」模型可以站在裡面，所以「第三人稱」是模擬出來的：
+// 進入的當下，把目前站的位置當作環繞的觀察點（thirdPersonPivot），鏡頭往後拉開＋墊高一點再看回來，
+// 之後用滑鼠拖曳/滾輪繞著這個固定點旋轉、拉近拉遠。只在電腦版啟用，手機維持原本的觸控走位。
+const cameraMode = ref('first') // 'first' | 'third'
+const pointerLockActive = ref(false) // 第一人稱下滑鼠是否已鎖定（鎖定後不用按著左鍵，移動滑鼠就會轉頭）
+let thirdPersonPivot = null
+let thirdPersonYaw = 0
+let thirdPersonPitch = 0
+let thirdPersonRadius = 5
+const THIRD_PERSON_MIN_RADIUS = 1.5
+const THIRD_PERSON_PITCH = 0.35
+
+const updateCameraFromThirdPerson = () => {
+  if (!cameraEntity || !thirdPersonPivot) return
+  const cp = Math.cos(thirdPersonPitch)
+  const offset = new pc.Vec3(
+    cp * Math.sin(thirdPersonYaw),
+    Math.sin(thirdPersonPitch),
+    cp * Math.cos(thirdPersonYaw)
+  ).mulScalar(thirdPersonRadius)
+  cameraEntity.setPosition(thirdPersonPivot.clone().add(offset))
+  cameraEntity.lookAt(thirdPersonPivot)
+}
+
+const enterThirdPerson = () => {
+  if (!cameraEntity || !orbitState || cameraMode.value === 'third') return
+  if (document.pointerLockElement === canvasRef.value) document.exitPointerLock()
+  thirdPersonRadius = Math.max(THIRD_PERSON_MIN_RADIUS, (orbitState.moveScale || 5) * 0.3)
+  thirdPersonPivot = orbitState.position.clone()
+  thirdPersonYaw = orbitState.yaw + Math.PI
+  thirdPersonPitch = THIRD_PERSON_PITCH
+  cameraMode.value = 'third'
+  updateCameraFromThirdPerson()
+}
+
+const exitThirdPerson = () => {
+  if (cameraMode.value !== 'third' || !cameraEntity || !orbitState) return
+  const dir = thirdPersonPivot.clone().sub(cameraEntity.getPosition())
+  orbitState.position = cameraEntity.getPosition().clone()
+  orbitState.yaw = Math.atan2(dir.x, dir.z)
+  orbitState.pitch = Math.atan2(dir.y, Math.hypot(dir.x, dir.z))
+  cameraMode.value = 'first'
+  thirdPersonPivot = null
+  updateCameraFromOrbit()
 }
 
 const attachOrbitControls = (canvas) => {
@@ -95,18 +150,37 @@ const attachOrbitControls = (canvas) => {
       lastX = e.clientX; lastY = e.clientY
       return
     }
+    // 電腦版第一人稱左鍵點一下＝鎖定滑鼠，之後不用按著就能直接移動滑鼠轉頭（跟一般 FPS 遊戲一致）。
+    // requestPointerLock() 失敗時瀏覽器預設完全靜默不會報錯，最常見原因是「不安全的連線來源」——
+    // Pointer Lock API 規定只能在 HTTPS 或 localhost 底下用，這裡明確接錯誤並用 toast 告訴使用者原因
+    if (!isTouchDevice.value && cameraMode.value === 'first' && e.button === 0 && document.pointerLockElement !== canvas) {
+      const lockResult = canvas.requestPointerLock()
+      if (lockResult && typeof lockResult.catch === 'function') {
+        lockResult.catch((err) => {
+          const insecure = location.protocol !== 'https:' && location.hostname !== 'localhost'
+          showToast(insecure
+            ? '滑鼠鎖定失敗：目前不是 HTTPS／localhost 連線，瀏覽器不允許鎖定滑鼠，已改用拖曳方式操作'
+            : `滑鼠鎖定失敗（${err?.name || err}），已改用拖曳方式操作`)
+        })
+      }
+    }
+    // 左鍵拖曳＝轉頭看，右鍵拖曳＝平移，這組保留當作滑鼠鎖定失敗/不支援時的備用操作方式
     mode = e.button === 2 ? 'pan' : 'look'
     activePointerId = e.pointerId
     lastX = e.clientX; lastY = e.clientY
   }
 
   const onPointerMove = (e) => {
-    if (!orbitState || !cameraEntity) return
+    if (!cameraEntity) return
+    if (document.pointerLockElement === canvas) return // 滑鼠鎖定時交給 onMouseMoveLocked（movementX/Y）處理
+    if (cameraMode.value === 'first' && !orbitState) return
+    if (cameraMode.value === 'third' && !thirdPersonPivot) return
 
     if (e.pointerType === 'touch' && touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
-      if (mode === 'pinch' && touches.size === 2) {
+      if (mode === 'pinch' && touches.size === 2 && cameraMode.value === 'first') {
+        // 雙指縮放/平移只服務第一人稱（第三人稱是電腦版限定功能，觸控裝置不會進到這個分支）
         const pts = [...touches.values()]
         const newDist = dist(pts[0], pts[1])
         const newMid = mid(pts[0], pts[1])
@@ -132,6 +206,22 @@ const attachOrbitControls = (canvas) => {
     const dx = e.clientX - lastX
     const dy = e.clientY - lastY
     lastX = e.clientX; lastY = e.clientY
+
+    if (cameraMode.value === 'third') {
+      // 第三人稱：左鍵拖曳＝繞著 thirdPersonPivot 旋轉，右鍵拖曳＝平移這個環繞中心點
+      if (mode === 'look') {
+        thirdPersonYaw -= dx * 0.005
+        thirdPersonPitch = Math.max(-1.5, Math.min(1.5, thirdPersonPitch - dy * 0.005))
+      } else if (mode === 'pan') {
+        const panSpeed = thirdPersonRadius * 0.0025 * moveSpeed.value
+        const right = cameraEntity.right
+        const up = cameraEntity.up
+        thirdPersonPivot.sub(right.clone().mulScalar(-dx * panSpeed))
+        thirdPersonPivot.sub(up.clone().mulScalar(dy * panSpeed))
+      }
+      updateCameraFromThirdPerson()
+      return
+    }
 
     if (mode === 'look') {
       orbitState.yaw -= dx * 0.005
@@ -163,11 +253,47 @@ const attachOrbitControls = (canvas) => {
 
   const onContextMenu = (e) => e.preventDefault()
   const onWheel = (e) => {
-    if (!orbitState || !cameraEntity) return
+    if (!cameraEntity) return
     e.preventDefault()
+    if (cameraMode.value === 'third') {
+      if (!thirdPersonPivot) return
+      // 第三人稱：滾輪＝拉近拉遠環繞半徑，不是往前飛
+      const zoomSpeed = 0.15 * moveSpeed.value
+      thirdPersonRadius = Math.max(0.2, thirdPersonRadius * (1 + e.deltaY * 0.001 * zoomSpeed))
+      updateCameraFromThirdPerson()
+      return
+    }
+    if (!orbitState) return
     const dollySpeed = orbitState.moveScale * 0.15 * moveSpeed.value
     orbitState.position.add(cameraEntity.forward.clone().mulScalar(-e.deltaY * 0.001 * dollySpeed))
     updateCameraFromOrbit()
+  }
+
+  // 滑鼠鎖定期間游標固定不動，clientX/clientY 不會變，onPointerMove 那套用座標差算 dx/dy 的邏輯完全失效，
+  // 要改用瀏覽器另外提供的 movementX/movementY，不用按著按鍵就會持續轉頭
+  const onMouseMoveLocked = (e) => {
+    if (document.pointerLockElement !== canvas) return
+    if (cameraMode.value !== 'first' || !orbitState || !cameraEntity) return
+    if (e.buttons & 2) {
+      const panSpeed = orbitState.moveScale * 0.0025 * moveSpeed.value
+      const right = cameraEntity.right
+      const up = cameraEntity.up
+      orbitState.position.sub(right.clone().mulScalar(-e.movementX * panSpeed))
+      orbitState.position.sub(up.clone().mulScalar(e.movementY * panSpeed))
+    } else {
+      orbitState.yaw -= e.movementX * 0.005
+      orbitState.pitch = Math.max(-1.5, Math.min(1.5, orbitState.pitch - e.movementY * 0.005))
+    }
+    updateCameraFromOrbit()
+  }
+  const onPointerLockChange = () => {
+    pointerLockActive.value = (document.pointerLockElement === canvas)
+  }
+  const onPointerLockError = () => {
+    const insecure = location.protocol !== 'https:' && location.hostname !== 'localhost'
+    showToast(insecure
+      ? '滑鼠鎖定失敗：目前不是 HTTPS／localhost 連線，瀏覽器不允許鎖定滑鼠，已改用拖曳方式操作'
+      : '滑鼠鎖定失敗，已改用拖曳方式操作')
   }
 
   canvas.addEventListener('pointerdown', onPointerDown)
@@ -176,6 +302,9 @@ const attachOrbitControls = (canvas) => {
   window.addEventListener('pointercancel', onPointerUp)
   canvas.addEventListener('contextmenu', onContextMenu)
   canvas.addEventListener('wheel', onWheel, { passive: false })
+  window.addEventListener('mousemove', onMouseMoveLocked)
+  document.addEventListener('pointerlockchange', onPointerLockChange)
+  document.addEventListener('pointerlockerror', onPointerLockError)
 
   return () => {
     canvas.removeEventListener('pointerdown', onPointerDown)
@@ -184,6 +313,11 @@ const attachOrbitControls = (canvas) => {
     window.removeEventListener('pointercancel', onPointerUp)
     canvas.removeEventListener('contextmenu', onContextMenu)
     canvas.removeEventListener('wheel', onWheel)
+    window.removeEventListener('mousemove', onMouseMoveLocked)
+    document.removeEventListener('pointerlockchange', onPointerLockChange)
+    document.removeEventListener('pointerlockerror', onPointerLockError)
+    if (document.pointerLockElement === canvas) document.exitPointerLock()
+    pointerLockActive.value = false
   }
 }
 
@@ -204,10 +338,81 @@ const computeOrbitFromBound = (bound) => {
   }
 }
 
+// ── 動態畫質調整（依即時 FPS 自動升降階，不需要使用者手動調）─────────────
+const QUALITY_PRESETS = [
+  { pixelRatio: 1, lodRangeMin: 2 },   // 0 最低：弱機／大場景兜底
+  { pixelRatio: 1.5, lodRangeMin: 1 }, // 1 中：原本的手機預設
+  { pixelRatio: 2, lodRangeMin: 0 }    // 2 高：原本的桌機預設（小場景）
+]
+let qualityTier = 2
+const tileEntities = []
+const FPS_LOW_THRESHOLD = 25
+const FPS_RECOVER_THRESHOLD = 50
+const FRAMES_TO_DOWNGRADE = 60
+const FRAMES_TO_UPGRADE = 240
+let lowFpsStreak = 0
+let highFpsStreak = 0
+
+const applyQualityTier = (tier) => {
+  qualityTier = tier
+  const preset = QUALITY_PRESETS[tier]
+  if (pcApp?.graphicsDevice) {
+    pcApp.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, isTouchDevice.value ? Math.min(preset.pixelRatio, 1.5) : preset.pixelRatio)
+    const canvas = canvasRef.value
+    if (canvas?.parentElement) {
+      const rect = canvas.parentElement.getBoundingClientRect()
+      pcApp.resizeCanvas(rect.width, rect.height)
+    }
+  }
+  tileEntities.forEach((entity) => {
+    if (entity.gsplat) entity.gsplat.lodRangeMin = preset.lodRangeMin
+  })
+}
+
+const attachPerformanceMonitor = (app) => {
+  lowFpsStreak = 0
+  highFpsStreak = 0
+  const onUpdate = (dt) => {
+    if (dt <= 0) return
+    const fps = 1 / dt
+    if (fps < FPS_LOW_THRESHOLD) {
+      lowFpsStreak++
+      highFpsStreak = 0
+      if (lowFpsStreak > FRAMES_TO_DOWNGRADE && qualityTier > 0) {
+        applyQualityTier(qualityTier - 1)
+        lowFpsStreak = 0
+      }
+    } else if (fps > FPS_RECOVER_THRESHOLD) {
+      highFpsStreak++
+      lowFpsStreak = 0
+      if (highFpsStreak > FRAMES_TO_UPGRADE && qualityTier < QUALITY_PRESETS.length - 1) {
+        applyQualityTier(qualityTier + 1)
+        highFpsStreak = 0
+      }
+    } else {
+      lowFpsStreak = 0
+      highFpsStreak = 0
+    }
+  }
+  app.on('update', onUpdate)
+  return () => app.off('update', onUpdate)
+}
+
+let detachPerformanceMonitor = null
+
+const ARROW_CODES = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
+
 const attachKeyboardControls = (app) => {
   pressedKeys = new Set()
   const onKeyDown = (e) => {
     if (e.code === 'Space') e.preventDefault()
+    const isArrow = ARROW_CODES.includes(e.code)
+    if (isArrow) e.preventDefault() // 方向鍵預設會捲動頁面，這裡改由我們自己處理
+    // 第三人稱只在電腦版開放：方向鍵切進第三人稱、Esc 離開
+    if (!isTouchDevice.value) {
+      if (e.code === 'Escape' && cameraMode.value === 'third') { exitThirdPerson(); return }
+      if (isArrow && cameraMode.value === 'first') enterThirdPerson()
+    }
     pressedKeys.add(e.code)
   }
   const onKeyUp = (e) => pressedKeys.delete(e.code)
@@ -221,6 +426,10 @@ const attachKeyboardControls = (app) => {
 
   const onUpdate = (dt) => {
     if (!orbitState || !cameraEntity) return
+
+    // 第三人稱現在完全由滑鼠拖曳/滾輪即時驅動，這裡不用逐幀處理
+    if (cameraMode.value === 'third') return
+
     const hasTouchInput = touchMove.x !== 0 || touchMove.z !== 0
     if (pressedKeys.size === 0 && !hasTouchInput) return
 
@@ -267,6 +476,8 @@ const disposeViewer = () => {
   detachOrbitControls = null
   try { if (detachKeyboardControls) detachKeyboardControls() } catch (e) { console.error(e) }
   detachKeyboardControls = null
+  try { if (detachPerformanceMonitor) detachPerformanceMonitor() } catch (e) { console.error(e) }
+  detachPerformanceMonitor = null
   try { if (resizeObserverRef) resizeObserverRef.disconnect() } catch (e) { console.error(e) }
   resizeObserverRef = null
   try { if (pcApp) pcApp.destroy() } catch (e) { console.error(e) }
@@ -277,6 +488,11 @@ const disposeViewer = () => {
   pressedKeys = new Set()
   touchMove.x = 0; touchMove.z = 0
   joystickPointerId = null
+  tileEntities.length = 0
+  lowFpsStreak = 0
+  highFpsStreak = 0
+  cameraMode.value = 'first'
+  thirdPersonPivot = null
 }
 
 const initViewer = async () => {
@@ -287,15 +503,29 @@ const initViewer = async () => {
 
   disposeViewer()
 
+  // 頁面剛載入時瀏覽器焦點可能不在畫面上，某些瀏覽器下這會讓方向鍵一開始不會生效，
+  // 要點一下畫面「奪回」焦點才會動。這裡主動把焦點轉到 canvas 本身，方向鍵/WASD 一開場就能立刻用
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+  canvas.focus()
+
+  // 依 tile 數量先抓一個起始畫質（正式的動態升降階交給 attachPerformanceMonitor）：
+  // 場景如果被切成很多塊（多個 entryFiles，代表整體 splat 量很可能很大），先從「中」開始，
+  // 避免一開場就用最高畫質硬扛
+  const m0 = model.value
+  const tileCount = (m0.entryFiles && m0.entryFiles.length) ? m0.entryFiles.length : (m0.entryFile ? 1 : 0)
+  qualityTier = isTouchDevice.value ? 1 : (tileCount > 3 ? 1 : 2)
+  const initialPreset = QUALITY_PRESETS[qualityTier]
+
   const app = new pc.Application(canvas, {
     mouse: new pc.Mouse(canvas),
     touch: new pc.TouchDevice(canvas),
-    graphicsDeviceOptions: { antialias: true }
+    // 只有起始畫質是「高」才開 MSAA——splat 渲染本來就是 overdraw/fill-rate 密集
+    graphicsDeviceOptions: { antialias: qualityTier === 2 }
   })
   pcApp = app
   app.setCanvasFillMode(pc.FILLMODE_NONE)
   app.setCanvasResolution(pc.RESOLUTION_AUTO)
-  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, isTouchDevice.value ? 1.5 : 2)
+  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, isTouchDevice.value ? Math.min(initialPreset.pixelRatio, 1.5) : initialPreset.pixelRatio)
 
   const resize = () => {
     const rect = canvas.parentElement.getBoundingClientRect()
@@ -377,11 +607,12 @@ const initViewer = async () => {
     asset.once('load', () => {
       const tileEntity = new pc.Entity(`gsplat-tile-${idx}`)
       tileEntity.addComponent('gsplat', { asset })
-      if (isTouchDevice.value && tileEntity.gsplat) {
-        // 手機跳過最細緻那一階 LOD，犧牲一點細節換效能，不然大場景在手機上容易卡
-        tileEntity.gsplat.lodRangeMin = 1
+      if (tileEntity.gsplat) {
+        // 套用目前的起始畫質階（手機／多 tile 場景預設會跳過最細緻那一階 LOD）
+        tileEntity.gsplat.lodRangeMin = QUALITY_PRESETS[qualityTier].lodRangeMin
       }
       gsplatEntity.addChild(tileEntity)
+      tileEntities.push(tileEntity) // 記下來，之後動態調整畫質時才能一次改全部 tile
       loadedTiles++
       if (loadedTiles + erroredTiles === entryFiles.length) isLoading.value = false
     })
@@ -396,6 +627,7 @@ const initViewer = async () => {
     app.assets.load(asset)
   })
 
+  detachPerformanceMonitor = attachPerformanceMonitor(app)
   app.start()
 }
 
@@ -470,14 +702,27 @@ onUnmounted(disposeViewer)
 
         <canvas
           ref="canvasRef"
-          class="absolute inset-0 w-full h-full touch-none"
+          tabindex="-1"
+          class="absolute inset-0 w-full h-full touch-none outline-none"
         />
 
         <p
-          v-if="!isLoading && !loadError && !isTouchDevice"
+          v-if="!isLoading && !loadError && !isTouchDevice && cameraMode === 'first' && !pointerLockActive"
           class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none"
         >
-          WASD 走位．空白鍵上升．Shift 下降．Ctrl 加速．左鍵轉頭．右鍵平移．滾輪前後
+          點一下畫面啟用滑鼠轉頭．WASD 走位．空白鍵上升．Shift 下降．Ctrl 加速．右鍵平移．滾輪前後．方向鍵：切換第三人稱
+        </p>
+        <p
+          v-else-if="!isLoading && !loadError && !isTouchDevice && cameraMode === 'first'"
+          class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none"
+        >
+          滑鼠移動轉頭．WASD 走位．空白鍵上升．Shift 下降．Ctrl 加速．右鍵平移．滾輪前後．方向鍵：切換第三人稱
+        </p>
+        <p
+          v-else-if="!isLoading && !loadError && !isTouchDevice"
+          class="absolute bottom-3 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none"
+        >
+          左鍵拖曳：環繞旋轉．右鍵拖曳：平移中心．滾輪：拉近拉遠．Esc：離開第三人稱
         </p>
 
         <template v-if="!isLoading && !loadError && isTouchDevice">
@@ -518,6 +763,25 @@ onUnmounted(disposeViewer)
           </p>
         </template>
       </div>
+
+      <transition name="fade">
+        <div
+          v-if="toast.show"
+          class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-white/90 text-black text-sm px-4 py-3 rounded-xl shadow-lg z-50"
+        >
+          {{ toast.message }}
+        </div>
+      </transition>
     </div>
   </ClientOnly>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+</style>
