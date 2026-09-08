@@ -13,7 +13,7 @@ const loadPlayCanvas = async () => {
   return pc
 }
 
-definePageMeta({ layout: 'staff', requiredPermission: 'holymotherfarm.gaussian-models' })
+definePageMeta({ layout: 'staff', requiredPermission: 'content.gaussian-models' })
 
 const commonStore = useCommonStore()
 const BASE = commonStore.data.just_url + '/holy/gaussian'
