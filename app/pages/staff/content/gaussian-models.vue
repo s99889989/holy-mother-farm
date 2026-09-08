@@ -153,6 +153,25 @@ const copyShareLink = async (model) => {
   }
 }
 
+// ── 重建碰撞資料（給舊模型補做 collision.bin，不用重新上傳）───────────────
+const rebuildingCollisionId = ref('') // 目前正在重建的模型 id，用來鎖住那顆卡片的按鈕避免重複點
+const rebuildCollision = async (model) => {
+  rebuildingCollisionId.value = model.id
+  try {
+    const text = await (await fetchWithTimeout(`${BASE}/collision/${model.id}`, { method: 'POST' }, 60000)).text()
+    if (text.startsWith('錯誤')) {
+      showToast(text)
+    } else {
+      showToast('碰撞資料已建立')
+      model.collisionFile = 'collision.bin' // 先就地更新，不用整頁重抓列表
+    }
+  } catch {
+    showToast('建立失敗，請檢查網路連線')
+  } finally {
+    rebuildingCollisionId.value = ''
+  }
+}
+
 // ── 檢視器（直接用 playcanvas 引擎本體，不透過 supersplat-viewer）──────
 const viewerModal = reactive({ show: false, name: '', id: '' })
 const canvasRef = ref(null)
@@ -1129,6 +1148,14 @@ const formatSize = (bytes) => {
                 複製分享連結
               </button>
             </div>
+            <button
+              v-if="!model.collisionFile"
+              class="w-full mt-2 text-xs text-orange-600 hover:text-orange-700 border border-light-c rounded-lg py-1 disabled:opacity-50"
+              :disabled="rebuildingCollisionId === model.id"
+              @click="rebuildCollision(model)"
+            >
+              {{ rebuildingCollisionId === model.id ? '建立中…' : '建立碰撞資料' }}
+            </button>
           </div>
         </div>
       </div>
