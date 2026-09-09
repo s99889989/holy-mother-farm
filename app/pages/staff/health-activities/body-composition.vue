@@ -1,594 +1,892 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.body-composition' })
+  definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.body-composition' })
 
-const commonStore = useCommonStore()
-const BASE = () => commonStore.data.main_url + '/holy/tabc'
+  const commonStore = useCommonStore()
+  const BASE = () => commonStore.data.main_url + '/holy/tabc'
 
-// ── 頁籤 ──────────────────────────────────────────────
-const mainTabs = [
-  { key: 'overview', label: '總覽' },
-  { key: 'customers', label: '客戶查詢' },
-  { key: 'progress', label: '進步排行' }
-] as const
-const currentTab = ref<'overview' | 'customers' | 'progress'>('overview')
+  // ── 頁籤 ──────────────────────────────────────────────
+  const mainTabs = [
+    { key: 'overview', label: '總覽' },
+    { key: 'customers', label: '客戶查詢' },
+    { key: 'progress', label: '進步排行' }
+  ] as const
+  const currentTab = ref<'overview' | 'customers' | 'progress'>('overview')
 
-// ── 儀表板統計 ──────────────────────────────────────────
-const stats = ref<any>(null)
-const latestRecords = ref<any[]>([])
+  // ── 儀表板統計 ──────────────────────────────────────────
+  const stats = ref<any>(null)
+  const latestRecords = ref<any[]>([])
 
-async function loadStats() {
-  try { stats.value = await $fetch<any>(`${BASE()}/stats`) } catch { stats.value = null }
-}
-async function loadLatest() {
-  try { latestRecords.value = await $fetch<any[]>(`${BASE()}/records/latest`, { params: { limit: 15 } }) ?? [] } catch { latestRecords.value = [] }
-}
-
-const bmiCategoryList = computed(() => {
-  const cats = stats.value?.bmi_categories ?? {}
-  const total = Object.values(cats).reduce((a: number, b: any) => a + (b || 0), 0) || 1
-  const colorMap: Record<string, string> = {
-    過輕: 'bg-sky-400', 正常: 'bg-emerald-500', 過重: 'bg-amber-400', 肥胖: 'bg-rose-500'
+  async function loadStats() {
+    try { stats.value = await $fetch<any>(`${BASE()}/stats`) } catch { stats.value = null }
   }
-  return Object.entries(cats).map(([label, value]: [string, any]) => ({
-    label, value, pct: Math.round((value / total) * 100), color: colorMap[label] ?? 'bg-gray-400'
-  }))
-})
-
-const genderPct = computed(() => {
-  const f = stats.value?.gender?.F ?? 0
-  const m = stats.value?.gender?.M ?? 0
-  const total = f + m || 1
-  return { F: Math.round((f / total) * 100), M: Math.round((m / total) * 100) }
-})
-
-// ── 客戶列表 ──────────────────────────────────────────
-const GROUP_LS_KEY = 'holy-tabc-group-filter'
-
-function loadGroupFromLS(): string {
-  if (typeof window === 'undefined') return ''
-  try { return window.localStorage.getItem(GROUP_LS_KEY) ?? '' } catch { return '' }
-}
-function saveGroupToLS(v: string) {
-  if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(GROUP_LS_KEY, v) } catch { /* localStorage 不可用就略過 */ }
-}
-
-const keyword = ref('')
-const groupFilter = ref(loadGroupFromLS()) // 記住上次選的班別頁籤
-const groups = ref<any[]>([])
-const page = ref(1)
-const limit = ref(20)
-const listData = ref<any>(null)
-
-async function loadGroups() {
-  try { groups.value = await $fetch<any[]>(`${BASE()}/groups`) ?? [] } catch { groups.value = [] }
-}
-
-// 頁籤清單：「全部」+ 各班別（含人數）
-const groupTabs = computed(() => {
-  const totalCount = stats.value?.total_customers ?? groups.value.reduce((sum, g) => sum + (g.count || 0), 0)
-  return [{ name: '', label: '全部', count: totalCount }, ...groups.value.map((g: any) => ({ name: g.name, label: g.name, count: g.count }))]
-})
-
-function selectGroup(name: string) {
-  groupFilter.value = name
-  saveGroupToLS(name)
-  search()
-}
-
-// 產生 /front/body-composition?group=xxx 的免登入分享連結
-function buildGroupShareLink(group: string) {
-  return `${window.location.origin}/front/body-composition?group=${encodeURIComponent(group)}`
-}
-
-async function copyGroupShareLink() {
-  if (!groupFilter.value) return
-  const url = buildGroupShareLink(groupFilter.value)
-  try {
-    await navigator.clipboard.writeText(url)
-    alert(`✅ 已複製「${groupFilter.value}」的分享連結：\n${url}`)
-  } catch {
-    prompt('請手動複製連結：', url)
+  async function loadLatest() {
+    try { latestRecords.value = await $fetch<any[]>(`${BASE()}/records/latest`, { params: { limit: 15 } }) ?? [] } catch { latestRecords.value = [] }
   }
-}
 
-function openGroupShareLink() {
-  if (!groupFilter.value) return
-  window.open(buildGroupShareLink(groupFilter.value), '_blank', 'noopener')
-}
+  const bmiCategoryList = computed(() => {
+    const cats = stats.value?.bmi_categories ?? {}
+    const total = Object.values(cats).reduce((a: number, b: any) => a + (b || 0), 0) || 1
+    const colorMap: Record<string, string> = {
+      過輕: 'bg-sky-400', 正常: 'bg-emerald-500', 過重: 'bg-amber-400', 肥胖: 'bg-rose-500'
+    }
+    return Object.entries(cats).map(([label, value]: [string, any]) => ({
+      label, value, pct: Math.round((value / total) * 100), color: colorMap[label] ?? 'bg-gray-400'
+    }))
+  })
 
-async function refreshList() {
-  try {
-    listData.value = await $fetch<any>(`${BASE()}/customers`, {
-      params: { keyword: keyword.value, group: groupFilter.value, page: page.value, limit: limit.value }
-    })
-  } catch { listData.value = null }
-}
+  const genderPct = computed(() => {
+    const f = stats.value?.gender?.F ?? 0
+    const m = stats.value?.gender?.M ?? 0
+    const total = f + m || 1
+    return { F: Math.round((f / total) * 100), M: Math.round((m / total) * 100) }
+  })
 
-const totalPages = computed(() => Math.ceil((listData.value?.total || 0) / limit.value) || 1)
+  // ── 客戶列表 ──────────────────────────────────────────
+  const GROUP_LS_KEY = 'holy-tabc-group-filter'
 
-function search() { page.value = 1; refreshList() }
-function resetSearch() {
-  keyword.value = ''
-  groupFilter.value = ''
-  saveGroupToLS('')
-  page.value = 1
-  refreshList()
-}
+  function loadGroupFromLS(): string {
+    if (typeof window === 'undefined') return ''
+    try { return window.localStorage.getItem(GROUP_LS_KEY) ?? '' } catch { return '' }
+  }
+  function saveGroupToLS(v: string) {
+    if (typeof window === 'undefined') return
+    try { window.localStorage.setItem(GROUP_LS_KEY, v) } catch { /* localStorage 不可用就略過 */ }
+  }
 
-// ── 客戶詳情 ──────────────────────────────────────────
-const selectedPatnr = ref<number | null>(null)
-const selectedCustomer = ref<any>(null)
-const customerRecords = ref<any[]>([])
-const customerLoading = ref(false)
+  const keyword = ref('')
+  const groupFilter = ref(loadGroupFromLS()) // 記住上次選的班別頁籤
+  const groups = ref<any[]>([])
+  const page = ref(1)
+  const limit = ref(20)
+  const listData = ref<any>(null)
 
-async function openCustomer(patnr: number) {
-  currentTab.value = 'customers'
-  selectedPatnr.value = patnr
-  customerLoading.value = true
-  try {
-    const [cust, recs] = await Promise.all([
-      $fetch<any>(`${BASE()}/customers/${patnr}`),
-      $fetch<any[]>(`${BASE()}/customers/${patnr}/records`)
-    ])
-    selectedCustomer.value = cust
-    customerRecords.value = recs ?? []
-  } catch {
+  async function loadGroups() {
+    try { groups.value = await $fetch<any[]>(`${BASE()}/groups`) ?? [] } catch { groups.value = [] }
+  }
+
+  // 頁籤清單：「全部」+ 各班別（含人數）
+  const groupTabs = computed(() => {
+    const totalCount = stats.value?.total_customers ?? groups.value.reduce((sum, g) => sum + (g.count || 0), 0)
+    return [{ name: '', label: '全部', count: totalCount }, ...groups.value.map((g: any) => ({ name: g.name, label: g.name, count: g.count }))]
+  })
+
+  function selectGroup(name: string) {
+    groupFilter.value = name
+    saveGroupToLS(name)
+    search()
+  }
+
+  // 產生 /front/body-composition?group=xxx 的免登入分享連結
+  function buildGroupShareLink(group: string) {
+    return `${window.location.origin}/front/body-composition?group=${encodeURIComponent(group)}`
+  }
+
+  async function copyGroupShareLink() {
+    if (!groupFilter.value) return
+    const url = buildGroupShareLink(groupFilter.value)
+    try {
+      await navigator.clipboard.writeText(url)
+      alert(`✅ 已複製「${groupFilter.value}」的分享連結：\n${url}`)
+    } catch {
+      prompt('請手動複製連結：', url)
+    }
+  }
+
+  function openGroupShareLink() {
+    if (!groupFilter.value) return
+    window.open(buildGroupShareLink(groupFilter.value), '_blank', 'noopener')
+  }
+
+  async function refreshList() {
+    try {
+      listData.value = await $fetch<any>(`${BASE()}/customers`, {
+        params: { keyword: keyword.value, group: groupFilter.value, page: page.value, limit: limit.value }
+      })
+    } catch { listData.value = null }
+  }
+
+  const totalPages = computed(() => Math.ceil((listData.value?.total || 0) / limit.value) || 1)
+
+  function search() { page.value = 1; refreshList() }
+  function resetSearch() {
+    keyword.value = ''
+    groupFilter.value = ''
+    saveGroupToLS('')
+    page.value = 1
+    refreshList()
+  }
+
+  // ── 客戶詳情 ──────────────────────────────────────────
+  const selectedPatnr = ref<number | null>(null)
+  const selectedCustomer = ref<any>(null)
+  const customerRecords = ref<any[]>([])
+  const customerLoading = ref(false)
+
+  async function openCustomer(patnr: number) {
+    currentTab.value = 'customers'
+    selectedPatnr.value = patnr
+    customerLoading.value = true
+    try {
+      const [cust, recs] = await Promise.all([
+        $fetch<any>(`${BASE()}/customers/${patnr}`),
+        $fetch<any[]>(`${BASE()}/customers/${patnr}/records`)
+      ])
+      selectedCustomer.value = cust
+      customerRecords.value = recs ?? []
+    } catch {
+      selectedCustomer.value = null
+      customerRecords.value = []
+    } finally {
+      customerLoading.value = false
+    }
+    await loadBoundAccount(patnr)
+  }
+  function closeCustomer() {
+    selectedPatnr.value = null
     selectedCustomer.value = null
     customerRecords.value = []
-  } finally {
-    customerLoading.value = false
+    closeBindPanel()
   }
-  await loadBoundAccount(patnr)
-}
-function closeCustomer() {
-  selectedPatnr.value = null
-  selectedCustomer.value = null
-  customerRecords.value = []
-  closeBindPanel()
-}
 
-// ── Google 帳號綁定 ────────────────────────────────────
-const boundAccount = ref<any>(null) // { bound, customerId, name, email, picture }
-const boundLoading = ref(false)
+  // ── Google 帳號綁定 ────────────────────────────────────
+  const boundAccount = ref<any>(null) // { bound, customerId, name, email, picture }
+  const boundLoading = ref(false)
 
-async function loadBoundAccount(patnr: number) {
-  boundLoading.value = true
-  try {
-    boundAccount.value = await $fetch<any>(`${BASE()}/customers/${patnr}/bound-account`)
-  } catch {
-    boundAccount.value = null
-  } finally {
-    boundLoading.value = false
+  async function loadBoundAccount(patnr: number) {
+    boundLoading.value = true
+    try {
+      boundAccount.value = await $fetch<any>(`${BASE()}/customers/${patnr}/bound-account`)
+    } catch {
+      boundAccount.value = null
+    } finally {
+      boundLoading.value = false
+    }
   }
-}
 
-// 搜尋 / 選擇 Google 帳號
-const bindPanelOpen = ref(false)
-const bindKeyword = ref('')
-const bindResults = ref<any[]>([])
-const bindSearching = ref(false)
-const bindSubmitting = ref(false)
+  // 搜尋 / 選擇 Google 帳號
+  const bindPanelOpen = ref(false)
+  const bindKeyword = ref('')
+  const bindResults = ref<any[]>([])
+  const bindSearching = ref(false)
+  const bindSubmitting = ref(false)
 
-function openBindPanel() {
-  bindPanelOpen.value = true
-  bindKeyword.value = ''
-  bindResults.value = []
-}
-function closeBindPanel() {
-  bindPanelOpen.value = false
-  bindKeyword.value = ''
-  bindResults.value = []
-}
-
-let bindSearchTimer: ReturnType<typeof setTimeout> | null = null
-function onBindKeywordInput() {
-  if (bindSearchTimer) clearTimeout(bindSearchTimer)
-  bindSearchTimer = setTimeout(searchBindAccounts, 300)
-}
-
-async function searchBindAccounts() {
-  const kw = bindKeyword.value.trim()
-  if (!kw) { bindResults.value = []; return }
-  bindSearching.value = true
-  try {
-    bindResults.value = await $fetch<any[]>(`${BASE()}/google-accounts/search`, {
-      params: { keyword: kw }
-    }) ?? []
-  } catch {
+  function openBindPanel() {
+    bindPanelOpen.value = true
+    bindKeyword.value = ''
     bindResults.value = []
-  } finally {
-    bindSearching.value = false
   }
-}
+  function closeBindPanel() {
+    bindPanelOpen.value = false
+    bindKeyword.value = ''
+    bindResults.value = []
+  }
 
-async function selectBindAccount(account: any) {
-  if (!selectedPatnr.value) return
-  if (account.tabcPatnr && account.tabcPatnr !== String(selectedPatnr.value)) {
-    if (!confirm(`「${account.name || account.email}」目前已綁定其他客戶編號（PATNR=${account.tabcPatnr}），\n改綁後將自動解除原本的綁定，確定要繼續嗎？`)) {
+  let bindSearchTimer: ReturnType<typeof setTimeout> | null = null
+  function onBindKeywordInput() {
+    if (bindSearchTimer) clearTimeout(bindSearchTimer)
+    bindSearchTimer = setTimeout(searchBindAccounts, 300)
+  }
+
+  async function searchBindAccounts() {
+    const kw = bindKeyword.value.trim()
+    if (!kw) { bindResults.value = []; return }
+    bindSearching.value = true
+    try {
+      bindResults.value = await $fetch<any[]>(`${BASE()}/google-accounts/search`, {
+        params: { keyword: kw }
+      }) ?? []
+    } catch {
+      bindResults.value = []
+    } finally {
+      bindSearching.value = false
+    }
+  }
+
+  async function selectBindAccount(account: any) {
+    if (!selectedPatnr.value) return
+    if (account.tabcPatnr && account.tabcPatnr !== String(selectedPatnr.value)) {
+      if (!confirm(`「${account.name || account.email}」目前已綁定其他客戶編號（PATNR=${account.tabcPatnr}），\n改綁後將自動解除原本的綁定，確定要繼續嗎？`)) {
+        return
+      }
+    }
+    bindSubmitting.value = true
+    try {
+      const data = await $fetch<any>(`${BASE()}/customers/${selectedPatnr.value}/bind`, {
+        method: 'PUT',
+        body: { customerId: account.customerId }
+      })
+      if (data?.error) { alert('綁定失敗：' + data.error); return }
+      closeBindPanel()
+      await loadBoundAccount(selectedPatnr.value)
+    } catch (e: any) {
+      alert('綁定失敗：' + (e?.data?.error ?? e?.statusMessage ?? '未知錯誤'))
+    } finally {
+      bindSubmitting.value = false
+    }
+  }
+
+  async function unbindAccount() {
+    if (!selectedPatnr.value || !boundAccount.value?.bound) return
+    if (!confirm(`確定要解除「${boundAccount.value.name || boundAccount.value.email}」與此客戶編號的綁定嗎？`)) return
+    try {
+      await $fetch(`${BASE()}/customers/${selectedPatnr.value}/unbind`, { method: 'PUT' })
+      await loadBoundAccount(selectedPatnr.value)
+    } catch (e: any) {
+      alert('解除綁定失敗：' + (e?.data?.error ?? e?.statusMessage ?? '未知錯誤'))
+    }
+  }
+
+  // ── 標準範圍色帶（BMI / 體脂率 / 內臟脂肪）─────────────────────
+  // 性別欄位正規化：資料庫實際存的格式不確定（可能有大小寫/空白/其他代碼），
+  // 用寬鬆比對取代完全比對；比對不到已知格式時，直接顯示原始值方便排查，而不是靜默顯示空白
+  function sexCode(v: any): 'M' | 'F' | '' {
+    if (v === null || v === undefined) return ''
+    const s = String(v).trim().toUpperCase()
+    if (s === 'M' || s === 'MALE' || s === '1' || s === '男') return 'M'
+    if (s === 'F' || s === 'FEMALE' || s === '2' || s === '女') return 'F'
+    return ''
+  }
+  function sexLabel(v: any) {
+    const code = sexCode(v)
+    if (code === 'M') return '男'
+    if (code === 'F') return '女'
+    const raw = v === null || v === undefined ? '' : String(v).trim()
+    return raw
+  }
+
+  // 分區依台灣衛福部 BMI 標準與 InBody 常用體脂率/內臟脂肪等級改編
+  const BMI_ZONES = [
+    { to: 18.5, label: '過輕', color: '#38bdf8' },
+    { to: 24, label: '正常', color: '#10b981' },
+    { to: 27, label: '過重', color: '#f59e0b' },
+    { to: 40, label: '肥胖', color: '#f43f5e' }
+  ]
+  function fatZones(sex: string) {
+    return sex === 'M'
+      ? [{ to: 14, label: '過低', color: '#38bdf8' }, { to: 20, label: '正常', color: '#10b981' }, { to: 25, label: '過重', color: '#f59e0b' }, { to: 50, label: '偏高', color: '#f43f5e' }]
+      : [{ to: 21, label: '過低', color: '#38bdf8' }, { to: 27, label: '正常', color: '#10b981' }, { to: 32, label: '過重', color: '#f59e0b' }, { to: 55, label: '偏高', color: '#f43f5e' }]
+  }
+  const VISZFAT_ZONES = [
+    { to: 10, label: '正常', color: '#10b981' },
+    { to: 15, label: '偏高', color: '#f59e0b' },
+    { to: 30, label: '過高', color: '#f43f5e' }
+  ]
+
+  function buildRangeBar(title: string, value: any, zones: { to: number, label: string, color: string }[], digits = 1) {
+    const n = Number(value)
+    if (Number.isNaN(n)) return null
+    const max = zones[zones.length - 1].to
+    let from = 0
+    const segments = zones.map((z) => {
+      const seg = { left: (from / max) * 100, width: ((z.to - from) / max) * 100, color: z.color, label: z.label }
+      from = z.to
+      return seg
+    })
+    const markerPct = Math.min(100, Math.max(0, (n / max) * 100))
+    const activeZone = zones.find(z => n <= z.to) ?? zones[zones.length - 1]
+    return { title, valueLabel: n.toFixed(digits), segments, markerPct, markerColor: activeZone.color }
+  }
+
+  const latestRecord = computed(() => customerRecords.value[0] ?? null)
+
+  const rangeBars = computed(() => {
+    if (!latestRecord.value) return []
+    const sex = sexCode(selectedCustomer.value?.sex) || 'F'
+    return [
+      buildRangeBar('BMI', latestRecord.value.bmi, BMI_ZONES),
+      buildRangeBar('體脂率 %', latestRecord.value.fatp, fatZones(sex)),
+      buildRangeBar('內臟脂肪等級', latestRecord.value.vfatl, VISZFAT_ZONES, 0)
+    ].filter((b): b is NonNullable<typeof b> => b !== null)
+  })
+
+  // ── 歷史趨勢折線圖（純 SVG，不需額外圖表套件）───────────────
+  function buildTrend(key: string, title: string, color: string, digits = 1) {
+    const recs = [...customerRecords.value].reverse()
+      .filter(r => r[key] !== null && r[key] !== undefined && r[key] !== '')
+    if (recs.length < 2) return null
+    const values = recs.map(r => Number(r[key]))
+    const w = 300, h = 90, padX = 8, padY = 14
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const range = (max - min) || 1
+    const stepX = (w - padX * 2) / (recs.length - 1)
+    const pts = values.map((v, i) => ({
+      x: padX + i * stepX,
+      y: h - padY - ((v - min) / range) * (h - padY * 2),
+      vLabel: v.toFixed(digits)
+    }))
+    const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ')
+    const area = path + ` L${pts[pts.length - 1].x.toFixed(1)},${h - padY} L${pts[0].x.toFixed(1)},${h - padY} Z`
+    return {
+      key, title, color, w, h, path, area, pts,
+      firstLabel: fmtDate(recs[0].datetime),
+      lastValue: values[values.length - 1].toFixed(digits),
+      maxLabel: max.toFixed(digits),
+      minLabel: min.toFixed(digits),
+      maxY: pts.reduce((a, p) => Math.min(a, p.y), h),
+      minY: pts.reduce((a, p) => Math.max(a, p.y), 0)
+    }
+  }
+
+  const trendCharts = computed(() => {
+    if (customerRecords.value.length < 2) return []
+    return [
+      buildTrend('bmi', 'BMI', '#0d9488'),
+      buildTrend('fatp', '體脂率', '#f43f5e'),
+      buildTrend('pmm', '肌肉量', '#10b981'),
+      buildTrend('vfatl', '內臟脂肪', '#f59e0b', 0)
+    ].filter((t): t is NonNullable<typeof t> => t !== null)
+  })
+
+  // ── 格式化輔助 ────────────────────────────────────────
+  function fmtNum(v: any, digits = 1) {
+    if (v === null || v === undefined || v === '') return '–'
+    const n = Number(v)
+    if (Number.isNaN(n)) return '–'
+    return n.toFixed(digits)
+  }
+  function fmtDate(v: any) {
+    if (!v) return '–'
+    return String(v).slice(0, 10)
+  }
+  function bmiTagClass(bmi: any) {
+    const n = Number(bmi)
+    const base = 'inline-block px-1.5 py-0.5 rounded text-[11px] font-mono'
+    if (Number.isNaN(n)) return base
+    if (n >= 27) return `${base} bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300`
+    if (n >= 24) return `${base} bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300`
+    if (n < 18.5) return `${base} bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300`
+    return `${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300`
+  }
+
+  // ── 上傳 GMON3.GDB ────────────────────────────────────
+  const dbFileInput = ref<HTMLInputElement | null>(null)
+  const dbUploading = ref(false)
+
+  async function onDbFileChange(e: Event) {
+    const input = e.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+    if (!file.name.toUpperCase().endsWith('.GDB')) return alert('只接受 .GDB 檔案')
+    if (!confirm(`確定要用「${file.name}」覆蓋伺服器上的 GMON3.GDB？\n⚠️ 此操作無法還原！`)) {
+      input.value = ''
       return
     }
+    dbUploading.value = true
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      await $fetch(`${BASE()}/upload-db`, { method: 'POST', body: fd })
+      alert('✅ GMON3.GDB 已成功更新！')
+      closeCustomer()
+      await Promise.all([loadStats(), loadLatest(), loadGroups(), refreshList()])
+    } catch (err: any) {
+      alert('❌ 上傳失敗：' + (err?.data?.error ?? err?.statusMessage ?? '未知錯誤'))
+    } finally {
+      dbUploading.value = false
+      input.value = ''
+    }
   }
-  bindSubmitting.value = true
-  try {
-    const data = await $fetch<any>(`${BASE()}/customers/${selectedPatnr.value}/bind`, {
-      method: 'PUT',
-      body: { customerId: account.customerId }
-    })
-    if (data?.error) { alert('綁定失敗：' + data.error); return }
-    closeBindPanel()
-    await loadBoundAccount(selectedPatnr.value)
-  } catch (e: any) {
-    alert('綁定失敗：' + (e?.data?.error ?? e?.statusMessage ?? '未知錯誤'))
-  } finally {
-    bindSubmitting.value = false
-  }
-}
 
-async function unbindAccount() {
-  if (!selectedPatnr.value || !boundAccount.value?.bound) return
-  if (!confirm(`確定要解除「${boundAccount.value.name || boundAccount.value.email}」與此客戶編號的綁定嗎？`)) return
-  try {
-    await $fetch(`${BASE()}/customers/${selectedPatnr.value}/unbind`, { method: 'PUT' })
-    await loadBoundAccount(selectedPatnr.value)
-  } catch (e: any) {
-    alert('解除綁定失敗：' + (e?.data?.error ?? e?.statusMessage ?? '未知錯誤'))
-  }
-}
-
-// ── 標準範圍色帶（BMI / 體脂率 / 內臟脂肪）─────────────────────
-// 性別欄位正規化：資料庫實際存的格式不確定（可能有大小寫/空白/其他代碼），
-// 用寬鬆比對取代完全比對；比對不到已知格式時，直接顯示原始值方便排查，而不是靜默顯示空白
-function sexCode(v: any): 'M' | 'F' | '' {
-  if (v === null || v === undefined) return ''
-  const s = String(v).trim().toUpperCase()
-  if (s === 'M' || s === 'MALE' || s === '1' || s === '男') return 'M'
-  if (s === 'F' || s === 'FEMALE' || s === '2' || s === '女') return 'F'
-  return ''
-}
-function sexLabel(v: any) {
-  const code = sexCode(v)
-  if (code === 'M') return '男'
-  if (code === 'F') return '女'
-  const raw = v === null || v === undefined ? '' : String(v).trim()
-  return raw
-}
-
-// 分區依台灣衛福部 BMI 標準與 InBody 常用體脂率/內臟脂肪等級改編
-const BMI_ZONES = [
-  { to: 18.5, label: '過輕', color: '#38bdf8' },
-  { to: 24, label: '正常', color: '#10b981' },
-  { to: 27, label: '過重', color: '#f59e0b' },
-  { to: 40, label: '肥胖', color: '#f43f5e' }
-]
-function fatZones(sex: string) {
-  return sex === 'M'
-    ? [{ to: 14, label: '過低', color: '#38bdf8' }, { to: 20, label: '正常', color: '#10b981' }, { to: 25, label: '過重', color: '#f59e0b' }, { to: 50, label: '偏高', color: '#f43f5e' }]
-    : [{ to: 21, label: '過低', color: '#38bdf8' }, { to: 27, label: '正常', color: '#10b981' }, { to: 32, label: '過重', color: '#f59e0b' }, { to: 55, label: '偏高', color: '#f43f5e' }]
-}
-const VISZFAT_ZONES = [
-  { to: 10, label: '正常', color: '#10b981' },
-  { to: 15, label: '偏高', color: '#f59e0b' },
-  { to: 30, label: '過高', color: '#f43f5e' }
-]
-
-function buildRangeBar(title: string, value: any, zones: { to: number, label: string, color: string }[], digits = 1) {
-  const n = Number(value)
-  if (Number.isNaN(n)) return null
-  const max = zones[zones.length - 1].to
-  let from = 0
-  const segments = zones.map((z) => {
-    const seg = { left: (from / max) * 100, width: ((z.to - from) / max) * 100, color: z.color, label: z.label }
-    from = z.to
-    return seg
-  })
-  const markerPct = Math.min(100, Math.max(0, (n / max) * 100))
-  const activeZone = zones.find(z => n <= z.to) ?? zones[zones.length - 1]
-  return { title, valueLabel: n.toFixed(digits), segments, markerPct, markerColor: activeZone.color }
-}
-
-const latestRecord = computed(() => customerRecords.value[0] ?? null)
-
-const rangeBars = computed(() => {
-  if (!latestRecord.value) return []
-  const sex = sexCode(selectedCustomer.value?.sex) || 'F'
-  return [
-    buildRangeBar('BMI', latestRecord.value.bmi, BMI_ZONES),
-    buildRangeBar('體脂率 %', latestRecord.value.fatp, fatZones(sex)),
-    buildRangeBar('內臟脂肪等級', latestRecord.value.vfatl, VISZFAT_ZONES, 0)
-  ].filter((b): b is NonNullable<typeof b> => b !== null)
-})
-
-// ── 歷史趨勢折線圖（純 SVG，不需額外圖表套件）───────────────
-function buildTrend(key: string, title: string, color: string, digits = 1) {
-  const recs = [...customerRecords.value].reverse()
-    .filter(r => r[key] !== null && r[key] !== undefined && r[key] !== '')
-  if (recs.length < 2) return null
-  const values = recs.map(r => Number(r[key]))
-  const w = 300, h = 90, padX = 8, padY = 14
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = (max - min) || 1
-  const stepX = (w - padX * 2) / (recs.length - 1)
-  const pts = values.map((v, i) => ({
-    x: padX + i * stepX,
-    y: h - padY - ((v - min) / range) * (h - padY * 2),
-    vLabel: v.toFixed(digits)
-  }))
-  const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ')
-  const area = path + ` L${pts[pts.length - 1].x.toFixed(1)},${h - padY} L${pts[0].x.toFixed(1)},${h - padY} Z`
-  return {
-    key, title, color, w, h, path, area, pts,
-    firstLabel: fmtDate(recs[0].datetime),
-    lastValue: values[values.length - 1].toFixed(digits),
-    maxLabel: max.toFixed(digits),
-    minLabel: min.toFixed(digits),
-    maxY: pts.reduce((a, p) => Math.min(a, p.y), h),
-    minY: pts.reduce((a, p) => Math.max(a, p.y), 0)
-  }
-}
-
-const trendCharts = computed(() => {
-  if (customerRecords.value.length < 2) return []
-  return [
-    buildTrend('bmi', 'BMI', '#0d9488'),
-    buildTrend('fatp', '體脂率', '#f43f5e'),
-    buildTrend('pmm', '肌肉量', '#10b981'),
-    buildTrend('vfatl', '內臟脂肪', '#f59e0b', 0)
-  ].filter((t): t is NonNullable<typeof t> => t !== null)
-})
-
-// ── 格式化輔助 ────────────────────────────────────────
-function fmtNum(v: any, digits = 1) {
-  if (v === null || v === undefined || v === '') return '–'
-  const n = Number(v)
-  if (Number.isNaN(n)) return '–'
-  return n.toFixed(digits)
-}
-function fmtDate(v: any) {
-  if (!v) return '–'
-  return String(v).slice(0, 10)
-}
-function bmiTagClass(bmi: any) {
-  const n = Number(bmi)
-  const base = 'inline-block px-1.5 py-0.5 rounded text-[11px] font-mono'
-  if (Number.isNaN(n)) return base
-  if (n >= 27) return `${base} bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300`
-  if (n >= 24) return `${base} bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300`
-  if (n < 18.5) return `${base} bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300`
-  return `${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300`
-}
-
-// ── 上傳 GMON3.GDB ────────────────────────────────────
-const dbFileInput = ref<HTMLInputElement | null>(null)
-const dbUploading = ref(false)
-
-async function onDbFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  if (!file.name.toUpperCase().endsWith('.GDB')) return alert('只接受 .GDB 檔案')
-  if (!confirm(`確定要用「${file.name}」覆蓋伺服器上的 GMON3.GDB？\n⚠️ 此操作無法還原！`)) {
-    input.value = ''
-    return
-  }
-  dbUploading.value = true
-  try {
-    const fd = new FormData()
-    fd.append('file', file)
-    await $fetch(`${BASE()}/upload-db`, { method: 'POST', body: fd })
-    alert('✅ GMON3.GDB 已成功更新！')
-    closeCustomer()
-    await Promise.all([loadStats(), loadLatest(), loadGroups(), refreshList()])
-  } catch (err: any) {
-    alert('❌ 上傳失敗：' + (err?.data?.error ?? err?.statusMessage ?? '未知錯誤'))
-  } finally {
-    dbUploading.value = false
-    input.value = ''
-  }
-}
-
-// ── 進步排行 ──────────────────────────────────────────
-// 實際可計算差值的指標（用來算綜合評分，也是「單一指標」可選的項目）
-const REAL_METRICS = [
-  { key: 'weight', label: '體重kg', better: 'down' },
-  { key: 'bmi', label: 'BMI', better: 'down' },
-  { key: 'fatp', label: '體脂率%', better: 'down' },
-  { key: 'fatm', label: '體脂重kg', better: 'down' },
-  { key: 'pmm', label: '肌肉量kg', better: 'up' },
-  { key: 'vfatl', label: '內臟脂肪等級', better: 'down' },
-  { key: 'bonem', label: '骨量kg', better: 'up' },
-  { key: 'tbw', label: '體水分kg', better: 'up' },
-  { key: 'bmr', label: '基礎代謝', better: 'up' },
-  { key: 'metaage', label: '體內年齡', better: 'down' }
-] as const
+  // ── 進步排行 ──────────────────────────────────────────
+  // 實際可計算差值的指標（用來算綜合評分，也是「單一指標」可選的項目）
+  const REAL_METRICS = [
+    { key: 'weight', label: '體重kg', better: 'down' },
+    { key: 'bmi', label: 'BMI', better: 'down' },
+    { key: 'fatp', label: '體脂率%', better: 'down' },
+    { key: 'fatm', label: '體脂重kg', better: 'down' },
+    { key: 'pmm', label: '肌肉量kg', better: 'up' },
+    { key: 'vfatl', label: '內臟脂肪等級', better: 'down' },
+    { key: 'bonem', label: '骨量kg', better: 'up' },
+    { key: 'tbw', label: '體水分kg', better: 'up' },
+    { key: 'bmr', label: '基礎代謝', better: 'up' },
+    { key: 'metaage', label: '體內年齡', better: 'down' }
+  ] as const
 
 // 「排行指標」下拉選單：綜合評分 + 各單項指標
-const PROGRESS_METRICS = [
-  { key: 'composite', label: '綜合評分（多指標平均）', better: 'up' },
-  ...REAL_METRICS
-] as const
+  const PROGRESS_METRICS = [
+    { key: 'composite', label: '綜合評分（多指標平均）', better: 'up' },
+    ...REAL_METRICS
+  ] as const
 
-function toDateInputStr(d: Date) {
-  return d.toISOString().slice(0, 10)
-}
-const todayD = new Date()
-const threeMonthsAgoD = new Date(todayD)
-threeMonthsAgoD.setMonth(threeMonthsAgoD.getMonth() - 3)
-
-const progressGroup = ref('') // 空字串＝全部班別
-const progressStart = ref(toDateInputStr(threeMonthsAgoD))
-const progressEnd = ref(toDateInputStr(todayD))
-const progressMetric = ref<string>('composite')
-const progressView = ref<'chart' | 'table'>('chart') // 圖表／表格 二選一顯示
-const progressData = ref<any>(null)
-const progressLoading = ref(false)
-
-async function loadProgress() {
-  if (!progressStart.value || !progressEnd.value) return
-  progressLoading.value = true
-  try {
-    progressData.value = await $fetch<any>(`${BASE()}/progress`, {
-      params: { group: progressGroup.value, start: progressStart.value, end: progressEnd.value }
-    })
-  } catch {
-    progressData.value = null
-  } finally {
-    progressLoading.value = false
+    function toDateInputStr(d: Date) {
+    return d.toISOString().slice(0, 10)
   }
-}
+  const todayD = new Date()
+  const threeMonthsAgoD = new Date(todayD)
+  threeMonthsAgoD.setMonth(threeMonthsAgoD.getMonth() - 3)
 
-const currentMetricInfo = computed(() =>
-  PROGRESS_METRICS.find(m => m.key === progressMetric.value) ?? PROGRESS_METRICS[0]
-)
-const isCompositeMetric = computed(() => progressMetric.value === 'composite')
-// 表格是否顯示「班別」欄：只有在沒篩選特定班別（顯示多個班別混在一起）時才需要
-const showGroupColumn = computed(() => !progressGroup.value)
+  // 「所屬班別」跟「客戶查詢」頁籤共用同一組 localStorage（GROUP_LS_KEY），
+  // 兩邊選的班別會互相同步、也會一起被記住
+  const progressGroup = ref(loadGroupFromLS()) // 空字串＝全部班別
+  const progressStart = ref(toDateInputStr(threeMonthsAgoD))
+  const progressEnd = ref(toDateInputStr(todayD))
+  const progressMetric = ref<string>('composite')
+  const progressView = ref<'bar' | 'line' | 'table'>('bar') // 直條圖／折線圖／表格 三選一顯示
+  const progressData = ref<any>(null)
+  const progressLoading = ref(false)
 
-// ── 綜合評分（多指標平均）──────────────────────────────
-// 做法：對每一項指標，先依「進步方向」把差值轉成「越大越好」的方向調整值，
-// 再用 min-max 正規化成 0~100 分（該指標在目前這批學生裡的相對名次高低），
-// 最後把每位學生「有資料的各指標分數」平均起來，得到一個 0~100 的綜合分數，
-// 分數越高代表在這段期間、這幾項指標綜合起來進步幅度越大（相對於同一批學生而言）。
-const compositeScores = computed(() => {
-  const rows: any[] = progressData.value?.rows ?? []
-  const scores = new Map<number, number>()
-  if (!rows.length) return scores
+  // 雙向同步：改「進步排行」的班別 → 同步到「客戶查詢」的班別並存回 localStorage
+  watch(progressGroup, (v) => {
+    saveGroupToLS(v)
+    if (groupFilter.value !== v) groupFilter.value = v
+  })
+  // 反之，改「客戶查詢」的班別（點頁籤／清除搜尋）→ 同步到「進步排行」的班別
+  watch(groupFilter, (v) => {
+    if (progressGroup.value !== v) progressGroup.value = v
+  })
 
-  const perMetricNorm: Record<string, Map<number, number>> = {}
-  for (const m of REAL_METRICS) {
-    const adjusted: { patnr: number, v: number }[] = []
-    for (const r of rows) {
-      const d = r.delta?.[m.key]
-      if (d === null || d === undefined) continue
-      adjusted.push({ patnr: r.patnr, v: m.better === 'down' ? -d : d })
+  async function loadProgress() {
+    if (!progressStart.value || !progressEnd.value) return
+    progressLoading.value = true
+    try {
+      progressData.value = await $fetch<any>(`${BASE()}/progress`, {
+        params: { group: progressGroup.value, start: progressStart.value, end: progressEnd.value }
+      })
+    } catch {
+      progressData.value = null
+    } finally {
+      progressLoading.value = false
     }
-    if (!adjusted.length) continue
-    const vals = adjusted.map(a => a.v)
-    const min = Math.min(...vals)
-    const max = Math.max(...vals)
-    const range = max - min
-    const norm = new Map<number, number>()
-    adjusted.forEach(a => norm.set(a.patnr, range === 0 ? 50 : ((a.v - min) / range) * 100))
-    perMetricNorm[m.key] = norm
   }
 
-  for (const r of rows) {
+  const currentMetricInfo = computed(() =>
+    PROGRESS_METRICS.find(m => m.key === progressMetric.value) ?? PROGRESS_METRICS[0]
+  )
+  const isCompositeMetric = computed(() => progressMetric.value === 'composite')
+  // 表格是否顯示「班別」欄：只有在沒篩選特定班別（顯示多個班別混在一起）時才需要
+  const showGroupColumn = computed(() => !progressGroup.value)
+
+  // ── 綜合評分（多指標平均）──────────────────────────────
+  // 做法：對每一項指標，先依「進步方向」把差值轉成「越大越好」的方向調整值，
+  // 再用 min-max 正規化成 0~100 分（該指標在目前這批學生裡的相對名次高低），
+  // 最後把每位學生「有資料的各指標分數」平均起來，得到一個 0~100 的綜合分數，
+  // 分數越高代表在這段期間、這幾項指標綜合起來進步幅度越大（相對於同一批學生而言）。
+  // 這裡把「算正規化範圍」跟「套用範圍算分數」拆成兩步，
+  // 這樣折線圖也能用同一套範圍，幫每一筆中間紀錄（不只頭尾）算出對應的綜合分數。
+  const compositeMetricRanges = computed(() => {
+    const rows: any[] = progressData.value?.rows ?? []
+    const ranges: Record<string, { min: number, max: number }> = {}
+    for (const m of REAL_METRICS) {
+      const vals: number[] = []
+      for (const r of rows) {
+        const d = r.delta?.[m.key]
+        if (d === null || d === undefined) continue
+        vals.push(m.better === 'down' ? -d : d)
+      }
+      if (vals.length) ranges[m.key] = { min: Math.min(...vals), max: Math.max(...vals) }
+    }
+    return ranges
+  })
+
+  function compositeScoreFromDeltas(deltas: Record<string, number>): number | null {
+    const ranges = compositeMetricRanges.value
     let sum = 0, count = 0
     for (const m of REAL_METRICS) {
-      const v = perMetricNorm[m.key]?.get(r.patnr)
-      if (v !== undefined) { sum += v; count++ }
+      const d = deltas[m.key]
+      if (d === undefined) continue
+      const range = ranges[m.key]
+      if (!range) continue
+      const adjusted = m.better === 'down' ? -d : d
+      const span = range.max - range.min
+      sum += span === 0 ? 50 : ((adjusted - range.min) / span) * 100
+      count++
     }
-    if (count > 0) scores.set(r.patnr, Math.round((sum / count) * 10) / 10)
+    return count > 0 ? Math.round((sum / count) * 10) / 10 : null
   }
-  return scores
-})
 
-// 依所選指標排序：
-// - 選「綜合評分」：分數越高（0~100）代表綜合進步幅度越大
-// - 選單一指標：better === 'down' 時差值越負代表進步越多，反之越正代表進步越多
-const rankedProgress = computed(() => {
-  const rows = [...(progressData.value?.rows ?? [])]
+  const compositeScores = computed(() => {
+    const rows: any[] = progressData.value?.rows ?? []
+    const scores = new Map<number, number>()
+    if (!rows.length) return scores
+    for (const r of rows) {
+      const deltas: Record<string, number> = {}
+      for (const m of REAL_METRICS) {
+        const d = r.delta?.[m.key]
+        if (d !== null && d !== undefined) deltas[m.key] = d
+      }
+      const score = compositeScoreFromDeltas(deltas)
+      if (score !== null) scores.set(r.patnr, score)
+    }
+    return scores
+  })
 
-  if (isCompositeMetric.value) {
-    const scores = compositeScores.value
+  // 依所選指標排序：
+  // - 選「綜合評分」：分數越高（0~100）代表綜合進步幅度越大
+  // - 選單一指標：better === 'down' 時差值越負代表進步越多，反之越正代表進步越多
+  const rankedProgress = computed(() => {
+    const rows = [...(progressData.value?.rows ?? [])]
+
+    if (isCompositeMetric.value) {
+      const scores = compositeScores.value
+      rows.sort((a: any, b: any) => {
+        const sa = scores.get(a.patnr)
+        const sb = scores.get(b.patnr)
+        if (sa === undefined && sb === undefined) return 0
+        if (sa === undefined) return 1
+        if (sb === undefined) return -1
+        return sb - sa
+      })
+      return rows
+    }
+
+    const metric = currentMetricInfo.value
     rows.sort((a: any, b: any) => {
-      const sa = scores.get(a.patnr)
-      const sb = scores.get(b.patnr)
-      if (sa === undefined && sb === undefined) return 0
-      if (sa === undefined) return 1
-      if (sb === undefined) return -1
-      return sb - sa
+      const da = a.delta?.[metric.key]
+      const db = b.delta?.[metric.key]
+      if (da == null && db == null) return 0
+      if (da == null) return 1
+      if (db == null) return -1
+      const scoreA = metric.better === 'down' ? -da : da
+      const scoreB = metric.better === 'down' ? -db : db
+      return scoreB - scoreA
     })
     return rows
-  }
-
-  const metric = currentMetricInfo.value
-  rows.sort((a: any, b: any) => {
-    const da = a.delta?.[metric.key]
-    const db = b.delta?.[metric.key]
-    if (da == null && db == null) return 0
-    if (da == null) return 1
-    if (db == null) return -1
-    const scoreA = metric.better === 'down' ? -da : da
-    const scoreB = metric.better === 'down' ? -db : db
-    return scoreB - scoreA
   })
-  return rows
-})
 
-function deltaClass(delta: number | null | undefined, better: 'up' | 'down') {
-  if (delta === null || delta === undefined) return 'text-hint-c'
-  if (delta === 0) return 'text-hint-c'
-  const improved = better === 'down' ? delta < 0 : delta > 0
-  return improved
-    ? 'text-emerald-600 dark:text-emerald-400'
-    : 'text-rose-600 dark:text-rose-400'
-}
-function fmtDelta(v: number | null | undefined, digits = 1) {
-  if (v === null || v === undefined) return '–'
-  const sign = v > 0 ? '+' : ''
-  return sign + v.toFixed(digits)
-}
-function fmtScore(v: number | undefined) {
-  return v === undefined ? '–' : v.toFixed(1)
-}
-function scoreClass(v: number | undefined) {
-  if (v === undefined) return 'text-hint-c'
-  if (v >= 60) return 'text-emerald-600 dark:text-emerald-400'
-  if (v <= 40) return 'text-rose-600 dark:text-rose-400'
-  return 'text-base-c'
-}
-
-// ── 進步排行圖表（水平長條圖，只取排序後前 20 名，避免圖表過長）──
-const PROGRESS_CHART_LIMIT = 20
-const progressChartRows = computed(() => rankedProgress.value.slice(0, PROGRESS_CHART_LIMIT))
-
-function chartValue(row: any): number {
-  if (isCompositeMetric.value) return compositeScores.value.get(row.patnr) ?? 0
-  const d = row.delta?.[progressMetric.value]
-  return d ?? 0
-}
-
-// 單一指標模式下，用目前這批圖表資料裡差值絕對值的最大值當作長條圖滿版基準
-const chartMax = computed(() => {
-  if (isCompositeMetric.value) return 100
-  const vals = progressChartRows.value
-    .map((r: any) => r.delta?.[progressMetric.value])
-    .filter((v: any) => v !== null && v !== undefined)
-    .map((v: number) => Math.abs(v))
-  return vals.length ? Math.max(...vals) : 1
-})
-
-function chartWidthPct(row: any): number {
-  if (isCompositeMetric.value) {
-    return Math.min(100, Math.max(0, chartValue(row)))
+  function deltaClass(delta: number | null | undefined, better: 'up' | 'down') {
+    if (delta === null || delta === undefined) return 'text-hint-c'
+    if (delta === 0) return 'text-hint-c'
+    const improved = better === 'down' ? delta < 0 : delta > 0
+    return improved
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-rose-600 dark:text-rose-400'
   }
-  const max = chartMax.value || 1
-  return Math.min(100, Math.max(0, (Math.abs(chartValue(row)) / max) * 100))
-}
-
-function chartBarColor(row: any): string {
-  if (isCompositeMetric.value) {
-    const v = chartValue(row)
-    if (v >= 60) return 'bg-emerald-500'
-    if (v <= 40) return 'bg-rose-500'
-    return 'bg-amber-400'
+  function fmtDelta(v: number | null | undefined, digits = 1) {
+    if (v === null || v === undefined) return '–'
+    const sign = v > 0 ? '+' : ''
+    return sign + v.toFixed(digits)
   }
-  const d = row.delta?.[progressMetric.value]
-  if (d === null || d === undefined) return 'bg-gray-300 dark:bg-gray-600'
-  const improved = currentMetricInfo.value.better === 'down' ? d < 0 : d > 0
-  return improved ? 'bg-emerald-500' : 'bg-rose-500'
-}
+  function fmtScore(v: number | undefined) {
+    return v === undefined ? '–' : v.toFixed(1)
+  }
+  function scoreClass(v: number | undefined) {
+    if (v === undefined) return 'text-hint-c'
+    if (v >= 60) return 'text-emerald-600 dark:text-emerald-400'
+    if (v <= 40) return 'text-rose-600 dark:text-rose-400'
+    return 'text-base-c'
+  }
 
-// 第一次切到「進步排行」頁籤時自動查一次（用預設的近 3 個月、全部班別）
-watch(currentTab, (t) => {
-  if (t === 'progress' && !progressData.value && !progressLoading.value) loadProgress()
-})
+  // ── 進步排行圖表（水平長條圖，只取排序後前 20 名，避免圖表過長）──
+  const PROGRESS_CHART_LIMIT = 20
+  const progressChartRows = computed(() => rankedProgress.value.slice(0, PROGRESS_CHART_LIMIT))
 
-onMounted(async () => {
-  await Promise.all([loadStats(), loadLatest(), loadGroups(), refreshList()])
-})
+  function chartValue(row: any): number {
+    if (isCompositeMetric.value) return compositeScores.value.get(row.patnr) ?? 0
+    const d = row.delta?.[progressMetric.value]
+    return d ?? 0
+  }
+
+  // 單一指標模式下，用目前這批圖表資料裡差值絕對值的最大值當作長條圖滿版基準
+  const chartMax = computed(() => {
+    if (isCompositeMetric.value) return 100
+    const vals = progressChartRows.value
+      .map((r: any) => r.delta?.[progressMetric.value])
+      .filter((v: any) => v !== null && v !== undefined)
+      .map((v: number) => Math.abs(v))
+    return vals.length ? Math.max(...vals) : 1
+  })
+
+  function chartWidthPct(row: any): number {
+    if (isCompositeMetric.value) {
+      return Math.min(100, Math.max(0, chartValue(row)))
+    }
+    const max = chartMax.value || 1
+    return Math.min(100, Math.max(0, (Math.abs(chartValue(row)) / max) * 100))
+  }
+
+  function chartBarColor(row: any): string {
+    if (isCompositeMetric.value) {
+      const v = chartValue(row)
+      if (v >= 60) return 'bg-emerald-500'
+      if (v <= 40) return 'bg-rose-500'
+      return 'bg-amber-400'
+    }
+    const d = row.delta?.[progressMetric.value]
+    if (d === null || d === undefined) return 'bg-gray-300 dark:bg-gray-600'
+    const improved = currentMetricInfo.value.better === 'down' ? d < 0 : d > 0
+    return improved ? 'bg-emerald-500' : 'bg-rose-500'
+  }
+
+  // ── 進步排行：日期解析（後端 start/end 物件的日期欄位名稱不確定，
+  //    依序嘗試常見欄位，都沒有的話就退回使用查詢條件的起訖日期，確保圖表仍能畫出來）──
+  function pickRecDateRaw(rec: any, fallback: string) {
+    return rec?.datetime ?? rec?.date ?? rec?.checkdate ?? rec?.check_date
+      ?? rec?.measure_date ?? rec?.record_date ?? fallback
+  }
+  function parseDateSafe(v: any): number | null {
+    if (!v) return null
+    const t = new Date(v).getTime()
+    return Number.isNaN(t) ? null : t
+  }
+  function recDateMs(rec: any, fallback: string): number | null {
+    return parseDateSafe(pickRecDateRaw(rec, fallback))
+  }
+  function recDateLabel(rec: any, fallback: string): string {
+    return fmtDate(pickRecDateRaw(rec, fallback))
+  }
+  // 條形圖每一列 hover 時顯示的起訖時間點（＋數值），滑鼠移到長條上就能看到
+  function rowDateRangeLabel(row: any): string {
+    const s = recDateLabel(row.start, progressStart.value)
+    const e = recDateLabel(row.end, progressEnd.value)
+    const val = isCompositeMetric.value ? fmtScore(chartValue(row)) : fmtDelta(chartValue(row))
+    return `${s} ～ ${e}　${val}`
+  }
+
+  // 條形圖上方顯示的整體資料期間（取所選前 N 名裡最早的起始日～最晚的結束日）
+  const progressBarDateSpan = computed(() => {
+    const rows = progressChartRows.value
+    if (!rows.length) return ''
+    const starts = rows.map((r: any) => recDateMs(r.start, progressStart.value)).filter((v: any): v is number => v !== null).sort((a: number, b: number) => a - b)
+    const ends = rows.map((r: any) => recDateMs(r.end, progressEnd.value)).filter((v: any): v is number => v !== null).sort((a: number, b: number) => a - b)
+    if (!starts.length || !ends.length) return ''
+    return `${fmtDate(new Date(starts[0]).toISOString())} ～ ${fmtDate(new Date(ends[ends.length - 1]).toISOString())}`
+  })
+
+  // ── 進步排行：折線圖（改抓每位學生「完整」檢測紀錄，而非只有頭尾兩筆）──
+  // /progress 這支 API 本身只回傳期間內最早／最晚各一筆，畫不出中間的變化，
+  // 所以折線圖改成對圖表上會顯示的每位學生，各別呼叫既有的
+  // GET .../customers/{patnr}/records（跟客戶詳情頁「歷史趨勢折線圖」共用同一支 API），
+  // 抓回該學生的完整歷史紀錄，再依目前選擇的起訖日期篩選、畫出中間所有點的走勢。
+  const LINE_H = 460
+  const LINE_PAD_X = 70
+  const LINE_PAD_Y = 30
+
+  // 折線圖寬度改成量測容器實際寬度（左右也撐滿），而不是寫死的常數，
+  // 這樣文字／資料點不會因為 CSS 縮放而跑版變形（座標單位＝實際 px，比例永遠是 1:1）。
+  // 用 watch 監看 template ref，因為這個容器只在切到「折線圖」時才會被渲染出來，
+  // 一開始掛載時通常還抓不到元素，要等它真的出現才能開始觀察尺寸。
+  const lineChartWrapRef = ref<HTMLElement | null>(null)
+  const lineChartWidth = ref(960)
+  let lineChartResizeObserver: ResizeObserver | null = null
+
+  function measureLineChartWidth() {
+    const w = lineChartWrapRef.value?.clientWidth
+    if (w && w > 0) lineChartWidth.value = Math.max(360, Math.round(w))
+  }
+
+  watch(lineChartWrapRef, (el) => {
+    lineChartResizeObserver?.disconnect()
+    lineChartResizeObserver = null
+    if (el && typeof ResizeObserver !== 'undefined') {
+      measureLineChartWidth()
+      lineChartResizeObserver = new ResizeObserver(() => measureLineChartWidth())
+      lineChartResizeObserver.observe(el)
+    }
+  })
+  onBeforeUnmount(() => {
+    lineChartResizeObserver?.disconnect()
+  })
+
+  const lineRecordsCache = ref<Map<number, any[]>>(new Map())
+  const lineRecordsLoading = ref(false)
+
+  async function fetchCustomerRecords(patnr: number): Promise<any[]> {
+    try {
+      return await $fetch<any[]>(`${BASE()}/customers/${patnr}/records`) ?? []
+    } catch {
+      return []
+    }
+  }
+
+  async function ensureLineRecords(patnrs: number[]) {
+    const missing = patnrs.filter(p => !lineRecordsCache.value.has(p))
+    if (!missing.length) return
+    lineRecordsLoading.value = true
+    try {
+      const pairs = await Promise.all(missing.map(async patnr => [patnr, await fetchCustomerRecords(patnr)] as const))
+      for (const [patnr, recs] of pairs) lineRecordsCache.value.set(patnr, recs)
+    } finally {
+      lineRecordsLoading.value = false
+    }
+  }
+
+  // ── 客戶查詢列表：最新檢測日期 ──
+  // 跟折線圖共用同一份 lineRecordsCache（同一支 GET .../customers/{patnr}/records），
+  // 這個學生的完整紀錄如果折線圖已經抓過就直接沿用，不用重複打 API。
+  const latestDateLoading = ref<Set<number>>(new Set())
+
+  async function ensureLatestDates(patnrs: number[]) {
+    const missing = patnrs.filter(p => !lineRecordsCache.value.has(p) && !latestDateLoading.value.has(p))
+    if (!missing.length) return
+    missing.forEach(p => latestDateLoading.value.add(p))
+    await Promise.all(missing.map(async (patnr) => {
+      const recs = await fetchCustomerRecords(patnr)
+      lineRecordsCache.value.set(patnr, recs)
+      latestDateLoading.value.delete(patnr)
+    }))
+  }
+
+  // 客戶查詢的清單一有變化（換頁／搜尋／篩選班別）就補抓目前這一頁裡缺少的人
+  watch(() => listData.value?.rows, (rows: any) => {
+    const patnrs = (rows ?? []).map((r: any) => r.patnr)
+    if (patnrs.length) ensureLatestDates(patnrs)
+  }, { immediate: true })
+
+  // 客戶的紀錄本來就是新到舊排序（跟 customerRecords / latestRecord 的假設一致），取第一筆即為最新日期
+  function latestDateLabel(patnr: number): string {
+    if (latestDateLoading.value.has(patnr)) return '…'
+    const recs = lineRecordsCache.value.get(patnr)
+    if (!recs || !recs.length) return '–'
+    return fmtDate(recs[0]?.datetime)
+  }
+
+  // 切到折線圖時，圖表上會顯示的學生清單有變化就補抓缺少的人（綜合評分模式一樣需要完整紀錄來換算分數趨勢）
+  const lineTargetPatnrs = computed(() =>
+    progressView.value === 'line'
+      ? progressChartRows.value.map((r: any) => r.patnr)
+      : []
+  )
+  watch(lineTargetPatnrs, (list) => { if (list.length) ensureLineRecords(list) }, { immediate: true })
+
+  // 把某學生的完整紀錄，篩選在目前所選的起訖日期區間內、依時間由舊到新排序
+  function recordsInRange(patnr: number): any[] {
+    const all = lineRecordsCache.value.get(patnr) ?? []
+    const startMs = parseDateSafe(progressStart.value)
+    const endMs = parseDateSafe(progressEnd.value)
+    const endBoundary = endMs === null ? null : endMs + 24 * 60 * 60 * 1000 - 1 // 含結束日當天
+    return all
+      .map((r: any) => ({ rec: r, t: parseDateSafe(r.datetime) }))
+      .filter((x: any) => x.t !== null && (startMs === null || x.t >= startMs) && (endBoundary === null || x.t <= endBoundary))
+      .sort((a: any, b: any) => a.t - b.t)
+  }
+
+  const progressLineChart = computed(() => {
+    const key = progressMetric.value
+    const rows = progressChartRows.value
+    const LINE_W = lineChartWidth.value
+    const isComposite = isCompositeMetric.value
+
+    // 綜合評分模式：參考條形圖「綜合分數」的算法──把每一筆紀錄跟該學生「期間內第一筆」比較，
+    // 算出各指標差值，再用整批學生的差值範圍換算成 0~100 分，這樣中間每一筆都能有一個對應的
+    // 綜合分數，連成趨勢線（分數越高＝相對於同一批學生，累積進步幅度越大）。
+    function compositePts(patnr: number): { t: number, v: number }[] {
+      const recs = recordsInRange(patnr)
+      if (recs.length < 2) return []
+      const baseline = recs[0].rec
+      return recs
+        .map((x: any) => {
+          const deltas: Record<string, number> = {}
+          for (const m of REAL_METRICS) {
+            const bv = baseline[m.key]
+            const cv = x.rec[m.key]
+            if (bv === null || bv === undefined || bv === '' || cv === null || cv === undefined || cv === '') continue
+            deltas[m.key] = Number(cv) - Number(bv)
+          }
+          const score = compositeScoreFromDeltas(deltas)
+          return score === null ? null : { t: x.t, v: score }
+        })
+        .filter((p: any): p is { t: number, v: number } => p !== null)
+    }
+
+    function singleMetricPts(patnr: number): { t: number, v: number }[] {
+      return recordsInRange(patnr)
+        .filter((x: any) => x.rec[key] !== null && x.rec[key] !== undefined && x.rec[key] !== '')
+        .map((x: any) => ({ t: x.t, v: Number(x.rec[key]) }))
+    }
+
+    const series = rows
+      .map((row: any) => {
+        const pts = isComposite ? compositePts(row.patnr) : singleMetricPts(row.patnr)
+        if (pts.length < 2) return null // 期間內少於 2 筆，無法畫趨勢
+        return { row, pts }
+      })
+      .filter((s: any): s is NonNullable<typeof s> => s !== null)
+    if (!series.length) return null
+
+    const allT = series.flatMap((s: any) => s.pts.map((p: any) => p.t))
+    const minT = Math.min(...allT)
+    const maxT = Math.max(...allT)
+    const tRange = (maxT - minT) || 1
+
+    const allV = series.flatMap((s: any) => s.pts.map((p: any) => p.v))
+    const minV = Math.min(...allV)
+    const maxV = Math.max(...allV)
+    const vRange = (maxV - minV) || 1
+
+    const xOf = (t: number) => LINE_PAD_X + ((t - minT) / tRange) * (LINE_W - LINE_PAD_X * 2)
+    const yOf = (v: number) => LINE_H - LINE_PAD_Y - ((v - minV) / vRange) * (LINE_H - LINE_PAD_Y * 2)
+
+    // 產生等距刻度（Y 軸數值 4 等分、X 軸時間 4 等分），畫格線＋座標軸用
+    function buildTicks(min: number, max: number, count: number): number[] {
+      if (min === max) return [min]
+      return Array.from({ length: count + 1 }, (_, i) => min + (max - min) * (i / count))
+    }
+    const yTicks = buildTicks(minV, maxV, 4).map(v => ({ y: yOf(v), label: v.toFixed(1) }))
+    const xTicks = buildTicks(minT, maxT, 4).map(t => ({ x: xOf(t), label: fmtDate(new Date(t).toISOString()) }))
+
+    // 綜合評分本身已經是「分數越高＝越進步」，不需要再依 better 方向判斷
+    const better = currentMetricInfo.value.better
+    const lines = series.map((s: any) => {
+      const first = s.pts[0]
+      const last = s.pts[s.pts.length - 1]
+      const improved = isComposite ? last.v > first.v : (better === 'down' ? last.v < first.v : last.v > first.v)
+      const color = improved ? '#10b981' : '#f43f5e'
+      const points = s.pts.map((p: any, i: number) => ({
+        i,
+        x: xOf(p.t),
+        y: yOf(p.v),
+        label: p.v.toFixed(1),
+        dateLabel: fmtDate(new Date(p.t).toISOString())
+      }))
+      const path = points.map((p: any, i: number) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ')
+      return {
+        patnr: s.row.patnr,
+        name: `${s.row.lastname ?? ''}${s.row.firstname ?? ''}`,
+        color,
+        path,
+        points,
+        pointCount: s.pts.length,
+        firstDate: fmtDate(new Date(first.t).toISOString()),
+        lastDate: fmtDate(new Date(last.t).toISOString()),
+        firstLabel: first.v.toFixed(1),
+        lastLabel: last.v.toFixed(1),
+        lastY: yOf(last.v)
+      }
+    })
+
+    return {
+      w: LINE_W,
+      h: LINE_H,
+      plotLeft: LINE_PAD_X,
+      axisY: LINE_H - LINE_PAD_Y,
+      yTicks,
+      xTicks,
+      lines
+    }
+  })
+
+  // 折線圖 hover 狀態：滑鼠移到資料點上時顯示跟著游標的浮動數值卡片
+  interface LineHoverInfo {
+    patnr: number
+    pointIndex: number
+    x: number
+    y: number
+    name: string
+    date: string
+    value: string
+    color: string
+  }
+  const lineHover = ref<LineHoverInfo | null>(null)
+  function setLineHover(ln: any, pt: any) {
+    lineHover.value = {
+      patnr: ln.patnr, pointIndex: pt.i, x: pt.x, y: pt.y,
+      name: ln.name, date: pt.dateLabel, value: pt.label, color: ln.color
+    }
+  }
+  function clearLineHover() {
+    lineHover.value = null
+  }
+  watch(progressLineChart, () => { lineHover.value = null })
+
+  // 第一次切到「進步排行」頁籤時自動查一次（用預設的近 3 個月、全部班別）
+  watch(currentTab, (t) => {
+    if (t === 'progress' && !progressData.value && !progressLoading.value) loadProgress()
+  })
+
+  onMounted(async () => {
+    await Promise.all([loadStats(), loadLatest(), loadGroups(), refreshList()])
+  })
 </script>
 
 <template>
@@ -727,61 +1025,61 @@ onMounted(async () => {
         <div class="overflow-x-auto rounded-md border border-base">
           <table class="w-full border-collapse text-xs">
             <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-              <tr>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                  姓名
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                  日期
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                  BMI
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                  體脂率%
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                  肌肉量kg
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
-                  內臟脂肪
-                </th>
-              </tr>
+            <tr>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                姓名
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                日期
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                BMI
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                體脂率%
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                肌肉量kg
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-right whitespace-nowrap">
+                內臟脂肪
+              </th>
+            </tr>
             </thead>
             <tbody class="divide-y divide-base">
-              <tr v-if="!latestRecords.length">
-                <td
-                  colspan="6"
-                  class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
-                >
-                  無資料
-                </td>
-              </tr>
-              <tr
-                v-for="rec in latestRecords"
-                :key="rec.patnr + '-' + rec.datetime"
-                class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-                @click="openCustomer(rec.patnr)"
+            <tr v-if="!latestRecords.length">
+              <td
+                colspan="6"
+                class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
               >
-                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-                  {{ rec.lastname }}{{ rec.firstname }}
-                </td>
-                <td class="border border-light-c px-3 py-1 whitespace-nowrap font-mono">
-                  {{ fmtDate(rec.datetime) }}
-                </td>
-                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                  <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
-                </td>
-                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                  {{ fmtNum(rec.fatp) }}
-                </td>
-                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                  {{ fmtNum(rec.pmm) }}
-                </td>
-                <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
-                  {{ fmtNum(rec.vfatl, 0) }}
-                </td>
-              </tr>
+                無資料
+              </td>
+            </tr>
+            <tr
+              v-for="rec in latestRecords"
+              :key="rec.patnr + '-' + rec.datetime"
+              class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+              @click="openCustomer(rec.patnr)"
+            >
+              <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                {{ rec.lastname }}{{ rec.firstname }}
+              </td>
+              <td class="border border-light-c px-3 py-1 whitespace-nowrap font-mono">
+                {{ fmtDate(rec.datetime) }}
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                {{ fmtNum(rec.fatp) }}
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                {{ fmtNum(rec.pmm) }}
+              </td>
+              <td class="border border-light-c px-3 py-1 text-right whitespace-nowrap">
+                {{ fmtNum(rec.vfatl, 0) }}
+              </td>
+            </tr>
             </tbody>
           </table>
         </div>
@@ -884,59 +1182,65 @@ onMounted(async () => {
           <div class="overflow-x-auto rounded-md border border-base mb-6 lg:mb-0">
             <table class="w-full border-collapse text-sm">
               <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-                <tr>
-                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                    客戶編號
-                  </th>
-                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                    姓名
-                  </th>
-                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-center whitespace-nowrap">
-                    性別
-                  </th>
-                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">
-                    所屬班別
-                  </th>
-                  <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
-                    建檔日期
-                  </th>
-                </tr>
+              <tr>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  客戶編號
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  姓名
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-center whitespace-nowrap">
+                  性別
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left">
+                  所屬班別
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  建檔日期
+                </th>
+                <th class="border border-teal-700 dark:border-teal-900 px-3 py-2 text-left whitespace-nowrap">
+                  最新日期
+                </th>
+              </tr>
               </thead>
               <tbody class="divide-y divide-base">
-                <tr v-if="!listData?.rows?.length">
-                  <td
-                    colspan="5"
-                    class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
-                  >
-                    無資料
-                  </td>
-                </tr>
-                <tr
-                  v-for="row in listData?.rows"
-                  :key="row.patnr"
-                  class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-                  :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
-                  @click="openCustomer(row.patnr)"
+              <tr v-if="!listData?.rows?.length">
+                <td
+                  colspan="6"
+                  class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
                 >
-                  <td class="border border-light-c px-3 py-1 font-mono whitespace-nowrap">
-                    {{ row.customerid }}
-                  </td>
-                  <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-                    {{ row.lastname }}{{ row.firstname }}
-                  </td>
-                  <td class="border border-light-c px-3 py-1 text-center whitespace-nowrap">
-                    {{ sexLabel(row.sex) }}
-                  </td>
-                  <td
-                    class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis"
-                    :title="row.group1"
-                  >
-                    {{ row.group1 }}
-                  </td>
-                  <td class="border border-light-c px-3 py-1 whitespace-nowrap">
-                    {{ fmtDate(row.creationdate) }}
-                  </td>
-                </tr>
+                  無資料
+                </td>
+              </tr>
+              <tr
+                v-for="row in listData?.rows"
+                :key="row.patnr"
+                class="transition-colors bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+                :class="{ 'bg-yellow-100 dark:bg-yellow-900/40 font-semibold': selectedPatnr === row.patnr }"
+                @click="openCustomer(row.patnr)"
+              >
+                <td class="border border-light-c px-3 py-1 font-mono whitespace-nowrap">
+                  {{ row.customerid }}
+                </td>
+                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                  {{ row.lastname }}{{ row.firstname }}
+                </td>
+                <td class="border border-light-c px-3 py-1 text-center whitespace-nowrap">
+                  {{ sexLabel(row.sex) }}
+                </td>
+                <td
+                  class="border border-light-c px-3 py-1 whitespace-nowrap max-w-[140px] overflow-hidden text-ellipsis"
+                  :title="row.group1"
+                >
+                  {{ row.group1 }}
+                </td>
+                <td class="border border-light-c px-3 py-1 whitespace-nowrap">
+                  {{ fmtDate(row.creationdate) }}
+                </td>
+                <td class="border border-light-c px-3 py-1 whitespace-nowrap font-mono">
+                  {{ latestDateLabel(row.patnr) }}
+                </td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -1222,109 +1526,109 @@ onMounted(async () => {
                 <div class="overflow-x-auto rounded border border-base">
                   <table class="w-full border-collapse text-xs">
                     <thead class="bg-surface2">
-                      <tr class="text-muted-c dark:text-hint-c">
-                        <th class="border border-light-c px-2 py-1.5 text-left whitespace-nowrap">
-                          日期
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          年齡
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          身高cm
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          體重kg
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          BMI
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          體脂率%
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          體脂重kg
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          肌肉量kg
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          內臟脂肪
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          骨量kg
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          基礎代謝
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          體內年齡
-                        </th>
-                        <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
-                          綜合風險
-                        </th>
-                      </tr>
+                    <tr class="text-muted-c dark:text-hint-c">
+                      <th class="border border-light-c px-2 py-1.5 text-left whitespace-nowrap">
+                        日期
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        年齡
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        身高cm
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        體重kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        BMI
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        體脂率%
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        體脂重kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        肌肉量kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        內臟脂肪
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        骨量kg
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        基礎代謝
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        體內年齡
+                      </th>
+                      <th class="border border-light-c px-2 py-1.5 text-right whitespace-nowrap">
+                        綜合風險
+                      </th>
+                    </tr>
                     </thead>
                     <tbody class="divide-y divide-base">
-                      <tr v-if="!customerRecords.length">
-                        <td
-                          colspan="13"
-                          class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
-                        >
-                          尚無檢測紀錄
-                        </td>
-                      </tr>
-                      <tr
-                        v-for="(rec, idx) in customerRecords"
-                        :key="rec.datetime"
-                        class="bg-surface"
-                        :class="{ 'font-semibold': idx === 0 }"
+                    <tr v-if="!customerRecords.length">
+                      <td
+                        colspan="13"
+                        class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
                       >
-                        <td class="border border-light-c px-2 py-1 font-mono whitespace-nowrap">
-                          {{ fmtDate(rec.datetime) }}
-                          <span
-                            v-if="idx === 0"
-                            class="ml-1 text-[10px] bg-teal-500 text-white rounded px-1"
-                          >
+                        尚無檢測紀錄
+                      </td>
+                    </tr>
+                    <tr
+                      v-for="(rec, idx) in customerRecords"
+                      :key="rec.datetime"
+                      class="bg-surface"
+                      :class="{ 'font-semibold': idx === 0 }"
+                    >
+                      <td class="border border-light-c px-2 py-1 font-mono whitespace-nowrap">
+                        {{ fmtDate(rec.datetime) }}
+                        <span
+                          v-if="idx === 0"
+                          class="ml-1 text-[10px] bg-teal-500 text-white rounded px-1"
+                        >
                             最新
                           </span>
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.age, 0) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.height) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.weight) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.fatp) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.fatm) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.pmm) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.vfatl, 0) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.bonem) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.bmr, 0) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ fmtNum(rec.metaage, 0) }}
-                        </td>
-                        <td class="border border-light-c px-2 py-1 text-right">
-                          {{ rec.allrisk != null ? fmtNum(rec.allrisk * 100, 0) + '%' : '–' }}
-                        </td>
-                      </tr>
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.age, 0) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.height) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.weight) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        <span :class="bmiTagClass(rec.bmi)">{{ fmtNum(rec.bmi) }}</span>
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.fatp) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.fatm) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.pmm) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.vfatl, 0) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.bonem) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.bmr, 0) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ fmtNum(rec.metaage, 0) }}
+                      </td>
+                      <td class="border border-light-c px-2 py-1 text-right">
+                        {{ rec.allrisk != null ? fmtNum(rec.allrisk * 100, 0) + '%' : '–' }}
+                      </td>
+                    </tr>
                     </tbody>
                   </table>
                 </div>
@@ -1408,15 +1712,23 @@ onMounted(async () => {
         </template>
       </div>
 
-      <!-- 圖表／表格 切換 -->
+      <!-- 直條圖／折線圖／表格 切換 -->
       <div class="flex gap-1 border border-base rounded overflow-hidden w-fit mb-3">
         <button
           type="button"
           class="px-3 py-1.5 text-sm"
-          :class="progressView === 'chart' ? 'bg-teal-600 text-white' : 'bg-surface text-base-c hover:bg-surface2'"
-          @click="progressView = 'chart'"
+          :class="progressView === 'bar' ? 'bg-teal-600 text-white' : 'bg-surface text-base-c hover:bg-surface2'"
+          @click="progressView = 'bar'"
         >
-          📊 圖表
+          📊 條形圖
+        </button>
+        <button
+          type="button"
+          class="px-3 py-1.5 text-sm"
+          :class="progressView === 'line' ? 'bg-teal-600 text-white' : 'bg-surface text-base-c hover:bg-surface2'"
+          @click="progressView = 'line'"
+        >
+          📈 折線圖
         </button>
         <button
           type="button"
@@ -1428,12 +1740,12 @@ onMounted(async () => {
         </button>
       </div>
 
-      <!-- 進步排行圖表 -->
+      <!-- 進步排行：條形圖（橫向長條，滑鼠移入可看該學生的起訖時間點） -->
       <div
-        v-if="progressView === 'chart' && progressChartRows.length"
+        v-if="progressView === 'bar' && progressChartRows.length"
         class="mb-5 border border-base rounded-md p-4 bg-surface"
       >
-        <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-3">
+        <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-1">
           {{ isCompositeMetric ? '綜合評分排行圖' : `${currentMetricInfo.label} 差值排行圖` }}
           <span
             v-if="rankedProgress.length > PROGRESS_CHART_LIMIT"
@@ -1442,11 +1754,18 @@ onMounted(async () => {
             （僅顯示前 {{ PROGRESS_CHART_LIMIT }} 名，共 {{ rankedProgress.length }} 名）
           </span>
         </div>
+        <div
+          v-if="progressBarDateSpan"
+          class="text-[11px] text-hint-c dark:text-hint-c mb-3"
+        >
+          🕒 資料期間：{{ progressBarDateSpan }}（每一列可將滑鼠移入查看該學生的起訖時間點）
+        </div>
         <div class="space-y-1.5">
           <div
             v-for="row in progressChartRows"
             :key="row.patnr"
             class="flex items-center gap-2 text-xs"
+            :title="rowDateRangeLabel(row)"
           >
             <span class="w-20 text-right text-hint-c dark:text-hint-c truncate">{{ row.lastname }}{{ row.firstname }}</span>
             <div
@@ -1469,7 +1788,162 @@ onMounted(async () => {
         </div>
       </div>
       <div
-        v-else-if="progressView === 'chart' && !progressLoading"
+        v-else-if="progressView === 'bar' && !progressLoading"
+        class="mb-5 border border-base rounded-md p-6 bg-surface text-center text-xs text-hint-c dark:text-hint-c"
+      >
+        尚無資料，請選擇班別與時間段後查詢
+      </div>
+
+      <!-- 進步排行：折線圖（SVG 斜率圖，X 軸依實際檢測時間點定位） -->
+      <div
+        v-if="progressView === 'line' && lineRecordsLoading"
+        class="mb-5 border border-base rounded-md p-6 bg-surface text-center text-xs text-hint-c dark:text-hint-c"
+      >
+        載入各學生完整檢測紀錄中…
+      </div>
+      <div
+        v-else-if="progressView === 'line' && progressLineChart"
+        class="mb-5 border border-base rounded-md p-4 bg-surface"
+      >
+        <div class="text-xs font-bold text-muted-c dark:text-hint-c mb-1">
+          {{ isCompositeMetric ? '綜合評分' : currentMetricInfo.label }} 走勢折線圖
+          <span
+            v-if="rankedProgress.length > PROGRESS_CHART_LIMIT"
+            class="font-normal text-hint-c dark:text-hint-c"
+          >
+            （僅顯示前 {{ PROGRESS_CHART_LIMIT }} 名，共 {{ rankedProgress.length }} 名）
+          </span>
+        </div>
+        <div
+          v-if="isCompositeMetric"
+          class="text-[11px] text-hint-c dark:text-hint-c mb-3"
+        >
+          🕒 綜合分數算法跟條形圖一致：把每一筆紀錄跟該學生「期間內第一筆」比較，換算成 0~100 分，分數越高代表累積進步幅度越大（起點不一定是 0 分，是跟同一批學生相對比較出來的）
+        </div>
+        <div
+          v-else
+          class="text-[11px] text-hint-c dark:text-hint-c mb-3">
+          🕒 每條線代表一位學生在所選期間內「每一筆」檢測紀錄的數值變化，不是只看頭尾兩點（綠色＝進步、紅色＝退步），滑鼠移到資料點上可看到日期與數值
+        </div>
+        <div
+          ref="lineChartWrapRef"
+          class="relative w-full"
+        >
+          <svg
+            v-if="progressLineChart"
+            :viewBox="`0 0 ${progressLineChart.w} ${progressLineChart.h}`"
+            :width="progressLineChart.w"
+            :height="progressLineChart.h"
+            class="block"
+          >
+            <!-- Y 軸格線＋刻度數值 -->
+            <g v-for="(t, ti) in progressLineChart.yTicks" :key="'y' + ti">
+              <line
+                :x1="progressLineChart.plotLeft"
+                :y1="t.y"
+                :x2="progressLineChart.w"
+                :y2="t.y"
+                stroke="currentColor"
+                class="text-base opacity-20"
+                stroke-width="1"
+              />
+              <text
+                :x="progressLineChart.plotLeft - 6"
+                :y="t.y + 3"
+                text-anchor="end"
+                font-size="12"
+                class="fill-current text-hint-c dark:text-hint-c"
+              >
+                {{ t.label }}
+              </text>
+            </g>
+            <!-- X 軸刻度日期 -->
+            <text
+              v-for="(t, ti) in progressLineChart.xTicks"
+              :key="'x' + ti"
+              :x="t.x"
+              :y="progressLineChart.h - 4"
+              text-anchor="middle"
+              font-size="12"
+              class="fill-current text-hint-c dark:text-hint-c"
+            >
+              {{ t.label }}
+            </text>
+            <g
+              v-for="ln in progressLineChart.lines"
+              :key="ln.patnr"
+            >
+              <path
+                :d="ln.path"
+                fill="none"
+                :stroke="ln.color"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+                opacity="0.85"
+                class="cursor-pointer"
+                @click="openCustomer(ln.patnr)"
+              />
+              <circle
+                v-for="pt in ln.points"
+                :key="pt.i"
+                :cx="pt.x"
+                :cy="pt.y"
+                :r="lineHover && lineHover.patnr === ln.patnr && lineHover.pointIndex === pt.i ? 6 : 3"
+                :fill="ln.color"
+                class="cursor-pointer"
+                style="transition: r 0.1s"
+                @mouseenter="setLineHover(ln, pt)"
+                @mouseleave="clearLineHover"
+                @click="openCustomer(ln.patnr)"
+              />
+              <!-- 每條線末端標出最後一筆數值 -->
+              <text
+                :x="ln.points[ln.points.length - 1].x + 4"
+                :y="ln.lastY + 3"
+                font-size="10"
+                :fill="ln.color"
+              >
+                {{ ln.lastLabel }}
+              </text>
+            </g>
+          </svg>
+          <!-- 跟著滑鼠游標的浮動數值卡片 -->
+          <div
+            v-if="lineHover"
+            class="absolute pointer-events-none bg-gray-800 text-white text-[11px] rounded px-2 py-1.5 shadow-lg z-10 whitespace-nowrap"
+            :style="{ left: lineHover.x + 'px', top: (lineHover.y - 10) + 'px', transform: 'translate(-50%, -100%)' }"
+          >
+            <div class="font-semibold flex items-center gap-1">
+                <span
+                  class="inline-block w-2 h-2 rounded-full"
+                  :style="{ backgroundColor: lineHover.color }"
+                />
+              {{ lineHover.name }}
+            </div>
+            <div class="text-gray-300">{{ lineHover.date }}</div>
+            <div>數值：<b>{{ lineHover.value }}</b></div>
+          </div>
+        </div>
+        <!-- 圖例：因線條可能重疊，額外用清單列出每位學生的起訖數值 -->
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px]">
+          <div
+            v-for="ln in progressLineChart.lines"
+            :key="ln.patnr"
+            class="flex items-center gap-1 cursor-pointer"
+            @click="openCustomer(ln.patnr)"
+          >
+            <span
+              class="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+              :style="{ backgroundColor: ln.color }"
+            />
+            <span class="text-hint-c dark:text-hint-c">{{ ln.name }}</span>
+            <span class="font-mono">{{ ln.firstLabel }} → {{ ln.lastLabel }}</span>
+          </div>
+        </div>
+      </div>
+      <div
+        v-else-if="progressView === 'line' && !progressLoading"
         class="mb-5 border border-base rounded-md p-6 bg-surface text-center text-xs text-hint-c dark:text-hint-c"
       >
         尚無資料，請選擇班別與時間段後查詢
@@ -1481,93 +1955,93 @@ onMounted(async () => {
       >
         <table class="w-full border-collapse text-xs">
           <thead class="bg-teal-600 dark:bg-teal-800 text-white">
-            <tr>
+          <tr>
+            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+              名次
+            </th>
+            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
+              姓名
+            </th>
+            <th
+              v-if="showGroupColumn"
+              class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap"
+            >
+              班別
+            </th>
+            <template v-if="isCompositeMetric">
               <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                名次
+                綜合分數
               </th>
-              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap">
-                姓名
-              </th>
-              <th
-                v-if="showGroupColumn"
-                class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-left whitespace-nowrap"
-              >
-                班別
-              </th>
-              <template v-if="isCompositeMetric">
-                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                  綜合分數
-                </th>
-              </template>
-              <template v-else>
-                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                  起始值
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                  結束值
-                </th>
-                <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                  差值
-                </th>
-              </template>
+            </template>
+            <template v-else>
               <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
-                紀錄筆數
+                起始值
               </th>
-            </tr>
+              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                結束值
+              </th>
+              <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+                差值
+              </th>
+            </template>
+            <th class="border border-teal-700 dark:border-teal-900 px-2 py-1.5 text-right whitespace-nowrap">
+              紀錄筆數
+            </th>
+          </tr>
           </thead>
           <tbody class="divide-y divide-base">
-            <tr v-if="!progressLoading && !rankedProgress.length">
-              <td
-                :colspan="2 + (showGroupColumn ? 1 : 0) + (isCompositeMetric ? 1 : 3) + 1"
-                class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
-              >
-                尚無資料，請選擇班別與時間段後查詢
-              </td>
-            </tr>
-            <tr
-              v-for="(row, idx) in rankedProgress"
-              :key="row.patnr"
-              class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-              @click="openCustomer(row.patnr)"
+          <tr v-if="!progressLoading && !rankedProgress.length">
+            <td
+              :colspan="2 + (showGroupColumn ? 1 : 0) + (isCompositeMetric ? 1 : 3) + 1"
+              class="border border-light-c px-4 py-6 text-center text-hint-c dark:text-hint-c"
             >
-              <td class="border border-light-c px-2 py-1 text-right font-mono">
-                {{ idx + 1 }}
+              尚無資料，請選擇班別與時間段後查詢
+            </td>
+          </tr>
+          <tr
+            v-for="(row, idx) in rankedProgress"
+            :key="row.patnr"
+            class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
+            @click="openCustomer(row.patnr)"
+          >
+            <td class="border border-light-c px-2 py-1 text-right font-mono">
+              {{ idx + 1 }}
+            </td>
+            <td class="border border-light-c px-2 py-1 whitespace-nowrap">
+              {{ row.lastname }}{{ row.firstname }}
+            </td>
+            <td
+              v-if="showGroupColumn"
+              class="border border-light-c px-2 py-1 whitespace-nowrap"
+            >
+              {{ row.group1 || '其他' }}
+            </td>
+            <template v-if="isCompositeMetric">
+              <td
+                class="border border-light-c px-2 py-1 text-right font-semibold"
+                :class="scoreClass(compositeScores.get(row.patnr))"
+              >
+                {{ fmtScore(compositeScores.get(row.patnr)) }}
               </td>
-              <td class="border border-light-c px-2 py-1 whitespace-nowrap">
-                {{ row.lastname }}{{ row.firstname }}
+            </template>
+            <template v-else>
+              <td class="border border-light-c px-2 py-1 text-right">
+                {{ fmtNum(row.start?.[progressMetric]) }}
+              </td>
+              <td class="border border-light-c px-2 py-1 text-right">
+                {{ fmtNum(row.end?.[progressMetric]) }}
               </td>
               <td
-                v-if="showGroupColumn"
-                class="border border-light-c px-2 py-1 whitespace-nowrap"
+                class="border border-light-c px-2 py-1 text-right font-semibold"
+                :class="deltaClass(row.delta?.[progressMetric], currentMetricInfo.better)"
               >
-                {{ row.group1 || '其他' }}
+                {{ fmtDelta(row.delta?.[progressMetric]) }}
               </td>
-              <template v-if="isCompositeMetric">
-                <td
-                  class="border border-light-c px-2 py-1 text-right font-semibold"
-                  :class="scoreClass(compositeScores.get(row.patnr))"
-                >
-                  {{ fmtScore(compositeScores.get(row.patnr)) }}
-                </td>
-              </template>
-              <template v-else>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(row.start?.[progressMetric]) }}
-                </td>
-                <td class="border border-light-c px-2 py-1 text-right">
-                  {{ fmtNum(row.end?.[progressMetric]) }}
-                </td>
-                <td
-                  class="border border-light-c px-2 py-1 text-right font-semibold"
-                  :class="deltaClass(row.delta?.[progressMetric], currentMetricInfo.better)"
-                >
-                  {{ fmtDelta(row.delta?.[progressMetric]) }}
-                </td>
-              </template>
-              <td class="border border-light-c px-2 py-1 text-right">
-                {{ row.record_count }}
-              </td>
-            </tr>
+            </template>
+            <td class="border border-light-c px-2 py-1 text-right">
+              {{ row.record_count }}
+            </td>
+          </tr>
           </tbody>
         </table>
       </div>
