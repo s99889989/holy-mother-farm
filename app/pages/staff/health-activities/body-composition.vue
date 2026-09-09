@@ -1969,13 +1969,22 @@
                 class="font-mono"
               >綜合分數 {{ selectedBarDetail.scoreLabel }}</span>
             </div>
-            <button
-              type="button"
-              class="text-teal-600 dark:text-teal-400 hover:underline"
-              @click="openCustomer(selectedBarDetail.patnr)"
-            >
-              查看客戶詳情 →
-            </button>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="text-teal-600 dark:text-teal-400 hover:underline"
+                @click="openCustomer(selectedBarDetail.patnr)"
+              >
+                查看客戶詳情 →
+              </button>
+              <button
+                type="button"
+                class="text-hint-c dark:text-hint-c hover:underline"
+                @click="selectedBarPatnr = null"
+              >
+                收起
+              </button>
+            </div>
           </div>
           <div class="text-[11px] text-hint-c dark:text-hint-c mb-2">
             {{ selectedBarDetail.dateRange }}　共 {{ selectedBarDetail.recordCount }} 筆
