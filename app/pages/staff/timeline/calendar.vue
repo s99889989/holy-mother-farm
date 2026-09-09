@@ -2295,73 +2295,69 @@
         </div>
 
         <div class="px-5 py-4 space-y-3">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="field-label">起始日期 *</label>
-              <input
-                v-model="form.date"
-                type="date"
-                class="field-input"
+          <div>
+            <label class="field-label">起始日期 *</label>
+            <input
+              v-model="form.date"
+              type="date"
+              class="field-input"
+            >
+          </div>
+          <div>
+            <label class="field-label">起始時間</label>
+            <div class="time-select-row">
+              <select
+                v-model="formHour"
+                class="field-input time-select"
               >
-            </div>
-            <div>
-              <label class="field-label">起始時間</label>
-              <div class="flex items-center gap-2">
-                <select
-                  v-model="formHour"
-                  class="field-input flex-1"
-                >
-                  <option value="">
-                    --
-                  </option>
-                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
-                </select>
-                <span class="text-hint-c font-medium">:</span>
-                <select
-                  v-model="formMinute"
-                  class="field-input flex-1"
-                >
-                  <option value="">
-                    --
-                  </option>
-                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
-                </select>
-              </div>
+                <option value="">
+                  --
+                </option>
+                <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+              </select>
+              <span class="text-hint-c font-medium">:</span>
+              <select
+                v-model="formMinute"
+                class="field-input time-select"
+              >
+                <option value="">
+                  --
+                </option>
+                <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+              </select>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="field-label">結束日期（選填，跨天活動才需要填）</label>
-              <input
-                v-model="form.endDate"
-                type="date"
-                :min="form.date"
-                class="field-input"
+          <div>
+            <label class="field-label">結束日期（選填，跨天活動才需要填）</label>
+            <input
+              v-model="form.endDate"
+              type="date"
+              :min="form.date"
+              class="field-input"
+            >
+          </div>
+          <div>
+            <label class="field-label">結束時間</label>
+            <div class="time-select-row">
+              <select
+                v-model="formEndHour"
+                class="field-input time-select"
               >
-            </div>
-            <div>
-              <label class="field-label">結束時間</label>
-              <div class="flex items-center gap-2">
-                <select
-                  v-model="formEndHour"
-                  class="field-input flex-1"
-                >
-                  <option value="">
-                    --
-                  </option>
-                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
-                </select>
-                <span class="text-hint-c font-medium">:</span>
-                <select
-                  v-model="formEndMinute"
-                  class="field-input flex-1"
-                >
-                  <option value="">
-                    --
-                  </option>
-                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
-                </select>
-              </div>
+                <option value="">
+                  --
+                </option>
+                <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
+              </select>
+              <span class="text-hint-c font-medium">:</span>
+              <select
+                v-model="formEndMinute"
+                class="field-input time-select"
+              >
+                <option value="">
+                  --
+                </option>
+                <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
+              </select>
             </div>
           </div>
           <p class="text-xs text-hint-c -mt-1">
@@ -4029,6 +4025,34 @@
   .field-input:focus {
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+  }
+
+  /* ── 時間欄位（時/分下拉選單）── */
+  .time-select-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .time-select {
+    flex: 1 1 0;
+    min-width: 0;
+    /* 移除各瀏覽器（尤其 iOS Safari）預設的原生選單樣式，改用自訂單一箭頭，
+       避免在窄欄位裡擠成上下雙箭頭的 stepper 外觀 */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='5 8 10 13 15 8'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    padding-right: 30px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  :root.dark .time-select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23a8a29e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='5 8 10 13 15 8'/%3e%3c/svg%3e");
   }
 
   /* ── 側板動畫 ── */
