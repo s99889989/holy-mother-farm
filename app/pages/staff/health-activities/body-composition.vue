@@ -607,6 +607,19 @@
     const improved = currentMetricInfo.value.better === 'down' ? d < 0 : d > 0
     return improved ? 'bg-emerald-500' : 'bg-rose-500'
   }
+  // 同一份判斷邏輯，回傳 16 進位色碼版本，給條上的行內文字標籤上色用（class 沒辦法用在 :style 的 color 上）
+  function barColorHex(row: any): string {
+    if (isCompositeMetric.value) {
+      const v = chartValue(row)
+      if (v >= 60) return '#10b981'
+      if (v <= 40) return '#f43f5e'
+      return '#f59e0b'
+    }
+    const d = row.delta?.[progressMetric.value]
+    if (d === null || d === undefined) return '#9ca3af'
+    const improved = currentMetricInfo.value.better === 'down' ? d < 0 : d > 0
+    return improved ? '#10b981' : '#f43f5e'
+  }
 
   // ── 進步排行：日期解析（後端 start/end 物件的日期欄位名稱不確定，
   //    依序嘗試常見欄位，都沒有的話就退回使用查詢條件的起訖日期，確保圖表仍能畫出來）──
@@ -643,6 +656,56 @@
     return `${fmtDate(new Date(starts[0]).toISOString())} ～ ${fmtDate(new Date(ends[ends.length - 1]).toISOString())}`
   })
 
+  // 條形圖點選狀態：點一列把它「選起來」，下方顯示詳細明細（跟折線圖的點選互動一致），
+  // 不再是點了就直接跳去客戶詳情頁
+  const selectedBarPatnr = ref<number | null>(null)
+  function toggleBarSelect(patnr: number) {
+    selectedBarPatnr.value = selectedBarPatnr.value === patnr ? null : patnr
+  }
+  const selectedBarRow = computed(() =>
+    progressChartRows.value.find((r: any) => r.patnr === selectedBarPatnr.value) ?? null
+  )
+  watch(progressChartRows, () => { selectedBarPatnr.value = null })
+
+  // 選到的那一列，組出詳細資料：
+  // - 綜合評分模式：列出每一項指標各自的起訖值、差值、是否進步（分數就是這些差值換算出來的）
+  // - 單一指標模式：只列該指標的起訖值與差值
+  interface BarDetailMetric {
+    key: string
+    label: string
+    start: string
+    end: string
+    delta: string
+    improved: boolean | null
+  }
+  const selectedBarDetail = computed(() => {
+    const row = selectedBarRow.value
+    if (!row) return null
+    const metrics: BarDetailMetric[] = (isCompositeMetric.value ? REAL_METRICS : [currentMetricInfo.value])
+      .map((m: any) => {
+        const d = row.delta?.[m.key]
+        const improved = d === null || d === undefined ? null : (m.better === 'down' ? d < 0 : d > 0)
+        return {
+          key: m.key,
+          label: m.label,
+          start: fmtNum(row.start?.[m.key]),
+          end: fmtNum(row.end?.[m.key]),
+          delta: fmtDelta(d),
+          improved
+        }
+      })
+    return {
+      patnr: row.patnr,
+      name: `${row.lastname ?? ''}${row.firstname ?? ''}`,
+      group: row.group1 || '其他',
+      recordCount: row.record_count,
+      dateRange: `${recDateLabel(row.start, progressStart.value)} ～ ${recDateLabel(row.end, progressEnd.value)}`,
+      scoreLabel: isCompositeMetric.value ? fmtScore(chartValue(row)) : null,
+      color: chartBarColor(row).includes('emerald') ? '#10b981' : chartBarColor(row).includes('rose') ? '#f43f5e' : '#f59e0b',
+      metrics
+    }
+  })
+
   // ── 進步排行：折線圖（改抓每位學生「完整」檢測紀錄，而非只有頭尾兩筆）──
   // /progress 這支 API 本身只回傳期間內最早／最晚各一筆，畫不出中間的變化，
   // 所以折線圖改成對圖表上會顯示的每位學生，各別呼叫既有的
@@ -662,7 +725,9 @@
 
   function measureLineChartWidth() {
     const w = lineChartWrapRef.value?.clientWidth
-    if (w && w > 0) lineChartWidth.value = Math.max(360, Math.round(w))
+    // 手機版容器很窄，但圖表最小還是要有 700px 才看得清楚，
+    // 這種情況允許圖表比容器寬、讓外層可以左右滑動查看，桌機版容器夠寬時就直接吃滿容器寬度
+    if (w && w > 0) lineChartWidth.value = Math.max(700, Math.round(w))
   }
 
   watch(lineChartWrapRef, (el) => {
@@ -723,6 +788,12 @@
     if (patnrs.length) ensureLatestDates(patnrs)
   }, { immediate: true })
 
+  // 條形圖點選某位學生時，補抓他的完整紀錄（用來畫長條上的時間點），
+  // 這份紀錄跟折線圖、客戶查詢列表共用同一份快取，抓過的人不會重複打 API
+  watch(selectedBarPatnr, (patnr) => {
+    if (patnr !== null) ensureLatestDates([patnr])
+  })
+
   // 客戶的紀錄本來就是新到舊排序（跟 customerRecords / latestRecord 的假設一致），取第一筆即為最新日期
   function latestDateLabel(patnr: number): string {
     if (latestDateLoading.value.has(patnr)) return '…'
@@ -751,43 +822,44 @@
       .sort((a: any, b: any) => a.t - b.t)
   }
 
+  // 綜合評分模式：參考條形圖「綜合分數」的算法──把每一筆紀錄跟該學生「期間內第一筆」比較，
+  // 算出各指標差值，再用整批學生的差值範圍換算成 0~100 分，這樣中間每一筆都能有一個對應的
+  // 綜合分數，連成趨勢線（分數越高＝相對於同一批學生，累積進步幅度越大）。
+  // 抽成頂層函式，折線圖跟條形圖點選後的時間點都共用這套算法。
+  function compositePts(patnr: number): { t: number, v: number }[] {
+    const recs = recordsInRange(patnr)
+    if (recs.length < 2) return []
+    const baseline = recs[0].rec
+    return recs
+      .map((x: any) => {
+        const deltas: Record<string, number> = {}
+        for (const m of REAL_METRICS) {
+          const bv = baseline[m.key]
+          const cv = x.rec[m.key]
+          if (bv === null || bv === undefined || bv === '' || cv === null || cv === undefined || cv === '') continue
+          deltas[m.key] = Number(cv) - Number(bv)
+        }
+        const score = compositeScoreFromDeltas(deltas)
+        return score === null ? null : { t: x.t, v: score }
+      })
+      .filter((p: any): p is { t: number, v: number } => p !== null)
+  }
+
+  function singleMetricPts(patnr: number, key: string): { t: number, v: number }[] {
+    return recordsInRange(patnr)
+      .filter((x: any) => x.rec[key] !== null && x.rec[key] !== undefined && x.rec[key] !== '')
+      .map((x: any) => ({ t: x.t, v: Number(x.rec[key]) }))
+  }
+
   const progressLineChart = computed(() => {
     const key = progressMetric.value
     const rows = progressChartRows.value
     const LINE_W = lineChartWidth.value
     const isComposite = isCompositeMetric.value
 
-    // 綜合評分模式：參考條形圖「綜合分數」的算法──把每一筆紀錄跟該學生「期間內第一筆」比較，
-    // 算出各指標差值，再用整批學生的差值範圍換算成 0~100 分，這樣中間每一筆都能有一個對應的
-    // 綜合分數，連成趨勢線（分數越高＝相對於同一批學生，累積進步幅度越大）。
-    function compositePts(patnr: number): { t: number, v: number }[] {
-      const recs = recordsInRange(patnr)
-      if (recs.length < 2) return []
-      const baseline = recs[0].rec
-      return recs
-        .map((x: any) => {
-          const deltas: Record<string, number> = {}
-          for (const m of REAL_METRICS) {
-            const bv = baseline[m.key]
-            const cv = x.rec[m.key]
-            if (bv === null || bv === undefined || bv === '' || cv === null || cv === undefined || cv === '') continue
-            deltas[m.key] = Number(cv) - Number(bv)
-          }
-          const score = compositeScoreFromDeltas(deltas)
-          return score === null ? null : { t: x.t, v: score }
-        })
-        .filter((p: any): p is { t: number, v: number } => p !== null)
-    }
-
-    function singleMetricPts(patnr: number): { t: number, v: number }[] {
-      return recordsInRange(patnr)
-        .filter((x: any) => x.rec[key] !== null && x.rec[key] !== undefined && x.rec[key] !== '')
-        .map((x: any) => ({ t: x.t, v: Number(x.rec[key]) }))
-    }
-
     const series = rows
       .map((row: any) => {
-        const pts = isComposite ? compositePts(row.patnr) : singleMetricPts(row.patnr)
+        const pts = isComposite ? compositePts(row.patnr) : singleMetricPts(row.patnr, key)
         if (pts.length < 2) return null // 期間內少於 2 筆，無法畫趨勢
         return { row, pts }
       })
@@ -840,8 +912,7 @@
         firstDate: fmtDate(new Date(first.t).toISOString()),
         lastDate: fmtDate(new Date(last.t).toISOString()),
         firstLabel: first.v.toFixed(1),
-        lastLabel: last.v.toFixed(1),
-        lastY: yOf(last.v)
+        lastLabel: last.v.toFixed(1)
       }
     })
 
@@ -854,6 +925,31 @@
       xTicks,
       lines
     }
+  })
+
+  // 條形圖選到某位學生後，把該學生完整紀錄換算成一串時間點（跟折線圖同一套算法），
+  // 依時間比例定位在長條上，附上日期＋數值標籤（見下方模板 -top-4 那幾個 <span>）
+  interface SelectedBarPoint {
+    xPct: number
+    dateLabel: string
+    valueLabel: string
+  }
+  const selectedBarPoints = computed<SelectedBarPoint[] | null>(() => {
+    const row = selectedBarRow.value
+    if (!row) return null
+    const isComposite = isCompositeMetric.value
+    const pts = isComposite ? compositePts(row.patnr) : singleMetricPts(row.patnr, progressMetric.value)
+    if (pts.length < 2) return null
+
+    const minT = pts[0].t
+    const maxT = pts[pts.length - 1].t
+    const tRange = (maxT - minT) || 1
+
+    return pts.map((p: any) => ({
+      xPct: Math.min(100, Math.max(0, ((p.t - minT) / tRange) * 100)),
+      dateLabel: fmtDate(new Date(p.t).toISOString()).slice(5),
+      valueLabel: isComposite ? fmtScore(p.v) : fmtNum(p.v)
+    }))
   })
 
   // 折線圖 hover 狀態：滑鼠移到資料點上時顯示跟著游標的浮動數值卡片
@@ -878,6 +974,18 @@
     lineHover.value = null
   }
   watch(progressLineChart, () => { lineHover.value = null })
+
+  // 折線圖點選狀態：點一條線把它「選起來」，下方會列出這條線每一筆的日期＋數值；
+  // 再點一次同一條線（或點別條線）就切換／換選，不再是點了直接跳去客戶詳情頁
+  const selectedLinePatnr = ref<number | null>(null)
+  function toggleLineSelect(patnr: number) {
+    selectedLinePatnr.value = selectedLinePatnr.value === patnr ? null : patnr
+  }
+  const selectedLine = computed(() => {
+    if (selectedLinePatnr.value === null || !progressLineChart.value) return null
+    return progressLineChart.value.lines.find((l: any) => l.patnr === selectedLinePatnr.value) ?? null
+  })
+  watch(progressLineChart, () => { selectedLinePatnr.value = null })
 
   // 第一次切到「進步排行」頁籤時自動查一次（用預設的近 3 個月、全部班別）
   watch(currentTab, (t) => {
@@ -1740,7 +1848,7 @@
         </button>
       </div>
 
-      <!-- 進步排行：條形圖（橫向長條，滑鼠移入可看該學生的起訖時間點） -->
+      <!-- 進步排行：條形圖（橫向長條，點一列可選起來看詳細） -->
       <div
         v-if="progressView === 'bar' && progressChartRows.length"
         class="mb-5 border border-base rounded-md p-4 bg-surface"
@@ -1756,27 +1864,81 @@
         </div>
         <div
           v-if="progressBarDateSpan"
-          class="text-[11px] text-hint-c dark:text-hint-c mb-3"
+          class="text-[11px] text-hint-c dark:text-hint-c mb-2"
         >
-          🕒 資料期間：{{ progressBarDateSpan }}（每一列可將滑鼠移入查看該學生的起訖時間點）
+          🕒 資料期間：{{ progressBarDateSpan }}；點一列可以看該學生的詳細明細
         </div>
-        <div class="space-y-1.5">
+        <!-- 選取狀態固定顯示在上面，不用捲到下面才能取消選取 -->
+        <div
+          v-if="selectedBarDetail"
+          class="flex items-center gap-2 text-xs mb-2"
+        >
+          <span
+            class="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+            :style="{ backgroundColor: selectedBarDetail.color }"
+          />
+          <span>已選：<b>{{ selectedBarDetail.name }}</b></span>
+          <button
+            type="button"
+            class="text-teal-600 dark:text-teal-400 hover:underline"
+            @click="selectedBarPatnr = null"
+          >
+            清除選取
+          </button>
+        </div>
+        <div :class="selectedBarPatnr ? 'space-y-10' : 'space-y-1.5'">
           <div
             v-for="row in progressChartRows"
             :key="row.patnr"
-            class="flex items-center gap-2 text-xs"
+            class="flex items-center gap-2 text-xs px-1 py-0.5 rounded cursor-pointer"
+            :class="selectedBarPatnr === row.patnr ? 'bg-teal-500/10 ring-1 ring-teal-500/40' : 'hover:bg-surface2'"
             :title="rowDateRangeLabel(row)"
+            @click="toggleBarSelect(row.patnr)"
           >
             <span class="w-20 text-right text-hint-c dark:text-hint-c truncate">{{ row.lastname }}{{ row.firstname }}</span>
-            <div
-              class="flex-1 bg-surface2 rounded h-3 overflow-hidden cursor-pointer"
-              @click="openCustomer(row.patnr)"
-            >
-              <div
-                class="h-full rounded"
-                :class="chartBarColor(row)"
-                :style="{ width: chartWidthPct(row) + '%' }"
-              />
+            <div class="flex-1 relative">
+              <div class="bg-surface2 rounded h-3 overflow-hidden">
+                <div
+                  class="h-full rounded"
+                  :class="chartBarColor(row)"
+                  :style="{ width: chartWidthPct(row) + '%' }"
+                />
+              </div>
+              <!-- 選到這一列時，直接在條上標出各時間點的日期＋數值，跟折線圖選線後的標法一致；
+                   完整紀錄還沒抓回來之前，先用起訖兩點頂著 -->
+              <template v-if="selectedBarPatnr === row.patnr">
+                <template v-if="selectedBarPoints && selectedBarPoints.length">
+                  <template
+                    v-for="(pt, pi) in selectedBarPoints"
+                    :key="pi"
+                  >
+                    <span
+                      class="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2 top-1/2"
+                      :style="{ left: pt.xPct + '%', backgroundColor: barColorHex(row) }"
+                    />
+                    <span
+                      class="absolute text-[10px] font-mono font-semibold whitespace-nowrap -translate-x-1/2"
+                      :style="{ left: pt.xPct + '%', top: pi % 2 === 0 ? '-16px' : '-30px', color: barColorHex(row) }"
+                    >
+                      {{ pt.dateLabel }}：{{ pt.valueLabel }}
+                    </span>
+                  </template>
+                </template>
+                <template v-else>
+                  <span
+                    class="absolute -top-4 left-0 text-[10px] font-mono font-semibold whitespace-nowrap"
+                    :style="{ color: barColorHex(row) }"
+                  >
+                    {{ recDateLabel(row.start, progressStart).slice(5) }}：{{ isCompositeMetric ? '—' : fmtNum(row.start?.[progressMetric]) }}
+                  </span>
+                  <span
+                    class="absolute -top-4 text-[10px] font-mono font-semibold whitespace-nowrap"
+                    :style="{ left: Math.min(chartWidthPct(row), 78) + '%', color: barColorHex(row) }"
+                  >
+                    {{ recDateLabel(row.end, progressEnd).slice(5) }}：{{ isCompositeMetric ? fmtScore(chartValue(row)) : fmtNum(row.end?.[progressMetric]) }}
+                  </span>
+                </template>
+              </template>
             </div>
             <span
               class="w-14 text-right font-mono"
@@ -1784,6 +1946,67 @@
             >
               {{ isCompositeMetric ? fmtScore(chartValue(row)) : fmtDelta(chartValue(row)) }}
             </span>
+          </div>
+        </div>
+        <!-- 選到某位學生後，顯示詳細明細（綜合評分模式會列出每一項指標的起訖值＋差值） -->
+        <div
+          v-if="selectedBarDetail"
+          class="mt-3 border border-base rounded-md p-3 bg-surface2/30 text-xs"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-bold">
+              <span
+                class="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                :style="{ backgroundColor: selectedBarDetail.color }"
+              />
+              {{ selectedBarDetail.name }}
+              <span
+                v-if="showGroupColumn"
+                class="font-normal text-hint-c dark:text-hint-c"
+              >（{{ selectedBarDetail.group }}）</span>
+              <span
+                v-if="selectedBarDetail.scoreLabel"
+                class="font-mono"
+              >綜合分數 {{ selectedBarDetail.scoreLabel }}</span>
+            </div>
+            <button
+              type="button"
+              class="text-teal-600 dark:text-teal-400 hover:underline"
+              @click="openCustomer(selectedBarDetail.patnr)"
+            >
+              查看客戶詳情 →
+            </button>
+          </div>
+          <div class="text-[11px] text-hint-c dark:text-hint-c mb-2">
+            {{ selectedBarDetail.dateRange }}　共 {{ selectedBarDetail.recordCount }} 筆
+          </div>
+          <div class="overflow-x-auto">
+            <table class="text-[11px] border-collapse">
+              <thead>
+              <tr class="text-hint-c dark:text-hint-c">
+                <th class="text-left pr-4 pb-1">指標</th>
+                <th class="text-right pr-4 pb-1">起始值</th>
+                <th class="text-right pr-4 pb-1">結束值</th>
+                <th class="text-right pb-1">差值</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr
+                v-for="m in selectedBarDetail.metrics"
+                :key="m.key"
+              >
+                <td class="pr-4 py-0.5 whitespace-nowrap">{{ m.label }}</td>
+                <td class="text-right pr-4 py-0.5 font-mono">{{ m.start }}</td>
+                <td class="text-right pr-4 py-0.5 font-mono">{{ m.end }}</td>
+                <td
+                  class="text-right py-0.5 font-mono"
+                  :class="m.improved === null ? 'text-hint-c' : m.improved ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+                >
+                  {{ m.delta }}
+                </td>
+              </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1822,123 +2045,194 @@
         </div>
         <div
           v-else
-          class="text-[11px] text-hint-c dark:text-hint-c mb-3">
-          🕒 每條線代表一位學生在所選期間內「每一筆」檢測紀錄的數值變化，不是只看頭尾兩點（綠色＝進步、紅色＝退步），滑鼠移到資料點上可看到日期與數值
+          class="text-[11px] text-hint-c dark:text-hint-c mb-2">
+          🕒 每條線代表一位學生在所選期間內「每一筆」檢測紀錄的數值變化（綠色＝進步、紅色＝退步）；滑鼠移到資料點上可快速看一眼日期與數值，點一下線或圖例可以把該學生「選起來」，下方會列出完整明細
+        </div>
+        <!-- 選取狀態一律顯示在最上面（不用捲到下面才能取消選取） -->
+        <div
+          v-if="selectedLine"
+          class="flex items-center gap-2 text-xs mb-2"
+        >
+          <span
+            class="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+            :style="{ backgroundColor: selectedLine.color }"
+          />
+          <span>已選：<b>{{ selectedLine.name }}</b></span>
+          <button
+            type="button"
+            class="text-teal-600 dark:text-teal-400 hover:underline"
+            @click="selectedLinePatnr = null"
+          >
+            清除選取（顯示全部）
+          </button>
         </div>
         <div
           ref="lineChartWrapRef"
-          class="relative w-full"
+          class="w-full"
         >
-          <svg
-            v-if="progressLineChart"
-            :viewBox="`0 0 ${progressLineChart.w} ${progressLineChart.h}`"
-            :width="progressLineChart.w"
-            :height="progressLineChart.h"
-            class="block"
-          >
-            <!-- Y 軸格線＋刻度數值 -->
-            <g v-for="(t, ti) in progressLineChart.yTicks" :key="'y' + ti">
-              <line
-                :x1="progressLineChart.plotLeft"
-                :y1="t.y"
-                :x2="progressLineChart.w"
-                :y2="t.y"
-                stroke="currentColor"
-                class="text-base opacity-20"
-                stroke-width="1"
-              />
-              <text
-                :x="progressLineChart.plotLeft - 6"
-                :y="t.y + 3"
-                text-anchor="end"
-                font-size="12"
-                class="fill-current text-hint-c dark:text-hint-c"
+          <div class="overflow-x-auto">
+            <div :style="{ minWidth: (progressLineChart ? progressLineChart.w : 0) + 'px' }">
+              <div class="relative">
+                <svg
+                  v-if="progressLineChart"
+                  :viewBox="`0 0 ${progressLineChart.w} ${progressLineChart.h}`"
+                  :width="progressLineChart.w"
+                  :height="progressLineChart.h"
+                  class="block"
+                >
+                  <!-- 背景：點空白處可以取消選取 -->
+                  <rect
+                    x="0"
+                    y="0"
+                    :width="progressLineChart.w"
+                    :height="progressLineChart.h"
+                    fill="transparent"
+                    style="pointer-events: all"
+                    @click="selectedLinePatnr = null"
+                  />
+                  <!-- Y 軸格線＋刻度數值 -->
+                  <g v-for="(t, ti) in progressLineChart.yTicks" :key="'y' + ti">
+                    <line
+                      :x1="progressLineChart.plotLeft"
+                      :y1="t.y"
+                      :x2="progressLineChart.w"
+                      :y2="t.y"
+                      stroke="currentColor"
+                      class="text-base opacity-20"
+                      stroke-width="1"
+                    />
+                    <text
+                      :x="progressLineChart.plotLeft - 6"
+                      :y="t.y + 3"
+                      text-anchor="end"
+                      font-size="12"
+                      class="fill-current text-hint-c dark:text-hint-c"
+                    >
+                      {{ t.label }}
+                    </text>
+                  </g>
+                  <!-- X 軸刻度日期 -->
+                  <text
+                    v-for="(t, ti) in progressLineChart.xTicks"
+                    :key="'x' + ti"
+                    :x="t.x"
+                    :y="progressLineChart.h - 4"
+                    text-anchor="middle"
+                    font-size="12"
+                    class="fill-current text-hint-c dark:text-hint-c"
+                  >
+                    {{ t.label }}
+                  </text>
+                  <g
+                    v-for="ln in progressLineChart.lines"
+                    :key="ln.patnr"
+                  >
+                    <path
+                      :d="ln.path"
+                      fill="none"
+                      :stroke="ln.color"
+                      :stroke-width="selectedLinePatnr === ln.patnr ? 3 : 1.5"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                      :opacity="selectedLinePatnr && selectedLinePatnr !== ln.patnr ? 0.4 : 0.85"
+                      class="cursor-pointer"
+                      @click="toggleLineSelect(ln.patnr)"
+                    />
+                    <circle
+                      v-for="pt in ln.points"
+                      :key="pt.i"
+                      :cx="pt.x"
+                      :cy="pt.y"
+                      :r="lineHover && lineHover.patnr === ln.patnr && lineHover.pointIndex === pt.i ? 6 : 3"
+                      :fill="ln.color"
+                      :opacity="selectedLinePatnr && selectedLinePatnr !== ln.patnr ? 0.4 : 1"
+                      class="cursor-pointer"
+                      style="transition: r 0.1s"
+                      @mouseenter="setLineHover(ln, pt)"
+                      @mouseleave="clearLineHover"
+                      @click="toggleLineSelect(ln.patnr)"
+                    />
+                    <!-- 選到的那條線，直接在每個點旁邊標出日期＋數值 -->
+                    <text
+                      v-for="pt in (selectedLinePatnr === ln.patnr ? ln.points : [])"
+                      :key="'lbl' + pt.i"
+                      :x="pt.x"
+                      :y="pt.y < 24 ? pt.y + 16 : pt.y - 8"
+                      text-anchor="middle"
+                      font-size="11"
+                      font-weight="600"
+                      :fill="ln.color"
+                      class="pointer-events-none"
+                    >
+                      {{ pt.dateLabel.slice(5) }}：{{ pt.label }}
+                    </text>
+                  </g>
+                </svg>
+                <!-- 跟著滑鼠游標的浮動數值卡片 -->
+                <div
+                  v-if="lineHover"
+                  class="absolute pointer-events-none bg-gray-800 text-white text-[11px] rounded px-2 py-1.5 shadow-lg z-10 whitespace-nowrap"
+                  :style="{ left: lineHover.x + 'px', top: (lineHover.y - 10) + 'px', transform: 'translate(-50%, -100%)' }"
+                >
+                  <div class="font-semibold flex items-center gap-1">
+                    <span
+                      class="inline-block w-2 h-2 rounded-full"
+                      :style="{ backgroundColor: lineHover.color }"
+                    />
+                    {{ lineHover.name }}
+                  </div>
+                  <div class="text-gray-300">{{ lineHover.date }}</div>
+                  <div>數值：<b>{{ lineHover.value }}</b></div>
+                </div>
+              </div>
+              <!-- 點選某條線後，顯示這位學生每一筆的日期＋數值明細 -->
+              <div
+                v-if="selectedLine"
+                class="mt-3 border border-base rounded-md p-3 bg-surface2/30 text-xs"
               >
-                {{ t.label }}
-              </text>
-            </g>
-            <!-- X 軸刻度日期 -->
-            <text
-              v-for="(t, ti) in progressLineChart.xTicks"
-              :key="'x' + ti"
-              :x="t.x"
-              :y="progressLineChart.h - 4"
-              text-anchor="middle"
-              font-size="12"
-              class="fill-current text-hint-c dark:text-hint-c"
-            >
-              {{ t.label }}
-            </text>
-            <g
-              v-for="ln in progressLineChart.lines"
-              :key="ln.patnr"
-            >
-              <path
-                :d="ln.path"
-                fill="none"
-                :stroke="ln.color"
-                stroke-width="1.5"
-                stroke-linejoin="round"
-                stroke-linecap="round"
-                opacity="0.85"
-                class="cursor-pointer"
-                @click="openCustomer(ln.patnr)"
-              />
-              <circle
-                v-for="pt in ln.points"
-                :key="pt.i"
-                :cx="pt.x"
-                :cy="pt.y"
-                :r="lineHover && lineHover.patnr === ln.patnr && lineHover.pointIndex === pt.i ? 6 : 3"
-                :fill="ln.color"
-                class="cursor-pointer"
-                style="transition: r 0.1s"
-                @mouseenter="setLineHover(ln, pt)"
-                @mouseleave="clearLineHover"
-                @click="openCustomer(ln.patnr)"
-              />
-              <!-- 每條線末端標出最後一筆數值 -->
-              <text
-                :x="ln.points[ln.points.length - 1].x + 4"
-                :y="ln.lastY + 3"
-                font-size="10"
-                :fill="ln.color"
-              >
-                {{ ln.lastLabel }}
-              </text>
-            </g>
-          </svg>
-          <!-- 跟著滑鼠游標的浮動數值卡片 -->
-          <div
-            v-if="lineHover"
-            class="absolute pointer-events-none bg-gray-800 text-white text-[11px] rounded px-2 py-1.5 shadow-lg z-10 whitespace-nowrap"
-            :style="{ left: lineHover.x + 'px', top: (lineHover.y - 10) + 'px', transform: 'translate(-50%, -100%)' }"
-          >
-            <div class="font-semibold flex items-center gap-1">
-                <span
-                  class="inline-block w-2 h-2 rounded-full"
-                  :style="{ backgroundColor: lineHover.color }"
-                />
-              {{ lineHover.name }}
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2 font-bold">
+                    <span
+                      class="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                      :style="{ backgroundColor: selectedLine.color }"
+                    />
+                    {{ selectedLine.name }}　共 {{ selectedLine.pointCount }} 筆
+                  </div>
+                  <button
+                    type="button"
+                    class="text-teal-600 dark:text-teal-400 hover:underline"
+                    @click="openCustomer(selectedLine.patnr)"
+                  >
+                    查看客戶詳情 →
+                  </button>
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 font-mono">
+                  <span
+                    v-for="pt in selectedLine.points"
+                    :key="pt.i"
+                  >
+                    {{ pt.dateLabel }}：<b :style="{ color: selectedLine.color }">{{ pt.label }}</b>
+                  </span>
+                </div>
+              </div>
+              <!-- 圖例：因線條可能重疊，額外用清單列出每位學生的起訖數值；點了會跟圖表上點線一樣效果 -->
+              <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px]">
+                <div
+                  v-for="ln in progressLineChart.lines"
+                  :key="ln.patnr"
+                  class="flex items-center gap-1 cursor-pointer"
+                  :class="{ 'font-bold': selectedLinePatnr === ln.patnr }"
+                  @click="toggleLineSelect(ln.patnr)"
+                >
+                  <span
+                    class="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                    :style="{ backgroundColor: ln.color }"
+                  />
+                  <span class="text-hint-c dark:text-hint-c">{{ ln.name }}</span>
+                  <span class="font-mono">{{ ln.firstLabel }} → {{ ln.lastLabel }}</span>
+                </div>
+              </div>
             </div>
-            <div class="text-gray-300">{{ lineHover.date }}</div>
-            <div>數值：<b>{{ lineHover.value }}</b></div>
-          </div>
-        </div>
-        <!-- 圖例：因線條可能重疊，額外用清單列出每位學生的起訖數值 -->
-        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px]">
-          <div
-            v-for="ln in progressLineChart.lines"
-            :key="ln.patnr"
-            class="flex items-center gap-1 cursor-pointer"
-            @click="openCustomer(ln.patnr)"
-          >
-            <span
-              class="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-              :style="{ backgroundColor: ln.color }"
-            />
-            <span class="text-hint-c dark:text-hint-c">{{ ln.name }}</span>
-            <span class="font-mono">{{ ln.firstLabel }} → {{ ln.lastLabel }}</span>
           </div>
         </div>
       </div>
