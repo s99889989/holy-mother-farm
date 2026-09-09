@@ -293,7 +293,7 @@ const logout = async () => {
 <template>
   <nav class="staff-nav">
     <!-- 桌機 -->
-    <div class="hidden 2xl:flex items-center gap-0.5">
+    <div class="hidden staffnav-desktop items-center gap-0.5">
       <!-- Logo -->
       <NuxtLink
         to="/staff/home"
@@ -443,7 +443,7 @@ const logout = async () => {
             >
               {{ customer.name?.charAt(0) || '?' }}
             </div>
-            <span class="text-xl font-medium hidden 2xl:block max-w-[80px] truncate">{{ customer.name }}</span>
+            <span class="text-xl font-medium hidden staffnav-desktop-inline max-w-[80px] truncate">{{ customer.name }}</span>
             <svg
               class="w-3 h-3 transition-transform"
               :class="menuOpen ? 'rotate-180' : ''"
@@ -560,7 +560,7 @@ const logout = async () => {
     </div>
 
     <!-- 手機 navbar -->
-    <div class="2xl:hidden flex items-center justify-between">
+    <div class="staffnav-mobile items-center justify-between">
       <NuxtLink
         to="/staff/home"
         class="nav-logo flex items-center gap-1.5 font-bold text-sm"
@@ -643,7 +643,7 @@ const logout = async () => {
       >
         <div
           v-if="mobileOpen"
-          class="nav-fullscreen 2xl:hidden fixed inset-0 z-[100] flex flex-col"
+          class="nav-fullscreen staffnav-mobile flex-col fixed inset-0 z-[100]"
         >
           <!-- 頂部標題列 -->
           <div class="nav-fullscreen-header flex items-center justify-between px-4 py-3 flex-shrink-0">
@@ -874,6 +874,32 @@ const logout = async () => {
 </template>
 
 <style scoped>
+/* ============================================================
+   手機版 / 桌機版 切換寬度：只改下面這一個數字（1700px）即可
+   ============================================================ */
+.staffnav-mobile {
+  display: flex;
+}
+
+.staffnav-desktop,
+.staffnav-desktop-inline {
+  display: none;
+}
+
+@media (min-width: 1615px) {
+  .staffnav-mobile {
+    display: none !important;
+  }
+
+  .staffnav-desktop {
+    display: flex !important;
+  }
+
+  .staffnav-desktop-inline {
+    display: block !important;
+  }
+}
+
 .staff-nav {
   background: var(--surface);
   border-bottom: 1px solid var(--border-light);

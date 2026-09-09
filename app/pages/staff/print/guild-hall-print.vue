@@ -12,33 +12,39 @@
           </div>
           <div class="mobile-topbar-actions">
             <button
-              v-if="sideTab === 'create'"
-              class="print-nav-btn !text-sm"
-              :disabled="orderItems.length === 0"
-              style="padding:6px 10px"
-              @click="doPrint"
+              class="mobile-menu-btn"
+              :class="{ active: mobileOpen }"
+              @click="mobileOpen = !mobileOpen"
             >
-              🖨️ 列印
-            </button>
-            <button class="mobile-menu-btn" :class="{ active: mobileOpen }" @click="mobileOpen = !mobileOpen">
               <span>{{ mobileOpen ? '✕' : '☰' }}</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="mobileOpen" class="mobile-overlay" @click="mobileOpen = false" />
+      <div
+        v-if="mobileOpen"
+        class="mobile-overlay"
+        @click="mobileOpen = false"
+      />
 
       <!-- ── 左側 Sidebar ── -->
-      <aside class="sidebar bg-surface border-r border-light-c" :class="{ open: mobileOpen }">
+      <aside
+        class="sidebar bg-surface border-r border-light-c"
+        :class="{ open: mobileOpen }"
+      >
         <div class="sidebar-header border-b border-light-c px-4 py-3">
           <div class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white flex-shrink-0 text-base">
               📦
             </div>
             <div>
-              <div class="font-bold text-base-c leading-none text-lg">會館叫貨</div>
-              <div class="text-hint-c mt-0.5 text-sm">農莊 → 會館 叫貨單建立與紀錄管理</div>
+              <div class="font-bold text-base-c leading-none text-lg">
+                會館叫貨
+              </div>
+              <div class="text-hint-c mt-0.5 text-sm">
+                農莊 → 會館 叫貨單建立與紀錄管理
+              </div>
             </div>
           </div>
         </div>
@@ -55,7 +61,7 @@
             :class="['tab-btn', sideTab === 'history' ? 'active bg-surface border-b-2 border-emerald-500 text-base-c' : 'text-muted-c hover:bg-surface2']"
             @click="sideTab = 'history'; mobileOpen = false"
           >
-            📋 歷史紀錄
+            📋 訂單
           </button>
           <button
             :class="['tab-btn', sideTab === 'items' ? 'active bg-surface border-b-2 border-emerald-500 text-base-c' : 'text-muted-c hover:bg-surface2']"
@@ -68,31 +74,68 @@
         <!-- ══ 建立叫貨 tab：品項選擇 ══ -->
         <template v-if="sideTab === 'create'">
           <div class="search-row border-b border-light-c">
-            <input v-model="searchQuery" placeholder="搜尋品項..." class="search-inp text-base-c bg-surface">
-            <button v-if="searchQuery" class="search-clear text-muted-c" @click="searchQuery = ''">✕</button>
+            <input
+              v-model="searchQuery"
+              placeholder="搜尋品項..."
+              class="search-inp text-base-c bg-surface"
+            >
+            <button
+              v-if="searchQuery"
+              class="search-clear text-muted-c"
+              @click="searchQuery = ''"
+            >
+              ✕
+            </button>
           </div>
 
           <div class="list-scroll">
-            <div v-if="catalogLoading" class="empty-search text-hint-c">載入中...</div>
+            <div
+              v-if="catalogLoading"
+              class="empty-search text-hint-c"
+            >
+              載入中...
+            </div>
 
             <template v-else-if="searchQuery.trim()">
-              <div v-for="p in searchResults" :key="p.id" class="item-row" @click="addItemToOrder(p)">
+              <div
+                v-for="p in searchResults"
+                :key="p.id"
+                class="item-row"
+                @click="addItemToOrder(p)"
+              >
                 <span class="zh-main">{{ p.name }}</span>
                 <span class="item-meta text-hint-c">{{ p.unit }} / ${{ p.price }}</span>
                 <span class="add-mark">＋</span>
               </div>
-              <div v-if="searchResults.length === 0" class="empty-search text-hint-c">找不到「{{ searchQuery }}」</div>
+              <div
+                v-if="searchResults.length === 0"
+                class="empty-search text-hint-c"
+              >
+                找不到「{{ searchQuery }}」
+              </div>
             </template>
 
             <template v-else>
-              <div v-for="(group, gi) in catalog" :key="group.id" class="group">
-                <div class="group-header bg-surface" @click="toggleGroupOpen(gi)">
+              <div
+                v-for="(group, gi) in catalog"
+                :key="group.id"
+                class="group"
+              >
+                <div
+                  class="group-header bg-surface"
+                  @click="toggleGroupOpen(gi)"
+                >
                   <span class="group-toggle">{{ groupOpen[gi] === false ? '▶' : '▼' }}</span>
                   <span class="group-name-label text-base-c">{{ group.group }}</span>
                   <span class="group-count text-hint-c">{{ group.items.length }}</span>
                 </div>
                 <template v-if="groupOpen[gi] !== false">
-                  <div v-for="p in group.items" :key="p.id" class="item-row" @click="addItemToOrder(p)">
+                  <div
+                    v-for="p in group.items"
+                    :key="p.id"
+                    class="item-row"
+                    @click="addItemToOrder(p)"
+                  >
                     <span class="zh-main">{{ p.name }}</span>
                     <span class="item-meta text-hint-c">{{ p.unit }} / ${{ p.price }}</span>
                     <span class="add-mark">＋</span>
@@ -103,14 +146,18 @@
           </div>
 
           <div class="sidebar-footer border-t border-light-c">
-            <div class="text-hint-c text-sm" style="padding:0 2px 6px">
+            <div
+              class="text-hint-c text-sm"
+              style="padding:0 2px 6px"
+            >
               已選 {{ orderItems.length }} 項品項，合計 ${{ totalAmount }}
             </div>
-            <button class="print-btn" :disabled="orderItems.length === 0" @click="doPrint">
-              🖨️ 列印叫貨單
-            </button>
-            <button class="save-btn" :disabled="orderItems.length === 0 || savingOrder" @click="saveOrder">
-              {{ savingOrder ? '💾 儲存中...' : '💾 存為歷史紀錄' }}
+            <button
+              class="save-btn"
+              :disabled="orderItems.length === 0 || savingOrder"
+              @click="saveOrder"
+            >
+              {{ savingOrder ? '💾 儲存中...' : '💾 新增訂單' }}
             </button>
           </div>
         </template>
@@ -118,12 +165,32 @@
         <!-- ══ 歷史紀錄 tab ══ -->
         <template v-if="sideTab === 'history'">
           <div class="search-row border-b border-light-c">
-            <input v-model="historyQuery" placeholder="搜尋訂購人 / 品名..." class="search-inp text-base-c bg-surface">
-            <button v-if="historyQuery" class="search-clear text-muted-c" @click="historyQuery = ''">✕</button>
+            <input
+              v-model="historyQuery"
+              placeholder="搜尋訂購人 / 品名..."
+              class="search-inp text-base-c bg-surface"
+            >
+            <button
+              v-if="historyQuery"
+              class="search-clear text-muted-c"
+              @click="historyQuery = ''"
+            >
+              ✕
+            </button>
           </div>
           <div class="list-scroll">
-            <div v-if="historyLoading" class="empty-search text-hint-c">載入中...</div>
-            <div v-else-if="filteredHistory.length === 0" class="empty-search text-hint-c">尚無符合的紀錄</div>
+            <div
+              v-if="historyLoading"
+              class="empty-search text-hint-c"
+            >
+              載入中...
+            </div>
+            <div
+              v-else-if="filteredHistory.length === 0"
+              class="empty-search text-hint-c"
+            >
+              尚無符合的紀錄
+            </div>
             <div
               v-for="rec in filteredHistory"
               :key="rec.id"
@@ -133,9 +200,14 @@
             >
               <div class="history-row-top">
                 <span class="history-date text-base-c">{{ rec.orderDate }}</span>
-                <span class="history-status" :class="rec.status === '已出貨' ? 'done' : 'pending'">{{ rec.status }}</span>
+                <span
+                  class="history-status"
+                  :class="rec.status === '已出貨' ? 'done' : 'pending'"
+                >{{ rec.status }}</span>
               </div>
-              <div class="history-orderer text-muted-c">{{ rec.ordererName }}</div>
+              <div class="history-orderer text-muted-c">
+                {{ rec.ordererName }}
+              </div>
               <div class="history-summary text-hint-c">
                 {{ rec.items.length }} 項品項 · 合計 ${{ rec.total }}
               </div>
@@ -155,15 +227,38 @@
                   @keyup.enter="confirmAddGroup"
                   @keyup.escape="addingGroup = false"
                 >
-                <button class="edit-ok" @click="confirmAddGroup">✓</button>
-                <button class="edit-cancel border-light-c text-base-c" @click="addingGroup = false">✕</button>
+                <button
+                  class="edit-ok"
+                  @click="confirmAddGroup"
+                >
+                  ✓
+                </button>
+                <button
+                  class="edit-cancel border-light-c text-base-c"
+                  @click="addingGroup = false"
+                >
+                  ✕
+                </button>
               </template>
-              <button v-else class="add-group-btn" @click="addingGroup = true; newGroupName = ''">＋ 新增類別</button>
+              <button
+                v-else
+                class="add-group-btn"
+                @click="addingGroup = true; newGroupName = ''"
+              >
+                ＋ 新增類別
+              </button>
             </div>
 
-            <div v-for="(group, gi) in catalog" :key="group.id" class="group">
+            <div
+              v-for="(group, gi) in catalog"
+              :key="group.id"
+              class="group"
+            >
               <div class="group-header bg-surface">
-                <span class="group-toggle" @click="toggleGroupOpen(gi)">{{ groupOpen[gi] === false ? '▶' : '▼' }}</span>
+                <span
+                  class="group-toggle"
+                  @click="toggleGroupOpen(gi)"
+                >{{ groupOpen[gi] === false ? '▶' : '▼' }}</span>
                 <template v-if="editingGroupIdx === gi">
                   <input
                     v-model="editGroupName"
@@ -171,75 +266,179 @@
                     @keyup.enter="confirmEditGroup(gi)"
                     @keyup.escape="editingGroupIdx = -1"
                   >
-                  <button class="edit-ok sm" @click="confirmEditGroup(gi)">✓</button>
-                  <button class="edit-cancel sm border-light-c text-base-c" @click="editingGroupIdx = -1">✕</button>
+                  <button
+                    class="edit-ok sm"
+                    @click="confirmEditGroup(gi)"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    class="edit-cancel sm border-light-c text-base-c"
+                    @click="editingGroupIdx = -1"
+                  >
+                    ✕
+                  </button>
                 </template>
                 <template v-else>
                   <span class="group-name-label text-base-c">{{ group.group }}</span>
                   <span class="group-actions">
-                    <button class="act-btn" title="改名" @click="startEditGroup(gi)">✎</button>
+                    <button
+                      class="act-btn"
+                      title="改名"
+                      @click="startEditGroup(gi)"
+                    >✎</button>
                     <template v-if="confirmDeleteGroupIdx === gi">
                       <span class="del-confirm-label">確定？</span>
-                      <button class="del-yes" @click="confirmDeleteGroup(gi)">是</button>
-                      <button class="del-no border-light-c text-base-c" @click="confirmDeleteGroupIdx = -1">否</button>
+                      <button
+                        class="del-yes"
+                        @click="confirmDeleteGroup(gi)"
+                      >是</button>
+                      <button
+                        class="del-no border-light-c text-base-c"
+                        @click="confirmDeleteGroupIdx = -1"
+                      >否</button>
                     </template>
-                    <button v-else class="act-btn del" title="刪除類別" @click="confirmDeleteGroupIdx = gi">✕</button>
-                    <button class="group-add-btn" title="新增品項" @click="startAddItem(gi)">＋</button>
+                    <button
+                      v-else
+                      class="act-btn del"
+                      title="刪除類別"
+                      @click="confirmDeleteGroupIdx = gi"
+                    >✕</button>
+                    <button
+                      class="group-add-btn"
+                      title="新增品項"
+                      @click="startAddItem(gi)"
+                    >＋</button>
                   </span>
                 </template>
               </div>
 
               <template v-if="groupOpen[gi] !== false">
-                <div v-if="addingIn === gi" class="edit-row bg-surface border-b border-light-c">
+                <div
+                  v-if="addingIn === gi"
+                  class="edit-row bg-surface border-b border-light-c"
+                >
                   <div class="edit-field-row">
                     <span class="edit-field-label">品名</span>
-                    <input v-model="editForm.name" placeholder="品名" class="edit-inp border-light-c bg-surface text-base-c">
+                    <input
+                      v-model="editForm.name"
+                      placeholder="品名"
+                      class="edit-inp border-light-c bg-surface text-base-c"
+                    >
                   </div>
                   <div class="edit-field-row">
                     <span class="edit-field-label">單位</span>
-                    <input v-model="editForm.unit" placeholder="單位（包/罐/盒...）" class="edit-inp border-light-c bg-surface text-base-c">
+                    <input
+                      v-model="editForm.unit"
+                      placeholder="單位（包/罐/盒...）"
+                      class="edit-inp border-light-c bg-surface text-base-c"
+                    >
                   </div>
                   <div class="edit-field-row">
                     <span class="edit-field-label">單價</span>
-                    <input v-model.number="editForm.price" type="number" min="0" placeholder="單價" class="edit-inp border-light-c bg-surface text-base-c">
+                    <input
+                      v-model.number="editForm.price"
+                      type="number"
+                      min="0"
+                      placeholder="單價"
+                      class="edit-inp border-light-c bg-surface text-base-c"
+                    >
                   </div>
                   <div class="edit-action-row">
-                    <button class="edit-ok" @click="confirmAddItem(gi)">✓ 確認</button>
-                    <button class="edit-cancel border-light-c text-base-c" @click="addingIn = -1">✕ 取消</button>
+                    <button
+                      class="edit-ok"
+                      @click="confirmAddItem(gi)"
+                    >
+                      ✓ 確認
+                    </button>
+                    <button
+                      class="edit-cancel border-light-c text-base-c"
+                      @click="addingIn = -1"
+                    >
+                      ✕ 取消
+                    </button>
                   </div>
                 </div>
 
-                <div v-for="(p, pi) in group.items" :key="p.id">
-                  <div v-if="editingKey === gi + '-' + pi" class="edit-row bg-surface border-b border-light-c">
+                <div
+                  v-for="(p, pi) in group.items"
+                  :key="p.id"
+                >
+                  <div
+                    v-if="editingKey === gi + '-' + pi"
+                    class="edit-row bg-surface border-b border-light-c"
+                  >
                     <div class="edit-field-row">
                       <span class="edit-field-label">品名</span>
-                      <input v-model="editForm.name" class="edit-inp border-light-c bg-surface text-base-c">
+                      <input
+                        v-model="editForm.name"
+                        class="edit-inp border-light-c bg-surface text-base-c"
+                      >
                     </div>
                     <div class="edit-field-row">
                       <span class="edit-field-label">單位</span>
-                      <input v-model="editForm.unit" class="edit-inp border-light-c bg-surface text-base-c">
+                      <input
+                        v-model="editForm.unit"
+                        class="edit-inp border-light-c bg-surface text-base-c"
+                      >
                     </div>
                     <div class="edit-field-row">
                       <span class="edit-field-label">單價</span>
-                      <input v-model.number="editForm.price" type="number" min="0" class="edit-inp border-light-c bg-surface text-base-c">
+                      <input
+                        v-model.number="editForm.price"
+                        type="number"
+                        min="0"
+                        class="edit-inp border-light-c bg-surface text-base-c"
+                      >
                     </div>
                     <div class="edit-action-row">
-                      <button class="edit-ok" @click="confirmEditItem(gi, pi)">✓ 確認</button>
-                      <button class="edit-cancel border-light-c text-base-c" @click="editingKey = ''">✕ 取消</button>
+                      <button
+                        class="edit-ok"
+                        @click="confirmEditItem(gi, pi)"
+                      >
+                        ✓ 確認
+                      </button>
+                      <button
+                        class="edit-cancel border-light-c text-base-c"
+                        @click="editingKey = ''"
+                      >
+                        ✕ 取消
+                      </button>
                     </div>
                   </div>
-                  <div v-else class="item-row config-item-row">
+                  <div
+                    v-else
+                    class="item-row config-item-row"
+                  >
                     <div class="config-item-content">
                       <span class="zh-main">{{ p.name }}</span>
                       <span class="item-meta text-hint-c">{{ p.unit }} / ${{ p.price }}</span>
-                      <span class="item-actions" style="opacity:1">
-                        <button class="act-btn" title="編輯" @click="startEditItem(gi, pi, p)">✎</button>
+                      <span
+                        class="item-actions"
+                        style="opacity:1"
+                      >
+                        <button
+                          class="act-btn"
+                          title="編輯"
+                          @click="startEditItem(gi, pi, p)"
+                        >✎</button>
                         <template v-if="confirmDeleteKey === gi + '-' + pi">
                           <span class="del-confirm-label">確定刪除？</span>
-                          <button class="del-yes" @click="confirmDeleteItem(gi, pi)">是</button>
-                          <button class="del-no border-light-c text-base-c" @click="confirmDeleteKey = ''">否</button>
+                          <button
+                            class="del-yes"
+                            @click="confirmDeleteItem(gi, pi)"
+                          >是</button>
+                          <button
+                            class="del-no border-light-c text-base-c"
+                            @click="confirmDeleteKey = ''"
+                          >否</button>
                         </template>
-                        <button v-else class="act-btn del" title="刪除" @click="confirmDeleteKey = gi + '-' + pi">✕</button>
+                        <button
+                          v-else
+                          class="act-btn del"
+                          title="刪除"
+                          @click="confirmDeleteKey = gi + '-' + pi"
+                        >✕</button>
                       </span>
                     </div>
                   </div>
@@ -262,34 +461,73 @@
             <div class="form-grid">
               <label class="form-field">
                 <span class="form-label text-muted-c">訂購日期</span>
-                <input v-model="form.orderDate" type="date" class="form-inp border-light-c bg-surface text-base-c">
+                <input
+                  v-model="form.orderDate"
+                  type="date"
+                  class="form-inp border-light-c bg-surface text-base-c"
+                >
               </label>
               <label class="form-field">
                 <span class="form-label text-muted-c">訂購人</span>
-                <input v-model="form.ordererName" class="form-inp border-light-c bg-surface text-base-c">
+                <input
+                  v-model="form.ordererName"
+                  class="form-inp border-light-c bg-surface text-base-c"
+                >
               </label>
               <label class="form-field">
                 <span class="form-label text-muted-c">訂購人電話</span>
-                <input v-model="form.ordererPhone" class="form-inp border-light-c bg-surface text-base-c">
+                <input
+                  v-model="form.ordererPhone"
+                  class="form-inp border-light-c bg-surface text-base-c"
+                >
               </label>
               <label class="form-field">
                 <span class="form-label text-muted-c">訂購人傳真</span>
-                <input v-model="form.ordererFax" class="form-inp border-light-c bg-surface text-base-c">
+                <input
+                  v-model="form.ordererFax"
+                  class="form-inp border-light-c bg-surface text-base-c"
+                >
               </label>
             </div>
 
             <div class="ship-dates">
               <span class="form-label text-muted-c">出貨日期（可多筆）</span>
-              <div v-for="(d, i) in form.shipDates" :key="i" class="ship-date-row">
-                <input v-model="form.shipDates[i]" type="date" class="form-inp border-light-c bg-surface text-base-c">
-                <button v-if="form.shipDates.length > 1" class="rule-del" @click="form.shipDates.splice(i, 1)">✕</button>
+              <div
+                v-for="(d, i) in form.shipDates"
+                :key="i"
+                class="ship-date-row"
+              >
+                <input
+                  v-model="form.shipDates[i]"
+                  type="date"
+                  class="form-inp border-light-c bg-surface text-base-c"
+                >
+                <button
+                  v-if="form.shipDates.length > 1"
+                  class="rule-del"
+                  @click="form.shipDates.splice(i, 1)"
+                >
+                  ✕
+                </button>
               </div>
-              <button class="rule-add" @click="form.shipDates.push('')">＋ 新增出貨日期</button>
+              <button
+                class="rule-add"
+                @click="form.shipDates.push('')"
+              >
+                ＋ 新增出貨日期
+              </button>
             </div>
 
-            <label class="form-field" style="max-width:100%">
+            <label
+              class="form-field"
+              style="max-width:100%"
+            >
               <span class="form-label text-muted-c">備註</span>
-              <input v-model="form.note" class="form-inp border-light-c bg-surface text-base-c" placeholder="感謝!隨貨附發票">
+              <input
+                v-model="form.note"
+                class="form-inp border-light-c bg-surface text-base-c"
+                placeholder="感謝!隨貨附發票"
+              >
             </label>
 
             <!-- 已選品項表 -->
@@ -298,73 +536,183 @@
                 <thead>
                 <tr>
                   <th>序號</th>
-                  <th style="text-align:left">品名</th>
+                  <th style="text-align:left">
+                    品名
+                  </th>
                   <th>單位</th>
                   <th>數量</th>
                   <th>單價</th>
                   <th>金額</th>
-                  <th></th>
+                  <th />
                 </tr>
                 </thead>
                 <tbody>
-                <tr v-for="(it, i) in orderItems" :key="it.uid">
+                <tr
+                  v-for="(it, i) in orderItems"
+                  :key="it.uid"
+                >
                   <td>{{ i + 1 }}</td>
-                  <td style="text-align:left">{{ it.name }}</td>
+                  <td style="text-align:left">
+                    {{ it.name }}
+                  </td>
                   <td>{{ it.unit }}</td>
-                  <td><input v-model.number="it.qty" type="number" min="1" class="qty-inp bg-surface text-base-c border-light-c"></td>
-                  <td><input v-model.number="it.price" type="number" min="0" class="qty-inp bg-surface text-base-c border-light-c"></td>
+                  <td>
+                    <input
+                      v-model.number="it.qty"
+                      type="number"
+                      min="1"
+                      class="qty-inp bg-surface text-base-c border-light-c"
+                    >
+                  </td>
+                  <td>
+                    <input
+                      v-model.number="it.price"
+                      type="number"
+                      min="0"
+                      class="qty-inp bg-surface text-base-c border-light-c"
+                    >
+                  </td>
                   <td>{{ it.qty * it.price }}</td>
-                  <td><button class="act-btn del" @click="orderItems.splice(i, 1)">✕</button></td>
+                  <td>
+                    <button
+                      class="act-btn del"
+                      @click="orderItems.splice(i, 1)"
+                    >
+                      ✕
+                    </button>
+                  </td>
                 </tr>
                 <tr v-if="orderItems.length === 0">
-                  <td colspan="7" class="empty-order text-hint-c">尚未選擇品項，請由左側清單點選加入</td>
+                  <td
+                    colspan="7"
+                    class="empty-order text-hint-c"
+                  >
+                    尚未選擇品項，請由左側清單點選加入
+                  </td>
                 </tr>
                 </tbody>
               </table>
             </div>
-            <div class="order-total text-base-c">合計金額：${{ totalAmount }}</div>
+            <div class="order-total text-base-c">
+              合計金額：${{ totalAmount }}
+            </div>
           </div>
         </template>
 
         <!-- 歷史紀錄：預覽選中的單據 -->
         <template v-else-if="sideTab === 'history'">
           <div class="preview-toolbar bg-surface border-b border-light-c">
-            <span class="preview-toolbar-label text-muted-c">歷史叫貨紀錄</span>
+            <span class="preview-toolbar-label text-muted-c">叫貨訂單</span>
             <template v-if="selectedHistory">
               <template v-if="!historyEditing">
-                <button class="auto-scale-btn" @click="loadFromHistory(selectedHistory)">📝 複製為新單</button>
-                <button class="auto-scale-btn" @click="printHistory(selectedHistory)">🖨️ 列印此單</button>
+                <button
+                  class="auto-scale-btn"
+                  @click="loadFromHistory(selectedHistory)"
+                >
+                  📝 複製為新單
+                </button>
+                <button
+                  class="auto-scale-btn"
+                  @click="printHistory(selectedHistory)"
+                >
+                  🖨️ 列印此單
+                </button>
                 <button
                   class="auto-scale-btn"
                   @click="toggleHistoryStatus(selectedHistory)"
                 >
                   {{ selectedHistory.status === '已出貨' ? '↺ 標記待出貨' : '✓ 標記已出貨' }}
                 </button>
-                <button class="auto-scale-btn" @click="startEditHistory(selectedHistory)">✎ 編輯</button>
+                <button
+                  class="auto-scale-btn"
+                  @click="startEditHistory(selectedHistory)"
+                >
+                  ✎ 編輯
+                </button>
+                <template v-if="confirmDeleteHistoryId === selectedHistory.id">
+                  <span class="del-confirm-label">確定刪除？</span>
+                  <button
+                    class="del-yes"
+                    :disabled="historyDeleting"
+                    @click="confirmDeleteHistory(selectedHistory)"
+                  >是</button>
+                  <button
+                    class="del-no border-light-c text-base-c"
+                    :disabled="historyDeleting"
+                    @click="confirmDeleteHistoryId = null"
+                  >否</button>
+                </template>
+                <button
+                  v-else
+                  class="auto-scale-btn del"
+                  @click="confirmDeleteHistoryId = selectedHistory.id"
+                >
+                  🗑 刪除
+                </button>
               </template>
               <template v-else>
-                <button class="auto-scale-btn" :disabled="historySaving" @click="confirmEditHistory">{{ historySaving ? '儲存中...' : '✓ 確認修改' }}</button>
-                <button class="auto-scale-btn" :disabled="historySaving" @click="cancelEditHistory">✕ 取消</button>
+                <button
+                  class="auto-scale-btn"
+                  :disabled="historySaving"
+                  @click="confirmEditHistory"
+                >
+                  {{ historySaving ? '儲存中...' : '✓ 確認修改' }}
+                </button>
+                <button
+                  class="auto-scale-btn"
+                  :disabled="historySaving"
+                  @click="cancelEditHistory"
+                >
+                  ✕ 取消
+                </button>
               </template>
             </template>
           </div>
-          <div v-if="!selectedHistory" class="empty-hint text-hint-c">請由左側選擇一筆紀錄查看內容</div>
+          <div
+            v-if="!selectedHistory"
+            class="empty-hint text-hint-c"
+          >
+            請由左側選擇一筆紀錄查看內容
+          </div>
 
           <!-- 唯讀檢視 -->
-          <div v-else-if="!historyEditing" class="history-detail">
+          <div
+            v-else-if="!historyEditing"
+            class="history-detail"
+          >
             <div class="history-detail-card bg-surface border border-light-c">
-              <div class="history-detail-row"><span class="text-muted-c">訂購日期</span><span class="text-base-c">{{ selectedHistory.orderDate }}</span></div>
-              <div class="history-detail-row"><span class="text-muted-c">出貨日期</span><span class="text-base-c">{{ selectedHistory.shipDates.join('、') || '未填' }}</span></div>
-              <div class="history-detail-row"><span class="text-muted-c">訂購人</span><span class="text-base-c">{{ selectedHistory.ordererName }}</span></div>
-              <div class="history-detail-row"><span class="text-muted-c">狀態</span><span class="text-base-c">{{ selectedHistory.status }}</span></div>
-              <table class="order-table" style="margin-top:10px">
+              <div class="history-detail-row">
+                <span class="text-muted-c">訂購日期</span><span class="text-base-c">{{ selectedHistory.orderDate }}</span>
+              </div>
+              <div class="history-detail-row">
+                <span class="text-muted-c">出貨日期</span><span class="text-base-c">{{ selectedHistory.shipDates.join('、') || '未填' }}</span>
+              </div>
+              <div class="history-detail-row">
+                <span class="text-muted-c">訂購人</span><span class="text-base-c">{{ selectedHistory.ordererName }}</span>
+              </div>
+              <div class="history-detail-row">
+                <span class="text-muted-c">狀態</span><span class="text-base-c">{{ selectedHistory.status }}</span>
+              </div>
+              <table
+                class="order-table"
+                style="margin-top:10px"
+              >
                 <thead>
-                <tr><th>序號</th><th style="text-align:left">品名</th><th>單位</th><th>數量</th><th>單價</th><th>金額</th></tr>
+                <tr>
+                  <th>序號</th><th style="text-align:left">
+                  品名
+                </th><th>單位</th><th>數量</th><th>單價</th><th>金額</th>
+                </tr>
                 </thead>
                 <tbody>
-                <tr v-for="(it, i) in selectedHistory.items" :key="i">
+                <tr
+                  v-for="(it, i) in selectedHistory.items"
+                  :key="i"
+                >
                   <td>{{ i + 1 }}</td>
-                  <td style="text-align:left">{{ it.name }}</td>
+                  <td style="text-align:left">
+                    {{ it.name }}
+                  </td>
                   <td>{{ it.unit }}</td>
                   <td>{{ it.qty }}</td>
                   <td>{{ it.price }}</td>
@@ -372,73 +720,176 @@
                 </tr>
                 </tbody>
               </table>
-              <div class="order-total text-base-c">合計金額：${{ selectedHistory.total }}</div>
-              <div v-if="selectedHistory.note" class="text-hint-c" style="margin-top:6px">備註：{{ selectedHistory.note }}</div>
+              <div class="order-total text-base-c">
+                合計金額：${{ selectedHistory.total }}
+              </div>
+              <div
+                v-if="selectedHistory.note"
+                class="text-hint-c"
+                style="margin-top:6px"
+              >
+                備註：{{ selectedHistory.note }}
+              </div>
             </div>
           </div>
 
           <!-- 編輯模式 -->
-          <div v-else class="history-detail">
+          <div
+            v-else
+            class="history-detail"
+          >
             <div class="history-detail-card bg-surface border border-light-c">
               <div class="form-grid">
                 <label class="form-field">
                   <span class="form-label text-muted-c">訂購日期</span>
-                  <input v-model="selectedHistory.orderDate" type="date" class="form-inp border-light-c bg-surface text-base-c">
+                  <input
+                    v-model="selectedHistory.orderDate"
+                    type="date"
+                    class="form-inp border-light-c bg-surface text-base-c"
+                  >
                 </label>
                 <label class="form-field">
                   <span class="form-label text-muted-c">訂購人</span>
-                  <input v-model="selectedHistory.ordererName" class="form-inp border-light-c bg-surface text-base-c">
+                  <input
+                    v-model="selectedHistory.ordererName"
+                    class="form-inp border-light-c bg-surface text-base-c"
+                  >
                 </label>
                 <label class="form-field">
                   <span class="form-label text-muted-c">訂購人電話</span>
-                  <input v-model="selectedHistory.ordererPhone" class="form-inp border-light-c bg-surface text-base-c">
+                  <input
+                    v-model="selectedHistory.ordererPhone"
+                    class="form-inp border-light-c bg-surface text-base-c"
+                  >
                 </label>
                 <label class="form-field">
                   <span class="form-label text-muted-c">訂購人傳真</span>
-                  <input v-model="selectedHistory.ordererFax" class="form-inp border-light-c bg-surface text-base-c">
+                  <input
+                    v-model="selectedHistory.ordererFax"
+                    class="form-inp border-light-c bg-surface text-base-c"
+                  >
                 </label>
               </div>
 
               <div class="ship-dates">
                 <span class="form-label text-muted-c">出貨日期（可多筆）</span>
-                <div v-for="(d, i) in selectedHistory.shipDates" :key="i" class="ship-date-row">
-                  <input v-model="selectedHistory.shipDates[i]" type="date" class="form-inp border-light-c bg-surface text-base-c">
-                  <button v-if="selectedHistory.shipDates.length > 1" class="rule-del" @click="selectedHistory.shipDates.splice(i, 1)">✕</button>
+                <div
+                  v-for="(d, i) in selectedHistory.shipDates"
+                  :key="i"
+                  class="ship-date-row"
+                >
+                  <input
+                    v-model="selectedHistory.shipDates[i]"
+                    type="date"
+                    class="form-inp border-light-c bg-surface text-base-c"
+                  >
+                  <button
+                    v-if="selectedHistory.shipDates.length > 1"
+                    class="rule-del"
+                    @click="selectedHistory.shipDates.splice(i, 1)"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button class="rule-add" @click="selectedHistory.shipDates.push('')">＋ 新增出貨日期</button>
+                <button
+                  class="rule-add"
+                  @click="selectedHistory.shipDates.push('')"
+                >
+                  ＋ 新增出貨日期
+                </button>
               </div>
 
-              <label class="form-field" style="max-width:100%">
+              <label
+                class="form-field"
+                style="max-width:100%"
+              >
                 <span class="form-label text-muted-c">備註</span>
-                <input v-model="selectedHistory.note" class="form-inp border-light-c bg-surface text-base-c">
+                <input
+                  v-model="selectedHistory.note"
+                  class="form-inp border-light-c bg-surface text-base-c"
+                >
               </label>
 
               <div class="order-table-wrap">
-                <table class="order-table" style="margin-top:10px">
+                <table
+                  class="order-table"
+                  style="margin-top:10px"
+                >
                   <thead>
                   <tr>
-                    <th>序號</th><th style="text-align:left">品名</th><th>單位</th><th>數量</th><th>單價</th><th>金額</th><th></th>
+                    <th>序號</th><th style="text-align:left">
+                    品名
+                  </th><th>單位</th><th>數量</th><th>單價</th><th>金額</th><th />
                   </tr>
                   </thead>
                   <tbody>
-                  <tr v-for="(it, i) in selectedHistory.items" :key="i">
+                  <tr
+                    v-for="(it, i) in selectedHistory.items"
+                    :key="i"
+                  >
                     <td>{{ i + 1 }}</td>
-                    <td style="text-align:left"><input v-model="it.name" class="form-inp border-light-c bg-surface text-base-c" style="width:100%"></td>
-                    <td><input v-model="it.unit" class="qty-inp bg-surface text-base-c border-light-c" style="width:52px"></td>
-                    <td><input v-model.number="it.qty" type="number" min="1" class="qty-inp bg-surface text-base-c border-light-c"></td>
-                    <td><input v-model.number="it.price" type="number" min="0" class="qty-inp bg-surface text-base-c border-light-c"></td>
+                    <td style="text-align:left">
+                      <input
+                        v-model="it.name"
+                        class="form-inp border-light-c bg-surface text-base-c"
+                        style="width:100%"
+                      >
+                    </td>
+                    <td>
+                      <input
+                        v-model="it.unit"
+                        class="qty-inp bg-surface text-base-c border-light-c"
+                        style="width:52px"
+                      >
+                    </td>
+                    <td>
+                      <input
+                        v-model.number="it.qty"
+                        type="number"
+                        min="1"
+                        class="qty-inp bg-surface text-base-c border-light-c"
+                      >
+                    </td>
+                    <td>
+                      <input
+                        v-model.number="it.price"
+                        type="number"
+                        min="0"
+                        class="qty-inp bg-surface text-base-c border-light-c"
+                      >
+                    </td>
                     <td>{{ (it.qty || 0) * (it.price || 0) }}</td>
-                    <td><button class="act-btn del" @click="selectedHistory.items.splice(i, 1)">✕</button></td>
+                    <td>
+                      <button
+                        class="act-btn del"
+                        @click="selectedHistory.items.splice(i, 1)"
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                   <tr v-if="selectedHistory.items.length === 0">
-                    <td colspan="7" class="empty-order text-hint-c">尚無品項</td>
+                    <td
+                      colspan="7"
+                      class="empty-order text-hint-c"
+                    >
+                      尚無品項
+                    </td>
                   </tr>
                   </tbody>
                 </table>
-                <button class="rule-add" style="margin-top:8px" @click="selectedHistory.items.push({ name: '', unit: '個', price: 0, qty: 1 })">＋ 新增品項</button>
+                <button
+                  class="rule-add"
+                  style="margin-top:8px"
+                  @click="selectedHistory.items.push({ name: '', unit: '個', price: 0, qty: 1 })"
+                >
+                  ＋ 新增品項
+                </button>
               </div>
 
-              <div class="order-total text-base-c">合計金額：${{ historyEditTotal }}</div>
+              <div class="order-total text-base-c">
+                合計金額：${{ historyEditTotal }}
+              </div>
             </div>
           </div>
         </template>
@@ -449,12 +900,25 @@
             <span class="preview-toolbar-label text-muted-c">品項總覽（供叫貨單選用的預設品名／單位／單價）</span>
           </div>
           <div class="config-preview-wrap">
-            <div v-for="group in catalog" :key="group.id">
-              <div class="config-preview-group-label text-muted-c">{{ group.group }}</div>
+            <div
+              v-for="group in catalog"
+              :key="group.id"
+            >
+              <div class="config-preview-group-label text-muted-c">
+                {{ group.group }}
+              </div>
               <div class="catalog-grid">
-                <div v-for="p in group.items" :key="p.id" class="catalog-card bg-surface border border-light-c">
-                  <div class="catalog-name text-base-c">{{ p.name }}</div>
-                  <div class="catalog-meta text-hint-c">{{ p.unit }} · ${{ p.price }}</div>
+                <div
+                  v-for="p in group.items"
+                  :key="p.id"
+                  class="catalog-card bg-surface border border-light-c"
+                >
+                  <div class="catalog-name text-base-c">
+                    {{ p.name }}
+                  </div>
+                  <div class="catalog-meta text-hint-c">
+                    {{ p.unit }} · ${{ p.price }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -465,10 +929,19 @@
 
     <!-- ══ 純列印用區塊（畫面上不顯示，只在列印時出現）══ -->
     <div id="print-root">
-      <div v-for="(sheet, si) in printQueue" :key="si" class="print-sheet">
+      <div
+        v-for="(sheet, si) in printQueue"
+        :key="si"
+        class="print-sheet"
+      >
         <div class="print-dates">
           <div>訂購日期 : {{ formatDateWithWeekday(sheet.orderDate) }}</div>
-          <div v-for="(d, i) in sheet.shipDates.filter(Boolean)" :key="i">出貨日期 : {{ formatDateWithWeekday(d) }}</div>
+          <div
+            v-for="(d, i) in sheet.shipDates.filter(Boolean)"
+            :key="i"
+          >
+            出貨日期 : {{ formatDateWithWeekday(d) }}
+          </div>
         </div>
 
         <div class="print-parties">
@@ -486,1059 +959,1085 @@
 
         <table class="print-table">
           <thead>
-          <tr><th style="width:8%">序號</th><th style="width:42%">品名</th><th style="width:12%">單位</th><th style="width:12%">數量</th><th style="width:13%">單價</th><th style="width:13%">金額</th></tr>
+          <tr>
+            <th style="width:8%">
+              序號
+            </th><th style="width:42%">
+            品名
+          </th><th style="width:12%">
+            單位
+          </th><th style="width:12%">
+            數量
+          </th><th style="width:13%">
+            單價
+          </th><th style="width:13%">
+            金額
+          </th>
+          </tr>
           </thead>
           <tbody>
-          <tr v-for="(it, i) in sheet.items" :key="i">
+          <tr
+            v-for="(it, i) in sheet.items"
+            :key="i"
+          >
             <td>{{ i + 1 }}</td>
-            <td style="text-align:left">{{ it.name }}</td>
+            <td style="text-align:left">
+              {{ it.name }}
+            </td>
             <td>{{ it.unit }}</td>
             <td>{{ it.qty }}</td>
             <td>{{ it.price }}</td>
             <td>{{ it.qty * it.price }}</td>
           </tr>
           <tr>
-            <td colspan="5" style="text-align:right;font-weight:bold">合計</td>
-            <td style="font-weight:bold">{{ sheet.items.reduce((s, it) => s + it.qty * it.price, 0) }}</td>
+            <td
+              colspan="5"
+              style="text-align:right;font-weight:bold"
+            >
+              合計
+            </td>
+            <td style="font-weight:bold">
+              {{ sheet.items.reduce((s, it) => s + it.qty * it.price, 0) }}
+            </td>
           </tr>
           </tbody>
         </table>
 
-        <div class="print-note">{{ sheet.note }}</div>
+        <div class="print-note">
+          {{ sheet.note }}
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-  import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 
-  definePageMeta({ layout: 'staff', requiredPermission: 'print.guild-hall-print' })
+definePageMeta({ layout: 'staff', requiredPermission: 'print.guild-hall-print' })
 
-  const commonStore = useCommonStore()
-  const BASE = () => commonStore.data.main_url + '/holy/print/guild-hall'
+const commonStore = useCommonStore()
+const BASE = () => commonStore.data.main_url + '/holy/print/guild-hall'
 
-  const sideTab = ref('create')
-  const mobileOpen = ref(false)
+const sideTab = ref('create')
+const mobileOpen = ref(false)
 
-  /* ── 固定聯絡資訊預設值 ── */
-  const DEFAULT_TO = { toName: '店長&會館同仁', toPhone: '345719', toFax: '347422' }
-  const DEFAULT_ORDERER = { ordererName: '農莊/賈德蘭', ordererPhone: '381382分機888', ordererFax: '381303' }
+/* ── 固定聯絡資訊預設值 ── */
+const DEFAULT_TO = { toName: '店長&會館同仁', toPhone: '345719', toFax: '347422' }
+const DEFAULT_ORDERER = { ordererName: '農莊/賈德蘭', ordererPhone: '381382分機888', ordererFax: '381303' }
 
-  function todayStr() {
-    return new Date().toISOString().slice(0, 10)
-  }
-  function addDaysStr(days) {
-    const d = new Date()
-    d.setDate(d.getDate() + days)
-    return d.toISOString().slice(0, 10)
-  }
-  function formatDateWithWeekday(dateStr) {
-    if (!dateStr) return ''
-    const d = new Date(dateStr + 'T00:00:00')
-    if (Number.isNaN(d.getTime())) return dateStr
-    const wk = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}(${wk})`
-  }
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+function addDaysStr(days) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+function formatDateWithWeekday(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T00:00:00')
+  if (Number.isNaN(d.getTime())) return dateStr
+  const wk = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}(${wk})`
+}
 
-  /* ══════════════════════════════════
+/* ══════════════════════════════════
      品項目錄（後端 /holy/print/guild-hall/catalog）
   ══════════════════════════════════ */
-  const catalogLoading = ref(false)
-  const catalog = ref([])
-  async function loadCatalog() {
-    catalogLoading.value = true
-    try {
-      const data = await (await fetch(`${BASE()}/catalog`)).json()
-      catalog.value = data
-    } catch (e) {
-      console.error(e)
-    } finally {
-      catalogLoading.value = false
-    }
+const catalogLoading = ref(false)
+const catalog = ref([])
+async function loadCatalog() {
+  catalogLoading.value = true
+  try {
+    const data = await (await fetch(`${BASE()}/catalog`)).json()
+    catalog.value = data
+  } catch (e) {
+    console.error(e)
+  } finally {
+    catalogLoading.value = false
   }
+}
 
-  const groupOpen = reactive({})
-  function toggleGroupOpen(gi) {
-    groupOpen[gi] = groupOpen[gi] === false ? true : false
-  }
+const groupOpen = reactive({})
+function toggleGroupOpen(gi) {
+  groupOpen[gi] = groupOpen[gi] === false ? true : false
+}
 
-  /* ── 品項管理：新增/編輯/刪除類別與品項 ── */
-  const addingGroup = ref(false)
-  const newGroupName = ref('')
-  async function confirmAddGroup() {
-    const name = newGroupName.value.trim()
-    if (!name) return
-    try {
-      await fetch(`${BASE()}/catalog/group/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+/* ── 品項管理：新增/編輯/刪除類別與品項 ── */
+const addingGroup = ref(false)
+const newGroupName = ref('')
+async function confirmAddGroup() {
+  const name = newGroupName.value.trim()
+  if (!name) return
+  try {
+    await fetch(`${BASE()}/catalog/group/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    })
+    addingGroup.value = false
+    await loadCatalog()
+  } catch (e) { console.error(e) }
+}
+
+const editingGroupIdx = ref(-1)
+const editGroupName = ref('')
+function startEditGroup(gi) {
+  editingGroupIdx.value = gi
+  editGroupName.value = catalog.value[gi].group
+}
+async function confirmEditGroup(gi) {
+  const name = editGroupName.value.trim()
+  if (!name) { editingGroupIdx.value = -1; return }
+  const id = catalog.value[gi].id
+  try {
+    await fetch(`${BASE()}/catalog/group/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name })
+    })
+    editingGroupIdx.value = -1
+    await loadCatalog()
+  } catch (e) { console.error(e) }
+}
+const confirmDeleteGroupIdx = ref(-1)
+async function confirmDeleteGroup(gi) {
+  const id = catalog.value[gi].id
+  try {
+    await fetch(`${BASE()}/catalog/group/${id}`, { method: 'DELETE' })
+    confirmDeleteGroupIdx.value = -1
+    await loadCatalog()
+  } catch (e) { console.error(e) }
+}
+
+const addingIn = ref(-1)
+const editingKey = ref('')
+const editForm = reactive({ name: '', unit: '', price: 0 })
+function startAddItem(gi) {
+  addingIn.value = gi
+  editingKey.value = ''
+  editForm.name = ''
+  editForm.unit = ''
+  editForm.price = 0
+}
+async function confirmAddItem(gi) {
+  if (!editForm.name.trim()) return
+  const groupId = catalog.value[gi].id
+  try {
+    await fetch(`${BASE()}/catalog/item/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        groupId,
+        name: editForm.name.trim(),
+        unit: editForm.unit.trim() || '個',
+        price: editForm.price || 0
       })
-      addingGroup.value = false
-      await loadCatalog()
-    } catch (e) { console.error(e) }
-  }
-
-  const editingGroupIdx = ref(-1)
-  const editGroupName = ref('')
-  function startEditGroup(gi) {
-    editingGroupIdx.value = gi
-    editGroupName.value = catalog.value[gi].group
-  }
-  async function confirmEditGroup(gi) {
-    const name = editGroupName.value.trim()
-    if (!name) { editingGroupIdx.value = -1; return }
-    const id = catalog.value[gi].id
-    try {
-      await fetch(`${BASE()}/catalog/group/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name }),
-      })
-      editingGroupIdx.value = -1
-      await loadCatalog()
-    } catch (e) { console.error(e) }
-  }
-  const confirmDeleteGroupIdx = ref(-1)
-  async function confirmDeleteGroup(gi) {
-    const id = catalog.value[gi].id
-    try {
-      await fetch(`${BASE()}/catalog/group/${id}`, { method: 'DELETE' })
-      confirmDeleteGroupIdx.value = -1
-      await loadCatalog()
-    } catch (e) { console.error(e) }
-  }
-
-  const addingIn = ref(-1)
-  const editingKey = ref('')
-  const editForm = reactive({ name: '', unit: '', price: 0 })
-  function startAddItem(gi) {
-    addingIn.value = gi
-    editingKey.value = ''
-    editForm.name = ''
-    editForm.unit = ''
-    editForm.price = 0
-  }
-  async function confirmAddItem(gi) {
-    if (!editForm.name.trim()) return
-    const groupId = catalog.value[gi].id
-    try {
-      await fetch(`${BASE()}/catalog/item/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          groupId,
-          name: editForm.name.trim(),
-          unit: editForm.unit.trim() || '個',
-          price: editForm.price || 0,
-        }),
-      })
-      addingIn.value = -1
-      await loadCatalog()
-    } catch (e) { console.error(e) }
-  }
-  function startEditItem(gi, pi, p) {
-    editingKey.value = gi + '-' + pi
+    })
     addingIn.value = -1
-    editForm.name = p.name
-    editForm.unit = p.unit
-    editForm.price = p.price
-  }
-  async function confirmEditItem(gi, pi) {
-    const groupId = catalog.value[gi].id
-    const id = catalog.value[gi].items[pi].id
-    try {
-      await fetch(`${BASE()}/catalog/item/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, id, name: editForm.name, unit: editForm.unit, price: editForm.price }),
-      })
-      editingKey.value = ''
-      await loadCatalog()
-    } catch (e) { console.error(e) }
-  }
-  const confirmDeleteKey = ref('')
-  async function confirmDeleteItem(gi, pi) {
-    const groupId = catalog.value[gi].id
-    const id = catalog.value[gi].items[pi].id
-    try {
-      await fetch(`${BASE()}/catalog/item/${groupId}/${id}`, { method: 'DELETE' })
-      confirmDeleteKey.value = ''
-      await loadCatalog()
-    } catch (e) { console.error(e) }
-  }
+    await loadCatalog()
+  } catch (e) { console.error(e) }
+}
+function startEditItem(gi, pi, p) {
+  editingKey.value = gi + '-' + pi
+  addingIn.value = -1
+  editForm.name = p.name
+  editForm.unit = p.unit
+  editForm.price = p.price
+}
+async function confirmEditItem(gi, pi) {
+  const groupId = catalog.value[gi].id
+  const id = catalog.value[gi].items[pi].id
+  try {
+    await fetch(`${BASE()}/catalog/item/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, id, name: editForm.name, unit: editForm.unit, price: editForm.price })
+    })
+    editingKey.value = ''
+    await loadCatalog()
+  } catch (e) { console.error(e) }
+}
+const confirmDeleteKey = ref('')
+async function confirmDeleteItem(gi, pi) {
+  const groupId = catalog.value[gi].id
+  const id = catalog.value[gi].items[pi].id
+  try {
+    await fetch(`${BASE()}/catalog/item/${groupId}/${id}`, { method: 'DELETE' })
+    confirmDeleteKey.value = ''
+    await loadCatalog()
+  } catch (e) { console.error(e) }
+}
 
-  /* ══════════════════════════════════
+/* ══════════════════════════════════
      建立叫貨單
   ══════════════════════════════════ */
-  const searchQuery = ref('')
-  const searchResults = computed(() => {
-    const q = searchQuery.value.trim().toLowerCase()
-    if (!q) return []
-    const all = catalog.value.flatMap(g => g.items)
-    return all.filter(p => p.name.toLowerCase().includes(q))
-  })
+const searchQuery = ref('')
+const searchResults = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return []
+  const all = catalog.value.flatMap(g => g.items)
+  return all.filter(p => p.name.toLowerCase().includes(q))
+})
 
-  const form = reactive({
-    orderDate: todayStr(),
-    shipDates: [addDaysStr(1)],
-    ...DEFAULT_TO,
-    ...DEFAULT_ORDERER,
-    note: '感謝!隨貨附發票'
-  })
+const form = reactive({
+  orderDate: todayStr(),
+  shipDates: [addDaysStr(1)],
+  ...DEFAULT_TO,
+  ...DEFAULT_ORDERER,
+  note: '感謝!隨貨附發票'
+})
 
-  let nextUid = 1
-  const orderItems = reactive([])
-  function addItemToOrder(p) {
-    const exist = orderItems.find(it => it.catalogId === p.id)
-    if (exist) {
-      exist.qty += 1
-      return
-    }
-    orderItems.push({ uid: nextUid++, catalogId: p.id, name: p.name, unit: p.unit, price: p.price, qty: 1 })
+let nextUid = 1
+const orderItems = reactive([])
+function addItemToOrder(p) {
+  const exist = orderItems.find(it => it.catalogId === p.id)
+  if (exist) {
+    exist.qty += 1
+    return
   }
-  const totalAmount = computed(() => orderItems.reduce((s, it) => s + it.qty * it.price, 0))
+  orderItems.push({ uid: nextUid++, catalogId: p.id, name: p.name, unit: p.unit, price: p.price, qty: 1 })
+}
+const totalAmount = computed(() => orderItems.reduce((s, it) => s + it.qty * it.price, 0))
 
-  /* ══════════════════════════════════
+/* ══════════════════════════════════
      歷史紀錄（後端 /holy/print/guild-hall/history）
   ══════════════════════════════════ */
-  const historyLoading = ref(false)
-  const orderHistory = ref([])
-  async function loadHistory() {
-    historyLoading.value = true
-    try {
-      const data = await (await fetch(`${BASE()}/history/list`)).json()
-      orderHistory.value = data
-    } catch (e) {
-      console.error(e)
-    } finally {
-      historyLoading.value = false
-    }
+const historyLoading = ref(false)
+const orderHistory = ref([])
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    const data = await (await fetch(`${BASE()}/history/list`)).json()
+    orderHistory.value = data
+  } catch (e) {
+    console.error(e)
+  } finally {
+    historyLoading.value = false
   }
+}
 
-  const historyQuery = ref('')
-  const filteredHistory = computed(() => {
-    const q = historyQuery.value.trim().toLowerCase()
-    const sorted = [...orderHistory.value].sort((a, b) => b.orderDate.localeCompare(a.orderDate))
-    if (!q) return sorted
-    return sorted.filter(r => r.ordererName.toLowerCase().includes(q) || r.items.some(it => it.name.toLowerCase().includes(q)))
-  })
-  const selectedHistoryId = ref(null)
-  const selectedHistory = computed(() => orderHistory.value.find(r => r.id === selectedHistoryId.value) || null)
+const historyQuery = ref('')
+const filteredHistory = computed(() => {
+  const q = historyQuery.value.trim().toLowerCase()
+  const sorted = [...orderHistory.value].sort((a, b) => b.orderDate.localeCompare(a.orderDate))
+  if (!q) return sorted
+  return sorted.filter(r => r.ordererName.toLowerCase().includes(q) || r.items.some(it => it.name.toLowerCase().includes(q)))
+})
+const selectedHistoryId = ref(null)
+const selectedHistory = computed(() => orderHistory.value.find(r => r.id === selectedHistoryId.value) || null)
 
-  /* ── 歷史紀錄：編輯（前端互動 + 後端 /history/update 持久化） ── */
-  const historyEditing = ref(false)
-  const historySaving = ref(false)
-  let historyEditBackup = null
-  function selectHistory(id) {
-    if (historyEditing.value && id !== selectedHistoryId.value) {
-      cancelEditHistory()
-    }
-    selectedHistoryId.value = id
+/* ── 歷史紀錄：編輯（前端互動 + 後端 /history/update 持久化） ── */
+const historyEditing = ref(false)
+const historySaving = ref(false)
+let historyEditBackup = null
+function selectHistory(id) {
+  if (historyEditing.value && id !== selectedHistoryId.value) {
+    cancelEditHistory()
   }
-  function startEditHistory(rec) {
-    historyEditBackup = JSON.parse(JSON.stringify(rec))
-    historyEditing.value = true
+  confirmDeleteHistoryId.value = null
+  selectedHistoryId.value = id
+}
+function startEditHistory(rec) {
+  historyEditBackup = JSON.parse(JSON.stringify(rec))
+  historyEditing.value = true
+}
+function cancelEditHistory() {
+  if (historyEditBackup && selectedHistory.value) {
+    Object.assign(selectedHistory.value, historyEditBackup)
   }
-  function cancelEditHistory() {
-    if (historyEditBackup && selectedHistory.value) {
-      Object.assign(selectedHistory.value, historyEditBackup)
-    }
+  historyEditBackup = null
+  historyEditing.value = false
+}
+async function confirmEditHistory() {
+  if (!selectedHistory.value) return
+  selectedHistory.value.items = selectedHistory.value.items.filter(it => it.name && it.name.trim())
+  selectedHistory.value.total = selectedHistory.value.items.reduce((s, it) => s + (it.qty || 0) * (it.price || 0), 0)
+  historySaving.value = true
+  try {
+    await fetch(`${BASE()}/history/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(selectedHistory.value)
+    })
     historyEditBackup = null
     historyEditing.value = false
+  } catch (e) {
+    console.error(e)
+    alert('儲存失敗，請稍後再試')
+  } finally {
+    historySaving.value = false
   }
-  async function confirmEditHistory() {
-    if (!selectedHistory.value) return
-    selectedHistory.value.items = selectedHistory.value.items.filter(it => it.name && it.name.trim())
-    selectedHistory.value.total = selectedHistory.value.items.reduce((s, it) => s + (it.qty || 0) * (it.price || 0), 0)
-    historySaving.value = true
-    try {
-      await fetch(`${BASE()}/history/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(selectedHistory.value),
+}
+const historyEditTotal = computed(() =>
+  selectedHistory.value ? selectedHistory.value.items.reduce((s, it) => s + (it.qty || 0) * (it.price || 0), 0) : 0
+)
+
+async function toggleHistoryStatus(rec) {
+  const prev = rec.status
+  rec.status = rec.status === '已出貨' ? '待出貨' : '已出貨'
+  try {
+    await fetch(`${BASE()}/history/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rec)
+    })
+  } catch (e) {
+    console.error(e)
+    rec.status = prev
+  }
+}
+
+const confirmDeleteHistoryId = ref(null)
+const historyDeleting = ref(false)
+async function confirmDeleteHistory(rec) {
+  historyDeleting.value = true
+  try {
+    await fetch(`${BASE()}/history/${rec.id}`, { method: 'DELETE' })
+    orderHistory.value = orderHistory.value.filter(r => r.id !== rec.id)
+    if (selectedHistoryId.value === rec.id) selectedHistoryId.value = null
+    confirmDeleteHistoryId.value = null
+  } catch (e) {
+    console.error(e)
+    alert('刪除失敗，請稍後再試')
+  } finally {
+    historyDeleting.value = false
+  }
+}
+
+const savingOrder = ref(false)
+async function saveOrder() {
+  if (orderItems.length === 0) return
+  savingOrder.value = true
+  try {
+    await fetch(`${BASE()}/history/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderDate: form.orderDate,
+        shipDates: [...form.shipDates],
+        toName: form.toName,
+        toPhone: form.toPhone,
+        toFax: form.toFax,
+        ordererName: form.ordererName,
+        ordererPhone: form.ordererPhone,
+        ordererFax: form.ordererFax,
+        items: orderItems.map(it => ({ name: it.name, unit: it.unit, price: it.price, qty: it.qty })),
+        note: form.note,
+        status: '待出貨'
       })
-      historyEditBackup = null
-      historyEditing.value = false
-    } catch (e) {
-      console.error(e)
-      alert('儲存失敗，請稍後再試')
-    } finally {
-      historySaving.value = false
-    }
+    })
+    await loadHistory()
+    sideTab.value = 'history'
+  } catch (e) {
+    console.error(e)
+    alert('儲存失敗，請稍後再試')
+  } finally {
+    savingOrder.value = false
   }
-  const historyEditTotal = computed(() =>
-    selectedHistory.value ? selectedHistory.value.items.reduce((s, it) => s + (it.qty || 0) * (it.price || 0), 0) : 0
-  )
+}
 
-  async function toggleHistoryStatus(rec) {
-    const prev = rec.status
-    rec.status = rec.status === '已出貨' ? '待出貨' : '已出貨'
-    try {
-      await fetch(`${BASE()}/history/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rec),
-      })
-    } catch (e) {
-      console.error(e)
-      rec.status = prev
-    }
-  }
+function loadFromHistory(rec) {
+  form.orderDate = todayStr()
+  form.shipDates = [addDaysStr(1)]
+  form.toName = rec.toName
+  form.toPhone = rec.toPhone
+  form.toFax = rec.toFax
+  form.ordererName = rec.ordererName
+  form.ordererPhone = rec.ordererPhone
+  form.ordererFax = rec.ordererFax
+  form.note = rec.note
+  orderItems.splice(0)
+  rec.items.forEach(it => orderItems.push({ uid: nextUid++, catalogId: null, name: it.name, unit: it.unit, price: it.price, qty: it.qty }))
+  sideTab.value = 'create'
+}
 
-  const savingOrder = ref(false)
-  async function saveOrder() {
-    if (orderItems.length === 0) return
-    savingOrder.value = true
-    try {
-      await fetch(`${BASE()}/history/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderDate: form.orderDate,
-          shipDates: [...form.shipDates],
-          toName: form.toName,
-          toPhone: form.toPhone,
-          toFax: form.toFax,
-          ordererName: form.ordererName,
-          ordererPhone: form.ordererPhone,
-          ordererFax: form.ordererFax,
-          items: orderItems.map(it => ({ name: it.name, unit: it.unit, price: it.price, qty: it.qty })),
-          note: form.note,
-          status: '待出貨',
-        }),
-      })
-      await loadHistory()
-      sideTab.value = 'history'
-    } catch (e) {
-      console.error(e)
-      alert('儲存失敗，請稍後再試')
-    } finally {
-      savingOrder.value = false
-    }
-  }
-
-  function loadFromHistory(rec) {
-    form.orderDate = todayStr()
-    form.shipDates = [addDaysStr(1)]
-    form.toName = rec.toName
-    form.toPhone = rec.toPhone
-    form.toFax = rec.toFax
-    form.ordererName = rec.ordererName
-    form.ordererPhone = rec.ordererPhone
-    form.ordererFax = rec.ordererFax
-    form.note = rec.note
-    orderItems.splice(0)
-    rec.items.forEach(it => orderItems.push({ uid: nextUid++, catalogId: null, name: it.name, unit: it.unit, price: it.price, qty: it.qty }))
-    sideTab.value = 'create'
-  }
-
-  /* ══════════════════════════════════
+/* ══════════════════════════════════
      列印
   ══════════════════════════════════ */
-  const printQueue = ref([])
-  function doPrint() {
-    if (orderItems.length === 0) return
-    printQueue.value = [{
-      orderDate: form.orderDate,
-      shipDates: [...form.shipDates],
-      toName: form.toName,
-      toPhone: form.toPhone,
-      toFax: form.toFax,
-      ordererName: form.ordererName,
-      ordererPhone: form.ordererPhone,
-      ordererFax: form.ordererFax,
-      items: orderItems.map(it => ({ name: it.name, unit: it.unit, price: it.price, qty: it.qty })),
-      note: form.note
-    }]
-    requestAnimationFrame(() => window.print())
-  }
-  function printHistory(rec) {
-    printQueue.value = [{ ...rec, shipDates: [...rec.shipDates], items: rec.items.map(it => ({ ...it })) }]
-    requestAnimationFrame(() => window.print())
-  }
+const printQueue = ref([])
+function printHistory(rec) {
+  printQueue.value = [{ ...rec, shipDates: [...rec.shipDates], items: rec.items.map(it => ({ ...it })) }]
+  requestAnimationFrame(() => window.print())
+}
 
-  onMounted(() => {
-    loadCatalog()
-    loadHistory()
-  })
+onMounted(() => {
+  loadCatalog()
+  loadHistory()
+})
 </script>
 
 <style scoped>
-  @reference "tailwindcss";
+@reference "tailwindcss";
 
-  /* ══ 版面骨架 ══ */
-  .layout {
-    display: flex;
-    height: calc(100vh - var(--nav-height, 44px));
-    overflow: hidden;
-  }
+/* ══ 版面骨架 ══ */
+.layout {
+  display: flex;
+  height: calc(100vh - var(--nav-height, 49px));
+  overflow: hidden;
+}
 
+.sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-bar {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 9px 4px;
+  @apply text-sm;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.search-inp {
+  flex: 1;
+  border: 1px solid var(--border-light, #ddd);
+  border-radius: 8px;
+  padding: 6px 10px;
+  @apply text-sm;
+  outline: none;
+}
+
+.search-clear {
+  cursor: pointer;
+  @apply text-base;
+  background: transparent;
+  border: none;
+}
+
+.list-scroll, .config-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  @apply text-sm;
+  font-weight: bold;
+}
+
+.group-toggle {
+  cursor: pointer;
+  @apply text-sm;
+  opacity: .6;
+}
+
+.group-name-label {
+  flex: 1;
+}
+
+.group-count {
+  @apply text-sm;
+}
+
+.group-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 22px;
+  @apply text-sm;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(128,128,128,.08);
+}
+
+.item-row:hover {
+  background: rgba(16, 185, 129, .08);
+}
+
+.zh-main {
+  flex: 1;
+}
+
+.item-meta {
+  @apply text-sm;
+  white-space: nowrap;
+}
+
+.add-mark {
+  @apply text-base;
+  opacity: .5;
+}
+
+.config-item-row {
+  padding-left: 12px;
+  cursor: default;
+}
+
+.config-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.item-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.act-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  @apply text-sm;
+  opacity: .55;
+  padding: 2px 4px;
+}
+
+.act-btn:hover {
+  opacity: 1;
+}
+
+.act-btn.del:hover {
+  color: #ef4444;
+}
+
+.del-confirm-label {
+  @apply text-sm;
+  opacity: .7;
+}
+
+.del-yes, .del-no {
+  border: 1px solid;
+  border-radius: 5px;
+  @apply text-sm;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.del-yes {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.empty-search {
+  @apply text-sm;
+  padding: 16px;
+  text-align: center;
+}
+
+.add-group-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.add-group-btn, .rule-add {
+  border: 1px dashed;
+  background: transparent;
+  border-radius: 8px;
+  @apply text-sm;
+  padding: 6px 10px;
+  cursor: pointer;
+  opacity: .75;
+}
+
+.edit-row {
+  padding: 8px 10px 8px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-field-label {
+  @apply text-sm;
+  opacity: .6;
+  width: 34px;
+  flex-shrink: 0;
+}
+
+.edit-inp {
+  flex: 1;
+  border: 1px solid var(--border-light, #ddd);
+  border-radius: 6px;
+  padding: 4px 8px;
+  @apply text-sm;
+  outline: none;
+}
+
+.group-name-inp {
+  flex: 1;
+  border: 1px solid var(--border-light, #ddd);
+  border-radius: 6px;
+  padding: 3px 6px;
+  @apply text-sm;
+}
+
+.edit-ok, .edit-cancel, .group-add-btn {
+  border: 1px solid;
+  border-radius: 6px;
+  @apply text-sm;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.edit-ok {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.edit-ok.sm, .edit-cancel.sm {
+  padding: 2px 6px;
+  @apply text-sm;
+}
+
+.group-add-btn {
+  background: transparent;
+  border-color: rgba(128,128,128,.3);
+}
+
+.edit-action-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.sidebar-footer {
+  padding: 10px 12px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.save-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 9px;
+  @apply text-base;
+  cursor: pointer;
+  font-weight: bold;
+  background: #10b981;
+  color: white;
+}
+
+.save-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+/* ── 歷史紀錄清單 ── */
+.history-row {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(128,128,128,.1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-row:hover {
+  background: rgba(16, 185, 129, .06);
+}
+
+.history-row.active {
+  background: rgba(16, 185, 129, .14);
+}
+
+.history-row-top {
+  display: flex;
+  justify-content: space-between;
+  @apply text-sm;
+  font-weight: bold;
+}
+
+.history-status {
+  @apply text-sm;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.history-status.done {
+  background: rgba(16,185,129,.15);
+  color: #059669;
+}
+
+.history-status.pending {
+  background: rgba(234,179,8,.18);
+  color: #b45309;
+}
+
+.history-orderer, .history-summary {
+  @apply text-sm;
+}
+
+/* ── 主要區 ── */
+.preview-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.preview-toolbar-label {
+  @apply text-sm;
+  opacity: .8;
+}
+
+.auto-scale-btn {
+  @apply text-sm;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #10b981;
+  background: transparent;
+  color: #10b981;
+}
+
+.auto-scale-btn.del {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.auto-scale-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.empty-hint {
+  @apply text-base;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+/* ── 建立叫貨表單 ── */
+.form-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 900px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-label {
+  @apply text-sm;
+}
+
+.form-inp {
+  border: 1px solid var(--border-light, #ddd);
+  border-radius: 8px;
+  padding: 6px 10px;
+  @apply text-base;
+  outline: none;
+}
+
+.ship-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ship-date-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+}
+
+.rule-del {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: .5;
+  @apply text-sm;
+}
+
+.order-table-wrap {
+  overflow-x: auto;
+}
+
+.order-table {
+  width: 100%;
+  border-collapse: collapse;
+  @apply text-base;
+}
+
+.order-table th, .order-table td {
+  border: 1px solid rgba(128,128,128,.25);
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.qty-inp {
+  width: 64px;
+  border: 1px solid var(--border-light, #ddd);
+  border-radius: 6px;
+  padding: 3px 6px;
+  text-align: center;
+  @apply text-sm;
+}
+
+.empty-order {
+  text-align: center;
+  padding: 20px;
+}
+
+.order-total {
+  text-align: right;
+  font-weight: bold;
+  @apply text-lg;
+}
+
+/* ── 歷史紀錄詳情 ── */
+.history-detail {
+  padding: 16px;
+}
+
+.history-detail-card {
+  border-radius: 10px;
+  padding: 16px;
+  max-width: 700px;
+}
+
+.history-detail-row {
+  display: flex;
+  justify-content: space-between;
+  @apply text-base;
+  padding: 3px 0;
+}
+
+/* ── 品項總覽 ── */
+.config-preview-wrap {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.config-preview-group-label {
+  @apply text-sm;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.catalog-card {
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.catalog-name {
+  @apply text-base;
+  font-weight: bold;
+}
+
+.catalog-meta {
+  @apply text-sm;
+  margin-top: 2px;
+}
+
+/* ══ 手機響應式 ══ */
+.mobile-topbar {
+  display: none;
+  flex-shrink: 0;
+}
+
+.mobile-topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+}
+
+.mobile-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-menu-btn {
+  background: transparent;
+  border: 1px solid;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  @apply text-lg;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mobile-menu-btn.active {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 40;
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 767px) {
+  .mobile-topbar { display: flex; }
+  .mobile-overlay { display: block; }
+  .layout { flex-direction: column; height: calc(100vh - var(--nav-height, 44px)); }
   .sidebar {
-    width: 320px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .tab-bar {
-    display: flex;
-    flex-shrink: 0;
-  }
-
-  .tab-btn {
-    flex: 1;
-    padding: 9px 4px;
-    @apply text-sm;
-    border: none;
-    cursor: pointer;
-    background: transparent;
-  }
-
-  .search-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    flex-shrink: 0;
-  }
-
-  .search-inp {
-    flex: 1;
-    border: 1px solid var(--border-light, #ddd);
-    border-radius: 8px;
-    padding: 6px 10px;
-    @apply text-sm;
-    outline: none;
-  }
-
-  .search-clear {
-    cursor: pointer;
-    @apply text-base;
-    background: transparent;
-    border: none;
-  }
-
-  .list-scroll, .config-scroll {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .group-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 10px;
-    cursor: pointer;
-    @apply text-sm;
-    font-weight: bold;
-  }
-
-  .group-toggle {
-    cursor: pointer;
-    @apply text-sm;
-    opacity: .6;
-  }
-
-  .group-name-label {
-    flex: 1;
-  }
-
-  .group-count {
-    @apply text-sm;
-  }
-
-  .group-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .item-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 12px 7px 22px;
-    @apply text-sm;
-    cursor: pointer;
-    border-bottom: 1px solid rgba(128,128,128,.08);
-  }
-
-  .item-row:hover {
-    background: rgba(16, 185, 129, .08);
-  }
-
-  .zh-main {
-    flex: 1;
-  }
-
-  .item-meta {
-    @apply text-sm;
-    white-space: nowrap;
-  }
-
-  .add-mark {
-    @apply text-base;
-    opacity: .5;
-  }
-
-  .config-item-row {
-    padding-left: 12px;
-    cursor: default;
-  }
-
-  .config-item-content {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-  }
-
-  .item-actions {
-    display: flex;
-    gap: 4px;
-    margin-left: auto;
-  }
-
-  .act-btn {
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    @apply text-sm;
-    opacity: .55;
-    padding: 2px 4px;
-  }
-
-  .act-btn:hover {
-    opacity: 1;
-  }
-
-  .act-btn.del:hover {
-    color: #ef4444;
-  }
-
-  .del-confirm-label {
-    @apply text-sm;
-    opacity: .7;
-  }
-
-  .del-yes, .del-no {
-    border: 1px solid;
-    border-radius: 5px;
-    @apply text-sm;
-    padding: 1px 6px;
-    cursor: pointer;
-  }
-
-  .del-yes {
-    background: #ef4444;
-    color: white;
-    border-color: #ef4444;
-  }
-
-  .empty-search {
-    @apply text-sm;
-    padding: 16px;
-    text-align: center;
-  }
-
-  .add-group-row {
-    display: flex;
-    gap: 6px;
-    padding: 8px 10px;
-  }
-
-  .add-group-btn, .rule-add {
-    border: 1px dashed;
-    background: transparent;
-    border-radius: 8px;
-    @apply text-sm;
-    padding: 6px 10px;
-    cursor: pointer;
-    opacity: .75;
-  }
-
-  .edit-row {
-    padding: 8px 10px 8px 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .edit-field-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .edit-field-label {
-    @apply text-sm;
-    opacity: .6;
-    width: 34px;
-    flex-shrink: 0;
-  }
-
-  .edit-inp {
-    flex: 1;
-    border: 1px solid var(--border-light, #ddd);
-    border-radius: 6px;
-    padding: 4px 8px;
-    @apply text-sm;
-    outline: none;
-  }
-
-  .group-name-inp {
-    flex: 1;
-    border: 1px solid var(--border-light, #ddd);
-    border-radius: 6px;
-    padding: 3px 6px;
-    @apply text-sm;
-  }
-
-  .edit-ok, .edit-cancel, .group-add-btn {
-    border: 1px solid;
-    border-radius: 6px;
-    @apply text-sm;
-    padding: 3px 8px;
-    cursor: pointer;
-  }
-
-  .edit-ok {
-    background: #10b981;
-    color: white;
-    border-color: #10b981;
-  }
-
-  .edit-ok.sm, .edit-cancel.sm {
-    padding: 2px 6px;
-    @apply text-sm;
-  }
-
-  .group-add-btn {
-    background: transparent;
-    border-color: rgba(128,128,128,.3);
-  }
-
-  .edit-action-row {
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
-  }
-
-  .sidebar-footer {
-    padding: 10px 12px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .print-btn, .save-btn, .print-nav-btn {
-    border: none;
-    border-radius: 8px;
-    padding: 9px;
-    @apply text-base;
-    cursor: pointer;
-    font-weight: bold;
-  }
-
-  .print-btn {
-    background: #10b981;
-    color: white;
-  }
-
-  .save-btn {
-    background: transparent;
-    border: 1px solid #10b981;
-    color: #10b981;
-  }
-
-  .print-btn:disabled, .save-btn:disabled, .print-nav-btn:disabled {
-    opacity: .4;
-    cursor: not-allowed;
-  }
-
-  .print-nav-btn {
-    background: #10b981;
-    color: white;
-  }
-
-  /* ── 歷史紀錄清單 ── */
-  .history-row {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(128,128,128,.1);
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .history-row:hover {
-    background: rgba(16, 185, 129, .06);
-  }
-
-  .history-row.active {
-    background: rgba(16, 185, 129, .14);
-  }
-
-  .history-row-top {
-    display: flex;
-    justify-content: space-between;
-    @apply text-sm;
-    font-weight: bold;
-  }
-
-  .history-status {
-    @apply text-sm;
-    padding: 1px 8px;
-    border-radius: 999px;
-  }
-
-  .history-status.done {
-    background: rgba(16,185,129,.15);
-    color: #059669;
-  }
-
-  .history-status.pending {
-    background: rgba(234,179,8,.18);
-    color: #b45309;
-  }
-
-  .history-orderer, .history-summary {
-    @apply text-sm;
-  }
-
-  /* ── 主要區 ── */
-  .preview-area {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-
-  .preview-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-
-  .preview-toolbar-label {
-    @apply text-sm;
-    opacity: .8;
-  }
-
-  .auto-scale-btn {
-    @apply text-sm;
-    padding: 4px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    border: 1px solid #10b981;
-    background: transparent;
-    color: #10b981;
-  }
-
-  .empty-hint {
-    @apply text-base;
-    padding: 60px 20px;
-    text-align: center;
-  }
-
-  /* ── 建立叫貨表單 ── */
-  .form-panel {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    max-width: 900px;
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 10px;
-  }
-
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .form-label {
-    @apply text-sm;
-  }
-
-  .form-inp {
-    border: 1px solid var(--border-light, #ddd);
-    border-radius: 8px;
-    padding: 6px 10px;
-    @apply text-base;
-    outline: none;
-  }
-
-  .ship-dates {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .ship-date-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 260px;
-  }
-
-  .rule-del {
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    opacity: .5;
-    @apply text-sm;
-  }
-
-  .order-table-wrap {
-    overflow-x: auto;
-  }
-
-  .order-table {
-    width: 100%;
-    border-collapse: collapse;
-    @apply text-base;
-  }
-
-  .order-table th, .order-table td {
-    border: 1px solid rgba(128,128,128,.25);
-    padding: 6px 8px;
-    text-align: center;
-  }
-
-  .qty-inp {
-    width: 64px;
-    border: 1px solid var(--border-light, #ddd);
-    border-radius: 6px;
-    padding: 3px 6px;
-    text-align: center;
-    @apply text-sm;
-  }
-
-  .empty-order {
-    text-align: center;
-    padding: 20px;
-  }
-
-  .order-total {
-    text-align: right;
-    font-weight: bold;
-    @apply text-lg;
-  }
-
-  /* ── 歷史紀錄詳情 ── */
-  .history-detail {
-    padding: 16px;
-  }
-
-  .history-detail-card {
-    border-radius: 10px;
-    padding: 16px;
-    max-width: 700px;
-  }
-
-  .history-detail-row {
-    display: flex;
-    justify-content: space-between;
-    @apply text-base;
-    padding: 3px 0;
-  }
-
-  /* ── 品項總覽 ── */
-  .config-preview-wrap {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .config-preview-group-label {
-    @apply text-sm;
-    font-weight: bold;
-    margin-bottom: 6px;
-  }
-
-  .catalog-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 10px;
-  }
-
-  .catalog-card {
-    border-radius: 8px;
-    padding: 10px 12px;
-  }
-
-  .catalog-name {
-    @apply text-base;
-    font-weight: bold;
-  }
-
-  .catalog-meta {
-    @apply text-sm;
-    margin-top: 2px;
-  }
-
-  /* ══ 手機響應式 ══ */
-  .mobile-topbar {
-    display: none;
-    flex-shrink: 0;
-  }
-
-  .mobile-topbar-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-  }
-
-  .mobile-topbar-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .mobile-menu-btn {
-    background: transparent;
-    border: 1px solid;
-    border-radius: 8px;
-    width: 36px;
-    height: 36px;
-    @apply text-lg;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .mobile-menu-btn.active {
-    background: #10b981;
-    color: white;
-    border-color: #10b981;
-  }
-
-  .mobile-overlay {
-    display: none;
     position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.4);
-    z-index: 40;
-    backdrop-filter: blur(2px);
+    top: 0; left: 0; bottom: 0;
+    width: min(320px, 88vw);
+    transform: translateX(-110%);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    z-index: 50;
+    border-right: 1px solid;
+    box-shadow: 4px 0 24px rgba(0,0,0,.18);
   }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-header { display: none; }
+  .preview-area { flex: 1; overflow-y: auto; }
+}
 
-  @media (max-width: 767px) {
-    .mobile-topbar { display: flex; }
-    .mobile-overlay { display: block; }
-    .layout { flex-direction: column; height: calc(100vh - var(--nav-height, 44px)); }
-    .sidebar {
-      position: fixed;
-      top: 0; left: 0; bottom: 0;
-      width: min(320px, 88vw);
-      transform: translateX(-110%);
-      transition: transform .25s cubic-bezier(.4,0,.2,1);
-      z-index: 50;
-      border-right: 1px solid;
-      box-shadow: 4px 0 24px rgba(0,0,0,.18);
-    }
-    .sidebar.open { transform: translateX(0); }
-    .sidebar-header { display: none; }
-    .preview-area { flex: 1; overflow-y: auto; }
+/* ══ 列印區塊：畫面上隱藏 ══ */
+#print-root {
+  display: none;
+}
+
+@media print {
+  .layout, .mobile-topbar, .mobile-overlay {
+    display: none !important;
   }
-
-  /* ══ 列印區塊：畫面上隱藏 ══ */
   #print-root {
-    display: none;
+    display: block !important;
   }
-
-  @media print {
-    .layout, .mobile-topbar, .mobile-overlay {
-      display: none !important;
-    }
-    #print-root {
-      display: block !important;
-    }
-  }
+}
 </style>
 
 <style>
-  @reference "tailwindcss";
+@reference "tailwindcss";
 
-  /* 列印樣式需為全域（非 scoped），確保 @page 與列印區塊生效 */
-  @media print {
-    @page {
-      size: A4 portrait;
-      margin: 15mm;
-    }
-    body * {
-      visibility: hidden;
-    }
-    #print-root, #print-root * {
-      visibility: visible;
-    }
-    #print-root {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-    }
+/* 列印樣式需為全域（非 scoped），確保 @page 與列印區塊生效 */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
   }
-
-  .print-sheet {
-    font-family: '標楷體', 'DFKai-SB', 'Microsoft JhengHei', sans-serif;
-    color: #111;
-    page-break-after: always;
+  body * {
+    visibility: hidden;
   }
-
-  .print-dates {
-    @apply text-xl;
-    margin-bottom: 14px;
-    line-height: 1.7;
+  #print-root, #print-root * {
+    visibility: visible;
   }
-
-  .print-parties {
-    display: flex;
-    justify-content: space-between;
-    @apply text-lg;
-    line-height: 1.8;
-    margin-bottom: 18px;
-  }
-
-  .print-party {
-    flex: 1;
-  }
-
-  .print-party:last-child {
-    text-align: right;
-  }
-
-  .print-table {
+  #print-root {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    border-collapse: collapse;
-    @apply text-xl;
   }
+}
 
-  .print-table th, .print-table td {
-    border: 1px solid #333;
-    padding: 9px 10px;
-    text-align: center;
-  }
+.print-sheet {
+  font-family: '標楷體', 'DFKai-SB', 'Microsoft JhengHei', sans-serif;
+  color: #111;
+  page-break-after: always;
+}
 
-  .print-note {
-    margin-top: 14px;
-    @apply text-lg;
-  }
+.print-dates {
+  @apply text-xl;
+  margin-bottom: 14px;
+  line-height: 1.7;
+}
+
+.print-parties {
+  display: flex;
+  justify-content: space-between;
+  @apply text-lg;
+  line-height: 1.8;
+  margin-bottom: 18px;
+}
+
+.print-party {
+  flex: 1;
+}
+
+.print-party:last-child {
+  text-align: right;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  @apply text-xl;
+}
+
+.print-table th, .print-table td {
+  border: 1px solid #333;
+  padding: 9px 10px;
+  text-align: center;
+}
+
+.print-note {
+  margin-top: 14px;
+  @apply text-lg;
+}
 </style>
