@@ -4034,25 +4034,24 @@
     gap: 8px;
   }
 
-  .time-select {
+  /* 用 select.field-input.time-select（元素+雙 class）拉高權重，並用 background 簡寫一次性設定，
+     避免被 :root.dark .field-input 的 background 簡寫（權重較高／較晚套用）蓋掉，
+     在 iOS Safari 疊出「原生方向鍵 + 自訂箭頭」重複好幾個箭頭的怪異外觀 */
+  select.field-input.time-select {
     flex: 1 1 0;
     min-width: 0;
-    /* 移除各瀏覽器（尤其 iOS Safari）預設的原生選單樣式，改用自訂單一箭頭，
-       避免在窄欄位裡擠成上下雙箭頭的 stepper 外觀 */
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='5 8 10 13 15 8'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 14px;
+    background: #fff url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='5 8 10 13 15 8'/%3e%3c/svg%3e") no-repeat right 10px center / 14px 14px !important;
     padding-right: 30px;
     text-align: center;
+    text-align-last: center;
     cursor: pointer;
   }
 
-  :root.dark .time-select {
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23a8a29e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='5 8 10 13 15 8'/%3e%3c/svg%3e");
+  :root.dark select.field-input.time-select {
+    background: #1c1f26 url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23a8a29e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='5 8 10 13 15 8'/%3e%3c/svg%3e") no-repeat right 10px center / 14px 14px !important;
   }
 
   /* ── 側板動畫 ── */
