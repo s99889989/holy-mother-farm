@@ -2,7 +2,7 @@
   definePageMeta({ layout: 'staff', requiredPermission: 'health-activities.body-composition' })
 
   const commonStore = useCommonStore()
-  const BASE = () => commonStore.data.main_url + '/holy/tabc'
+  const BASE = () => commonStore.data.just_url + '/holy/tabc'
 
   // ── 頁籤 ──────────────────────────────────────────────
   const mainTabs = [
@@ -2304,8 +2304,7 @@
           <tr
             v-for="(row, idx) in rankedProgress"
             :key="row.patnr"
-            class="bg-surface hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
-            @click="openCustomer(row.patnr)"
+            class="bg-surface"
           >
             <td class="border border-light-c px-2 py-1 text-right font-mono">
               {{ idx + 1 }}
