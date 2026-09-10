@@ -492,6 +492,34 @@
     document.body.removeChild(a)
   }
 
+  /* ---------------- 臨時網址：直接輸入網址產生 QRCode（不會存成書籤） ---------------- */
+
+  const tempQrModal = reactive({ open: false, url: '', name: '' })
+  const tempQrError = ref('')
+
+  function openTempQrModal() {
+    tempQrModal.open = true
+    tempQrModal.url = ''
+    tempQrModal.name = ''
+    tempQrError.value = ''
+  }
+  function closeTempQrModal() {
+    tempQrModal.open = false
+  }
+  function submitTempQr() {
+    let url = tempQrModal.url.trim()
+    if (!url) {
+      tempQrError.value = '請輸入網址'
+      return
+    }
+    // 沒帶協定的話自動補上 https://
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`
+    tempQrError.value = ''
+    closeTempQrModal()
+    // 用一個暫時的 link 物件重用既有的 QRCode 產生流程，不會呼叫任何儲存 API
+    openQrModal({ id: null, name: tempQrModal.name.trim() || getDomain(url) || url, url, image: '' })
+  }
+
   onMounted(fetchLinks)
 </script>
 
@@ -505,6 +533,26 @@
         <div class="flex-1">
           <h1 class="font-bold text-base-c leading-none" style="font-size:15px">常用網址</h1>
         </div>
+        <button
+          class="icon-btn w-8 h-8 rounded-lg flex-shrink-0 bg-surface2 text-muted-c hover-surface2 md:hidden"
+          title="臨時 QRCode（輸入網址即可產生，不會存成書籤）"
+          @click="openTempQrModal"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <rect width="5" height="5" x="3" y="3" rx="1"/>
+            <rect width="5" height="5" x="16" y="3" rx="1"/>
+            <rect width="5" height="5" x="3" y="16" rx="1"/>
+            <path d="M21 16h-3a2 2 0 0 0-2 2v3"/>
+            <path d="M21 21v.01"/>
+            <path d="M12 7v3a2 2 0 0 1-2 2H7"/>
+            <path d="M3 12h.01"/>
+            <path d="M12 3h.01"/>
+            <path d="M12 16v.01"/>
+            <path d="M16 12h1"/>
+            <path d="M21 12v.01"/>
+            <path d="M12 21v-1"/>
+          </svg>
+        </button>
         <button
           class="px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0 md:hidden"
           :class="editMode ? 'bg-green-700 text-white' : 'bg-surface2 text-muted-c hover-surface2'"
@@ -525,12 +573,35 @@
 
         <!-- 管理／完成編輯（電腦版顯示於側邊欄頂部） -->
         <button
-          class="hidden md:flex w-full items-center justify-center px-3 py-2 rounded-lg font-semibold transition-colors mb-3"
+          class="hidden md:flex w-full items-center justify-center px-3 py-2 rounded-lg font-semibold transition-colors mb-2"
           :class="editMode ? 'bg-green-700 text-white' : 'bg-surface2 text-muted-c hover-surface2'"
           style="font-size:12.5px"
           @click="toggleEditMode"
         >
           {{ editMode ? '完成編輯' : '管理' }}
+        </button>
+
+        <!-- 臨時 QRCode：直接輸入網址產生，不會存成書籤（電腦版顯示於側邊欄頂部） -->
+        <button
+          class="hidden md:flex w-full items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-semibold transition-colors mb-3 bg-surface2 text-muted-c hover-surface2"
+          style="font-size:12.5px"
+          @click="openTempQrModal"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <rect width="5" height="5" x="3" y="3" rx="1"/>
+            <rect width="5" height="5" x="16" y="3" rx="1"/>
+            <rect width="5" height="5" x="3" y="16" rx="1"/>
+            <path d="M21 16h-3a2 2 0 0 0-2 2v3"/>
+            <path d="M21 21v.01"/>
+            <path d="M12 7v3a2 2 0 0 1-2 2H7"/>
+            <path d="M3 12h.01"/>
+            <path d="M12 3h.01"/>
+            <path d="M12 16v.01"/>
+            <path d="M16 12h1"/>
+            <path d="M21 12v.01"/>
+            <path d="M12 21v-1"/>
+          </svg>
+          臨時 QRCode
         </button>
 
         <div class="flex flex-wrap gap-1.5 px-3 py-2 md:flex-col md:flex-nowrap md:gap-1.5 md:px-0 md:py-0">
@@ -821,6 +892,39 @@
       </div>
     </div>
 
+    <!-- ===== 臨時 QRCode：輸入網址 Modal ===== -->
+    <div v-if="tempQrModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeTempQrModal">
+      <div class="bg-surface rounded-2xl shadow-lg w-full max-w-sm p-5">
+        <h2 class="font-bold text-base-c mb-1" style="font-size:15px">臨時 QRCode</h2>
+        <p class="text-hint-c mb-3" style="font-size:11.5px">輸入網址即可產生 QRCode，不會存成書籤</p>
+
+        <label class="block text-hint-c mb-1" style="font-size:12px">網址</label>
+        <input
+          v-model="tempQrModal.url" type="text"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-3 bg-surface2 text-base-c"
+          style="font-size:13px" placeholder="https://"
+          @keyup.enter="submitTempQr"
+        />
+
+        <label class="block text-hint-c mb-1" style="font-size:12px">名稱（選填，用於顯示與檔名）</label>
+        <input
+          v-model="tempQrModal.name" type="text"
+          class="w-full border border-light-c rounded-lg px-3 py-2 mb-1 bg-surface2 text-base-c"
+          style="font-size:13px" placeholder="例如：今日活動報名表"
+          @keyup.enter="submitTempQr"
+        />
+        <p v-if="tempQrError" class="text-red-500 mb-2" style="font-size:11.5px">{{ tempQrError }}</p>
+        <div class="h-3" v-else></div>
+
+        <div class="flex justify-end gap-2 mt-2">
+          <button class="px-3 py-1.5 rounded-lg bg-surface2 text-muted-c hover-surface2" style="font-size:13px" @click="closeTempQrModal">取消</button>
+          <button class="px-3 py-1.5 rounded-lg bg-green-700 text-white font-semibold" style="font-size:13px" @click="submitTempQr">
+            產生 QRCode
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== QRCode Modal ===== -->
     <div v-if="qrModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-30 px-4" @click.self="closeQrModal">
       <div class="bg-surface rounded-2xl shadow-lg w-full max-w-xs p-5 text-center">
@@ -883,34 +987,34 @@
 </template>
 
 <style scoped>
-.tab-btn {
-  -webkit-tap-highlight-color: transparent;
-}
-.link-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-}
-.link-card {
-  -webkit-tap-highlight-color: transparent;
-  text-decoration: none;
-  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
-}
-.link-card:active {
-  transform: scale(0.95);
-}
-.link-card:hover {
-  border-color: #a8d5b5;
-  box-shadow: 0 2px 10px rgba(45, 106, 79, 0.1);
-}
-.icon-btn {
-  -webkit-tap-highlight-color: transparent;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.icon-btn:active {
-  transform: scale(0.9);
-}
+  .tab-btn {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .link-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .link-card {
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: none;
+    transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  }
+  .link-card:active {
+    transform: scale(0.95);
+  }
+  .link-card:hover {
+    border-color: #a8d5b5;
+    box-shadow: 0 2px 10px rgba(45, 106, 79, 0.1);
+  }
+  .icon-btn {
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-btn:active {
+    transform: scale(0.9);
+  }
 </style>
