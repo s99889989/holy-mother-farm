@@ -68,9 +68,23 @@
       )
     }
 
+    const dateColumns = ['orderDate', 'shipDate']
+
+    function toComparable(column, raw) {
+      if (dateColumns.includes(column)) {
+        if (!raw) return sortDir.value === 'asc' ? Infinity : -Infinity
+        // orderDate/shipDate 是「2026/9/7」這種沒有補零的字串，
+        // 直接字串比較會出錯（例如 "2026/9/7" > "2026/9/12"），
+        // 所以先轉成 Date 再比較。
+        const t = new Date(raw).getTime()
+        return Number.isNaN(t) ? (sortDir.value === 'asc' ? Infinity : -Infinity) : t
+      }
+      return raw || ''
+    }
+
     const sorted = [...list].sort((a, b) => {
-      const va = a[sortBy.value] || ''
-      const vb = b[sortBy.value] || ''
+      const va = toComparable(sortBy.value, a[sortBy.value])
+      const vb = toComparable(sortBy.value, b[sortBy.value])
       if (va < vb) return sortDir.value === 'asc' ? -1 : 1
       if (va > vb) return sortDir.value === 'asc' ? 1 : -1
       return 0
