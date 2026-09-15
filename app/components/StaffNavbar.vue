@@ -71,6 +71,7 @@ const navGroups = [
   {
     label: '🖥️ 內容管理',
     items: [
+      { to: '/staff/content/internal-system/login', icon: '🖥️', label: '院內系統', key: 'content.html-page' },
       { to: '/staff/content/html-page', icon: '🖥️', label: '網頁頁面', key: 'content.html-page' },
       { to: '/staff/content/front-website', icon: '📢️', label: '前台管理', key: 'content.front-website' },
       { to: '/staff/content/tour', icon: '🌐️', label: '環景導覽管理', key: 'content.tour' },

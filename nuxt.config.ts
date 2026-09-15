@@ -21,6 +21,7 @@ export default defineNuxtConfig({
     }
   },
   routeRules: {
+    '/staff/content/internal-system/calendar/**': { ssr: false },
     '/**': {
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'

@@ -98,6 +98,42 @@
             {{ testResult.message }}
           </div>
         </div>
+
+        <!-- ── 測試圖片網址列印（模擬 Hermes 呼叫 /print-url） ── -->
+        <div v-if="printers.length > 0" class="test-print-box bg-surface border-light-c">
+          <div class="font-bold text-base-c mb-1">
+            測試圖片網址列印
+          </div>
+          <div class="text-hint-c text-sm mb-3">
+            貼一個圖片網址（例如 Discord 附件連結），直接呼叫 /holy/agent/print-url，
+            跟 Hermes 實際呼叫的是同一支 API，用來繞過 Discord 直接除錯。
+          </div>
+
+          <div class="url-row">
+            <input
+              v-model="testImageUrl"
+              type="text"
+              placeholder="https://cdn.discordapp.com/attachments/..."
+              class="url-input border-light-c bg-surface2 text-base-c"
+            >
+          </div>
+
+          <div v-if="!selectedPrinter" class="text-sm mb-2" style="color:#f59e0b">
+            ⚠ 請先在上面點選一個印表機，才能送出測試
+          </div>
+
+          <button
+            class="test-print-btn"
+            :disabled="!selectedPrinter || !testImageUrl || testingUrl"
+            @click="doTestUrlPrint"
+          >
+            {{ testingUrl ? '送出中，最多等 30 秒...' : '🖼️ 送出圖片網址列印' }}
+          </button>
+
+          <div v-if="testUrlResult" :class="['test-result', testUrlResult.ok ? 'ok' : 'fail']">
+            {{ testUrlResult.message }}
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -115,6 +151,7 @@
   // 不用另外寫 server/api 代理檔案。
   const PRINTERS_API = `${commonStore.data.main_url}/holy/agent/printers`
   const PRINT_API = `${commonStore.data.main_url}/holy/agent/print`
+  const PRINT_URL_API = `${commonStore.data.main_url}/holy/agent/print-url`
   const STORAGE_KEY = 'holy-selected-printer'
 
   const printers = ref([])
@@ -123,6 +160,9 @@
   const errorMsg = ref('')
   const testing = ref(false)
   const testResult = ref(null)
+  const testImageUrl = ref('')
+  const testingUrl = ref(false)
+  const testUrlResult = ref(null)
 
   async function fetchPrinters() {
     loading.value = true
@@ -204,6 +244,28 @@
       testResult.value = { ok: false, message: e?.message || String(e) }
     } finally {
       testing.value = false
+    }
+  }
+
+  async function doTestUrlPrint() {
+    if (!selectedPrinter.value || !testImageUrl.value) return
+    testingUrl.value = true
+    testUrlResult.value = null
+    try {
+      const res = await fetch(PRINT_URL_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          printerName: selectedPrinter.value,
+          imageUrl: testImageUrl.value,
+        }),
+      })
+      const text = await res.text()
+      testUrlResult.value = { ok: res.ok, message: text }
+    } catch (e) {
+      testUrlResult.value = { ok: false, message: e?.message || String(e) }
+    } finally {
+      testingUrl.value = false
     }
   }
 
@@ -367,5 +429,19 @@
   .test-result.fail {
     background: rgba(239, 68, 68, .1);
     color: #dc2626;
+  }
+
+  .url-input {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid;
+    font-size: 13px;
+    box-sizing: border-box;
+  }
+
+  .url-row {
+    margin-bottom: 10px;
   }
 </style>
