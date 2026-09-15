@@ -93,6 +93,7 @@ const dayHoursMark = (date) => {
 // ── 日曆 ──────────────────────────────────────────────────────────
 const apiOnline = ref(false)
 const selectedDate = ref('')
+const mobileCalendarOpen = ref(false)
 const today = new Date()
 const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 const calYear = ref(today.getFullYear())
@@ -500,21 +501,111 @@ onMounted(async () => {
       <div class="flex flex-col lg:flex-row gap-4 items-start">
         <!-- ── 左欄：日曆 ── -->
         <div class="w-full lg:w-72 xl:w-80 flex-shrink-0">
-          <!-- 手機版：僅顯示日期選擇器，不顯示完整日曆 -->
-          <div
-            class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 flex items-center gap-2 mb-3">
-            <input
-              :value="selectedDate"
-              type="date"
-              class="flex-1 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"
-              @change="selectDate($event.target.value)"
-            >
-            <button
-              class="px-3 py-2 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 font-medium whitespace-nowrap flex-shrink-0"
-              @click="selectDate(todayStr)"
-            >
-              今天
-            </button>
+          <!-- 手機版：日期選擇器，點擊展開完整日曆（含橘點標記） -->
+          <div class="lg:hidden bg-surface rounded-2xl border border-light-c shadow-sm p-3 mb-3">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="flex-1 flex items-center justify-between px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c"
+                @click="mobileCalendarOpen = !mobileCalendarOpen"
+              >
+                <span>{{ selectedDate || '請選擇日期' }}</span>
+                <svg
+                  class="w-4 h-4 text-hint-c transition-transform"
+                  :class="mobileCalendarOpen ? 'rotate-180' : ''"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              <button
+                class="px-3 py-2 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 font-medium whitespace-nowrap flex-shrink-0"
+                @click="selectDate(todayStr); mobileCalendarOpen = false"
+              >
+                今天
+              </button>
+            </div>
+
+            <div v-if="mobileCalendarOpen" class="mt-3 pt-3 border-t border-light-c">
+              <div class="flex items-center justify-between mb-3">
+                <button
+                  class="p-1.5 hover-surface2 rounded-lg transition-colors"
+                  @click="prevMonth"
+                >
+                  <svg
+                    class="w-5 h-5 text-hint-c dark:text-hint-c"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
+                <span class="text-base font-semibold text-muted-c">{{ calendarLabel }}</span>
+                <button
+                  class="p-1.5 hover-surface2 rounded-lg transition-colors"
+                  @click="nextMonth"
+                >
+                  <svg
+                    class="w-5 h-5 text-hint-c dark:text-hint-c"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div class="grid grid-cols-7 mb-1">
+                <div
+                  v-for="w in ['日', '一', '二', '三', '四', '五', '六']"
+                  :key="w"
+                  class="text-center text-sm text-hint-c font-medium py-1"
+                >
+                  {{ w }}
+                </div>
+              </div>
+              <div class="grid grid-cols-7 gap-1">
+                <div
+                  v-for="(day, idx) in calendarDays"
+                  :key="idx"
+                  class="relative flex flex-col items-center justify-center aspect-square rounded-xl text-sm cursor-pointer transition-all select-none"
+                  :class="dayClass(day)"
+                  :title="day.date && hoursSettings.closedDates[day.date] ? '公休：' + hoursSettings.closedDates[day.date]
+                    : day.date && hoursSettings.openDates[day.date] ? '臨時開放：' + hoursSettings.openDates[day.date] : ''"
+                  @click="day.date && (selectDate(day.date), mobileCalendarOpen = false)"
+                >
+                  <span
+                    v-if="day.date && dayHoursMark(day.date)"
+                    class="absolute top-0.5 right-0.5 text-[9px] leading-none"
+                  >{{ dayHoursMark(day.date) === 'closed' ? '🚫' : '⭐' }}</span>
+                  <span>{{ day.label }}</span>
+                  <div
+                    v-if="day.date && lunchMarkedDates.includes(day.date)"
+                    class="absolute bottom-1 flex gap-0.5"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-orange-400"/>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 桌面版：完整日曆 -->
@@ -811,11 +902,12 @@ onMounted(async () => {
         <div class="space-y-3">
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">日期 *</label>
-            <input
+            <DatePickerField
               v-model="lForm.date"
-              type="date"
-              class="w-full px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"
-            >
+              :marked-dates="lunchMarkedDates"
+              theme="orange"
+              placeholder="選擇日期"
+            />
           </div>
           <div>
             <label class="text-sm font-medium text-muted-c block mb-1">姓名 *</label>
@@ -1190,11 +1282,12 @@ onMounted(async () => {
               </button>
             </div>
             <div class="flex gap-2">
-              <input
+              <DatePickerField
                 v-model="pickupSlotDateForm.date"
-                type="date"
-                class="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl border border-light-c bg-surface text-base-c outline-none focus:ring-2 focus:ring-orange-400"
-              >
+                theme="orange"
+                placeholder="選擇日期"
+                class="flex-1 min-w-0"
+              />
               <input
                 v-model="pickupSlotDateForm.note"
                 placeholder="備註（選填）"

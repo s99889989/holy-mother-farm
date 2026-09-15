@@ -254,8 +254,9 @@ const upcomingBookings = computed(() =>
 const ordersBuilding = ref('all')
 const ordersStatus = ref('all')
 const ordersKeyword = ref('')
-const ordersDateFrom = ref('')
-const ordersDateTo = ref('')
+// 預設篩選當月：用今天所在月份的第一天／最後一天當初始值
+const ordersDateFrom = ref(`${today.slice(0, 7)}-01`)
+const ordersDateTo = ref(`${today.slice(0, 7)}-${String(new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0).getDate()).padStart(2, '0')}`)
 const ordersMonthPick = ref(today.slice(0, 7)) // 'YYYY-MM'，快速選月用
 // 把「時段」篩選一次設成整個月的第一天到最後一天，比自己手動點兩次日期快
 function applyOrdersMonth(ym) {
@@ -1756,11 +1757,11 @@ async function addShape(buildingId, type) {
     y2: Math.round(canvas.h / 2 + 40)
   }
   else shape = {
-    type: 'hline',
-    y: Math.round(canvas.h / 2),
-    x1: Math.round(canvas.w / 2 - 40),
-    x2: Math.round(canvas.w / 2 + 40)
-  }
+      type: 'hline',
+      y: Math.round(canvas.h / 2),
+      x1: Math.round(canvas.w / 2 - 40),
+      x2: Math.round(canvas.w / 2 + 40)
+    }
   try {
     const saved = await saveShapeGeometry(buildingId, shape)
     selectedShapeId.value = saved.id
@@ -2191,75 +2192,75 @@ onMounted(fetchAll)
             </h3>
             <table class="w-full">
               <thead>
-                <tr
-                  class="text-hint-c text-left"
-                  style="font-size:12px"
-                >
-                  <th class="py-1.5 font-semibold">
-                    房間
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    房客
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    入住
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    退房
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    人數
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    狀態
-                  </th>
-                </tr>
+              <tr
+                class="text-hint-c text-left"
+                style="font-size:12px"
+              >
+                <th class="py-1.5 font-semibold">
+                  房間
+                </th>
+                <th class="py-1.5 font-semibold">
+                  房客
+                </th>
+                <th class="py-1.5 font-semibold">
+                  入住
+                </th>
+                <th class="py-1.5 font-semibold">
+                  退房
+                </th>
+                <th class="py-1.5 font-semibold">
+                  人數
+                </th>
+                <th class="py-1.5 font-semibold">
+                  狀態
+                </th>
+              </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="b in upcomingBookings"
-                  :key="b.id"
-                  class="border-t border-light-c"
-                  style="font-size:13.5px"
-                >
-                  <td class="py-2">
+              <tr
+                v-for="b in upcomingBookings"
+                :key="b.id"
+                class="border-t border-light-c"
+                style="font-size:13.5px"
+              >
+                <td class="py-2">
                     <span
                       v-if="b.roomId"
                       class="text-base-c"
                     >{{ roomLabel(b.roomId) }}</span>
-                    <span
-                      v-else
-                      class="status-badge bg-sky-100 text-sky-700"
-                    >待指派</span>
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.name }}
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.checkIn }}
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.checkOut }}
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.guests }}
-                  </td>
-                  <td class="py-2">
+                  <span
+                    v-else
+                    class="status-badge bg-sky-100 text-sky-700"
+                  >待指派</span>
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.name }}
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.checkIn }}
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.checkOut }}
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.guests }}
+                </td>
+                <td class="py-2">
                     <span
                       class="status-badge"
                       :class="statusClass(b.status)"
                     >{{ statusLabel(b.status) }}</span>
-                  </td>
-                </tr>
-                <tr v-if="upcomingBookings.length === 0">
-                  <td
-                    colspan="6"
-                    class="text-center text-hint-c py-6"
-                    style="font-size:13.5px"
-                  >
-                    目前沒有進行中的訂單
-                  </td>
-                </tr>
+                </td>
+              </tr>
+              <tr v-if="upcomingBookings.length === 0">
+                <td
+                  colspan="6"
+                  class="text-center text-hint-c py-6"
+                  style="font-size:13.5px"
+                >
+                  目前沒有進行中的訂單
+                </td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -2389,232 +2390,232 @@ onMounted(fetchAll)
             </div>
             <table class="w-full">
               <thead>
-                <tr
-                  class="text-hint-c text-left"
-                  style="font-size:12px"
-                >
-                  <th class="py-1.5 font-semibold">
-                    訂單編號
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    房間
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    房客
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    電話
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    入住
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    退房
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    人數
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    金額
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    狀態
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    操作
-                  </th>
-                </tr>
+              <tr
+                class="text-hint-c text-left"
+                style="font-size:12px"
+              >
+                <th class="py-1.5 font-semibold">
+                  訂單編號
+                </th>
+                <th class="py-1.5 font-semibold">
+                  房間
+                </th>
+                <th class="py-1.5 font-semibold">
+                  房客
+                </th>
+                <th class="py-1.5 font-semibold">
+                  電話
+                </th>
+                <th class="py-1.5 font-semibold">
+                  入住
+                </th>
+                <th class="py-1.5 font-semibold">
+                  退房
+                </th>
+                <th class="py-1.5 font-semibold">
+                  人數
+                </th>
+                <th class="py-1.5 font-semibold">
+                  金額
+                </th>
+                <th class="py-1.5 font-semibold">
+                  狀態
+                </th>
+                <th class="py-1.5 font-semibold">
+                  操作
+                </th>
+              </tr>
               </thead>
               <tbody>
-                <template
-                  v-for="row in orderRows"
-                  :key="row.kind === 'groupHeader' ? ('grp_' + row.groupId) : row.booking.id"
+              <template
+                v-for="row in orderRows"
+                :key="row.kind === 'groupHeader' ? ('grp_' + row.groupId) : row.booking.id"
+              >
+                <tr
+                  v-if="row.kind === 'groupHeader'"
+                  class="border-t border-light-c group-header-row"
+                  style="font-size:13.5px"
                 >
-                  <tr
-                    v-if="row.kind === 'groupHeader'"
-                    class="border-t border-light-c group-header-row"
-                    style="font-size:13.5px"
+                  <td
+                    class="py-2"
+                    colspan="10"
                   >
-                    <td
-                      class="py-2"
-                      colspan="10"
-                    >
-                      <div class="flex items-center justify-between flex-wrap gap-2">
-                        <button
-                          class="flex items-center gap-2 flex-wrap text-left"
-                          @click="toggleGroup(row.groupId)"
-                        >
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                      <button
+                        class="flex items-center gap-2 flex-wrap text-left"
+                        @click="toggleGroup(row.groupId)"
+                      >
                           <span
                             class="text-hint-c"
                             style="display:inline-block;width:12px"
                           >{{ row.expanded ? '▼' : '▶' }}</span>
-                          <span class="status-badge bg-violet-200 text-violet-800">{{ row.groupName }}</span>
-                          <b class="text-base-c">共 {{ row.members.length }} 間房</b>
-                          <span
-                            class="text-hint-c"
-                            style="font-size:12.5px"
-                          >{{ groupDateRangeLabel(row.members) }}</span>
-                          <span
-                            class="text-hint-c"
-                            style="font-size:12.5px"
-                          >{{ groupStatusSummary(row.members) }}</span>
-                        </button>
-                        <button
-                          class="mini-btn"
-                          @click="openGroupTarget(row.groupId, row.groupName)"
-                        >
-                          整團操作
-                        </button>
-                      </div>
+                        <span class="status-badge bg-violet-200 text-violet-800">{{ row.groupName }}</span>
+                        <b class="text-base-c">共 {{ row.members.length }} 間房</b>
+                        <span
+                          class="text-hint-c"
+                          style="font-size:12.5px"
+                        >{{ groupDateRangeLabel(row.members) }}</span>
+                        <span
+                          class="text-hint-c"
+                          style="font-size:12.5px"
+                        >{{ groupStatusSummary(row.members) }}</span>
+                      </button>
+                      <button
+                        class="mini-btn"
+                        @click="openGroupTarget(row.groupId, row.groupName)"
+                      >
+                        整團操作
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <template v-if="row.kind !== 'groupHeader'">
+                  <tr
+                    v-if="row.showBuildingHeader"
+                    class="border-t border-light-c"
+                    :class="row.inGroup ? 'group-member-row' : ''"
+                  >
+                    <td
+                      class="py-1 text-hint-c font-semibold"
+                      colspan="10"
+                      style="font-size:11.5px"
+                    >
+                      🏠 {{ row.buildingName }}
                     </td>
                   </tr>
-                  <template v-if="row.kind !== 'groupHeader'">
-                    <tr
-                      v-if="row.showBuildingHeader"
-                      class="border-t border-light-c"
-                      :class="row.inGroup ? 'group-member-row' : ''"
-                    >
-                      <td
-                        class="py-1 text-hint-c font-semibold"
-                        colspan="10"
-                        style="font-size:11.5px"
-                      >
-                        🏠 {{ row.buildingName }}
-                      </td>
-                    </tr>
-                    <tr
-                      v-for="b in [row.booking]"
-                      :key="b.id"
-                      class="border-t border-light-c"
-                      :class="row.inGroup ? 'group-member-row' : ''"
-                      style="font-size:13.5px"
-                    >
-                      <td class="py-2 text-base-c">
-                        {{ b.id }}
-                      </td>
-                      <td class="py-2">
-                        <template v-if="b.roomId">
-                          <div
-                            v-if="!row.inGroup && row.buildingName"
-                            class="text-hint-c"
-                            style="font-size:11px"
-                          >
-                            {{ row.buildingName }}
-                          </div>
-                          <div
-                            class="font-bold text-base-c"
-                            style="font-size:17px;line-height:1.2"
-                          >
-                            {{ roomIdOf(b.roomId) }}
-                          </div>
-                          <div
-                            class="text-hint-c"
-                            style="font-size:11.5px"
-                          >
-                            {{ roomTypeOf(b.roomId) }}
-                          </div>
-                        </template>
-                        <span
-                          v-else
-                          class="status-badge bg-sky-100 text-sky-700"
-                        >待指派</span>
-                      </td>
-                      <td class="py-2 text-base-c">
-                        {{ b.name }}
-                        <NuxtLink
-                          v-if="b.groupItineraryId"
-                          :to="`/staff/management/group-itinerary?open=${b.groupItineraryId}`"
-                          class="status-badge bg-violet-100 text-violet-700 block w-fit mt-0.5"
-                          style="font-size:10.5px"
-                        >🧳 {{ groupNamesById[b.groupItineraryId] || '團體行程' }}
-                        </NuxtLink>
-                      </td>
-                      <td class="py-2 text-base-c">
-                        {{ b.phone }}
-                      </td>
-                      <td class="py-2 text-base-c">
-                        {{ b.checkIn }}
-                      </td>
-                      <td class="py-2 text-base-c">
-                        {{ b.checkOut }}
-                      </td>
-                      <td class="py-2 text-base-c">
-                        {{ occupancyLabel(b) }}
-                      </td>
-                      <td class="py-2 text-base-c">
-                        {{ b.roomId ? ('NT$ ' + bookingTotal(b).toLocaleString()) : '—' }}
-                      </td>
-                      <td class="py-2">
+                  <tr
+                    v-for="b in [row.booking]"
+                    :key="b.id"
+                    class="border-t border-light-c"
+                    :class="row.inGroup ? 'group-member-row' : ''"
+                    style="font-size:13.5px"
+                  >
+                    <td class="py-2 text-base-c">
+                      {{ b.id }}
+                    </td>
+                    <td class="py-2">
+                      <template v-if="b.roomId">
+                        <div
+                          v-if="!row.inGroup && row.buildingName"
+                          class="text-hint-c"
+                          style="font-size:11px"
+                        >
+                          {{ row.buildingName }}
+                        </div>
+                        <div
+                          class="font-bold text-base-c"
+                          style="font-size:17px;line-height:1.2"
+                        >
+                          {{ roomIdOf(b.roomId) }}
+                        </div>
+                        <div
+                          class="text-hint-c"
+                          style="font-size:11.5px"
+                        >
+                          {{ roomTypeOf(b.roomId) }}
+                        </div>
+                      </template>
+                      <span
+                        v-else
+                        class="status-badge bg-sky-100 text-sky-700"
+                      >待指派</span>
+                    </td>
+                    <td class="py-2 text-base-c">
+                      {{ b.name }}
+                      <NuxtLink
+                        v-if="b.groupItineraryId"
+                        :to="`/staff/management/group-itinerary?open=${b.groupItineraryId}`"
+                        class="status-badge bg-violet-100 text-violet-700 block w-fit mt-0.5"
+                        style="font-size:10.5px"
+                      >🧳 {{ groupNamesById[b.groupItineraryId] || '團體行程' }}
+                      </NuxtLink>
+                    </td>
+                    <td class="py-2 text-base-c">
+                      {{ b.phone }}
+                    </td>
+                    <td class="py-2 text-base-c">
+                      {{ b.checkIn }}
+                    </td>
+                    <td class="py-2 text-base-c">
+                      {{ b.checkOut }}
+                    </td>
+                    <td class="py-2 text-base-c">
+                      {{ occupancyLabel(b) }}
+                    </td>
+                    <td class="py-2 text-base-c">
+                      {{ b.roomId ? ('NT$ ' + bookingTotal(b).toLocaleString()) : '—' }}
+                    </td>
+                    <td class="py-2">
                         <span
                           class="status-badge"
                           :class="statusClass(b.status)"
                         >{{ statusLabel(b.status) }}</span>
-                      </td>
-                      <td class="py-2">
-                        <div class="flex gap-1 flex-wrap">
+                    </td>
+                    <td class="py-2">
+                      <div class="flex gap-1 flex-wrap">
+                        <button
+                          class="mini-btn"
+                          @click="openEditOrder(b)"
+                        >
+                          編輯
+                        </button>
+                        <template v-if="b.status === 'unassigned' || b.status === 'pending'">
+                          <button
+                            v-if="!b.roomId"
+                            class="mini-btn mini-primary"
+                            @click="openAssign(b)"
+                          >
+                            指派房間
+                          </button>
+                          <button
+                            v-else
+                            class="mini-btn mini-primary"
+                            @click="setStatus(b.id, 'confirmed')"
+                          >
+                            確認
+                          </button>
                           <button
                             class="mini-btn"
-                            @click="openEditOrder(b)"
+                            @click="setStatus(b.id, 'cancelled')"
                           >
-                            編輯
+                            取消
                           </button>
-                          <template v-if="b.status === 'unassigned' || b.status === 'pending'">
-                            <button
-                              v-if="!b.roomId"
-                              class="mini-btn mini-primary"
-                              @click="openAssign(b)"
-                            >
-                              指派房間
-                            </button>
-                            <button
-                              v-else
-                              class="mini-btn mini-primary"
-                              @click="setStatus(b.id, 'confirmed')"
-                            >
-                              確認
-                            </button>
-                            <button
-                              class="mini-btn"
-                              @click="setStatus(b.id, 'cancelled')"
-                            >
-                              取消
-                            </button>
-                            <button
-                              class="mini-btn mini-danger"
-                              @click="removeBooking(b.id)"
-                            >
-                              刪除
-                            </button>
-                          </template>
-                          <template v-else-if="b.status === 'confirmed'">
-                            <button
-                              class="mini-btn"
-                              @click="setStatus(b.id, 'completed')"
-                            >
-                              設為已退房
-                            </button>
-                            <button
-                              class="mini-btn"
-                              @click="setStatus(b.id, 'cancelled')"
-                            >
-                              取消
-                            </button>
-                          </template>
-                        </div>
-                      </td>
-                    </tr>
-                  </template>
+                          <button
+                            class="mini-btn mini-danger"
+                            @click="removeBooking(b.id)"
+                          >
+                            刪除
+                          </button>
+                        </template>
+                        <template v-else-if="b.status === 'confirmed'">
+                          <button
+                            class="mini-btn"
+                            @click="setStatus(b.id, 'completed')"
+                          >
+                            設為已退房
+                          </button>
+                          <button
+                            class="mini-btn"
+                            @click="setStatus(b.id, 'cancelled')"
+                          >
+                            取消
+                          </button>
+                        </template>
+                      </div>
+                    </td>
+                  </tr>
                 </template>
+              </template>
 
-                <tr v-if="filteredOrders.length === 0">
-                  <td
-                    colspan="10"
-                    class="text-center text-hint-c py-6"
-                    style="font-size:13.5px"
-                  >
-                    沒有符合條件的訂單
-                  </td>
-                </tr>
+              <tr v-if="filteredOrders.length === 0">
+                <td
+                  colspan="10"
+                  class="text-center text-hint-c py-6"
+                  style="font-size:13.5px"
+                >
+                  沒有符合條件的訂單
+                </td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -3040,14 +3041,14 @@ onMounted(fetchAll)
                         class="flex justify-between py-0.5"
                       >
                         <span class="text-hint-c">標記</span><span
-                          class="status-badge"
-                          :class="bk.calTag === '入住' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
-                        >{{ bk.calTag }}</span>
+                        class="status-badge"
+                        :class="bk.calTag === '入住' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
+                      >{{ bk.calTag }}</span>
                       </div>
                       <div class="flex justify-between py-0.5">
                         <span class="text-hint-c">團體</span><span
-                          class="status-badge bg-violet-100 text-violet-700"
-                        >{{ bk.groupName }}</span>
+                        class="status-badge bg-violet-100 text-violet-700"
+                      >{{ bk.groupName }}</span>
                       </div>
                       <div class="flex justify-between py-0.5">
                         <span class="text-hint-c">房間數</span><span class="text-base-c">共 {{
@@ -3056,9 +3057,9 @@ onMounted(fetchAll)
                       </div>
                       <div class="flex justify-between py-1 mt-1 border-t border-light-c">
                         <span class="text-hint-c">狀態</span><span
-                          class="text-base-c"
-                          style="font-size:12.5px"
-                        >{{ groupStatusSummary(bk.members) }}</span>
+                        class="text-base-c"
+                        style="font-size:12.5px"
+                      >{{ groupStatusSummary(bk.members) }}</span>
                       </div>
                       <div class="flex gap-2 flex-wrap mt-2">
                         <button
@@ -3075,17 +3076,17 @@ onMounted(fetchAll)
                         class="flex justify-between py-0.5"
                       >
                         <span class="text-hint-c">標記</span><span
-                          class="status-badge"
-                          :class="bk.calTag === '入住' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
-                        >{{ bk.calTag }}</span>
+                        class="status-badge"
+                        :class="bk.calTag === '入住' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
+                      >{{ bk.calTag }}</span>
                       </div>
                       <div class="flex justify-between py-0.5">
                         <span class="text-hint-c">訂單編號</span><span class="text-base-c">{{ bk.id }}</span>
                       </div>
                       <div class="flex justify-between py-0.5">
                         <span class="text-hint-c">房間</span><span
-                          class="text-base-c"
-                        >{{ bk.roomId ? roomLabel(bk.roomId) : '待指派' }}</span>
+                        class="text-base-c"
+                      >{{ bk.roomId ? roomLabel(bk.roomId) : '待指派' }}</span>
                       </div>
                       <div class="flex justify-between py-0.5">
                         <span class="text-hint-c">房客</span><span class="text-base-c">{{ bk.name }}（{{
@@ -3102,9 +3103,9 @@ onMounted(fetchAll)
                       </div>
                       <div class="flex justify-between py-1 mt-1 border-t border-light-c">
                         <span class="text-hint-c">狀態</span><span
-                          class="status-badge"
-                          :class="statusClass(bk.status)"
-                        >{{ statusLabel(bk.status) }}</span>
+                        class="status-badge"
+                        :class="statusClass(bk.status)"
+                      >{{ statusLabel(bk.status) }}</span>
                       </div>
                       <div class="flex gap-2 flex-wrap mt-2">
                         <button
@@ -3347,9 +3348,9 @@ onMounted(fetchAll)
                   style="font-size:15px"
                 >
                   房况總覽<span
-                    class="text-hint-c"
-                    style="font-size:12px"
-                  >{{ ordersBuilding === 'all' ? '（全部棟別）' : '（' + buildingNameOf(ordersBuilding) + '）' }}</span>
+                  class="text-hint-c"
+                  style="font-size:12px"
+                >{{ ordersBuilding === 'all' ? '（全部棟別）' : '（' + buildingNameOf(ordersBuilding) + '）' }}</span>
                 </h3>
               </div>
               <div class="flex items-center gap-1.5 flex-wrap">
@@ -3530,13 +3531,13 @@ onMounted(fetchAll)
                 >
                   <div class="type-summary-title">
                     {{ g.capacity }} 人房 <span
-                      class="text-hint-c"
-                      style="font-size:11px"
-                    >（{{ g.typesLabel }}）</span>
+                    class="text-hint-c"
+                    style="font-size:11px"
+                  >（{{ g.typesLabel }}）</span>
                   </div>
                   <div class="type-summary-row">
                     <span class="text-hint-c">上架 / 總數</span><b class="text-base-c">{{ g.active }} / {{ g.total }}
-                      間</b>
+                    間</b>
                   </div>
                   <div class="type-summary-row">
                     <span class="text-hint-c">住房中</span><b style="color:#2563eb">{{ g.occupiedNow }} 間</b>
@@ -3627,85 +3628,85 @@ onMounted(fetchAll)
           <div class="panel">
             <table class="w-full sheet-table">
               <thead>
-                <tr
-                  class="text-hint-c text-left"
-                  style="font-size:12px"
+              <tr
+                class="text-hint-c text-left"
+                style="font-size:12px"
+              >
+                <th class="py-1.5 font-semibold sheet-col-num">
+                  編號
+                </th>
+                <th class="py-1.5 font-semibold sheet-col-date">
+                  入退日期
+                </th>
+                <th class="py-1.5 font-semibold sheet-col-name">
+                  客戶
+                </th>
+                <th
+                  v-for="bd in buildings"
+                  :key="bd.id"
+                  class="py-1.5 font-semibold text-center"
                 >
-                  <th class="py-1.5 font-semibold sheet-col-num">
-                    編號
-                  </th>
-                  <th class="py-1.5 font-semibold sheet-col-date">
-                    入退日期
-                  </th>
-                  <th class="py-1.5 font-semibold sheet-col-name">
-                    客戶
-                  </th>
-                  <th
-                    v-for="bd in buildings"
-                    :key="bd.id"
-                    class="py-1.5 font-semibold text-center"
-                  >
-                    {{ bd.name }}
-                  </th>
-                </tr>
+                  {{ bd.name }}
+                </th>
+              </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="(row, idx) in sheetRows"
-                  :key="row.key"
-                  class="border-t border-light-c sheet-row"
-                  :class="row.groupId ? 'group-member-row' : ''"
-                  style="font-size:13.5px"
-                >
-                  <td class="py-2 text-hint-c">
-                    {{ idx + 1 }}
-                  </td>
-                  <td class="py-2 text-base-c whitespace-nowrap">
-                    {{ sheetDateRangeLabel(row.checkIn, row.checkOut) }}
-                  </td>
-                  <td class="py-2">
-                    <button
-                      class="text-left text-base-c font-semibold"
-                      style="text-decoration:underline;text-underline-offset:2px"
-                      @click="row.groupId ? openGroupTarget(row.groupId, row.groupName) : openEditOrder(row.members[0])"
-                    >
-                      {{ row.name }}
-                    </button>
-                    <span
-                      v-if="row.groupId"
-                      class="status-badge bg-violet-200 text-violet-800"
-                      style="margin-left:5px"
-                    >團體</span>
-                  </td>
-                  <td
-                    v-for="bd in buildings"
-                    :key="bd.id"
-                    class="py-2 text-center"
-                    style="font-size:13px"
+              <tr
+                v-for="(row, idx) in sheetRows"
+                :key="row.key"
+                class="border-t border-light-c sheet-row"
+                :class="row.groupId ? 'group-member-row' : ''"
+                style="font-size:13.5px"
+              >
+                <td class="py-2 text-hint-c">
+                  {{ idx + 1 }}
+                </td>
+                <td class="py-2 text-base-c whitespace-nowrap">
+                  {{ sheetDateRangeLabel(row.checkIn, row.checkOut) }}
+                </td>
+                <td class="py-2">
+                  <button
+                    class="text-left text-base-c font-semibold"
+                    style="text-decoration:underline;text-underline-offset:2px"
+                    @click="row.groupId ? openGroupTarget(row.groupId, row.groupName) : openEditOrder(row.members[0])"
                   >
+                    {{ row.name }}
+                  </button>
+                  <span
+                    v-if="row.groupId"
+                    class="status-badge bg-violet-200 text-violet-800"
+                    style="margin-left:5px"
+                  >團體</span>
+                </td>
+                <td
+                  v-for="bd in buildings"
+                  :key="bd.id"
+                  class="py-2 text-center"
+                  style="font-size:13px"
+                >
                     <span
                       v-if="row.byBuilding[bd.id].includes('全包')"
                       class="status-badge bg-amber-100 text-amber-700"
                     >全包</span>
-                    <span
-                      v-else-if="row.byBuilding[bd.id].length"
-                      class="text-base-c"
-                    >{{ row.byBuilding[bd.id].join('、') }}</span>
-                    <span
-                      v-else
-                      class="text-hint-c"
-                    >—</span>
-                  </td>
-                </tr>
-                <tr v-if="sheetRows.length === 0">
-                  <td
-                    :colspan="3 + buildings.length"
-                    class="text-center text-hint-c py-6"
-                    style="font-size:13.5px"
-                  >
-                    沒有符合條件的訂單
-                  </td>
-                </tr>
+                  <span
+                    v-else-if="row.byBuilding[bd.id].length"
+                    class="text-base-c"
+                  >{{ row.byBuilding[bd.id].join('、') }}</span>
+                  <span
+                    v-else
+                    class="text-hint-c"
+                  >—</span>
+                </td>
+              </tr>
+              <tr v-if="sheetRows.length === 0">
+                <td
+                  :colspan="3 + buildings.length"
+                  class="text-center text-hint-c py-6"
+                  style="font-size:13.5px"
+                >
+                  沒有符合條件的訂單
+                </td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -3785,128 +3786,128 @@ onMounted(fetchAll)
             </div>
             <table class="w-full">
               <thead>
-                <tr
-                  class="text-hint-c text-left"
-                  style="font-size:12px"
-                >
-                  <th class="py-1.5 font-semibold">
-                    訂單編號
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    房間
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    房客
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    電話
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    入住
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    退房
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    人數
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    金額
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    狀態
-                  </th>
-                  <th class="py-1.5 font-semibold">
-                    操作
-                  </th>
-                </tr>
+              <tr
+                class="text-hint-c text-left"
+                style="font-size:12px"
+              >
+                <th class="py-1.5 font-semibold">
+                  訂單編號
+                </th>
+                <th class="py-1.5 font-semibold">
+                  房間
+                </th>
+                <th class="py-1.5 font-semibold">
+                  房客
+                </th>
+                <th class="py-1.5 font-semibold">
+                  電話
+                </th>
+                <th class="py-1.5 font-semibold">
+                  入住
+                </th>
+                <th class="py-1.5 font-semibold">
+                  退房
+                </th>
+                <th class="py-1.5 font-semibold">
+                  人數
+                </th>
+                <th class="py-1.5 font-semibold">
+                  金額
+                </th>
+                <th class="py-1.5 font-semibold">
+                  狀態
+                </th>
+                <th class="py-1.5 font-semibold">
+                  操作
+                </th>
+              </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="b in filteredHistory"
-                  :key="b.id"
-                  class="border-t border-light-c"
-                  style="font-size:13.5px"
-                >
-                  <td class="py-2 text-base-c">
-                    {{ b.id }}
-                  </td>
-                  <td class="py-2">
+              <tr
+                v-for="b in filteredHistory"
+                :key="b.id"
+                class="border-t border-light-c"
+                style="font-size:13.5px"
+              >
+                <td class="py-2 text-base-c">
+                  {{ b.id }}
+                </td>
+                <td class="py-2">
                     <span
                       v-if="b.roomId"
                       class="text-base-c"
                     >{{ roomLabel(b.roomId) }}</span>
-                    <span
-                      v-else
-                      class="status-badge bg-sky-100 text-sky-700"
-                    >未指派</span>
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.name }}
-                    <button
-                      v-if="b.groupId"
-                      class="status-badge bg-violet-100 text-violet-700 ml-1"
-                      style="cursor:pointer"
-                      @click="openGroupTarget(b.groupId, b.groupName)"
-                    >
-                      {{ b.groupName }}
-                    </button>
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.phone }}
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.checkIn }}
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.checkOut }}
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.guests }}
-                  </td>
-                  <td class="py-2 text-base-c">
-                    {{ b.roomId ? ('NT$ ' + bookingTotal(b).toLocaleString()) : '—' }}
-                  </td>
-                  <td class="py-2">
+                  <span
+                    v-else
+                    class="status-badge bg-sky-100 text-sky-700"
+                  >未指派</span>
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.name }}
+                  <button
+                    v-if="b.groupId"
+                    class="status-badge bg-violet-100 text-violet-700 ml-1"
+                    style="cursor:pointer"
+                    @click="openGroupTarget(b.groupId, b.groupName)"
+                  >
+                    {{ b.groupName }}
+                  </button>
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.phone }}
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.checkIn }}
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.checkOut }}
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.guests }}
+                </td>
+                <td class="py-2 text-base-c">
+                  {{ b.roomId ? ('NT$ ' + bookingTotal(b).toLocaleString()) : '—' }}
+                </td>
+                <td class="py-2">
                     <span
                       class="status-badge"
                       :class="statusClass(b.status)"
                     >{{ statusLabel(b.status) }}</span>
-                  </td>
-                  <td class="py-2">
-                    <div
-                      v-if="b.status === 'cancelled'"
-                      class="flex gap-1"
-                    >
-                      <button
-                        class="mini-btn"
-                        @click="restoreBooking(b)"
-                      >
-                        恢復訂單
-                      </button>
-                      <button
-                        class="mini-btn mini-danger"
-                        @click="removeBooking(b.id)"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                    <span
-                      v-else
-                      class="text-hint-c"
-                      style="font-size:12.5px"
-                    >已完成入住</span>
-                  </td>
-                </tr>
-                <tr v-if="filteredHistory.length === 0">
-                  <td
-                    colspan="10"
-                    class="text-center text-hint-c py-6"
-                    style="font-size:13.5px"
+                </td>
+                <td class="py-2">
+                  <div
+                    v-if="b.status === 'cancelled'"
+                    class="flex gap-1"
                   >
-                    目前沒有歷史紀錄
-                  </td>
-                </tr>
+                    <button
+                      class="mini-btn"
+                      @click="restoreBooking(b)"
+                    >
+                      恢復訂單
+                    </button>
+                    <button
+                      class="mini-btn mini-danger"
+                      @click="removeBooking(b.id)"
+                    >
+                      刪除
+                    </button>
+                  </div>
+                  <span
+                    v-else
+                    class="text-hint-c"
+                    style="font-size:12.5px"
+                  >已完成入住</span>
+                </td>
+              </tr>
+              <tr v-if="filteredHistory.length === 0">
+                <td
+                  colspan="10"
+                  class="text-center text-hint-c py-6"
+                  style="font-size:13.5px"
+                >
+                  目前沒有歷史紀錄
+                </td>
+              </tr>
               </tbody>
             </table>
           </div>
@@ -4021,62 +4022,62 @@ onMounted(fetchAll)
               </div>
               <table class="w-full">
                 <thead>
-                  <tr
-                    class="text-hint-c text-left"
-                    style="font-size:12px"
-                  >
-                    <th class="py-1.5 font-semibold">
-                      房號
-                    </th>
-                    <th class="py-1.5 font-semibold">
-                      房型
-                    </th>
-                    <th class="py-1.5 font-semibold">
-                      人數
-                    </th>
-                    <th class="py-1.5 font-semibold">
-                      床型
-                    </th>
-                    <th class="py-1.5 font-semibold">
-                      價格/晚
-                    </th>
-                    <th class="py-1.5 font-semibold">
-                      上架
-                    </th>
-                    <th class="py-1.5 font-semibold" />
-                  </tr>
+                <tr
+                  class="text-hint-c text-left"
+                  style="font-size:12px"
+                >
+                  <th class="py-1.5 font-semibold">
+                    房號
+                  </th>
+                  <th class="py-1.5 font-semibold">
+                    房型
+                  </th>
+                  <th class="py-1.5 font-semibold">
+                    人數
+                  </th>
+                  <th class="py-1.5 font-semibold">
+                    床型
+                  </th>
+                  <th class="py-1.5 font-semibold">
+                    價格/晚
+                  </th>
+                  <th class="py-1.5 font-semibold">
+                    上架
+                  </th>
+                  <th class="py-1.5 font-semibold" />
+                </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="r in grp.rooms"
-                    :key="r.id"
-                    class="border-t border-light-c"
-                    style="font-size:13.5px"
-                  >
-                    <td class="py-2 font-semibold text-base-c">
-                      {{ r.id }}
-                    </td>
-                    <td class="py-2 text-base-c">
-                      {{ r.type }}
-                    </td>
-                    <td class="py-2 text-base-c">
-                      {{ r.capacity }} 人
-                    </td>
-                    <td class="py-2 text-hint-c">
-                      {{ r.bed }}
-                    </td>
-                    <td class="py-2 text-base-c">
-                      {{ r.price.toLocaleString() }}
-                    </td>
-                    <td class="py-2">
-                      <button
-                        class="toggle"
-                        :class="r.active ? 'toggle-on' : ''"
-                        @click="quickToggleActive(grp.id, r)"
-                      />
-                    </td>
-                    <td class="py-2">
-                      <div class="flex gap-1">
+                <tr
+                  v-for="r in grp.rooms"
+                  :key="r.id"
+                  class="border-t border-light-c"
+                  style="font-size:13.5px"
+                >
+                  <td class="py-2 font-semibold text-base-c">
+                    {{ r.id }}
+                  </td>
+                  <td class="py-2 text-base-c">
+                    {{ r.type }}
+                  </td>
+                  <td class="py-2 text-base-c">
+                    {{ r.capacity }} 人
+                  </td>
+                  <td class="py-2 text-hint-c">
+                    {{ r.bed }}
+                  </td>
+                  <td class="py-2 text-base-c">
+                    {{ r.price.toLocaleString() }}
+                  </td>
+                  <td class="py-2">
+                    <button
+                      class="toggle"
+                      :class="r.active ? 'toggle-on' : ''"
+                      @click="quickToggleActive(grp.id, r)"
+                    />
+                  </td>
+                  <td class="py-2">
+                    <div class="flex gap-1">
                         <span
                           class="icon-btn text-hint-c"
                           @click="openEditRoom(grp, r)"
@@ -4093,10 +4094,10 @@ onMounted(fetchAll)
                             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                           /></svg>
                         </span>
-                        <span
-                          class="icon-btn text-hint-c"
-                          @click="deleteRoomConfirm(grp, r)"
-                        >
+                      <span
+                        class="icon-btn text-hint-c"
+                        @click="deleteRoomConfirm(grp, r)"
+                      >
                           <svg
                             class="w-3.5 h-3.5"
                             fill="none"
@@ -4109,9 +4110,9 @@ onMounted(fetchAll)
                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                           /></svg>
                         </span>
-                      </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </td>
+                </tr>
                 </tbody>
               </table>
               <button
@@ -4230,8 +4231,8 @@ onMounted(fetchAll)
                     class="text-hint-c"
                     style="font-size:12.5px"
                   >已對應 {{
-                    grp.rooms.filter(r => r.shapeId).length
-                  }} / {{ grp.rooms.length }} 間</span>
+                      grp.rooms.filter(r => r.shapeId).length
+                    }} / {{ grp.rooms.length }} 間</span>
                 </div>
                 <div
                   v-if="shapeEditMode === 'edit'"
@@ -5632,8 +5633,8 @@ onMounted(fetchAll)
             class="flex justify-between py-0.5"
           >
             <span class="text-hint-c">偏好棟別</span><span
-              class="text-base-c"
-            >{{ buildingNameOf(assignTarget.buildingPref) }}</span>
+            class="text-base-c"
+          >{{ buildingNameOf(assignTarget.buildingPref) }}</span>
           </div>
         </div>
 
@@ -5912,11 +5913,11 @@ onMounted(fetchAll)
             </div>
             <div class="flex justify-between py-0.5">
               <span class="text-hint-c">房客</span><span class="text-base-c">{{ bk.name }}（{{ bk.guests }} 人）<button
-                v-if="bk.groupId"
-                class="status-badge bg-violet-100 text-violet-700 ml-1"
-                style="cursor:pointer"
-                @click="openGroupTarget(bk.groupId, bk.groupName)"
-              >{{ bk.groupName }}</button></span>
+              v-if="bk.groupId"
+              class="status-badge bg-violet-100 text-violet-700 ml-1"
+              style="cursor:pointer"
+              @click="openGroupTarget(bk.groupId, bk.groupName)"
+            >{{ bk.groupName }}</button></span>
             </div>
             <div class="flex justify-between py-0.5">
               <span class="text-hint-c">電話</span><span class="text-base-c">{{ bk.phone }}</span>
@@ -5934,9 +5935,9 @@ onMounted(fetchAll)
             </div>
             <div class="flex justify-between py-1 mt-1 border-t border-light-c">
               <span class="text-hint-c">狀態</span><span
-                class="status-badge"
-                :class="statusClass(bk.status)"
-              >{{ statusLabel(bk.status) }}</span>
+              class="status-badge"
+              :class="statusClass(bk.status)"
+            >{{ statusLabel(bk.status) }}</span>
             </div>
             <div class="flex gap-2 flex-wrap mt-2">
               <button
@@ -6202,23 +6203,23 @@ onMounted(fetchAll)
         >
           <div class="flex justify-between py-0.5">
             <span class="text-hint-c">房型</span><span
-              class="text-base-c"
-            >{{ detailTarget.room.type }}</span>
+            class="text-base-c"
+          >{{ detailTarget.room.type }}</span>
           </div>
           <div class="flex justify-between py-0.5">
             <span class="text-hint-c">可住人數</span><span
-              class="text-base-c"
-            >{{ detailTarget.room.capacity }} 人</span>
+            class="text-base-c"
+          >{{ detailTarget.room.capacity }} 人</span>
           </div>
           <div class="flex justify-between py-0.5">
             <span class="text-hint-c">床型</span><span
-              class="text-base-c"
-            >{{ detailTarget.room.bed }}</span>
+            class="text-base-c"
+          >{{ detailTarget.room.bed }}</span>
           </div>
           <div class="flex justify-between py-0.5">
             <span class="text-hint-c">價格</span><span
-              class="text-base-c"
-            >NT$ {{ detailTarget.room.price.toLocaleString() }}/晚</span>
+            class="text-base-c"
+          >NT$ {{ detailTarget.room.price.toLocaleString() }}/晚</span>
           </div>
         </div>
         <div class="mb-3">
