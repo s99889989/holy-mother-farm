@@ -77,6 +77,27 @@
         <div v-if="printers.length > 0" class="hint-row text-hint-c">
           點選一個印表機設為預設，之後列印功能會自動帶入這個選擇。
         </div>
+
+        <!-- ── 測試列印 ── -->
+        <div v-if="printers.length > 0" class="test-print-box bg-surface border-light-c">
+          <div class="font-bold text-base-c mb-1">
+            測試列印
+          </div>
+          <div class="text-hint-c text-sm mb-3">
+            會送一張只有英文字的測試頁到「{{ selectedPrinter || '（尚未選擇印表機）' }}」，確認整條列印路徑是否打通。
+          </div>
+          <button
+            class="test-print-btn"
+            :disabled="!selectedPrinter || testing"
+            @click="doTestPrint"
+          >
+            {{ testing ? '送出中...' : '🖨️ 送出測試頁' }}
+          </button>
+
+          <div v-if="testResult" :class="['test-result', testResult.ok ? 'ok' : 'fail']">
+            {{ testResult.message }}
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -93,12 +114,15 @@
   // 由 nuxt.config.ts 既有的 routeRules proxy 規則轉發到家裡主機，
   // 不用另外寫 server/api 代理檔案。
   const PRINTERS_API = `${commonStore.data.main_url}/holy/agent/printers`
+  const PRINT_API = `${commonStore.data.main_url}/holy/agent/print`
   const STORAGE_KEY = 'holy-selected-printer'
 
   const printers = ref([])
   const selectedPrinter = ref('')
   const loading = ref(false)
   const errorMsg = ref('')
+  const testing = ref(false)
+  const testResult = ref(null)
 
   async function fetchPrinters() {
     loading.value = true
@@ -127,6 +151,60 @@
   function selectPrinter(name) {
     selectedPrinter.value = name
     localStorage.setItem(STORAGE_KEY, name)
+    testResult.value = null
+  }
+
+  /**
+   * 純 JS 組一份最小可用的 PDF（沒有外部套件依賴），只有一行英文測試字。
+   * 注意：PDF 內建 Helvetica 字型沒有中文字型，這裡只能用英文字，
+   * 純粹是測試「前端→Hub→Agent→印表機」這條路徑通不通，跟中文排版無關。
+   */
+  function buildTestPdf(text) {
+    const objects = [
+      '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+      '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+      '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n',
+      '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+    ]
+    const stream = `BT /F1 24 Tf 50 750 Td (${text}) Tj ET`
+    objects.push(`5 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`)
+
+    let body = '%PDF-1.4\n'
+    const offsets = [0]
+    for (const obj of objects) {
+      offsets.push(body.length)
+      body += obj
+    }
+    const xrefStart = body.length
+    let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+    for (let i = 1; i <= objects.length; i++) {
+      xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`
+    }
+    const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`
+
+    return new Blob([body + xref + trailer], { type: 'application/pdf' })
+  }
+
+  async function doTestPrint() {
+    if (!selectedPrinter.value) return
+    testing.value = true
+    testResult.value = null
+    try {
+      const now = new Date().toLocaleString('zh-TW')
+      const pdfBlob = buildTestPdf(`TEST PRINT - ${now}`)
+
+      const form = new FormData()
+      form.append('printerName', selectedPrinter.value)
+      form.append('file', pdfBlob, 'test-print.pdf')
+
+      const res = await fetch(PRINT_API, { method: 'POST', body: form })
+      const text = await res.text()
+      testResult.value = { ok: res.ok, message: text }
+    } catch (e) {
+      testResult.value = { ok: false, message: e?.message || String(e) }
+    } finally {
+      testing.value = false
+    }
   }
 
   onMounted(() => {
@@ -245,5 +323,49 @@
   .hint-row {
     font-size: 13px;
     text-align: center;
+  }
+
+  .test-print-box {
+    border: 1px solid;
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .test-print-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #64748b;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background .15s;
+  }
+
+  .test-print-btn:hover:not(:disabled) {
+    background: #475569;
+  }
+
+  .test-print-btn:disabled {
+    opacity: .5;
+    cursor: default;
+  }
+
+  .test-result {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    word-break: break-all;
+  }
+
+  .test-result.ok {
+    background: rgba(34, 197, 94, .12);
+    color: #16a34a;
+  }
+
+  .test-result.fail {
+    background: rgba(239, 68, 68, .1);
+    color: #dc2626;
   }
 </style>
