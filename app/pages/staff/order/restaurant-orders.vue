@@ -372,30 +372,37 @@ const fetchBookings = async () => {
   bookings.value = await (await fetch(`${BASE.value}/get/${selectedDate.value}`)).json()
 }
 
+const bookingSaving = ref(false) // 防止快速連點/網路延遲時重複送出，造成新增兩筆訂位
 const saveBooking = async () => {
   if (!bForm.name || !bForm.date) return
-  if (bookingModal.isNew) {
-    // staff=true：後台人工新增訂位，略過「該日是否開放線上訂位」檢查（例如公休日包場、臨時加開）
-    const saved = await (await fetch(`${BASE.value}/save?staff=true`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...bForm})
-    })).json()
-    // 若新增的日期就是目前檢視中的日期，直接把訂位插入清單；否則清單留給下次選到該日期時再撈
-    if (saved.date === selectedDate.value) {
-      bookings.value.push(saved)
-      bookings.value.sort((a, b) => a.time.localeCompare(b.time))
+  if (bookingSaving.value) return
+  bookingSaving.value = true
+  try {
+    if (bookingModal.isNew) {
+      // staff=true：後台人工新增訂位，略過「該日是否開放線上訂位」檢查（例如公休日包場、臨時加開）
+      const saved = await (await fetch(`${BASE.value}/save?staff=true`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...bForm})
+      })).json()
+      // 若新增的日期就是目前檢視中的日期，直接把訂位插入清單；否則清單留給下次選到該日期時再撈
+      if (saved.date === selectedDate.value) {
+        bookings.value.push(saved)
+        bookings.value.sort((a, b) => a.time.localeCompare(b.time))
+      }
+      if (!markedDates.value.includes(saved.date)) markedDates.value.push(saved.date)
+      showToast('訂位已新增')
+    } else {
+      await fetch(`${BASE.value}/update`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(bForm)
+      })
+      await fetchBookings()
+      showToast('訂位已更新')
     }
-    if (!markedDates.value.includes(saved.date)) markedDates.value.push(saved.date)
-    showToast('訂位已新增')
-  } else {
-    await fetch(`${BASE.value}/update`, {
-      method: 'PUT', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(bForm)
-    })
-    await fetchBookings()
-    showToast('訂位已更新')
+    bookingModal.show = false
+  } finally {
+    bookingSaving.value = false
   }
-  bookingModal.show = false
 }
 
 const confirmDeleteBooking = async (b) => {
@@ -1317,11 +1324,11 @@ onMounted(async () => {
             取消
           </button>
           <button
-            :disabled="!bForm.name || !bForm.date"
+            :disabled="!bForm.name || !bForm.date || bookingSaving"
             class="flex-1 px-4 py-2.5 text-sm bg-green-800 text-white rounded-xl hover:bg-green-900 disabled:opacity-50 transition-colors"
             @click="saveBooking"
           >
-            {{ bookingModal.isNew ? '新增' : '儲存' }}
+            {{ bookingSaving ? '處理中…' : (bookingModal.isNew ? '新增' : '儲存') }}
           </button>
         </div>
       </div>

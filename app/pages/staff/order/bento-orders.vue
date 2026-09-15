@@ -334,30 +334,37 @@ const fetchLunchOrders = async () => {
   lunchOrders.value = await (await fetch(`${LUNCH_BASE.value}/get/${selectedDate.value}`)).json()
 }
 
+const lunchSaving = ref(false) // 防止快速連點/網路延遲時重複送出，造成新增兩筆訂單
 const saveLunch = async () => {
   if (!lForm.name || !lForm.date) return
-  if (lunchModal.isNew) {
-    // staff=true：後台人工新增訂單，略過「該日是否開放線上訂購」檢查（例如公休日包場、臨時加開）
-    const saved = await (await fetch(`${LUNCH_BASE.value}/save?staff=true`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...lForm})
-    })).json()
-    // 若新增的日期就是目前檢視中的日期，直接把訂單插入清單；否則清單留給下次選到該日期時再撈
-    if (saved.date === selectedDate.value) {
-      lunchOrders.value.push(saved)
-      lunchOrders.value.sort((a, b) => a.time.localeCompare(b.time))
+  if (lunchSaving.value) return
+  lunchSaving.value = true
+  try {
+    if (lunchModal.isNew) {
+      // staff=true：後台人工新增訂單，略過「該日是否開放線上訂購」檢查（例如公休日包場、臨時加開）
+      const saved = await (await fetch(`${LUNCH_BASE.value}/save?staff=true`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...lForm})
+      })).json()
+      // 若新增的日期就是目前檢視中的日期，直接把訂單插入清單；否則清單留給下次選到該日期時再撈
+      if (saved.date === selectedDate.value) {
+        lunchOrders.value.push(saved)
+        lunchOrders.value.sort((a, b) => a.time.localeCompare(b.time))
+      }
+      if (!lunchMarkedDates.value.includes(saved.date)) lunchMarkedDates.value.push(saved.date)
+      showToast('便當訂單已新增')
+    } else {
+      await fetch(`${LUNCH_BASE.value}/update`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(lForm)
+      })
+      await fetchLunchOrders()
+      showToast('便當訂單已更新')
     }
-    if (!lunchMarkedDates.value.includes(saved.date)) lunchMarkedDates.value.push(saved.date)
-    showToast('便當訂單已新增')
-  } else {
-    await fetch(`${LUNCH_BASE.value}/update`, {
-      method: 'PUT', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(lForm)
-    })
-    await fetchLunchOrders()
-    showToast('便當訂單已更新')
+    lunchModal.show = false
+  } finally {
+    lunchSaving.value = false
   }
-  lunchModal.show = false
 }
 
 const confirmDeleteLunch = async (o) => {
@@ -942,11 +949,11 @@ onMounted(async () => {
             取消
           </button>
           <button
-            :disabled="!lForm.name || !lForm.date || (lForm.meatQty === 0 && lForm.fullVegQty === 0 && lForm.eggVegQty === 0 && lForm.spiceVegQty === 0)"
+            :disabled="!lForm.name || !lForm.date || (lForm.meatQty === 0 && lForm.fullVegQty === 0 && lForm.eggVegQty === 0 && lForm.spiceVegQty === 0) || lunchSaving"
             class="flex-1 px-4 py-2.5 text-sm bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors"
             @click="saveLunch"
           >
-            {{ lunchModal.isNew ? '新增' : '儲存' }}
+            {{ lunchSaving ? '處理中…' : (lunchModal.isNew ? '新增' : '儲存') }}
           </button>
         </div>
       </div>
