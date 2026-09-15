@@ -4,16 +4,7 @@
       <NuxtLink to="/staff/content/internal-system/calendar" class="brand">📅 聖母行事曆</NuxtLink>
     </div>
     <div class="topnav-right">
-      <button
-          class="nav-btn theme-toggle"
-          type="button"
-          :title="colorMode === 'dark' ? '切換為淺色模式' : '切換為深色模式'"
-          @click="toggleColorMode"
-      >
-        <span v-if="colorMode === 'dark'">☀️</span>
-        <span v-else>🌙</span>
-      </button>
-      <NuxtLink v-if="isCalendarRoute" to="/staff/content/internal-system/calendar" class="nav-btn">🏠 返回選單</NuxtLink>
+      <NuxtLink to="/staff/content/internal-system" class="nav-btn">🏠 返回選單</NuxtLink>
       <NuxtLink v-if="isCalendarRoute" to="/staff/content/internal-system/calendar/add" class="nav-btn">＋ 新增</NuxtLink>
       <button class="nav-btn logout-btn" @click="handleLogout">登出</button>
     </div>
@@ -21,8 +12,6 @@
 </template>
 
 <script setup lang="ts">
-const { colorMode, toggleColorMode } = useInternalSystemColorMode()
-
 const route = useRoute()
 const isCalendarRoute = computed(() => route.path.startsWith('/staff/content/internal-system/calendar'))
 
@@ -62,9 +51,6 @@ onUnmounted(() => {
   height: 52px;
   background: #2d3748;
   color: white;
-  position: sticky;
-  top: 0;
-  z-index: 100;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   margin-bottom: 20px;
   border-radius: var(--radius, 10px);
@@ -100,12 +86,6 @@ html.dark .topnav {
   text-decoration: none;
 }
 .nav-btn:hover { background: rgba(255,255,255,0.15); }
-
-.theme-toggle {
-  font-size: 16px;
-  line-height: 1;
-  padding: 6px 10px;
-}
 
 .logout-btn { font-family: inherit; }
 </style>
