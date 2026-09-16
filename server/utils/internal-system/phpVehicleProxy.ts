@@ -24,9 +24,9 @@ const BASE_URL = INTERNAL_SYSTEMS.A114
 
 function isSessionExpired(html: string): boolean {
   return (
-      html.includes('login.php') ||
-      html.includes('請輸入你的帳號和密碼') ||
-      html.includes('flogin')
+    html.includes('login.php') ||
+    html.includes('請輸入你的帳號和密碼') ||
+    html.includes('flogin')
   )
 }
 
@@ -51,12 +51,12 @@ export interface VehicleHomeData {
 /** 抓首頁（最新消息 + 各站點負責人清單），解析成結構化資料 */
 export async function fetchVehicleHome(cookie: string): Promise<VehicleHomeData> {
   const result = await internalSystemAgentRelayFetch(
-      'GET',
-      `${BASE_URL}/index.php`,
-      {
-        Cookie: cookie,
-        'User-Agent': 'Mozilla/5.0',
-      }
+    'GET',
+    `${BASE_URL}/index.php`,
+    {
+      Cookie: cookie,
+      'User-Agent': 'Mozilla/5.0',
+    }
   )
 
   const html = result.bodyText
@@ -72,24 +72,24 @@ export async function fetchVehicleHome(cookie: string): Promise<VehicleHomeData>
 
   const headStaff: VehicleHeadStaff[] = []
   $(tables[0])
-      .find('tbody tr')
-      .each((_, tr) => {
-        const tds = $(tr).find('td')
-        const name = $(tds[0]).text().trim()
-        const email = $(tds[1]).text().trim()
-        if (name) headStaff.push({ name, email })
-      })
+    .find('tbody tr')
+    .each((_, tr) => {
+      const tds = $(tr).find('td')
+      const name = $(tds[0]).text().trim()
+      const email = $(tds[1]).text().trim()
+      if (name) headStaff.push({ name, email })
+    })
 
   const siteStaff: VehicleSiteStaff[] = []
   $(tables[1])
-      .find('tbody tr')
-      .each((_, tr) => {
-        const tds = $(tr).find('td')
-        const site = $(tds[0]).text().trim()
-        const main = $(tds[1]).text().replace(/\s+/g, ' ').trim()
-        const admin = $(tds[2]).text().replace(/\s+/g, ' ').trim()
-        if (site) siteStaff.push({ site, main, admin })
-      })
+    .find('tbody tr')
+    .each((_, tr) => {
+      const tds = $(tr).find('td')
+      const site = $(tds[0]).text().trim()
+      const main = $(tds[1]).text().replace(/\s+/g, ' ').trim()
+      const admin = $(tds[2]).text().replace(/\s+/g, ' ').trim()
+      if (site) siteStaff.push({ site, main, admin })
+    })
 
   return { newsHtml, headStaff, siteStaff }
 }
@@ -121,24 +121,24 @@ export interface VehicleBookingMeta {
 function parseSelectOptions($: cheerio.CheerioAPI, selector: string): VehicleOption[] {
   const options: VehicleOption[] = []
   $(selector)
-      .find('option')
-      .each((_, opt) => {
-        const value = $(opt).attr('value') ?? ''
-        const label = $(opt).text().trim()
-        if (value && label) options.push({ value, label })
-      })
+    .find('option')
+    .each((_, opt) => {
+      const value = $(opt).attr('value') ?? ''
+      const label = $(opt).text().trim()
+      if (value && label) options.push({ value, label })
+    })
   return options
 }
 
 /** 抓「公務車線上申請」頁面的下拉選單選項＋站點分頁清單（車輛、申請人、駕駛、使用單位都是舊系統伺服器渲染的固定選項，不是另外打 API） */
 export async function fetchVehicleBookingMeta(cookie: string): Promise<VehicleBookingMeta> {
   const result = await internalSystemAgentRelayFetch(
-      'GET',
-      `${BASE_URL}/public_car_calendar.php`,
-      {
-        Cookie: cookie,
-        'User-Agent': 'Mozilla/5.0',
-      }
+    'GET',
+    `${BASE_URL}/public_car_calendar.php`,
+    {
+      Cookie: cookie,
+      'User-Agent': 'Mozilla/5.0',
+    }
   )
 
   const html = result.bodyText
@@ -173,7 +173,9 @@ export async function fetchVehicleBookingMeta(cookie: string): Promise<VehicleBo
  */
 export interface VehicleBookingEvent {
   id?: string
+  /** 申請人員編（已用實際 API 回應核對過：title 裡顯示的姓名對應這個欄位，不是 employee_user_id） */
   employee_id?: string
+  /** 駕駛員編 */
   employee_user_id?: string
   applicant_department?: string
   department_name?: string
@@ -182,11 +184,14 @@ export interface VehicleBookingEvent {
   start_time?: string
   end_time?: string
   car_id?: string
+  public_car_name?: string
   destination?: string
   st?: string
   note?: string
   site_manager?: string
   site_manager_sec?: string
+  /** 「-結束時間(車牌) 申請人姓名」，原網站搭配 FullCalendar 自動補開始時間前綴一起顯示 */
+  title?: string
   editable: boolean
   /** 是否為目前登入者本人的申請單（比照原網站「顯示其他申請單」篩選邏輯：employee_user_id 或 employee_id 等於自己） */
   isOwn: boolean
@@ -202,11 +207,11 @@ export interface VehicleBookingEvent {
  * 前端不用（也不該）自己做這個判斷。
  */
 export async function fetchVehicleBookingEvents(
-    cookie: string,
-    site: string,
-    start: string,
-    end: string,
-    myEmployeeId: string
+  cookie: string,
+  site: string,
+  start: string,
+  end: string,
+  myEmployeeId: string
 ): Promise<VehicleBookingEvent[]> {
   const url = new URL(`${BASE_URL}/public_car_calendar_CL.php`)
   url.searchParams.set('act', `search${site}`)
@@ -240,11 +245,11 @@ export async function fetchVehicleBookingEvents(
     const startDate = String(ev.start_date ?? '')
 
     const isOwn = Boolean(
-        myEmployeeId && (employeeUserId === myEmployeeId || employeeId === myEmployeeId)
+      myEmployeeId && (employeeUserId === myEmployeeId || employeeId === myEmployeeId)
     )
 
     const isManaged = Boolean(
-        myEmployeeId && (siteManager === myEmployeeId || siteManagerSec === myEmployeeId)
+      myEmployeeId && (siteManager === myEmployeeId || siteManagerSec === myEmployeeId)
     )
 
     const editable = Boolean((isOwn || isManaged) && startDate >= today)
@@ -261,21 +266,21 @@ export interface VehicleBookingActionResult {
 
 /** 修改申請單。原網站的編輯 modal 裡申請人/公務車/使用單位是唯讀的，實際可改的只有駕駛、日期時間、前往地點、狀態、備註 */
 export async function updateVehicleBooking(
-    cookie: string,
-    payload: Record<string, string>
+  cookie: string,
+  payload: Record<string, string>
 ): Promise<VehicleBookingActionResult> {
   const formData = new URLSearchParams()
   Object.entries(payload).forEach(([k, v]) => formData.append(k, v ?? ''))
 
   const result = await internalSystemAgentRelayFetch(
-      'POST',
-      `${BASE_URL}/public_car_calendar_CL.php?act=update`,
-      {
-        Cookie: cookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      formData.toString()
+    'POST',
+    `${BASE_URL}/public_car_calendar_CL.php?act=update`,
+    {
+      Cookie: cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+    },
+    formData.toString()
   )
 
   if (isSessionExpired(result.bodyText)) {
@@ -289,18 +294,18 @@ export async function updateVehicleBooking(
 }
 
 export async function deleteVehicleBooking(
-    cookie: string,
-    loanRecordId: string
+  cookie: string,
+  loanRecordId: string
 ): Promise<VehicleBookingActionResult> {
   const result = await internalSystemAgentRelayFetch(
-      'POST',
-      `${BASE_URL}/public_car_calendar_CL.php?act=del`,
-      {
-        Cookie: cookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      `loan_record_id=${encodeURIComponent(loanRecordId)}`
+    'POST',
+    `${BASE_URL}/public_car_calendar_CL.php?act=del`,
+    {
+      Cookie: cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+    },
+    `loan_record_id=${encodeURIComponent(loanRecordId)}`
   )
 
   if (isSessionExpired(result.bodyText)) {
@@ -339,12 +344,12 @@ export interface VehicleAddMeta {
 /** 抓「新增預約」頁面的下拉選單選項＋申請人-使用單位對照表 */
 export async function fetchVehicleAddMeta(cookie: string): Promise<VehicleAddMeta> {
   const result = await internalSystemAgentRelayFetch(
-      'GET',
-      `${BASE_URL}/public_car_calendar_car.php`,
-      {
-        Cookie: cookie,
-        'User-Agent': 'Mozilla/5.0',
-      }
+    'GET',
+    `${BASE_URL}/public_car_calendar_car.php`,
+    {
+      Cookie: cookie,
+      'User-Agent': 'Mozilla/5.0',
+    }
   )
 
   const html = result.bodyText
@@ -378,23 +383,23 @@ export interface VehicleAvailableCar {
 
 /** 查詢指定時間範圍內可借用的公務車（public_car_calendar_car.php 的搜尋表單送出時打的 API） */
 export async function searchAvailableCars(
-    cookie: string,
-    startDateTime: string,
-    endDateTime: string
+  cookie: string,
+  startDateTime: string,
+  endDateTime: string
 ): Promise<VehicleAvailableCar[]> {
   const formData = new URLSearchParams()
   formData.append('startDateTime', startDateTime)
   formData.append('endDateTime', endDateTime)
 
   const result = await internalSystemAgentRelayFetch(
-      'POST',
-      `${BASE_URL}/public_car_calendar_CL.php?act=searchCar`,
-      {
-        Cookie: cookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      formData.toString()
+    'POST',
+    `${BASE_URL}/public_car_calendar_CL.php?act=searchCar`,
+    {
+      Cookie: cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+    },
+    formData.toString()
   )
 
   if (isSessionExpired(result.bodyText)) {
@@ -416,21 +421,21 @@ export async function searchAvailableCars(
 
 /** 新增申請單（原網站「補登紀錄」「跨日借用」這兩個選項目前對這個帳號是隱藏的，所以這裡固定走單日借用流程，不支援跨日／補登） */
 export async function addVehicleBooking(
-    cookie: string,
-    payload: Record<string, string>
+  cookie: string,
+  payload: Record<string, string>
 ): Promise<VehicleBookingActionResult> {
   const formData = new URLSearchParams()
   Object.entries(payload).forEach(([k, v]) => formData.append(k, v ?? ''))
 
   const result = await internalSystemAgentRelayFetch(
-      'POST',
-      `${BASE_URL}/public_car_calendar_CL.php?act=add`,
-      {
-        Cookie: cookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      formData.toString()
+    'POST',
+    `${BASE_URL}/public_car_calendar_CL.php?act=add`,
+    {
+      Cookie: cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+    },
+    formData.toString()
   )
 
   if (isSessionExpired(result.bodyText)) {
@@ -459,12 +464,12 @@ export interface VehicleMultiAddMeta {
 /** 抓「公務車批量申請」頁面的下拉選單選項＋申請人-使用單位對照表 */
 export async function fetchVehicleMultiAddMeta(cookie: string): Promise<VehicleMultiAddMeta> {
   const result = await internalSystemAgentRelayFetch(
-      'GET',
-      `${BASE_URL}/public_car_calendar_multi_add.php`,
-      {
-        Cookie: cookie,
-        'User-Agent': 'Mozilla/5.0',
-      }
+    'GET',
+    `${BASE_URL}/public_car_calendar_multi_add.php`,
+    {
+      Cookie: cookie,
+      'User-Agent': 'Mozilla/5.0',
+    }
   )
 
   const html = result.bodyText
@@ -485,18 +490,18 @@ export async function fetchVehicleMultiAddMeta(cookie: string): Promise<VehicleM
 
 /** 批量新增申請單：同一台車/同一段時間，一次對多個選取的日期各建一張申請單 */
 export async function submitVehicleMultiAdd(
-    cookie: string,
-    payload: {
-      employe: string
-      driver: string
-      car_id: string
-      department: string
-      start_time: string
-      end_time: string
-      destination: string
-      note: string
-      select_date: string[]
-    }
+  cookie: string,
+  payload: {
+    employe: string
+    driver: string
+    car_id: string
+    department: string
+    start_time: string
+    end_time: string
+    destination: string
+    note: string
+    select_date: string[]
+  }
 ): Promise<VehicleBookingActionResult> {
   const formData = new URLSearchParams()
   formData.append('employe', payload.employe)
@@ -511,14 +516,14 @@ export async function submitVehicleMultiAdd(
   formData.append('select_date', JSON.stringify(payload.select_date))
 
   const result = await internalSystemAgentRelayFetch(
-      'POST',
-      `${BASE_URL}/public_car_calendar_CL.php?act=multiAdd`,
-      {
-        Cookie: cookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      formData.toString()
+    'POST',
+    `${BASE_URL}/public_car_calendar_CL.php?act=multiAdd`,
+    {
+      Cookie: cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+    },
+    formData.toString()
   )
 
   if (isSessionExpired(result.bodyText)) {
@@ -569,24 +574,24 @@ export interface VehicleLoanRecord {
  * 尚未開始的申請單」這條，較保守，不會讓不該編輯的人多看到編輯權限）
  */
 export async function searchVehicleLoanRecords(
-    cookie: string,
-    startDate: string,
-    endDate: string,
-    myEmployeeId: string
+  cookie: string,
+  startDate: string,
+  endDate: string,
+  myEmployeeId: string
 ): Promise<VehicleLoanRecord[]> {
   const formData = new URLSearchParams()
   formData.append('startDate', startDate)
   formData.append('endDate', endDate)
 
   const result = await internalSystemAgentRelayFetch(
-      'POST',
-      `${BASE_URL}/public_car_calendar_CL.php?act=searchUselist`,
-      {
-        Cookie: cookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      formData.toString()
+    'POST',
+    `${BASE_URL}/public_car_calendar_CL.php?act=searchUselist`,
+    {
+      Cookie: cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+    },
+    formData.toString()
   )
 
   if (isSessionExpired(result.bodyText)) {
@@ -613,7 +618,7 @@ export async function searchVehicleLoanRecords(
     const startDateVal = String(row.startDate ?? '')
 
     const isManaged = Boolean(
-        myEmployeeId && (siteManager === myEmployeeId || siteManagerSec === myEmployeeId)
+      myEmployeeId && (siteManager === myEmployeeId || siteManagerSec === myEmployeeId)
     )
     const editable = Boolean(isManaged && startDateVal >= today)
 
@@ -623,8 +628,8 @@ export async function searchVehicleLoanRecords(
 
 /** 一鍵停用查詢結果中的所有申請單（selectSite 這裡固定傳空字串，因為沒實作站點分頁篩選） */
 export async function disableAllVehicleLoanResults(
-    cookie: string,
-    payload: { startDate: string; endDate: string; selectCar: string; selectSite: string }
+  cookie: string,
+  payload: { startDate: string; endDate: string; selectCar: string; selectSite: string }
 ): Promise<VehicleBookingActionResult> {
   const formData = new URLSearchParams()
   formData.append('startDate', payload.startDate)
@@ -633,14 +638,14 @@ export async function disableAllVehicleLoanResults(
   formData.append('selectSite', payload.selectSite)
 
   const result = await internalSystemAgentRelayFetch(
-      'POST',
-      `${BASE_URL}/public_car_calendar_CL.php?act=disableAllResult`,
-      {
-        Cookie: cookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      formData.toString()
+    'POST',
+    `${BASE_URL}/public_car_calendar_CL.php?act=disableAllResult`,
+    {
+      Cookie: cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+    },
+    formData.toString()
   )
 
   if (isSessionExpired(result.bodyText)) {

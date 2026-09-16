@@ -1,6 +1,7 @@
 <template>
-  <InternalSystemCalendarNav />
+  <InternalSystemCalendarShell>
   <InternalSystemCalendarForm :is-edit="true" :calendar-id="id" />
+  </InternalSystemCalendarShell>
 </template>
 
 <script setup lang="ts">

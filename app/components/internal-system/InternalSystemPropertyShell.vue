@@ -1,37 +1,53 @@
 <template>
   <div class="app-wrapper">
-    <aside class="sidebar">
+    <button type="button" class="mobile-toggle-btn" title="選單" @click="toggle">☰</button>
+    <div v-if="!collapsed" class="mobile-backdrop" @click="toggle" />
+    <aside class="sidebar" :class="{ collapsed }">
       <div class="sidebar-header">
-        <div class="brand">🏢 財產管理系統</div>
+        <div class="brand">
+          <span class="icon">🏢</span>
+          <span class="label-text">財產管理系統</span>
+        </div>
+        <button type="button" class="collapse-toggle" :title="collapsed ? '展開側欄' : '收合側欄'" @click="toggle">
+          {{ collapsed ? '»' : '«' }}
+        </button>
         <span v-if="identity?.currentLabel" class="identity-badge">
           {{ identity.currentLabel }}
         </span>
-        <div class="sidebar-actions">
-          <button class="action-btn" type="button" @click="openAgentModal">🔁 更改代理身分</button>
-          <NuxtLink to="/staff/content/internal-system" class="action-btn">🏠 返回選單</NuxtLink>
-          <button class="action-btn logout-btn" @click="handleLogout">登出</button>
-        </div>
+      </div>
+      <div class="sidebar-actions">
+        <button class="action-btn" type="button" title="更改代理身分" @click="openAgentModal">
+          <span class="icon">🔁</span><span class="label-text">更改代理身分</span>
+        </button>
+        <NuxtLink to="/staff/content/internal-system" class="action-btn" title="返回選單">
+          <span class="icon">🏠</span><span class="label-text">返回選單</span>
+        </NuxtLink>
+        <button class="action-btn logout-btn" title="登出" @click="handleLogout">
+          <span class="icon">🚪</span><span class="label-text">登出</span>
+        </button>
       </div>
 
-      <NuxtLink to="/staff/content/internal-system/property" class="sidebar-top-link" :class="{ active: route.path === '/staff/content/internal-system/property' }">
-        📰 最新消息
+      <NuxtLink to="/staff/content/internal-system/property" class="sidebar-top-link" :class="{ active: route.path === '/staff/content/internal-system/property' }" title="最新消息">
+        <span class="icon">📰</span><span class="label-text">最新消息</span>
       </NuxtLink>
 
-      <div v-for="group in internalSystemPropertyMenuGroups" :key="group.title" class="sidebar-group">
-        <button type="button" class="sidebar-group-header" @click="toggleGroup(group.title)">
-          <span>{{ group.title }}</span>
-          <span class="sidebar-arrow" :class="{ open: isOpen(group.title) }">▾</span>
-        </button>
-        <div v-show="isOpen(group.title)" class="sidebar-group-items">
-          <NuxtLink
-              v-for="item in group.items"
-              :key="item.slug"
-              :to="`/staff/content/internal-system/property/${item.slug}`"
-              class="sidebar-link"
-              :class="{ active: route.path === `/staff/content/internal-system/property/${item.slug}` }"
-          >
-            {{ item.label }}
-          </NuxtLink>
+      <div class="sidebar-groups">
+        <div v-for="group in internalSystemPropertyMenuGroups" :key="group.title" class="sidebar-group">
+          <button type="button" class="sidebar-group-header" @click="toggleGroup(group.title)">
+            <span>{{ group.title }}</span>
+            <span class="sidebar-arrow" :class="{ open: isOpen(group.title) }">▾</span>
+          </button>
+          <div v-show="isOpen(group.title)" class="sidebar-group-items">
+            <NuxtLink
+                v-for="item in group.items"
+                :key="item.slug"
+                :to="`/staff/content/internal-system/property/${item.slug}`"
+                class="sidebar-link"
+                :class="{ active: route.path === `/staff/content/internal-system/property/${item.slug}` }"
+            >
+              {{ item.label }}
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </aside>
@@ -79,6 +95,7 @@ interface IdentityResponse {
 }
 
 const route = useRoute()
+const { collapsed, toggle } = useInternalSystemSidebarCollapse()
 
 const openGroups = reactive<Record<string, boolean>>(
     Object.fromEntries(internalSystemPropertyMenuGroups.map((g) => [g.title, g.defaultOpen]))
@@ -183,16 +200,41 @@ onUnmounted(() => {
   border-right: 1px solid var(--border-light);
   padding: 0 0 12px;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.15s ease;
+}
+
+.sidebar.collapsed {
+  width: 56px;
+}
+
+.sidebar-header,
+.sidebar-actions {
+  background: #2d3748;
+}
+
+html.dark .sidebar-header,
+html.dark .sidebar-actions {
+  background: #14161a;
 }
 
 .sidebar-header {
-  background: #2d3748;
-  padding: 16px 16px 12px;
-  margin-bottom: 8px;
+  padding: 16px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-html.dark .sidebar-header {
-  background: #14161a;
+.sidebar.collapsed .sidebar-header {
+  padding: 16px 8px 10px;
+  flex-direction: column;
+}
+
+.sidebar-actions {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
 }
 
 .brand {
@@ -200,8 +242,25 @@ html.dark .sidebar-header {
   font-weight: bold;
   color: white;
   letter-spacing: 1px;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
+
+.collapse-toggle {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: transparent;
+  color: white;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 12px;
+}
+.collapse-toggle:hover { background: rgba(255, 255, 255, 0.15); }
 
 .identity-badge {
   display: block;
@@ -210,34 +269,35 @@ html.dark .sidebar-header {
   padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
-  margin-bottom: 10px;
-  width: fit-content;
+  width: 100%;
 }
 
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.sidebar.collapsed .identity-badge {
+  display: none;
 }
 
 .action-btn {
-  display: block;
-  padding: 5px 10px;
-  border: 1px solid rgba(255,255,255,0.3);
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 20px;
+  border: none;
   background: transparent;
   color: white;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: background 0.2s;
   text-decoration: none;
   text-align: left;
   font-family: inherit;
 }
-.action-btn:hover { background: rgba(255,255,255,0.15); }
+.action-btn:hover { background: rgba(255,255,255,0.12); }
 
 .sidebar-top-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 20px;
   font-size: 14px;
   font-weight: 700;
@@ -250,6 +310,26 @@ html.dark .sidebar-header {
 .sidebar-top-link:hover {
   background: var(--accent-light);
   color: var(--accent);
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+.sidebar.collapsed .action-btn,
+.sidebar.collapsed .sidebar-top-link {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.sidebar.collapsed .label-text {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-groups {
+  display: none;
 }
 
 .sidebar-group-header {
@@ -363,4 +443,63 @@ html.dark .sidebar-header {
   border-color: var(--accent);
 }
 .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.mobile-toggle-btn {
+  display: none;
+  position: fixed;
+  top: 50px;
+  left: 10px;
+  z-index: 310;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: rgba(45, 55, 72, 0.55);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mobile-toggle-btn:active { background: rgba(45, 55, 72, 0.8); }
+html.dark .mobile-toggle-btn { background: rgba(20, 22, 26, 0.55); }
+html.dark .mobile-toggle-btn:active { background: rgba(20, 22, 26, 0.8); }
+
+.mobile-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-toggle-btn { display: flex; }
+
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 290;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 300;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar:not(.collapsed) {
+    transform: translateX(0);
+    width: 260px;
+  }
+
+  .main-content {
+    width: 100%;
+    padding: 14px;
+  }
+}
 </style>

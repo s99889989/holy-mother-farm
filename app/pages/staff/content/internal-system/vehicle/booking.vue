@@ -1,197 +1,203 @@
 <template>
   <InternalSystemVehicleShell>
-  <div class="booking-page">
-    <!-- 站點分頁 -->
-    <div class="tabs">
-      <button
+    <div class="booking-page">
+      <!-- 站點分頁 -->
+      <div class="tabs">
+        <button
           type="button"
           class="tab-btn"
           :class="{ active: activeSite === 'All' }"
           @click="activeSite = 'All'"
-      >
-        全部
-      </button>
-      <button
+        >
+          全部
+        </button>
+        <button
           v-for="s in meta?.sites ?? []"
           :key="s.id"
           type="button"
           class="tab-btn"
           :class="{ active: activeSite === s.id }"
           @click="activeSite = s.id"
-      >
-        {{ s.label }}
-      </button>
-    </div>
-
-    <!-- 進階查詢 -->
-    <div class="filter-bar">
-      <NuxtLink to="/staff/content/internal-system/vehicle/list" class="nav-link-btn">
-        📄 公務車申請單管理
-      </NuxtLink>
-      <NuxtLink to="/staff/content/internal-system/vehicle/multi-add" class="nav-link-btn">
-        📋 公務車批量申請
-      </NuxtLink>
-      <label class="filter-checkbox">
-        <input type="checkbox" v-model="showOther" />
-        顯示其他申請單
-      </label>
-
-      <div class="filter-select-group">
-        <label class="filter-label">地區</label>
-        <select class="filter-select" v-model="carRegion">
-          <option value="">全部</option>
-          <option v-for="g in groupedCarOptions" :key="g.group" :value="g.group">
-            {{ g.group }}
-          </option>
-        </select>
+        >
+          {{ s.label }}
+        </button>
       </div>
 
-      <div class="filter-select-group">
-        <label class="filter-label">公務車選擇</label>
-        <select class="filter-select" v-model="sortCar">
-          <option value="">全部</option>
-          <option v-for="c in carOptionsForRegion" :key="c.value" :value="c.value">
-            {{ c.label }}
-          </option>
-        </select>
-      </div>
-    </div>
+      <!-- 進階查詢 -->
+      <div class="filter-bar">
+        <NuxtLink to="/staff/content/internal-system/vehicle/list" class="nav-link-btn">
+          📄 公務車申請單管理
+        </NuxtLink>
+        <NuxtLink to="/staff/content/internal-system/vehicle/multi-add" class="nav-link-btn">
+          📋 公務車批量申請
+        </NuxtLink>
+        <label class="filter-checkbox">
+          <input type="checkbox" v-model="showOther" />
+          顯示其他申請單
+        </label>
 
-    <!-- 月曆 -->
-    <div class="cal-header">
-      <div class="cal-nav">
-        <button class="nav-btn" @click="prevMonth">&#8249; 上一月</button>
-        <h2 class="cal-title">{{ year }}年{{ month }}月</h2>
-        <button class="nav-btn" @click="nextMonth">下一月 &#8250;</button>
-      </div>
-    </div>
+        <div class="filter-select-group">
+          <label class="filter-label">地區</label>
+          <select class="filter-select" v-model="carRegion">
+            <option value="">全部</option>
+            <option v-for="g in groupedCarOptions" :key="g.group" :value="g.group">
+              {{ g.group }}
+            </option>
+          </select>
+        </div>
 
-    <p v-if="loading" class="hint-text">載入中...</p>
-    <p v-else-if="error" class="error-text">載入失敗，請重新整理再試一次</p>
-
-    <div v-else class="cal-grid-wrapper">
-      <div class="cal-weekdays">
-        <div v-for="d in weekdays" :key="d" class="weekday">{{ d }}</div>
+        <div class="filter-select-group car-search-group">
+          <label class="filter-label">公務車選擇</label>
+          <input
+            type="text"
+            class="filter-select car-search-input"
+            v-model="carSearchQuery"
+            placeholder="搜尋車牌或說明..."
+          />
+          <select class="filter-select" v-model="sortCar">
+            <option value="">全部</option>
+            <option v-for="c in carOptionsForRegionFiltered" :key="c.value" :value="c.value">
+              {{ c.label }}
+            </option>
+          </select>
+        </div>
       </div>
-      <div class="cal-grid">
-        <div v-for="n in leadingDays" :key="`empty-${n}`" class="cal-cell empty" />
-        <div v-for="day in daysInGrid" :key="day.dateStr" class="cal-cell" @click="goToAddBooking(day.dateStr)">
-          <div class="cal-cell-date">{{ day.date }}</div>
-          <div class="cal-events">
-            <button
+
+      <!-- 月曆 -->
+      <div class="cal-header">
+        <div class="cal-nav">
+          <button class="nav-btn" @click="prevMonth">&#8249; 上一月</button>
+          <h2 class="cal-title">{{ year }}年{{ month }}月</h2>
+          <button class="nav-btn" @click="nextMonth">下一月 &#8250;</button>
+        </div>
+      </div>
+
+      <p v-if="loading" class="hint-text">載入中...</p>
+      <p v-else-if="error" class="error-text">載入失敗，請重新整理再試一次</p>
+
+      <div v-else class="cal-grid-wrapper">
+        <div class="cal-weekdays">
+          <div v-for="d in weekdays" :key="d" class="weekday">{{ d }}</div>
+        </div>
+        <div class="cal-grid">
+          <div v-for="n in leadingDays" :key="`empty-${n}`" class="cal-cell empty" />
+          <div v-for="day in daysInGrid" :key="day.dateStr" class="cal-cell" @click="goToAddBooking(day.dateStr)">
+            <div class="cal-cell-date">{{ day.date }}</div>
+            <div class="cal-events">
+              <button
                 v-for="ev in day.events"
                 :key="`${ev.id}-${day.dateStr}`"
                 type="button"
                 class="cal-event"
                 :class="{ own: ev.isOwn, editable: ev.editable }"
                 @click.stop="openEvent(ev)"
-            >
-              {{ ev.destination || '(未填前往地點)' }}
-            </button>
+              >
+                {{ eventLabel(ev) }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 查看 modal（無編輯權限） -->
-    <div v-if="viewingEvent" class="modal-backdrop" @click.self="viewingEvent = null">
-      <div class="modal-box modal-wide">
-        <h3 class="modal-title">公務車申請單</h3>
-        <table class="view-table">
-          <tbody>
-            <tr><th>申請人</th><td>{{ viewingEvent.employee_user_id }}</td></tr>
-            <tr><th>駕駛</th><td>{{ viewingEvent.employee_id }}</td></tr>
-            <tr><th>公務車</th><td>{{ viewingEvent.car_id }}</td></tr>
+      <!-- 查看 modal（無編輯權限） -->
+      <div v-if="viewingEvent" class="modal-backdrop" @click.self="viewingEvent = null">
+        <div class="modal-box modal-wide">
+          <h3 class="modal-title">公務車申請單</h3>
+          <table class="view-table">
+            <tbody>
+            <tr><th>申請人</th><td>{{ resolveLabel(meta?.applicantOptions, viewingEvent.employee_id) }}</td></tr>
+            <tr><th>駕駛</th><td>{{ resolveLabel(meta?.driverOptions, viewingEvent.employee_user_id) }}</td></tr>
+            <tr><th>公務車</th><td>{{ viewingEvent.public_car_name }}（{{ viewingEvent.car_id }}）</td></tr>
             <tr><th>使用單位</th><td>{{ viewingEvent.department_name }}</td></tr>
             <tr><th>開始時間</th><td>{{ viewingEvent.start_date }} {{ viewingEvent.start_time }}</td></tr>
             <tr><th>結束時間</th><td>{{ viewingEvent.end_date }} {{ viewingEvent.end_time }}</td></tr>
             <tr><th>前往地點</th><td>{{ viewingEvent.destination }}</td></tr>
             <tr><th>備註</th><td>{{ viewingEvent.note }}</td></tr>
             <tr><th>狀態</th><td>{{ viewingEvent.st === '1' ? '啟用' : '停用' }}</td></tr>
-          </tbody>
-        </table>
-        <div class="modal-actions">
-          <button type="button" class="btn-sm" @click="viewingEvent = null">關閉</button>
+            </tbody>
+          </table>
+          <div class="modal-actions">
+            <button type="button" class="btn-sm" @click="viewingEvent = null">關閉</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 編輯 modal -->
-    <div v-if="editingEvent" class="modal-backdrop" @click.self="closeEditModal">
-      <div class="modal-box modal-wide">
-        <h3 class="modal-title">公務車申請表修改</h3>
+      <!-- 編輯 modal -->
+      <div v-if="editingEvent" class="modal-backdrop" @click.self="closeEditModal">
+        <div class="modal-box modal-wide">
+          <h3 class="modal-title">公務車申請表修改</h3>
 
-        <div class="edit-form">
-          <div class="form-row">
-            <label>申請人</label>
-            <input class="form-input" :value="editingEvent.employee_user_id" disabled />
+          <div class="edit-form">
+            <div class="form-row">
+              <label>申請人</label>
+              <input class="form-input" :value="resolveLabel(meta?.applicantOptions, editingEvent.employee_id)" disabled />
+            </div>
+            <div class="form-row">
+              <label>公務車</label>
+              <input class="form-input" :value="`${editingEvent.public_car_name}（${editingEvent.car_id}）`" disabled />
+            </div>
+            <div class="form-row">
+              <label>使用單位</label>
+              <input class="form-input" :value="editingEvent.department_name" disabled />
+            </div>
+            <div class="form-row">
+              <label>駕駛</label>
+              <select class="form-input" v-model="editForm.driver">
+                <option value="">請選擇</option>
+                <option v-for="d in meta?.driverOptions ?? []" :key="d.value" :value="d.value">
+                  {{ d.label }}
+                </option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>開始日期</label>
+              <input class="form-input" type="date" v-model="editForm.start_date" />
+            </div>
+            <div class="form-row">
+              <label>開始時間</label>
+              <input class="form-input" type="time" v-model="editForm.start_time" />
+            </div>
+            <div class="form-row">
+              <label>結束日期</label>
+              <input class="form-input" type="date" v-model="editForm.end_date" />
+            </div>
+            <div class="form-row">
+              <label>結束時間</label>
+              <input class="form-input" type="time" v-model="editForm.end_time" />
+            </div>
+            <div class="form-row">
+              <label>前往地點</label>
+              <input class="form-input" v-model="editForm.destination" />
+            </div>
+            <div class="form-row">
+              <label>狀態</label>
+              <select class="form-input" v-model="editForm.st">
+                <option value="1">啟用</option>
+                <option value="0">停用</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>備註</label>
+              <textarea class="form-input" rows="3" v-model="editForm.note" />
+            </div>
           </div>
-          <div class="form-row">
-            <label>公務車</label>
-            <input class="form-input" :value="editingEvent.car_id" disabled />
-          </div>
-          <div class="form-row">
-            <label>使用單位</label>
-            <input class="form-input" :value="editingEvent.department_name" disabled />
-          </div>
-          <div class="form-row">
-            <label>駕駛</label>
-            <select class="form-input" v-model="editForm.driver">
-              <option value="">請選擇</option>
-              <option v-for="d in meta?.driverOptions ?? []" :key="d.value" :value="d.value">
-                {{ d.label }}
-              </option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>開始日期</label>
-            <input class="form-input" type="date" v-model="editForm.start_date" />
-          </div>
-          <div class="form-row">
-            <label>開始時間</label>
-            <input class="form-input" type="time" v-model="editForm.start_time" />
-          </div>
-          <div class="form-row">
-            <label>結束日期</label>
-            <input class="form-input" type="date" v-model="editForm.end_date" />
-          </div>
-          <div class="form-row">
-            <label>結束時間</label>
-            <input class="form-input" type="time" v-model="editForm.end_time" />
-          </div>
-          <div class="form-row">
-            <label>前往地點</label>
-            <input class="form-input" v-model="editForm.destination" />
-          </div>
-          <div class="form-row">
-            <label>狀態</label>
-            <select class="form-input" v-model="editForm.st">
-              <option value="1">啟用</option>
-              <option value="0">停用</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>備註</label>
-            <textarea class="form-input" rows="3" v-model="editForm.note" />
-          </div>
-        </div>
 
-        <p v-if="saveError" class="error-text">{{ saveError }}</p>
+          <p v-if="saveError" class="error-text">{{ saveError }}</p>
 
-        <div class="modal-actions modal-actions-split">
-          <button type="button" class="btn-sm btn-danger" :disabled="saving" @click="confirmDelete">
-            刪除
-          </button>
-          <div>
-            <button type="button" class="btn-sm" @click="closeEditModal">取消</button>
-            <button type="button" class="btn-sm btn-confirm" :disabled="saving" @click="submitUpdate">
-              {{ saving ? '更新中...' : '更新' }}
+          <div class="modal-actions modal-actions-split">
+            <button type="button" class="btn-sm btn-danger" :disabled="saving" @click="confirmDelete">
+              刪除
             </button>
+            <div>
+              <button type="button" class="btn-sm" @click="closeEditModal">取消</button>
+              <button type="button" class="btn-sm btn-confirm" :disabled="saving" @click="submitUpdate">
+                {{ saving ? '更新中...' : '更新' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
   </InternalSystemVehicleShell>
 </template>
 
@@ -218,13 +224,22 @@
     start_time?: string
     end_time?: string
     car_id?: string
+    public_car_name?: string
     destination?: string
     st?: string
     note?: string
     site_manager?: string
     site_manager_sec?: string
+    /** 「-結束時間(車牌) 申請人姓名」，原網站是搭配 FullCalendar 自動補開始時間前綴一起顯示的，見 eventLabel() */
+    title?: string
     editable: boolean
     isOwn: boolean
+  }
+
+  /** 比照原網站顯示格式：開始時間 + title（title 開頭已經是「-結束時間(車牌) 姓名」） */
+  const eventLabel = (ev: VehicleBookingEvent) => {
+    if (ev.title) return `${ev.start_time ?? ''}${ev.title}`
+    return ev.destination || '(未填前往地點)'
   }
 
   const weekdays = ['日', '一', '二', '三', '四', '五', '六']
@@ -252,14 +267,23 @@
       groups.get(groupName)!.push(c)
     }
     return Array.from(groups.entries())
-        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hant'))
-        .map(([group, items]) => ({ group, items }))
+      .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hant'))
+      .map(([group, items]) => ({ group, items }))
   })
 
   const carRegion = ref('')
   const carOptionsForRegion = computed<VehicleOption[]>(() => {
     if (!carRegion.value) return meta.value?.carOptions ?? []
     return groupedCarOptions.value.find((g) => g.group === carRegion.value)?.items ?? []
+  })
+
+  const carSearchQuery = ref('')
+  const carOptionsForRegionFiltered = computed<VehicleOption[]>(() => {
+    const q = carSearchQuery.value.trim().toLowerCase()
+    if (!q) return carOptionsForRegion.value
+    return carOptionsForRegion.value.filter(
+      (c) => c.label.toLowerCase().includes(q) || c.value.toLowerCase().includes(q)
+    )
   })
   // 換地區時，如果之前選的車不在新地區清單裡，重置回「全部」
   watch(carRegion, () => {
@@ -279,13 +303,28 @@
   const monthEnd = computed(() => new Date(year.value, month.value, 0))
   const leadingDays = computed(() => monthStart.value.getDay())
 
+  // 查詢範圍要跟原網站（FullCalendar 預設 fixedWeekCount）一致：從月初所在那週的週日開始，
+  // 固定往後取 6 週（42 天），不是只查月初到月底。原因：如果只查月份精確範圍，
+  // 遇到「開始日期在上個月、結束日期在這個月」這種跨月申請單，要看後端比對邏輯是否用
+  // overlap 判斷才不會漏掉；查詢範圍跟原網站一致最保險，不用猜後端邏輯。
+  const gridQueryStart = computed(() => {
+    const d = new Date(monthStart.value)
+    d.setDate(d.getDate() - d.getDay())
+    return d
+  })
+  const gridQueryEnd = computed(() => {
+    const d = new Date(gridQueryStart.value)
+    d.setDate(d.getDate() + 42) // 6 週 = 42 天；跟原網站一樣，end 是「最後一天的隔天」(exclusive)，不是最後一天本身
+    return d
+  })
+
   const daysInGrid = computed(() => {
     const days: { date: number; dateStr: string; events: VehicleBookingEvent[] }[] = []
     const total = monthEnd.value.getDate()
     for (let d = 1; d <= total; d++) {
       const dateStr = `${year.value}-${pad2(month.value)}-${pad2(d)}`
       const dayEvents = filteredEvents.value.filter(
-          (ev) => (ev.start_date ?? '') <= dateStr && dateStr <= (ev.end_date ?? ev.start_date ?? '')
+        (ev) => (ev.start_date ?? '') <= dateStr && dateStr <= (ev.end_date ?? ev.start_date ?? '')
       )
       days.push({ date: d, dateStr, events: dayEvents })
     }
@@ -293,12 +332,14 @@
   })
 
   const filteredEvents = computed(() =>
-      events.value.filter((ev) => {
-        if (sortCar.value) {
-          return ev.car_id === sortCar.value && (showOther.value || ev.isOwn)
-        }
-        return showOther.value || ev.isOwn
-      })
+    events.value.filter((ev) => {
+      // 有選特定車輛時，直接顯示那台車全部的預約，不再受「顯示其他申請單」限制
+      // （選車就是想看那台車的排程，不是只想看自己申請的那幾筆）
+      if (sortCar.value) {
+        return ev.car_id === sortCar.value
+      }
+      return showOther.value || ev.isOwn
+    })
   )
 
   const loadMeta = async () => {
@@ -309,6 +350,12 @@
     }
   }
 
+  // 申請人/駕駛姓名解析：meta.value 裡已經有 applicantOptions/driverOptions 了（跟「選擇公務車」頁同一份資料），不用再打一次 API
+  const resolveLabel = (options: VehicleOption[] | undefined, code?: string) => {
+    if (!code) return ''
+    return options?.find((o) => o.value === code)?.label ?? code
+  }
+
   const loadEvents = async () => {
     loading.value = true
     error.value = false
@@ -316,8 +363,8 @@
       events.value = await $fetch<VehicleBookingEvent[]>('/api/internal-system/vehicle/booking/events', {
         query: {
           site: activeSite.value,
-          start: formatDate(monthStart.value),
-          end: formatDate(monthEnd.value),
+          start: formatDate(gridQueryStart.value),
+          end: formatDate(gridQueryEnd.value),
         },
       })
     } catch {
@@ -363,7 +410,7 @@
   const openEvent = (ev: VehicleBookingEvent) => {
     if (ev.editable) {
       editingEvent.value = ev
-      editForm.driver = ev.employee_id ?? ''
+      editForm.driver = ev.employee_user_id ?? ''
       editForm.start_date = ev.start_date ?? ''
       editForm.start_time = ev.start_time ?? ''
       editForm.end_date = ev.end_date ?? ''
@@ -390,7 +437,7 @@
         method: 'POST',
         body: {
           loan_record_id: editingEvent.value.id,
-          employe: editingEvent.value.employee_user_id,
+          employe: editingEvent.value.employee_id,
           car_id: editingEvent.value.car_id,
           department: editingEvent.value.applicant_department,
           ...editForm,
@@ -479,6 +526,8 @@
   .nav-link-btn:hover { background: var(--surface2); }
   .filter-checkbox { display: flex; align-items: center; gap: 6px; font-size: 16px; color: var(--text); }
   .filter-select-group { display: flex; align-items: center; gap: 8px; }
+  .car-search-group { flex-wrap: wrap; }
+  .car-search-input { width: 160px; }
   .filter-label { font-size: 16px; color: var(--text-muted); }
   .filter-select {
     padding: 6px 10px;

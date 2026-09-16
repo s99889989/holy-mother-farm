@@ -1,5 +1,5 @@
 <template>
-  <InternalSystemCalendarNav />
+  <InternalSystemCalendarShell>
   <div class="detail-page">
     <div class="detail-header">
       <button class="back-btn" @click="goBack">&#8592; 回上頁</button>
@@ -41,6 +41,7 @@
       </table>
     </div>
   </div>
+  </InternalSystemCalendarShell>
 </template>
 
 <script setup lang="ts">

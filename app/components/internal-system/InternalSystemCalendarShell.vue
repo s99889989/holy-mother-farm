@@ -5,8 +5,8 @@
     <aside class="sidebar" :class="{ collapsed }">
       <div class="sidebar-header">
         <div class="brand">
-          <span class="icon">🔧</span>
-          <span class="label-text">維修管理系統</span>
+          <span class="icon">📅</span>
+          <span class="label-text">聖母行事曆</span>
         </div>
         <button type="button" class="collapse-toggle" :title="collapsed ? '展開側欄' : '收合側欄'" @click="toggle">
           {{ collapsed ? '»' : '«' }}
@@ -17,16 +17,21 @@
         <NuxtLink to="/staff/content/internal-system" class="action-btn" title="返回選單">
           <span class="icon">🏠</span><span class="label-text">返回選單</span>
         </NuxtLink>
+        <NuxtLink to="/staff/content/internal-system/calendar/add" class="action-btn" title="新增">
+          <span class="icon">＋</span><span class="label-text">新增</span>
+        </NuxtLink>
         <button class="action-btn logout-btn" title="登出" @click="handleLogout">
           <span class="icon">🚪</span><span class="label-text">登出</span>
         </button>
       </div>
 
-      <NuxtLink to="/staff/content/internal-system/request" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/request' }" title="需求清單">
-        <span class="icon">📋</span><span class="label-text">需求清單</span>
-      </NuxtLink>
-      <NuxtLink to="/staff/content/internal-system/request/map" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/request/map' }" title="園區地圖">
-        <span class="icon">🗺️</span><span class="label-text">園區地圖</span>
+      <NuxtLink
+          to="/staff/content/internal-system/calendar"
+          class="sidebar-link"
+          :class="{ active: route.path === '/staff/content/internal-system/calendar' }"
+          title="行事曆"
+      >
+        <span class="icon">📅</span><span class="label-text">行事曆</span>
       </NuxtLink>
     </aside>
 
@@ -123,7 +128,7 @@ html.dark .sidebar-actions {
 
 .collapse-toggle {
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255,255,255,0.3);
   border-radius: 6px;
   background: transparent;
   color: white;
@@ -133,7 +138,7 @@ html.dark .sidebar-actions {
   cursor: pointer;
   font-size: 12px;
 }
-.collapse-toggle:hover { background: rgba(255, 255, 255, 0.15); }
+.collapse-toggle:hover { background: rgba(255,255,255,0.15); }
 
 .sidebar-actions {
   padding-bottom: 8px;
@@ -156,9 +161,7 @@ html.dark .sidebar-actions {
   text-align: left;
   font-family: inherit;
 }
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
+.action-btn:hover { background: rgba(255,255,255,0.12); }
 
 .sidebar-link {
   display: flex;

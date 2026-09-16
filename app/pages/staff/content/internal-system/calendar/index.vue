@@ -1,5 +1,5 @@
 <template>
-  <InternalSystemCalendarNav />
+  <InternalSystemCalendarShell>
   <div class="calendar-page">
     <!-- 頂部導覽 -->
     <div class="cal-header">
@@ -219,6 +219,7 @@
       </div>
     </Transition>
   </div>
+  </InternalSystemCalendarShell>
 </template>
 
 <script setup lang="ts">
