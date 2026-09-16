@@ -37,10 +37,20 @@
       </label>
 
       <div class="filter-select-group">
+        <label class="filter-label">地區</label>
+        <select class="filter-select" v-model="carRegion">
+          <option value="">全部</option>
+          <option v-for="g in groupedCarOptions" :key="g.group" :value="g.group">
+            {{ g.group }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-select-group">
         <label class="filter-label">公務車選擇</label>
         <select class="filter-select" v-model="sortCar">
           <option value="">全部</option>
-          <option v-for="c in meta?.carOptions ?? []" :key="c.value" :value="c.value">
+          <option v-for="c in carOptionsForRegion" :key="c.value" :value="c.value">
             {{ c.label }}
           </option>
         </select>
@@ -227,6 +237,36 @@
 
   const sortCar = ref('')
   const showOther = ref(false)
+
+  // 依車輛描述（括號內文字）的第一個詞自動分組，例如「PGL-3225(綜長 東河廚房...)」歸到「綜長」群組
+  // 這是從車輛名稱本身解析出來的，原網站沒有提供獨立的分類/站點欄位
+  interface CarGroup { group: string; items: VehicleOption[] }
+  const groupedCarOptions = computed<CarGroup[]>(() => {
+    const groups = new Map<string, VehicleOption[]>()
+    for (const c of meta.value?.carOptions ?? []) {
+      const match = c.label.match(/^(.*?)\((.*)\)$/)
+      const desc = match ? match[2] : c.label
+      const spaceIdx = desc.indexOf(' ')
+      const groupName = spaceIdx > 0 ? desc.slice(0, spaceIdx) : desc || '其他'
+      if (!groups.has(groupName)) groups.set(groupName, [])
+      groups.get(groupName)!.push(c)
+    }
+    return Array.from(groups.entries())
+        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hant'))
+        .map(([group, items]) => ({ group, items }))
+  })
+
+  const carRegion = ref('')
+  const carOptionsForRegion = computed<VehicleOption[]>(() => {
+    if (!carRegion.value) return meta.value?.carOptions ?? []
+    return groupedCarOptions.value.find((g) => g.group === carRegion.value)?.items ?? []
+  })
+  // 換地區時，如果之前選的車不在新地區清單裡，重置回「全部」
+  watch(carRegion, () => {
+    if (sortCar.value && !carOptionsForRegion.value.some((c) => c.value === sortCar.value)) {
+      sortCar.value = ''
+    }
+  })
 
   const now = new Date()
   const year = ref(now.getFullYear())
@@ -415,7 +455,7 @@
     border: none;
     border-bottom: 2px solid transparent;
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: 16px;
     cursor: pointer;
   }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
@@ -433,33 +473,33 @@
     border-radius: 8px;
     background: var(--surface);
     color: var(--text);
-    font-size: 13px;
+    font-size: 16px;
     text-decoration: none;
   }
   .nav-link-btn:hover { background: var(--surface2); }
-  .filter-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+  .filter-checkbox { display: flex; align-items: center; gap: 6px; font-size: 16px; color: var(--text); }
   .filter-select-group { display: flex; align-items: center; gap: 8px; }
-  .filter-label { font-size: 13px; color: var(--text-muted); }
+  .filter-label { font-size: 16px; color: var(--text-muted); }
   .filter-select {
     padding: 6px 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
     color: var(--text);
-    font-size: 13px;
+    font-size: 16px;
     max-width: 320px;
   }
 
   .cal-header { margin-bottom: 12px; }
   .cal-nav { display: flex; align-items: center; gap: 16px; }
-  .cal-title { margin: 0; font-size: 17px; color: var(--text); }
+  .cal-title { margin: 0; font-size: 20px; color: var(--text); }
   .nav-btn {
     padding: 6px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
     color: var(--text);
-    font-size: 13px;
+    font-size: 16px;
     cursor: pointer;
   }
   .nav-btn:hover { background: var(--surface2); }
@@ -469,7 +509,7 @@
 
   .cal-grid-wrapper { border: 1px solid var(--border-light); border-radius: var(--radius); overflow: hidden; }
   .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--surface2); }
-  .weekday { padding: 8px; text-align: center; font-size: 12px; color: var(--text-muted); }
+  .weekday { padding: 8px; text-align: center; font-size: 14px; color: var(--text-muted); }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
   .cal-cell {
     min-height: 90px;
@@ -480,7 +520,7 @@
   }
   .cal-cell:hover { background: var(--surface2); }
   .cal-cell.empty { background: var(--surface2); }
-  .cal-cell-date { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .cal-cell-date { font-size: 14px; color: var(--text-muted); margin-bottom: 4px; }
   .cal-events { display: flex; flex-direction: column; gap: 3px; }
   .cal-event {
     display: block;
@@ -489,7 +529,7 @@
     padding: 3px 6px;
     border-radius: 4px;
     border: none;
-    font-size: 11px;
+    font-size: 14px;
     background: var(--accent-light);
     color: var(--accent);
     cursor: pointer;
@@ -511,20 +551,20 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   }
   .modal-wide { width: 480px; }
-  .modal-title { margin: 0 0 14px; font-size: 16px; color: var(--text); }
+  .modal-title { margin: 0 0 14px; font-size: 18px; color: var(--text); }
 
   .view-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
   .view-table th, .view-table td {
-    border: 1px solid var(--border-light); padding: 6px 10px; font-size: 13px; text-align: left;
+    border: 1px solid var(--border-light); padding: 6px 10px; font-size: 16px; text-align: left;
   }
   .view-table th { width: 90px; background: var(--surface2); color: var(--text-muted); }
 
   .edit-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
   .form-row { display: flex; flex-direction: column; gap: 4px; }
-  .form-row label { font-size: 12px; color: var(--text-muted); }
+  .form-row label { font-size: 14px; color: var(--text-muted); }
   .form-input {
     padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--surface); color: var(--text); font-size: 13px;
+    background: var(--surface); color: var(--text); font-size: 16px;
   }
   .form-input:disabled { background: var(--surface2); color: var(--text-hint); }
 
@@ -532,7 +572,7 @@
   .modal-actions-split { justify-content: space-between; }
   .btn-sm {
     padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
-    background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer;
+    background: var(--surface); color: var(--text); font-size: 16px; cursor: pointer;
   }
   .btn-sm:hover { background: var(--surface2); }
   .btn-confirm { background: var(--accent); color: white; border-color: var(--accent); margin-left: 8px; }

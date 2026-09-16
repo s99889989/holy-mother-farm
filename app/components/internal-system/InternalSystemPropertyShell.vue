@@ -1,50 +1,44 @@
 <template>
   <div class="app-wrapper">
-    <nav class="topnav">
-      <div class="topnav-left">
-        <NuxtLink to="/staff/content/internal-system/property" class="brand">🏢 財產管理系統</NuxtLink>
-      </div>
-      <div class="topnav-right">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">🏢 財產管理系統</div>
         <span v-if="identity?.currentLabel" class="identity-badge">
-          目前登入身份：{{ identity.currentLabel }}
+          {{ identity.currentLabel }}
         </span>
-        <button class="nav-btn" type="button" @click="openAgentModal">
-          🔁 更改代理身分
-        </button>
-        <NuxtLink to="/staff/content/internal-system" class="nav-btn">🏠 返回選單</NuxtLink>
-        <button class="nav-btn logout-btn" @click="handleLogout">登出</button>
-      </div>
-    </nav>
-
-    <div class="body-wrapper">
-      <aside class="sidebar">
-        <NuxtLink to="/staff/content/internal-system/property" class="sidebar-top-link" :class="{ active: route.path === '/staff/content/internal-system/property' }">
-          📰 最新消息
-        </NuxtLink>
-
-        <div v-for="group in internalSystemPropertyMenuGroups" :key="group.title" class="sidebar-group">
-          <button type="button" class="sidebar-group-header" @click="toggleGroup(group.title)">
-            <span>{{ group.title }}</span>
-            <span class="sidebar-arrow" :class="{ open: isOpen(group.title) }">▾</span>
-          </button>
-          <div v-show="isOpen(group.title)" class="sidebar-group-items">
-            <NuxtLink
-                v-for="item in group.items"
-                :key="item.slug"
-                :to="`/staff/content/internal-system/property/${item.slug}`"
-                class="sidebar-link"
-                :class="{ active: route.path === `/staff/content/internal-system/property/${item.slug}` }"
-            >
-              {{ item.label }}
-            </NuxtLink>
-          </div>
+        <div class="sidebar-actions">
+          <button class="action-btn" type="button" @click="openAgentModal">🔁 更改代理身分</button>
+          <NuxtLink to="/staff/content/internal-system" class="action-btn">🏠 返回選單</NuxtLink>
+          <button class="action-btn logout-btn" @click="handleLogout">登出</button>
         </div>
-      </aside>
+      </div>
 
-      <main class="main-content">
-        <slot />
-      </main>
-    </div>
+      <NuxtLink to="/staff/content/internal-system/property" class="sidebar-top-link" :class="{ active: route.path === '/staff/content/internal-system/property' }">
+        📰 最新消息
+      </NuxtLink>
+
+      <div v-for="group in internalSystemPropertyMenuGroups" :key="group.title" class="sidebar-group">
+        <button type="button" class="sidebar-group-header" @click="toggleGroup(group.title)">
+          <span>{{ group.title }}</span>
+          <span class="sidebar-arrow" :class="{ open: isOpen(group.title) }">▾</span>
+        </button>
+        <div v-show="isOpen(group.title)" class="sidebar-group-items">
+          <NuxtLink
+              v-for="item in group.items"
+              :key="item.slug"
+              :to="`/staff/content/internal-system/property/${item.slug}`"
+              class="sidebar-link"
+              :class="{ active: route.path === `/staff/content/internal-system/property/${item.slug}` }"
+          >
+            {{ item.label }}
+          </NuxtLink>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <slot />
+    </main>
 
     <!-- 更改代理身分 -->
     <div v-if="showAgentModal" class="modal-backdrop" @click.self="closeAgentModal">
@@ -180,23 +174,24 @@ onUnmounted(() => {
 .app-wrapper {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
 }
 
-.topnav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 52px;
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border-light);
+  padding: 0 0 12px;
+  overflow-y: auto;
+}
+
+.sidebar-header {
   background: #2d3748;
-  color: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  margin-bottom: 20px;
-  border-radius: var(--radius, 10px);
+  padding: 16px 16px 12px;
+  margin-bottom: 8px;
 }
 
-html.dark .topnav {
+html.dark .sidebar-header {
   background: #14161a;
 }
 
@@ -205,53 +200,41 @@ html.dark .topnav {
   font-weight: bold;
   color: white;
   letter-spacing: 1px;
-  text-decoration: none;
-}
-
-.topnav-right {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  margin-bottom: 8px;
 }
 
 .identity-badge {
-  font-size: 13px;
+  display: block;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.85);
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
-  white-space: nowrap;
+  margin-bottom: 10px;
+  width: fit-content;
 }
 
-.nav-btn {
-  padding: 6px 14px;
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-btn {
+  display: block;
+  padding: 5px 10px;
   border: 1px solid rgba(255,255,255,0.3);
   border-radius: 6px;
   background: transparent;
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   transition: background 0.2s;
   text-decoration: none;
+  text-align: left;
+  font-family: inherit;
 }
-.nav-btn:hover { background: rgba(255,255,255,0.15); }
-
-.logout-btn { font-family: inherit; }
-
-.body-wrapper {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-}
-
-.sidebar {
-  width: 240px;
-  flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--border-light);
-  padding: 12px 0;
-  overflow-y: auto;
-}
+.action-btn:hover { background: rgba(255,255,255,0.15); }
 
 .sidebar-top-link {
   display: block;

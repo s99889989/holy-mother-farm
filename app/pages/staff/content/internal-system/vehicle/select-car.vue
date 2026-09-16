@@ -255,15 +255,15 @@
 
 <style scoped>
   .select-car-page { max-width: 900px; }
-  .page-title { font-size: 18px; color: var(--text); margin: 0 0 4px; }
-  .page-date { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
+  .page-title { font-size: 20px; color: var(--text); margin: 0 0 4px; }
+  .page-date { font-size: 16px; color: var(--text-muted); margin: 0 0 16px; }
 
   .card {
     background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
     box-shadow: var(--shadow); margin-bottom: 16px;
   }
   .card-header { padding: 12px 16px; border-bottom: 1px solid var(--border-light); }
-  .card-header h2 { margin: 0; font-size: 15px; color: var(--text); }
+  .card-header h2 { margin: 0; font-size: 18px; color: var(--text); }
   .card-body { padding: 16px; }
 
   .search-hint { color: #e53e3e; font-weight: 700; text-align: center; margin: 0 0 12px; }
@@ -273,18 +273,18 @@
   .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-light); margin-bottom: 12px; flex-wrap: wrap; }
   .tab-btn {
     padding: 8px 14px; background: none; border: none; border-bottom: 2px solid transparent;
-    color: var(--text-muted); font-size: 13px; cursor: pointer;
+    color: var(--text-muted); font-size: 16px; cursor: pointer;
   }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
 
   .car-table { width: 100%; border-collapse: collapse; }
   .car-table th, .car-table td {
-    border: 1px solid var(--border-light); padding: 8px 10px; text-align: center; font-size: 13px;
+    border: 1px solid var(--border-light); padding: 8px 10px; text-align: center; font-size: 16px;
   }
   .car-table th { background: var(--surface2); color: var(--text-muted); }
 
-  .hint-text.small { font-size: 12px; color: var(--text-hint); margin: 10px 0 0; }
-  .error-text { color: #e53e3e; font-size: 13px; }
+  .hint-text.small { font-size: 14px; color: var(--text-hint); margin: 10px 0 0; }
+  .error-text { color: #e53e3e; font-size: 16px; }
 
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
@@ -296,21 +296,21 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   }
   .modal-wide { width: 480px; }
-  .modal-title { margin: 0 0 14px; font-size: 16px; color: var(--text); }
+  .modal-title { margin: 0 0 14px; font-size: 18px; color: var(--text); }
 
   .edit-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
   .form-row { display: flex; flex-direction: column; gap: 4px; }
-  .form-row label { font-size: 12px; color: var(--text-muted); }
+  .form-row label { font-size: 14px; color: var(--text-muted); }
   .form-input {
     padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--surface); color: var(--text); font-size: 13px;
+    background: var(--surface); color: var(--text); font-size: 16px;
   }
   .form-input:disabled { background: var(--surface2); color: var(--text-hint); }
 
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .btn-sm {
     padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
-    background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer;
+    background: var(--surface); color: var(--text); font-size: 16px; cursor: pointer;
   }
   .btn-sm:hover { background: var(--surface2); }
   .btn-confirm { background: var(--accent); color: white; border-color: var(--accent); }

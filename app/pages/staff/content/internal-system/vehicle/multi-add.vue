@@ -221,7 +221,7 @@
 
 <style scoped>
   .multi-add-page { max-width: 800px; }
-  .page-title { font-size: 18px; color: var(--text); margin: 0 0 4px; }
+  .page-title { font-size: 20px; color: var(--text); margin: 0 0 4px; }
   .warn-banner { color: #e53e3e; font-weight: 700; text-align: center; margin: 0 0 16px; }
 
   .card {
@@ -229,31 +229,31 @@
     box-shadow: var(--shadow); margin-bottom: 16px;
   }
   .card-header { padding: 12px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; }
-  .card-header h2 { margin: 0; font-size: 15px; color: var(--text); }
-  .selected-count { font-size: 13px; color: var(--accent); font-weight: 700; }
+  .card-header h2 { margin: 0; font-size: 18px; color: var(--text); }
+  .selected-count { font-size: 16px; color: var(--accent); font-weight: 700; }
   .card-body { padding: 16px; }
 
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .form-row { display: flex; flex-direction: column; gap: 4px; }
   .form-row-wide { grid-column: 1 / -1; }
-  .form-row label { font-size: 12px; color: var(--text-muted); }
+  .form-row label { font-size: 14px; color: var(--text-muted); }
   .form-input {
     padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--surface); color: var(--text); font-size: 13px;
+    background: var(--surface); color: var(--text); font-size: 16px;
   }
 
   .cal-header { margin-bottom: 10px; }
   .cal-nav { display: flex; align-items: center; gap: 14px; }
-  .cal-title { margin: 0; font-size: 15px; color: var(--text); }
+  .cal-title { margin: 0; font-size: 18px; color: var(--text); }
   .nav-btn {
     padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--surface); color: var(--text); font-size: 12px; cursor: pointer;
+    background: var(--surface); color: var(--text); font-size: 14px; cursor: pointer;
   }
   .nav-btn:hover { background: var(--surface2); }
 
   .cal-grid-wrapper { border: 1px solid var(--border-light); border-radius: var(--radius); overflow: hidden; }
   .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--surface2); }
-  .weekday { padding: 6px; text-align: center; font-size: 11px; color: var(--text-muted); }
+  .weekday { padding: 6px; text-align: center; font-size: 14px; color: var(--text-muted); }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
   .cal-cell {
     position: relative;
@@ -262,7 +262,7 @@
     border-left: 1px solid var(--border-light);
     background: var(--surface);
     color: var(--text);
-    font-size: 12px;
+    font-size: 14px;
     cursor: pointer;
     padding: 6px;
     text-align: left;
@@ -271,14 +271,14 @@
   .cal-cell:not(.empty):not(.disabled):hover { background: var(--surface2); }
   .cal-cell.selected { background: #ff9800; color: white; font-weight: 700; }
   .cal-cell.disabled { color: var(--text-hint); cursor: not-allowed; }
-  .check-mark { position: absolute; bottom: 4px; right: 6px; font-size: 11px; }
+  .check-mark { position: absolute; bottom: 4px; right: 6px; font-size: 14px; }
 
-  .error-text { color: #e53e3e; font-size: 13px; margin: 0 0 10px; }
+  .error-text { color: #e53e3e; font-size: 16px; margin: 0 0 10px; }
 
   .submit-row { display: flex; justify-content: flex-end; }
   .btn-confirm {
     padding: 8px 20px; border: none; border-radius: 8px;
-    background: var(--accent); color: white; font-size: 14px; cursor: pointer;
+    background: var(--accent); color: white; font-size: 16px; cursor: pointer;
   }
   .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

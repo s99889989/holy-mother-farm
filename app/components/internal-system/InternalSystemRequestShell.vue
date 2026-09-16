@@ -1,29 +1,25 @@
 <template>
   <div class="app-wrapper">
-    <nav class="topnav">
-      <div class="topnav-left">
-        <NuxtLink to="/staff/content/internal-system/request" class="brand">🔧 維修管理系統</NuxtLink>
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">🔧 維修管理系統</div>
+        <div class="sidebar-actions">
+          <NuxtLink to="/staff/content/internal-system" class="action-btn">🏠 返回選單</NuxtLink>
+          <button class="action-btn logout-btn" @click="handleLogout">登出</button>
+        </div>
       </div>
-      <div class="topnav-right">
-        <NuxtLink to="/staff/content/internal-system" class="nav-btn">🏠 返回選單</NuxtLink>
-        <button class="nav-btn logout-btn" @click="handleLogout">登出</button>
-      </div>
-    </nav>
 
-    <div class="body-wrapper">
-      <aside class="sidebar">
-        <NuxtLink to="/staff/content/internal-system/request" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/request' }">
-          📋 需求清單
-        </NuxtLink>
-        <NuxtLink to="/staff/content/internal-system/request/map" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/request/map' }">
-          🗺️ 園區地圖
-        </NuxtLink>
-      </aside>
+      <NuxtLink to="/staff/content/internal-system/request" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/request' }">
+        📋 需求清單
+      </NuxtLink>
+      <NuxtLink to="/staff/content/internal-system/request/map" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/request/map' }">
+        🗺️ 園區地圖
+      </NuxtLink>
+    </aside>
 
-      <main class="main-content">
-        <slot />
-      </main>
-    </div>
+    <main class="main-content">
+      <slot />
+    </main>
   </div>
 </template>
 
@@ -59,23 +55,24 @@ onUnmounted(() => {
 .app-wrapper {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
 }
 
-.topnav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 52px;
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border-light);
+  padding: 0 0 12px;
+  overflow-y: auto;
+}
+
+.sidebar-header {
   background: #2d3748;
-  color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  margin-bottom: 20px;
-  border-radius: var(--radius, 10px);
+  padding: 16px 16px 12px;
+  margin-bottom: 8px;
 }
 
-html.dark .topnav {
+html.dark .sidebar-header {
   background: #14161a;
 }
 
@@ -84,47 +81,31 @@ html.dark .topnav {
   font-weight: bold;
   color: white;
   letter-spacing: 1px;
-  text-decoration: none;
+  margin-bottom: 10px;
 }
 
-.topnav-right {
+.sidebar-actions {
   display: flex;
-  gap: 10px;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.nav-btn {
-  padding: 6px 14px;
+.action-btn {
+  display: block;
+  padding: 5px 10px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 6px;
   background: transparent;
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   transition: background 0.2s;
   text-decoration: none;
-}
-.nav-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.logout-btn {
+  text-align: left;
   font-family: inherit;
 }
-
-.body-wrapper {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-}
-
-.sidebar {
-  width: 200px;
-  flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--border-light);
-  padding: 12px 0;
-  overflow-y: auto;
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .sidebar-link {

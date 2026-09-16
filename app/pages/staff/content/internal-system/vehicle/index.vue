@@ -127,7 +127,7 @@
     border: none;
     border-bottom: 2px solid transparent;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 16px;
     cursor: pointer;
   }
 
@@ -154,7 +154,7 @@
 
   .card-header h2 {
     margin: 0;
-    font-size: 16px;
+    font-size: 18px;
     color: var(--text);
   }
 
@@ -177,11 +177,11 @@
   .news-content :deep(td) {
     border: 1px solid var(--border-light);
     padding: 6px 10px;
-    font-size: 13px;
+    font-size: 16px;
   }
 
   .section-title {
-    font-size: 15px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text);
     text-align: center;
@@ -200,7 +200,7 @@
     border: 1px solid var(--border-light);
     padding: 8px 10px;
     text-align: center;
-    font-size: 13px;
+    font-size: 16px;
   }
 
   .staff-table th {

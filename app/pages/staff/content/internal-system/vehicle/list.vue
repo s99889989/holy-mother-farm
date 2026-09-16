@@ -371,40 +371,40 @@
 
 <style scoped>
   .list-page { max-width: 1100px; }
-  .page-title { font-size: 18px; color: var(--text); margin: 0 0 16px; }
+  .page-title { font-size: 20px; color: var(--text); margin: 0 0 16px; }
 
   .card {
     background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
     box-shadow: var(--shadow); margin-bottom: 16px;
   }
   .card-header { padding: 12px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-  .card-header h2 { margin: 0; font-size: 15px; color: var(--text); }
+  .card-header h2 { margin: 0; font-size: 18px; color: var(--text); }
   .card-body { padding: 16px; }
 
   .search-hint { color: #e53e3e; font-weight: 700; text-align: center; margin: 0 0 12px; }
   .search-form { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
 
   .filter-row { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border-light); }
-  .filter-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+  .filter-checkbox { display: flex; align-items: center; gap: 6px; font-size: 16px; color: var(--text); }
 
   .form-row { display: flex; flex-direction: column; gap: 4px; }
-  .form-row label { font-size: 12px; color: var(--text-muted); }
+  .form-row label { font-size: 14px; color: var(--text-muted); }
   .form-input {
     padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--surface); color: var(--text); font-size: 13px;
+    background: var(--surface); color: var(--text); font-size: 16px;
   }
   .form-input:disabled { background: var(--surface2); color: var(--text-hint); }
 
   .record-table { width: 100%; border-collapse: collapse; }
   .record-table th, .record-table td {
-    border: 1px solid var(--border-light); padding: 8px 10px; text-align: center; font-size: 13px;
+    border: 1px solid var(--border-light); padding: 8px 10px; text-align: center; font-size: 16px;
   }
   .record-table th { background: var(--surface2); color: var(--text-muted); }
 
   .badge-on { color: #2f855a; font-weight: 700; }
   .badge-off { color: #c05621; font-weight: 700; }
 
-  .error-text { color: #e53e3e; font-size: 13px; }
+  .error-text { color: #e53e3e; font-size: 16px; }
 
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
@@ -416,7 +416,7 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   }
   .modal-wide { width: 480px; }
-  .modal-title { margin: 0 0 14px; font-size: 16px; color: var(--text); }
+  .modal-title { margin: 0 0 14px; font-size: 18px; color: var(--text); }
 
   .edit-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 
@@ -424,7 +424,7 @@
   .modal-actions-split { justify-content: space-between; }
   .btn-sm {
     padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
-    background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer;
+    background: var(--surface); color: var(--text); font-size: 16px; cursor: pointer;
   }
   .btn-sm:hover { background: var(--surface2); }
   .btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
