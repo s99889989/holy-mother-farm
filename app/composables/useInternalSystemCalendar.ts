@@ -23,9 +23,9 @@ export const useInternalSystemCalendar = () => {
    * onUpdate 回調讓呼叫端更新畫面
    */
   const fetchList = async (
-      year: number,
-      month: number,
-      onUpdate?: (data: any) => void
+    year: number,
+    month: number,
+    onUpdate?: (data: any) => void
   ) => {
     loading.value = true
     error.value = null
@@ -78,9 +78,9 @@ export const useInternalSystemCalendar = () => {
   }
 
   const fetchForm = async (
-      type: 'add' | 'edit',
-      options: { date?: string; id?: string } = {},
-      onUpdate?: (data: any) => void
+    type: 'add' | 'edit',
+    options: { date?: string; id?: string } = {},
+    onUpdate?: (data: any) => void
   ) => {
     loading.value = true
     error.value = null
@@ -116,8 +116,8 @@ export const useInternalSystemCalendar = () => {
     if (cached) {
       // 背景更新
       $fetch<any>('/api/internal-system/calendar/places', { method: 'POST', body: { area, use } })
-          .then(fresh => internalSystemCacheSet(key, fresh))
-          .catch(() => {})
+        .then(fresh => internalSystemCacheSet(key, fresh))
+        .catch(() => {})
       return cached
     }
     try {
@@ -133,7 +133,7 @@ export const useInternalSystemCalendar = () => {
   const submitAdd = async (formData: Record<string, any>) => {
     loading.value = true
     try {
-      const result = await $fetch<any>('/api/staff/content/internal-system/calendar/add', { method: 'POST', body: formData })
+      const result = await $fetch<any>('/api/internal-system/calendar/add', { method: 'POST', body: formData })
       // 送出成功後清除該月的月曆快取，確保下次看到最新資料
       if (result?.success && formData.publish_start) {
         const [year, month] = formData.publish_start.split('-')
