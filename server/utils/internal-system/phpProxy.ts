@@ -78,6 +78,12 @@ export function getInternalSystemSessionCookie(event: any): string {
   return sessid ? `PHPSESSID=${sessid}` : ''
 }
 
+/** 從 event 的 cookie header 取得登入時存的員工編號（login.post.ts 設的 httpOnly employee_id cookie，大寫） */
+export function getInternalSystemEmployeeId(event: any): string {
+  const cookies = parseCookies(event)
+  return cookies['employee_id'] ?? ''
+}
+
 /** session 過期時清除 cookie 並拋出 401 */
 export function handleInternalSystemSessionExpired(event: any): never {
   deleteCookie(event, 'PHPSESSID', { path: '/' })

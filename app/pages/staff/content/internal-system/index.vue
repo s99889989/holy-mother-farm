@@ -37,7 +37,7 @@
       items: [
         { label: '個人資料修改' }, //, to: '/user/profile'
         { label: '行事曆刊登', to: '/staff/content/internal-system/calendar' },
-        { label: '公務車管理系統' },
+        { label: '公務車管理系統', to: '/staff/content/internal-system/vehicle' },
         { label: '需求(維修)單功能', to: '/staff/content/internal-system/request' },
         { label: '教育訓練網站(舊)(請使用IE瀏覽器)' },
         { label: '教育訓練網站(新)' },
