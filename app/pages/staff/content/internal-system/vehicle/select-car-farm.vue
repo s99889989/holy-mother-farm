@@ -443,11 +443,11 @@
     border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface2);
   }
   .car-card-photo {
-    width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex-shrink: 0;
+    width: 108px; align-self: stretch; object-fit: cover; border-radius: 8px; flex-shrink: 0;
   }
   .car-card-photo-empty {
-    display: flex; align-items: center; justify-content: center; font-size: 28px;
-    background: var(--surface); color: var(--text-hint);
+    display: flex; align-items: center; justify-content: center; font-size: 36px;
+    background: var(--surface); color: var(--text-hint); min-height: 108px;
   }
   .car-card-body { flex: 1; min-width: 0; }
   .car-card-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
