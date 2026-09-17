@@ -28,8 +28,8 @@
       <NuxtLink to="/staff/content/internal-system/vehicle/booking" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/booking' }" title="公務車線上申請">
         <span class="icon">🚗</span><span class="label-text">公務車線上申請</span>
       </NuxtLink>
-      <NuxtLink to="/staff/content/internal-system/vehicle/booking-farm" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/booking-farm' }" title="聖母農莊行事曆">
-        <span class="icon">🌾</span><span class="label-text">聖母農莊行事曆</span>
+      <NuxtLink to="/staff/content/internal-system/vehicle/booking-farm" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/booking-farm' }" title="農莊公務車">
+        <span class="icon">🌾</span><span class="label-text">農莊公務車</span>
       </NuxtLink>
     </aside>
 

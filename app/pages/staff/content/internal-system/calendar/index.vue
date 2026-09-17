@@ -1,140 +1,140 @@
 <template>
   <InternalSystemCalendarShell>
-  <div class="calendar-page">
-    <!-- 頂部導覽 -->
-    <div class="cal-header">
-      <div class="cal-nav">
-        <button class="nav-btn" @click="prevMonth">&#8249; 上一月</button>
-        <h2 class="cal-title">{{ year }}年{{ month }}月</h2>
-        <button class="nav-btn" @click="nextMonth">下一月 &#8250;</button>
-      </div>
+    <div class="calendar-page">
+      <!-- 頂部導覽 -->
+      <div class="cal-header">
+        <div class="cal-nav">
+          <button class="nav-btn" @click="prevMonth">&#8249; 上一月</button>
+          <h2 class="cal-title">{{ year }}年{{ month }}月</h2>
+          <button class="nav-btn" @click="nextMonth">下一月 &#8250;</button>
+        </div>
 
-      <!-- 同步狀態 + 操作 -->
-      <div class="sync-status">
-        <button
-                class="nav-btn week-start-toggle"
-                type="button"
-                :title="weekStartsOn === 1 ? '目前：週一排第一個，點擊改成週日排第一個' : '目前：週日排第一個，點擊改成週一排第一個'"
-                @click="toggleWeekStart"
-        >
-          🗓️ {{ weekStartsOn === 1 ? '週一為首' : '週日為首' }}
-        </button>
-        <span v-if="syncStatus === 'syncing'" class="sync-badge syncing">
+        <!-- 同步狀態 + 操作 -->
+        <div class="sync-status">
+          <button
+            class="nav-btn week-start-toggle"
+            type="button"
+            :title="weekStartsOn === 1 ? '目前：週一排第一個，點擊改成週日排第一個' : '目前：週日排第一個，點擊改成週一排第一個'"
+            @click="toggleWeekStart"
+          >
+            🗓️ {{ weekStartsOn === 1 ? '週一為首' : '週日為首' }}
+          </button>
+          <span v-if="syncStatus === 'syncing'" class="sync-badge syncing">
           <span class="sync-dot"></span> 更新中...
         </span>
-        <span v-else-if="syncStatus === 'done'" class="sync-badge done">
+          <span v-else-if="syncStatus === 'done'" class="sync-badge done">
           ✓ 已更新
         </span>
-        <button
-                v-if="calendarData"
-                class="nav-btn copy-txt-btn"
-                type="button"
-                :disabled="copying"
-                @click="copyMonthAsTxt"
-        >
-          📋 複製 TXT
-        </button>
-      </div>
-    </div>
-
-    <!-- 篩選列 -->
-    <div v-if="calendarData" class="filter-bar">
-      <div class="filter-select-group">
-        <label class="filter-label">類型</label>
-        <select
-                class="filter-select"
-                :value="selectedUnit"
-                @change="onUnitChange(($event.target as HTMLSelectElement).value)"
-        >
-          <option value="">全部 {{ totalCount }}</option>
-          <option v-for="u in unitCounts" :key="u.name" :value="u.name">
-            {{ u.name }} {{ u.count }}
-          </option>
-        </select>
-      </div>
-
-      <div class="filter-select-group person-filter" ref="personFilterRef">
-        <label class="filter-label">建立者</label>
-        <button
-                type="button"
-                class="filter-select person-dropdown-btn"
-                @click="personDropdownOpen = !personDropdownOpen"
-        >
-          {{ personFilterText }}
-          <span class="dropdown-arrow" :class="{ open: personDropdownOpen }">▾</span>
-        </button>
-
-        <div v-if="personDropdownOpen" class="person-dropdown-panel">
-          <label class="person-option person-option-all">
-            <input
-                    type="checkbox"
-                    :checked="selectedPersons.length === 0"
-                    @change="clearSelectedPersons"
-            /> 全部
-          </label>
-          <div class="person-option-divider"></div>
-          <label v-for="p in availablePersons" :key="p.name" class="person-option">
-            <input
-                    type="checkbox"
-                    :value="p.name"
-                    v-model="selectedPersons"
-            /> {{ p.name }} {{ p.count }}
-          </label>
+          <button
+            v-if="calendarData"
+            class="nav-btn copy-txt-btn"
+            type="button"
+            :disabled="copying"
+            @click="copyMonthAsTxt"
+          >
+            📋 複製 TXT
+          </button>
         </div>
       </div>
 
-      <div class="filter-select-group">
-        <label class="filter-label">地點</label>
-        <select class="filter-select" v-model="selectedLocation">
-          <option value="">全部</option>
-          <option v-for="loc in availableLocations" :key="loc" :value="loc">
-            {{ loc }}
-          </option>
-        </select>
-      </div>
-    </div>
+      <!-- 篩選列 -->
+      <div v-if="calendarData" class="filter-bar">
+        <div class="filter-select-group">
+          <label class="filter-label">類型</label>
+          <select
+            class="filter-select"
+            :value="selectedUnit"
+            @change="onUnitChange(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">全部 {{ totalCount }}</option>
+            <option v-for="u in unitCounts" :key="u.name" :value="u.name">
+              {{ u.name }} {{ u.count }}
+            </option>
+          </select>
+        </div>
 
-    <!-- 圖例 -->
-    <div class="legend">
+        <div class="filter-select-group person-filter" ref="personFilterRef">
+          <label class="filter-label">建立者</label>
+          <button
+            type="button"
+            class="filter-select person-dropdown-btn"
+            @click="personDropdownOpen = !personDropdownOpen"
+          >
+            {{ personFilterText }}
+            <span class="dropdown-arrow" :class="{ open: personDropdownOpen }">▾</span>
+          </button>
+
+          <div v-if="personDropdownOpen" class="person-dropdown-panel">
+            <label class="person-option person-option-all">
+              <input
+                type="checkbox"
+                :checked="selectedPersons.length === 0"
+                @change="clearSelectedPersons"
+              /> 全部
+            </label>
+            <div class="person-option-divider"></div>
+            <label v-for="p in availablePersons" :key="p.name" class="person-option">
+              <input
+                type="checkbox"
+                :value="p.name"
+                v-model="selectedPersons"
+              /> {{ p.name }} {{ p.count }}
+            </label>
+          </div>
+        </div>
+
+        <div class="filter-select-group">
+          <label class="filter-label">地點</label>
+          <select class="filter-select" v-model="selectedLocation">
+            <option value="">全部</option>
+            <option v-for="loc in availableLocations" :key="loc" :value="loc">
+              {{ loc }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 圖例 -->
+      <div class="legend">
       <span class="legend-item">
         <span class="legend-dot blue"></span> 一般活動
       </span>
-      <span class="legend-item">
+        <span class="legend-item">
         <span class="legend-dot orange"></span> ✏️ 我建立的（可編輯）
       </span>
-    </div>
-
-    <div v-if="loading" class="loading">載入中...</div>
-    <div v-else-if="error" class="error-banner">{{ error }}</div>
-
-    <!-- 月曆格 -->
-    <div v-else class="cal-grid-wrapper">
-      <div class="cal-weekdays">
-        <div v-for="d in weekdays" :key="d" class="weekday">{{ d }}</div>
       </div>
 
-      <div class="cal-grid">
-        <div v-for="n in leadingDays" :key="`empty-${n}`" class="cal-cell empty" />
+      <div v-if="loading" class="loading">載入中...</div>
+      <div v-else-if="error" class="error-banner">{{ error }}</div>
 
-        <div
-                v-for="dayData in enrichedFilteredDays"
-                :key="dayData.day"
-                class="cal-cell"
-                :class="{ today: dayData.isToday }"
-        >
-          <div class="day-num" @click="goAdd(dayData.date)">
-            {{ dayData.day }}
-          </div>
+      <!-- 月曆格 -->
+      <div v-else class="cal-grid-wrapper">
+        <div class="cal-weekdays">
+          <div v-for="d in weekdays" :key="d" class="weekday">{{ d }}</div>
+        </div>
 
-          <!-- 跨天長條：整段只有「一個」DOM 元素，用 width 一次跨滿所有天數，
-               中間完全沒有其他元素的邊界要對齊，天然不會有縫隙。
-               只有活動真正的頭尾留 2px 邊距＋圓角；因跨週被切開的段落頭尾貼齊格子邊緣。 -->
+        <div class="cal-grid">
+          <div v-for="n in leadingDays" :key="`empty-${n}`" class="cal-cell empty" />
+
           <div
-                  v-for="bar in dayData.multiDayItems"
-                  :key="`bar-${bar.segId}`"
-                  class="event-item multi-day-bar"
-                  :class="{ editable: bar.isEditable, 'bar-hovered': hoveredCalId === bar.calendarId }"
-                  :style="{
+            v-for="dayData in enrichedFilteredDays"
+            :key="dayData.day"
+            class="cal-cell"
+            :class="{ today: dayData.isToday }"
+          >
+            <div class="day-num" @click="goAdd(dayData.date)">
+              {{ dayData.day }}
+            </div>
+
+            <!-- 跨天長條：整段只有「一個」DOM 元素，用 width 一次跨滿所有天數，
+                 中間完全沒有其他元素的邊界要對齊，天然不會有縫隙。
+                 只有活動真正的頭尾留 2px 邊距＋圓角；因跨週被切開的段落頭尾貼齊格子邊緣。 -->
+            <div
+              v-for="bar in dayData.multiDayItems"
+              :key="`bar-${bar.segId}`"
+              class="event-item multi-day-bar"
+              :class="{ editable: bar.isEditable, 'bar-hovered': hoveredCalId === bar.calendarId }"
+              :style="{
                     position: 'absolute',
                     top: `${26 + bar.row * 22}px`,
                     left: bar.isEventStart ? '2px' : '0',
@@ -143,82 +143,114 @@
                     zIndex: 2,
                     borderRadius: `${bar.isEventStart ? 3 : 0}px ${bar.isEventEnd ? 3 : 0}px ${bar.isEventEnd ? 3 : 0}px ${bar.isEventStart ? 3 : 0}px`,
                   }"
-                  @click="goEvent(bar)"
-                  @mouseenter="showTooltip(bar, $event)"
-                  @mousemove="moveTooltip($event)"
-                  @mouseleave="hideTooltip"
-          >
-            <span class="event-time">{{ bar.startTime }}</span>
-            <span class="event-title">{{ bar.title }}</span>
-            <span v-if="bar.unit" class="event-unit">{{ bar.unit }}</span>
-          </div>
-
-          <!-- 單天活動，padding-top 讓出跨日長條的空間 -->
-          <div
-                  class="event-list"
-                  :style="{ marginTop: dayData.multiDayRowCount > 0 ? `${dayData.multiDayRowCount * 22}px` : '0' }"
-          >
-            <!-- 單天活動 -->
-            <div
-                    v-for="ev in dayData.singleDayEvents"
-                    :key="ev.calendarId"
-                    class="event-item"
-                    :class="{ editable: ev.isEditable }"
-                    @click="goEvent(ev)"
-                    @mouseenter="showTooltip(ev, $event)"
-                    @mousemove="moveTooltip($event)"
-                    @mouseleave="hideTooltip"
+              @click="handleEventClick(bar, dayData)"
+              @mouseenter="showTooltip(bar, $event)"
+              @mousemove="moveTooltip($event)"
+              @mouseleave="hideTooltip"
             >
-              <span class="event-time">{{ ev.startTime }}</span>
-              <span class="event-title">{{ ev.title }}</span>
-              <span v-if="ev.unit" class="event-unit">{{ ev.unit }}</span>
+              <span class="event-time">{{ bar.startTime }}</span>
+              <span class="event-title">{{ bar.title }}</span>
+              <span v-if="bar.unit" class="event-unit">{{ bar.unit }}</span>
+            </div>
+
+            <!-- 單天活動，padding-top 讓出跨日長條的空間 -->
+            <div
+              class="event-list"
+              :style="{ marginTop: dayData.multiDayRowCount > 0 ? `${dayData.multiDayRowCount * 22}px` : '0' }"
+            >
+              <!-- 單天活動 -->
+              <div
+                v-for="ev in dayData.singleDayEvents"
+                :key="ev.calendarId"
+                class="event-item"
+                :class="{ editable: ev.isEditable }"
+                @click="handleEventClick(ev, dayData)"
+                @mouseenter="showTooltip(ev, $event)"
+                @mousemove="moveTooltip($event)"
+                @mouseleave="hideTooltip"
+              >
+                <span class="event-time">{{ ev.startTime }}</span>
+                <span class="event-title">{{ ev.title }}</span>
+                <span v-if="ev.unit" class="event-unit">{{ ev.unit }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 備註 -->
-    <div v-if="calendarData?.remarks?.length" class="remarks">
-      <strong>備註：</strong>
-      <p v-for="(r, i) in calendarData.remarks" :key="i">{{ r }}</p>
-    </div>
+      <!-- 備註 -->
+      <div v-if="calendarData?.remarks?.length" class="remarks">
+        <strong>備註：</strong>
+        <p v-for="(r, i) in calendarData.remarks" :key="i">{{ r }}</p>
+      </div>
 
-    <!-- 滑鼠移上去顯示詳細內容（跟隨游標，類似遊戲道具提示） -->
-    <Teleport to="body">
-      <div
-              v-if="tooltipEvent"
-              class="event-tooltip"
-              :style="tooltipStyle"
-      >
-        <div class="tooltip-title">{{ tooltipEvent.title }}</div>
-        <div class="tooltip-row">
-          🕐
-          <template v-if="tooltipEvent.multiDayStartDate">
-            {{ tooltipEvent.multiDayStartDate }} {{ tooltipEvent.startTime }}
-            <template v-if="tooltipEvent.multiDayEndDate !== tooltipEvent.multiDayStartDate">
-              ～ {{ tooltipEvent.multiDayEndDate }} {{ tooltipEvent.endTime }}
+      <!-- 日期側板（手機版）：點活動先列出當天全部活動，避免小螢幕點錯 -->
+      <Teleport to="body">
+        <Transition name="sheet-fade">
+          <div v-if="dayPanel.show" class="day-panel-backdrop" @click.self="closeDayPanel">
+            <div class="day-panel">
+              <div class="day-panel-header">
+                <h3>{{ dayPanel.dayLabel }} 的活動</h3>
+                <button type="button" class="day-panel-close" @click="closeDayPanel">✕</button>
+              </div>
+              <div class="day-panel-list">
+                <button
+                  v-for="ev in dayPanel.events"
+                  :key="ev.segId ?? ev.calendarId"
+                  type="button"
+                  class="day-panel-item"
+                  :class="{ editable: ev.isEditable }"
+                  @click="selectPanelEvent(ev)"
+                >
+                  <span class="dp-time">{{ ev.startTime }}<template v-if="ev.endTime">–{{ ev.endTime }}</template></span>
+                  <span class="dp-title">{{ ev.title }}</span>
+                  <span v-if="ev.unit" class="dp-unit">{{ ev.unit }}</span>
+                </button>
+                <p v-if="!dayPanel.events.length" class="day-panel-empty">這天沒有活動</p>
+              </div>
+              <button type="button" class="day-panel-add" @click="closeDayPanel(); goAdd(dayPanel.date)">
+                ＋ 在這天新增活動
+              </button>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <!-- 滑鼠移上去顯示詳細內容（跟隨游標，類似遊戲道具提示） -->
+      <Teleport to="body">
+        <div
+          v-if="tooltipEvent"
+          class="event-tooltip"
+          :style="tooltipStyle"
+        >
+          <div class="tooltip-title">{{ tooltipEvent.title }}</div>
+          <div class="tooltip-row">
+            🕐
+            <template v-if="tooltipEvent.multiDayStartDate">
+              {{ tooltipEvent.multiDayStartDate }} {{ tooltipEvent.startTime }}
+              <template v-if="tooltipEvent.multiDayEndDate !== tooltipEvent.multiDayStartDate">
+                ～ {{ tooltipEvent.multiDayEndDate }} {{ tooltipEvent.endTime }}
+              </template>
             </template>
-          </template>
-          <template v-else>
-            {{ tooltipEvent.startTime }}<template v-if="tooltipEvent.endTime">–{{ tooltipEvent.endTime }}</template>
-          </template>
+            <template v-else>
+              {{ tooltipEvent.startTime }}<template v-if="tooltipEvent.endTime">–{{ tooltipEvent.endTime }}</template>
+            </template>
+          </div>
+          <div v-if="tooltipEvent.location" class="tooltip-row">📍 {{ tooltipEvent.location }}</div>
+          <div v-if="tooltipEvent.unit" class="tooltip-row">🏷️ {{ tooltipEvent.unit }}</div>
+          <div v-if="tooltipEvent.person" class="tooltip-row">👤 {{ tooltipEvent.person }}</div>
+          <div v-if="tooltipEvent.isEditable" class="tooltip-hint">✏️ 點擊可編輯</div>
         </div>
-        <div v-if="tooltipEvent.location" class="tooltip-row">📍 {{ tooltipEvent.location }}</div>
-        <div v-if="tooltipEvent.unit" class="tooltip-row">🏷️ {{ tooltipEvent.unit }}</div>
-        <div v-if="tooltipEvent.person" class="tooltip-row">👤 {{ tooltipEvent.person }}</div>
-        <div v-if="tooltipEvent.isEditable" class="tooltip-hint">✏️ 點擊可編輯</div>
-      </div>
-    </Teleport>
+      </Teleport>
 
-    <!-- 複製成功提示 -->
-    <Transition name="toast-fade">
-      <div v-if="toast.show" class="copy-toast">
-        <span class="copy-toast-icon">✓</span>
-        {{ toast.message }}
-      </div>
-    </Transition>
-  </div>
+      <!-- 複製成功提示 -->
+      <Transition name="toast-fade">
+        <div v-if="toast.show" class="copy-toast">
+          <span class="copy-toast-icon">✓</span>
+          {{ toast.message }}
+        </div>
+      </Transition>
+    </div>
   </InternalSystemCalendarShell>
 </template>
 
@@ -298,18 +330,24 @@
 
   onMounted(() => {
     if (import.meta.client) document.addEventListener('click', onClickOutsidePersonFilter)
+    if (import.meta.client && window.matchMedia) {
+      mobileMql = window.matchMedia('(max-width: 640px)')
+      isMobileViewport.value = mobileMql.matches
+      mobileMql.addEventListener('change', updateMobileViewport)
+    }
   })
 
   onUnmounted(() => {
     if (import.meta.client) document.removeEventListener('click', onClickOutsidePersonFilter)
+    if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
   })
 
   const weekdayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
   const weekdays = computed(() => {
     // weekStartsOn = 0 → 週日排第一個（原順序）；= 1 → 週一排第一個（整組往前轉一位，週日排到最後）
     return weekStartsOn.value === 1
-            ? [...weekdayNames.slice(1), weekdayNames[0]]
-            : weekdayNames
+      ? [...weekdayNames.slice(1), weekdayNames[0]]
+      : weekdayNames
   })
   const calendarData = ref<any>(null)
 
@@ -349,8 +387,8 @@
       if (ev.unit) map[ev.unit] = (map[ev.unit] ?? 0) + 1
     })
     const list = Object.entries(map)
-            .sort((a, b) => b[1] - a[1])
-            .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }))
     // 即使當月沒有符合的活動，也要保留目前選的類型在選單中（顯示 0）
     if (selectedUnit.value && !list.some((u) => u.name === selectedUnit.value)) {
       list.push({ name: selectedUnit.value, count: 0 })
@@ -361,15 +399,15 @@
   // 建立者清單（根據目前選的單位篩選）
   const availablePersons = computed(() => {
     const events = selectedUnit.value
-            ? allEvents.value.filter((ev: any) => ev.unit === selectedUnit.value)
-            : allEvents.value
+      ? allEvents.value.filter((ev: any) => ev.unit === selectedUnit.value)
+      : allEvents.value
     const map: Record<string, number> = {}
     events.forEach((ev: any) => {
       if (ev.person) map[ev.person] = (map[ev.person] ?? 0) + 1
     })
     const list = Object.entries(map)
-            .sort((a, b) => b[1] - a[1])
-            .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }))
     // 即使當月沒有符合的活動，也要保留目前選的建立者在選單中（顯示 0）
     selectedPersons.value.forEach((name) => {
       if (!list.some((p) => p.name === name)) {
@@ -440,9 +478,9 @@
     })
 
     const multiIds = new Set(
-            Object.entries(idDays)
-                    .filter(([, idxs]) => idxs.length > 1)
-                    .map(([id]) => id)
+      Object.entries(idDays)
+        .filter(([, idxs]) => idxs.length > 1)
+        .map(([id]) => id)
     )
 
     if (!multiIds.size) return []
@@ -521,7 +559,7 @@
         const curr = sorted[i]
         const prev = sorted[i - 1]
         const crossWeek = curr !== undefined &&
-                Math.floor((leadingDays.value + prev) / 7) !== Math.floor((leadingDays.value + curr) / 7)
+          Math.floor((leadingDays.value + prev) / 7) !== Math.floor((leadingDays.value + curr) / 7)
         if (curr !== undefined && curr === prev + 1 && !crossWeek) {
           segEnd = curr
         } else {
@@ -698,6 +736,48 @@
     navigateTo(`/staff/content/internal-system/calendar/detail/${ev.calendarId}?${params.toString()}`)
   }
 
+  // ── 手機版偵測：用 matchMedia 而不是單純 CSS media query，因為要連動「點活動的行為」
+  // 不是只有外觀（小螢幕先開日期側板列出整天活動，不是直接點哪個活動就跳哪個，
+  // 手機螢幕小，密密麻麻的活動很難精準點到正確那一個） ──
+  const isMobileViewport = ref(false)
+  let mobileMql: MediaQueryList | null = null
+  function updateMobileViewport(e: MediaQueryListEvent) {
+    isMobileViewport.value = e.matches
+  }
+
+  // 日期側板：手機版點任一活動先開這個，列出當天全部活動，點側板裡的項目才真的跳轉
+  const dayPanel = reactive({ show: false, date: '', dayLabel: '', events: [] as any[] })
+
+  function openDayPanel(dayData: any) {
+    const merged = [
+      ...(dayData.multiDayItems ?? []),
+      ...(dayData.singleDayEvents ?? dayData.filteredEvents ?? []),
+    ].sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))
+    dayPanel.date = dayData.date
+    dayPanel.dayLabel = `${dayData.day} 日`
+    dayPanel.events = merged
+    dayPanel.show = true
+  }
+
+  function closeDayPanel() {
+    dayPanel.show = false
+  }
+
+  // 側板裡點選單一活動：不管手機/桌機都直接跳轉（側板本身就是給手機用的精準選取介面）
+  function selectPanelEvent(ev: any) {
+    closeDayPanel()
+    goEvent(ev)
+  }
+
+  // 月曆格子上點活動：手機版先開側板，桌機維持原本直接跳轉
+  function handleEventClick(ev: any, dayData: any) {
+    if (isMobileViewport.value) {
+      openDayPanel(dayData)
+      return
+    }
+    goEvent(ev)
+  }
+
   // 跟隨游標的提示框（類似遊戲道具提示）
   const tooltipEvent = ref<any>(null)
   const hoveredCalId = ref<string | null>(null)
@@ -802,8 +882,8 @@
       const isMultiDay = (occurrenceCount[calId] || 0) > 1
 
       const dateTime = isMultiDay
-              ? `${formatMonthDay(firstDateByCalId[calId])} ${ev.startTime} ～ ${formatMonthDay(lastDateByCalId[calId])}${ev.endTime ? ` ${ev.endTime}` : ''}`
-              : `${formatMonthDay(firstDateByCalId[calId])} ${ev.startTime}${ev.endTime ? `–${ev.endTime}` : ''}`
+        ? `${formatMonthDay(firstDateByCalId[calId])} ${ev.startTime} ～ ${formatMonthDay(lastDateByCalId[calId])}${ev.endTime ? ` ${ev.endTime}` : ''}`
+        : `${formatMonthDay(firstDateByCalId[calId])} ${ev.startTime}${ev.endTime ? `–${ev.endTime}` : ''}`
 
       lines.push(`${dateTime} ${ev.title} (${bracket})${ev.unit}`)
     }
@@ -825,7 +905,7 @@
   async function copyMonthAsTxt() {
     const text = buildCalendarTxt()
     if (!text || !calendarData.value?.days?.some((d: any) =>
-            (d.events || []).some((ev: any) => TXT_TYPES.includes(ev.unit)))) {
+      (d.events || []).some((ev: any) => TXT_TYPES.includes(ev.unit)))) {
       showToast('本月沒有可輸出的活動（醫院／園區／芳心）')
       return
     }
@@ -1127,7 +1207,7 @@
 
   .cal-weekdays {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     background: #495969;
     color: white;
   }
@@ -1139,7 +1219,7 @@
 
   .cal-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     border-left: 1px solid var(--border-light);
     border-top: 1px solid var(--border-light);
   }
@@ -1248,6 +1328,7 @@
 
   .event-title {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1360,5 +1441,117 @@
   .toast-fade-enter-from, .toast-fade-leave-to {
     opacity: 0;
     transform: translate(-50%, 8px);
+  }
+
+  /* ── 日期側板（手機版底部彈出） ── */
+  .day-panel-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1100;
+    display: flex;
+    align-items: flex-end;
+  }
+  .day-panel {
+    width: 100%;
+    max-height: 75vh;
+    background: var(--surface);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  .day-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .day-panel-header h3 { margin: 0; font-size: 17px; color: var(--text); }
+  .day-panel-close {
+    border: none;
+    background: var(--surface2);
+    color: var(--text-muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .day-panel-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .day-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 12px 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent-light);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .day-panel-item.editable {
+    background: var(--warn-light);
+    color: #c2410c;
+  }
+  html.dark .day-panel-item.editable {
+    background: rgba(249, 115, 22, 0.22);
+    color: #ffd9b3;
+  }
+  .dp-time { flex-shrink: 0; font-size: 13px; color: var(--text-hint); }
+  .day-panel-item.editable .dp-time { color: #92400e; }
+  html.dark .day-panel-item.editable .dp-time { color: #ffcd99; }
+  .dp-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dp-unit {
+    flex-shrink: 0;
+    font-size: 11px;
+    background: #4a90d9;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .day-panel-item.editable .dp-unit { background: #f97316; }
+  .day-panel-empty { text-align: center; color: var(--text-hint); padding: 20px 0; margin: 0; }
+  .day-panel-add {
+    border: 1px solid var(--accent);
+    background: var(--surface);
+    color: var(--accent);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 15px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .sheet-fade-enter-active, .sheet-fade-leave-active { transition: opacity 0.2s; }
+  .sheet-fade-enter-active > .day-panel, .sheet-fade-leave-active > .day-panel { transition: transform 0.25s cubic-bezier(.32,.72,0,1); }
+  .sheet-fade-enter-from, .sheet-fade-leave-to { opacity: 0; }
+  .sheet-fade-enter-from > .day-panel, .sheet-fade-leave-to > .day-panel { transform: translateY(100%); }
+
+  /* ── 手機版：格子/字級縮小，觸控目標維持好點 ── */
+  @media (max-width: 640px) {
+    .cal-header { flex-direction: column; align-items: stretch; gap: 8px; }
+    .sync-status { flex-wrap: wrap; }
+    .filter-bar { gap: 10px; }
+    .filter-select { max-width: 100%; }
+
+    .cal-cell { min-height: 70px; padding: 3px; }
+    .day-num { font-size: 13px; padding: 1px 5px; }
+    .event-item { font-size: 11px; padding: 2px 4px; }
+    .event-time, .event-unit { display: none; }
+    .weekday { padding: 6px 2px; font-size: 12px; }
+
+    /* 手機螢幕小，格子裡只顯示活動標題就好，時間/單位改到側板或詳情頁才看 */
+    .event-title { max-width: 100%; }
   }
 </style>
