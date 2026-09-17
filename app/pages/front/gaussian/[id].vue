@@ -1,14 +1,33 @@
 <script setup>
-// 需先安裝：npm install playcanvas（跟後台管理頁共用同一個套件，如果後台那邊已經裝過就不用重裝）
-//
-// 注意：這裡故意不在頂層 `import * as pc from 'playcanvas'`。
-// playcanvas 打包成單一巨大檔案，Nuxt 在 SSR 階段也會嘗試轉譯 <script setup> 裡的 import，
-// Vite 的一般 dev-transform 處理這種巨大檔案很容易堆疊爆掉（Maximum call stack size exceeded）。
-// 改成只在真正要用、且確定在瀏覽器端執行時才動態載入。
+// 換成用官方 CDN 的 <script> 標籤載入完整版引擎，不再讓 Vite 去處理這個套件。
+// 原本 `import('playcanvas')`（即使外層包了 ClientOnly）已經證實會讓 Vite 的轉譯管線在處理
+// 這個單一巨大 bundle 檔時噴 Maximum call stack size exceeded——連在 nuxt.config.ts 加
+// optimizeDeps include/exclude 都沒用，因為 Vite dev server 對「瀏覽器直接請求的檔案」還是
+// 得經過自己的 import-rewrite 轉譯，不只是預打包（optimizeDeps）那一步而已。
+// 改用 <script> 標籤直接載入官方預建好的檔案，瀏覽器原生執行，完全不經過 Vite 的轉譯管線，
+// 就不會再踩到這個問題（跟後台管理頁 gaussian-models.vue 用同一套載入邏輯）。
+// 注意：URL 裡的版本號要跟 package.json 裡 "playcanvas" 的版本對齊，避免 API 用法兜不起來
+// （目前鎖定 2.21.4，跟 package.json 裡裝的版本一致——不要用 stable 頻道，那個別名目前
+// 指向遠比 npm 版本舊很多的 2.7.4，太舊還沒支援 SOG 高斯潑濺解碼，模型會完全載不出來）。
+const PLAYCANVAS_CDN_URL = 'https://code.playcanvas.com/playcanvas-2.21.4.min.js'
 let pc = null
-const loadPlayCanvas = async () => {
-  if (!pc) pc = await import('playcanvas')
-  return pc
+let pcLoadingPromise = null
+const loadPlayCanvas = () => {
+  if (pc) return Promise.resolve(pc)
+  if (pcLoadingPromise) return pcLoadingPromise
+  pcLoadingPromise = new Promise((resolve, reject) => {
+    if (window.pc) { pc = window.pc; resolve(pc); return }
+    const script = document.createElement('script')
+    script.src = PLAYCANVAS_CDN_URL
+    script.onload = () => {
+      if (!window.pc) { reject(new Error('PlayCanvas 載入後找不到全域 pc 物件')); return }
+      pc = window.pc
+      resolve(pc)
+    }
+    script.onerror = () => reject(new Error('PlayCanvas 引擎載入失敗，請檢查網路連線'))
+    document.head.appendChild(script)
+  })
+  return pcLoadingPromise
 }
 
 // 公開分享頁，不用登入、不用權限，跟後台的 staff layout 分開

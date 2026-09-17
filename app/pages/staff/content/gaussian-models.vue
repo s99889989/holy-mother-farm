@@ -1,16 +1,36 @@
 <script setup>
-// 需先安裝：npm install playcanvas
 // 不再用 @playcanvas/supersplat-viewer（那個包死了相機的 up 軸邏輯），
 // 改直接用引擎本體自己接，這樣才能把模型 Entity 轉正，解決 Z-up 資料在拖曳時的搖晃問題
 //
-// 注意：這裡故意不在頂層 `import * as pc from 'playcanvas'`。
-// playcanvas 打包成單一巨大檔案，Nuxt 在 SSR 階段也會嘗試轉譯 <script setup> 裡的 import
-// （即使外層包了 ClientOnly），Vite 的一般 dev-transform 處理這種巨大檔案很容易堆疊爆掉
-// （Maximum call stack size exceeded）。改成只在真正要用、且確定在瀏覽器端執行時才動態載入。
+// 換成用官方 CDN 的 <script> 標籤載入完整版引擎，不再讓 Vite 去處理這個套件。
+// 原本『npm install playcanvas』+ import('playcanvas') 這條路已經證實會讓 Vite 的轉譯管線
+// 在處理這個單一巨大 bundle 檔時噴 Maximum call stack size exceeded——連在 nuxt.config.ts
+// 加 optimizeDeps include/exclude 都沒用，因為 Vite dev server 對「瀏覽器直接請求的檔案」
+// 還是得經過自己的 import-rewrite 轉譯，不只是預打包（optimizeDeps）那一步而已。
+// 改用 <script> 標籤直接載入官方預建好的檔案，瀏覽器原生執行，完全不經過 Vite 的轉譯管線，
+// 就不會再踩到這個問題（跟後台管理頁 gaussian-models.vue 用同一套載入邏輯）。
+// 注意：URL 裡的版本號要跟 package.json 裡 "playcanvas" 的版本對齊，避免 API 用法兜不起來
+// （目前鎖定 2.21.4，跟 package.json 裡裝的版本一致——不要用 stable 頻道，那個別名目前
+// 指向遠比 npm 版本舊很多的 2.7.4，太舊還沒支援 SOG 高斯潑濺解碼，模型會完全載不出來）。
+const PLAYCANVAS_CDN_URL = 'https://code.playcanvas.com/playcanvas-2.21.4.min.js'
 let pc = null
-const loadPlayCanvas = async () => {
-  if (!pc) pc = await import('playcanvas')
-  return pc
+let pcLoadingPromise = null
+const loadPlayCanvas = () => {
+  if (pc) return Promise.resolve(pc)
+  if (pcLoadingPromise) return pcLoadingPromise
+  pcLoadingPromise = new Promise((resolve, reject) => {
+    if (window.pc) { pc = window.pc; resolve(pc); return }
+    const script = document.createElement('script')
+    script.src = PLAYCANVAS_CDN_URL
+    script.onload = () => {
+      if (!window.pc) { reject(new Error('PlayCanvas 載入後找不到全域 pc 物件')); return }
+      pc = window.pc
+      resolve(pc)
+    }
+    script.onerror = () => reject(new Error('PlayCanvas 引擎載入失敗，請檢查網路連線'))
+    document.head.appendChild(script)
+  })
+  return pcLoadingPromise
 }
 
 definePageMeta({ layout: 'staff', requiredPermission: 'content.gaussian-models' })
@@ -134,6 +154,66 @@ const deleteModel = async (model) => {
     await fetchModels()
   } catch {
     showToast('刪除失敗')
+  }
+}
+
+// ── 縮圖（給分享連結的 OG 圖用）─────────────────────────────────────
+// 高斯潑灑模型本身沒辦法在後端離線算圖（不像一般 3D 格式那樣方便），要做到「上傳完自動產生縮圖」
+// 得另外接一個無頭瀏覽器去渲染截圖，目前後端沒有這個能力。折衷做法：
+// 1) 在下面「檢視器」裡開一顆模型後，把當下畫面截圖直接設成縮圖（不用另外準備圖片，體感接近自動）
+// 2) 或是在卡片上手動選一張圖片檔上傳
+// 兩條路最後都是打同一支 /thumbnail/{id} API。
+const uploadingThumbnailId = ref('')
+const manualThumbInputRef = ref(null)
+const thumbnailUploadTargetId = ref('')
+
+const uploadThumbnailFile = async (modelId, file) => {
+  uploadingThumbnailId.value = modelId
+  try {
+    const fd = new FormData()
+    fd.append('thumbnail', file)
+    const res = await fetchWithTimeout(`${BASE}/thumbnail/${modelId}`, { method: 'POST', body: fd })
+    const text = await res.text()
+    if (text.startsWith('錯誤')) {
+      showToast(text)
+    } else {
+      showToast('縮圖已更新')
+      const target = models.value.find((x) => x.id === modelId)
+      if (target) target.thumbnail = text
+    }
+  } catch {
+    showToast('縮圖更新失敗，請檢查網路或檔案大小')
+  } finally {
+    uploadingThumbnailId.value = ''
+  }
+}
+
+// 卡片上「更換縮圖」按鈕：借用同一個隱藏 file input，先記下是哪一顆模型要換
+const triggerManualThumbnailUpload = (model) => {
+  thumbnailUploadTargetId.value = model.id
+  manualThumbInputRef.value?.click()
+}
+const handleManualThumbnailSelect = (e) => {
+  const file = e.target.files?.[0]
+  e.target.value = '' // 清空，不然同一個檔案選第二次不會觸發 change
+  if (file && thumbnailUploadTargetId.value) uploadThumbnailFile(thumbnailUploadTargetId.value, file)
+}
+
+// 檢視器裡「用目前畫面設為縮圖」：把 canvas 當下內容截成 PNG，當一般圖片檔丟給同一支 API
+const capturingThumbnail = ref(false)
+const captureCurrentViewAsThumbnail = async () => {
+  if (!pcApp || !canvasRef.value || !viewerModal.id) return
+  capturingThumbnail.value = true
+  try {
+    // 逼引擎多渲染兩幀再截圖，避免拿到切換視角/剛開啟當下還沒畫完的空畫面
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const blob = await new Promise((resolve) => canvasRef.value.toBlob(resolve, 'image/png'))
+    if (!blob) { showToast('擷取畫面失敗，請稍後再試'); return }
+    await uploadThumbnailFile(viewerModal.id, blob)
+  } catch {
+    showToast('擷取畫面失敗')
+  } finally {
+    capturingThumbnail.value = false
   }
 }
 
@@ -840,7 +920,10 @@ const initViewer = async (model) => {
     touch: new pc.TouchDevice(canvas),
     // 只有起始畫質是「高」才開 MSAA——splat 渲染本來就是 overdraw/fill-rate 密集，
     // 場景已經先被判定要降階的話，AA 只會讓負擔雪上加霜
-    graphicsDeviceOptions: { antialias: qualityTier === 2 }
+    // preserveDrawingBuffer：預設 WebGL 畫完一幀後背後緩衝區內容不保證留著，
+    // canvas.toBlob() 常常會截到全黑或上一幀的殘影。後台管理頁有「用目前畫面設為縮圖」功能
+    // 需要能穩定截到當下畫面，才開這個（會多一點點記憶體開銷，但只有後台會用到，公開分享頁不受影響）
+    graphicsDeviceOptions: { antialias: qualityTier === 2, preserveDrawingBuffer: true }
   })
   pcApp = app
   app.setCanvasFillMode(pc.FILLMODE_NONE)
@@ -1149,6 +1232,13 @@ const formatSize = (bytes) => {
               </button>
             </div>
             <button
+              class="w-full mt-2 text-xs text-hint-c hover:text-base-c border border-light-c rounded-lg py-1 disabled:opacity-50"
+              :disabled="uploadingThumbnailId === model.id"
+              @click="triggerManualThumbnailUpload(model)"
+            >
+              {{ uploadingThumbnailId === model.id ? '更新中…' : (model.thumbnail ? '更換縮圖' : '設定縮圖') }}
+            </button>
+            <button
               v-if="!model.collisionFile"
               class="w-full mt-2 text-xs text-orange-600 hover:text-orange-700 border border-light-c rounded-lg py-1 disabled:opacity-50"
               :disabled="rebuildingCollisionId === model.id"
@@ -1159,6 +1249,15 @@ const formatSize = (bytes) => {
           </div>
         </div>
       </div>
+
+      <!-- 縮圖手動上傳：卡片上「更換縮圖」共用同一個隱藏 input，觸發前先在 thumbnailUploadTargetId 記下目標模型 -->
+      <input
+        ref="manualThumbInputRef"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        @change="handleManualThumbnailSelect"
+      >
 
       <!-- 上傳 Modal -->
       <div
@@ -1286,6 +1385,13 @@ const formatSize = (bytes) => {
               @click="saveCameraAsDefault"
             >
               {{ savingCamera ? '儲存中…' : '存成預設視角' }}
+            </button>
+            <button
+              class="text-white/80 hover:text-white text-[11px] sm:text-xs border border-white/30 rounded-lg px-2 sm:px-2.5 py-1 disabled:opacity-50"
+              :disabled="capturingThumbnail"
+              @click="captureCurrentViewAsThumbnail"
+            >
+              {{ capturingThumbnail ? '擷取中…' : '用目前畫面設為縮圖' }}
             </button>
             <button
               class="text-white/80 hover:text-white text-[11px] sm:text-xs border border-white/30 rounded-lg px-2 sm:px-2.5 py-1"
