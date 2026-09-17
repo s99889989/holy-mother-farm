@@ -383,10 +383,23 @@
     })
   )
 
+  // 內部系統的 PHPSESSID session 過期時（跟主站登入是分開的），401 直接導去內部系統登入頁，
+  // 不要卡在一個看不出原因的「載入失敗」
+  function redirectIfUnauthorized(e: any): boolean {
+    if (e?.statusCode === 401) {
+      const loggedIn = useCookie('logged_in')
+      loggedIn.value = null
+      navigateTo('/staff/content/internal-system/login')
+      return true
+    }
+    return false
+  }
+
   const loadMeta = async () => {
     try {
       meta.value = await $fetch<VehicleBookingMeta>('/api/internal-system/vehicle/booking/meta')
-    } catch {
+    } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       meta.value = null
     }
   }
@@ -408,7 +421,8 @@
           end: formatDate(gridQueryEnd.value),
         },
       })
-    } catch {
+    } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       error.value = true
     } finally {
       loading.value = false
@@ -524,6 +538,7 @@
         saveError.value = res.msg ?? '更新失敗'
       }
     } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       saveError.value = e?.data?.message ?? '更新失敗，請稍後再試'
     } finally {
       saving.value = false
@@ -548,6 +563,7 @@
         saveError.value = res.msg ?? '刪除失敗'
       }
     } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       saveError.value = e?.data?.message ?? '刪除失敗，請稍後再試'
     } finally {
       saving.value = false

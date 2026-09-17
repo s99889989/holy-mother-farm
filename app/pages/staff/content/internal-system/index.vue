@@ -40,7 +40,7 @@
       items: [
         { label: '個人資料修改', icon: '🧑‍💼' }, //, to: '/user/profile'
         { label: '行事曆刊登', icon: '📅', to: '/staff/content/internal-system/calendar' },
-        { label: '公務車管理系統', icon: '🚗', to: '/staff/content/internal-system/vehicle' },
+        { label: '公務車管理系統', icon: '🚗', to: '/staff/content/internal-system/vehicle/select-car-farm' },
         { label: '需求(維修)單功能', icon: '🛠️', to: '/staff/content/internal-system/request' },
         { label: '教育訓練網站(舊)(請使用IE瀏覽器)', icon: '📚' },
         { label: '教育訓練網站(新)', icon: '📖' },

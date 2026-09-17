@@ -1,37 +1,40 @@
 <template>
   <InternalSystemVehicleShell>
     <div class="select-car-page">
-      <h1 class="page-title">選擇公務車</h1>
-      <p class="page-date">{{ stdate }}</p>
+      <h1 class="page-title">農莊公務車借用</h1>
 
       <!-- 查詢時間 -->
       <div class="card">
-        <div class="card-header"><h2>可借用公務車查詢</h2></div>
         <div class="card-body">
-          <p class="search-hint">請先選擇 開始/結束時間 查詢可借用車輛</p>
           <form class="search-form" @submit.prevent="searchCars">
             <div class="form-row">
-              <label>開始時間</label>
-              <div class="time-select-group">
-                <select class="form-input time-select" v-model="searchStartHour">
-                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
-                </select>
-                <span class="time-colon">:</span>
-                <select class="form-input time-select" v-model="searchStartMinute">
-                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
-                </select>
-              </div>
+              <label>日期</label>
+              <input class="form-input" type="date" v-model="selectedDate" :min="todayStr" />
             </div>
-            <div class="form-row">
-              <label>結束時間</label>
-              <div class="time-select-group">
-                <select class="form-input time-select" v-model="searchEndHour">
-                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ h }}</option>
-                </select>
-                <span class="time-colon">:</span>
-                <select class="form-input time-select" v-model="searchEndMinute">
-                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ m }}</option>
-                </select>
+            <div class="time-range-group">
+              <div class="form-row">
+                <label>開始時間</label>
+                <div class="time-select-group">
+                  <select class="form-input time-select" v-model="searchStartHour">
+                    <option v-for="h in startHourOptions" :key="h" :value="h">{{ h }}</option>
+                  </select>
+                  <span class="time-colon">:</span>
+                  <select class="form-input time-select" v-model="searchStartMinute">
+                    <option v-for="m in startMinuteOptions" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <label>結束時間</label>
+                <div class="time-select-group">
+                  <select class="form-input time-select" v-model="searchEndHour">
+                    <option v-for="h in endHourOptions" :key="h" :value="h">{{ h }}</option>
+                  </select>
+                  <span class="time-colon">:</span>
+                  <select class="form-input time-select" v-model="searchEndMinute">
+                    <option v-for="m in endMinuteOptions" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </div>
               </div>
             </div>
             <button type="submit" class="btn-sm btn-confirm" :disabled="searching">
@@ -42,23 +45,12 @@
         </div>
       </div>
 
-      <!-- 車輛清單 -->
+      <!-- 車輛清單：這頁固定農莊，不需要站點分頁 -->
       <div v-if="cars.length" class="card">
+        <div class="card-header"><h2>可借用車（共 {{ filteredCars.length }} 台）</h2></div>
         <div class="card-body">
-          <div class="tabs">
-            <button
-              v-for="t in siteTabs"
-              :key="t"
-              type="button"
-              class="tab-btn"
-              :class="{ active: activeSiteTab === t }"
-              @click="activeSiteTab = t"
-            >
-              {{ t }}
-            </button>
-          </div>
-
-          <table class="car-table">
+          <!-- 桌機：表格 -->
+          <table class="car-table desktop-only">
             <thead>
             <tr>
               <th>圖片</th>
@@ -94,6 +86,24 @@
             </tr>
             </tbody>
           </table>
+
+          <!-- 手機：卡片 -->
+          <div class="car-cards mobile-only">
+            <div v-for="(c, i) in filteredCars" :key="`${c.car.car_id}-card-${i}`" class="car-card">
+              <img v-if="c.car.photo_name1" :src="carPhotoUrl(c.car.photo_name1)" class="car-card-photo" :alt="c.car.public_car_name ?? ''" />
+              <div v-else class="car-card-photo car-card-photo-empty">🚗</div>
+              <div class="car-card-body">
+                <div class="car-card-name">{{ c.cols[3] }}</div>
+                <div class="car-card-row"><span class="ccl">站點</span>{{ c.cols[0] }}</div>
+                <div class="car-card-row"><span class="ccl">車牌</span>{{ c.cols[4] }}</div>
+                <div class="car-card-row"><span class="ccl">廠牌/型號</span>{{ c.cols[1] }} {{ c.cols[2] }}</div>
+                <div class="car-card-row"><span class="ccl">排氣量/油料</span>{{ c.cols[6] }} / {{ c.cols[7] }}</div>
+                <button type="button" class="btn-sm btn-confirm car-card-btn" @click="openAddModal(c.car)">
+                  ＋ 申請
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -193,26 +203,29 @@
   }
 
   const route = useRoute()
-  // 從月曆點擊空白日期帶過來的日期（比照原網站 dayClick 導頁的 stdate/endate query）
   const pad2 = (n: number) => String(n).padStart(2, '0')
   const today = new Date()
   const defaultDate = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`
-  const stdate = String(route.query.stdate ?? defaultDate)
-  const endate = String(route.query.endate ?? stdate)
   const todayStr = defaultDate
+  // 這頁沒有從月曆點日期帶 query 過來，日期改成自己選（單日借用，開始/結束用同一天）
+  const selectedDate = ref(String(route.query.stdate ?? defaultDate))
 
   const meta = ref<VehicleAddMeta | null>(null)
   const cars = ref<VehicleAvailableCar[]>([])
-  // 開始時間預設現在時間（捨入到最近的 5 分鐘，對齊下拉選單的 5 分鐘刻度），結束時間預設 +3 小時
-  function roundToNearest5(date: Date): Date {
-    const d = new Date(date)
-    d.setMinutes(Math.round(d.getMinutes() / 5) * 5, 0, 0)
-    return d
-  }
   function formatHM(date: Date): string {
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
   }
-  const defaultStart = roundToNearest5(new Date())
+
+  // 「現在」捨入到下一個 5 分鐘刻度（用 ceil 不是 round，確保捨入後的時間一定還沒過）。
+  // 這組值同時用在「預設開始時間」跟下面「不能選過去時段」的過濾邏輯，兩邊一定要用同一套算法算出來的
+  // 同一個值，不然兩套各自捨入可能對不上（例如現在 21~24 分時，四捨五入跟無條件進位結果不同），
+  // 造成預設選到的分鐘被過濾規則自己擋掉，下拉選單就會變成空白選不到值。
+  let effNowHour = today.getHours()
+  let effNowMinute = Math.ceil(today.getMinutes() / 5) * 5
+  if (effNowMinute === 60) { effNowMinute = 0; effNowHour += 1 }
+
+  const defaultStart = new Date(today)
+  defaultStart.setHours(Math.min(effNowHour, 23), effNowHour > 23 ? 55 : effNowMinute, 0, 0)
   const defaultEnd = new Date(defaultStart.getTime() + 3 * 60 * 60 * 1000)
 
   const searchStartTime = ref(formatHM(defaultStart))
@@ -230,16 +243,57 @@
       },
     })
   }
+
+  function isPastTime(hour: string, minute: string): boolean {
+    if (selectedDate.value !== todayStr) return false
+    const h = Number(hour)
+    const m = Number(minute)
+    return h < effNowHour || (h === effNowHour && m < effNowMinute)
+  }
+  function availableHourOptions(): string[] {
+    if (selectedDate.value !== todayStr) return HOUR_OPTIONS
+    return HOUR_OPTIONS.filter((h) => Number(h) >= effNowHour)
+  }
+  function availableMinuteOptions(hour: string): string[] {
+    if (selectedDate.value !== todayStr || Number(hour) > effNowHour) return MINUTE_OPTIONS
+    if (Number(hour) < effNowHour) return []
+    return MINUTE_OPTIONS.filter((m) => Number(m) >= effNowMinute)
+  }
   const searchStartHour = timePart(searchStartTime, 'h')
   const searchStartMinute = timePart(searchStartTime, 'm')
   const searchEndHour = timePart(searchEndTime, 'h')
   const searchEndMinute = timePart(searchEndTime, 'm')
+
+  const startHourOptions = computed(() => availableHourOptions())
+  const startMinuteOptions = computed(() => availableMinuteOptions(searchStartHour.value))
+  const endHourOptions = computed(() => availableHourOptions())
+  const endMinuteOptions = computed(() => availableMinuteOptions(searchEndHour.value))
+
+  // 選的日期改成今天時，原本選的時間如果已經過去了，往前修正到現在（不能讓表單卡著一個選不到的過去時段）
+  watch(selectedDate, () => {
+    if (effNowHour > 23) return // 剩不到 5 分鐘就跨日了，今天已經沒有可選時段，不硬塞無效值
+    if (isPastTime(searchStartHour.value, searchStartMinute.value)) {
+      searchStartTime.value = `${String(effNowHour).padStart(2, '0')}:${String(effNowMinute).padStart(2, '0')}`
+    }
+    if (isPastTime(searchEndHour.value, searchEndMinute.value)) {
+      searchEndTime.value = `${String(effNowHour).padStart(2, '0')}:${String(effNowMinute).padStart(2, '0')}`
+    }
+  })
+
+  // 切換小時本身不會被 watch(selectedDate) 抓到，但分鐘可能因此變得不在可選範圍內
+  // （例如選到現在這個小時，分鐘卻還停在已經過去的舊值），要另外修正
+  watch(searchStartHour, (h) => {
+    const opts = availableMinuteOptions(h)
+    if (opts.length && !opts.includes(searchStartMinute.value)) searchStartMinute.value = opts[0]
+  })
+  watch(searchEndHour, (h) => {
+    const opts = availableMinuteOptions(h)
+    if (opts.length && !opts.includes(searchEndMinute.value)) searchEndMinute.value = opts[0]
+  })
   const searching = ref(false)
   const searchError = ref('')
 
-  // 站點分頁：原網站是寫死在頁面上的固定清單（不是從 API 動態拿的），這裡照抄
-  const siteTabs = ['全部站點', '聖母醫院', '園區中心', '聖母農莊', '法人公關', '芳心好美', '社區外展', '綜長外展']
-  const activeSiteTab = ref('全部站點')
+  // 這頁固定只看聖母農莊的車，不用像 select-car.vue 那樣讓使用者切站點分頁
 
   /**
    * 原網站前端是把整個 row 物件過濾掉數字 key、砍掉前 3 個值，剩下的順序直接對應
@@ -258,11 +312,9 @@
 
   const carsWithColumns = computed(() => cars.value.map((car) => ({ car, cols: carColumns(car) })))
 
-  const filteredCars = computed(() => {
-    if (activeSiteTab.value === '全部站點') return carsWithColumns.value
-    // 站點是欄位陣列的第 0 項（carColumns 已經砍掉圖片那格）
-    return carsWithColumns.value.filter((c) => c.cols[0] === activeSiteTab.value)
-  })
+  const filteredCars = computed(() =>
+    carsWithColumns.value.filter((c) => c.cols[0] === '聖母農莊')
+  )
 
   const carPhotoUrl = (fileName: string) =>
     `/api/internal-system/vehicle/car-photo?name=${encodeURIComponent(fileName)}`
@@ -288,8 +340,8 @@
       cars.value = await $fetch<VehicleAvailableCar[]>('/api/internal-system/vehicle/add/search-cars', {
         method: 'POST',
         body: {
-          startDateTime: `${stdate} ${searchStartTime.value}`,
-          endDateTime: `${endate} ${searchEndTime.value}`,
+          startDateTime: `${selectedDate.value} ${searchStartTime.value}`,
+          endDateTime: `${selectedDate.value} ${searchEndTime.value}`,
         },
       })
     } catch (e: any) {
@@ -318,8 +370,8 @@
   const openAddModal = (car: VehicleAvailableCar) => {
     addingCar.value = car
     addForm.car_id = String(car.car_id ?? '').trim()
-    addForm.start_date = stdate
-    addForm.end_date = stdate // 單日借用：結束日期固定跟開始日期同一天
+    addForm.start_date = selectedDate.value
+    addForm.end_date = selectedDate.value // 單日借用：結束日期固定跟開始日期同一天
     addForm.start_time = searchStartTime.value
     addForm.end_time = searchEndTime.value
     addForm.destination = ''
@@ -350,13 +402,15 @@
     }
   }
 
-  onMounted(loadMeta)
+  onMounted(() => {
+    loadMeta()
+    searchCars()
+  })
 </script>
 
 <style scoped>
   .select-car-page { max-width: 900px; }
-  .page-title { font-size: 20px; color: var(--text); margin: 0 0 4px; }
-  .page-date { font-size: 16px; color: var(--text-muted); margin: 0 0 16px; }
+  .page-title { font-size: 20px; color: var(--text); margin: 0 0 16px; }
 
   .card {
     background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
@@ -366,20 +420,14 @@
   .card-header h2 { margin: 0; font-size: 18px; color: var(--text); }
   .card-body { padding: 16px; }
 
-  .search-hint { color: #e53e3e; font-weight: 700; text-align: center; margin: 0 0 12px; }
   .search-form { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
   .search-form .form-row { margin-bottom: 0; }
+
+  .time-range-group { display: flex; gap: 12px; flex-shrink: 0; }
 
   .time-select-group { display: flex; align-items: center; gap: 4px; }
   .time-select { width: 64px; text-align: center; }
   .time-colon { color: var(--text-muted); font-weight: 700; }
-
-  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-light); margin-bottom: 12px; flex-wrap: wrap; }
-  .tab-btn {
-    padding: 8px 14px; background: none; border: none; border-bottom: 2px solid transparent;
-    color: var(--text-muted); font-size: 16px; cursor: pointer;
-  }
-  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
 
   .car-photo { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto; }
 
@@ -388,6 +436,28 @@
     border: 1px solid var(--border-light); padding: 8px 10px; text-align: center; font-size: 16px;
   }
   .car-table th { background: var(--surface2); color: var(--text-muted); }
+
+  .car-cards { display: flex; flex-direction: column; gap: 12px; }
+  .car-card {
+    display: flex; gap: 12px; padding: 12px;
+    border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface2);
+  }
+  .car-card-photo {
+    width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex-shrink: 0;
+  }
+  .car-card-photo-empty {
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
+    background: var(--surface); color: var(--text-hint);
+  }
+  .car-card-body { flex: 1; min-width: 0; }
+  .car-card-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .car-card-row { font-size: 14px; color: var(--text-muted); margin-bottom: 2px; }
+  .car-card-row .ccl { color: var(--text-hint); margin-right: 6px; }
+  .car-card-btn { width: 100%; margin-top: 8px; }
+
+  /* 這條要寫在 .car-cards 規則後面：兩者 specificity 一樣，寫在後面的才會贏，
+     確保桌機版預設真的隱藏卡片，只有下面手機版 media query 才會打開 */
+  .mobile-only { display: none; }
 
   .error-text { color: #e53e3e; font-size: 16px; }
 
@@ -420,4 +490,13 @@
   .btn-sm:hover { background: var(--surface2); }
   .btn-confirm { background: var(--accent); color: white; border-color: var(--accent); }
   .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  @media (max-width: 640px) {
+    .desktop-only { display: none; }
+    .mobile-only { display: flex; }
+
+    .search-form { gap: 12px; }
+    .search-form .btn-confirm { width: 100%; }
+    .time-range-group { gap: 8px; flex-wrap: wrap; }
+  }
 </style>

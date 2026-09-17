@@ -1,7 +1,7 @@
 <template>
   <InternalSystemVehicleShell>
     <div class="booking-page">
-      <h1 class="page-title">農莊公務車</h1>
+      <h1 class="page-title">農莊公務車紀錄</h1>
 
       <!-- 進階查詢：只留車輛選擇（限農莊的車），站點分頁/搜尋框/申請單管理/批量申請/顯示其他申請單/地區全部拿掉 -->
       <div class="filter-bar">
@@ -35,7 +35,7 @@
         </div>
         <div class="cal-grid">
           <div v-for="n in leadingDays" :key="`empty-${n}`" class="cal-cell empty" />
-          <div v-for="day in daysInGrid" :key="day.dateStr" class="cal-cell" @click="goToAddBooking(day.dateStr)">
+          <div v-for="day in daysInGrid" :key="day.dateStr" class="cal-cell">
             <div class="cal-cell-date">{{ day.date }}</div>
             <div class="cal-events">
               <button
@@ -44,45 +44,16 @@
                 type="button"
                 class="cal-event"
                 :class="{ own: ev.isOwn, editable: ev.editable }"
-                @click.stop="handleEventClick(ev, day)"
+                @click.stop="openEvent(ev)"
               >
-                {{ isMobileViewport ? mobileEventLabel(ev) : eventLabel(ev) }}
+                <span class="ce-line">{{ ev.car_id }}</span>
+                <span class="ce-line">{{ resolveLabel(meta?.applicantOptions, ev.employee_id) }}</span>
+                <span class="ce-line ce-time">{{ ev.start_time }}-{{ ev.end_time }}</span>
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- 日期側板（手機版）：點預約先列出當天全部預約，避免小螢幕點錯 -->
-      <Teleport to="body">
-        <Transition name="sheet-fade">
-          <div v-if="dayPanel.show" class="modal-backdrop day-panel-backdrop" @click.self="closeDayPanel">
-            <div class="day-panel">
-              <div class="day-panel-header">
-                <h3>{{ dayPanel.dateStr }} 的預約</h3>
-                <button type="button" class="day-panel-close" @click="closeDayPanel">✕</button>
-              </div>
-              <div class="day-panel-list">
-                <button
-                  v-for="ev in dayPanel.events"
-                  :key="`${ev.id}-panel`"
-                  type="button"
-                  class="day-panel-item"
-                  :class="{ own: ev.isOwn, editable: ev.editable }"
-                  @click="selectPanelEvent(ev)"
-                >
-                  <span class="dp-time">{{ ev.start_time }}</span>
-                  <span class="dp-title">{{ mobileEventLabel(ev) }}</span>
-                </button>
-                <p v-if="!dayPanel.events.length" class="day-panel-empty">這天沒有預約</p>
-              </div>
-              <button type="button" class="day-panel-add" @click="closeDayPanel(); goToAddBooking(dayPanel.dateStr)">
-                ＋ 在這天新增預約
-              </button>
-            </div>
-          </div>
-        </Transition>
-      </Teleport>
 
       <!-- 查看 modal（無編輯權限） -->
       <div v-if="viewingEvent" class="modal-backdrop" @click.self="viewingEvent = null">
@@ -220,21 +191,6 @@
     isOwn: boolean
   }
 
-  const eventLabel = (ev: VehicleBookingEvent) => {
-    if (ev.title) return `${ev.start_time ?? ''}${ev.title}`
-    return ev.destination || '(未填前往地點)'
-  }
-
-  /** 手機版格子裡只顯示標題（不含時間/車牌），比照行事曆刊登頁的做法——
-   * title 原始格式是「-結束時間(車牌) 姓名」，取最後一個「)」後面的姓名部分即可 */
-  const mobileEventLabel = (ev: VehicleBookingEvent) => {
-    if (ev.title) {
-      const m = ev.title.match(/\)\s*(.+)$/)
-      return (m ? m[1] : ev.title).trim()
-    }
-    return ev.destination || '(未填前往地點)'
-  }
-
   const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
   const meta = ref<VehicleBookingMeta | null>(null)
@@ -306,12 +262,25 @@
     })
   )
 
+  // 內部系統的 PHPSESSID session 過期時（跟主站登入是分開的），401 直接導去內部系統登入頁，
+  // 不要卡在一個看不出原因的「載入失敗」
+  function redirectIfUnauthorized(e: any): boolean {
+    if (e?.statusCode === 401) {
+      const loggedIn = useCookie('logged_in')
+      loggedIn.value = null
+      navigateTo('/staff/content/internal-system/login')
+      return true
+    }
+    return false
+  }
+
   const loadMeta = async () => {
     try {
       meta.value = await $fetch<VehicleBookingMeta>('/api/internal-system/vehicle/booking/meta')
       const farmSite = meta.value?.sites.find((s) => s.label.includes('農莊'))
       farmSiteId.value = farmSite?.id ?? ''
-    } catch {
+    } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       meta.value = null
     }
   }
@@ -333,7 +302,8 @@
           end: formatDate(gridQueryEnd.value),
         },
       })
-    } catch {
+    } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       error.value = true
     } finally {
       loading.value = false
@@ -357,42 +327,6 @@
     } else {
       month.value += 1
     }
-  }
-
-  const goToAddBooking = (dateStr: string) => {
-    navigateTo(`/staff/content/internal-system/vehicle/select-car?stdate=${dateStr}&endate=${dateStr}`)
-  }
-
-  // ── 手機版偵測：小螢幕點活動先開日期側板列出當天全部預約，不直接點哪個跳哪個 ──
-  const isMobileViewport = ref(false)
-  let mobileMql: MediaQueryList | null = null
-  function updateMobileViewport(e: MediaQueryListEvent) {
-    isMobileViewport.value = e.matches
-  }
-
-  const dayPanel = reactive({ show: false, dateStr: '', events: [] as VehicleBookingEvent[] })
-
-  function openDayPanel(day: { dateStr: string; events: VehicleBookingEvent[] }) {
-    dayPanel.dateStr = day.dateStr
-    dayPanel.events = [...day.events].sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? ''))
-    dayPanel.show = true
-  }
-
-  function closeDayPanel() {
-    dayPanel.show = false
-  }
-
-  function selectPanelEvent(ev: VehicleBookingEvent) {
-    closeDayPanel()
-    openEvent(ev)
-  }
-
-  function handleEventClick(ev: VehicleBookingEvent, day: { dateStr: string; events: VehicleBookingEvent[] }) {
-    if (isMobileViewport.value) {
-      openDayPanel(day)
-      return
-    }
-    openEvent(ev)
   }
 
   const viewingEvent = ref<VehicleBookingEvent | null>(null)
@@ -447,6 +381,7 @@
         saveError.value = res.msg ?? '更新失敗'
       }
     } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       saveError.value = e?.data?.message ?? '更新失敗，請稍後再試'
     } finally {
       saving.value = false
@@ -471,6 +406,7 @@
         saveError.value = res.msg ?? '刪除失敗'
       }
     } catch (e: any) {
+      if (redirectIfUnauthorized(e)) return
       saveError.value = e?.data?.message ?? '刪除失敗，請稍後再試'
     } finally {
       saving.value = false
@@ -480,15 +416,6 @@
   onMounted(async () => {
     await loadMeta()
     await loadEvents()
-    if (import.meta.client && window.matchMedia) {
-      mobileMql = window.matchMedia('(max-width: 640px)')
-      isMobileViewport.value = mobileMql.matches
-      mobileMql.addEventListener('change', updateMobileViewport)
-    }
-  })
-
-  onUnmounted(() => {
-    if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
   })
 </script>
 
@@ -542,29 +469,33 @@
     border-top: 1px solid var(--border-light);
     border-left: 1px solid var(--border-light);
     padding: 6px;
-    cursor: pointer;
   }
-  .cal-cell:hover { background: var(--surface2); }
   .cal-cell.empty { background: var(--surface2); }
   .cal-cell-date { font-size: 14px; color: var(--text-muted); margin-bottom: 4px; }
   .cal-events { display: flex; flex-direction: column; gap: 3px; }
   .cal-event {
-    display: block;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     text-align: left;
     padding: 3px 6px;
     border-radius: 4px;
     border: none;
-    font-size: 14px;
+    font-size: 12px;
+    line-height: 1.35;
     background: var(--accent-light);
     color: var(--accent);
     cursor: pointer;
+  }
+  .cal-event.own { background: #fef3c7; color: #92400e; }
+  .cal-event.editable { font-weight: 700; }
+
+  .ce-line {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .cal-event.own { background: #fef3c7; color: #92400e; }
-  .cal-event.editable { font-weight: 700; }
+  .ce-time { opacity: 0.85; font-weight: 400; }
 
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
@@ -606,45 +537,6 @@
   .btn-danger { background: #e53e3e; color: white; border-color: #e53e3e; }
   .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  /* ── 日期側板（手機版底部彈出） ── */
-  .day-panel-backdrop { align-items: flex-end; padding: 0; }
-  .day-panel {
-    width: 100%;
-    max-height: 75vh;
-    background: var(--surface);
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
-    display: flex;
-    flex-direction: column;
-    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
-  }
-  .day-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .day-panel-header h3 { margin: 0; font-size: 17px; color: var(--text); }
-  .day-panel-close {
-    border: none; background: var(--surface2); color: var(--text-muted);
-    width: 30px; height: 30px; border-radius: 50%; font-size: 15px; cursor: pointer;
-  }
-  .day-panel-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-  .day-panel-item {
-    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-    padding: 12px; border-radius: 10px; border: none;
-    background: var(--accent-light); color: var(--text); font-size: 15px; cursor: pointer;
-  }
-  .day-panel-item.own { background: #fef3c7; color: #92400e; }
-  .dp-time { flex-shrink: 0; font-size: 13px; color: var(--text-hint); }
-  .day-panel-item.own .dp-time { color: #92400e; }
-  .dp-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .day-panel-empty { text-align: center; color: var(--text-hint); padding: 20px 0; margin: 0; }
-  .day-panel-add {
-    border: 1px solid var(--accent); background: var(--surface); color: var(--accent);
-    border-radius: 10px; padding: 10px; font-size: 15px; cursor: pointer; flex-shrink: 0;
-  }
-
-  .sheet-fade-enter-active, .sheet-fade-leave-active { transition: opacity 0.2s; }
-  .sheet-fade-enter-active > .day-panel, .sheet-fade-leave-active > .day-panel { transition: transform 0.25s cubic-bezier(.32,.72,0,1); }
-  .sheet-fade-enter-from, .sheet-fade-leave-to { opacity: 0; }
-  .sheet-fade-enter-from > .day-panel, .sheet-fade-leave-to > .day-panel { transform: translateY(100%); }
-
   /* ── 手機版：格子縮小、觸控好點 ── */
   @media (max-width: 640px) {
     .filter-bar { gap: 10px; }
@@ -654,6 +546,8 @@
     .cal-cell { min-height: 64px; padding: 3px; }
     .cal-cell-date { font-size: 12px; }
     .cal-event { font-size: 11px; padding: 2px 4px; }
+    .ce-line { text-overflow: clip; }
+    .ce-time { display: none; }
     .weekday { padding: 6px 2px; font-size: 12px; }
 
     .modal-box { width: 100%; }

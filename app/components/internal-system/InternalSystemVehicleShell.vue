@@ -1,6 +1,6 @@
 <template>
   <div class="app-wrapper">
-    <button type="button" class="mobile-toggle-btn" title="選單" @click="toggle">☰</button>
+    <button v-if="collapsed" type="button" class="mobile-toggle-btn" title="選單" @click="toggle">☰</button>
     <div v-if="!collapsed" class="mobile-backdrop" @click="toggle" />
     <aside class="sidebar" :class="{ collapsed }">
       <div class="sidebar-header">
@@ -14,7 +14,7 @@
       </div>
 
       <div class="sidebar-actions">
-        <NuxtLink to="/staff/content/internal-system" class="action-btn" title="返回選單">
+        <NuxtLink to="/staff/content/internal-system" class="action-btn" title="返回選單" @click="closeOnMobile">
           <span class="icon">🏠</span><span class="label-text">返回選單</span>
         </NuxtLink>
         <button class="action-btn logout-btn" title="登出" @click="handleLogout">
@@ -22,14 +22,17 @@
         </button>
       </div>
 
-      <NuxtLink to="/staff/content/internal-system/vehicle" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle' }" title="最新消息">
+      <NuxtLink to="/staff/content/internal-system/vehicle" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle' }" title="最新消息" @click="closeOnMobile">
         <span class="icon">📢</span><span class="label-text">最新消息</span>
       </NuxtLink>
-      <NuxtLink to="/staff/content/internal-system/vehicle/booking" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/booking' }" title="公務車線上申請">
+      <NuxtLink to="/staff/content/internal-system/vehicle/booking" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/booking' }" title="公務車線上申請" @click="closeOnMobile">
         <span class="icon">🚗</span><span class="label-text">公務車線上申請</span>
       </NuxtLink>
-      <NuxtLink to="/staff/content/internal-system/vehicle/booking-farm" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/booking-farm' }" title="農莊公務車">
-        <span class="icon">🌾</span><span class="label-text">農莊公務車</span>
+      <NuxtLink to="/staff/content/internal-system/vehicle/booking-farm" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/booking-farm' }" title="農莊公務車紀錄" @click="closeOnMobile">
+        <span class="icon">🌾</span><span class="label-text">農莊公務車紀錄</span>
+      </NuxtLink>
+      <NuxtLink to="/staff/content/internal-system/vehicle/select-car-farm" class="sidebar-link" :class="{ active: route.path === '/staff/content/internal-system/vehicle/select-car-farm' }" title="農莊公務車借用" @click="closeOnMobile">
+        <span class="icon">🚜</span><span class="label-text">農莊公務車借用</span>
       </NuxtLink>
     </aside>
 
@@ -41,7 +44,7 @@
 
 <script setup lang="ts">
   const route = useRoute()
-  const { collapsed, toggle } = useInternalSystemSidebarCollapse()
+  const { collapsed, toggle, closeOnMobile } = useInternalSystemSidebarCollapse(true)
 
   const handleLogout = async () => {
     await $fetch('/api/internal-system/auth/logout', { method: 'POST' }).catch(() => {})
@@ -244,11 +247,26 @@
       transform: translateX(-100%);
       box-shadow: 2px 0 16px rgba(0, 0, 0, 0.3);
       transition: transform 0.2s ease;
+      background: rgba(24, 26, 32, 0.35);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
 
     .sidebar:not(.collapsed) {
       transform: translateX(0);
       width: 260px;
+    }
+
+    .sidebar-header,
+    .sidebar-actions {
+      background: rgba(45, 55, 72, 0.3);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    html.dark .sidebar-header,
+    html.dark .sidebar-actions {
+      background: rgba(20, 22, 26, 0.3);
     }
 
     .main-content {

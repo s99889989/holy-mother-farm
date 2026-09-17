@@ -1,82 +1,82 @@
 <template>
   <InternalSystemVehicleShell>
-  <div class="vehicle-page">
-    <div class="tabs">
-      <button
+    <div class="vehicle-page">
+      <div class="tabs">
+        <button
           type="button"
           class="tab-btn"
           :class="{ active: activeTab === 'news' }"
           @click="activeTab = 'news'"
-      >
-        最新消息
-      </button>
-      <button
+        >
+          最新消息
+        </button>
+        <button
           type="button"
           class="tab-btn"
           :class="{ active: activeTab === 'site' }"
           @click="activeTab = 'site'"
-      >
-        各站點負責人清單
-      </button>
-    </div>
-
-    <p v-if="loading" class="hint-text">載入中...</p>
-    <p v-else-if="error" class="error-text">載入失敗，請重新整理再試一次</p>
-
-    <template v-else-if="data">
-      <!-- 最新消息 -->
-      <div v-show="activeTab === 'news'" class="card">
-        <div class="card-header">
-          <h2>📢 最新消息</h2>
-        </div>
-        <div class="card-body">
-          <div class="news-content" v-html="data.newsHtml" />
-        </div>
+        >
+          各站點負責人清單
+        </button>
       </div>
 
-      <!-- 各站點負責人清單 -->
-      <div v-show="activeTab === 'site'" class="card">
-        <div class="card-header">
-          <h2>各站點負責人清單</h2>
+      <p v-if="loading" class="hint-text">載入中...</p>
+      <p v-else-if="error" class="error-text">載入失敗，請重新整理再試一次</p>
+
+      <template v-else-if="data">
+        <!-- 最新消息 -->
+        <div v-show="activeTab === 'news'" class="card">
+          <div class="card-header">
+            <h2>📢 最新消息</h2>
+          </div>
+          <div class="card-body">
+            <div class="news-content" v-html="data.newsHtml" />
+          </div>
         </div>
-        <div class="card-body">
-          <h3 class="section-title">總站負責人</h3>
-          <table class="staff-table">
-            <thead>
+
+        <!-- 各站點負責人清單 -->
+        <div v-show="activeTab === 'site'" class="card">
+          <div class="card-header">
+            <h2>各站點負責人清單</h2>
+          </div>
+          <div class="card-body">
+            <h3 class="section-title">總站負責人</h3>
+            <table class="staff-table">
+              <thead>
               <tr>
                 <th>姓名(員編)</th>
                 <th>聯絡信箱</th>
               </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody>
               <tr v-for="s in data.headStaff" :key="s.name">
                 <td>{{ s.name }}</td>
                 <td>{{ s.email }}</td>
               </tr>
-            </tbody>
-          </table>
+              </tbody>
+            </table>
 
-          <h3 class="section-title">站點負責人</h3>
-          <table class="staff-table">
-            <thead>
+            <h3 class="section-title">站點負責人</h3>
+            <table class="staff-table">
+              <thead>
               <tr>
                 <th>站點名稱</th>
                 <th>主要負責人</th>
                 <th>行政負責人</th>
               </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody>
               <tr v-for="s in data.siteStaff" :key="s.site">
                 <td>{{ s.site }}</td>
                 <td>{{ s.main }}</td>
                 <td :class="{ 'warn-text': s.admin.includes('尚未設定') }">{{ s.admin }}</td>
               </tr>
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </template>
-  </div>
+      </template>
+    </div>
   </InternalSystemVehicleShell>
 </template>
 
@@ -99,7 +99,13 @@
     error.value = false
     try {
       data.value = await $fetch<VehicleHomeData>('/api/internal-system/vehicle/home')
-    } catch {
+    } catch (e: any) {
+      if (e?.statusCode === 401) {
+        const loggedIn = useCookie('logged_in')
+        loggedIn.value = null
+        navigateTo('/staff/content/internal-system/login')
+        return
+      }
       error.value = true
     } finally {
       loading.value = false

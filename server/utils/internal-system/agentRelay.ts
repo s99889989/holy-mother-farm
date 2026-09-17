@@ -15,6 +15,8 @@ export interface InternalSystemAgentRelayResult {
   status: number
   headers: Record<string, string[]>
   bodyText: string
+  /** 原始 base64，二進位內容（圖片等）要用這個，不能用 bodyText（會被 UTF-8 解碼弄壞） */
+  bodyBase64: string
 }
 
 interface RelayResponseRaw {
@@ -26,10 +28,10 @@ interface RelayResponseRaw {
 }
 
 export async function internalSystemAgentRelayFetch(
-    method: string,
-    url: string,
-    headers: Record<string, string>,
-    body?: string
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body?: string
 ): Promise<InternalSystemAgentRelayResult> {
   const bodyBase64 = body ? Buffer.from(body, 'utf-8').toString('base64') : undefined
 
@@ -45,13 +47,14 @@ export async function internalSystemAgentRelayFetch(
   }
 
   const bodyText = result.bodyBase64
-      ? Buffer.from(result.bodyBase64, 'base64').toString('utf-8')
-      : ''
+    ? Buffer.from(result.bodyBase64, 'base64').toString('utf-8')
+    : ''
 
   return {
     status: result.status,
     headers: result.headers ?? {},
     bodyText,
+    bodyBase64: result.bodyBase64 ?? '',
   }
 }
 

@@ -406,15 +406,20 @@ export async function searchAvailableCars(
     throw createError({ statusCode: 401, statusMessage: 'Session 已過期，請重新登入' })
   }
 
-  let parsed: { rs?: string; msg?: string; data?: VehicleAvailableCar[] }
+  let parsed: { rs?: string | number; msg?: string; data?: VehicleAvailableCar[] }
   try {
     parsed = JSON.parse(result.bodyText)
   } catch {
     throw createError({ statusCode: 502, statusMessage: '舊系統回應格式非預期(非 JSON)' })
   }
 
-  if (parsed.rs !== '1') {
-    throw createError({ statusCode: 400, statusMessage: parsed.msg ?? '查詢失敗' })
+  // 這支 API 舊系統回的 rs 是數字 1（不像其他支 API 是字串 "1"），用 == 寬鬆比對兩種都吃
+  if (parsed.rs != 1) {
+    const raw = result.bodyText.slice(0, 500)
+    throw createError({
+      statusCode: 400,
+      statusMessage: parsed.msg || `查詢失敗（舊系統無訊息文字，原始回應：${raw}）`,
+    })
   }
   return Array.isArray(parsed.data) ? parsed.data : []
 }
