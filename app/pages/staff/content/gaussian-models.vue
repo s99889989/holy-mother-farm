@@ -64,6 +64,31 @@ const fetchWithTimeout = (url, options = {}, ms = 15000) => {
 // ── 狀態 ──────────────────────────────────────────────────────────
 const models = ref([])
 const isLoading = ref(false)
+// 3D 檢視器自己的載入狀態（跟上面 isLoading 是不同東西：那個是模型「列表」的載入中，
+// 這個才是開單一模型的 3D 檢視器時的載入中——不然畫面一片黑很容易讓人以為壞了）
+const viewerLoading = ref(false)
+// 載入進度：畫面一片黑很容易讓人以為壞了，用「模糊→清晰」搭配進度條給個明確的載入中提示。
+// 兩種訊號一起追、取較大值顯示：
+//  1) byteState：接 pc.Asset 的 'progress' 事件，是真正的位元組下載量，連續、細緻，
+//     但引擎的 SOG/gsplat 載入器有沒有把底層 XHR 的 progress 轉發出來沒辦法在這裡實測確認。
+//  2) tileState：這顆模型切成幾塊 MipTile、完成了幾塊，一定會動（load/error 事件本來就有接），
+//     當保底，萬一 1) 真的沒有觸發，畫面也只會退化成「一格一格跳」，不會整個卡住不動。
+const byteState = reactive({ loaded: 0, total: 0 })
+const tileState = reactive({ done: 0, total: 0 })
+const progressPercent = computed(() => {
+  const byPct = byteState.total ? (byteState.loaded / byteState.total) * 100 : 0
+  const tilePct = tileState.total ? (tileState.done / tileState.total) * 100 : 0
+  return Math.round(Math.max(byPct, tilePct))
+})
+// 剛開始最模糊、最暗，隨進度變清晰，全部載完直接歸零、
+// 靠 CSS transition 補完最後一段淡出，不用另外等一個「完全清晰」的額外狀態
+const canvasFilterStyle = computed(() => {
+  if (!viewerLoading.value) return { filter: 'none', transition: 'filter 0.6s ease-out' }
+  const ratio = progressPercent.value / 100
+  const blur = 18 * (1 - ratio)
+  const brightness = 0.45 + ratio * 0.55
+  return { filter: `blur(${blur}px) brightness(${brightness})`, transition: 'filter 0.4s ease-out' }
+})
 const toast = reactive({ show: false, message: '' })
 
 const showToast = (message) => {
@@ -154,6 +179,41 @@ const deleteModel = async (model) => {
     await fetchModels()
   } catch {
     showToast('刪除失敗')
+  }
+}
+
+// ── 編輯名稱 ────────────────────────────────────────────────────
+const editingNameId = ref('')
+const editNameValue = ref('')
+const savingNameId = ref('')
+
+const startEditName = (model) => {
+  editingNameId.value = model.id
+  editNameValue.value = model.name
+}
+const cancelEditName = () => {
+  editingNameId.value = ''
+  editNameValue.value = ''
+}
+const saveEditName = async (model) => {
+  const newName = editNameValue.value.trim()
+  if (!newName) { showToast('名稱不能為空'); return }
+  if (newName === model.name) { cancelEditName(); return }
+  savingNameId.value = model.id
+  try {
+    const url = `${BASE}/rename/${model.id}?name=${encodeURIComponent(newName)}`
+    const text = await (await fetchWithTimeout(url, { method: 'POST' })).text()
+    if (text.startsWith('錯誤')) {
+      showToast(text)
+    } else {
+      model.name = newName
+      if (viewerModal.id === model.id) viewerModal.name = newName
+      cancelEditName()
+    }
+  } catch {
+    showToast('更新名稱失敗，請檢查網路連線')
+  } finally {
+    savingNameId.value = ''
   }
 }
 
@@ -1008,16 +1068,29 @@ const initViewer = async (model) => {
 
   if (entryFiles.length === 0) {
     showToast('這顆模型沒有可用的進入點檔案')
+    viewerLoading.value = false
     app.start()
     return
   }
 
   let loadedTiles = 0
   let erroredTiles = 0
+  tileState.total = entryFiles.length
+  tileState.done = 0
+  const bytesLoadedPerTile = new Array(entryFiles.length).fill(0)
+  const bytesTotalPerTile = new Array(entryFiles.length).fill(0)
   entryFiles.forEach((entryPath, idx) => {
     const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${model.id}/${entryPath}`)
     const asset = new pc.Asset(`${model.name || 'gsplat'}-tile-${idx}`, 'gsplat', { url: contentUrl })
     app.assets.add(asset)
+    // 引擎如果有把底層下載的 XHR progress 轉發出來，這裡就能拿到真正的位元組進度；
+    // received 是累計值不是差量，直接覆蓋存起來，加總各塊算出目前總下載量／總量
+    asset.on('progress', (received, length) => {
+      bytesLoadedPerTile[idx] = received || 0
+      if (length) bytesTotalPerTile[idx] = length
+      byteState.loaded = bytesLoadedPerTile.reduce((a, b) => a + b, 0)
+      byteState.total = bytesTotalPerTile.reduce((a, b) => a + b, 0)
+    })
     asset.once('load', () => {
       const tileEntity = new pc.Entity(`gsplat-tile-${idx}`)
       tileEntity.addComponent('gsplat', { asset })
@@ -1028,10 +1101,14 @@ const initViewer = async (model) => {
       gsplatEntity.addChild(tileEntity)
       tileEntities.push(tileEntity) // 記下來，之後動態調整畫質時才能一次改全部 tile
       loadedTiles++
+      tileState.done = loadedTiles + erroredTiles
+      if (loadedTiles + erroredTiles === entryFiles.length) viewerLoading.value = false
     })
     asset.once('error', (err) => {
       erroredTiles++
+      tileState.done = loadedTiles + erroredTiles
       showToast(`第 ${idx + 1}/${entryFiles.length} 塊模型載入失敗：${err}`)
+      if (loadedTiles + erroredTiles === entryFiles.length) viewerLoading.value = false
     })
     app.assets.load(asset)
   })
@@ -1045,6 +1122,11 @@ const openViewer = async (model) => {
   viewerModal.name = model.name
   viewerModal.id = model.id
   viewerModal.show = true
+  viewerLoading.value = true
+  byteState.loaded = 0
+  byteState.total = 0
+  tileState.done = 0
+  tileState.total = 0
   initViewer(model)
 }
 
@@ -1117,6 +1199,7 @@ const onVertButtonUp = (code) => pressedKeys.delete(code)
 const closeViewer = () => {
   viewerModal.show = false
   tiltPanelOpen.value = false
+  viewerLoading.value = false
   disposeViewer()
 }
 
@@ -1199,9 +1282,48 @@ const formatSize = (bytes) => {
             </div>
           </div>
           <div class="p-3">
-            <p class="text-sm font-semibold text-base-c truncate">
-              {{ model.name }}
-            </p>
+            <div
+              v-if="editingNameId === model.id"
+              class="flex items-center gap-1"
+            >
+              <input
+                v-model="editNameValue"
+                type="text"
+                class="flex-1 min-w-0 text-sm font-semibold text-base-c bg-surface2 border border-light-c rounded px-1.5 py-0.5"
+                :disabled="savingNameId === model.id"
+                @keyup.enter="saveEditName(model)"
+                @keyup.esc="cancelEditName"
+              >
+              <button
+                class="text-xs text-green-600 hover:text-green-700 shrink-0 disabled:opacity-50"
+                :disabled="savingNameId === model.id"
+                @click="saveEditName(model)"
+              >
+                {{ savingNameId === model.id ? '⋯' : '✓' }}
+              </button>
+              <button
+                class="text-xs text-hint-c hover:text-base-c shrink-0"
+                :disabled="savingNameId === model.id"
+                @click="cancelEditName"
+              >
+                ✕
+              </button>
+            </div>
+            <div
+              v-else
+              class="flex items-center gap-1 group/name"
+            >
+              <p class="text-sm font-semibold text-base-c truncate">
+                {{ model.name }}
+              </p>
+              <button
+                class="text-xs text-hint-c hover:text-base-c opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0"
+                title="編輯名稱"
+                @click="startEditName(model)"
+              >
+                ✎
+              </button>
+            </div>
             <p
               v-if="model.description"
               class="text-xs text-hint-c mt-0.5 line-clamp-2"
@@ -1427,10 +1549,23 @@ const formatSize = (bytes) => {
         </div>
 
         <div class="flex-1 relative">
+          <div
+            v-if="viewerLoading"
+            class="absolute inset-0 flex flex-col items-center justify-center text-white/80 text-sm gap-1.5 pointer-events-none z-10"
+          >
+            <span>{{ progressPercent }}%</span>
+            <div class="w-72 max-w-[70vw] h-1 rounded-full bg-white/25 overflow-hidden">
+              <div
+                class="h-full bg-orange-500 rounded-full transition-all duration-300 ease-out"
+                :style="{ width: progressPercent + '%' }"
+              />
+            </div>
+          </div>
           <canvas
             ref="canvasRef"
             tabindex="-1"
             class="absolute inset-0 w-full h-full touch-none outline-none"
+            :style="canvasFilterStyle"
           />
           <p
             v-if="!isTouchDevice && cameraMode === 'first' && !pointerLockActive"

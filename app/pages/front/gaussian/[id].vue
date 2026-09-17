@@ -59,6 +59,29 @@ const { data: model, error: fetchErrorRef } = await useFetch(`${BASE}/get/${mode
 const loadError = ref(fetchErrorRef.value || !model.value ? '找不到這個模型，連結可能已失效' : '')
 const isLoading = ref(true)
 
+// 載入進度：畫面一片黑很容易讓人以為壞了，用「模糊→清晰」搭配進度條給個明確的載入中提示。
+// 兩種訊號一起追、取較大值顯示：
+//  1) byteState：接 pc.Asset 的 'progress' 事件，是真正的位元組下載量，連續、細緻，
+//     但引擎的 SOG/gsplat 載入器有沒有把底層 XHR 的 progress 轉發出來沒辦法在這裡實測確認。
+//  2) tileState：這顆模型切成幾塊 MipTile、完成了幾塊，一定會動（load/error 事件本來就有接），
+//     當保底，萬一 1) 真的沒有觸發，畫面也只會退化成「一格一格跳」，不會整個卡住不動。
+const byteState = reactive({ loaded: 0, total: 0 })
+const tileState = reactive({ done: 0, total: 0 })
+const progressPercent = computed(() => {
+  const byPct = byteState.total ? (byteState.loaded / byteState.total) * 100 : 0
+  const tilePct = tileState.total ? (tileState.done / tileState.total) * 100 : 0
+  return Math.round(Math.max(byPct, tilePct))
+})
+// 剛開始最模糊、最暗，隨進度變清晰，全部載完（isLoading 變 false）直接歸零、
+// 靠 CSS transition 補完最後一段淡出，不用另外等一個「完全清晰」的額外狀態
+const canvasFilterStyle = computed(() => {
+  if (!isLoading.value) return { filter: 'none', transition: 'filter 0.6s ease-out' }
+  const ratio = progressPercent.value / 100
+  const blur = 18 * (1 - ratio)
+  const brightness = 0.45 + ratio * 0.55
+  return { filter: `blur(${blur}px) brightness(${brightness})`, transition: 'filter 0.4s ease-out' }
+})
+
 useSeoMeta({
   title: () => model.value?.name || '高斯潑濺模型',
   ogTitle: () => model.value?.name || '高斯潑濺模型',
@@ -635,10 +658,22 @@ const initViewer = async () => {
 
   let loadedTiles = 0
   let erroredTiles = 0
+  tileState.total = entryFiles.length
+  tileState.done = 0
+  const bytesLoadedPerTile = new Array(entryFiles.length).fill(0)
+  const bytesTotalPerTile = new Array(entryFiles.length).fill(0)
   entryFiles.forEach((entryPath, idx) => {
     const contentUrl = absoluteFileUrl(`/holy/gaussian/file/${m.id}/${entryPath}`)
     const asset = new pc.Asset(`${m.name || 'gsplat'}-tile-${idx}`, 'gsplat', { url: contentUrl })
     app.assets.add(asset)
+    // 引擎如果有把底層下載的 XHR progress 轉發出來，這裡就能拿到真正的位元組進度；
+    // received 是累計值不是差量，直接覆蓋存起來，加總各塊算出目前總下載量／總量
+    asset.on('progress', (received, length) => {
+      bytesLoadedPerTile[idx] = received || 0
+      if (length) bytesTotalPerTile[idx] = length
+      byteState.loaded = bytesLoadedPerTile.reduce((a, b) => a + b, 0)
+      byteState.total = bytesTotalPerTile.reduce((a, b) => a + b, 0)
+    })
     asset.once('load', () => {
       const tileEntity = new pc.Entity(`gsplat-tile-${idx}`)
       tileEntity.addComponent('gsplat', { asset })
@@ -649,10 +684,12 @@ const initViewer = async () => {
       gsplatEntity.addChild(tileEntity)
       tileEntities.push(tileEntity) // 記下來，之後動態調整畫質時才能一次改全部 tile
       loadedTiles++
+      tileState.done = loadedTiles + erroredTiles
       if (loadedTiles + erroredTiles === entryFiles.length) isLoading.value = false
     })
     asset.once('error', (err) => {
       erroredTiles++
+      tileState.done = loadedTiles + erroredTiles
       console.error(`第 ${idx + 1}/${entryFiles.length} 塊模型載入失敗：`, err)
       if (loadedTiles === 0 && erroredTiles === entryFiles.length) {
         loadError.value = `模型載入失敗：${err}`
@@ -724,9 +761,15 @@ onUnmounted(disposeViewer)
       <div class="flex-1 relative">
         <div
           v-if="isLoading"
-          class="absolute inset-0 flex items-center justify-center text-white/60 text-sm"
+          class="absolute inset-0 flex flex-col items-center justify-center text-white/80 text-sm gap-1.5 pointer-events-none"
         >
-          載入中…
+          <span>{{ progressPercent }}%</span>
+          <div class="w-72 max-w-[70vw] h-1 rounded-full bg-white/25 overflow-hidden">
+            <div
+              class="h-full bg-orange-500 rounded-full transition-all duration-300 ease-out"
+              :style="{ width: progressPercent + '%' }"
+            />
+          </div>
         </div>
         <div
           v-else-if="loadError"
@@ -739,6 +782,7 @@ onUnmounted(disposeViewer)
           ref="canvasRef"
           tabindex="-1"
           class="absolute inset-0 w-full h-full touch-none outline-none"
+          :style="canvasFilterStyle"
         />
 
         <p
