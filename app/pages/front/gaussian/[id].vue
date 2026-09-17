@@ -29,9 +29,25 @@ const fileUrl = (path) => {
 // 直接用站內相對路徑其實就沒問題；保留這個 helper只是跟後台那邊寫法一致，方便日後對照維護
 const absoluteFileUrl = (path) => fileUrl(path)
 
-const model = ref(null)
-const loadError = ref('')
+// 這支 fetch 要在 setup 階段（SSR）就完成，Discord/LINE 等平台的爬蟲只會讀初次回應的
+// HTML，不會等前端 JS 跑完才去抓模型名稱，所以不能沿用舊寫法（onMounted 之後才 fetch）。
+// 用 useFetch 讓伺服器端渲染時就把資料準備好，meta 標籤才會是正確的模型名稱/縮圖，
+// 而不是整個網站共用的預設標題（Nuxt Starter Template）。
+const { data: model, error: fetchErrorRef } = await useFetch(`${BASE}/get/${modelId}`, {
+  key: `gaussian-model-${modelId}`
+})
+
+const loadError = ref(fetchErrorRef.value || !model.value ? '找不到這個模型，連結可能已失效' : '')
 const isLoading = ref(true)
+
+useSeoMeta({
+  title: () => model.value?.name || '高斯潑濺模型',
+  ogTitle: () => model.value?.name || '高斯潑濺模型',
+  description: () => model.value?.description || '台東聖母健康農莊 3D 高斯潑濺模型線上導覽',
+  ogDescription: () => model.value?.description || '台東聖母健康農莊 3D 高斯潑濺模型線上導覽',
+  ogImage: () => model.value?.thumbnail ? fileUrl(model.value.thumbnail) : undefined,
+  twitterCard: 'summary_large_image'
+})
 
 const canvasRef = ref(null)
 let pcApp = null
@@ -662,12 +678,12 @@ const onJoystickPointerUp = (e) => {
 const onVertButtonDown = (code) => pressedKeys.add(code)
 const onVertButtonUp = (code) => pressedKeys.delete(code)
 
-const fetchModel = async () => {
+// 資料已經在上面用 useFetch 抓好了（SSR 階段就有，meta 標籤才對），這裡只負責在瀏覽器端
+// 把畫面初始化（PlayCanvas 一定要在 client 才能跑），不用再打一次 API
+const initViewerOnMount = async () => {
+  if (loadError.value) { isLoading.value = false; return }
+  if (!model.value) { loadError.value = '找不到這個模型，連結可能已失效'; isLoading.value = false; return }
   try {
-    const res = await fetch(`${BASE}/get/${modelId}`)
-    const data = await res.json()
-    if (!data) { loadError.value = '找不到這個模型，連結可能已失效'; isLoading.value = false; return }
-    model.value = data
     await initViewer()
   } catch {
     loadError.value = '載入失敗，請檢查網路連線'
@@ -675,7 +691,7 @@ const fetchModel = async () => {
   }
 }
 
-onMounted(fetchModel)
+onMounted(initViewerOnMount)
 onUnmounted(disposeViewer)
 </script>
 
