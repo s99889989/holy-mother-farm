@@ -68,7 +68,7 @@
             <tbody>
             <tr v-for="(c, i) in filteredCars" :key="`${c.car.car_id}-${i}`">
               <td>
-                <img v-if="c.car.photo_name1" :src="carPhotoUrl(c.car.photo_name1)" class="car-photo" :alt="c.car.public_car_name ?? ''" />
+                <img v-if="c.car.photo_name1" :src="carPhotoUrl(c.car.photo_name1)" class="car-photo" :alt="c.car.public_car_name ?? ''" @click="lightboxUrl = carPhotoUrl(c.car.photo_name1)" />
               </td>
               <td>{{ c.cols[0] }}</td>
               <td>{{ c.cols[1] }}</td>
@@ -90,7 +90,7 @@
           <!-- 手機：卡片 -->
           <div class="car-cards mobile-only">
             <div v-for="(c, i) in filteredCars" :key="`${c.car.car_id}-card-${i}`" class="car-card">
-              <img v-if="c.car.photo_name1" :src="carPhotoUrl(c.car.photo_name1)" class="car-card-photo" :alt="c.car.public_car_name ?? ''" />
+              <img v-if="c.car.photo_name1" :src="carPhotoUrl(c.car.photo_name1)" class="car-card-photo" :alt="c.car.public_car_name ?? ''" @click="lightboxUrl = carPhotoUrl(c.car.photo_name1)" />
               <div v-else class="car-card-photo car-card-photo-empty">🚗</div>
               <div class="car-card-body">
                 <div class="car-card-name">{{ c.cols[3] }}</div>
@@ -106,6 +106,14 @@
           </div>
         </div>
       </div>
+
+      <!-- 照片放大檢視 -->
+      <Teleport to="body">
+        <div v-if="lightboxUrl" class="lightbox-backdrop" @click="lightboxUrl = null">
+          <img :src="lightboxUrl" class="lightbox-img" alt="車輛照片放大圖" />
+          <button type="button" class="lightbox-close" @click="lightboxUrl = null">✕</button>
+        </div>
+      </Teleport>
 
       <!-- 新增申請 modal -->
       <div v-if="addingCar" class="modal-backdrop" @click.self="addingCar = null">
@@ -319,6 +327,8 @@
   const carPhotoUrl = (fileName: string) =>
     `/api/internal-system/vehicle/car-photo?name=${encodeURIComponent(fileName)}`
 
+  const lightboxUrl = ref<string | null>(null)
+
   const loadMeta = async () => {
     try {
       meta.value = await $fetch<VehicleAddMeta>('/api/internal-system/vehicle/add/meta')
@@ -429,7 +439,7 @@
   .time-select { width: 64px; text-align: center; }
   .time-colon { color: var(--text-muted); font-weight: 700; }
 
-  .car-photo { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto; }
+  .car-photo { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto; cursor: zoom-in; }
 
   .car-table { width: 100%; border-collapse: collapse; }
   .car-table th, .car-table td {
@@ -443,7 +453,7 @@
     border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface2);
   }
   .car-card-photo {
-    width: 108px; align-self: stretch; object-fit: cover; border-radius: 8px; flex-shrink: 0;
+    width: 108px; align-self: stretch; object-fit: cover; border-radius: 8px; flex-shrink: 0; cursor: zoom-in;
   }
   .car-card-photo-empty {
     display: flex; align-items: center; justify-content: center; font-size: 36px;
@@ -460,6 +470,21 @@
   .mobile-only { display: none; }
 
   .error-text { color: #e53e3e; font-size: 16px; }
+
+  .lightbox-backdrop {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
+    display: flex; align-items: center; justify-content: center; z-index: 400; padding: 20px;
+  }
+  .lightbox-img {
+    max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  }
+  .lightbox-close {
+    position: fixed; top: 16px; right: 16px; width: 40px; height: 40px;
+    border: none; border-radius: 50%; background: rgba(255, 255, 255, 0.15);
+    color: white; font-size: 18px; cursor: pointer;
+  }
+  .lightbox-close:hover { background: rgba(255, 255, 255, 0.25); }
 
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
