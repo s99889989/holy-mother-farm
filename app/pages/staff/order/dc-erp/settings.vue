@@ -10,6 +10,12 @@ import { reactive, ref, computed, onMounted } from 'vue'
 // 跟其他全域設定放一起，邏輯完全沒變（直打 Spring Boot 的
 // DcErpProductImageController，逐頁掃 /api/dc-erp/products 收集代號+
 // 所屬類別，分批 POST /sync-classes 寫進 product_images.yml）。
+//
+// 「自動化：簽核並轉銷＋列印下載」是新增區塊——針對設定的客戶，一次做完
+// 查未簽核訂貨單→簽核→轉銷→在銷貨單找對應單→下載 PDF（中一刀-半長）。
+// 邏輯在 server/utils/dc-erp/automation.ts，目前只能手動按「立即執行」
+// 觸發，還沒有能力自己登入 COAERP（人工圖形驗證碼擋著），所以做不到真正
+// 排程的「週一早上 8 點自動觸發」，見下方區塊裡的說明文字。
 definePageMeta({
   layout: 'staff',
   requiredPermission: 'order.dc-erp'
@@ -145,9 +151,78 @@ async function syncAllProductClasses() {
   }
 }
 
+// ── 自動化：簽核並轉銷＋列印下載 ─────────────────────────────────
+const automationCustomers = ref([])
+const newCustomerCode = ref('')
+const newCustomerLabel = ref('')
+const automationRunning = ref('') // 目前執行中的客戶代號，'' = 無
+const automationResults = reactive({}) // firmCode -> 這次執行/預覽的結果
+const automationError = reactive({}) // firmCode -> 錯誤訊息
+
+async function loadAutomationCustomers() {
+  try {
+    const data = await $fetch('/api/dc-erp/automation/config')
+    automationCustomers.value = data.customers || []
+  } catch {
+    // 讀不到就先當空清單，不擋頁面其他功能
+  }
+}
+
+async function saveAutomationCustomers() {
+  try {
+    const data = await $fetch('/api/dc-erp/automation/config', {
+      method: 'POST',
+      body: { customers: automationCustomers.value }
+    })
+    automationCustomers.value = data.customers
+  } catch {
+    showToast('客戶清單儲存失敗，請稍後再試')
+  }
+}
+
+function addAutomationCustomer() {
+  const firmCode = newCustomerCode.value.trim()
+  if (!firmCode) return
+  automationCustomers.value.push({
+    id: crypto.randomUUID(),
+    firmCode,
+    label: newCustomerLabel.value.trim() || firmCode,
+    enabled: true
+  })
+  newCustomerCode.value = ''
+  newCustomerLabel.value = ''
+  saveAutomationCustomers()
+}
+
+function removeAutomationCustomer(id) {
+  automationCustomers.value = automationCustomers.value.filter((c) => c.id !== id)
+  saveAutomationCustomers()
+}
+
+async function runAutomation(customer, dryRun) {
+  automationRunning.value = customer.firmCode
+  automationError[customer.firmCode] = ''
+  try {
+    const data = await $fetch('/api/dc-erp/automation/run-customer', {
+      method: 'POST',
+      body: { firmCode: customer.firmCode, dryRun }
+    })
+    automationResults[customer.firmCode] = data
+  } catch (e) {
+    automationError[customer.firmCode] = e?.data?.statusMessage || e?.message || '執行失敗，請稍後再試'
+  } finally {
+    automationRunning.value = ''
+  }
+}
+
+function downloadHref(fileName) {
+  return `/api/dc-erp/automation/download?file=${encodeURIComponent(fileName)}`
+}
+
 onMounted(() => {
   loadSettings()
   loadLastSynced()
+  loadAutomationCustomers()
 })
 </script>
 
@@ -210,6 +285,133 @@ onMounted(() => {
           <p class="mt-2 text-xs text-hint-c">
             會查詢 COAERP 全部品項（依總筆數自動分頁抓取），把每筆的「所屬類別」存進本地設定檔（跟圖片綁定同一份 product_images.yml，見「進階品項管理」）。只是把類別資料快取起來，不會改動 COAERP 任何資料，也不會動到已經上傳的圖片。COAERP 的品項偶爾會新增/調整類別，這份快取不會自動更新，建議隔一段時間（例如每次大量新增品項後）手動按一次。
           </p>
+        </div>
+
+        <!-- 自動化：簽核並轉銷＋列印下載 -->
+        <div class="rounded-xl border border-light-c bg-surface p-4 text-sm">
+          <div class="mb-1 font-medium text-base-c">自動化：簽核並轉銷＋列印下載</div>
+          <p class="mb-3 text-xs text-hint-c">
+            針對下面設定的客戶，一次做完「查未簽核訂貨單 → 簽核 → 轉銷 → 在銷貨單找對應單 → 下載 PDF（中一刀-半長）」。
+          </p>
+          <p class="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700">
+            目前只能手動按「立即執行」觸發：COAERP 登入需要人工輸入圖形驗證碼，這裡還沒有自動登入的能力，做不到真正排程的「週一早上 8 點自動觸發」——要先確保這台瀏覽器已經登入過 dc-erp、session 還沒過期（目前存活 2 小時），才能執行成功。等自動登入的方式確定了，才會接上真正的排程。
+          </p>
+
+          <!-- 新增客戶 -->
+          <div class="mb-3 flex flex-wrap items-center gap-2 border-b border-light-c pb-3">
+            <input
+              v-model="newCustomerCode"
+              type="text"
+              placeholder="客戶代號（例如 127）"
+              class="w-40 rounded border border-light-c bg-surface px-2 py-1"
+            >
+            <input
+              v-model="newCustomerLabel"
+              type="text"
+              placeholder="備註名稱（選填）"
+              class="w-40 rounded border border-light-c bg-surface px-2 py-1"
+            >
+            <button
+              class="rounded bg-accent-solid px-3 py-1.5 text-xs font-medium text-white"
+              @click="addAutomationCustomer"
+            >
+              新增客戶
+            </button>
+          </div>
+
+          <p v-if="!automationCustomers.length" class="text-xs text-hint-c">尚未設定任何客戶。</p>
+
+          <div
+            v-for="customer in automationCustomers"
+            :key="customer.id"
+            class="mb-3 rounded-lg border border-light-c p-3 last:mb-0"
+          >
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="flex items-center gap-1">
+                <input
+                  v-model="customer.enabled"
+                  type="checkbox"
+                  @change="saveAutomationCustomers"
+                >
+                <span class="text-xs text-muted-c">啟用</span>
+              </label>
+              <span class="font-medium text-base-c">{{ customer.label }}</span>
+              <span class="text-xs text-hint-c">（客戶代號：{{ customer.firmCode }}）</span>
+              <button
+                class="ml-auto text-xs text-red-600 hover:underline"
+                @click="removeAutomationCustomer(customer.id)"
+              >
+                刪除
+              </button>
+            </div>
+
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                class="rounded border border-light-c px-3 py-1.5 text-xs font-medium hover:bg-surface2 disabled:opacity-50"
+                :disabled="automationRunning === customer.firmCode"
+                @click="runAutomation(customer, true)"
+              >
+                {{ automationRunning === customer.firmCode ? '查詢中…' : '預覽（只查未簽核，不動作）' }}
+              </button>
+              <button
+                class="rounded bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                :disabled="automationRunning === customer.firmCode"
+                @click="runAutomation(customer, false)"
+              >
+                {{ automationRunning === customer.firmCode ? '執行中…' : '立即執行（簽核＋轉銷＋下載PDF）' }}
+              </button>
+            </div>
+
+            <p v-if="automationError[customer.firmCode]" class="mt-2 text-xs text-red-600">
+              {{ automationError[customer.firmCode] }}
+            </p>
+
+            <!-- 預覽結果 -->
+            <div v-if="automationResults[customer.firmCode]?.dryRun" class="mt-2 text-xs">
+              <p class="text-muted-c">目前未簽核：{{ automationResults[customer.firmCode].matchedCount }} 張</p>
+              <ul v-if="automationResults[customer.firmCode].matchedCount" class="mt-1 space-y-0.5">
+                <li v-for="o in automationResults[customer.firmCode].orders" :key="o.code">
+                  {{ o.code }}（交貨日期 {{ o.deliveryDate }}，金額 {{ o.total }}）
+                </li>
+              </ul>
+            </div>
+
+            <!-- 執行結果 -->
+            <table
+              v-if="automationResults[customer.firmCode] && !automationResults[customer.firmCode].dryRun && automationResults[customer.firmCode].results.length"
+              class="mt-2 w-full text-xs"
+            >
+              <thead>
+                <tr class="border-b border-light-c text-left text-hint-c">
+                  <th class="py-1 pr-2">訂貨單號</th>
+                  <th class="py-1 pr-2">簽核</th>
+                  <th class="py-1 pr-2">轉銷</th>
+                  <th class="py-1 pr-2">對應銷貨單</th>
+                  <th class="py-1 pr-2">PDF</th>
+                  <th class="py-1 pr-2">備註</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in automationResults[customer.firmCode].results" :key="r.code" class="border-b border-light-c/50">
+                  <td class="py-1 pr-2">{{ r.code }}</td>
+                  <td class="py-1 pr-2">{{ r.signOk ? '✅' : '—' }}</td>
+                  <td class="py-1 pr-2">{{ r.transferOk ? '✅' : '—' }}</td>
+                  <td class="py-1 pr-2">{{ r.matchedSlipCode || '—' }}</td>
+                  <td class="py-1 pr-2">
+                    <a v-if="r.printOk" :href="downloadHref(r.fileName)" target="_blank" class="text-accent-solid hover:underline">下載</a>
+                    <span v-else>—</span>
+                  </td>
+                  <td class="py-1 pr-2 text-hint-c">{{ r.transferError || r.printError }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p
+              v-else-if="automationResults[customer.firmCode] && !automationResults[customer.firmCode].dryRun"
+              class="mt-2 text-xs text-hint-c"
+            >
+              目前沒有未簽核的訂貨單，沒有東西要處理。
+            </p>
+          </div>
         </div>
       </div>
 
