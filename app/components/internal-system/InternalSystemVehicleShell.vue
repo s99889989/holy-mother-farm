@@ -117,7 +117,7 @@
   }
 
   .brand {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: bold;
     color: white;
     letter-spacing: 1px;

@@ -108,7 +108,12 @@
       <div v-else-if="error" class="error-banner">{{ error }}</div>
 
       <!-- 月曆格 -->
-      <div v-else class="cal-grid-wrapper">
+      <div
+        v-else
+        ref="calGridWrapperRef"
+        class="cal-grid-wrapper"
+        :style="isMobileViewport ? { '--mobile-cell-h': `${mobileCellHeightPx}px` } : {}"
+      >
         <div class="cal-weekdays">
           <div v-for="d in weekdays" :key="d" class="weekday">{{ d }}</div>
         </div>
@@ -121,8 +126,9 @@
             :key="dayData.day"
             class="cal-cell"
             :class="{ today: dayData.isToday }"
+            @click="handleCellClick(dayData)"
           >
-            <div class="day-num" @click="goAdd(dayData.date)">
+            <div class="day-num">
               {{ dayData.day }}
             </div>
 
@@ -143,7 +149,7 @@
                     zIndex: 2,
                     borderRadius: `${bar.isEventStart ? 3 : 0}px ${bar.isEventEnd ? 3 : 0}px ${bar.isEventEnd ? 3 : 0}px ${bar.isEventStart ? 3 : 0}px`,
                   }"
-              @click="handleEventClick(bar, dayData)"
+              @click.stop="handleEventClick(bar, dayData)"
               @mouseenter="showTooltip(bar, $event)"
               @mousemove="moveTooltip($event)"
               @mouseleave="hideTooltip"
@@ -164,7 +170,7 @@
                 :key="ev.calendarId"
                 class="event-item"
                 :class="{ editable: ev.isEditable }"
-                @click="handleEventClick(ev, dayData)"
+                @click.stop="handleEventClick(ev, dayData)"
                 @mouseenter="showTooltip(ev, $event)"
                 @mousemove="moveTooltip($event)"
                 @mouseleave="hideTooltip"
@@ -194,18 +200,26 @@
                 <button type="button" class="day-panel-close" @click="closeDayPanel">✕</button>
               </div>
               <div class="day-panel-list">
-                <button
+                <div
                   v-for="ev in dayPanel.events"
                   :key="ev.segId ?? ev.calendarId"
-                  type="button"
                   class="day-panel-item"
                   :class="{ editable: ev.isEditable }"
-                  @click="selectPanelEvent(ev)"
                 >
-                  <span class="dp-time">{{ ev.startTime }}<template v-if="ev.endTime">–{{ ev.endTime }}</template></span>
-                  <span class="dp-title">{{ ev.title }}</span>
-                  <span v-if="ev.unit" class="dp-unit">{{ ev.unit }}</span>
-                </button>
+                  <button
+                    type="button"
+                    class="day-panel-item-main"
+                    @click="selectPanelEvent(ev)"
+                  >
+                    <span class="dp-time">{{ ev.startTime }}<template v-if="ev.endTime">–{{ ev.endTime }}</template></span>
+                    <span class="dp-title">{{ ev.title }}</span>
+                    <span v-if="ev.unit" class="dp-unit">{{ ev.unit }}</span>
+                  </button>
+                  <div v-if="ev.isEditable" class="day-panel-item-actions">
+                    <button type="button" class="dp-action-btn dp-edit" title="編輯" @click.stop="editPanelEvent(ev)">✏️</button>
+                    <button type="button" class="dp-action-btn dp-delete" title="刪除" @click.stop="deletePanelEvent(ev)">🗑️</button>
+                  </div>
+                </div>
                 <p v-if="!dayPanel.events.length" class="day-panel-empty">這天沒有活動</p>
               </div>
               <button type="button" class="day-panel-add" @click="closeDayPanel(); goAdd(dayPanel.date)">
@@ -259,7 +273,7 @@
 
   const route = useRoute()
   const router = useRouter()
-  const { loading, error, fetchList } = useInternalSystemCalendar()
+  const { loading, error, fetchList, deleteEvent } = useInternalSystemCalendar()
 
   const now = new Date()
   const year = ref(parseInt(String(route.query.y ?? now.getFullYear())))
@@ -335,11 +349,23 @@
       isMobileViewport.value = mobileMql.matches
       mobileMql.addEventListener('change', updateMobileViewport)
     }
+    if (import.meta.client) {
+      window.addEventListener('resize', scheduleFitMobileHeight)
+      window.addEventListener('orientationchange', scheduleFitMobileHeight)
+      window.addEventListener('load', scheduleFitMobileHeight)
+      if (isMobileViewport.value) scheduleFitMobileHeight()
+    }
   })
 
   onUnmounted(() => {
     if (import.meta.client) document.removeEventListener('click', onClickOutsidePersonFilter)
     if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
+    if (import.meta.client) {
+      window.removeEventListener('resize', scheduleFitMobileHeight)
+      window.removeEventListener('orientationchange', scheduleFitMobileHeight)
+      window.removeEventListener('load', scheduleFitMobileHeight)
+    }
+    if (fitHeightTimer) clearTimeout(fitHeightTimer)
   })
 
   const weekdayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
@@ -743,7 +769,59 @@
   let mobileMql: MediaQueryList | null = null
   function updateMobileViewport(e: MediaQueryListEvent) {
     isMobileViewport.value = e.matches
+    if (e.matches) scheduleFitMobileHeight()
   }
+
+  // ── 手機版格高：不用固定死的高度，改成量測「底下還有多少空白」動態撐高格子，
+  // 儘量用滿螢幕剩餘空間顯示更多內容，而不是留一大塊空白 ──
+  const calGridWrapperRef = ref<HTMLElement | null>(null)
+  const MOBILE_BASE_CELL_HEIGHT = 70
+  const MOBILE_MIN_CELL_HEIGHT = 60
+  const mobileCellHeightPx = ref(MOBILE_BASE_CELL_HEIGHT)
+
+  async function fitMobileCalendarHeight() {
+    if (!import.meta.client || !isMobileViewport.value) return
+    const rows = weekCount.value
+    if (!rows) return
+    // 先歸零回基準高度，量出這個高度下版面實際的位置關係
+    mobileCellHeightPx.value = MOBILE_BASE_CELL_HEIGHT
+    await nextTick()
+
+    const wrapperEl = calGridWrapperRef.value
+    if (!wrapperEl) return
+    const weekdaysEl = wrapperEl.querySelector('.cal-weekdays') as HTMLElement | null
+    const pageEl = wrapperEl.closest('.calendar-page') as HTMLElement | null
+
+    // 用實際 DOM 位置量「視窗底部到目前內容底部」還剩多少空白，
+    // 而不是拿 document scrollHeight 比對：外層 shell 如果本來就設了
+    // min-height: 100vh 之類的滿版深色背景，scrollHeight 永遠 >= innerHeight，
+    // 那種比法會量不出真正的空白。
+    const wrapperRect = wrapperEl.getBoundingClientRect()
+    const weekdaysHeight = weekdaysEl?.getBoundingClientRect().height ?? 0
+    // 月曆格下面還有「備註」等內容，扣掉這段之後才是真的可以撐高格子的空間
+    const belowWrapperHeight = pageEl
+      ? Math.max(0, pageEl.getBoundingClientRect().bottom - wrapperRect.bottom)
+      : 0
+
+    // 底下留一點緩衝（避免剛好被瀏覽器網址列/安全區吃掉），不要整段空白都塞滿
+    const bottomBuffer = 16
+    const availableForGrid = window.innerHeight - wrapperRect.top - weekdaysHeight - belowWrapperHeight - bottomBuffer
+    if (availableForGrid <= 0) return
+
+    const targetCellHeight = Math.floor(availableForGrid / rows)
+    mobileCellHeightPx.value = Math.max(MOBILE_MIN_CELL_HEIGHT, Math.max(MOBILE_BASE_CELL_HEIGHT, targetCellHeight))
+  }
+
+  let fitHeightTimer: ReturnType<typeof setTimeout> | null = null
+  function scheduleFitMobileHeight() {
+    if (!import.meta.client) return
+    if (fitHeightTimer) clearTimeout(fitHeightTimer)
+    fitHeightTimer = setTimeout(fitMobileCalendarHeight, 150)
+  }
+
+  watch(calendarData, () => {
+    if (isMobileViewport.value) scheduleFitMobileHeight()
+  })
 
   // 日期側板：手機版點任一活動先開這個，列出當天全部活動，點側板裡的項目才真的跳轉
   const dayPanel = reactive({ show: false, date: '', dayLabel: '', events: [] as any[] })
@@ -769,6 +847,27 @@
     goEvent(ev)
   }
 
+  // 側板列表「編輯」按鈕：等同直接點項目本身，跳轉到編輯頁
+  function editPanelEvent(ev: any) {
+    closeDayPanel()
+    goEvent(ev)
+  }
+
+  // 側板列表「刪除」按鈕
+  // TODO: 這裡假設 useInternalSystemCalendar() 有暴露對應的刪除方法（比照 fetchList 的命名），
+  // 實際方法名稱／API 路徑請依 composable 的真實實作調整。
+  async function deletePanelEvent(ev: any) {
+    if (!confirm(`確定要刪除「${ev.title}」嗎？`)) return
+    try {
+      await deleteEvent(ev.calendarId)
+      closeDayPanel()
+      await loadCalendar()
+      showToast('已刪除')
+    } catch (e) {
+      showToast('刪除失敗，請稍後再試')
+    }
+  }
+
   // 月曆格子上點活動：手機版先開側板，桌機維持原本直接跳轉
   function handleEventClick(ev: any, dayData: any) {
     if (isMobileViewport.value) {
@@ -776,6 +875,13 @@
       return
     }
     goEvent(ev)
+  }
+
+  // 手機版點格子空白處（day-num 與活動項目點擊已各自 stop 傳遞，不會重複觸發）：
+  // 跟點活動一樣，展開這天的完整項目清單側板
+  function handleCellClick(dayData: any) {
+    if (!isMobileViewport.value) return
+    openDayPanel(dayData)
   }
 
   // 跟隨游標的提示框（類似遊戲道具提示）
@@ -1450,14 +1556,16 @@
     background: rgba(0, 0, 0, 0.45);
     z-index: 1100;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
+    justify-content: center;
   }
   .day-panel {
     width: 100%;
+    max-width: 420px;
     max-height: 75vh;
     background: var(--surface);
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
     padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
@@ -1488,17 +1596,13 @@
   }
   .day-panel-item {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: stretch;
+    gap: 6px;
     width: 100%;
-    text-align: left;
-    padding: 12px 12px;
+    padding: 0;
     border-radius: 10px;
-    border: none;
     background: var(--accent-light);
     color: var(--text);
-    font-size: 15px;
-    cursor: pointer;
   }
   .day-panel-item.editable {
     background: var(--warn-light);
@@ -1508,10 +1612,27 @@
     background: rgba(249, 115, 22, 0.22);
     color: #ffd9b3;
   }
+  .day-panel-item-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    padding: 12px 12px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 15px;
+    cursor: pointer;
+  }
   .dp-time { flex-shrink: 0; font-size: 13px; color: var(--text-hint); }
   .day-panel-item.editable .dp-time { color: #92400e; }
   html.dark .day-panel-item.editable .dp-time { color: #ffcd99; }
-  .dp-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dp-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
   .dp-unit {
     flex-shrink: 0;
     font-size: 11px;
@@ -1521,6 +1642,31 @@
     border-radius: 3px;
   }
   .day-panel-item.editable .dp-unit { background: #f97316; }
+
+  .day-panel-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-right: 8px;
+  }
+  .dp-action-btn {
+    border: none;
+    background: rgba(0, 0, 0, 0.06);
+    color: inherit;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dp-action-btn:hover { background: rgba(0, 0, 0, 0.12); }
+  html.dark .dp-action-btn { background: rgba(255, 255, 255, 0.1); }
+  html.dark .dp-action-btn:hover { background: rgba(255, 255, 255, 0.18); }
   .day-panel-empty { text-align: center; color: var(--text-hint); padding: 20px 0; margin: 0; }
   .day-panel-add {
     border: 1px solid var(--accent);
@@ -1545,13 +1691,25 @@
     .filter-bar { gap: 10px; }
     .filter-select { max-width: 100%; }
 
-    .cal-cell { min-height: 70px; padding: 3px; }
+    /* 格高不再寫死，改用 fitMobileCalendarHeight() 量測底下剩餘空白後
+       動態算出的 --mobile-cell-h，儘量把螢幕剩餘空白用來多顯示內容；
+       超過格高的項目一樣直接裁掉不顯示（不用「還有N筆」之類的提示）。 */
+    .cal-cell { min-height: var(--mobile-cell-h, 70px); max-height: var(--mobile-cell-h, 70px); padding: 3px; overflow: hidden; }
     .day-num { font-size: 13px; padding: 1px 5px; }
     .event-item { font-size: 11px; padding: 2px 4px; }
     .event-time, .event-unit { display: none; }
     .weekday { padding: 6px 2px; font-size: 12px; }
 
-    /* 手機螢幕小，格子裡只顯示活動標題就好，時間/單位改到側板或詳情頁才看 */
-    .event-title { max-width: 100%; }
+    /* 手機螢幕小，格子裡只顯示活動標題就好，時間/單位改到側板或詳情頁才看；
+       標題超出格寬直接硬裁掉，不加「...」省略號 */
+    .event-title { max-width: 100%; text-overflow: clip; }
+    .event-item.multi-day-bar { text-overflow: clip; }
+
+    /* 複製 TXT 是給桌機貼到「行事曆管理」用的匯入功能，手機版不需要 */
+    .copy-txt-btn { display: none; }
+
+    /* 手機版維持貼底滿版的 bottom sheet，桌機版才置中顯示成 modal */
+    .day-panel-backdrop { align-items: flex-end; }
+    .day-panel { max-width: 100%; border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3); }
   }
 </style>

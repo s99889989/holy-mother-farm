@@ -581,7 +581,7 @@ ${pagesHtml}
 
 .label-text {
   font-family: 'Noto Serif TC', 'Songti TC', '宋體', serif;
-  font-size: 16pt;
+  font-size: 15pt;
   font-weight: 700;
   color: #000;
   text-align: center;
