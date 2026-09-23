@@ -342,7 +342,18 @@
         }, 0)
         const tofu = active.reduce((s, o) => s + (o.tofuQty || 0), 0)
         const soymilkBreakdown = buildVolumeBreakdown(active)
-        return {date, dateLabel: `${m}/${d}（週${weekDay}）取貨`, orders, soymilk: soymilkQty, soymilkMl, soymilkBreakdown, tofu}
+        const pickedCount = active.filter(o => o.status === '已取貨').length
+        return {
+          date,
+          dateLabel: `${m}/${d}（週${weekDay}）取貨`,
+          orders,
+          soymilk: soymilkQty,
+          soymilkMl,
+          soymilkBreakdown,
+          tofu,
+          activeCount: active.length,
+          pickedCount
+        }
       })
   })
 
@@ -388,13 +399,57 @@
   }
 
   // ── 狀態樣式 ──────────────────────────────────────────────────────
-  const statusClass = s => ({
-    待確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700',
-    已確認: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700',
-    已付款: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700',
-    已取貨: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700',
-    已取消: 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-500'
-  }[s] || 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface2 text-hint-c')
+  // 每個狀態各用一個色系，彼此差距拉大，一眼就分得出來：
+  //   待確認＝琥珀（還要處理）、已確認＝天藍、已付款＝紫、已取貨＝實心綠（最顯眼，代表完成）、已取消＝灰＋刪除線
+  const STATUS_TONE = {
+    待確認: {
+      badge: 'bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:ring-amber-600',
+      dot: 'bg-amber-400',
+      bar: '!border-l-amber-400'
+    },
+    已確認: {
+      badge: 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-400 dark:bg-sky-900/40 dark:text-sky-300 dark:ring-sky-600',
+      dot: 'bg-sky-500',
+      bar: '!border-l-sky-400'
+    },
+    已付款: {
+      badge: 'bg-violet-100 text-violet-800 ring-1 ring-inset ring-violet-400 dark:bg-violet-900/40 dark:text-violet-300 dark:ring-violet-600',
+      dot: 'bg-violet-500',
+      bar: '!border-l-violet-400'
+    },
+    已取貨: {
+      badge: 'bg-emerald-600 text-white ring-1 ring-inset ring-emerald-700 shadow-sm dark:bg-emerald-500 dark:text-emerald-950 dark:ring-emerald-400',
+      dot: 'bg-emerald-600',
+      bar: '!border-l-emerald-500'
+    },
+    已取消: {
+      badge: 'bg-gray-200 text-gray-500 line-through dark:bg-gray-700 dark:text-gray-400',
+      dot: 'bg-gray-400',
+      bar: '!border-l-gray-300 dark:!border-l-gray-600'
+    }
+  }
+  const STATUS_BADGE_BASE = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap'
+
+  const statusClass = s => `${STATUS_BADGE_BASE} ${STATUS_TONE[s]?.badge || 'bg-surface2 text-hint-c'}`
+  const statusDotClass = s => STATUS_TONE[s]?.dot || 'bg-gray-300'
+
+  // 卡片：左側加一條狀態色條；已取貨整張卡片改成淺綠底＋綠框，列表裡一眼就挑得出來
+  const cardStatusClass = s => {
+    const bar = STATUS_TONE[s]?.bar || ''
+    if (s === '已取貨') {
+      return `border-l-4 ${bar} bg-emerald-50 !border-emerald-300 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:!border-emerald-800 dark:ring-emerald-900`
+    }
+    if (s === '已取消') return `border-l-4 ${bar} bg-surface opacity-40`
+    return `border-l-4 ${bar} bg-surface`
+  }
+
+  // 表格：已取貨整列淺綠底，第一欄加狀態色條
+  const rowStatusClass = s => {
+    if (s === '已取貨') return 'bg-emerald-50 dark:bg-emerald-950/30'
+    if (s === '已取消') return 'opacity-40'
+    return ''
+  }
+  const rowBarClass = s => `border-l-4 ${STATUS_TONE[s]?.bar || '!border-l-transparent'}`
 
   // 根據訂單的取貨日資訊產生顯示文字：有 pickupDate 就直接用，否則用 createdAt 推算當週的營業日
   // （若訂單建立當天已超過取貨日，則取下一週）
@@ -648,13 +703,7 @@
   }
 
   const HINT_STATUSES = ['待確認', '已確認', '已付款', '已取貨', '已取消']
-  const hintBadgeClass = s => ({
-    待確認: 'bg-amber-100 text-amber-700',
-    已確認: 'bg-emerald-100 text-emerald-700',
-    已付款: 'bg-blue-100 text-blue-700',
-    已取貨: 'bg-teal-100 text-teal-700',
-    已取消: 'bg-red-100 text-red-500'
-  }[s] || 'bg-surface2 text-hint-c')
+  const hintBadgeClass = s => STATUS_TONE[s]?.badge || 'bg-surface2 text-hint-c'
 
   const hints = ref({
     待確認: '我們已收到您的預約，將盡快來電確認。',
@@ -1124,7 +1173,10 @@
               :class="['filter-chip', { active: filterStatus === s }]"
               @click="filterStatus = s"
             >
-              {{ s }}
+              <span
+                class="inline-block w-2 h-2 rounded-full mr-1 align-middle"
+                :class="statusDotClass(s)"
+              />{{ s }}
             </button>
           </div>
           <div
@@ -1295,6 +1347,18 @@
                     v-if="group.tofu"
                     class="text-amber-600 font-semibold"
                   >豆腐 {{ group.tofu }} 塊</span>
+                  <span
+                    v-if="group.activeCount"
+                    class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full font-semibold"
+                    :class="group.pickedCount === group.activeCount
+                      ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950'
+                      : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800'"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    已取貨 {{ group.pickedCount }}/{{ group.activeCount }}
+                  </span>
                   <span class="text-hint-c">{{ group.orders.length }} 筆</span>
                 </div>
               </div>
@@ -1304,13 +1368,22 @@
                 <div
                   v-for="o in group.orders"
                   :key="o.id"
-                  class="bg-surface border border-light-c rounded-2xl px-4 py-3 shadow-sm"
-                  :class="{ 'opacity-40': o.status === '已取消' }"
+                  class="border border-light-c rounded-2xl px-4 py-3 shadow-sm transition-colors"
+                  :class="cardStatusClass(o.status)"
                 >
                   <!-- 頂行：姓名 + 狀態 + 操作 -->
                   <div class="flex items-center gap-2 mb-2">
                     <span class="font-bold text-base-c text-sm flex-1">{{ o.name }}</span>
-                    <span :class="statusClass(o.status)">{{ o.status }}</span>
+                    <span :class="[statusClass(o.status), o.status === '已取貨' ? 'text-sm px-3 py-1' : '']">
+                    <svg
+                      v-if="o.status === '已取貨'"
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    </svg>{{ o.status }}</span>
                     <button
                       :disabled="updatingId === o.id"
                       class="p-1.5 rounded-lg border border-blue-200 dark:border-blue-900 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 disabled:opacity-40 transition-colors"
@@ -1437,9 +1510,12 @@
                       v-for="o in group.orders"
                       :key="o.id"
                       class="hover-surface2/30 transition-colors"
-                      :class="{ 'opacity-40': o.status === '已取消' }"
+                      :class="rowStatusClass(o.status)"
                     >
-                      <td class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap">
+                      <td
+                        class="px-3 py-2.5 text-xs text-hint-c whitespace-nowrap"
+                        :class="rowBarClass(o.status)"
+                      >
                         {{ formatCreatedAt(o.createdAt) }}
                       </td>
                       <td class="px-3 py-2.5 font-semibold text-base-c whitespace-nowrap">
@@ -1491,7 +1567,16 @@
                         {{ o.remark || '—' }}
                       </td>
                       <td class="px-3 py-2.5">
-                        <span :class="statusClass(o.status)">{{ o.status }}</span>
+                        <span :class="statusClass(o.status)">
+                    <svg
+                      v-if="o.status === '已取貨'"
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    </svg>{{ o.status }}</span>
                       </td>
                       <td class="px-3 py-2.5">
                         <div class="flex gap-1 flex-wrap">

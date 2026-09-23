@@ -38,6 +38,7 @@ const navGroups = [
       { to: '/staff/order/bento-orders', icon: '🍱', label: '便當訂單', key: 'order.bento-orders' },
       { to: '/staff/order/soybean-orders', icon: '🥛', label: '豆漿訂單', key: 'order.soybean-orders' },
       { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
+      { to: '/staff/order/wholefood-bakery-orders', icon: '🥐', label: '全食烘培', key: 'order.handmade-bread-orders' },
       { to: '/staff/order/shopping-cart', icon: '🛒', label: '購物車', key: 'order.shopping-cart' },
       { to: '/staff/order/dc-erp', icon: '🌾️', label: '農莊ERP', key: 'order.dc-erp' },
       { to: '/staff/order/rooms-orders', icon: '🛏️', label: '訂房管理', key: 'order.rooms-orders' },
