@@ -8,21 +8,19 @@
 // import 那兩支檔案共用——避免自動化邏輯跟一般畫面查詢邏輯耦合在一起、
 // 改一邊誤動到另一邊。如果原網站列表 HTML 結構改了，這三個檔案要一起改。
 //
-// ⚠️ 重要限制（先看這段再串排程）：
-// COAERP 登入需要人工輸入圖形驗證碼（見 login.post.ts），dc_upstream_session
-// 這個 cookie 目前存活 2 小時。這支自動化沒有「自己登入」的能力，一定要
-// 有人已經在瀏覽器登入過 dc-erp、session 還沒過期，呼叫這裡的函式才會
-// 成功——目前還做不到真正無人值守的「週一早上 8 點自動觸發」，只能先做
-// 成「登入後手動按一次」。要接上真正排程，得先解決「自動登入」（例如
-// 驗證碼辨識，或想辦法延長/保活 session），這部分還沒做。
+// 登入方式：見 server/utils/dc-erp/autoLogin.ts（用驗證碼樣板比對分類器
+// 自動登入），run-customer.post.ts 沒有瀏覽器 session 時會自動 fallback
+// 過去，真正的排程觸發（Spring Boot @Scheduled → run-scheduled.post.ts）
+// 也是靠它。
+//
+// 持久化：客戶清單、驗證碼樣板庫、產生的 PDF 都改存在 Spring Boot（見
+// DcErpAutomationController.java）——Netlify 上的 Nitro serverless
+// function 本機檔案系統不可靠（每次呼叫可能是全新環境，不會在多次呼叫
+// 間保留，也不會在多個執行個體間共享），不能再寫本機檔案。
 //
 // 需要安裝 cheerio（其他 dc-erp API 已經在用，應該已經裝過了）。
 
 import { load } from 'cheerio'
-import { writeFile, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
-
-export const AUTOMATION_OUTPUT_DIR = join(process.cwd(), 'data', 'dc-erp-automation')
 
 export interface AutomationOrderRow {
   guid: string
@@ -33,6 +31,7 @@ export interface AutomationOrderRow {
   canTransfer: boolean
   remark: string
   total: string
+
 }
 
 export interface AutomationSlipRow {
@@ -173,7 +172,50 @@ async function fetchSlipPage(sessionCookie: string, firmCode: string, page: numb
 // 查「指定客戶、尚未簽核」的訂貨單（全部頁）。「未簽核」實際的
 // SearchBySignState value 不寫死猜——先打一次拿下拉選單真正的選項清單，
 // 找 label 含「未簽核」那個的 value 再用，跟 sales-orders.get.ts 同樣邏輯。
-export async function findUnsignedOrders(sessionCookie: string, firmCode: string): Promise<AutomationOrderRow[]> {
+// 查「指定客戶、尚未簽核」的訂貨單（全部頁）。「未簽核」實際的
+// SearchBySignState value 不寫死猜——先打一次拿下拉選單真正的選項清單，
+// 找 label 含「未簽核」那個的 value 再用，跟 sales-orders.get.ts 同樣邏輯。
+//
+// remarkKeyword（選填）：同一個客戶代號底下可能混著完全不同種類的訂單
+// （例如同一個「會館-廚房」客戶代號 100015，備註分別是「藥草」「豆腐」
+// 「麵包」「乾貨」「雞蛋*1箱」等），只靠客戶代號篩會把不相干的訂單也一起
+// 簽核轉銷。有給 remarkKeyword 時，只留備註「包含」這些關鍵字其中之一的
+// 訂單；可以用逗號（半形 , 或全形 ，）分隔填多個關鍵字，例如
+// "藥草,茶葉" 代表備註只要含「藥草」或「茶葉」任一個就算符合。留空就跟
+// 以前一樣不篩，整個客戶代號底下都處理。
+// 如果同一個客戶代號要分成好幾組各自獨立跑（各自分開簽核/轉銷/列印），
+// 不要把好幾組關鍵字塞在同一筆——「設定」頁可以對同一個客戶代號新增
+// 好幾筆，各自填不同的備註名稱＋關鍵字即可，彼此獨立執行。
+// 原網站日期格式是民國年「115/09/17」，轉成可比較的 {year, month, day}
+// （year 已經加回 1911，變西元年）。格式不對就回傳 null。
+function parseRocDate(s: string): { year: number; month: number; day: number } | null {
+  const m = s.trim().match(/^(\d+)\/(\d{1,2})\/(\d{1,2})$/)
+  if (!m) return null
+  return { year: Number(m[1]) + 1911, month: Number(m[2]), day: Number(m[3]) }
+}
+
+// 用「台灣時間現在幾點」算「今天」，不管這台伺服器（Netlify Functions）
+// 本身的系統時區是什麼，都用固定 UTC+8 位移換算，避免半夜時段因為伺服器
+// 用 UTC 時間，算出來的「今天」早或晚了一天。
+function todayInTaiwan(): { year: number; month: number; day: number } {
+  const taiwanNow = new Date(Date.now() + 8 * 60 * 60 * 1000)
+  return { year: taiwanNow.getUTCFullYear(), month: taiwanNow.getUTCMonth() + 1, day: taiwanNow.getUTCDate() }
+}
+
+function isTodayOrLater(rocDateStr: string): boolean {
+  const parsed = parseRocDate(rocDateStr)
+  if (!parsed) return false // 日期解析失敗就保守排除，不猜
+  const today = todayInTaiwan()
+  if (parsed.year !== today.year) return parsed.year > today.year
+  if (parsed.month !== today.month) return parsed.month > today.month
+  return parsed.day >= today.day
+}
+
+export async function findUnsignedOrders(
+  sessionCookie: string,
+  firmCode: string,
+  remarkKeyword = ''
+): Promise<AutomationOrderRow[]> {
   const probe = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
   const unsignedOption = probe.signStateOptions.find((o) => o.label.includes('未簽核'))
   if (!unsignedOption) {
@@ -186,7 +228,16 @@ export async function findUnsignedOrders(sessionCookie: string, firmCode: string
     const page = await fetchOrderPage(sessionCookie, firmCode, unsignedOption.value, p)
     all.push(...page.rows)
   }
-  return all.filter((r) => r.guid)
+  // 只處理交貨日期是「今天或之後」的單——過去日期的單就算還沒簽核，也
+  // 大機率是漏處理的舊單，應該人工確認，不要自動簽核轉銷。
+  const withGuid = all.filter((r) => r.guid && isTodayOrLater(r.deliveryDate))
+
+  const keywords = remarkKeyword
+    .split(/[,，]/)
+    .map((k) => k.trim())
+    .filter(Boolean)
+  if (!keywords.length) return withGuid
+  return withGuid.filter((r) => keywords.some((k) => r.remark.includes(k)))
 }
 
 export async function signOrders(sessionCookie: string, guids: string[]): Promise<void> {
@@ -199,6 +250,23 @@ export async function signOrders(sessionCookie: string, guids: string[]): Promis
   const isSuccessRedirect = res.status >= 300 && res.status < 400
   if (!isSuccessRedirect && !res.ok) {
     throw new Error('簽核失敗，原網站回應異常')
+  }
+}
+
+// 銷貨單自己的簽核，跟上面訂貨單的簽核是兩件事：訂貨單簽核是轉銷前的必要
+// 步驟，這個是轉銷＋實際列印之後才要做的——只有「確定有列印成功」才會呼叫
+// 這個函式（見 runCustomerPipeline），跟 sales-slip-sign.post.ts 同一套
+// 參數格式（POST /COAERP/SalesSlip/MultiSign，CurrentPage/
+// StoreCheckedItemJSON/DelChk）。
+export async function signSlip(sessionCookie: string, slipGuid: string): Promise<void> {
+  const res = await fetchDcUpstream(sessionCookie, '/COAERP/SalesSlip/MultiSign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ CurrentPage: '1', StoreCheckedItemJSON: slipGuid, DelChk: slipGuid }).toString()
+  })
+  const isSuccessRedirect = res.status >= 300 && res.status < 400
+  if (!isSuccessRedirect && !res.ok) {
+    throw new Error('銷貨單簽核失敗，原網站回應異常')
   }
 }
 
@@ -299,14 +367,20 @@ export async function findMatchingPrintFormat(sessionCookie: string): Promise<Pr
   return found
 }
 
-// 下載 PDF 存到 data/dc-erp-automation/ 底下（不在 public/，避免被靜態網址
-// 直接讀到），回傳檔名給 download.get.ts 讀回。
+// 下載 PDF，上傳到 Spring Boot（DcErpAutomationController）存放——Netlify
+// 上的 Nitro serverless function 本機檔案系統不可靠，不能寫本機再靠本機
+// 讀回，見檔頭說明。回傳的 url 是可以直接下載/預覽的完整網址。
+// shouldPrint=true 時，Spring Boot 存檔成功後會緊接著送去「新中一刀」
+// 印表機列印（見 DcErpAutomationController 的 dispatchAutomationPrint()），
+// 印表機離線/卡紙等問題不會讓這支拋錯——PDF 存檔成功比較重要，列印的
+// 成敗另外用 printOk/printError 回傳。
 export async function downloadSlipPdf(
   sessionCookie: string,
   slipGuid: string,
   fmt: PrintStyleFormat,
-  fileLabel: string
-): Promise<{ filePath: string; fileName: string }> {
+  fileLabel: string,
+  shouldPrint: boolean
+): Promise<{ fileName: string; url: string; printOk: boolean; printError: string }> {
   const body = new URLSearchParams({
     guid: slipGuid,
     reportid: fmt.reportId,
@@ -326,11 +400,187 @@ export async function downloadSlipPdf(
   }
 
   const buffer = Buffer.from(await res.arrayBuffer())
-  await mkdir(AUTOMATION_OUTPUT_DIR, { recursive: true })
   // 檔名避免特殊符號：只留單號/時間戳
   const safeLabel = fileLabel.replace(/[^\w-]/g, '_')
   const fileName = `${safeLabel}_${Date.now()}.pdf`
-  const filePath = join(AUTOMATION_OUTPUT_DIR, fileName)
-  await writeFile(filePath, buffer)
-  return { filePath, fileName }
+
+  const apiBase = useRuntimeConfig().public.apiBase
+  const uploadRes = await fetch(
+    `${apiBase}/holy/dc-erp/automation/pdf/${encodeURIComponent(fileName)}?print=${shouldPrint}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: buffer
+    }
+  )
+  if (!uploadRes.ok) {
+    throw new Error('PDF 上傳到後端失敗')
+  }
+  const uploaded = await uploadRes.json()
+  return {
+    fileName,
+    url: `${apiBase}${uploaded.url}`,
+    printOk: shouldPrint ? !!uploaded.printOk : false,
+    printError: shouldPrint ? (uploaded.printError || '') : ''
+  }
+}
+
+// 「查未簽核 → 簽核 → 轉銷 → 找對應單 → 下載 PDF」整套流程，抽成一個函式
+// 讓 run-customer.post.ts（瀏覽器手動觸發）跟排程/外部 cron 觸發的入口
+// （server/tasks/dc-erp-weekly-automation.ts、
+// server/api/dc-erp/automation/run-scheduled.post.ts）共用同一份邏輯，
+// 不要各寫一份、之後改一邊忘了改另一邊。
+export interface CustomerRunResult {
+  dryRun: boolean
+  matchedCount: number
+  orders?: Array<{ code: string; deliveryDate: string; firmName: string; total: string; remark: string }>
+  results?: Array<{
+    code: string
+    firmName: string
+    deliveryDate: string
+    total: string
+    signOk: boolean
+    transferOk: boolean
+    matchedSlipCode: string
+    pdfOk: boolean
+    fileName: string
+    url: string
+    printOk: boolean
+    slipSignOk: boolean
+    transferError: string
+    pdfError: string
+    printError: string
+    slipSignError: string
+  }>
+}
+
+export async function runCustomerPipeline(
+  sessionCookie: string,
+  firmCode: string,
+  dryRun: boolean,
+  remarkKeyword = '',
+  printEnabled = false
+): Promise<CustomerRunResult> {
+  const targetOrders = await findUnsignedOrders(sessionCookie, firmCode, remarkKeyword)
+
+  if (dryRun) {
+    return {
+      dryRun: true,
+      matchedCount: targetOrders.length,
+      orders: targetOrders.map((o) => ({
+        code: o.code,
+        deliveryDate: o.deliveryDate,
+        firmName: o.firmName,
+        total: o.total,
+        remark: o.remark
+      }))
+    }
+  }
+
+  if (!targetOrders.length) {
+    return { dryRun: false, matchedCount: 0, results: [] }
+  }
+
+  const results = targetOrders.map((o) => ({
+    code: o.code,
+    firmName: o.firmName,
+    deliveryDate: o.deliveryDate,
+    total: o.total,
+    signOk: false,
+    transferOk: false,
+    matchedSlipCode: '',
+    pdfOk: false,
+    fileName: '',
+    url: '',
+    printOk: false,
+    slipSignOk: false,
+    transferError: '',
+    pdfError: '',
+    printError: '',
+    slipSignError: ''
+  }))
+
+  try {
+    await signOrders(sessionCookie, targetOrders.map((o) => o.guid))
+    results.forEach((r) => { r.signOk = true })
+  } catch (err: any) {
+    results.forEach((r) => { r.transferError = '簽核失敗，未進行轉銷：' + (err?.message || '') })
+    return { dryRun: false, matchedCount: targetOrders.length, results }
+  }
+
+  const transferableGuids = await refetchTransferableGuids(
+    sessionCookie,
+    firmCode,
+    targetOrders.map((o) => o.guid)
+  )
+
+  let printFmt: PrintStyleFormat | null = null
+
+  for (let i = 0; i < targetOrders.length; i++) {
+    const order = targetOrders[i]
+    const result = results[i]
+
+    if (!transferableGuids.has(order.guid)) {
+      result.transferError = '簽核後目前不符合轉銷條件（原網站規則不完全確定，不是單純已核准就會顯示），已略過'
+      continue
+    }
+
+    try {
+      await transferOrder(sessionCookie, order.guid)
+      result.transferOk = true
+    } catch (err: any) {
+      result.transferError = err?.message || '轉入銷貨單失敗'
+      continue
+    }
+
+    const slip = await findMatchingSlip(sessionCookie, firmCode, order)
+    if (!slip) {
+      result.transferError = '已轉銷，但在銷貨單列表找不到「唯一」符合的對應單，請自行到銷貨單核對並手動列印'
+      continue
+    }
+    result.matchedSlipCode = slip.code
+
+    try {
+      if (!printFmt) printFmt = await findMatchingPrintFormat(sessionCookie)
+      const saved = await downloadSlipPdf(sessionCookie, slip.guid, printFmt, `${order.code}_${slip.code}`, printEnabled)
+      result.pdfOk = true
+      result.fileName = saved.fileName
+      result.url = saved.url
+      result.printOk = saved.printOk
+      result.printError = saved.printError
+
+      // 只有「確定有列印成功」才簽核銷貨單——沒開列印、或列印失敗（印表機
+      // 離線/卡紙等），都不簽，避免單子被標記成已處理但其實沒真的印出來。
+      if (result.printOk) {
+        try {
+          await signSlip(sessionCookie, slip.guid)
+          result.slipSignOk = true
+        } catch (err: any) {
+          result.slipSignError = err?.message || '銷貨單簽核失敗'
+        }
+      }
+    } catch (err: any) {
+      result.pdfError = err?.message || 'PDF 下載失敗'
+    }
+  }
+
+  return { dryRun: false, matchedCount: targetOrders.length, results }
+}
+
+// 把一次執行結果算成幾個數字，給 automationLog.ts 存執行紀錄用——只留
+// 「發生了幾件」這種摘要，不把整份 results（含每張單的 PDF 網址等）都存
+// 進紀錄裡，紀錄太肥、之後查起來也不方便。
+export function summarizeRunResult(result: CustomerRunResult) {
+  const results = result.results || []
+  return {
+    matchedCount: result.matchedCount,
+    signCount: results.filter((r) => r.signOk).length,
+    transferCount: results.filter((r) => r.transferOk).length,
+    pdfCount: results.filter((r) => r.pdfOk).length,
+    printCount: results.filter((r) => r.printOk).length,
+    slipSignCount: results.filter((r) => r.slipSignOk).length,
+    errorCount: results.filter(
+      (r) => r.transferError || r.pdfError || r.printError || r.slipSignError
+    ).length
+  }
 }

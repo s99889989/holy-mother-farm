@@ -1,33 +1,43 @@
 // server/utils/dc-erp/automationConfig.ts
 //
-// 自動化功能的客戶清單設定，存成一份 JSON 檔案——跟 settings.vue 其他區塊
-// 用 localStorage 存的「列表顯示設定」不同，這份要給「伺服器排程/手動
-// 觸發」用，不能只存在使用者瀏覽器裡，所以存 server 端檔案。
-// 檔案位置刻意放在 data/ 底下、不進 public/，避免被靜態網址直接讀到。
-
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { join, dirname } from 'node:path'
+// 自動化功能的客戶清單設定——改存在 Spring Boot 那台一直開著、有持久
+// 儲存的主機（DcErpAutomationController.java，/holy/dc-erp/automation/
+// customers），不再寫本機檔案：Netlify 上的 Nitro serverless function
+// 每次呼叫可能是全新環境，本機檔案系統不會在多次呼叫間保留，也不會在
+// 多個執行個體間共享，跟「設置所屬類別」那份 product_images.yml 是同一
+// 個道理，所以比照它的做法，直打 Spring Boot。
 
 export interface AutomationCustomer {
   id: string
   firmCode: string
   label: string
   enabled: boolean
+  remarkKeyword: string
+  printEnabled: boolean
 }
 
-const CONFIG_PATH = join(process.cwd(), 'data', 'dc-erp-automation', 'customers.json')
+function apiBase(): string {
+  return useRuntimeConfig().public.apiBase
+}
 
 export async function loadAutomationCustomers(): Promise<AutomationCustomer[]> {
   try {
-    const raw = await readFile(CONFIG_PATH, 'utf-8')
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    const res = await fetch(`${apiBase()}/holy/dc-erp/automation/customers`)
+    if (!res.ok) return []
+    return await res.json()
   } catch {
-    return [] // 檔案還不存在時就是空清單，不算錯誤
+    return [] // 後端連不到就先當空清單，不擋頁面其他功能
   }
 }
 
-export async function saveAutomationCustomers(list: AutomationCustomer[]): Promise<void> {
-  await mkdir(dirname(CONFIG_PATH), { recursive: true })
-  await writeFile(CONFIG_PATH, JSON.stringify(list, null, 2), 'utf-8')
+// 整份覆蓋（客戶清單通常只有幾筆，不用做細部 diff，跟 Spring 端
+// saveCustomers() 的行為一致）。
+export async function saveAutomationCustomers(list: AutomationCustomer[]): Promise<AutomationCustomer[]> {
+  const res = await fetch(`${apiBase()}/holy/dc-erp/automation/customers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+    body: JSON.stringify(list)
+  })
+  if (!res.ok) throw new Error('客戶清單儲存失敗，請稍後再試')
+  return await res.json()
 }

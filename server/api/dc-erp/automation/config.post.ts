@@ -15,7 +15,9 @@ export default defineEventHandler(async (event) => {
       id: c?.id ? String(c.id) : randomUUID(),
       firmCode: String(c?.firmCode || '').trim(),
       label: String(c?.label || '').trim(),
-      enabled: !!c?.enabled
+      enabled: !!c?.enabled,
+      remarkKeyword: String(c?.remarkKeyword || '').trim(),
+      printEnabled: !!c?.printEnabled
     }))
     .filter((c: any) => c.firmCode)
 

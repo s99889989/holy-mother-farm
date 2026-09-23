@@ -2,110 +2,95 @@
 //
 // 自動化執行入口：settings.vue「預覽」／「立即執行」按鈕打這支。
 //
-// body: { firmCode: string, dryRun?: boolean }
-//   dryRun=true  只查「目前有哪些未簽核的訂貨單」，不簽核也不轉銷——先
-//                確認篩到的單是不是你要的，再放心按「立即執行」。
+// body: { firmCode: string, dryRun?: boolean, remarkKeyword?: string, printEnabled?: boolean, label?: string }
+//   dryRun=true  只查「目前有哪些未簽核的訂貨單」，不簽核也不轉銷。
+//   remarkKeyword 選填：同一個客戶代號底下可能混著不同種類的訂單（例如
+//                同一個客戶代號下有藥草/豆腐/麵包/雞蛋等備註不同的單），
+//                有給的話只處理備註「包含」這個關鍵字的訂單（逗號分隔可
+//                填多個，符合任一個即算），沒給就跟以前一樣整個客戶代號
+//                底下都處理。
+//   printEnabled=true 時，PDF 存檔成功後會緊接著送去「新中一刀」印表機
+//                實際列印（見 automation.ts 的 downloadSlipPdf()）；預設
+//                false，只下載 PDF 不印，方便測試不浪費紙。
+//   label 選填，純粹給執行紀錄用（見 automationLog.ts），不影響執行邏輯。
 //   dryRun=false 實際跑：簽核 → 重查可轉銷狀態 → 逐筆轉銷 → 在銷貨單找
-//                對應單 → 下載「中一刀-半長」PDF。任一筆訂單中途失敗不會
-//                中斷其他筆，每一步的成敗都記在回傳的 results 裡。
+//                對應單 → 下載「中一刀-半長」PDF。核心邏輯在
+//                automation.ts 的 runCustomerPipeline，跟排程觸發
+//                （run-scheduled.post.ts）共用同一份。
 //
-// 目前只能手動觸發：見 automation.ts 開頭「重要限制」說明（COAERP 登入要
-// 人工輸入圖形驗證碼，這裡沒有自動登入能力，還做不到真排程）。
+// 登入方式：優先用瀏覽器目前的 dc_upstream_session；如果沒有（沒登入過
+// 或過期了），會呼叫 automationCredentials.ts 的 resolveAutomationCredentials()
+// 找帳密（環境變數優先，沒設定才用「設定」頁存在 Spring Boot 的那組），
+// 找到的話自動用 autoLogin.ts 的驗證碼分類器登入一次，順便把拿到的
+// session 設成這次回應的 cookie（之後在瀏覽器操作也能沿用）。兩邊都沒
+// 設定帳密的話，維持「尚未登入」的錯誤。
+//
+// 每次執行（不管預覽還是真的跑）都會記一筆執行紀錄到 Spring Boot（見
+// automationLog.ts），「設定」頁的「執行紀錄」區塊會顯示。
 
 export default defineEventHandler(async (event) => {
-  const sessionCookie = requireDcUpstreamSession(event)
+  let sessionCookie = getCookie(event, 'dc_upstream_session')
+
+  if (!sessionCookie) {
+    const creds = await resolveAutomationCredentials()
+    if (!creds) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: '尚未登入，且未設定自動登入帳密（環境變數 DC_ERP_AUTO_ACCOUNT/PASSWORD 或「設定」頁的自動登入帳密）'
+      })
+    }
+    try {
+      const login = await attemptAutoLogin(creds.account, creds.password)
+      sessionCookie = login.sessionCookie
+      setCookie(event, 'dc_upstream_session', sessionCookie, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 2,
+        path: '/'
+      })
+    } catch (err: any) {
+      throw createError({ statusCode: 502, statusMessage: '自動登入失敗：' + (err?.message || '') })
+    }
+  }
+
   const body = await readBody(event)
   const firmCode = body?.firmCode ? String(body.firmCode).trim() : ''
   const dryRun = !!body?.dryRun
+  const remarkKeyword = body?.remarkKeyword ? String(body.remarkKeyword).trim() : ''
+  const printEnabled = !!body?.printEnabled
+  const label = body?.label ? String(body.label).trim() : firmCode
 
   if (!firmCode) {
     throw createError({ statusCode: 400, statusMessage: '缺少客戶代號' })
   }
 
-  const targetOrders = await findUnsignedOrders(sessionCookie, firmCode)
-
-  if (dryRun) {
-    return {
-      dryRun: true,
-      matchedCount: targetOrders.length,
-      orders: targetOrders.map((o) => ({
-        code: o.code,
-        deliveryDate: o.deliveryDate,
-        firmName: o.firmName,
-        total: o.total
-      }))
-    }
-  }
-
-  if (!targetOrders.length) {
-    return { dryRun: false, matchedCount: 0, results: [] }
-  }
-
-  const results = targetOrders.map((o) => ({
-    code: o.code,
-    firmName: o.firmName,
-    deliveryDate: o.deliveryDate,
-    total: o.total,
-    signOk: false,
-    transferOk: false,
-    matchedSlipCode: '',
-    printOk: false,
-    fileName: '',
-    transferError: '',
-    printError: ''
-  }))
-
-  // 一次批次簽核所有未簽核的單（跟 sales-orders.vue 的「簽核並轉銷」同一套
-  // 呼叫方式）。簽核本身失敗就整批中止，不逐筆嘗試轉銷。
   try {
-    await signOrders(sessionCookie, targetOrders.map((o) => o.guid))
-    results.forEach((r) => { r.signOk = true })
+    const result = await runCustomerPipeline(sessionCookie, firmCode, dryRun, remarkKeyword, printEnabled)
+    await logAutomationRun({
+      source: 'manual',
+      firmCode,
+      label,
+      dryRun,
+      error: '',
+      ...summarizeRunResult(result)
+    })
+    return result
   } catch (err: any) {
-    results.forEach((r) => { r.transferError = '簽核失敗，未進行轉銷：' + (err?.message || '') })
-    return { dryRun: false, matchedCount: targetOrders.length, results }
+    await logAutomationRun({
+      source: 'manual',
+      firmCode,
+      label,
+      dryRun,
+      matchedCount: 0,
+      signCount: 0,
+      transferCount: 0,
+      pdfCount: 0,
+      printCount: 0,
+      slipSignCount: 0,
+      errorCount: 0,
+      error: err?.message || '執行失敗'
+    })
+    throw err
   }
-
-  const transferableGuids = await refetchTransferableGuids(
-    sessionCookie,
-    firmCode,
-    targetOrders.map((o) => o.guid)
-  )
-
-  let printFmt: PrintStyleFormat | null = null
-
-  for (let i = 0; i < targetOrders.length; i++) {
-    const order = targetOrders[i]
-    const result = results[i]
-
-    if (!transferableGuids.has(order.guid)) {
-      result.transferError = '簽核後目前不符合轉銷條件（原網站規則不完全確定，不是單純已核准就會顯示），已略過'
-      continue
-    }
-
-    try {
-      await transferOrder(sessionCookie, order.guid)
-      result.transferOk = true
-    } catch (err: any) {
-      result.transferError = err?.message || '轉入銷貨單失敗'
-      continue
-    }
-
-    const slip = await findMatchingSlip(sessionCookie, firmCode, order)
-    if (!slip) {
-      result.transferError = '已轉銷，但在銷貨單列表找不到「唯一」符合的對應單，請自行到銷貨單核對並手動列印'
-      continue
-    }
-    result.matchedSlipCode = slip.code
-
-    try {
-      if (!printFmt) printFmt = await findMatchingPrintFormat(sessionCookie)
-      const saved = await downloadSlipPdf(sessionCookie, slip.guid, printFmt, `${order.code}_${slip.code}`)
-      result.printOk = true
-      result.fileName = saved.fileName
-    } catch (err: any) {
-      result.printError = err?.message || 'PDF 下載失敗'
-    }
-  }
-
-  return { dryRun: false, matchedCount: targetOrders.length, results }
 })
