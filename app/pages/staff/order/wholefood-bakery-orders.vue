@@ -177,19 +177,28 @@
   }
 
   function addItemRow() {
-    const lastCat = itemsDraft.value[itemsDraft.value.length - 1]?.category || ''
-    itemsDraft.value.push({ code: '', name: '', price: 0, unit: '個', active: true, image: '', category: lastCat })
+    // 有篩選分類時，新品項直接歸到該分類；「全部」時沿用最後一筆的分類
+    const cat = itemFilterCat.value === ALL_CATS
+      ? (itemsDraft.value[itemsDraft.value.length - 1]?.category || '')
+      : itemFilterCat.value
+    itemsDraft.value.push({ code: '', name: '', price: 0, unit: '個', active: true, image: '', category: cat })
   }
+
 
   function removeItemRow(idx) {
     itemsDraft.value.splice(idx, 1)
   }
 
-  function moveItemRow(idx, delta) {
-    const to = idx + delta
-    if (to < 0 || to >= itemsDraft.value.length) return
+  // pos 是在「目前看得到的列」中的位置：篩選分類時，上移／下移是跟同分類的前後一筆交換，
+  // 不會跟中間被隱藏的其他分類品項交換
+  function moveItemRow(pos, delta) {
+    const rows = visibleItemRows.value
+    const target = pos + delta
+    if (target < 0 || target >= rows.length) return
+    const a = rows[pos].idx
+    const b = rows[target].idx
     const list = itemsDraft.value
-    ;[list[idx], list[to]] = [list[to], list[idx]]
+    ;[list[a], list[b]] = [list[b], list[a]]
   }
 
   // ── 分類設定 ────────────────────────────────────────────────────
@@ -274,6 +283,7 @@
       const renames = {}
       for (const c of payload) if (c.originalName && c.originalName !== c.name) renames[c.originalName] = c.name
       for (const it of itemsDraft.value) if (renames[it.category]) it.category = renames[it.category]
+      if (renames[itemFilterCat.value]) itemFilterCat.value = renames[itemFilterCat.value]
       if (Array.isArray(data.items)) items.value = data.items
       setCategories(data.categories)
       categoriesSaved.value = true
@@ -301,6 +311,51 @@
   }
 
   const itemGroups = computed(() => groupByCategory(items.value))
+
+  // ── 品項設定：類別篩選 ────────────────────────────────────────────
+  // 注意：必須放在 categories 宣告之後——watch 會立刻執行一次 itemFilterOptions 來收集相依，
+  // 若 categories 還在 TDZ（尚未初始化）會噴 "Cannot access 'categories' before initialization"
+  // ALL_CATS＝全部；''＝未分類（沒有分類或分類已不存在）；其他值＝分類名稱
+  const ALL_CATS = '__all__'
+  const itemFilterCat = ref(ALL_CATS)
+
+  function isUncategorized(item) {
+    return !item.category || !categories.value.some(c => c.name === item.category)
+  }
+
+  function matchesItemFilter(item) {
+    if (itemFilterCat.value === ALL_CATS) return true
+    if (itemFilterCat.value === '') return isUncategorized(item)
+    return item.category === itemFilterCat.value
+  }
+
+  // 篩選按鈕：全部＋各分類（依分類設定順序）＋未分類（有才顯示），數量以草稿為準
+  const itemFilterOptions = computed(() => {
+    const opts = [{ value: ALL_CATS, label: '全部', count: itemsDraft.value.length }]
+    for (const c of categories.value) {
+      opts.push({
+        value: c.name,
+        label: `${c.emoji ? c.emoji + ' ' : ''}${c.name}`,
+        count: itemsDraft.value.filter(i => i.category === c.name).length,
+        inactive: !c.active
+      })
+    }
+    const uncategorized = itemsDraft.value.filter(isUncategorized).length
+    if (uncategorized) opts.push({ value: '', label: '未分類', count: uncategorized })
+    return opts
+  })
+
+  // 目前看得到的品項列；idx 是在 itemsDraft 中的真實位置（刪除、圖片上傳都用它）
+  const visibleItemRows = computed(() =>
+    itemsDraft.value
+      .map((item, idx) => ({ item, idx }))
+      .filter(r => matchesItemFilter(r.item))
+  )
+
+  // 篩選的分類被刪除或「未分類」已清空時，自動回到「全部」
+  watch(itemFilterOptions, (opts) => {
+    if (!opts.some(o => o.value === itemFilterCat.value)) itemFilterCat.value = ALL_CATS
+  })
 
   // ── 品項圖片 ────────────────────────────────────────────────────
   const uploadingImageCode = ref('')
@@ -905,8 +960,33 @@
             v-if="itemsPanelOpen"
             class="px-4 pb-4 space-y-2"
           >
+            <!-- 類別篩選 -->
+            <div class="flex flex-wrap gap-1.5 pb-1">
+              <button
+                v-for="opt in itemFilterOptions"
+                :key="opt.value"
+                class="px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
+                :class="itemFilterCat === opt.value
+                  ? 'bg-amber-700 text-white border-amber-700'
+                  : 'bg-surface2 text-hint-c border-light-c'"
+                @click="itemFilterCat = opt.value"
+              >
+                {{ opt.label }}
+                <span class="opacity-70">{{ opt.count }}</span>
+                <span
+                  v-if="opt.inactive"
+                  class="opacity-70"
+                >（停用）</span>
+              </button>
+            </div>
+            <p
+              v-if="visibleItemRows.length === 0"
+              class="text-xs text-hint-c text-center py-3"
+            >
+              這個分類目前沒有品項
+            </p>
             <div
-              v-for="(item, idx) in itemsDraft"
+              v-for="({ item, idx }, pos) in visibleItemRows"
               :key="idx"
               class="bg-surface2 rounded-lg px-3 py-2 space-y-2"
             >
@@ -956,17 +1036,17 @@
                 <div class="flex items-center gap-1 ml-auto">
                   <button
                     class="w-6 h-6 text-xs border border-light-c rounded bg-surface text-hint-c disabled:opacity-30"
-                    :disabled="idx === 0"
+                    :disabled="pos === 0"
                     title="上移"
-                    @click="moveItemRow(idx, -1)"
+                    @click="moveItemRow(pos, -1)"
                   >
                     ▲
                   </button>
                   <button
                     class="w-6 h-6 text-xs border border-light-c rounded bg-surface text-hint-c disabled:opacity-30"
-                    :disabled="idx === itemsDraft.length - 1"
+                    :disabled="pos === visibleItemRows.length - 1"
                     title="下移"
-                    @click="moveItemRow(idx, 1)"
+                    @click="moveItemRow(pos, 1)"
                   >
                     ▼
                   </button>
@@ -1014,7 +1094,7 @@
               </div>
             </div>
             <p class="text-[11px] text-hint-c leading-relaxed">
-              前台依「分類設定」的順序分區顯示，同分類內依此清單順序排列。
+              前台依「分類設定」的順序分區顯示，同分類內依此清單順序排列。篩選時改了某筆的分類，它會從目前的篩選結果移走；儲存時會一次存全部品項（不只目前篩選的）。
             </p>
             <div class="flex items-center gap-2 pt-1">
               <button
