@@ -19,17 +19,8 @@
 //                （run-scheduled.post.ts）共用同一份。
 //
 // 登入方式：跟 run-scheduled.post.ts 一樣，每次都無條件重新自動登入，
-// 不沿用瀏覽器的 dc_upstream_session cookie。
-//
-// 這是修過一輪的結果，記錄一下走過的彎路：一開始的寫法是「先看瀏覽器有
-// 沒有 cookie，有就直接拿來用」，這會在 cookie 過期（COAERP session 存
-// 活 2 小時）時整段跑到最後才噴出「登入已過期」；改成「先試舊 cookie，
-// 過期了再重新登入重跑一次」之後，等於最壞情況要「跑一次失敗＋完整重新
-// 登入（含驗證碼最多 3 次）＋再跑一次」，反而把整條流程拖到超過 Netlify
-// 的執行時間上限，變成另一種逾時失敗。排程那條路（run-scheduled.post.ts）
-// 因為本來就是每次無條件重新登入、不會有「先試註定失敗的舊 cookie」這段
-// 浪費時間的步驟，反而一直穩定——所以這裡直接比照排程的做法，兩條路徑
-// 徹底一致，不再有「立即執行」獨有的過期/重試問題。
+// 不沿用瀏覽器的 dc_upstream_session cookie（詳見前面幾輪修正的說明，
+// 這裡不重複貼）。
 //
 // 找帳密的順序（automationCredentials.ts 的 resolveAutomationCredentials()）：
 // 環境變數優先，沒設定才用「設定」頁存在 Spring Boot 的那組；兩邊都沒設
@@ -37,8 +28,19 @@
 //
 // 每次執行（不管預覽還是真的跑）都會記一筆執行紀錄到 Spring Boot（見
 // automationLog.ts），「設定」頁的「執行紀錄」區塊會顯示。
+//
+// ⚠️ 最外層包了一層防護網（見最下面的 outer try/catch）：Netlify 的
+// 執行環境（AWS Lambda）如果在我們自己的 try/catch 都還沒機會處理之前
+// 就整個函式崩潰（例如記憶體不足、模組載入階段就出錯、非同步排程之外
+// 的未預期例外），前端看到的會是完全沒有資訊量的
+// {"errorType":"Error","errorMessage":"An unknown error has occurred"}，
+// 這種情況下我們自己寫的 statusMessage 根本沒機會被送出去。外層防護網
+// 至少能把「有沒有執行到這支函式」跟「崩潰前執行到哪裡」的線索留在
+// console.error（Netlify 後台「Functions」分頁點進單次呼叫可以看到這些
+// log，比前端 Response 內容更完整，如果之後又看到那種空白錯誤，麻煩去
+// 那邊翻 log 貼給我）。
 
-export default defineEventHandler(async (event) => {
+async function handleRunCustomer(event: any) {
   const body = await readBody(event)
   const firmCode = body?.firmCode ? String(body.firmCode).trim() : ''
   const dryRun = !!body?.dryRun
@@ -117,5 +119,22 @@ export default defineEventHandler(async (event) => {
       error: err?.message || err?.statusMessage || '執行失敗'
     })
     throw err
+  }
+}
+
+export default defineEventHandler(async (event) => {
+  try {
+    return await handleRunCustomer(event)
+  } catch (err: any) {
+    // 已經是我們自己拋出的、格式正確的錯誤（createError 產生的），直接
+    // 原樣往外丟，不要在這裡包一層蓋掉原本的 statusMessage。
+    if (err?.statusCode) throw err
+
+    // 走到這裡代表是「沒被預期到」的例外——記完整技術細節到 console.error
+    // （Netlify 後台看得到），前端至少也給一個看得懂錯誤類型的訊息，不要
+    // 讓 Lambda 自己那個沒有資訊量的保底訊息蓋過去。
+    console.error('[dc-erp automation] run-customer 未預期例外：', err)
+    const detail = err?.name && err?.message ? `${err.name}: ${err.message}` : String(err)
+    throw createError({ statusCode: 500, statusMessage: '執行時發生未預期錯誤：' + detail })
   }
 })

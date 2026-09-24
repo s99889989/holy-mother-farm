@@ -211,21 +211,28 @@ function isTodayOrLater(rocDateStr: string): boolean {
   return parsed.day >= today.day
 }
 
-export async function findUnsignedOrders(
+// 查「指定客戶」目前需要處理的訂貨單，分兩類：
+//   needsSign     ：還沒簽核的
+//   alreadySigned ：已經簽核、但還沒轉銷的——通常是上一次執行「簽核」
+//                   成功了，但後面「轉銷/列印」那段失敗或中斷（例如逾時）
+//                   留下的孤兒單。這種單一旦簽核完就不再是「未簽核」，
+//                   如果只查未簽核，永遠不會再被抓到、變成沒人處理，所以
+//                   額外撈出來，讓它們這次執行能接著完成轉銷/列印，不用
+//                   你自己去 COAERP 手動點轉銷。
+// 兩類都已經套用日期篩選（今天或之後）跟備註關鍵字篩選。
+//
+// signStateValue 傳 '-1'（全部狀態）一次查完，用每一列自己的 signState
+// 文字判斷該分到哪一類，不用再另外查「未簽核」選項對應的 value（原本
+// findUnsignedOrders 多一次網路請求去 probe 這個，這裡順便省掉）。
+export async function findActionableOrders(
   sessionCookie: string,
   firmCode: string,
   remarkKeyword = ''
-): Promise<AutomationOrderRow[]> {
-  const probe = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
-  const unsignedOption = probe.signStateOptions.find((o) => o.label.includes('未簽核'))
-  if (!unsignedOption) {
-    throw new Error('原網站「簽核狀態」下拉選單找不到「未簽核」選項，可能改版了，請通知開發者核對')
-  }
-
-  const first = await fetchOrderPage(sessionCookie, firmCode, unsignedOption.value, 1)
+): Promise<{ needsSign: AutomationOrderRow[]; alreadySigned: AutomationOrderRow[] }> {
+  const first = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
   const all = [...first.rows]
   for (let p = 2; p <= first.totalPages; p++) {
-    const page = await fetchOrderPage(sessionCookie, firmCode, unsignedOption.value, p)
+    const page = await fetchOrderPage(sessionCookie, firmCode, '-1', p)
     all.push(...page.rows)
   }
   // 只處理交貨日期是「今天或之後」的單——過去日期的單就算還沒簽核，也
@@ -236,8 +243,12 @@ export async function findUnsignedOrders(
     .split(/[,，]/)
     .map((k) => k.trim())
     .filter(Boolean)
-  if (!keywords.length) return withGuid
-  return withGuid.filter((r) => keywords.some((k) => r.remark.includes(k)))
+  const filtered = keywords.length ? withGuid.filter((r) => keywords.some((k) => r.remark.includes(k))) : withGuid
+
+  const needsSign = filtered.filter((r) => r.signState.includes('未簽核'))
+  const alreadySigned = filtered.filter((r) => !r.signState.includes('未簽核') && r.canTransfer)
+
+  return { needsSign, alreadySigned }
 }
 
 export async function signOrders(sessionCookie: string, guids: string[]): Promise<void> {
@@ -466,7 +477,8 @@ export async function runCustomerPipeline(
   remarkKeyword = '',
   printEnabled = false
 ): Promise<CustomerRunResult> {
-  const targetOrders = await findUnsignedOrders(sessionCookie, firmCode, remarkKeyword)
+  const { needsSign, alreadySigned } = await findActionableOrders(sessionCookie, firmCode, remarkKeyword)
+  const targetOrders = [...needsSign, ...alreadySigned]
 
   if (dryRun) {
     return {
@@ -486,12 +498,17 @@ export async function runCustomerPipeline(
     return { dryRun: false, matchedCount: 0, results: [] }
   }
 
+  const alreadySignedGuids = new Set(alreadySigned.map((o) => o.guid))
+  const needsSignGuids = new Set(needsSign.map((o) => o.guid))
+
   const results = targetOrders.map((o) => ({
     code: o.code,
     firmName: o.firmName,
     deliveryDate: o.deliveryDate,
     total: o.total,
-    signOk: false,
+    // 孤兒單（上次執行時就已經簽核過了）本來就是已核准狀態，不是這次簽的，
+    // 但畫面上一樣算「簽核 ok」，反映目前實際狀態。
+    signOk: alreadySignedGuids.has(o.guid),
     transferOk: false,
     matchedSlipCode: '',
     pdfOk: false,
@@ -505,12 +522,21 @@ export async function runCustomerPipeline(
     slipSignError: ''
   }))
 
-  try {
-    await signOrders(sessionCookie, targetOrders.map((o) => o.guid))
-    results.forEach((r) => { r.signOk = true })
-  } catch (err: any) {
-    results.forEach((r) => { r.transferError = '簽核失敗，未進行轉銷：' + (err?.message || '') })
-    return { dryRun: false, matchedCount: targetOrders.length, results }
+  if (needsSign.length) {
+    try {
+      await signOrders(sessionCookie, needsSign.map((o) => o.guid))
+      results.forEach((r, i) => {
+        if (needsSignGuids.has(targetOrders[i].guid)) r.signOk = true
+      })
+    } catch (err: any) {
+      // 只有「這次需要簽核」的那些受影響；已經簽核過的孤兒單不需要簽核，
+      // 不受這次簽核失敗影響，繼續往下處理轉銷。
+      results.forEach((r, i) => {
+        if (needsSignGuids.has(targetOrders[i].guid)) {
+          r.transferError = '簽核失敗，未進行轉銷：' + (err?.message || '')
+        }
+      })
+    }
   }
 
   const transferableGuids = await refetchTransferableGuids(
@@ -524,6 +550,8 @@ export async function runCustomerPipeline(
   for (let i = 0; i < targetOrders.length; i++) {
     const order = targetOrders[i]
     const result = results[i]
+
+    if (!result.signOk) continue // 這張這次簽核失敗，不繼續轉銷
 
     if (!transferableGuids.has(order.guid)) {
       result.transferError = '簽核後目前不符合轉銷條件（原網站規則不完全確定，不是單純已核准就會顯示），已略過'
