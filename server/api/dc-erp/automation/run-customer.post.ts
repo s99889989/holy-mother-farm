@@ -18,14 +18,18 @@
 //                automation.ts 的 runCustomerPipeline，跟排程觸發
 //                （run-scheduled.post.ts）共用同一份。
 //
-// 登入方式：先看瀏覽器有沒有 dc_upstream_session cookie，有就先拿來試——
-// 但「有 cookie」不代表「這個 session 還有效」（COAERP session 存活 2
-// 小時，過期後 cookie 還在，只是失效了）。以前的寫法只檢查「有沒有
-// cookie」，帶著過期的 cookie 照樣往下跑，跑到一半才在 automation.ts 深處
-// 噴出「登入已過期，請重新登入」，跟排程那條路（每次都無條件重新登入，
-// 不會有這個問題）行為對不起來。現在改成：如果執行過程中真的收到「登入
-// 已過期」，會自動用帳密重新登入一次、再重跑一次——不管一開始有沒有
-// cookie、cookie 是不是已經過期，最終都會自動處理，不需要人工介入。
+// 登入方式：跟 run-scheduled.post.ts 一樣，每次都無條件重新自動登入，
+// 不沿用瀏覽器的 dc_upstream_session cookie。
+//
+// 這是修過一輪的結果，記錄一下走過的彎路：一開始的寫法是「先看瀏覽器有
+// 沒有 cookie，有就直接拿來用」，這會在 cookie 過期（COAERP session 存
+// 活 2 小時）時整段跑到最後才噴出「登入已過期」；改成「先試舊 cookie，
+// 過期了再重新登入重跑一次」之後，等於最壞情況要「跑一次失敗＋完整重新
+// 登入（含驗證碼最多 3 次）＋再跑一次」，反而把整條流程拖到超過 Netlify
+// 的執行時間上限，變成另一種逾時失敗。排程那條路（run-scheduled.post.ts）
+// 因為本來就是每次無條件重新登入、不會有「先試註定失敗的舊 cookie」這段
+// 浪費時間的步驟，反而一直穩定——所以這裡直接比照排程的做法，兩條路徑
+// 徹底一致，不再有「立即執行」獨有的過期/重試問題。
 //
 // 找帳密的順序（automationCredentials.ts 的 resolveAutomationCredentials()）：
 // 環境變數優先，沒設定才用「設定」頁存在 Spring Boot 的那組；兩邊都沒設
@@ -33,38 +37,6 @@
 //
 // 每次執行（不管預覽還是真的跑）都會記一筆執行紀錄到 Spring Boot（見
 // automationLog.ts），「設定」頁的「執行紀錄」區塊會顯示。
-
-async function getSessionCookie(event: any, forceRelogin: boolean): Promise<string> {
-  if (!forceRelogin) {
-    const existing = getCookie(event, 'dc_upstream_session')
-    if (existing) return existing
-  }
-
-  const creds = await resolveAutomationCredentials()
-  if (!creds) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: '尚未登入，且未設定自動登入帳密（環境變數 DC_ERP_AUTO_ACCOUNT/PASSWORD 或「設定」頁的自動登入帳密）'
-    })
-  }
-  try {
-    const login = await attemptAutoLogin(creds.account, creds.password)
-    setCookie(event, 'dc_upstream_session', login.sessionCookie, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 2,
-      path: '/'
-    })
-    return login.sessionCookie
-  } catch (err: any) {
-    throw createError({ statusCode: 502, statusMessage: '自動登入失敗：' + (err?.message || '') })
-  }
-}
-
-function isSessionExpiredError(err: any): boolean {
-  return err?.statusCode === 401 || String(err?.message || err?.statusMessage || '').includes('登入已過期')
-}
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -78,19 +50,48 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: '缺少客戶代號' })
   }
 
+  const creds = await resolveAutomationCredentials()
+  if (!creds) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: '未設定自動登入帳密（環境變數 DC_ERP_AUTO_ACCOUNT/PASSWORD 或「設定」頁的自動登入帳密）'
+    })
+  }
+
+  let sessionCookie: string
   try {
-    let sessionCookie = await getSessionCookie(event, false)
+    const login = await attemptAutoLogin(creds.account, creds.password)
+    sessionCookie = login.sessionCookie
+    // 順便設成 cookie，純粹是為了如果你之後手動在瀏覽器操作 dc-erp 其他
+    // 頁面時能沿用這組 session，不用再手動登入一次；這支路由本身不會讀
+    // 這個 cookie。
+    setCookie(event, 'dc_upstream_session', sessionCookie, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 2,
+      path: '/'
+    })
+  } catch (err: any) {
+    await logAutomationRun({
+      source: 'manual',
+      firmCode,
+      label,
+      dryRun,
+      matchedCount: 0,
+      signCount: 0,
+      transferCount: 0,
+      pdfCount: 0,
+      printCount: 0,
+      slipSignCount: 0,
+      errorCount: 0,
+      error: '自動登入失敗：' + (err?.message || '')
+    })
+    throw createError({ statusCode: 502, statusMessage: '自動登入失敗：' + (err?.message || '') })
+  }
 
-    let result
-    try {
-      result = await runCustomerPipeline(sessionCookie, firmCode, dryRun, remarkKeyword, printEnabled)
-    } catch (err: any) {
-      if (!isSessionExpiredError(err)) throw err
-      // session 過期：強制重新登入一次，再重跑一次整個流程。
-      sessionCookie = await getSessionCookie(event, true)
-      result = await runCustomerPipeline(sessionCookie, firmCode, dryRun, remarkKeyword, printEnabled)
-    }
-
+  try {
+    const result = await runCustomerPipeline(sessionCookie, firmCode, dryRun, remarkKeyword, printEnabled)
     await logAutomationRun({
       source: 'manual',
       firmCode,
