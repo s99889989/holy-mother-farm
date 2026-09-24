@@ -18,25 +18,8 @@
 
 export default defineEventHandler(async (event) => {
   const secret = process.env.DC_ERP_AUTOMATION_SECRET
-  const received = getHeader(event, 'x-automation-secret') || ''
-
-  if (!secret || received !== secret) {
-    // 臨時診斷用：只回傳兩邊的「長度」跟「最後 4 碼」，不會洩漏完整密鑰，
-    // 但足夠跟 application.properties 裡的值肉眼核對是不是真的一樣、或
-    // 是不是根本沒吃到新值（例如 Netlify 環境變數改了但沒重新部署）。
-    // 確認排程能正常觸發之後，這段診斷資訊可以拿掉，恢復成單純的 403。
-    const tail = (s: string) => (s.length > 4 ? s.slice(-4) : s)
-    throw createError({
-      statusCode: 403,
-      statusMessage: '未授權',
-      data: {
-        serverSecretConfigured: !!secret,
-        serverSecretLength: secret ? secret.length : 0,
-        serverSecretTail: secret ? tail(secret) : '',
-        receivedLength: received.length,
-        receivedTail: tail(received)
-      }
-    })
+  if (!secret || getHeader(event, 'x-automation-secret') !== secret) {
+    throw createError({ statusCode: 403, statusMessage: '未授權' })
   }
 
   const creds = await resolveAutomationCredentials()
