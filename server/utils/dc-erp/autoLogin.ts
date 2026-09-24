@@ -7,9 +7,11 @@
 // ⚠️ 帳密風險，务必看完再接排程：
 // 這裡用的是「真的」COAERP 帳號密碼（跟 login.post.ts 幫使用者代轉的性質
 // 不一樣，是伺服器自己主動登入），每一次重試都是對真實帳號的一次登入
-// 嘗試。原網站有沒有登入失敗鎖定機制不確定，DEFAULT_MAX_RETRIES 故意設
-// 低（3 次），不要調太高；如果驗證碼連續猜錯，代表樣板庫在這批字元上還
-// 不夠準，讓它失敗、看 log 決定要不要人工介入，不要無限重試狂打真帳號。
+// 嘗試。原網站有沒有登入失敗鎖定機制不確定——實測過每次嘗試（拿登入頁+
+// 拿驗證碼+分類+送出登入）大約只要 0.7~1.5 秒，速度上調高沒問題，
+// DEFAULT_MAX_RETRIES 從原本保守的 3 次調到 6 次；如果樣板庫還在猜錯
+// 很多，不要再繼續往上調太多，先去擴充樣板庫（見
+// bootstrap-captcha-ocr.mjs），而不是一直加重試次數硬打真帳號。
 //
 // 帳密請用環境變數 DC_ERP_AUTO_ACCOUNT / DC_ERP_AUTO_PASSWORD 提供，不要
 // 寫死在程式碼、不要存進 settings.vue 或任何會被看到的設定檔／資料庫。
@@ -20,7 +22,7 @@ function logStep(msg: string) {
   console.log(`[dc-erp automation] ${new Date().toISOString()} ${msg}`)
 }
 
-const DEFAULT_MAX_RETRIES = 3
+const DEFAULT_MAX_RETRIES = 6
 
 export interface AutoLoginResult {
   sessionCookie: string
