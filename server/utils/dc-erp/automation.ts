@@ -344,28 +344,19 @@ export async function signSlip(sessionCookie: string, slipGuid: string): Promise
   }
 }
 
-// 簽核後原網站的「可轉銷」規則不完全確定（不是單純已核准就一定顯示，見
-// sales-order-form.vue 的說明），這裡簽核完重新查一次目前實際的
-// canTransfer 狀態，不用猜的。
-export async function refetchTransferableGuids(
-  sessionCookie: string,
-  firmCode: string,
-  guids: string[]
-): Promise<Set<string>> {
-  logStep(`refetchTransferableGuids 開始`)
-  const first = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
-  const all = [...first.rows]
-  for (let p = 2; p <= first.totalPages; p++) {
-    const page = await fetchOrderPage(sessionCookie, firmCode, '-1', p)
-    all.push(...page.rows)
-  }
-  const set = new Set<string>()
-  for (const row of all) {
-    if (guids.includes(row.guid) && row.canTransfer) set.add(row.guid)
-  }
-  logStep(`refetchTransferableGuids 完成，可轉銷 ${set.size}/${guids.length}`)
-  return set
-}
+// ⚠️ 原本這裡有一個 refetchTransferableGuids()，簽核完會「重新查一次全部
+// 狀態，確認目前哪些單真的可以轉銷」才轉——用意是原網站「可轉銷」規則不
+// 完全確定，不是單純已核准就一定顯示（見 sales-order-form.vue 的說明），
+// 想避免對還沒準備好的單硬轉銷。
+// 拿掉的原因：這支函式查的是「全部狀態」（signState=-1），跟
+// findActionableOrders 原本那個 bug一模一樣——對有大量歷史訂單的客戶
+// （實測客戶 125 全部狀態 13 頁）光重查這步就要 20~30 秒，把整條流程從
+// 「簽核完」直接拖到 Netlify 執行時間上限、被砍掉，反而比「可能轉銷失敗」
+// 嚴重得多。
+// 現在改成不重查，直接對「這次確定簽核成功的單」跟「找到的時候就已經
+// 確認過 canTransfer=true 的孤兒單」直接呼叫 transferOrder()——真的轉不
+// 了，transferOrder() 自己的錯誤處理會接住、記錄成 transferError，不會
+// 讓整批都因為這一步被拖垮。
 
 export async function transferOrder(sessionCookie: string, guid: string): Promise<void> {
   logStep(`transferOrder 開始 guid=${guid}`)
@@ -625,12 +616,6 @@ export async function runCustomerPipeline(
     }
   }
 
-  const transferableGuids = await refetchTransferableGuids(
-    sessionCookie,
-    firmCode,
-    targetOrders.map((o) => o.guid)
-  )
-
   let printFmt: PrintStyleFormat | null = null
 
   for (let i = 0; i < targetOrders.length; i++) {
@@ -639,11 +624,6 @@ export async function runCustomerPipeline(
     logStep(`逐筆處理第 ${i + 1}/${targetOrders.length} 張 order=${order.code}`)
 
     if (!result.signOk) continue // 這張這次簽核失敗，不繼續轉銷
-
-    if (!transferableGuids.has(order.guid)) {
-      result.transferError = '簽核後目前不符合轉銷條件（原網站規則不完全確定，不是單純已核准就會顯示），已略過'
-      continue
-    }
 
     try {
       await transferOrder(sessionCookie, order.guid)
