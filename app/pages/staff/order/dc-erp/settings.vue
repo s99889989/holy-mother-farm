@@ -272,6 +272,21 @@
     }
   }
 
+  const resettingScheduleFlag = ref(false)
+
+  async function handleResetScheduleFlag() {
+    if (!confirm('清除今天的排程觸發紀錄，讓今天可以再測一次排程，確定嗎？')) return
+    resettingScheduleFlag.value = true
+    try {
+      await $fetch('/api/dc-erp/automation/reset-schedule-flag', { method: 'POST' })
+      showToast('已清除，今天可以再測一次排程了')
+    } catch {
+      showToast('清除失敗，請稍後再試')
+    } finally {
+      resettingScheduleFlag.value = false
+    }
+  }
+
   // ── 執行紀錄 ─────────────────────────────────────────────────────
   const automationLog = ref([])
   const automationLogLoading = ref(false)
@@ -651,6 +666,19 @@
                   <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ String(m).padStart(2, '0') }}</option>
                 </select>
               </div>
+            </div>
+
+            <div class="mt-3 border-t border-light-c pt-3">
+              <button
+                class="rounded border border-light-c px-2 py-1 text-xs hover:bg-surface2 disabled:opacity-50"
+                :disabled="resettingScheduleFlag"
+                @click="handleResetScheduleFlag"
+              >
+                {{ resettingScheduleFlag ? '清除中…' : '清除今日排程觸發紀錄（測試用）' }}
+              </button>
+              <p class="mt-1 text-xs text-hint-c">
+                排程一天只會成功觸發一次；測試時把上面時間改成幾分鐘後、按這個按鈕清掉「今天已觸發」的紀錄，就能同一天重複測試，不用等到明天。
+              </p>
             </div>
           </div>
 
