@@ -41,6 +41,7 @@
 // 那邊翻 log 貼給我）。
 
 async function handleRunCustomer(event: any) {
+  console.log(`[dc-erp automation] ${new Date().toISOString()} run-customer 收到請求`)
   const body = await readBody(event)
   const firmCode = body?.firmCode ? String(body.firmCode).trim() : ''
   const dryRun = !!body?.dryRun
@@ -62,7 +63,9 @@ async function handleRunCustomer(event: any) {
 
   let sessionCookie: string
   try {
+    console.log(`[dc-erp automation] ${new Date().toISOString()} run-customer 開始自動登入`)
     const login = await attemptAutoLogin(creds.account, creds.password)
+    console.log(`[dc-erp automation] ${new Date().toISOString()} run-customer 自動登入完成`)
     sessionCookie = login.sessionCookie
     // 順便設成 cookie，純粹是為了如果你之後手動在瀏覽器操作 dc-erp 其他
     // 頁面時能沿用這組 session，不用再手動登入一次；這支路由本身不會讀

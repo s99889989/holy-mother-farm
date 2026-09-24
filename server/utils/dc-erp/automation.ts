@@ -22,6 +22,15 @@
 
 import { load } from 'cheerio'
 
+// 每一步前後都印時間戳記，就算最後整個請求被 Netlify 逾時砍掉、前端拿不
+// 到任何回應內容，Netlify 後台的 Function log 也還是看得到「跑到第幾步、
+// 卡在哪裡」——log 是即時送出去的，不會因為最後被砍就一起消失，這是目前
+// 唯一能在「逾時到連我們自己的 try/catch 都來不及跑」這種情況下，還能
+// 定位問題的辦法。
+function logStep(msg: string) {
+  console.log(`[dc-erp automation] ${new Date().toISOString()} ${msg}`)
+}
+
 export interface AutomationOrderRow {
   guid: string
   code: string
@@ -229,10 +238,13 @@ export async function findActionableOrders(
   firmCode: string,
   remarkKeyword = ''
 ): Promise<{ needsSign: AutomationOrderRow[]; alreadySigned: AutomationOrderRow[] }> {
+  logStep(`findActionableOrders 開始 firmCode=${firmCode}`)
   const first = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
+  logStep(`findActionableOrders 第 1 頁完成，共 ${first.totalPages} 頁`)
   const all = [...first.rows]
   for (let p = 2; p <= first.totalPages; p++) {
     const page = await fetchOrderPage(sessionCookie, firmCode, '-1', p)
+    logStep(`findActionableOrders 第 ${p} 頁完成`)
     all.push(...page.rows)
   }
   // 只處理交貨日期是「今天或之後」的單——過去日期的單就算還沒簽核，也
@@ -248,16 +260,19 @@ export async function findActionableOrders(
   const needsSign = filtered.filter((r) => r.signState.includes('未簽核'))
   const alreadySigned = filtered.filter((r) => !r.signState.includes('未簽核') && r.canTransfer)
 
+  logStep(`findActionableOrders 完成：needsSign=${needsSign.length} alreadySigned=${alreadySigned.length}`)
   return { needsSign, alreadySigned }
 }
 
 export async function signOrders(sessionCookie: string, guids: string[]): Promise<void> {
+  logStep(`signOrders 開始，共 ${guids.length} 張`)
   const joined = guids.join(',')
   const res = await fetchDcUpstream(sessionCookie, '/COAERP/SalesOrder/MultiSign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ CurrentPage: '1', StoreCheckedItemJSON: joined, DelChk: joined }).toString()
   })
+  logStep(`signOrders 完成，status=${res.status}`)
   const isSuccessRedirect = res.status >= 300 && res.status < 400
   if (!isSuccessRedirect && !res.ok) {
     throw new Error('簽核失敗，原網站回應異常')
@@ -270,11 +285,13 @@ export async function signOrders(sessionCookie: string, guids: string[]): Promis
 // 參數格式（POST /COAERP/SalesSlip/MultiSign，CurrentPage/
 // StoreCheckedItemJSON/DelChk）。
 export async function signSlip(sessionCookie: string, slipGuid: string): Promise<void> {
+  logStep(`signSlip 開始 guid=${slipGuid}`)
   const res = await fetchDcUpstream(sessionCookie, '/COAERP/SalesSlip/MultiSign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ CurrentPage: '1', StoreCheckedItemJSON: slipGuid, DelChk: slipGuid }).toString()
   })
+  logStep(`signSlip 完成，status=${res.status}`)
   const isSuccessRedirect = res.status >= 300 && res.status < 400
   if (!isSuccessRedirect && !res.ok) {
     throw new Error('銷貨單簽核失敗，原網站回應異常')
@@ -289,6 +306,7 @@ export async function refetchTransferableGuids(
   firmCode: string,
   guids: string[]
 ): Promise<Set<string>> {
+  logStep(`refetchTransferableGuids 開始`)
   const first = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
   const all = [...first.rows]
   for (let p = 2; p <= first.totalPages; p++) {
@@ -299,16 +317,19 @@ export async function refetchTransferableGuids(
   for (const row of all) {
     if (guids.includes(row.guid) && row.canTransfer) set.add(row.guid)
   }
+  logStep(`refetchTransferableGuids 完成，可轉銷 ${set.size}/${guids.length}`)
   return set
 }
 
 export async function transferOrder(sessionCookie: string, guid: string): Promise<void> {
+  logStep(`transferOrder 開始 guid=${guid}`)
   const res = await fetchDcUpstream(sessionCookie, `/COAERP/SalesOrder/TransSalesSlip/${encodeURIComponent(guid)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: ''
   })
   const text = (await res.text()).trim()
+  logStep(`transferOrder 完成 guid=${guid} 結果=${text}`)
   if (text !== 'True') {
     throw new Error(text && text !== 'False' ? text : '轉入銷貨單失敗')
   }
@@ -325,10 +346,12 @@ export async function findMatchingSlip(
   firmCode: string,
   order: AutomationOrderRow
 ): Promise<AutomationSlipRow | null> {
+  logStep(`findMatchingSlip 開始 order=${order.code}`)
   const rows = await fetchSlipPage(sessionCookie, firmCode, 1)
   const candidates = rows.filter(
     (r) => r.firmName === order.firmName && r.deliveryDate === order.deliveryDate && r.total === order.total
   )
+  logStep(`findMatchingSlip 完成 order=${order.code} 候選=${candidates.length}`)
   return candidates.length === 1 ? candidates[0] : null
 }
 
@@ -336,6 +359,7 @@ export async function findMatchingSlip(
 // COMMON_PRINT_STYLE_MATCH 一致（用 includes 而不是完全比對，避免原網站
 // 樣式名稱多一個空格/全形符號就整個匹配不到）。
 export async function findMatchingPrintFormat(sessionCookie: string): Promise<PrintStyleFormat> {
+  logStep(`findMatchingPrintFormat 開始`)
   const query = new URLSearchParams({
     guid: '',
     doccode: 'SalesSlip',
@@ -375,6 +399,7 @@ export async function findMatchingPrintFormat(sessionCookie: string): Promise<Pr
   if (!found) {
     throw new Error('找不到「中一刀-半長」的 PDF 列印樣式，可能改版了，請通知開發者核對')
   }
+  logStep(`findMatchingPrintFormat 完成`)
   return found
 }
 
@@ -397,6 +422,7 @@ export async function downloadSlipPdf(
   fileLabel: string,
   shouldPrint: boolean
 ): Promise<{ fileName: string; url: string; printOk: boolean; printError: string }> {
+  logStep(`downloadSlipPdf 開始 slipGuid=${slipGuid}`)
   const body = new URLSearchParams({
     guid: slipGuid,
     reportid: fmt.reportId,
@@ -409,6 +435,7 @@ export async function downloadSlipPdf(
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString()
   })
+  logStep(`downloadSlipPdf COAERP 回應完成 slipGuid=${slipGuid}`)
 
   const contentType = res.headers.get('content-type') || ''
   if (contentType.includes('text/html')) {
@@ -420,6 +447,7 @@ export async function downloadSlipPdf(
   const safeLabel = fileLabel.replace(/[^\w-]/g, '_')
   const fileName = `${safeLabel}_${Date.now()}.pdf`
 
+  logStep(`downloadSlipPdf 開始上傳到 Spring Boot fileName=${fileName} print=${shouldPrint}`)
   const apiBase = useRuntimeConfig().public.apiBase
   const uploadRes = await fetch(
     `${apiBase}/holy/dc-erp/automation/pdf/${encodeURIComponent(fileName)}?print=${shouldPrint}`,
@@ -433,6 +461,7 @@ export async function downloadSlipPdf(
     throw new Error('PDF 上傳到後端失敗')
   }
   const uploaded = await uploadRes.json()
+  logStep(`downloadSlipPdf 完成 fileName=${fileName} printOk=${uploaded.printOk}`)
   return {
     fileName,
     url: `${apiBase}${uploaded.url}`,
@@ -477,6 +506,7 @@ export async function runCustomerPipeline(
   remarkKeyword = '',
   printEnabled = false
 ): Promise<CustomerRunResult> {
+  logStep(`runCustomerPipeline 開始 firmCode=${firmCode} dryRun=${dryRun} printEnabled=${printEnabled}`)
   const { needsSign, alreadySigned } = await findActionableOrders(sessionCookie, firmCode, remarkKeyword)
   const targetOrders = [...needsSign, ...alreadySigned]
 
@@ -495,6 +525,7 @@ export async function runCustomerPipeline(
   }
 
   if (!targetOrders.length) {
+    logStep(`runCustomerPipeline 完成（沒有符合條件的單）firmCode=${firmCode}`)
     return { dryRun: false, matchedCount: 0, results: [] }
   }
 
@@ -550,6 +581,7 @@ export async function runCustomerPipeline(
   for (let i = 0; i < targetOrders.length; i++) {
     const order = targetOrders[i]
     const result = results[i]
+    logStep(`逐筆處理第 ${i + 1}/${targetOrders.length} 張 order=${order.code}`)
 
     if (!result.signOk) continue // 這張這次簽核失敗，不繼續轉銷
 
@@ -597,6 +629,7 @@ export async function runCustomerPipeline(
     }
   }
 
+  logStep(`runCustomerPipeline 完成 firmCode=${firmCode}`)
   return { dryRun: false, matchedCount: targetOrders.length, results }
 }
 

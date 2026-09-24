@@ -16,6 +16,10 @@
 
 import { load } from 'cheerio'
 
+function logStep(msg: string) {
+  console.log(`[dc-erp automation] ${new Date().toISOString()} ${msg}`)
+}
+
 const DEFAULT_MAX_RETRIES = 3
 
 export interface AutoLoginResult {
@@ -28,9 +32,12 @@ export async function attemptAutoLogin(
   password: string,
   maxRetries = DEFAULT_MAX_RETRIES
 ): Promise<AutoLoginResult> {
+  logStep(`attemptAutoLogin 開始，最多重試 ${maxRetries} 次`)
   const library = await loadCaptchaLibrary()
+  logStep(`attemptAutoLogin 樣板庫載入完成，共 ${library.length} 個樣本`)
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    logStep(`attemptAutoLogin 第 ${attempt} 次嘗試開始`)
     // 1. GET 登入頁：拿 token/imageKey + 一組「登入前」暫存 cookie
     const pageRes = await fetch(`${DC_BASE}/Account/Login`, { redirect: 'manual', headers: BROWSER_LIKE_HEADERS })
     let cookie = ''
@@ -42,6 +49,7 @@ export async function attemptAutoLogin(
     if (!token || !imageKey || !cookie) {
       throw new Error('登入頁解析失敗（token/imageKey/cookie 缺一），可能原網站改版了')
     }
+    logStep(`attemptAutoLogin 第 ${attempt} 次：登入頁取得完成`)
 
     // 2. GET 驗證碼圖片
     const imgRes = await fetch(`${DC_BASE}/Account/OutputImg?key=${encodeURIComponent(imageKey)}`, {
@@ -50,9 +58,11 @@ export async function attemptAutoLogin(
     if (!imgRes.ok) throw new Error(`驗證碼圖片取得失敗，status=${imgRes.status}`)
     for (const sc of getAllSetCookies(imgRes)) cookie = mergeSetCookie(cookie, sc)
     const buffer = Buffer.from(await imgRes.arrayBuffer())
+    logStep(`attemptAutoLogin 第 ${attempt} 次：驗證碼圖片取得完成`)
 
     // 3. 用目前的樣板庫猜答案
     const { guess, boxCount, glyphs } = await classifyCaptcha(buffer, library)
+    logStep(`attemptAutoLogin 第 ${attempt} 次：分類完成 guess=${guess} boxCount=${boxCount}`)
     if (boxCount !== 4) {
       // 切字數不對（不是 4 個），這張再猜也沒意義，直接當這次嘗試失敗，
       // 換下一輪重新要一張新的驗證碼。
@@ -72,6 +82,7 @@ export async function attemptAutoLogin(
         ImageKey: imageKey
       }).toString()
     })
+    logStep(`attemptAutoLogin 第 ${attempt} 次：登入請求完成 status=${loginRes.status}`)
 
     const isRedirect = loginRes.status >= 300 && loginRes.status < 400
     const location = loginRes.headers.get('location') || ''
@@ -87,6 +98,7 @@ export async function attemptAutoLogin(
       // 準，因為這裡的「成功」就是原網站唯一在乎的那個成功）。
       const confirmed = guess.split('').map((label, i) => ({ label, feat: Array.from(glyphs[i]) }))
       await appendConfirmedGlyphs(confirmed)
+      logStep(`attemptAutoLogin 第 ${attempt} 次：登入成功`)
       return { sessionCookie: merged, attempts: attempt }
     }
 
@@ -98,6 +110,7 @@ export async function attemptAutoLogin(
     const $ = load(html)
     const messageText = $('#Message_validationMessage').text().trim()
     const accountOrPasswordWrong = messageText.includes('帳號')
+    logStep(`attemptAutoLogin 第 ${attempt} 次：未成功，訊息=${messageText}`)
 
     if (accountOrPasswordWrong) {
       // 驗證碼過了，帳密是真的錯——不是驗證碼問題，繼續重試也沒用，
