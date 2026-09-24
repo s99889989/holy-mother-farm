@@ -233,32 +233,94 @@ function isTodayOrLater(rocDateStr: string): boolean {
 // signStateValue 傳 '-1'（全部狀態）一次查完，用每一列自己的 signState
 // 文字判斷該分到哪一類，不用再另外查「未簽核」選項對應的 value（原本
 // findUnsignedOrders 多一次網路請求去 probe 這個，這裡順便省掉）。
+// 孤兒單（已核准但還沒轉銷）只往前掃這幾頁就好，不整個歷史都掃——理由
+// 見下面 findActionableOrders 開頭的說明。COAERP 預設新的排在前面，孤兒
+// 單通常是「最近一次執行」留下的，掃前面幾頁基本上就找得到；真的漏掉的
+// 極舊孤兒單，還是可以到 COAERP 網站手動點轉銷。
+// 孤兒單掃描的安全上限（不是正常情況會用到的頁數，是「萬一排序假設不
+// 成立」時的保底煞車，避免真的發生時無限翻頁又把流程拖爆）。
+const ORPHAN_SCAN_MAX_PAGES = 5
+
 export async function findActionableOrders(
   sessionCookie: string,
   firmCode: string,
   remarkKeyword = ''
 ): Promise<{ needsSign: AutomationOrderRow[]; alreadySigned: AutomationOrderRow[] }> {
   logStep(`findActionableOrders 開始 firmCode=${firmCode}`)
-  const first = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
-  logStep(`findActionableOrders 第 1 頁完成，共 ${first.totalPages} 頁`)
-  const all = [...first.rows]
-  for (let p = 2; p <= first.totalPages; p++) {
-    const page = await fetchOrderPage(sessionCookie, firmCode, '-1', p)
-    logStep(`findActionableOrders 第 ${p} 頁完成`)
-    all.push(...page.rows)
+
+  // 1. 未簽核的單：查「簽核狀態＝未簽核」這個選項對應的 value，COAERP
+  //    伺服器端就先篩掉已簽核的單，頁數通常不多，速度快。
+  const probe = await fetchOrderPage(sessionCookie, firmCode, '-1', 1)
+  const unsignedOption = probe.signStateOptions.find((o) => o.label.includes('未簽核'))
+  if (!unsignedOption) {
+    throw new Error('原網站「簽核狀態」下拉選單找不到「未簽核」選項，可能改版了，請通知開發者核對')
   }
-  // 只處理交貨日期是「今天或之後」的單——過去日期的單就算還沒簽核，也
-  // 大機率是漏處理的舊單，應該人工確認，不要自動簽核轉銷。
-  const withGuid = all.filter((r) => r.guid && isTodayOrLater(r.deliveryDate))
+  const firstUnsigned = await fetchOrderPage(sessionCookie, firmCode, unsignedOption.value, 1)
+  const unsignedRows = [...firstUnsigned.rows]
+  for (let p = 2; p <= firstUnsigned.totalPages; p++) {
+    const page = await fetchOrderPage(sessionCookie, firmCode, unsignedOption.value, p)
+    unsignedRows.push(...page.rows)
+  }
+  logStep(`findActionableOrders 未簽核查詢完成，共 ${firstUnsigned.totalPages} 頁`)
+
+  // 2. 已核准但還沒轉銷的孤兒單：⚠️ 這裡本來查「全部狀態」（signState=-1）
+  //    掃完整個客戶的歷史訂單，對有大量歷史訂單的客戶（實測客戶 125 全部
+  //    狀態高達 13 頁，每頁約 2.3 秒）光這步就要 20~30 秒，把整條流程拖到
+  //    超過 Netlify 執行時間上限，連簽核那一步都還沒開始就被砍掉——比孤兒
+  //    單本身的問題還嚴重。
+  //    COAERP 預設新的排在前面，一旦某一頁裡的交貨日期已經「全部」是今天
+  //    以前的舊單，代表再往後翻只會更舊，直接停止翻頁——不用先猜一個頁數
+  //    上限，掃到不需要再掃為止自然停下來。ORPHAN_SCAN_MAX_PAGES 只是保
+  //    底煞車，不是正常會用到的數字。
+  //    上面探測「未簽核」選項時剛好已經抓到第 1 頁的「全部狀態」資料，這
+  //    裡直接重複利用，不用再多打一次。
+  const orphanCandidateRows: AutomationOrderRow[] = [...probe.rows]
+  let orphanPagesScanned = 1
+  if (probe.rows.some((r) => isTodayOrLater(r.deliveryDate))) {
+    for (let p = 2; p <= Math.min(ORPHAN_SCAN_MAX_PAGES, probe.totalPages); p++) {
+      const page = await fetchOrderPage(sessionCookie, firmCode, '-1', p)
+      orphanPagesScanned = p
+      orphanCandidateRows.push(...page.rows)
+      if (!page.rows.some((r) => isTodayOrLater(r.deliveryDate))) break // 這頁已經全部是舊單，後面只會更舊
+    }
+  }
+  logStep(`findActionableOrders 孤兒單掃描完成（翻了 ${orphanPagesScanned} 頁，全部狀態共 ${probe.totalPages} 頁）`)
 
   const keywords = remarkKeyword
     .split(/[,，]/)
     .map((k) => k.trim())
     .filter(Boolean)
-  const filtered = keywords.length ? withGuid.filter((r) => keywords.some((k) => r.remark.includes(k))) : withGuid
 
-  const needsSign = filtered.filter((r) => r.signState.includes('未簽核'))
-  const alreadySigned = filtered.filter((r) => !r.signState.includes('未簽核') && r.canTransfer)
+  // 把每一張候選單的比對過程印出來，方便對照為什麼某張單有沒有被抓到。
+  // extraCheck 是 needsSign / alreadySigned 各自多一條的判斷條件（例如
+  // alreadySigned 還要求「不是未簽核」＋「可轉銷」），一起印在同一行，
+  // log 裡看到的「結果」就是這張單最終有沒有被納入，不會有「這裡印納入、
+  // 後面又被濾掉」看起來對不上的狀況。
+  const applyFilters = (
+    rows: AutomationOrderRow[],
+    setLabel: string,
+    extraCheck: (r: AutomationOrderRow) => boolean = () => true
+  ) => {
+    return rows.filter((r) => {
+      const dateOk = isTodayOrLater(r.deliveryDate)
+      const keywordOk = !keywords.length || keywords.some((k) => r.remark.includes(k))
+      const extraOk = extraCheck(r)
+      const pass = !!r.guid && dateOk && keywordOk && extraOk
+      logStep(
+        `比對[${setLabel}] ${r.code}｜交貨日期=${r.deliveryDate}(${dateOk ? '通過' : '過期'})｜` +
+        `備註="${r.remark}"(${keywordOk ? '通過' : '不符關鍵字'})｜簽核狀態=${r.signState}｜` +
+        `可轉銷=${r.canTransfer}(${extraOk ? '通過' : '不符'})｜結果=${pass ? '✅納入' : '❌排除'}`
+      )
+      return pass
+    })
+  }
+
+  const needsSign = applyFilters(unsignedRows, 'needsSign候選')
+  const alreadySigned = applyFilters(
+    orphanCandidateRows,
+    'alreadySigned候選',
+    (r) => !r.signState.includes('未簽核') && r.canTransfer
+  )
 
   logStep(`findActionableOrders 完成：needsSign=${needsSign.length} alreadySigned=${alreadySigned.length}`)
   return { needsSign, alreadySigned }
@@ -346,12 +408,21 @@ export async function findMatchingSlip(
   firmCode: string,
   order: AutomationOrderRow
 ): Promise<AutomationSlipRow | null> {
-  logStep(`findMatchingSlip 開始 order=${order.code}`)
+  logStep(`findMatchingSlip 開始 order=${order.code} 目標比對條件：客戶=${order.firmName} 交貨日期=${order.deliveryDate} 金額=${order.total}`)
   const rows = await fetchSlipPage(sessionCookie, firmCode, 1)
-  const candidates = rows.filter(
-    (r) => r.firmName === order.firmName && r.deliveryDate === order.deliveryDate && r.total === order.total
-  )
-  logStep(`findMatchingSlip 完成 order=${order.code} 候選=${candidates.length}`)
+  const candidates = rows.filter((r) => {
+    const nameOk = r.firmName === order.firmName
+    const dateOk = r.deliveryDate === order.deliveryDate
+    const totalOk = r.total === order.total
+    const match = nameOk && dateOk && totalOk
+    logStep(
+      `比對[銷貨單] ${r.code}｜客戶=${r.firmName}(${nameOk ? '符合' : '不符'})｜` +
+      `交貨日期=${r.deliveryDate}(${dateOk ? '符合' : '不符'})｜金額=${r.total}(${totalOk ? '符合' : '不符'})｜` +
+      `結果=${match ? '✅候選' : '❌排除'}`
+    )
+    return match
+  })
+  logStep(`findMatchingSlip 完成 order=${order.code} 候選=${candidates.length}（要剛好 1 筆才採用，找不到或多筆都不猜）`)
   return candidates.length === 1 ? candidates[0] : null
 }
 
