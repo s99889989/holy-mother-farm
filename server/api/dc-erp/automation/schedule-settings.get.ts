@@ -9,6 +9,6 @@ export default defineEventHandler(async (event) => {
   requireDcUpstreamSession(event)
   const apiBase = useRuntimeConfig().public.apiBase
   const res = await fetch(`${apiBase}/holy/dc-erp/automation/schedule-settings`)
-  if (!res.ok) return { enabled: true, weekday: 'MONDAY', hour: 8 }
+  if (!res.ok) return { enabled: true, weekday: 'MONDAY', hour: 8, minute: 0 }
   return await res.json()
 })

@@ -232,10 +232,12 @@
     { value: 'SUNDAY', label: '星期日' }
   ]
   const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => h)
+  const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, m) => m)
 
   const scheduleEnabled = ref(true)
   const scheduleWeekday = ref('MONDAY')
-  const scheduleHour = ref(8)
+  const scheduleHour = ref(9)
+  const scheduleMinute = ref(0)
   const scheduleSaving = ref(false)
 
   async function loadScheduleSettings() {
@@ -243,7 +245,8 @@
       const data = await $fetch('/api/dc-erp/automation/schedule-settings')
       scheduleEnabled.value = data.enabled !== false
       scheduleWeekday.value = data.weekday || 'MONDAY'
-      scheduleHour.value = Number.isFinite(data.hour) ? data.hour : 8
+      scheduleHour.value = Number.isFinite(data.hour) ? data.hour : 9
+      scheduleMinute.value = Number.isFinite(data.minute) ? data.minute : 0
     } catch {
       // 讀不到就先當預設值，不擋頁面其他功能
     }
@@ -254,7 +257,12 @@
     try {
       await $fetch('/api/dc-erp/automation/schedule-settings', {
         method: 'POST',
-        body: { enabled: scheduleEnabled.value, weekday: scheduleWeekday.value, hour: scheduleHour.value }
+        body: {
+          enabled: scheduleEnabled.value,
+          weekday: scheduleWeekday.value,
+          hour: scheduleHour.value,
+          minute: scheduleMinute.value
+        }
       })
       showToast('排程設定已儲存')
     } catch {
@@ -621,15 +629,28 @@
               >
                 <option v-for="w in WEEKDAY_OPTIONS" :key="w.value" :value="w.value">{{ w.label }}</option>
               </select>
-              <select
-                v-model.number="scheduleHour"
-                class="rounded border border-light-c bg-surface px-2 py-1"
-                :disabled="scheduleSaving"
-                @change="handleScheduleChange"
-              >
-                <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ String(h).padStart(2, '0') }}:00</option>
-              </select>
-              <span class="text-muted-c">自動執行一次</span>
+            </div>
+            <div class="mt-2">
+              <div class="mb-1 text-xs text-muted-c">執行時間（24 小時制）</div>
+              <div class="flex items-center gap-2">
+                <select
+                  v-model.number="scheduleHour"
+                  class="rounded border border-light-c bg-surface px-2 py-1 text-xs"
+                  :disabled="scheduleSaving"
+                  @change="handleScheduleChange"
+                >
+                  <option v-for="h in HOUR_OPTIONS" :key="h" :value="h">{{ String(h).padStart(2, '0') }}</option>
+                </select>
+                <span class="text-muted-c">：</span>
+                <select
+                  v-model.number="scheduleMinute"
+                  class="rounded border border-light-c bg-surface px-2 py-1 text-xs"
+                  :disabled="scheduleSaving"
+                  @change="handleScheduleChange"
+                >
+                  <option v-for="m in MINUTE_OPTIONS" :key="m" :value="m">{{ String(m).padStart(2, '0') }}</option>
+                </select>
+              </div>
             </div>
           </div>
 
