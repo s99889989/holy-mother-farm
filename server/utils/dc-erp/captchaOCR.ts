@@ -12,7 +12,17 @@
 // 置中成固定畫布，跟已知樣本逐一比對像素差異，取最像的當答案）遠遠更
 // 準——細節見 automation.ts 開頭跟 autoLogin.ts 的說明。
 //
-// 需要安裝 jimp：npm install jimp
+// 需要安裝 jimp：pnpm add jimp（要裝在 holy-mother-farm 專案本身的
+// package.json，不是隨便哪個資料夾——之前在別的資料夾裝的測試腳本用的
+// jimp 跟這個無關）。
+//
+// 這裡改用「靜態 import」而不是 `await import('jimp')` 動態載入：Netlify
+// 的 Nitro function 打包工具（esbuild/nft 依賴追蹤）對動態 import 的套件
+// 追蹤有時候不夠可靠，實測就是這裡的動態 import 在 Netlify 上找不到
+// jimp，改成靜態 import 讓打包工具能直接靜態分析出這個依賴，一起打包
+// 進 function bundle，比較不會漏。
+
+import { Jimp } from 'jimp'
 
 const CANVAS_W = 24
 const CANVAS_H = 32
@@ -41,7 +51,6 @@ export interface GlyphBox {
 
 // 用 Jimp 把 PNG bytes 讀成 {width, height, data(RGBA)}
 export async function loadImagePixels(buffer: Buffer): Promise<ImagePixels> {
-  const { Jimp } = await import('jimp')
   const img = await Jimp.read(buffer)
   return { width: img.bitmap.width, height: img.bitmap.height, data: img.bitmap.data }
 }

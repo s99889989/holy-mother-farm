@@ -374,6 +374,11 @@ export async function findMatchingPrintFormat(sessionCookie: string): Promise<Pr
 // 印表機列印（見 DcErpAutomationController 的 dispatchAutomationPrint()），
 // 印表機離線/卡紙等問題不會讓這支拋錯——PDF 存檔成功比較重要，列印的
 // 成敗另外用 printOk/printError 回傳。
+// ⚠️ printOk 現在是「送出去沒有立即出錯」，不是「確認印表機真的回應成功」
+// ——Spring Boot 那邊改成只等很短時間（幾秒）確認 Agent 有沒有連線，不會
+// 等印表機實際回應才回傳，避免整條自動化流程等太久被 Netlify 判定逾時、
+// 回應 504。真正的列印結果（成功/失敗）記在 Spring Boot 自己的 log，
+// 不會反映在這裡的 printOk。
 export async function downloadSlipPdf(
   sessionCookie: string,
   slipGuid: string,
