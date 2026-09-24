@@ -18,42 +18,55 @@
 //                automation.ts 的 runCustomerPipeline，跟排程觸發
 //                （run-scheduled.post.ts）共用同一份。
 //
-// 登入方式：優先用瀏覽器目前的 dc_upstream_session；如果沒有（沒登入過
-// 或過期了），會呼叫 automationCredentials.ts 的 resolveAutomationCredentials()
-// 找帳密（環境變數優先，沒設定才用「設定」頁存在 Spring Boot 的那組），
-// 找到的話自動用 autoLogin.ts 的驗證碼分類器登入一次，順便把拿到的
-// session 設成這次回應的 cookie（之後在瀏覽器操作也能沿用）。兩邊都沒
-// 設定帳密的話，維持「尚未登入」的錯誤。
+// 登入方式：先看瀏覽器有沒有 dc_upstream_session cookie，有就先拿來試——
+// 但「有 cookie」不代表「這個 session 還有效」（COAERP session 存活 2
+// 小時，過期後 cookie 還在，只是失效了）。以前的寫法只檢查「有沒有
+// cookie」，帶著過期的 cookie 照樣往下跑，跑到一半才在 automation.ts 深處
+// 噴出「登入已過期，請重新登入」，跟排程那條路（每次都無條件重新登入，
+// 不會有這個問題）行為對不起來。現在改成：如果執行過程中真的收到「登入
+// 已過期」，會自動用帳密重新登入一次、再重跑一次——不管一開始有沒有
+// cookie、cookie 是不是已經過期，最終都會自動處理，不需要人工介入。
+//
+// 找帳密的順序（automationCredentials.ts 的 resolveAutomationCredentials()）：
+// 環境變數優先，沒設定才用「設定」頁存在 Spring Boot 的那組；兩邊都沒設
+// 定的話才會是「尚未登入」的錯誤。
 //
 // 每次執行（不管預覽還是真的跑）都會記一筆執行紀錄到 Spring Boot（見
 // automationLog.ts），「設定」頁的「執行紀錄」區塊會顯示。
 
-export default defineEventHandler(async (event) => {
-  let sessionCookie = getCookie(event, 'dc_upstream_session')
-
-  if (!sessionCookie) {
-    const creds = await resolveAutomationCredentials()
-    if (!creds) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: '尚未登入，且未設定自動登入帳密（環境變數 DC_ERP_AUTO_ACCOUNT/PASSWORD 或「設定」頁的自動登入帳密）'
-      })
-    }
-    try {
-      const login = await attemptAutoLogin(creds.account, creds.password)
-      sessionCookie = login.sessionCookie
-      setCookie(event, 'dc_upstream_session', sessionCookie, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 2,
-        path: '/'
-      })
-    } catch (err: any) {
-      throw createError({ statusCode: 502, statusMessage: '自動登入失敗：' + (err?.message || '') })
-    }
+async function getSessionCookie(event: any, forceRelogin: boolean): Promise<string> {
+  if (!forceRelogin) {
+    const existing = getCookie(event, 'dc_upstream_session')
+    if (existing) return existing
   }
 
+  const creds = await resolveAutomationCredentials()
+  if (!creds) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: '尚未登入，且未設定自動登入帳密（環境變數 DC_ERP_AUTO_ACCOUNT/PASSWORD 或「設定」頁的自動登入帳密）'
+    })
+  }
+  try {
+    const login = await attemptAutoLogin(creds.account, creds.password)
+    setCookie(event, 'dc_upstream_session', login.sessionCookie, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 2,
+      path: '/'
+    })
+    return login.sessionCookie
+  } catch (err: any) {
+    throw createError({ statusCode: 502, statusMessage: '自動登入失敗：' + (err?.message || '') })
+  }
+}
+
+function isSessionExpiredError(err: any): boolean {
+  return err?.statusCode === 401 || String(err?.message || err?.statusMessage || '').includes('登入已過期')
+}
+
+export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const firmCode = body?.firmCode ? String(body.firmCode).trim() : ''
   const dryRun = !!body?.dryRun
@@ -66,7 +79,18 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const result = await runCustomerPipeline(sessionCookie, firmCode, dryRun, remarkKeyword, printEnabled)
+    let sessionCookie = await getSessionCookie(event, false)
+
+    let result
+    try {
+      result = await runCustomerPipeline(sessionCookie, firmCode, dryRun, remarkKeyword, printEnabled)
+    } catch (err: any) {
+      if (!isSessionExpiredError(err)) throw err
+      // session 過期：強制重新登入一次，再重跑一次整個流程。
+      sessionCookie = await getSessionCookie(event, true)
+      result = await runCustomerPipeline(sessionCookie, firmCode, dryRun, remarkKeyword, printEnabled)
+    }
+
     await logAutomationRun({
       source: 'manual',
       firmCode,
@@ -89,7 +113,7 @@ export default defineEventHandler(async (event) => {
       printCount: 0,
       slipSignCount: 0,
       errorCount: 0,
-      error: err?.message || '執行失敗'
+      error: err?.message || err?.statusMessage || '執行失敗'
     })
     throw err
   }
