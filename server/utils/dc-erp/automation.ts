@@ -221,25 +221,20 @@ function isTodayOrLater(rocDateStr: string): boolean {
 }
 
 // 查「指定客戶」目前需要處理的訂貨單，分兩類：
-//   needsSign     ：還沒簽核的
+//   needsSign     ：還沒簽核的——查「簽核狀態＝未簽核」這個選項對應的
+//                   value，COAERP 伺服器端先篩過，頁數通常不多、速度快。
 //   alreadySigned ：已經簽核、但還沒轉銷的——通常是上一次執行「簽核」
 //                   成功了，但後面「轉銷/列印」那段失敗或中斷（例如逾時）
 //                   留下的孤兒單。這種單一旦簽核完就不再是「未簽核」，
-//                   如果只查未簽核，永遠不會再被抓到、變成沒人處理，所以
-//                   額外撈出來，讓它們這次執行能接著完成轉銷/列印，不用
-//                   你自己去 COAERP 手動點轉銷。
+//                   如果只查未簽核，永遠不會再被抓到、變成沒人處理。
+//                   只看「全部狀態」查詢的第 1 頁（跟上面探測「未簽核」
+//                   選項時抓的同一頁，不多打請求），不往下翻頁——原本想
+//                   「翻到全部過期就停」，但實測「全部狀態」查詢的排序
+//                   跟「新的在前面」的假設對不上，判斷失效、白白翻了好幾
+//                   頁全是一年前的舊單，索性直接只看第 1 頁最單純可靠。
+//                   真的有孤兒單剛好不在第 1 頁，需要你自己到 COAERP
+//                   手動點轉銷。
 // 兩類都已經套用日期篩選（今天或之後）跟備註關鍵字篩選。
-//
-// signStateValue 傳 '-1'（全部狀態）一次查完，用每一列自己的 signState
-// 文字判斷該分到哪一類，不用再另外查「未簽核」選項對應的 value（原本
-// findUnsignedOrders 多一次網路請求去 probe 這個，這裡順便省掉）。
-// 孤兒單（已核准但還沒轉銷）只往前掃這幾頁就好，不整個歷史都掃——理由
-// 見下面 findActionableOrders 開頭的說明。COAERP 預設新的排在前面，孤兒
-// 單通常是「最近一次執行」留下的，掃前面幾頁基本上就找得到；真的漏掉的
-// 極舊孤兒單，還是可以到 COAERP 網站手動點轉銷。
-// 孤兒單掃描的安全上限（不是正常情況會用到的頁數，是「萬一排序假設不
-// 成立」時的保底煞車，避免真的發生時無限翻頁又把流程拖爆）。
-const ORPHAN_SCAN_MAX_PAGES = 5
 
 export async function findActionableOrders(
   sessionCookie: string,
@@ -263,28 +258,17 @@ export async function findActionableOrders(
   }
   logStep(`findActionableOrders 未簽核查詢完成，共 ${firstUnsigned.totalPages} 頁`)
 
-  // 2. 已核准但還沒轉銷的孤兒單：⚠️ 這裡本來查「全部狀態」（signState=-1）
-  //    掃完整個客戶的歷史訂單，對有大量歷史訂單的客戶（實測客戶 125 全部
-  //    狀態高達 13 頁，每頁約 2.3 秒）光這步就要 20~30 秒，把整條流程拖到
-  //    超過 Netlify 執行時間上限，連簽核那一步都還沒開始就被砍掉——比孤兒
-  //    單本身的問題還嚴重。
-  //    COAERP 預設新的排在前面，一旦某一頁裡的交貨日期已經「全部」是今天
-  //    以前的舊單，代表再往後翻只會更舊，直接停止翻頁——不用先猜一個頁數
-  //    上限，掃到不需要再掃為止自然停下來。ORPHAN_SCAN_MAX_PAGES 只是保
-  //    底煞車，不是正常會用到的數字。
-  //    上面探測「未簽核」選項時剛好已經抓到第 1 頁的「全部狀態」資料，這
-  //    裡直接重複利用，不用再多打一次。
+  // 2. 已核准但還沒轉銷的孤兒單：⚠️ 這裡本來想「翻到全部過期的那一頁就
+  //    停」，實測發現「全部狀態」這個查詢的排序方式，跟原本假設的「新的
+  //    在前面」對不上（log 證實：連續翻了好幾頁全都是一年前的舊單），
+  //    判斷條件沒有正常發揮作用，等於白白多打了好幾次請求還是一堆過期
+  //    的單。與其繼續猜排序邏輯、修一個容易再出包的「聰明」判斷，改成
+  //    最單純可靠的做法：孤兒單只看第 1 頁（探測「未簽核」選項時已經
+  //    抓過的那一頁，直接重複利用，不多打任何請求），不再往下翻頁——
+  //    保證不會再發生掃到一年前舊單的狀況。真的有孤兒單剛好不在第 1
+  //    頁，需要你自己到 COAERP 手動點轉銷。
   const orphanCandidateRows: AutomationOrderRow[] = [...probe.rows]
-  let orphanPagesScanned = 1
-  if (probe.rows.some((r) => isTodayOrLater(r.deliveryDate))) {
-    for (let p = 2; p <= Math.min(ORPHAN_SCAN_MAX_PAGES, probe.totalPages); p++) {
-      const page = await fetchOrderPage(sessionCookie, firmCode, '-1', p)
-      orphanPagesScanned = p
-      orphanCandidateRows.push(...page.rows)
-      if (!page.rows.some((r) => isTodayOrLater(r.deliveryDate))) break // 這頁已經全部是舊單，後面只會更舊
-    }
-  }
-  logStep(`findActionableOrders 孤兒單掃描完成（翻了 ${orphanPagesScanned} 頁，全部狀態共 ${probe.totalPages} 頁）`)
+  logStep(`findActionableOrders 孤兒單掃描完成（只看第 1 頁，全部狀態共 ${probe.totalPages} 頁）`)
 
   const keywords = remarkKeyword
     .split(/[,，]/)
