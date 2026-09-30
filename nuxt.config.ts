@@ -4,6 +4,9 @@ export default defineNuxtConfig({
     enabled: true
   },
   nitro: {
+    externals: {
+      inline: ['xlsx']
+    },
     storage: {
       'nuxt:payload': { driver: 'memory' }
     },

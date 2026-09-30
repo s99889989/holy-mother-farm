@@ -12,6 +12,11 @@
   // 「統計月報表」已經改成自己重畫的頁面（sales-statistics-month.vue +
   // sales-statistics-month.get.ts/.post.ts），改回站內導覽（NuxtLink）。
   //
+  // 「銷貨統計明細」（sales-statistics-list.vue）對應原網站 統計報表 >
+  // 銷貨統計明細 的「客戶日期銷售品項明細表」，原網站只提供 Excel/列印，
+  // 本站由後端取回 Excel 解析後顯示，也可直接下載原網站的 Excel，詳見
+  // server/utils/dc-erp/salesStatisticsList.ts 開頭註解。
+  //
   // 「品項」是品項資料管理列表頁（products.vue + products.get.ts），目前
   // 只有查詢/檢視，還沒有新增/編輯/刪除，一樣改回站內導覽（NuxtLink）。
   //
@@ -74,6 +79,13 @@
         active-class="bg-surface2 font-medium text-green-700"
       >
         統計月報表
+      </NuxtLink>
+      <NuxtLink
+        to="/staff/order/dc-erp/sales-statistics-list"
+        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
+        active-class="bg-surface2 font-medium text-green-700"
+      >
+        銷貨統計明細
       </NuxtLink>
       <NuxtLink
         to="/staff/order/dc-erp/settings"
