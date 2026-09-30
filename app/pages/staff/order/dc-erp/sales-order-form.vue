@@ -54,6 +54,9 @@
     operatorName: '',
     signState: '',
     receivingState: '',
+    // 是否可轉銷：由 sales-order-form.get.ts 查原網站訂貨單列表「轉銷」那一格
+    // 決定（跟列表頁 canTransfer 同一套判斷）；查不到時是 null，退回舊判斷。
+    canTransfer: null,
     deliveryCompany: '黑貓宅急便',
     deliveryPeriod: '1',
     temperatureLevel: '1',
@@ -163,6 +166,7 @@
       operatorName: data.header.operatorName,
       signState: data.header.signState,
       receivingState: data.header.receivingState,
+      canTransfer: typeof data.header.canTransfer === 'boolean' ? data.header.canTransfer : null,
       deliveryCompany: data.header.deliveryCompany || '黑貓宅急便',
       deliveryPeriod: data.header.deliveryPeriod || '1',
       temperatureLevel: data.header.temperatureLevel || '1',
@@ -824,9 +828,16 @@
   const transferring = ref(false)
 
   // 「轉銷」（轉入銷貨單），對應 SalesOrderModify.js 的 TransSlipClick()。
-  // 原網站確切什麼條件下才會顯示這顆按鈕不完全確定（實測發現不是單純「已
-  // 核准」就會顯示），這裡簡化成：已核准就顯示，讓使用者自己判斷要不要按；
-  // 按下去如果條件不符，原網站那支 API 本身就會回錯誤訊息，不會誤動作。
+  // 顯示條件跟列表頁一致：照原網站訂貨單列表「轉銷」那一格有沒有按鈕決定
+  // （header.canTransfer，由 sales-order-form.get.ts 查列表取得）。原網站是
+  // 看訂貨單每一列明細有沒有被銷貨單關聯，已全部轉出的單就不會顯示，避免
+  // 重複轉銷多開一張銷貨單。查列表失敗（canTransfer 為 null）時才退回舊的
+  // 「已核准就顯示」判斷。
+  const showTransferButton = computed(() => {
+    if (isNew.value) return false
+    if (typeof header.canTransfer === 'boolean') return header.canTransfer
+    return header.signState === '已核准'
+  })
   async function handleTransfer() {
     if (!guid.value) return
     if (!confirm(`確定要把訂貨單「${header.code}」轉入銷貨單嗎？`)) return
@@ -1209,7 +1220,7 @@
               {{ signing ? '處理中…' : '簽核' }}
             </button>
             <button
-              v-if="!isNew && header.signState === '已核准'"
+              v-if="showTransferButton"
               class="rounded-lg border border-light-c px-4 py-2 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
               :disabled="transferring"
               @click="handleTransfer"

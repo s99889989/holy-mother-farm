@@ -180,7 +180,16 @@
       price: it.price,
       weight: it.weight,
       taxType: it.taxType,
-      remark: it.remark
+      remark: it.remark,
+      // 訂貨單關聯（見 sales-slip-detail.get.ts 開頭註解）：一定要原樣保留，
+      // 存檔時送回原網站，不然這一列會跟訂貨單斷開，訂貨單又出現「轉銷」。
+      salesOrderGUID: it.salesOrderGUID || null,
+      salesOrderDetailsGUID: it.salesOrderDetailsGUID || null,
+      salesOrderCode: it.salesOrderCode || null,
+      salesOrderNum: Number(it.salesOrderNum) || 0,
+      salesOrderProduct: it.salesOrderProduct || '',
+      // 本站沒有編輯的原網站欄位（溫層、出貨人、保存天數…），存檔時原樣送回
+      extra: it.extra || null
     }))
   }
 
@@ -217,6 +226,7 @@
   async function init() {
     loading.value = true
     errorMessage.value = ''
+    relinkMessage.value = ''
     detailViewMode.value = loadListSettings('orderDetail', { viewMode: 'card' }).viewMode
     productViewMode.value = loadListSettings('productSearch', { viewMode: 'table' }).viewMode
     try {
@@ -621,7 +631,14 @@
           price: p.price,
           weight: p.weight,
           taxType: p.taxType || (options.taxType[0]?.value ?? ''),
-          remark: ''
+          remark: '',
+          // 手動新增的品項本來就不是從訂貨單轉過來的，沒有關聯
+          salesOrderGUID: null,
+          salesOrderDetailsGUID: null,
+          salesOrderCode: null,
+          salesOrderNum: 0,
+          salesOrderProduct: '',
+          extra: null
         })
       }
     } finally {
@@ -632,6 +649,64 @@
   function removeRow(row) {
     if (row.guid) deletedGuids.value.push(row.guid)
     details.value = details.value.filter(r => r.tempId !== row.tempId)
+  }
+
+  // ---------- 訂貨單關聯 ----------
+  // 原網站判斷訂貨單某一列有沒有出貨，是看銷貨單明細的 SalesOrderDetailsGUID
+  // 有沒有指回那一列，不是比金額。關聯斷掉的列，訂貨單就會重新出現「轉銷」。
+  // 之前本站存檔沒有送關聯欄位，已經斷掉的單可以用下面的「補回關聯」修復：
+  // 依表頭「取訂貨單」的單號抓訂貨單明細，跟本單「沒有關聯」的列依品項＋
+  // 單位配對，補上關聯欄位，使用者再按「儲存」送回原網站。
+  const unlinkedCount = computed(() => details.value.filter(r => !r.salesOrderDetailsGUID).length)
+  const relinking = ref(false)
+  const relinkMessage = ref('')
+
+  async function handleRelink() {
+    const code = String(header.relationCode || '').trim()
+    if (!code) {
+      relinkMessage.value = '請先在表頭「取訂貨單」填入訂貨單號'
+      return
+    }
+    relinking.value = true
+    relinkMessage.value = ''
+    try {
+      const data = await $fetch('/api/dc-erp/sales-slip-relink', { query: { code } })
+
+      // 已經被本單其他列關聯走的訂貨單明細不重複使用
+      const usedOrderRows = new Set(details.value.map(r => r.salesOrderDetailsGUID).filter(Boolean))
+      const available = data.rows.filter(o => !usedOrderRows.has(o.guid))
+
+      let linked = 0
+      const unmatchedNames = []
+      for (const row of details.value) {
+        if (row.salesOrderDetailsGUID) continue
+        // 先比品項＋單位，找不到再只比品項
+        let idx = available.findIndex(o => o.productID === String(row.productID) && o.specificationUnitID === String(row.specificationUnitID))
+        if (idx === -1) idx = available.findIndex(o => o.productID === String(row.productID))
+        if (idx === -1) {
+          unmatchedNames.push(row.productName)
+          continue
+        }
+        const orderRow = available.splice(idx, 1)[0]
+        row.salesOrderGUID = data.orderGuid
+        row.salesOrderDetailsGUID = orderRow.guid
+        row.salesOrderCode = data.orderCode
+        row.salesOrderNum = orderRow.originalNum
+        row.salesOrderProduct = data.salesOrderProduct
+        linked += 1
+      }
+
+      const parts = []
+      if (linked) parts.push(`已依訂貨單 ${data.orderCode} 補回 ${linked} 列關聯，請按「儲存」才會寫回原網站`)
+      else parts.push(`訂貨單 ${data.orderCode} 沒有可配對的明細`)
+      if (unmatchedNames.length) parts.push(`以下品項訂貨單上沒有，維持未關聯：${unmatchedNames.join('、')}`)
+      if (available.length) parts.push(`訂貨單上還有 ${available.length} 列沒有對應到本單（${available.map(o => o.productName).join('、')}），這幾列訂貨單仍會顯示未出貨`)
+      relinkMessage.value = parts.join('。')
+    } catch (err) {
+      relinkMessage.value = err?.data?.statusMessage || '補回關聯失敗，請稍後再試'
+    } finally {
+      relinking.value = false
+    }
   }
 
   // 明細排序：純畫面上調整順序，跟原網站無關（原網站明細本來就沒有順序
@@ -1058,8 +1133,23 @@
           <!-- 明細 -->
           <div class="overflow-hidden rounded-xl border border-light-c bg-surface">
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-light-c px-3 py-2">
-              <div class="text-sm font-bold text-base-c">
-                明細（{{ details.length }} 筆）
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="text-sm font-bold text-base-c">
+                  明細（{{ details.length }} 筆）
+                </div>
+                <span
+                  v-if="header.relationCode && unlinkedCount"
+                  class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
+                >{{ unlinkedCount }} 列未關聯訂貨單</span>
+                <button
+                  v-if="!isNew && header.relationCode && unlinkedCount"
+                  type="button"
+                  class="rounded border border-amber-400 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                  :disabled="relinking"
+                  @click="handleRelink"
+                >
+                  {{ relinking ? '配對中…' : '依取訂貨單補回關聯' }}
+                </button>
               </div>
               <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center gap-0.5 rounded-lg border border-light-c p-0.5 text-xs">
@@ -1086,6 +1176,13 @@
                 </button>
               </div>
             </div>
+
+            <p
+              v-if="relinkMessage"
+              class="border-b border-light-c bg-amber-50 px-3 py-2 text-xs text-amber-800"
+            >
+              {{ relinkMessage }}
+            </p>
 
             <!-- 卡片檢視 -->
             <div
@@ -1134,6 +1231,18 @@
                   <div class="min-w-0">
                     <div class="truncate font-medium text-base-c">
                       {{ row.productName }}
+                    </div>
+                    <div
+                      v-if="row.salesOrderCode"
+                      class="text-xs text-green-700"
+                    >
+                      訂貨單 {{ row.salesOrderCode }}
+                    </div>
+                    <div
+                      v-else-if="header.relationCode"
+                      class="text-xs text-amber-700"
+                    >
+                      未關聯訂貨單
                     </div>
                     <div class="text-xs text-hint-c">
                       {{ row.specificationUnitName }}
@@ -1293,6 +1402,18 @@
                   </td>
                   <td class="px-2 py-1.5">
                     {{ row.productName }}
+                    <div
+                      v-if="row.salesOrderCode"
+                      class="text-xs text-green-700"
+                    >
+                      訂貨單 {{ row.salesOrderCode }}
+                    </div>
+                    <div
+                      v-else-if="header.relationCode"
+                      class="text-xs text-amber-700"
+                    >
+                      未關聯訂貨單
+                    </div>
                   </td>
                   <td class="px-2 py-1.5">
                     {{ row.specificationUnitName }}

@@ -13,6 +13,18 @@
 // 編輯模式（guidIn 非空）才檢查，新增時還沒有 guid，跳過這一步。
 //
 // 需要安裝 cheerio：只有表頭儲存失敗要把驗證錯誤訊息從 HTML 撈出來才用到。
+//
+// 【2026/09 修正：訂貨單關聯】
+// 之前 DetailSave 送出的明細列沒有帶 SalesOrderGUID / SalesOrderDetailsGUID /
+// SalesOrderCode / SalesOrderNum / SalesOrderProduct，導致從訂貨單轉銷出來的
+// 銷貨單只要在本站改過明細再存檔，原網站就把這些列當成手動新增、跟訂貨單
+// 斷開，訂貨單又重新出現「轉銷」按鈕（實際案例：訂貨單 11509298 / 銷貨單
+// 115093086633，DetailSource 回應裡關聯欄位全部變成 null）。
+// 現在：
+//   1. 關聯欄位由 sales-slip-detail.get.ts 讀出、前端原樣保留，這裡原樣送回。
+//      新增的列（沒有關聯）送 null / '' / 0，跟原網站 DetailSource 的空值一致。
+//   2. 本站畫面沒有編輯的欄位（溫層、損耗量、出貨人、司機、保存天數…）放在
+//      extra 裡原樣送回，不再一律蓋成固定預設值；新增的列才用預設值。
 
 import { load } from 'cheerio'
 
@@ -37,6 +49,25 @@ interface DetailInput {
   weight?: number
   taxType: string
   remark?: string
+  // 訂貨單關聯（見 sales-slip-detail.get.ts 開頭註解）
+  salesOrderGUID?: string | null
+  salesOrderDetailsGUID?: string | null
+  salesOrderCode?: string | null
+  salesOrderNum?: number
+  salesOrderProduct?: string
+  // 本站沒有編輯、要原樣送回的原網站欄位（新增的列是 null）
+  extra?: Record<string, any> | null
+}
+
+// 新增的列（沒有 extra）用的預設值，跟之前固定送的值一樣
+const NEW_ROW_DEFAULTS: Record<string, any> = {
+  WasteNum: 0,
+  LossNum: 0,
+  ShipperPersonal: '',
+  Fees: 0,
+  TemperatureLevel: 3,
+  DriverName: '',
+  SaveDays: 99999
 }
 
 export default defineEventHandler(async (event) => {
@@ -102,7 +133,12 @@ export default defineEventHandler(async (event) => {
         }
       }
 
+      const passthrough = d.extra && typeof d.extra === 'object' ? d.extra : NEW_ROW_DEFAULTS
+      const salesOrderNum = Number(d.salesOrderNum) || 0
+
       return {
+        // 先放原網站原本的值，下面本站有計算/編輯的欄位再覆蓋
+        ...passthrough,
         GUID: d.guid && d.guid !== '' ? d.guid : '00000000-0000-0000-0000-000000000000',
         TitleGUID: guidIn,
         Sort: idx + 1,
@@ -130,21 +166,20 @@ export default defineEventHandler(async (event) => {
         TaxType: d.taxType,
         Tax: Math.round(tax * 100) / 100,
         TaxExcluded: Math.round(taxExcluded * 100) / 100,
-        WasteNum: 0,
-        LossNum: 0,
         ReceiveNum: receiveNum,
         OriginalNum: originalNum,
         OriginalTotal: originalTotal,
-        ShipperPersonal: '',
         Discount: 0,
         DiscountPrice: price,
         Cost: 0,
-        Fees: 0,
-        TemperatureLevel: 3,
         Weight: d.weight || 0,
-        DriverName: '',
-        SaveDays: 99999,
-        Remark: d.remark || ''
+        Remark: d.remark || '',
+        // 訂貨單關聯：原樣送回，沒有關聯就送原網站的空值格式
+        SalesOrderGUID: d.salesOrderGUID || null,
+        SalesOrderDetailsGUID: d.salesOrderDetailsGUID || null,
+        SalesOrderCode: d.salesOrderCode || null,
+        SalesOrderNum: salesOrderNum,
+        SalesOrderProduct: d.salesOrderProduct || ''
       }
     })
 

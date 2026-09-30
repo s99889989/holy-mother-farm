@@ -1,5 +1,7 @@
 <script setup>
   import { reactive, ref, computed, onMounted } from 'vue'
+  // 列表上刪除後，要清掉單號 hover 明細 tooltip 的模組層級快取
+  import { clearDcErpItemsTooltipCache } from '~/components/dc-erp/DcErpItemsTooltip.vue'
 
   // 「訂貨單維護」自己重畫的第一個畫面：查詢表單 + 列表都是我們自己的
   // Tailwind 樣式，資料來自 /api/dc-erp/sales-orders（伺服器解析原網站 HTML
@@ -167,6 +169,59 @@
   // sales-order-sign.post.ts 開頭註解。多選時 Guid 用逗號分隔送出——原網站
   // 多選的真實格式沒有實測樣本，如果多選簽核/簽退失敗，麻煩測一次多選後
   // 告訴我，我再核對調整。
+  // 勾選「刪除」：跟編輯頁的「刪除訂貨單」打同一支 API（/api/dc-erp/sales-order-delete
+  // → 原網站 POST .../Delete/{guid}），原網站刪除本來就是單筆呼叫，這裡依序
+  // 逐張呼叫（不並發，避免同時打同一個 session）。單張失敗（例如原網站不允許
+  // 刪除已核准的單）會記下來繼續刪下一張，跑完統一重新整理列表＋顯示失敗清單。
+  // 刪除無法復原，確認視窗會列出所有要刪的單號。
+  //
+  // 「已核准」的單原網站不允許刪除（真的送出去也刪不掉），所以只處理勾選中
+  // 簽核狀態不是「已核准」的；勾到已核准的會自動略過，按鈕數字只算可刪的，
+  // 確認視窗也會提示略過幾張。要刪已核准的單，請先簽退再刪。
+  const deletingBatch = ref(false)
+
+  const isDeletable = (row) => row.signState !== '已核准'
+  const selectedDeletableRows = computed(() =>
+    items.value.filter((row) => selectedGuids.value.has(row.guid) && isDeletable(row))
+  )
+  const selectedNonDeletableCount = computed(() =>
+    items.value.filter((row) => selectedGuids.value.has(row.guid) && !isDeletable(row)).length
+  )
+
+  async function handleDeleteBatch() {
+    const rows = selectedDeletableRows.value
+    if (!rows.length) return
+    const codes = rows.map((row) => row.code).join('、')
+    const skippedNote = selectedNonDeletableCount.value
+      ? `\n\n（另有 ${selectedNonDeletableCount.value} 張已核准不能刪除，會略過；要刪請先簽退）`
+      : ''
+    if (!confirm(`確定要刪除以下 ${rows.length} 張訂貨單嗎？此動作無法復原。\n\n${codes}${skippedNote}`)) return
+
+    deletingBatch.value = true
+    errorMessage.value = ''
+    const failed = []
+
+    for (const row of rows) {
+      try {
+        await $fetch('/api/dc-erp/sales-order-delete', {
+          method: 'POST',
+          body: { guid: row.guid }
+        })
+        clearDcErpItemsTooltipCache('/api/dc-erp/sales-order-detail', row.guid)
+        selectedGuids.value.delete(row.guid)
+      } catch (err) {
+        failed.push(err?.data?.statusMessage ? `${row.code}（${err.data.statusMessage}）` : row.code)
+      }
+    }
+
+    deletingBatch.value = false
+    await load(page.value)
+
+    if (failed.length) {
+      errorMessage.value = `以下訂貨單刪除失敗，其餘已刪除：${failed.join('、')}`
+    }
+  }
+
   async function handleSignBatch(action) {
     const guids = Array.from(selectedGuids.value)
     if (!guids.length) return
@@ -442,6 +497,14 @@
               已選取可轉銷 {{ selectedTransferableRows.length }} 張
               <template v-if="selectedNonTransferableCount">（另有 {{ selectedNonTransferableCount }} 張不可轉銷已略過）</template>
             </span>
+            <button
+              class="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              :disabled="!selectedDeletableRows.length || deletingBatch || signing || transferringBatch || signingAndTransferring"
+              @click="handleDeleteBatch"
+              :title="selectedNonDeletableCount ? `已核准的 ${selectedNonDeletableCount} 張不能刪除，會略過（要刪請先簽退）` : ''"
+            >
+              {{ deletingBatch ? '刪除中…' : `刪除（${selectedDeletableRows.length}）` }}
+            </button>
             <button
               class="rounded-lg border border-light-c px-3 py-1.5 text-sm font-medium text-muted-c hover:bg-surface2 disabled:opacity-50"
               :disabled="!selectedTransferableRows.length || transferringBatch || signing || signingAndTransferring"
