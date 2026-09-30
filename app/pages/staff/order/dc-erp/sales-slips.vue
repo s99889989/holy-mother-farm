@@ -114,7 +114,8 @@
   }
 
   function handleSearch() {
-    saveListSettings('salesSlips', { whSearch: filters.whSearch, keyword: filters.keyword })
+    saveListSettings('salesSlips', { whSearch: filters.whSearch })
+    saveLastCustomer(filters.keyword)
     load(1)
   }
 
@@ -137,7 +138,7 @@
       isCreateInvoice: '0',
       isPrintReceipt: '0'
     })
-    saveListSettings('salesSlips', { whSearch: filters.whSearch, keyword: filters.keyword })
+    saveListSettings('salesSlips', { whSearch: filters.whSearch })
     load(1)
   }
 
@@ -220,9 +221,9 @@
 
   // 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
   // settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
-  // 「依欄位」＋「關鍵字」則是這頁自己記的：使用者反應每次都要重新輸入
-  // 客戶代號很麻煩，所以送出查詢/列出全部時順便存起來，下次進來頁面直接
-  // 帶入上次查詢的值，不用重打。
+  // 「依欄位」是這頁自己記的（存在 dc-erp-list-settings 的 salesSlips 底下）；
+  // 「關鍵字」則改用跟訂貨單列表／新增訂貨單共用的客戶紀錄（見下方
+  // CUSTOMER_HISTORY_KEY），三處打的值互通，下次進來帶入最新一筆。
   const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
   function loadListSettings(key, defaults) {
     try {
@@ -245,17 +246,47 @@
     }
   }
 
+  // 「客戶」共用記錄：訂貨單列表「客戶名稱」、銷貨單列表「依欄位」旁的
+  // 關鍵字、新增訂貨單「客戶」三個欄位共用同一把 localStorage key（純字串
+  // 陣列，最新一筆在最前面，跟 DcErpKeywordSearchInput 內部存的格式一樣）。
+  // 任何一處送出查詢/選定客戶都會寫進來，三個頁面一開啟都帶入最新一筆，
+  // 所以在其中一頁打了 125，切到另外兩頁也會是 125。
+  const CUSTOMER_HISTORY_KEY = 'dc-erp-sales-orders-customer-name-history'
+  const MAX_CUSTOMER_HISTORY = 10
+  function loadCustomerHistory() {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = window.localStorage.getItem(CUSTOMER_HISTORY_KEY)
+      const list = raw ? JSON.parse(raw) : []
+      return Array.isArray(list) ? list : []
+    } catch {
+      return []
+    }
+  }
+  function loadLastCustomer() {
+    return loadCustomerHistory()[0] || ''
+  }
+  function saveLastCustomer(value) {
+    const v = (value || '').trim()
+    if (!v || typeof window === 'undefined') return
+    try {
+      const next = [v, ...loadCustomerHistory().filter((c) => c !== v)].slice(0, MAX_CUSTOMER_HISTORY)
+      window.localStorage.setItem(CUSTOMER_HISTORY_KEY, JSON.stringify(next))
+    } catch {
+      // localStorage 不可用（例如無痕模式）就算了，不影響查詢功能本身
+    }
+  }
+
   onMounted(() => {
     const listSettings = loadListSettings('salesSlips', {
       pagesize: pagesize.value,
       viewMode: viewMode.value,
-      whSearch: filters.whSearch,
-      keyword: filters.keyword
+      whSearch: filters.whSearch
     })
     pagesize.value = listSettings.pagesize
     viewMode.value = listSettings.viewMode
     filters.whSearch = listSettings.whSearch
-    filters.keyword = listSettings.keyword
+    filters.keyword = loadLastCustomer()
     load(1)
   })
 </script>

@@ -687,6 +687,47 @@
     arr[index] = tmp
   }
 
+  // 電腦版（列表檢視）改用拖動排序：用瀏覽器原生 HTML5 drag & drop，
+  // 不另外裝套件。只有按住最左邊的「⠿」把手才能拖（dragArmedIndex），
+  // 不然整列都 draggable 的話，在數量輸入框裡選取文字也會變成拖動。
+  // 拖曳過程中滑鼠經過別列的上/下半部就即時換位置（跟 Trello 那種一樣），
+  // 放開就是最後順序；手機卡片檢視維持原本的 ▲▼ 按鈕。
+  const dragArmedIndex = ref(-1)
+  const draggingIndex = ref(-1)
+
+  function onRowDragStart(e, index) {
+    if (dragArmedIndex.value !== index) {
+      e.preventDefault()
+      return
+    }
+    draggingIndex.value = index
+    e.dataTransfer.effectAllowed = 'move'
+    // Firefox 沒有 setData 不會開始拖
+    e.dataTransfer.setData('text/plain', String(index))
+  }
+
+  function onRowDragOver(e, index) {
+    if (draggingIndex.value < 0) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const from = draggingIndex.value
+    if (index === from) return
+    // 要超過目標列的一半才換，避免在兩列交界上下抖動
+    const rect = e.currentTarget.getBoundingClientRect()
+    const mid = rect.top + rect.height / 2
+    if (from < index && e.clientY < mid) return
+    if (from > index && e.clientY > mid) return
+    const arr = details.value
+    const [item] = arr.splice(from, 1)
+    arr.splice(index, 0, item)
+    draggingIndex.value = index
+  }
+
+  function onRowDragEnd() {
+    draggingIndex.value = -1
+    dragArmedIndex.value = -1
+  }
+
   function onWarehouseChange(row, code) {
     const wh = warehouseOptions.value.find((w) => w.code === code)
     if (wh) {
@@ -1081,27 +1122,25 @@
                 </tr>
                 </thead>
                 <tbody>
-                <tr v-for="(row, index) in details" :key="row.tempId" class="border-b border-light-c">
+                <tr
+                  v-for="(row, index) in details"
+                  :key="row.tempId"
+                  class="border-b border-light-c transition-colors"
+                  :class="draggingIndex === index ? 'bg-surface2 opacity-50' : ''"
+                  :draggable="dragArmedIndex === index"
+                  @dragstart="onRowDragStart($event, index)"
+                  @dragover="onRowDragOver($event, index)"
+                  @drop.prevent
+                  @dragend="onRowDragEnd"
+                  @mouseup="dragArmedIndex = -1"
+                >
                   <td class="px-2 py-1.5">
-                    <div class="flex items-center justify-center gap-0.5">
-                      <button
-                        type="button"
-                        class="rounded px-1 text-muted-c hover:bg-surface2 disabled:opacity-30"
-                        title="上移"
-                        :disabled="index === 0"
-                        @click="moveRowUp(index)"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded px-1 text-muted-c hover:bg-surface2 disabled:opacity-30"
-                        title="下移"
-                        :disabled="index === details.length - 1"
-                        @click="moveRowDown(index)"
-                      >
-                        ▼
-                      </button>
+                    <div
+                      class="mx-auto flex w-8 cursor-grab select-none items-center justify-center rounded py-1 text-lg leading-none text-muted-c hover:bg-surface2 active:cursor-grabbing"
+                      title="按住拖動調整順序"
+                      @mousedown="dragArmedIndex = index"
+                    >
+                      ⠿
                     </div>
                   </td>
                   <td class="px-2 py-1.5 text-center">

@@ -164,26 +164,62 @@
 
   // ── 資料 ──────────────────────────────────────────────────────────
   const loading = ref(false)
-  const totalSoymilk = ref(0)
-  const totalTofu = ref(0)
-  const orders = ref([])
+  // 後端依「訂購月份」存放訂單，rawOrders 為抓回來的原始資料（含上個月建立的訂單）
+  const rawOrders = ref([])
   const lastUpdated = ref('')
+
+  // 取得上一個月份字串（YYYY-MM）
+  function prevMonthOf(month) {
+    const [y, m] = month.split('-').map(Number)
+    const d = new Date(y, m - 2, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  // 依「取貨日」所在月份篩選：月底下單、下個月初取貨的訂單歸到取貨月份
+  const orders = computed(() =>
+    rawOrders.value.filter(o =>
+      resolvePickupDate(o.pickupDay, o.createdAt, o.pickupDate).slice(0, 7) === selectedMonth.value))
+
+  // 本月統計改由前端依取貨月份計算（不含已取消）
+  const totalSoymilk = computed(() =>
+    orders.value
+      .filter(o => o.status !== '已取消')
+      .reduce((s, o) => s + normalizeSoymilkItems(o).reduce((a, i) => a + (i.qty || 0), 0), 0))
+  const totalTofu = computed(() =>
+    orders.value
+      .filter(o => o.status !== '已取消')
+      .reduce((s, o) => s + (o.tofuQty || 0), 0))
+
+  async function fetchMonthOrders(month) {
+    const res = await fetch(`${BASE.value}/admin/list?month=${month}`, {
+      credentials: 'include'
+    })
+    const data = await res.json()
+    return (data.orders ?? []).map(o => ({...o, month: o.month || month}))
+  }
 
   const fetchData = async (isInitialLoad = false) => {
     loading.value = true
     try {
-      const res = await fetch(`${BASE.value}/admin/list?month=${selectedMonth.value}`, {
-        credentials: 'include'
+      const month = selectedMonth.value
+      // 同時抓上個月：上個月底建立、取貨日落在本月的訂單也要顯示
+      const [prev, cur] = await Promise.all([
+        fetchMonthOrders(prevMonthOf(month)).catch(() => []),
+        fetchMonthOrders(month)
+      ])
+      if (month !== selectedMonth.value) return // 切換月份期間的過期回應
+      const seen = new Set()
+      rawOrders.value = [...prev, ...cur].filter(o => {
+        const key = `${o.month}-${o.id}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
       })
-      const data = await res.json()
-      totalSoymilk.value = data.totalSoymilk ?? 0
-      totalTofu.value = data.totalTofu ?? 0
-      orders.value = data.orders ?? []
       const now = new Date()
       lastUpdated.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       if (isInitialLoad) scrollToToday()
     } catch {
-      orders.value = []
+      rawOrders.value = []
     } finally {
       loading.value = false
     }
@@ -501,7 +537,7 @@
         alert('刪除失敗：' + data.error);
         return
       }
-      orders.value = orders.value.filter(o => o.id !== order.id)
+      rawOrders.value = rawOrders.value.filter(o => !(o.id === order.id && o.month === order.month))
       closeDeleteModal()
     } catch {
       alert('刪除失敗')
@@ -836,7 +872,7 @@
   // 從現有訂單建立姓名→聯絡對照表（去重，最新訂單優先）
   const knownCustomers = computed(() => {
     const map = new Map()
-    const sorted = [...orders.value].sort((a, b) =>
+    const sorted = [...rawOrders.value].sort((a, b) =>
       (b.createdAt || '').localeCompare(a.createdAt || ''))
     for (const o of sorted) {
       if (o.name && !map.has(o.name)) {
@@ -974,7 +1010,7 @@
         alert('編輯失敗：' + data.error);
         return
       }
-      const target = orders.value.find(o => o.id === editModal.value.orderId)
+      const target = rawOrders.value.find(o => o.id === editModal.value.orderId && o.month === editModal.value.orderMonth)
       if (target) Object.assign(target, payload)
       closeEditModal()
     } catch {
