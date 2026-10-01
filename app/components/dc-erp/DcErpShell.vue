@@ -74,13 +74,6 @@
         進階品項管理
       </NuxtLink>
       <NuxtLink
-        to="/staff/order/dc-erp/sales-statistics-month"
-        class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
-        active-class="bg-surface2 font-medium text-green-700"
-      >
-        統計月報表
-      </NuxtLink>
-      <NuxtLink
         to="/staff/order/dc-erp/sales-statistics-list"
         class="shrink-0 rounded px-3 py-1.5 text-muted-c hover:bg-surface2 hover:text-green-700"
         active-class="bg-surface2 font-medium text-green-700"
