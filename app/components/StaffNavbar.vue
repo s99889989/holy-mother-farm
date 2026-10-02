@@ -40,7 +40,7 @@ const navGroups = [
       { to: '/staff/order/handmade-bread-orders', icon: '🍞', label: '一一手做', key: 'order.handmade-bread-orders' },
       { to: '/staff/order/wholefood-bakery-orders', icon: '🥐', label: '全食烘培', key: 'order.handmade-bread-orders' },
       { to: '/staff/order/shopping-cart', icon: '🛒', label: '購物車', key: 'order.shopping-cart' },
-      { to: '/staff/order/dc-erp', icon: '🌾️', label: '農莊ERP', key: 'order.dc-erp' },
+      { to: '/staff/order/dc-erp/sales-orders', icon: '🌾️', label: '農莊ERP', key: 'order.dc-erp' },
       { to: '/staff/order/rooms-orders', icon: '🛏️', label: '訂房管理', key: 'order.rooms-orders' },
       { to: '/staff/order/venue/venue-orders', icon: '🏛️', label: '場地租借', key: 'order.venue-orders' }
     ]

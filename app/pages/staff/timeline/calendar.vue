@@ -832,7 +832,7 @@
 
   // ── 新增 / 編輯 Modal ─────────────────────────────────────────────
   // source: 'local' = 院內活動, 'itinerary' = 行程（獨立資料，跟院內互不相干）, 'google' = Google 日曆（後端 Service Account 寫回）
-  const formModal = reactive({ show: false, isNew: true, id: null, source: 'local', googleEventId: null })
+  const formModal = reactive({ show: false, isNew: true, id: null, source: 'local', googleEventId: null, syncSource: '' })
   const form = reactive({ date: '', time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: '' })
   const formError = ref('')
 
@@ -862,6 +862,7 @@
     formModal.id = null
     formModal.source = source
     formModal.googleEventId = null
+    formModal.syncSource = ''
     Object.assign(form, {
       date: dateStr || '',
       time: '', endDate: '', endTime: '', title: '', owner: '', room: '', building: '醫院', description: ''
@@ -977,6 +978,7 @@
     formModal.id = ev.id
     formModal.source = ev.source === 'itinerary' ? 'itinerary' : (ev.source === 'google' ? 'google' : 'local')
     formModal.googleEventId = ev.source === 'google' ? ev.googleEventId : null
+    formModal.syncSource = ev.syncSource || ''
     Object.assign(form, {
       date: ev.date, time: ev.time || '',
       endDate: ev.endDate && ev.endDate !== ev.date ? ev.endDate : '', endTime: ev.endTime || '',
@@ -1395,6 +1397,7 @@
   // 切換月份時重新載入備注（類型 / 地點篩選維持不變，跨月份記住）
   watch(currentYearMonth, () => {
     fetchNotes()
+    fetchA107Notes()
     fetchGoogleEvents()
     fetchBookingEvents()
     fetchLunchEvents()
@@ -1463,6 +1466,82 @@
     showToast('備注已刪除')
   }
 
+  // ── A107 院內行事曆自動同步 ─────────────────────────────────────────
+  // 後端 A107CalendarSyncService 用後端存的帳密定時（預設 30 分鐘）登入院內行事曆抓資料，
+  // 寫進院內活動（syncSource = 'A107'）＋當月 A107 備註（a107Notes，跟手動備註分開、唯讀）。
+  // 前端只負責顯示同步狀態、提供「立即同步」，以及偵測到後端同步過就自動重抓活動
+  const a107Notes = ref([])
+  const a107Sync = reactive({ status: null, syncing: false })
+  let a107StatusTimer = null
+  const A107_STATUS_POLL_MS = 5 * 60 * 1000
+
+  function isA107Synced(ev) {
+    return ev?.syncSource === 'A107'
+  }
+
+  const a107SyncLabel = computed(() => {
+    const st = a107Sync.status
+    if (a107Sync.syncing || st?.running) return '同步中...'
+    if (!st) return '讀取同步狀態中...'
+    if (!st.configured) return '後端尚未設定帳密'
+    if (st.lastError) return `同步失敗：${st.lastError}`
+    if (st.lastSuccessAt) return `最後同步 ${st.lastSuccessAt.slice(5, 16)}`
+    return '尚未同步'
+  })
+
+  async function fetchA107Notes() {
+    try {
+      const res = await fetch(`${BASE.value}/a107-notes?yearMonth=${currentYearMonth.value}`)
+      a107Notes.value = res.ok ? await res.json() : []
+    } catch {
+      a107Notes.value = []
+    }
+  }
+
+  // 定期看同步狀態：後端排程同步完（lastSuccessAt 變了）就自動重抓活動和備註，不用手動重新整理
+  async function fetchA107SyncStatus() {
+    try {
+      const res = await fetch(`${BASE.value}/sync/status`)
+      if (!res.ok) return
+      const st = await res.json()
+      const prevSuccess = a107Sync.status?.lastSuccessAt
+      a107Sync.status = st
+      if (prevSuccess && st.lastSuccessAt && st.lastSuccessAt !== prevSuccess) {
+        fetchEvents()
+        fetchA107Notes()
+      }
+    } catch {}
+  }
+
+  async function runA107Sync() {
+    if (a107Sync.syncing) return
+    a107Sync.syncing = true
+    try {
+      const res = await fetch(`${BASE.value}/sync`, { method: 'POST' })
+      if (!res.ok) throw new Error('同步失敗')
+      const st = await res.json()
+      a107Sync.status = st
+      if (st.message) {
+        showToast(st.message)
+      } else if (st.lastError) {
+        showToast(`同步失敗：${st.lastError}`)
+      } else {
+        const s = st.summary || {}
+        const parts = []
+        if (s.added) parts.push(`新增 ${s.added}`)
+        if (s.updated) parts.push(`更新 ${s.updated}`)
+        if (s.adopted) parts.push(`對應舊資料 ${s.adopted}`)
+        if (s.removed) parts.push(`刪除 ${s.removed}`)
+        showToast(parts.length ? `同步完成：${parts.join('、')} 筆` : '同步完成，沒有變動')
+      }
+      await Promise.all([fetchEvents(), fetchA107Notes()])
+    } catch (e) {
+      showToast(e.message || '同步失敗')
+    } finally {
+      a107Sync.syncing = false
+    }
+  }
+
   // ── Toast ─────────────────────────────────────────────────────────
   function showToast(msg) {
     toast.message = msg
@@ -1478,6 +1557,9 @@
     fetchEvents()
     fetchItineraryEvents()
     fetchNotes()
+    fetchA107Notes()
+    fetchA107SyncStatus()
+    a107StatusTimer = setInterval(fetchA107SyncStatus, A107_STATUS_POLL_MS)
     fetchGoogleEvents()
     fetchBookingEvents()
     fetchLunchEvents()
@@ -1510,6 +1592,7 @@
   onUnmounted(() => {
     if (mobileMql) mobileMql.removeEventListener('change', updateMobileViewport)
     if (navbarResizeObserver) navbarResizeObserver.disconnect()
+    if (a107StatusTimer) clearInterval(a107StatusTimer)
   })
 </script>
 
@@ -1746,41 +1829,31 @@
           </div>
         </div>
 
-        <!-- ── 院內功能（清空當月/貼上TXT/新增）：放最下面，預設收合 ── -->
+        <!-- ── 院內功能：A107 自動同步狀態＋立即同步 ── -->
         <div class="bg-surface dark:bg-[#15171c] px-6 py-3.5">
           <div
             class="lg:w-full rounded-xl border border-light-c dark:border-[#2a2e37] bg-surface2/70 dark:bg-[#1c1f26]/70 px-3 py-2.5"
           >
-            <button
-              class="w-full flex items-center justify-between mb-0.5 px-0.5"
-              @click="localFuncExpanded = !localFuncExpanded"
-            >
-              <p class="text-xs font-semibold text-hint-c/80 tracking-wide">
-                院內功能
-              </p>
-              <svg
-                class="w-3.5 h-3.5 text-hint-c transition-transform"
-                :class="{ 'rotate-180': localFuncExpanded }"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              ><path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M19 9l-7 7-7-7"
-              /></svg>
-            </button>
-            <div
-              v-show="localFuncExpanded"
-              class="flex items-center gap-3 lg:flex-col lg:items-stretch lg:gap-2 mt-2"
-            >
+            <p class="text-xs font-semibold text-hint-c/80 tracking-wide mb-0.5 px-0.5">
+              院內功能
+            </p>
+            <!-- A107 院內行事曆自動同步狀態：不用展開就看得到 -->
+            <div class="flex items-center justify-between gap-2 mt-1.5 px-0.5">
+              <span
+                class="text-[11px] leading-tight truncate"
+                :class="a107Sync.status?.lastError || (a107Sync.status && !a107Sync.status.configured) ? 'text-red-500 dark:text-red-400' : 'text-hint-c'"
+                :title="a107SyncLabel"
+              >
+                🔄 {{ a107SyncLabel }}
+              </span>
               <button
-                class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 rounded-lg bg-surface dark:bg-[#1c1f26] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors lg:w-full lg:justify-center"
-                @click="openClearMonthModal"
+                class="flex-shrink-0 flex items-center gap-1 px-2 py-1 text-[11px] font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-md bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="a107Sync.syncing || a107Sync.status?.running"
+                @click="runA107Sync"
               >
                 <svg
-                  class="w-4 h-4"
+                  class="w-3 h-3"
+                  :class="{ 'animate-spin': a107Sync.syncing || a107Sync.status?.running }"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1788,44 +1861,9 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 /></svg>
-                <span class="hidden sm:inline">清空當月</span>
-              </button>
-              <button
-                class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-light-c dark:border-[#2a2e37] text-muted-c rounded-lg bg-surface dark:bg-[#1c1f26] hover:border-indigo-400 hover:text-indigo-600 transition-colors lg:w-full lg:justify-center"
-                @click="showTxtModal = true"
-              >
-                <svg
-                  class="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                /></svg>
-                <span class="hidden sm:inline">貼上 TXT</span>
-                <span class="sm:hidden">TXT</span>
-              </button>
-              <button
-                class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors lg:w-full lg:justify-center"
-                @click="openAddOnDate(null)"
-              >
-                <svg
-                  class="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 4v16m8-8H4"
-                /></svg>
-                新增
+                立即同步
               </button>
             </div>
           </div>
@@ -1958,6 +1996,11 @@
                 @mousemove="moveTooltip($event)"
                 @mouseleave="hideTooltip"
               >
+                <!-- 開始時間只顯示在活動真正的第一天（跨週接續的色條不重複顯示），手機版跟單日活動一樣隱藏 -->
+                <span
+                  v-if="b.roundLeft && b.ev.time"
+                  class="chip-time hidden sm:inline mr-1"
+                >{{ b.ev.time }}</span>
                 {{ b.ev.title }}
               </div>
             </div>
@@ -2006,6 +2049,26 @@
                 /></svg>
                 新增備注
               </button>
+            </div>
+
+            <!-- A107 院內行事曆同步下來的備註（唯讀，每次同步整份覆蓋；要修改請到院內行事曆改） -->
+            <div
+              v-if="a107Notes.length"
+              class="px-4 py-3 border-b border-amber-100 dark:border-amber-900/40 bg-amber-100/40 dark:bg-amber-900/10"
+            >
+              <p class="text-xs font-semibold text-amber-600 dark:text-amber-500 mb-2 flex items-center gap-1">
+                🔄 院內行事曆備註
+                <span class="font-normal text-amber-500/80">（自動同步，唯讀）</span>
+              </p>
+              <div class="space-y-1.5">
+                <p
+                  v-for="(n, i) in a107Notes"
+                  :key="`a107-note-${i}`"
+                  class="text-sm text-muted-c leading-relaxed break-words"
+                >
+                  {{ n }}
+                </p>
+              </div>
             </div>
 
             <!-- 備注列表 -->
@@ -2295,6 +2358,12 @@
         </div>
 
         <div class="px-5 py-4 space-y-3">
+          <div
+            v-if="!formModal.isNew && formModal.syncSource === 'A107'"
+            class="text-xs leading-relaxed rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50"
+          >
+            🔄 這筆是從院內行事曆自動同步的活動，在這裡修改的內容會在下次同步時被院內行事曆的資料覆蓋。要永久修改請到院內行事曆改。
+          </div>
           <div>
             <label class="field-label">起始日期 *</label>
             <input
@@ -2909,6 +2978,13 @@
             class="bg-surface2 dark:bg-[#1c1f26] rounded-xl p-3 text-sm text-muted-c leading-relaxed"
             style="white-space: pre-line"
           >{{ localDetailModal.ev.description }}</div>
+          <!-- A107 自動同步提示 -->
+          <p
+            v-if="isA107Synced(localDetailModal.ev)"
+            class="text-xs text-hint-c"
+          >
+            🔄 由院內行事曆自動同步（在這裡修改或刪除，下次同步時會被還原）
+          </p>
           <!-- 分類徽章 -->
           <span :class="['type-badge', typeColorClass(localDetailModal.ev)]">{{ eventBadgeLabel(localDetailModal.ev) }}</span>
         </div>

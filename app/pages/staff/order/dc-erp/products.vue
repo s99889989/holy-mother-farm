@@ -1,32 +1,90 @@
 <script setup>
-  import { reactive, ref, onMounted } from 'vue'
+  import { reactive, ref, computed, onMounted } from 'vue'
 
-  // 「品項資料管理」列表頁（原網站 /COAERP/Prod/index），跟訂貨單/銷貨單
-  // 列表同一套做法。目前只做查詢（依欄位/關鍵字/是否停用）+ 分頁 + 連結到
-  // 檢視頁，沒有「依所屬類別」篩選、批次刪除、批次列印——這幾個原網站有
-  // 的功能目前先跳過，原因見 products.get.ts 開頭註解。
+  // 「品項」— 品項資料管理列表頁（原網站 /COAERP/Prod/index）＋品項圖片管理。
   //
-  // 關鍵字欄位跟訂貨單/銷貨單列表一樣換成共用元件 DcErpKeywordSearchInput（純
-  // 前端 localStorage 記住最近搜尋過的關鍵字）。這頁查詢表單本來就只有一排
-  // （沒有像訂貨單/銷貨單那樣還有第二三排進階條件），所以沒有加「收縮／
-  // 更多條件」的展開按鈕；也沒有日期欄位，DcErpRocDateInput 用不到。
+  // 原本是兩頁：
+  //   - products.vue：唯讀檢視 COAERP 品項主檔（查詢/分頁/關鍵字）
+  //   - product-images.vue（進階品項管理）：用品項代號幫品項綁照片
+  // 兩頁打的是同一支 /api/dc-erp/products、查詢表單/分頁邏輯一模一樣，差別
+  // 只在後者多合併了圖片清單＋圖片管理 Modal，所以合併成這一頁。
+  //
+  // 資料來源仍然分開、互不影響：
+  //   - 品項代號/名稱/單位等主檔資料：Nuxt server/api 代理 COAERP（唯讀，
+  //     沒有「依所屬類別」篩選、批次刪除、批次列印，原因見 products.get.ts
+  //     開頭註解）
+  //   - 圖片：完全不經過 COAERP、也不經過 Nuxt server/api，前端直接打
+  //     Spring Boot 的 DcErpProductImageController（/holy/dc-erp/
+  //     product-image/*），跟「每日菜色」daily-menu.vue 直打 MenuController
+  //     同一套（canvas 先壓縮 → 上傳 → 後端轉 WebP + 縮圖）。用「品項代號」
+  //     當 key 存在自己這邊，不會寫回 COAERP 品項主檔（4000+ 筆正式資料）。
+  //
+  // 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（settings.vue，
+  // localStorage key: dc-erp-list-settings 底下的 products）。
   definePageMeta({
     layout: 'staff',
     requiredPermission: 'order.dc-erp'
   })
 
+  const commonStore = useCommonStore()
+  const API_ORIGIN = commonStore.data.main_url
+  const IMAGE_BASE = API_ORIGIN + '/holy/dc-erp/product-image'
+
+  const imgUrl = (path) => {
+    if (!path) return ''
+    return path.startsWith('http') ? path : API_ORIGIN + path
+  }
+  const thumbUrl = (path) => {
+    if (!path) return ''
+    return imgUrl(path).replace('/holy/dc-erp/product-image/', '/holy/dc-erp/product-image/thumb/')
+  }
+
+  const fetchWithTimeout = (url, options = {}, ms = 8000) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), ms)
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
+  }
+
+  // 上傳前在前端用 canvas 壓縮（手機拍照常見 4–10MB，壓到 1200px/0.82 後
+  // 約 200–400KB），後端收到後仍會再轉一次 WebP，統一格式。
+  const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const scale = Math.min(1, maxWidth / img.width)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(
+          blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
+          'image/jpeg',
+          quality
+        )
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve(file)
+      }
+      img.src = url
+    })
+  }
+
+  // ── 查詢表單 ─────────────────────────────────────────────────────
   const filters = reactive({
     whSearch: 'whatever',
     keyword: '',
     selectDisable: 'whatever'
   })
-
   const filterOptions = reactive({
     whSearchField: [],
     selectDisable: []
   })
 
   const viewMode = ref('table') // 'table' | 'card'
+  const onlyWithImages = ref(false)
 
   const items = ref([])
   const totalCount = ref(0)
@@ -37,19 +95,28 @@
   const loading = ref(true)
   const errorMessage = ref('')
 
+  // 圖片清單失敗不影響品項列表本身（Spring Boot 掛掉時照樣能查品項）
+  async function loadImagesMap() {
+    try {
+      const res = await fetchWithTimeout(`${IMAGE_BASE}/list`)
+      return await res.json() // { code: { images: [...], productClass: '...' } }
+    } catch {
+      return {}
+    }
+  }
+
   async function load(targetPage = 1) {
     loading.value = true
     errorMessage.value = ''
     try {
-      const data = await $fetch('/api/dc-erp/products', {
-        query: {
-          page: targetPage,
-          pagesize: pagesize.value,
-          ...filters
-        }
-      })
+      const [data, imagesMap] = await Promise.all([
+        $fetch('/api/dc-erp/products', {
+          query: { page: targetPage, pagesize: pagesize.value, ...filters }
+        }),
+        loadImagesMap()
+      ])
       Object.assign(filterOptions, data.filters)
-      items.value = data.items
+      items.value = data.items.map(row => ({ ...row, images: imagesMap[row.code]?.images || [] }))
       totalCount.value = data.totalCount
       totalPages.value = data.totalPages
       page.value = data.page
@@ -66,22 +133,23 @@
     }
   }
 
+  const displayItems = computed(() =>
+    onlyWithImages.value ? items.value.filter(i => i.images.length > 0) : items.value
+  )
+
   function handleSearch() {
     load(1)
   }
-
   function handleAllList() {
     Object.assign(filters, { whSearch: 'whatever', keyword: '', selectDisable: 'whatever' })
+    onlyWithImages.value = false
     load(1)
   }
-
   function goPage(p) {
     if (p < 1 || p > totalPages.value) return
     load(p)
   }
 
-  // 「顯示方式（列表/卡片）」跟「每頁筆數」統一在「設定」頁調整（見
-  // settings.vue），這裡只在載入時讀取，畫面上不再有切換鈕。
   const LIST_SETTINGS_KEY = 'dc-erp-list-settings'
   function loadListSettings(key, defaults) {
     try {
@@ -100,6 +168,99 @@
     viewMode.value = listSettings.viewMode
     load(1)
   })
+
+  // ── 圖片管理 Modal ───────────────────────────────────────────────
+  const imageModal = reactive({ show: false, item: null, images: [] })
+  const fileInputRef = ref(null)
+  const dragOver = ref(false)
+  const uploading = ref(false)
+  const uploadProgress = ref('')
+  const previewUrl = ref('')
+  const toast = reactive({ show: false, message: '' })
+
+  function showToast(message) {
+    toast.message = message
+    toast.show = true
+    setTimeout(() => { toast.show = false }, 2500)
+  }
+
+  function openImageModal(item) {
+    imageModal.item = item
+    imageModal.images = [...(item.images || [])]
+    imageModal.show = true
+  }
+
+  function syncItemImages() {
+    const found = items.value.find(i => i.code === imageModal.item.code)
+    if (found) found.images = [...imageModal.images]
+  }
+
+  const handleFileSelect = e => uploadImages(Array.from(e.target.files))
+  const handleDrop = (e) => {
+    dragOver.value = false
+    uploadImages(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')))
+  }
+
+  async function uploadImages(files) {
+    if (!imageModal.item || files.length === 0) return
+    uploading.value = true
+    uploadProgress.value = ''
+    let successCount = 0
+    const errors = []
+    try {
+      for (let i = 0; i < files.length; i++) {
+        uploadProgress.value = `（${i + 1} / ${files.length}）`
+        try {
+          const compressed = await compressImage(files[i])
+          const formData = new FormData()
+          formData.append('files', compressed)
+          if (imageModal.item.productClass) formData.append('productClass', imageModal.item.productClass)
+          const res = await fetchWithTimeout(
+            `${IMAGE_BASE}/upload/${encodeURIComponent(imageModal.item.code)}`,
+            { method: 'POST', body: formData }
+          )
+          if (!res.ok) throw new Error(`${files[i].name}：${res.status}`)
+          const newPaths = await res.json()
+          imageModal.images.push(...newPaths)
+          syncItemImages()
+          successCount++
+        } catch (err) {
+          errors.push(err.message || files[i].name)
+        }
+      }
+      if (errors.length === 0) {
+        showToast(`成功上傳 ${successCount} 張圖片`)
+      } else if (successCount > 0) {
+        showToast(`上傳 ${successCount} 張成功，${errors.length} 張失敗`)
+        console.error('上傳失敗：', errors)
+      } else {
+        showToast(`上傳失敗：${errors[0]}`)
+        console.error('上傳失敗：', errors)
+      }
+    } finally {
+      uploading.value = false
+      uploadProgress.value = ''
+      if (fileInputRef.value) fileInputRef.value.value = ''
+    }
+  }
+
+  async function deleteImage(idx) {
+    if (!confirm('確定刪除這張圖片？')) return
+    const fileName = imageModal.images[idx].split('/').pop()
+    try {
+      const res = await fetchWithTimeout(
+        `${IMAGE_BASE}/remove/${encodeURIComponent(imageModal.item.code)}?fileName=${encodeURIComponent(fileName)}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error(String(res.status))
+      imageModal.images.splice(idx, 1)
+      syncItemImages()
+      showToast('圖片已刪除')
+    } catch (e) {
+      console.error(e)
+      showToast('刪除失敗，請稍後再試')
+    }
+  }
 </script>
 
 <template>
@@ -128,9 +289,16 @@
 
             <button class="rounded bg-green-700 px-3 py-1 text-white hover:bg-green-800" @click="handleSearch">送出查詢</button>
             <button class="rounded border border-light-c px-3 py-1 text-muted-c hover:bg-surface2" @click="handleAllList">列出全部</button>
+
+            <label class="ml-2 flex items-center gap-1 text-muted-c">
+              <input v-model="onlyWithImages" type="checkbox">
+              只看本頁已有圖片的
+            </label>
           </div>
           <p class="text-sm text-hint-c">
-            「依所屬類別」篩選目前尚未實作（原網站是動態連動下拉，需要真實 Network 記錄才能核對）。
+            品項主檔為唯讀；圖片另外存在本站，不會改動品項主檔任何欄位（上傳時會順便記下目前的「所屬類別」）。「只看本頁已有圖片的」只篩選目前這頁載入的資料。「依所屬類別」篩選尚未實作。顯示方式、每頁筆數、批次「設置所屬類別」請到
+            <NuxtLink to="/staff/order/dc-erp/settings" class="text-green-700 hover:underline">設定</NuxtLink>
+            頁調整。
           </p>
         </div>
 
@@ -142,33 +310,66 @@
           <!-- 卡片檢視：card 模式各尺寸都顯示；table 模式強制手機（<sm）顯示卡片，桌機改顯示下方列表 -->
           <div
             v-else
-            class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4"
+            class="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-5"
             :class="{ 'sm:hidden': viewMode !== 'card' }"
           >
             <div
-              v-for="row in items"
-              :key="row.id"
-              class="rounded-lg border border-light-c p-3 text-base hover:bg-surface2"
+              v-for="row in displayItems"
+              :key="row.id || row.code"
+              class="flex flex-col overflow-hidden rounded-lg border border-light-c hover:bg-surface2"
             >
-              <div class="mb-1 flex items-center justify-between gap-2">
-                <NuxtLink v-if="row.editUrl" :to="row.editUrl" class="font-medium text-green-700 hover:underline">{{ row.code }}</NuxtLink>
-                <span v-else class="font-medium">{{ row.code }}</span>
-                <span class="shrink-0 text-sm text-hint-c">#{{ row.seq }}</span>
-              </div>
-              <div>{{ row.name }}</div>
-              <div class="mt-1 text-sm text-muted-c">{{ row.unitName }}｜保存 {{ row.saveDays }} 天</div>
-              <div v-if="row.productClass" class="mt-1 text-sm text-muted-c">{{ row.productClass }}</div>
-              <div class="mt-1.5 flex items-center gap-1 text-sm">
-                <span
-                  class="rounded px-1.5 py-0.5"
-                  :class="row.isDisable === '是' ? 'bg-red-50 text-red-600' : 'bg-surface2 text-muted-c'"
+              <div
+                v-if="row.images.length > 0"
+                class="relative aspect-square cursor-pointer"
+                @click="previewUrl = imgUrl(row.images[0])"
+              >
+                <img
+                  :src="thumbUrl(row.images[0])"
+                  :alt="row.name"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 >
-                  {{ row.isDisable === '是' ? '停用' : '啟用' }}
+                <span
+                  v-if="row.images.length > 1"
+                  class="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white"
+                >
+                  {{ row.images.length }} 張
                 </span>
               </div>
-              <div v-if="row.remark" class="mt-1.5 truncate text-sm text-hint-c" :title="row.remark">{{ row.remark }}</div>
+              <div
+                v-else
+                class="flex aspect-square items-center justify-center bg-surface2 text-sm text-hint-c"
+              >
+                無圖
+              </div>
+
+              <div class="flex flex-1 flex-col gap-0.5 p-2 text-sm">
+                <div class="flex items-center justify-between gap-1">
+                  <NuxtLink v-if="row.editUrl" :to="row.editUrl" class="truncate font-medium text-green-700 hover:underline">{{ row.code }}</NuxtLink>
+                  <span v-else class="truncate font-medium text-base-c">{{ row.code }}</span>
+                  <span
+                    class="shrink-0 rounded px-1.5 py-0.5 text-xs"
+                    :class="row.isDisable === '是' ? 'bg-red-50 text-red-600' : 'bg-surface2 text-muted-c'"
+                  >
+                    {{ row.isDisable === '是' ? '停用' : '啟用' }}
+                  </span>
+                </div>
+                <div class="truncate text-base-c" :title="row.name">{{ row.name }}</div>
+                <div class="text-xs text-muted-c">{{ row.unitName }}｜保存 {{ row.saveDays }} 天</div>
+                <div v-if="row.productClass" class="truncate text-xs text-hint-c" :title="row.productClass">{{ row.productClass }}</div>
+                <div v-if="row.remark" class="truncate text-xs text-hint-c" :title="row.remark">{{ row.remark }}</div>
+                <div class="mt-auto pt-1.5">
+                  <button
+                    class="w-full rounded border border-light-c px-2 py-1 text-xs text-muted-c hover:bg-surface2"
+                    @click="openImageModal(row)"
+                  >
+                    管理圖片（{{ row.images.length }}）
+                  </button>
+                </div>
+              </div>
             </div>
-            <p v-if="!items.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
+            <p v-if="!displayItems.length" class="col-span-full py-6 text-center text-hint-c">查無資料</p>
           </div>
 
           <!-- 列表檢視：只在 table 模式渲染，且只在桌機（sm 以上）顯示；手機一律走上面的卡片 -->
@@ -177,6 +378,7 @@
               <thead>
               <tr class="border-b border-light-c bg-surface2 text-left text-muted-c">
                 <th class="px-2 py-2 text-center">項次</th>
+                <th class="px-2 py-2 text-center">縮圖</th>
                 <th class="px-2 py-2">品項代號</th>
                 <th class="px-2 py-2">品項名稱</th>
                 <th class="px-2 py-2">基本單位</th>
@@ -184,11 +386,24 @@
                 <th class="px-2 py-2">備註</th>
                 <th class="px-2 py-2">所屬類別</th>
                 <th class="px-2 py-2 text-center">停用</th>
+                <th class="px-2 py-2 text-center">圖片</th>
               </tr>
               </thead>
               <tbody>
-              <tr v-for="row in items" :key="row.id" class="border-b border-light-c hover:bg-surface2">
+              <tr v-for="row in displayItems" :key="row.id || row.code" class="border-b border-light-c hover:bg-surface2">
                 <td class="px-2 py-1.5 text-center text-muted-c">{{ row.seq }}</td>
+                <td class="px-2 py-1.5 text-center">
+                  <div
+                    v-if="row.images.length > 0"
+                    class="mx-auto h-10 w-10 cursor-pointer overflow-hidden rounded"
+                    @click="previewUrl = imgUrl(row.images[0])"
+                  >
+                    <img :src="thumbUrl(row.images[0])" :alt="row.name" class="h-full w-full object-cover" loading="lazy" decoding="async">
+                  </div>
+                  <div v-else class="mx-auto flex h-10 w-10 items-center justify-center rounded bg-surface2 text-[10px] text-hint-c">
+                    無圖
+                  </div>
+                </td>
                 <td class="px-2 py-1.5">
                   <NuxtLink v-if="row.editUrl" :to="row.editUrl" class="text-green-700 hover:underline">{{ row.code }}</NuxtLink>
                   <span v-else>{{ row.code }}</span>
@@ -196,12 +411,22 @@
                 <td class="px-2 py-1.5">{{ row.name }}</td>
                 <td class="px-2 py-1.5">{{ row.unitName }}</td>
                 <td class="px-2 py-1.5 text-center">{{ row.saveDays }}</td>
-                <td class="px-2 py-1.5 max-w-xs truncate" :title="row.remark">{{ row.remark }}</td>
+                <td class="max-w-xs truncate px-2 py-1.5" :title="row.remark">{{ row.remark }}</td>
                 <td class="px-2 py-1.5">{{ row.productClass }}</td>
-                <td class="px-2 py-1.5 text-center">{{ row.isDisable }}</td>
+                <td class="px-2 py-1.5 text-center">
+                  <span :class="row.isDisable === '是' ? 'text-red-600' : ''">{{ row.isDisable }}</span>
+                </td>
+                <td class="whitespace-nowrap px-2 py-1.5 text-center">
+                  <button
+                    class="rounded border border-light-c px-2 py-1 text-sm text-muted-c hover:bg-surface2"
+                    @click="openImageModal(row)"
+                  >
+                    管理（{{ row.images.length }}）
+                  </button>
+                </td>
               </tr>
-              <tr v-if="!items.length">
-                <td colspan="8" class="px-2 py-6 text-center text-hint-c">查無資料</td>
+              <tr v-if="!displayItems.length">
+                <td colspan="10" class="px-2 py-6 text-center text-hint-c">查無資料</td>
               </tr>
               </tbody>
             </table>
@@ -213,6 +438,125 @@
           </div>
         </div>
       </div>
+
+      <!-- 圖片管理 Modal -->
+      <div
+        v-if="imageModal.show"
+        class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center"
+        @click.self="imageModal.show = false"
+      >
+        <div class="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-surface p-5 shadow-xl sm:max-w-xl sm:rounded-2xl sm:p-6">
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-base-c">圖片管理</h3>
+              <p class="mt-0.5 text-xs text-hint-c">
+                {{ imageModal.item?.code }}　{{ imageModal.item?.name }}
+                <template v-if="imageModal.item?.productClass">　{{ imageModal.item.productClass }}</template>
+              </p>
+            </div>
+            <button class="p-1 text-hint-c hover:text-muted-c" @click="imageModal.show = false">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mb-4">
+            <div v-if="imageModal.images.length > 0" class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              <div
+                v-for="(url, idx) in imageModal.images"
+                :key="url"
+                class="group relative aspect-square overflow-hidden rounded-xl border border-light-c"
+              >
+                <img
+                  :src="imgUrl(url)"
+                  class="h-full w-full cursor-pointer object-cover"
+                  decoding="async"
+                  @click="previewUrl = imgUrl(url)"
+                >
+                <button
+                  class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white opacity-0 hover:bg-red-600 group-hover:opacity-100 sm:opacity-100"
+                  @click="deleteImage(idx)"
+                >
+                  <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p v-else class="rounded-xl border border-dashed border-light-c py-4 text-center text-sm text-hint-c">
+              尚無圖片
+            </p>
+          </div>
+
+          <!-- 上傳區 -->
+          <div
+            :class="dragOver ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-base hover:border-orange-400'"
+            class="cursor-pointer rounded-xl border-2 border-dashed p-5 text-center transition-all"
+            @dragover.prevent="dragOver = true"
+            @dragleave="dragOver = false"
+            @drop.prevent="handleDrop"
+            @click="fileInputRef?.click()"
+          >
+            <svg class="mx-auto mb-2 h-8 w-8 text-hint-c" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <p class="text-sm text-hint-c">點擊或拖曳圖片上傳</p>
+            <p class="mt-1 text-xs text-hint-c opacity-60">上傳前自動壓縮，節省流量</p>
+            <input
+              ref="fileInputRef"
+              type="file"
+              multiple
+              accept="image/*"
+              class="hidden"
+              @change="handleFileSelect"
+            >
+          </div>
+          <div v-if="uploading" class="mt-3 flex items-center gap-2 text-sm text-hint-c">
+            <div class="h-4 w-4 animate-spin rounded-full border-2 border-orange-600 border-t-transparent" />
+            上傳中…{{ uploadProgress }}
+          </div>
+
+          <button
+            class="mt-4 w-full rounded-xl bg-surface2 px-4 py-2.5 text-sm text-muted-c hover:bg-surface2"
+            @click="imageModal.show = false"
+          >
+            關閉
+          </button>
+        </div>
+      </div>
+
+      <!-- 大圖預覽 -->
+      <div
+        v-if="previewUrl"
+        class="fixed inset-0 z-[60] flex cursor-pointer items-center justify-center bg-black/85 p-4"
+        @click="previewUrl = ''"
+      >
+        <img :src="previewUrl" class="max-h-full max-w-full rounded-xl object-contain shadow-2xl" decoding="async">
+      </div>
+
+      <!-- Toast -->
+      <transition name="fade">
+        <div
+          v-if="toast.show"
+          class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-xl bg-accent-solid px-4 py-3 text-sm text-white shadow-lg sm:left-auto sm:right-6 sm:translate-x-0"
+        >
+          <svg class="h-4 w-4 flex-shrink-0 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          {{ toast.message }}
+        </div>
+      </transition>
     </DcErpShell>
   </div>
 </template>
+
+<style scoped>
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+</style>

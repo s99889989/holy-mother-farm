@@ -1,10 +1,15 @@
 <script setup>
   import { reactive, ref, computed, onMounted } from 'vue'
 
-  // dc-erp「設定」頁——統一調整訂貨單/銷貨單/品項/進階品項管理四個列表頁
-  // 的顯示方式（列表/卡片）跟每頁筆數，純前端 localStorage（key:
-  // dc-erp-list-settings），不影響 COAERP 任何資料。四個列表頁自己不再有
+  // dc-erp「設定」頁——統一調整訂貨單/銷貨單/品項等列表頁的顯示方式
+  // （列表/卡片）跟每頁筆數，純前端 localStorage（key:
+  // dc-erp-list-settings），不影響 COAERP 任何資料。各列表頁自己不再有
   // 切換鈕，只在載入時讀這裡存的設定，要改都回這頁改。
+  //
+  // 原本獨立的「進階品項管理」（product-images.vue）已經合併進「品項」頁
+  // （products.vue），所以列表設定只剩「品項」一組（products），舊的
+  // productImages 設定不再讀取；persist() 只寫 LISTS 裡有的 key，下次在這頁
+  // 存任何設定時，localStorage 裡殘留的 productImages 會自動被清掉。
   //
   // 「設置所屬類別」原本放在「進階品項管理」頁的批次工具區塊，搬過來這裡
   // 跟其他全域設定放一起，邏輯完全沒變（直打 Spring Boot 的
@@ -27,7 +32,6 @@
     { key: 'salesOrders', label: '訂貨單' },
     { key: 'salesSlips', label: '銷貨單' },
     { key: 'products', label: '品項' },
-    { key: 'productImages', label: '進階品項管理' },
     { key: 'orderDetail', label: '訂單明細（訂貨單/銷貨單編輯頁的明細 Grid）', hasPagesize: false, defaultViewMode: 'card' },
     { key: 'productSearch', label: '新增商品（訂貨單/銷貨單「新增商品」搜尋結果）', hasPagesize: false }
   ]
@@ -72,7 +76,7 @@
     updateSetting(key, { pagesize: n })
   }
 
-  // ── 設置所屬類別（原本在「進階品項管理」，邏輯不變）────────────────
+  // ── 設置所屬類別（原本在「進階品項管理」，現已併入「品項」頁，邏輯不變）──
   const commonStore = useCommonStore()
   const BASE = commonStore.data.main_url + '/holy/dc-erp/product-image'
 
@@ -553,7 +557,7 @@
             {{ syncingClass ? syncClassProgress : '設置所屬類別' }}
           </button>
           <p class="mt-2 text-xs text-hint-c">
-            會查詢 COAERP 全部品項（依總筆數自動分頁抓取），把每筆的「所屬類別」存進本地設定檔（跟圖片綁定同一份 product_images.yml，見「進階品項管理」）。只是把類別資料快取起來，不會改動 COAERP 任何資料，也不會動到已經上傳的圖片。COAERP 的品項偶爾會新增/調整類別，這份快取不會自動更新，建議隔一段時間（例如每次大量新增品項後）手動按一次。
+            會查詢 COAERP 全部品項（依總筆數自動分頁抓取），把每筆的「所屬類別」存進本地設定檔（跟圖片綁定同一份 product_images.yml，圖片在「品項」頁每筆的「管理圖片」上傳）。只是把類別資料快取起來，不會改動 COAERP 任何資料，也不會動到已經上傳的圖片。COAERP 的品項偶爾會新增/調整類別，這份快取不會自動更新，建議隔一段時間（例如每次大量新增品項後）手動按一次。
           </p>
         </div>
 
