@@ -1,5 +1,5 @@
 <script setup>
-  import { reactive, ref, computed, onMounted } from 'vue'
+  import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
   // 「銷貨統計明細」：對應原網站 統計報表 > 銷貨統計報表 > 銷貨統計明細
   // （/COAERP/SalesStatistics/SearchSalesStatisticsList），目前只做
@@ -21,8 +21,10 @@
   //     抓回來，打包成一個 zip 下載（用 JSZip，只在瀏覽器端動態載入）。
   //     打包成 zip 而不是連續觸發多個下載，是因為瀏覽器會擋連續自動下載。
   //   - 顯示常用：依序查詢每個常用組合，結果依組合分段顯示在同一頁（一邊查
-  //     一邊顯示），品項篩選、逐筆/彙總切換、列印/存 PDF 都適用；列印時每個
-  //     組合從新的一頁開始，方便分開交給不同人。
+  //     一邊顯示），每段預設收合只顯示標題與小計，點標題展開明細；品項篩選、
+  //     逐筆/彙總切換、列印/存 PDF 都適用（列印一律印完整內容，不管畫面上
+  //     有沒有展開），列印時每個組合從新的一頁開始，方便分開交給不同人。
+  //   - 存成常用：直接用「客戶代號｜類別」當名稱存，不跳輸入框。
   // 表單欄位、報表代碼、Excel 格式的核對說明見
   // server/utils/dc-erp/salesStatisticsList.ts。
   //
@@ -83,6 +85,14 @@
   const showingPresets = ref(false)
   const presetResults = ref([]) // [{ preset, report, error }]
   const presetLoadingText = ref('')
+  // 顯示常用時已展開的段落 key（預設全部收合）
+  const expandedKeys = ref([])
+  const isExpanded = key => expandedKeys.value.includes(key)
+  function toggleSection(key) {
+    expandedKeys.value = isExpanded(key)
+      ? expandedKeys.value.filter(k => k !== key)
+      : [...expandedKeys.value, key]
+  }
   const viewMode = ref('detail') // 'detail' 逐筆明細 | 'summary' 依品項彙總
   const keyword = ref('') // 前端篩選：品項名稱
 
@@ -526,30 +536,73 @@
   }
 
   // ---------- 常用組合（客戶代號＋所屬類別）----------
-  // 存在 localStorage（只在這台電腦、這個瀏覽器）。只存客戶代號與類別名稱，
-  // 品項代號範圍在下載當下才從類別快取重新計算，所以之後類別底下新增品項，
-  // 常用組合也會自動涵蓋，不用重存。
-  const PRESETS_KEY = 'dc-erp-sales-statistics-list-presets'
-  const presets = ref([]) // [{ id, name, firmCode, productClass }]
+  // 存在 Spring Boot 後端（DcErpReportPresetController，
+  // /holy/dc-erp/report-preset，資料檔 report_presets.yml），不同電腦／瀏覽器
+  // 共用同一份。跟所屬類別快取一樣是前端直接打 Spring Boot，不經 Nuxt
+  // server/api，也跟 COAERP 無關。
+  // 只存客戶代號與類別名稱，品項代號範圍在查詢/下載當下才從類別快取重新
+  // 計算，所以之後類別底下新增品項，常用組合也會自動涵蓋，不用重存。
+  //
+  // 舊版存在 localStorage（key 見 LEGACY_PRESETS_KEY）：第一次載入時如果
+  // 後端還沒有任何常用、但這台瀏覽器有舊資料，會自動搬上後端，搬完清掉。
+  const PRESET_REPORT = 'sales-statistics-list'
+  const LEGACY_PRESETS_KEY = 'dc-erp-sales-statistics-list-presets'
+  const presetApi = path => `${commonStore.data.main_url}/holy/dc-erp/report-preset${path}`
+  const presets = ref([]) // [{ id, name, firmCode, productClass, createdAt }]
+  const presetsLoading = ref(false)
+  const presetSaving = ref(false)
   const batchDownloading = ref(false)
   const batchProgress = ref('')
 
-  function loadPresets() {
+  async function presetRequest(path, options = {}) {
+    const res = await fetch(presetApi(path), options)
+    if (!res.ok) throw new Error(`常用組合伺服器回應異常（${res.status}）`)
+    const data = await res.json()
+    if (data && !Array.isArray(data) && data.error) throw new Error(data.error)
+    return data
+  }
+
+  function addPresetRequest(preset) {
+    return presetRequest(`/add?report=${PRESET_REPORT}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+      body: JSON.stringify({ name: preset.name, firmCode: preset.firmCode, productClass: preset.productClass })
+    })
+  }
+
+  async function loadPresets() {
+    presetsLoading.value = true
     try {
-      const raw = window.localStorage.getItem(PRESETS_KEY)
-      const list = raw ? JSON.parse(raw) : []
+      const list = await presetRequest(`/list?report=${PRESET_REPORT}`)
       presets.value = Array.isArray(list) ? list : []
-    } catch {
-      presets.value = []
+      await migrateLegacyPresets()
+    } catch (err) {
+      errorMessage.value = `無法載入常用組合：${err?.message || err}`
+    } finally {
+      presetsLoading.value = false
     }
   }
 
-  function persistPresets() {
+  // 舊版 localStorage 常用組合搬上後端（只在後端還是空的時候做一次）
+  async function migrateLegacyPresets() {
+    let legacy = []
     try {
-      window.localStorage.setItem(PRESETS_KEY, JSON.stringify(presets.value))
-    } catch {
-      errorMessage.value = '常用組合存不進瀏覽器（可能是無痕模式或空間不足）'
+      const raw = window.localStorage.getItem(LEGACY_PRESETS_KEY)
+      legacy = raw ? JSON.parse(raw) : []
+    } catch { /* 讀不到就當沒有 */ }
+    if (!Array.isArray(legacy) || !legacy.length) return
+    if (presets.value.length) {
+      // 後端已經有資料（可能別台電腦存過），不覆蓋，只清掉這台的舊資料
+      window.localStorage.removeItem(LEGACY_PRESETS_KEY)
+      return
     }
+    for (const p of legacy) {
+      if (!p?.firmCode && !p?.productClass) continue
+      const data = await addPresetRequest({ name: p.name, firmCode: p.firmCode || '', productClass: p.productClass || '' })
+      presets.value = data.presets || presets.value
+    }
+    window.localStorage.removeItem(LEGACY_PRESETS_KEY)
+    showPresetNotice(`已把這台瀏覽器的 ${legacy.length} 個常用組合搬到伺服器`)
   }
 
   function presetLabel(firmCode, cls) {
@@ -558,7 +611,17 @@
     return `${who}｜${what}`
   }
 
-  function handleSavePreset() {
+  // 存成常用：不跳輸入框，直接用「客戶代號｜類別」當名稱；已經存過同一組
+  // （客戶代號＋類別都一樣）後端不會重複新增。結果在常用那排短暫提示。
+  const presetNotice = ref('')
+  let presetNoticeTimer = null
+  function showPresetNotice(msg) {
+    presetNotice.value = msg
+    clearTimeout(presetNoticeTimer)
+    presetNoticeTimer = setTimeout(() => { presetNotice.value = '' }, 2500)
+  }
+
+  async function handleSavePreset() {
     const firmCode = filters.firmCode.trim()
     const cls = productClass.value
     if (!firmCode && !cls) {
@@ -567,16 +630,21 @@
     }
     errorMessage.value = ''
     const existing = presets.value.find(p => p.firmCode === firmCode && p.productClass === cls)
-    const defaultName = existing?.name || presetLabel(firmCode, cls)
-    const name = window.prompt('常用組合名稱（也會用在下載的檔名）', defaultName)
-    if (name == null) return
-    const finalName = name.trim() || defaultName
     if (existing) {
-      existing.name = finalName
-    } else {
-      presets.value.push({ id: `${Date.now()}`, name: finalName, firmCode, productClass: cls })
+      showPresetNotice(`「${existing.name}」已經在常用裡`)
+      return
     }
-    persistPresets()
+    presetSaving.value = true
+    try {
+      const name = presetLabel(firmCode, cls)
+      const data = await addPresetRequest({ name, firmCode, productClass: cls })
+      presets.value = data.presets || presets.value
+      showPresetNotice(data.exists ? `「${name}」已經在常用裡` : `已存成常用「${name}」`)
+    } catch (err) {
+      errorMessage.value = `存成常用失敗：${err?.message || err}`
+    } finally {
+      presetSaving.value = false
+    }
   }
 
   function applyPreset(preset) {
@@ -585,10 +653,41 @@
     applyProductClass()
   }
 
+  // 刪除常用：先開確認 Modal（不用瀏覽器內建 confirm），按「刪除」才真的刪
+  const deletingPreset = ref(null) // 目前要刪除的組合（Modal 開著時有值）
+  const presetDeleting = ref(false)
+  const presetDeleteError = ref('')
+
   function removePreset(preset) {
-    if (!window.confirm(`刪除常用組合「${preset.name}」？`)) return
-    presets.value = presets.value.filter(p => p.id !== preset.id)
-    persistPresets()
+    deletingPreset.value = preset
+    presetDeleteError.value = ''
+  }
+
+  function closeDeleteModal() {
+    if (presetDeleting.value) return
+    deletingPreset.value = null
+  }
+
+  // Modal 開著時按 Esc 關閉
+  function onKeydown(e) {
+    if (e.key === 'Escape' && deletingPreset.value) closeDeleteModal()
+  }
+
+  async function confirmRemovePreset() {
+    const preset = deletingPreset.value
+    if (!preset || presetDeleting.value) return
+    presetDeleting.value = true
+    presetDeleteError.value = ''
+    try {
+      const data = await presetRequest(`/remove/${encodeURIComponent(preset.id)}?report=${PRESET_REPORT}`, { method: 'DELETE' })
+      presets.value = data.presets || presets.value.filter(p => p.id !== preset.id)
+      deletingPreset.value = null
+      showPresetNotice(`已刪除常用「${preset.name}」`)
+    } catch (err) {
+      presetDeleteError.value = `刪除失敗：${err?.message || err}`
+    } finally {
+      presetDeleting.value = false
+    }
   }
 
   const safeName = v => String(v).replace(/[\\/:*?"<>|]/g, '_')
@@ -603,6 +702,7 @@
     loading.value = true
     showingPresets.value = true
     presetResults.value = []
+    expandedKeys.value = []
     try {
       for (let i = 0; i < presets.value.length; i++) {
         const preset = presets.value[i]
@@ -824,7 +924,10 @@
   const fmtMoney = n => Number(n || 0).toLocaleString('zh-TW', { maximumFractionDigits: 0 })
   const fmtPrice = n => Number(n || 0).toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 
+  onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+
   onMounted(() => {
+    window.addEventListener('keydown', onKeydown)
     // 自動帶入最近用過的客戶代號（跟訂貨單/銷貨單列表一致）
     filters.firmCode = loadCustomerHistory()[0] || ''
     loadPresets()
@@ -909,7 +1012,8 @@
           <!-- 常用組合 -->
           <div class="flex flex-wrap items-center gap-2 border-t border-light-c pt-2">
             <span class="text-sm text-muted-c">常用：</span>
-            <span v-if="!presets.length" class="text-xs text-hint-c">
+            <span v-if="presetsLoading" class="text-xs text-hint-c">載入常用組合中…</span>
+            <span v-else-if="!presets.length" class="text-xs text-hint-c">
               尚無常用組合。選好客戶代號／所屬類別後按「存成常用」。
             </span>
             <span
@@ -935,11 +1039,13 @@
             </span>
 
             <button
-              class="rounded-lg border border-light-c px-2.5 py-1 text-sm text-muted-c hover:bg-surface2"
+              class="rounded-lg border border-light-c px-2.5 py-1 text-sm text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="presetSaving || presetsLoading"
               @click="handleSavePreset"
             >
-              ＋ 存成常用
+              {{ presetSaving ? '儲存中…' : '＋ 存成常用' }}
             </button>
+            <span v-if="presetNotice" class="text-xs text-green-700">{{ presetNotice }}</span>
             <button
               class="ml-auto rounded-lg border border-green-700 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-50 disabled:opacity-50"
               :disabled="!presets.length || loading || optionsLoading"
@@ -1046,6 +1152,13 @@
               <div class="text-base font-bold text-base-c">
                 {{ headerTitle }}
                 <span v-if="showingPresets" class="ml-1 rounded bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-800">常用 {{ presetResults.length }} 組</span>
+                <button
+                  v-if="showingPresets && sections.length"
+                  class="ml-1 rounded border border-light-c px-1.5 py-0.5 text-xs font-normal text-muted-c hover:bg-surface2"
+                  @click="expandedKeys = expandedKeys.length === sections.length ? [] : sections.map(sec => sec.key)"
+                >
+                  {{ expandedKeys.length === sections.length ? '全部收合' : '全部展開' }}
+                </button>
               </div>
               <div class="text-sm text-muted-c">
                 銷售日期 {{ headerPeriod }}
@@ -1085,9 +1198,12 @@
               <!-- 常用組合的段落標題（一般查詢沒有） -->
               <div
                 v-if="sec.title"
-                class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-green-700 px-3 pb-1.5 pt-3"
+                class="flex cursor-pointer select-none flex-wrap items-center justify-between gap-2 border-b-2 border-green-700 px-3 pb-1.5 pt-3 hover:bg-surface2"
+                :title="isExpanded(sec.key) ? '點一下收合' : '點一下展開明細'"
+                @click="toggleSection(sec.key)"
               >
                 <div class="text-base font-bold text-green-800">
+                  <span class="mr-1 inline-block w-3 text-xs text-muted-c">{{ isExpanded(sec.key) ? '▼' : '▶' }}</span>
                   {{ sec.title }}
                   <span class="ml-1 text-xs font-normal text-muted-c">{{ sec.sub }}</span>
                 </div>
@@ -1101,92 +1217,94 @@
               <p v-if="sec.error" class="border-b border-light-c px-3 py-3 text-sm text-red-600">
                 {{ sec.error }}
               </p>
-              <p v-else-if="!sec.customers.length" class="border-b border-light-c p-4 text-center text-base text-hint-c">
-                {{ keyword ? '沒有符合的品項' : '這段期間查無銷售資料' }}
-              </p>
+              <template v-else-if="!sec.title || isExpanded(sec.key)">
+                <p v-if="!sec.customers.length" class="border-b border-light-c p-4 text-center text-base text-hint-c">
+                  {{ keyword ? '沒有符合的品項' : '這段期間查無銷售資料' }}
+                </p>
 
-              <div
-                v-for="c in sec.customers"
-                :key="`${sec.key}-${c.firmCode || c.firmName}`"
-                class="border-b border-light-c last:border-b-0"
-              >
-                <div class="flex flex-wrap items-center justify-between gap-2 bg-surface2 px-3 py-1.5">
-                  <div class="font-medium text-base-c">
-                    {{ c.firmCode }} {{ c.firmName }}
+                <div
+                  v-for="c in sec.customers"
+                  :key="`${sec.key}-${c.firmCode || c.firmName}`"
+                  class="border-b border-light-c last:border-b-0"
+                >
+                  <div class="flex flex-wrap items-center justify-between gap-2 bg-surface2 px-3 py-1.5">
+                    <div class="font-medium text-base-c">
+                      {{ c.firmCode }} {{ c.firmName }}
+                    </div>
+                    <div class="text-sm text-muted-c">
+                      數量 {{ fmtQty(c.subtotal.qty) }}
+                      <template v-if="c.subtotal.giftNum">｜搭量 {{ fmtQty(c.subtotal.giftNum) }}</template>
+                      ｜合計 <span class="font-bold text-base-c">{{ fmtMoney(c.subtotal.amount) }}</span>
+                    </div>
                   </div>
-                  <div class="text-sm text-muted-c">
-                    數量 {{ fmtQty(c.subtotal.qty) }}
-                    <template v-if="c.subtotal.giftNum">｜搭量 {{ fmtQty(c.subtotal.giftNum) }}</template>
-                    ｜合計 <span class="font-bold text-base-c">{{ fmtMoney(c.subtotal.amount) }}</span>
+
+                  <!-- 逐筆明細 -->
+                  <div v-if="viewMode === 'detail'" class="overflow-x-auto">
+                    <table class="w-full text-base">
+                      <thead>
+                      <tr class="border-b border-light-c text-left text-sm text-muted-c">
+                        <th class="px-3 py-1.5">銷售日期</th>
+                        <th class="px-3 py-1.5">品項</th>
+                        <th class="px-3 py-1.5 text-right">數量</th>
+                        <th class="px-3 py-1.5 text-right">搭量</th>
+                        <th class="px-3 py-1.5">單位</th>
+                        <th class="px-3 py-1.5 text-right">單價</th>
+                        <th class="px-3 py-1.5 text-right">金額</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      <tr
+                        v-for="(i, idx) in c.items"
+                        :key="idx"
+                        class="border-b border-light-c last:border-b-0 hover:bg-surface2"
+                        :class="idx > 0 && c.items[idx - 1].date !== i.date ? 'border-t-2' : ''"
+                      >
+                        <td class="whitespace-nowrap px-3 py-1 text-muted-c">
+                          <!-- 同一天連續的列只在第一列顯示日期，比較好分辨是哪一天出的貨 -->
+                          {{ idx === 0 || c.items[idx - 1].date !== i.date ? i.date : '' }}
+                        </td>
+                        <td class="px-3 py-1">{{ i.product }}</td>
+                        <td class="px-3 py-1 text-right">{{ fmtQty(i.qty) }}</td>
+                        <td class="px-3 py-1 text-right text-hint-c">{{ i.giftNum ? fmtQty(i.giftNum) : '' }}</td>
+                        <td class="whitespace-nowrap px-3 py-1 text-muted-c">{{ i.unit }}</td>
+                        <td class="px-3 py-1 text-right">{{ fmtPrice(i.price) }}</td>
+                        <td class="px-3 py-1 text-right font-medium">{{ fmtMoney(i.amount) }}</td>
+                      </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- 依品項彙總 -->
+                  <div v-else class="overflow-x-auto">
+                    <table class="w-full text-base">
+                      <thead>
+                      <tr class="border-b border-light-c text-left text-sm text-muted-c">
+                        <th class="px-3 py-1.5">品項</th>
+                        <th class="px-3 py-1.5">單位</th>
+                        <th class="px-3 py-1.5 text-right">出貨天數</th>
+                        <th class="px-3 py-1.5 text-right">總數量</th>
+                        <th class="px-3 py-1.5 text-right">總搭量</th>
+                        <th class="px-3 py-1.5 text-right">總金額</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      <tr
+                        v-for="g in summarize(c.items)"
+                        :key="`${g.product}${g.unit}`"
+                        class="border-b border-light-c last:border-b-0 hover:bg-surface2"
+                      >
+                        <td class="px-3 py-1">{{ g.product }}</td>
+                        <td class="whitespace-nowrap px-3 py-1 text-muted-c">{{ g.unit }}</td>
+                        <td class="px-3 py-1 text-right text-muted-c">{{ g.days }}</td>
+                        <td class="px-3 py-1 text-right">{{ fmtQty(g.qty) }}</td>
+                        <td class="px-3 py-1 text-right text-hint-c">{{ g.giftNum ? fmtQty(g.giftNum) : '' }}</td>
+                        <td class="px-3 py-1 text-right font-medium">{{ fmtMoney(g.amount) }}</td>
+                      </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-
-                <!-- 逐筆明細 -->
-                <div v-if="viewMode === 'detail'" class="overflow-x-auto">
-                  <table class="w-full text-base">
-                    <thead>
-                    <tr class="border-b border-light-c text-left text-sm text-muted-c">
-                      <th class="px-3 py-1.5">銷售日期</th>
-                      <th class="px-3 py-1.5">品項</th>
-                      <th class="px-3 py-1.5 text-right">數量</th>
-                      <th class="px-3 py-1.5 text-right">搭量</th>
-                      <th class="px-3 py-1.5">單位</th>
-                      <th class="px-3 py-1.5 text-right">單價</th>
-                      <th class="px-3 py-1.5 text-right">金額</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr
-                      v-for="(i, idx) in c.items"
-                      :key="idx"
-                      class="border-b border-light-c last:border-b-0 hover:bg-surface2"
-                      :class="idx > 0 && c.items[idx - 1].date !== i.date ? 'border-t-2' : ''"
-                    >
-                      <td class="whitespace-nowrap px-3 py-1 text-muted-c">
-                        <!-- 同一天連續的列只在第一列顯示日期，比較好分辨是哪一天出的貨 -->
-                        {{ idx === 0 || c.items[idx - 1].date !== i.date ? i.date : '' }}
-                      </td>
-                      <td class="px-3 py-1">{{ i.product }}</td>
-                      <td class="px-3 py-1 text-right">{{ fmtQty(i.qty) }}</td>
-                      <td class="px-3 py-1 text-right text-hint-c">{{ i.giftNum ? fmtQty(i.giftNum) : '' }}</td>
-                      <td class="whitespace-nowrap px-3 py-1 text-muted-c">{{ i.unit }}</td>
-                      <td class="px-3 py-1 text-right">{{ fmtPrice(i.price) }}</td>
-                      <td class="px-3 py-1 text-right font-medium">{{ fmtMoney(i.amount) }}</td>
-                    </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- 依品項彙總 -->
-                <div v-else class="overflow-x-auto">
-                  <table class="w-full text-base">
-                    <thead>
-                    <tr class="border-b border-light-c text-left text-sm text-muted-c">
-                      <th class="px-3 py-1.5">品項</th>
-                      <th class="px-3 py-1.5">單位</th>
-                      <th class="px-3 py-1.5 text-right">出貨天數</th>
-                      <th class="px-3 py-1.5 text-right">總數量</th>
-                      <th class="px-3 py-1.5 text-right">總搭量</th>
-                      <th class="px-3 py-1.5 text-right">總金額</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr
-                      v-for="g in summarize(c.items)"
-                      :key="`${g.product}${g.unit}`"
-                      class="border-b border-light-c last:border-b-0 hover:bg-surface2"
-                    >
-                      <td class="px-3 py-1">{{ g.product }}</td>
-                      <td class="whitespace-nowrap px-3 py-1 text-muted-c">{{ g.unit }}</td>
-                      <td class="px-3 py-1 text-right text-muted-c">{{ g.days }}</td>
-                      <td class="px-3 py-1 text-right">{{ fmtQty(g.qty) }}</td>
-                      <td class="px-3 py-1 text-right text-hint-c">{{ g.giftNum ? fmtQty(g.giftNum) : '' }}</td>
-                      <td class="px-3 py-1 text-right font-medium">{{ fmtMoney(g.amount) }}</td>
-                    </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              </template>
             </template>
 
             <div
@@ -1202,5 +1320,48 @@
         </div>
       </div>
     </DcErpShell>
+
+    <!-- 刪除常用組合確認 Modal -->
+    <Teleport to="body">
+      <div
+        v-if="deletingPreset"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="closeDeleteModal"
+      >
+        <div class="w-full max-w-sm rounded-xl border border-light-c bg-surface p-4 shadow-xl" role="dialog" aria-modal="true">
+          <div class="text-base font-bold text-base-c">
+            刪除常用組合
+          </div>
+          <p class="mt-2 text-base text-base-c">
+            確定要刪除「<span class="font-medium">{{ deletingPreset.name }}</span>」嗎？
+          </p>
+          <p class="mt-1 text-sm text-muted-c">
+            客戶代號：{{ deletingPreset.firmCode || '全部' }}｜所屬類別：{{ deletingPreset.productClass || '全部' }}
+          </p>
+          <p class="mt-2 text-sm text-hint-c">
+            常用組合存在伺服器，所有電腦都會一起刪除。
+          </p>
+          <p v-if="presetDeleteError" class="mt-2 text-sm text-red-600">
+            {{ presetDeleteError }}
+          </p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button
+              class="rounded-lg border border-light-c px-3 py-1.5 text-sm text-muted-c hover:bg-surface2 disabled:opacity-50"
+              :disabled="presetDeleting"
+              @click="closeDeleteModal"
+            >
+              取消
+            </button>
+            <button
+              class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              :disabled="presetDeleting"
+              @click="confirmRemovePreset"
+            >
+              {{ presetDeleting ? '刪除中…' : '刪除' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
